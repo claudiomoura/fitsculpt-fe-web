@@ -38,7 +38,7 @@ type NutritionPlan = {
 
 const STORAGE_KEY = "fs_nutrition_plan_v1";
 
-const mealTemplates = {
+const mealTemplates: Record<MealSlot, Meal[]> = {
   breakfast: [
     {
       title: "Avena con fruta",
@@ -80,6 +80,7 @@ const mealTemplates = {
     },
   ],
 };
+type MealSlot = "breakfast" | "lunch" | "dinner" | "snack";
 
 const dayLabels = [
   "Lunes",
@@ -132,16 +133,19 @@ function calculatePlan(form: NutritionForm): NutritionPlan {
   const fatKcal = fatG * 9;
   const carbsG = Math.max(0, (targetCalories - proteinKcal - fatKcal) / 4);
 
-  const mealsOrder =
+
+  const mealsOrder: MealSlot[] =
     form.mealsPerDay === 3
       ? ["breakfast", "lunch", "dinner"]
       : form.mealsPerDay === 4
         ? ["breakfast", "snack", "lunch", "dinner"]
         : ["breakfast", "snack", "lunch", "snack", "dinner"];
 
+
   const days = dayLabels.map((label, dayIndex) => {
     const meals = mealsOrder.map((slot, slotIndex) => {
       const options = mealTemplates[slot];
+      
       const option = options[(dayIndex + slotIndex) % options.length];
       return {
         title: `${slotIndex + 1}. ${option.title}`,
