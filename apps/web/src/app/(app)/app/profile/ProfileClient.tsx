@@ -20,7 +20,14 @@ type ProfileData = {
   notes: string;
 };
 
+type WeightEntry = {
+  id: string;
+  date: string;
+  weightKg: number;
+};
+
 const STORAGE_KEY = "fs_profile_v1";
+const HISTORY_KEY = "fs_weight_history_v1";
 
 const defaultProfile: ProfileData = {
   name: "",
@@ -40,6 +47,9 @@ export default function ProfileClient() {
   const c = copy.es;
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [saved, setSaved] = useState(false);
+  const [history, setHistory] = useState<WeightEntry[]>([]);
+  const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [historyWeight, setHistoryWeight] = useState<number>(75);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -51,6 +61,21 @@ export default function ProfileClient() {
       setProfile(defaultProfile);
     }
   }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(HISTORY_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as WeightEntry[];
+      if (Array.isArray(parsed)) setHistory(parsed);
+    } catch {
+      setHistory([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  }, [history]);
 
   function update<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {
     setProfile((prev) => ({ ...prev, [key]: value }));
@@ -66,6 +91,45 @@ export default function ProfileClient() {
     localStorage.removeItem(STORAGE_KEY);
     setProfile(defaultProfile);
   }
+
+  function addHistoryEntry(e: React.FormEvent) {
+    e.preventDefault();
+    const weight = Number(historyWeight);
+    if (!historyDate || !Number.isFinite(weight)) return;
+
+    const entry: WeightEntry = {
+      id: `${historyDate}-${Date.now()}`,
+      date: historyDate,
+      weightKg: weight,
+    };
+
+    setHistory((prev) => {
+      const next = [entry, ...prev].sort((a, b) => b.date.localeCompare(a.date));
+      return next;
+    });
+  }
+
+  function removeHistoryEntry(id: string) {
+    setHistory((prev) => prev.filter((entry) => entry.id !== id));
+  }
+
+  const chartPoints = (() => {
+    if (history.length === 0) return "";
+    const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
+    const weights = sorted.map((entry) => entry.weightKg);
+    const min = Math.min(...weights);
+    const max = Math.max(...weights);
+    const range = max - min || 1;
+    const width = 420;
+    const height = 160;
+    return sorted
+      .map((entry, index) => {
+        const x = (index / Math.max(sorted.length - 1, 1)) * width;
+        const y = height - ((entry.weightKg - min) / range) * height;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+  })();
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -219,6 +283,95 @@ export default function ProfileClient() {
             </button>
             {saved && <span style={{ opacity: 0.7 }}>{c.profile.savedToast}</span>}
           </div>
+        </div>
+      </div>
+
+      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{c.profile.historyTitle}</h2>
+        <p style={{ marginTop: 6 }}>{c.profile.historySubtitle}</p>
+
+        <form
+          onSubmit={addHistoryEntry}
+          style={{ display: "grid", gap: 12, marginTop: 12 }}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.profile.historyDate}
+              <input
+                type="date"
+                value={historyDate}
+                onChange={(e) => setHistoryDate(e.target.value)}
+                required
+              />
+            </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.profile.historyWeight}
+              <input
+                type="number"
+                min={30}
+                max={250}
+                step="0.1"
+                value={historyWeight}
+                onChange={(e) => setHistoryWeight(Number(e.target.value))}
+                required
+              />
+            </label>
+          </div>
+
+          <button type="submit" style={{ width: "fit-content" }}>
+            {c.profile.historyAdd}
+          </button>
+        </form>
+
+        <div style={{ marginTop: 16 }}>
+          <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>{c.profile.historyChart}</h3>
+          {history.length === 0 ? (
+            <p style={{ opacity: 0.7 }}>{c.profile.historyEmpty}</p>
+          ) : (
+            <svg viewBox="0 0 420 160" width="100%" height="160">
+              <polyline
+                fill="none"
+                stroke="#1f2937"
+                strokeWidth="2"
+                points={chartPoints}
+              />
+              {chartPoints
+                .split(" ")
+                .filter(Boolean)
+                .map((point, idx) => {
+                  const [x, y] = point.split(",");
+                  return <circle key={idx} cx={x} cy={y} r="3" fill="#111827" />;
+                })}
+            </svg>
+          )}
+        </div>
+
+        <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+          {history.length === 0 ? null : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+              {history.map((entry) => (
+                <li
+                  key={entry.id}
+                  style={{
+                    border: "1px solid #ededed",
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span>
+                    <strong>{entry.date}</strong> — {entry.weightKg} kg
+                  </span>
+                  <button type="button" onClick={() => removeHistoryEntry(entry.id)}>
+                    {c.profile.historyDelete}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
