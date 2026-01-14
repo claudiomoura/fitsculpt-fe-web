@@ -1,8 +1,11 @@
+import { copy } from "@/lib/i18n";
+
 export default function ProfilePage() {
+  const c = copy.es;
   return (
     <section>
-      <h1>Profile</h1>
-      <p>Dados do utilizador, em breve.</p>
+      <h1>{c.app.profileTitle}</h1>
+      <p>{c.app.profileSubtitle}</p>
     </section>
   );
 }
