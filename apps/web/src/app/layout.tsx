@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "FitSculpt",
-  description: "Landing + Login",
+  description: "Landing + Inicio de sesión",
 };
 
 export default function RootLayout({
