@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { copy } from "@/lib/i18n";
 
 type Workout = {
   id: string;
@@ -28,16 +29,18 @@ function safeParse(json: string | null): Workout[] {
 }
 
 export default function WorkoutsClient() {
+  const c = copy.es.workouts;
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [name, setName] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [durationMin, setDurationMin] = useState<number>(45);
   const [notes, setNotes] = useState("");
   const [query, setQuery] = useState("");
-const [sort, setSort] = useState<"date_desc" | "date_asc" | "duration_desc" | "duration_asc">("date_desc");
-const [fromDate, setFromDate] = useState<string>("");
-const [toDate, setToDate] = useState<string>("");
-
+  const [sort, setSort] = useState<
+    "date_desc" | "date_asc" | "duration_desc" | "duration_asc"
+  >("date_desc");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -59,31 +62,30 @@ const [toDate, setToDate] = useState<string>("");
   );
 
   const visibleWorkouts = useMemo(() => {
-  const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
 
-  const items = workouts.filter((w) => {
-    const matchesQuery =
-      !q ||
-      w.name.toLowerCase().includes(q) ||
-      (w.notes || "").toLowerCase().includes(q);
+    const items = workouts.filter((w) => {
+      const matchesQuery =
+        !q ||
+        w.name.toLowerCase().includes(q) ||
+        (w.notes || "").toLowerCase().includes(q);
 
-    const matchesFrom = !fromDate || w.date >= fromDate;
-    const matchesTo = !toDate || w.date <= toDate;
+      const matchesFrom = !fromDate || w.date >= fromDate;
+      const matchesTo = !toDate || w.date <= toDate;
 
-    return matchesQuery && matchesFrom && matchesTo;
-  });
+      return matchesQuery && matchesFrom && matchesTo;
+    });
 
-  items.sort((a, b) => {
-    if (sort === "date_desc") return b.date.localeCompare(a.date);
-    if (sort === "date_asc") return a.date.localeCompare(b.date);
-    if (sort === "duration_desc") return b.durationMin - a.durationMin;
-    if (sort === "duration_asc") return a.durationMin - b.durationMin;
-    return 0;
-  });
+    items.sort((a, b) => {
+      if (sort === "date_desc") return b.date.localeCompare(a.date);
+      if (sort === "date_asc") return a.date.localeCompare(b.date);
+      if (sort === "duration_desc") return b.durationMin - a.durationMin;
+      if (sort === "duration_asc") return a.durationMin - b.durationMin;
+      return 0;
+    });
 
-  return items;
-}, [workouts, query, fromDate, toDate, sort]);
-
+    return items;
+  }, [workouts, query, fromDate, toDate, sort]);
 
   function resetForm() {
     setName("");
@@ -144,14 +146,14 @@ const [toDate, setToDate] = useState<string>("");
   }
 
   function remove(id: string) {
-    const ok = window.confirm("Apagar este workout?");
+    const ok = window.confirm(c.confirmDelete);
     if (!ok) return;
     setWorkouts((prev) => prev.filter((w) => w.id !== id));
     if (editingId === id) resetForm();
   }
 
   function clearAll() {
-    const ok = window.confirm("Apagar todos os workouts?");
+    const ok = window.confirm(c.confirmClearAll);
     if (!ok) return;
     setWorkouts([]);
     resetForm();
@@ -169,7 +171,7 @@ const [toDate, setToDate] = useState<string>("");
         }}
       >
         <h2 style={{ margin: 0, fontSize: 16 }}>
-          {isEditing ? "Editar workout" : "Novo workout"}
+          {isEditing ? c.editWorkout : c.newWorkout}
         </h2>
 
         <form
@@ -177,18 +179,18 @@ const [toDate, setToDate] = useState<string>("");
           style={{ display: "grid", gap: 12, marginTop: 12 }}
         >
           <label style={{ display: "grid", gap: 6 }}>
-            Nome
+            {c.name}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Upper body, HIIT, Corrida..."
+              placeholder="Ej: tren superior, HIIT, carrera..."
               required
             />
           </label>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <label style={{ display: "grid", gap: 6 }}>
-              Data
+              {c.date}
               <input
                 type="date"
                 value={date}
@@ -198,7 +200,7 @@ const [toDate, setToDate] = useState<string>("");
             </label>
 
             <label style={{ display: "grid", gap: 6 }}>
-              Duração (min)
+              {c.duration}
               <input
                 type="number"
                 min={0}
@@ -210,27 +212,27 @@ const [toDate, setToDate] = useState<string>("");
           </div>
 
           <label style={{ display: "grid", gap: 6 }}>
-            Notas
+            {c.notes}
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ex: carga, séries, sensação..."
+              placeholder="Ej: carga, series, sensaciones..."
               rows={3}
             />
           </label>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button type="submit">{isEditing ? "Guardar" : "Adicionar"}</button>
+            <button type="submit">{isEditing ? c.save : c.add}</button>
 
             {isEditing && (
               <button type="button" onClick={resetForm}>
-                Cancelar
+                {c.cancel}
               </button>
             )}
 
             <div style={{ marginLeft: "auto" }}>
               <button type="button" onClick={clearAll}>
-                Limpar tudo
+                {c.clearAll}
               </button>
             </div>
           </div>
@@ -245,66 +247,79 @@ const [toDate, setToDate] = useState<string>("");
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>Lista</h2>
+          <h2 style={{ margin: 0, fontSize: 16 }}>{c.list}</h2>
           <span style={{ opacity: 0.7 }}>
-  ({visibleWorkouts.length} de {workouts.length})
-</span>
-
+            ({visibleWorkouts.length} de {workouts.length})
+          </span>
         </div>
 
-<div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-  <input
-    value={query}
-    onChange={(e) => setQuery(e.target.value)}
-    placeholder="Pesquisar por nome ou notas..."
-  />
+        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={c.searchPlaceholder}
+          />
 
-  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-    <label style={{ display: "grid", gap: 6 }}>
-      De
-      <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-    </label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.from}
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </label>
 
-    <label style={{ display: "grid", gap: 6 }}>
-      Até
-      <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-    </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.to}
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </label>
 
-    <label style={{ display: "grid", gap: 6 }}>
-      Ordenar
-      <select value={sort} onChange={(e) => setSort(e.target.value as never)}>
-        <option value="date_desc">Data (mais recente)</option>
-        <option value="date_asc">Data (mais antiga)</option>
-        <option value="duration_desc">Duração (maior)</option>
-        <option value="duration_asc">Duração (menor)</option>
-      </select>
-    </label>
-  </div>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.sort}
+              <select value={sort} onChange={(e) => setSort(e.target.value as never)}>
+                <option value="date_desc">{c.sortNewest}</option>
+                <option value="date_asc">{c.sortOldest}</option>
+                <option value="duration_desc">{c.sortDurationDesc}</option>
+                <option value="duration_asc">{c.sortDurationAsc}</option>
+              </select>
+            </label>
+          </div>
 
-  <div style={{ display: "flex", gap: 10 }}>
-    <button
-      type="button"
-      onClick={() => {
-        setQuery("");
-        setFromDate("");
-        setToDate("");
-        setSort("date_desc");
-      }}
-    >
-      Limpar filtros
-    </button>
-  </div>
-</div>
-
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setFromDate("");
+                setToDate("");
+                setSort("date_desc");
+              }}
+            >
+              {c.clearFilters}
+            </button>
+          </div>
+        </div>
 
         {workouts.length === 0 ? (
           <p style={{ marginTop: 12, opacity: 0.7 }}>
-            Ainda não tens workouts. Cria o primeiro acima.
+            {c.empty}
           </p>
         ) : (
-          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "grid", gap: 10 }}>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: "12px 0 0",
+              display: "grid",
+              gap: 10,
+            }}
+          >
             {visibleWorkouts.map((w) => (
-
               <li
                 key={w.id}
                 style={{
@@ -326,10 +341,10 @@ const [toDate, setToDate] = useState<string>("");
 
                 <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
                   <button type="button" onClick={() => startEdit(w)}>
-                    Editar
+                    {c.edit}
                   </button>
                   <button type="button" onClick={() => remove(w.id)}>
-                    Apagar
+                    {c.delete}
                   </button>
                 </div>
               </li>

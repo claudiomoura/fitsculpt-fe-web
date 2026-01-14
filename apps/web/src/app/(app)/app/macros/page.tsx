@@ -1,12 +1,12 @@
 import MacrosClient from "./MacrosClient";
+import { copy } from "@/lib/i18n";
 
 export default function MacrosPage() {
+  const c = copy.es;
   return (
     <section>
-      <h1>Calculadora de calorias e macros</h1>
-      <p style={{ marginTop: 6 }}>
-        Estimativa de TDEE (Mifflin-St Jeor) com alvo e distribuição de macros.
-      </p>
+      <h1>{c.app.macrosTitle}</h1>
+      <p style={{ marginTop: 6 }}>{c.app.macrosSubtitle}</p>
 
       <div style={{ marginTop: 16 }}>
         <MacrosClient />
