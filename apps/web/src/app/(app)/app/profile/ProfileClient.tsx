@@ -18,6 +18,17 @@ type ProfileData = {
   dietaryPrefs: string;
   dislikes: string;
   notes: string;
+  avatarDataUrl: string | null;
+  measurements: {
+    chestCm: number;
+    waistCm: number;
+    hipsCm: number;
+    bicepsCm: number;
+    thighCm: number;
+    calfCm: number;
+    neckCm: number;
+    bodyFatPercent: number;
+  };
 };
 
 type WeightEntry = {
@@ -26,8 +37,20 @@ type WeightEntry = {
   weightKg: number;
 };
 
+type CheckinEntry = {
+  id: string;
+  date: string;
+  weightKg: number;
+  waistCm: number;
+  energy: number;
+  hunger: number;
+  notes: string;
+  recommendation: string;
+};
+
 const STORAGE_KEY = "fs_profile_v1";
 const HISTORY_KEY = "fs_weight_history_v1";
+const CHECKIN_KEY = "fs_checkins_v1";
 
 const defaultProfile: ProfileData = {
   name: "",
@@ -41,6 +64,17 @@ const defaultProfile: ProfileData = {
   dietaryPrefs: "",
   dislikes: "",
   notes: "",
+  avatarDataUrl: null,
+  measurements: {
+    chestCm: 0,
+    waistCm: 0,
+    hipsCm: 0,
+    bicepsCm: 0,
+    thighCm: 0,
+    calfCm: 0,
+    neckCm: 0,
+    bodyFatPercent: 0,
+  },
 };
 
 export default function ProfileClient() {
@@ -50,6 +84,13 @@ export default function ProfileClient() {
   const [history, setHistory] = useState<WeightEntry[]>([]);
   const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [historyWeight, setHistoryWeight] = useState<number>(75);
+  const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
+  const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [checkinWeight, setCheckinWeight] = useState<number>(75);
+  const [checkinWaist, setCheckinWaist] = useState<number>(80);
+  const [checkinEnergy, setCheckinEnergy] = useState<number>(3);
+  const [checkinHunger, setCheckinHunger] = useState<number>(3);
+  const [checkinNotes, setCheckinNotes] = useState("");
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -77,6 +118,21 @@ export default function ProfileClient() {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
   }, [history]);
 
+  useEffect(() => {
+    const stored = localStorage.getItem(CHECKIN_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as CheckinEntry[];
+      if (Array.isArray(parsed)) setCheckins(parsed);
+    } catch {
+      setCheckins([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(CHECKIN_KEY, JSON.stringify(checkins));
+  }, [checkins]);
+
   function update<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {
     setProfile((prev) => ({ ...prev, [key]: value }));
   }
@@ -90,6 +146,33 @@ export default function ProfileClient() {
   function resetProfile() {
     localStorage.removeItem(STORAGE_KEY);
     setProfile(defaultProfile);
+  }
+
+  function updateMeasurements<K extends keyof ProfileData["measurements"]>(
+    key: K,
+    value: ProfileData["measurements"][K]
+  ) {
+    setProfile((prev) => ({
+      ...prev,
+      measurements: {
+        ...prev.measurements,
+        [key]: value,
+      },
+    }));
+  }
+
+  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfile((prev) => ({ ...prev, avatarDataUrl: String(reader.result || "") }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeAvatar() {
+    setProfile((prev) => ({ ...prev, avatarDataUrl: null }));
   }
 
   function addHistoryEntry(e: React.FormEvent) {
@@ -111,6 +194,47 @@ export default function ProfileClient() {
 
   function removeHistoryEntry(id: string) {
     setHistory((prev) => prev.filter((entry) => entry.id !== id));
+  }
+
+  function buildCheckinRecommendation(currentWeight: number) {
+    if (checkins.length === 0) return c.profile.checkinKeep;
+    const latest = [...checkins].sort((a, b) => b.date.localeCompare(a.date))[0];
+    const delta = currentWeight - latest.weightKg;
+
+    if (profile.goal === "cut") {
+      if (delta >= 0) return c.profile.checkinReduceCalories;
+      return c.profile.checkinKeep;
+    }
+
+    if (profile.goal === "bulk") {
+      if (delta <= 0) return c.profile.checkinIncreaseCalories;
+      return c.profile.checkinKeep;
+    }
+
+    if (checkinEnergy <= 2 || checkinHunger >= 4) return c.profile.checkinIncreaseProtein;
+    return c.profile.checkinKeep;
+  }
+
+  function addCheckin(e: React.FormEvent) {
+    e.preventDefault();
+    const weight = Number(checkinWeight);
+    const waist = Number(checkinWaist);
+    if (!checkinDate || !Number.isFinite(weight)) return;
+
+    const recommendation = buildCheckinRecommendation(weight);
+    const entry: CheckinEntry = {
+      id: `${checkinDate}-${Date.now()}`,
+      date: checkinDate,
+      weightKg: weight,
+      waistCm: Number.isFinite(waist) ? waist : 0,
+      energy: checkinEnergy,
+      hunger: checkinHunger,
+      notes: checkinNotes.trim(),
+      recommendation,
+    };
+
+    setCheckins((prev) => [entry, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
+    setCheckinNotes("");
   }
 
   const chartPoints = (() => {
@@ -140,6 +264,46 @@ export default function ProfileClient() {
           <div>
             <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{c.profile.basicsTitle}</h3>
             <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ fontWeight: 600 }}>{c.profile.avatarTitle}</div>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  {profile.avatarDataUrl ? (
+                    <img
+                      src={profile.avatarDataUrl}
+                      alt="Avatar"
+                      style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: "50%",
+                        background: "#f3f4f6",
+                        display: "grid",
+                        placeItems: "center",
+                        color: "#6b7280",
+                        fontSize: 12,
+                      }}
+                    >
+                      {c.profile.avatarTitle}
+                    </div>
+                  )}
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <label style={{ display: "grid", gap: 6 }}>
+                      {c.profile.avatarUpload}
+                      <input type="file" accept="image/*" onChange={handleAvatarUpload} />
+                    </label>
+                    {profile.avatarDataUrl && (
+                      <button type="button" onClick={removeAvatar}>
+                        {c.profile.avatarRemove}
+                      </button>
+                    )}
+                    <span style={{ opacity: 0.7 }}>{c.profile.avatarHint}</span>
+                  </div>
+                </div>
+              </div>
+
               <label style={{ display: "grid", gap: 6 }}>
                 {c.profile.name}
                 <input
@@ -274,6 +438,98 @@ export default function ProfileClient() {
             </div>
           </div>
 
+          <div>
+            <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{c.profile.measurementsTitle}</h3>
+            <p style={{ marginTop: 0 }}>{c.profile.measurementsSubtitle}</p>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <label style={{ display: "grid", gap: 6 }}>
+                  {c.profile.chest}
+                  <input
+                    type="number"
+                    min={0}
+                    value={profile.measurements.chestCm}
+                    onChange={(e) => updateMeasurements("chestCm", Number(e.target.value))}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  {c.profile.waist}
+                  <input
+                    type="number"
+                    min={0}
+                    value={profile.measurements.waistCm}
+                    onChange={(e) => updateMeasurements("waistCm", Number(e.target.value))}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <label style={{ display: "grid", gap: 6 }}>
+                  {c.profile.hips}
+                  <input
+                    type="number"
+                    min={0}
+                    value={profile.measurements.hipsCm}
+                    onChange={(e) => updateMeasurements("hipsCm", Number(e.target.value))}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  {c.profile.biceps}
+                  <input
+                    type="number"
+                    min={0}
+                    value={profile.measurements.bicepsCm}
+                    onChange={(e) => updateMeasurements("bicepsCm", Number(e.target.value))}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <label style={{ display: "grid", gap: 6 }}>
+                  {c.profile.thigh}
+                  <input
+                    type="number"
+                    min={0}
+                    value={profile.measurements.thighCm}
+                    onChange={(e) => updateMeasurements("thighCm", Number(e.target.value))}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  {c.profile.calf}
+                  <input
+                    type="number"
+                    min={0}
+                    value={profile.measurements.calfCm}
+                    onChange={(e) => updateMeasurements("calfCm", Number(e.target.value))}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <label style={{ display: "grid", gap: 6 }}>
+                  {c.profile.neck}
+                  <input
+                    type="number"
+                    min={0}
+                    value={profile.measurements.neckCm}
+                    onChange={(e) => updateMeasurements("neckCm", Number(e.target.value))}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  {c.profile.bodyFat}
+                  <input
+                    type="number"
+                    min={0}
+                    max={60}
+                    step="0.1"
+                    value={profile.measurements.bodyFatPercent}
+                    onChange={(e) => updateMeasurements("bodyFatPercent", Number(e.target.value))}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <button type="button" onClick={saveProfile}>
               {c.profile.save}
@@ -371,6 +627,109 @@ export default function ProfileClient() {
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      </div>
+
+      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{c.profile.checkinTitle}</h2>
+        <p style={{ marginTop: 6 }}>{c.profile.checkinSubtitle}</p>
+
+        <form onSubmit={addCheckin} style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.profile.checkinDate}
+              <input
+                type="date"
+                value={checkinDate}
+                onChange={(e) => setCheckinDate(e.target.value)}
+                required
+              />
+            </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.profile.checkinWeight}
+              <input
+                type="number"
+                min={30}
+                max={250}
+                step="0.1"
+                value={checkinWeight}
+                onChange={(e) => setCheckinWeight(Number(e.target.value))}
+                required
+              />
+            </label>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.profile.checkinWaist}
+              <input
+                type="number"
+                min={0}
+                value={checkinWaist}
+                onChange={(e) => setCheckinWaist(Number(e.target.value))}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 6 }}>
+              {c.profile.checkinEnergy}
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={checkinEnergy}
+                onChange={(e) => setCheckinEnergy(Number(e.target.value))}
+              />
+            </label>
+          </div>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            {c.profile.checkinHunger}
+            <input
+              type="number"
+              min={1}
+              max={5}
+              value={checkinHunger}
+              onChange={(e) => setCheckinHunger(Number(e.target.value))}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            {c.profile.checkinNotes}
+            <textarea
+              value={checkinNotes}
+              onChange={(e) => setCheckinNotes(e.target.value)}
+              rows={3}
+            />
+          </label>
+
+          <button type="submit" style={{ width: "fit-content" }}>
+            {c.profile.checkinAdd}
+          </button>
+        </form>
+
+        <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+          {checkins.length === 0 ? (
+            <p style={{ opacity: 0.7 }}>{c.profile.checkinEmpty}</p>
+          ) : (
+            checkins.map((entry) => (
+              <div
+                key={entry.id}
+                style={{ border: "1px solid #ededed", borderRadius: 10, padding: 12 }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                  <strong>{entry.date}</strong>
+                  <span>
+                    {entry.weightKg} kg · {entry.waistCm} cm
+                  </span>
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  {c.profile.checkinRecommendation}: <strong>{entry.recommendation}</strong>
+                </div>
+                {entry.notes && (
+                  <p style={{ marginTop: 6, opacity: 0.75 }}>{entry.notes}</p>
+                )}
+              </div>
+            ))
           )}
         </div>
       </div>
