@@ -155,6 +155,8 @@ export const copy = {
       fat: "Grasa",
       carbs: "Carbs",
       meal: "Comida",
+      ingredients: "Ingredientes",
+      grams: "g",
       tipsTitle: "Notas",
       tips:
         "Plan local generado con reglas simples. Ajusta manualmente según preferencias.",

@@ -15,7 +15,7 @@ type FormState = {
   weightKg: number;
   activity: Activity;
   goal: Goal;
-  mealsPerDay: 3 | 4 | 5;
+  mealsPerDay: 1 | 2 | 3 | 4 | 5 | 6;
   formula: Formula;
   bodyFatPercent: number; // só usado em Katch
   mealsMode: "equal" | "custom";
@@ -387,7 +387,7 @@ export default function MacrosClient() {
             <select
               value={state.mealsPerDay}
               onChange={(e) => {
-                const m = Number(e.target.value) as 3 | 4 | 5;
+                const m = Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6;
                 setState((prev) => ({
                   ...prev,
                   mealsPerDay: m,
@@ -395,9 +395,12 @@ export default function MacrosClient() {
                 }));
               }}
             >
+              <option value={1}>1</option>
+              <option value={2}>2</option>
               <option value={3}>3</option>
               <option value={4}>4</option>
               <option value={5}>5</option>
+              <option value={6}>6</option>
             </select>
           </label>
 
