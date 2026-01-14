@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { copy } from "@/lib/i18n";
 
 type Activity = "sedentary" | "light" | "moderate" | "high" | "very";
@@ -37,6 +37,18 @@ type NutritionPlan = {
 };
 
 const STORAGE_KEY = "fs_nutrition_plan_v1";
+const DEFAULT_FORM: NutritionForm = {
+  age: 30,
+  heightCm: 175,
+  weightKg: 75,
+  activity: "moderate",
+  goal: "maintain",
+  mealsPerDay: 4,
+  dietaryPrefs: "",
+  dislikes: "",
+  cookingTime: "medium",
+};
+
 
 const mealTemplates: Record<MealSlot, Meal[]> = {
   breakfast: [
@@ -170,30 +182,35 @@ function calculatePlan(form: NutritionForm): NutritionPlan {
 
 export default function NutritionPlanClient() {
   const c = copy.es;
-  const [form, setForm] = useState<NutritionForm>({
-    age: 30,
-    heightCm: 175,
-    weightKg: 75,
-    activity: "moderate",
-    goal: "maintain",
-    mealsPerDay: 4,
-    dietaryPrefs: "",
-    dislikes: "",
-    cookingTime: "medium",
-  });
-  const [plan, setPlan] = useState<NutritionPlan | null>(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
+  const [form, setForm] = useState<NutritionForm>(() => {
+    if (typeof window === "undefined") return DEFAULT_FORM;
+
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) return DEFAULT_FORM;
+
     try {
       const parsed = JSON.parse(stored) as { form: NutritionForm; plan: NutritionPlan };
-      if (parsed?.form) setForm(parsed.form);
-      if (parsed?.plan) setPlan(parsed.plan);
+      return parsed.form ?? DEFAULT_FORM;
     } catch {
-      setPlan(null);
+      return DEFAULT_FORM;
     }
-  }, []);
+  });
+
+  const [plan, setPlan] = useState<NutritionPlan | null>(() => {
+    if (typeof window === "undefined") return null;
+
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+
+    try {
+      const parsed = JSON.parse(stored) as { form: NutritionForm; plan: NutritionPlan };
+      return parsed.plan ?? null;
+    } catch {
+      return null;
+    }
+  });
+
 
   const preview = useMemo(() => calculatePlan(form), [form]);
 
