@@ -44,6 +44,7 @@ const [toDate, setToDate] = useState<string>("");
   // Load
   useEffect(() => {
     const stored = safeParse(localStorage.getItem(STORAGE_KEY));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setWorkouts(stored);
   }, []);
 
@@ -60,7 +61,7 @@ const [toDate, setToDate] = useState<string>("");
   const visibleWorkouts = useMemo(() => {
   const q = query.trim().toLowerCase();
 
-  let items = workouts.filter((w) => {
+  const items = workouts.filter((w) => {
     const matchesQuery =
       !q ||
       w.name.toLowerCase().includes(q) ||
@@ -271,7 +272,7 @@ const [toDate, setToDate] = useState<string>("");
 
     <label style={{ display: "grid", gap: 6 }}>
       Ordenar
-      <select value={sort} onChange={(e) => setSort(e.target.value as any)}>
+      <select value={sort} onChange={(e) => setSort(e.target.value as never)}>
         <option value="date_desc">Data (mais recente)</option>
         <option value="date_asc">Data (mais antiga)</option>
         <option value="duration_desc">Duração (maior)</option>

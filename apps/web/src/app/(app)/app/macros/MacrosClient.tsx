@@ -17,6 +17,9 @@ type FormState = {
 mealsPerDay: 3 | 4 | 5;
 formula: Formula;
 bodyFatPercent: number; // só usado em Katch
+mealsMode: "equal" | "custom";
+mealPercents: number[]; // tamanho = mealsPerDay, soma 100 quando custom
+
 
 
   // Ajuste calórico por percentagem do TDEE
@@ -84,13 +87,36 @@ export default function MacrosClient() {
     mealsPerDay: 4,
 formula: "mifflin",
 bodyFatPercent: 18,
+mealsMode: "equal",
+mealPercents: defaultMealPercents(4),
 
   });
 
-  useEffect(() => {
-    const stored = safeParse(localStorage.getItem(STORAGE_KEY));
-    if (stored) setState(stored);
-  }, []);
+useEffect(() => {
+  const stored = safeParse(localStorage.getItem(STORAGE_KEY));
+  if (!stored) return;
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  setState((prev) => {
+    const meals = stored.mealsPerDay ?? prev.mealsPerDay;
+
+    const perc =
+      Array.isArray(stored.mealPercents) && stored.mealPercents.length === meals
+        ? stored.mealPercents
+        : defaultMealPercents(meals);
+
+    return {
+      ...prev,
+      ...stored,
+      mealsPerDay: meals,
+      mealsMode: stored.mealsMode ?? "equal",
+      mealPercents: perc,
+      formula: stored.formula ?? "mifflin",
+      bodyFatPercent: stored.bodyFatPercent ?? 18,
+    };
+  });
+}, []);
+
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -176,6 +202,13 @@ const bmr =
       fatGPerKg: 0.9,
     };
   });
+}
+
+
+function defaultMealPercents(meals: number) {
+  const base = Math.floor(100 / meals);
+  const rem = 100 - base * meals;
+  return Array.from({ length: meals }, (_, i) => base + (i < rem ? 1 : 0));
 }
 
 
@@ -356,17 +389,101 @@ const bmr =
 
       <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
         <h2 style={{ margin: 0, fontSize: 16 }}>Resultado</h2>
-<label style={{ display: "grid", gap: 6, maxWidth: 220 }}>
-  Refeições por dia
-  <select
-    value={state.mealsPerDay}
-    onChange={(e) => set("mealsPerDay", Number(e.target.value) as 3 | 4 | 5)}
-  >
-    <option value={3}>3</option>
-    <option value={4}>4</option>
-    <option value={5}>5</option>
-  </select>
-</label>
+<div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+  <label style={{ display: "grid", gap: 6, maxWidth: 220 }}>
+    Refeições por dia
+    <select
+      value={state.mealsPerDay}
+      onChange={(e) => {
+        const m = Number(e.target.value) as 3 | 4 | 5;
+        setState((prev) => ({
+          ...prev,
+          mealsPerDay: m,
+          mealPercents: defaultMealPercents(m),
+        }));
+      }}
+    >
+      <option value={3}>3</option>
+      <option value={4}>4</option>
+      <option value={5}>5</option>
+    </select>
+  </label>
+
+  <label style={{ display: "grid", gap: 6, maxWidth: 220 }}>
+    Distribuição
+    <select
+      value={state.mealsMode}
+      onChange={(e) =>
+        setState((prev) => {
+          const mode = e.target.value as "equal" | "custom";
+          const perc =
+            prev.mealPercents?.length === prev.mealsPerDay
+              ? prev.mealPercents
+              : defaultMealPercents(prev.mealsPerDay);
+
+          return {
+            ...prev,
+            mealsMode: mode,
+            mealPercents: perc,
+          };
+        })
+      }
+    >
+      <option value="equal">Igual</option>
+      <option value="custom">Custom (%)</option>
+    </select>
+  </label>
+
+  {state.mealsMode === "custom" && (
+    <div style={{ border: "1px solid #ededed", borderRadius: 12, padding: 12 }}>
+      <div style={{ opacity: 0.7, marginBottom: 10 }}>Percentagens por refeição</div>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {Array.from({ length: state.mealsPerDay }).map((_, i) => (
+          <label key={i} style={{ display: "grid", gap: 6 }}>
+            Refeição {i + 1} (%)
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={state.mealPercents?.[i] ?? 0}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setState((prev) => {
+                  const next = [
+                    ...(prev.mealPercents ?? defaultMealPercents(prev.mealsPerDay)),
+                  ];
+                  next[i] = Number.isFinite(v) ? v : 0;
+                  return { ...prev, mealPercents: next };
+                });
+              }}
+            />
+          </label>
+        ))}
+
+        {(() => {
+          const sum = (state.mealPercents ?? []).reduce(
+            (a, b) => a + (Number(b) || 0),
+            0
+          );
+          const ok = sum === 100;
+
+          return (
+            <div style={{ opacity: ok ? 0.75 : 1 }}>
+              Soma: <strong>{sum}%</strong>
+              {!ok && (
+                <span style={{ marginLeft: 10 }}>
+                  Ajusta para <strong>100%</strong> para calcular.
+                </span>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  )}
+</div>
+
 
         <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
@@ -422,37 +539,85 @@ const bmr =
           </div>
 
 <div style={{ border: "1px solid #ededed", borderRadius: 12, padding: 12 }}>
-  <div style={{ opacity: 0.7, marginBottom: 8 }}>Por refeição (divisão igual)</div>
+  <div style={{ opacity: 0.7, marginBottom: 8 }}>
+    Por refeição ({state.mealsMode === "custom" ? "custom" : "igual"})
+  </div>
 
   {(() => {
-    const m = state.mealsPerDay;
-    const kcalMeal = result.targetCalories / m;
-    const pMeal = result.macros.proteinG / m;
-    const fMeal = result.macros.fatG / m;
-    const cMeal = result.macros.carbsG / m;
+    const meals = state.mealsPerDay;
+
+    const percents =
+      state.mealsMode === "custom"
+        ? state.mealPercents ?? defaultMealPercents(meals)
+        : defaultMealPercents(meals);
+
+    const sum = percents.reduce((a, b) => a + (Number(b) || 0), 0);
+    const valid = state.mealsMode === "custom" ? sum === 100 : true;
+
+    if (!valid) {
+      return (
+        <p style={{ margin: 0, opacity: 0.75 }}>
+          Define percentagens que somem 100% para ver a divisão por refeição.
+        </p>
+      );
+    }
 
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
-        <div>
-          <div style={{ opacity: 0.7 }}>Calorias</div>
-          <strong>{round(kcalMeal)} kcal</strong>
-        </div>
-        <div>
-          <div style={{ opacity: 0.7 }}>Proteína</div>
-          <strong>{round(pMeal)} g</strong>
-        </div>
-        <div>
-          <div style={{ opacity: 0.7 }}>Gordura</div>
-          <strong>{round(fMeal)} g</strong>
-        </div>
-        <div>
-          <div style={{ opacity: 0.7 }}>Carbs</div>
-          <strong>{round(cMeal)} g</strong>
-        </div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {percents.map((p, i) => {
+          const factor = (Number(p) || 0) / 100;
+
+          const kcal = result.targetCalories * factor;
+          const prot = result.macros.proteinG * factor;
+          const fat = result.macros.fatG * factor;
+          const carbs = result.macros.carbsG * factor;
+
+          return (
+            <div
+              key={i}
+              style={{
+                border: "1px solid #f0f0f0",
+                borderRadius: 12,
+                padding: 10,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ opacity: 0.7 }}>Refeição</div>
+                <strong>{i + 1}</strong>
+                <div style={{ opacity: 0.7 }}>{p}%</div>
+              </div>
+
+              <div>
+                <div style={{ opacity: 0.7 }}>Calorias</div>
+                <strong>{round(kcal)} kcal</strong>
+              </div>
+
+              <div>
+                <div style={{ opacity: 0.7 }}>Proteína</div>
+                <strong>{round(prot)} g</strong>
+              </div>
+
+              <div>
+                <div style={{ opacity: 0.7 }}>Gordura</div>
+                <strong>{round(fat)} g</strong>
+              </div>
+
+              <div>
+                <div style={{ opacity: 0.7 }}>Carbs</div>
+                <strong>{round(carbs)} g</strong>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   })()}
 </div>
+
 
           <button
             type="button"
@@ -472,6 +637,8 @@ const bmr =
                 mealsPerDay: 4,
 formula: "mifflin",
 bodyFatPercent: 18,
+mealsMode: "equal",
+mealPercents: defaultMealPercents(4),
 
               });
             }}
