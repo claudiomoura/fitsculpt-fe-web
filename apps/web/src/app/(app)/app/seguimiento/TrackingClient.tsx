@@ -91,7 +91,19 @@ function saveJson<T>(key: string, value: T) {
 
 export default function TrackingClient() {
   const c = copy.es;
-  const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
+
+  const [checkins, setCheckins] = useState<CheckinEntry[]>(() =>
+  loadJson(CHECKIN_KEY, [])
+);
+
+const [foodLog, setFoodLog] = useState<FoodEntry[]>(() =>
+  loadJson(FOOD_LOG_KEY, [])
+);
+
+const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>(() =>
+  loadJson(WORKOUT_LOG_KEY, [])
+);
+
   const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [checkinWeight, setCheckinWeight] = useState(75);
   const [checkinChest, setCheckinChest] = useState(90);
@@ -111,16 +123,16 @@ export default function TrackingClient() {
   const [foodDate, setFoodDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [foodKey, setFoodKey] = useState("salmon");
   const [foodGrams, setFoodGrams] = useState(150);
-  const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
 
   const [workoutDate, setWorkoutDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDuration, setWorkoutDuration] = useState(45);
   const [workoutNotes, setWorkoutNotes] = useState("");
-  const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
+ 
 
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCheckins(loadJson(CHECKIN_KEY, []));
     setFoodLog(loadJson(FOOD_LOG_KEY, []));
     setWorkoutLog(loadJson(WORKOUT_LOG_KEY, []));
