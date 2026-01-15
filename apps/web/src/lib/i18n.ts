@@ -23,6 +23,7 @@ export const copy = {
       title: "FitSculpt",
       subtitle: "Landing simple (evolucionaremos luego).",
       cta: "Ir al inicio de sesión →",
+      secondaryCta: "Explorar la app",
     },
     auth: {
       loginTitle: "Iniciar sesión",
