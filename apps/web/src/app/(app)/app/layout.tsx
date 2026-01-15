@@ -32,6 +32,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <AppNavLink href="/app/workouts" label={c.nav.workouts} />
           <AppNavLink href="/app/nutricion" label={c.nav.nutrition} />
           <AppNavLink href="/app/entrenamiento" label={c.nav.trainingPlan} />
+          <AppNavLink href="/app/seguimiento" label={c.nav.tracking} />
           <AppNavLink href="/app/macros" label={c.nav.macros} />
           <AppNavLink href="/app/profile" label={c.nav.profile} />
           <AppNavLink href="/app/settings" label={c.nav.settings} />
