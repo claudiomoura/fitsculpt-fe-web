@@ -135,6 +135,23 @@ function generatePlan(form: TrainingForm): TrainingPlan {
   return { days };
 }
 
+const periodization = [
+  { label: "weekBase", setsDelta: 0 },
+  { label: "weekBuild", setsDelta: 1 },
+  { label: "weekPeak", setsDelta: 2 },
+  { label: "weekDeload", setsDelta: -1 },
+];
+
+function adjustSets(sets: string, delta: number) {
+  if (delta === 0) return sets;
+  const match = sets.match(/^(\d+)(?:-(\d+))?\s*x\s*(.+)$/);
+  if (!match) return sets;
+  const start = Math.max(1, Number(match[1]) + delta);
+  const end = match[2] ? Math.max(start, Number(match[2]) + delta) : null;
+  const reps = match[3];
+  return end ? `${start}-${end} x ${reps}` : `${start} x ${reps}`;
+}
+
 export default function TrainingPlanClient() {
   const c = copy.es;
   const [form, setForm] = useState<TrainingForm>({
@@ -279,6 +296,35 @@ export default function TrainingPlanClient() {
                 {day.exercises.map((exercise) => (
                   <li key={exercise.name}>
                     {exercise.name} — {exercise.sets}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{c.training.periodTitle}</h2>
+        <p style={{ marginTop: 6 }}>{c.training.periodSubtitle}</p>
+
+        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+          {periodization.map((week, idx) => (
+            <div
+              key={week.label}
+              style={{ border: "1px solid #ededed", borderRadius: 10, padding: 12 }}
+            >
+              <strong>
+                {c.training.weekLabel} {idx + 1} · {c.training[week.label as keyof typeof c.training]}
+              </strong>
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                {activePlan.days.map((day) => (
+                  <li key={`${week.label}-${day.label}`}>
+                    {day.focus}:{" "}
+                    {day.exercises
+                      .slice(0, 2)
+                      .map((ex) => adjustSets(ex.sets, week.setsDelta))
+                      .join(" / ")}
                   </li>
                 ))}
               </ul>

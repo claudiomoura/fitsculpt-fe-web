@@ -46,6 +46,8 @@ type CheckinEntry = {
   hunger: number;
   notes: string;
   recommendation: string;
+  frontPhotoUrl: string | null;
+  sidePhotoUrl: string | null;
 };
 
 const STORAGE_KEY = "fs_profile_v1";
@@ -91,6 +93,8 @@ export default function ProfileClient() {
   const [checkinEnergy, setCheckinEnergy] = useState<number>(3);
   const [checkinHunger, setCheckinHunger] = useState<number>(3);
   const [checkinNotes, setCheckinNotes] = useState("");
+  const [checkinFrontPhoto, setCheckinFrontPhoto] = useState<string | null>(null);
+  const [checkinSidePhoto, setCheckinSidePhoto] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -231,10 +235,25 @@ export default function ProfileClient() {
       hunger: checkinHunger,
       notes: checkinNotes.trim(),
       recommendation,
+      frontPhotoUrl: checkinFrontPhoto,
+      sidePhotoUrl: checkinSidePhoto,
     };
 
     setCheckins((prev) => [entry, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
     setCheckinNotes("");
+    setCheckinFrontPhoto(null);
+    setCheckinSidePhoto(null);
+  }
+
+  function handleCheckinPhoto(
+    e: React.ChangeEvent<HTMLInputElement>,
+    onChange: (value: string | null) => void
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onChange(String(reader.result || ""));
+    reader.readAsDataURL(file);
   }
 
   const chartPoints = (() => {
@@ -702,6 +721,29 @@ export default function ProfileClient() {
             />
           </label>
 
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontWeight: 600 }}>{c.profile.checkinPhotos}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <label style={{ display: "grid", gap: 6 }}>
+                {c.profile.checkinFrontPhoto}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleCheckinPhoto(e, setCheckinFrontPhoto)}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6 }}>
+                {c.profile.checkinSidePhoto}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleCheckinPhoto(e, setCheckinSidePhoto)}
+                />
+              </label>
+            </div>
+            <span style={{ opacity: 0.7 }}>{c.profile.checkinPhotoHint}</span>
+          </div>
+
           <button type="submit" style={{ width: "fit-content" }}>
             {c.profile.checkinAdd}
           </button>
@@ -724,6 +766,22 @@ export default function ProfileClient() {
                 </div>
                 <div style={{ marginTop: 6 }}>
                   {c.profile.checkinRecommendation}: <strong>{entry.recommendation}</strong>
+                </div>
+                <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+                  {entry.frontPhotoUrl && (
+                    <img
+                      src={entry.frontPhotoUrl}
+                      alt="Frontal"
+                      style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8 }}
+                    />
+                  )}
+                  {entry.sidePhotoUrl && (
+                    <img
+                      src={entry.sidePhotoUrl}
+                      alt="Perfil"
+                      style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8 }}
+                    />
+                  )}
                 </div>
                 {entry.notes && (
                   <p style={{ marginTop: 6, opacity: 0.75 }}>{entry.notes}</p>

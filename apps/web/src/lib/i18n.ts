@@ -45,6 +45,7 @@ export const copy = {
       nutritionTitle: "Plan de nutrición",
       nutritionSubtitle:
         "Genera un plan de comidas local en base a tus métricas y objetivos.",
+      nutritionMacrosLink: "Abrir calculadora de macros",
       trainingTitle: "Plan de entrenamiento",
       trainingSubtitle:
         "Crea una rutina semanal basada en tu objetivo, nivel y disponibilidad.",
@@ -189,6 +190,14 @@ export const copy = {
       generate: "Generar plan",
       resetPlan: "Reiniciar plan",
       weeklyPlanTitle: "Plan semanal sugerido",
+      periodTitle: "Periodización de 4 semanas",
+      periodSubtitle:
+        "Progresión sugerida para mantener sobrecarga y recuperación.",
+      weekLabel: "Semana",
+      weekBase: "Base",
+      weekBuild: "Construcción",
+      weekPeak: "Pico",
+      weekDeload: "Descarga",
       tipsTitle: "Notas",
       tips:
         "Rutina local generada con reglas simples. Ajusta ejercicios según tu equipo y experiencia.",
@@ -237,6 +246,10 @@ export const copy = {
       checkinReduceCalories: "Reduce calorías en ~7% y añade 1 sesión corta de cardio.",
       checkinIncreaseCalories: "Aumenta calorías en ~5% y sube 1-2 series por grupo.",
       checkinIncreaseProtein: "Asegura proteína diaria y mejora el descanso.",
+      checkinPhotos: "Fotos del check-in",
+      checkinFrontPhoto: "Frontal",
+      checkinSidePhoto: "Perfil",
+      checkinPhotoHint: "Opcional: JPG o PNG.",
       name: "Nombre",
       age: "Edad",
       height: "Altura (cm)",
