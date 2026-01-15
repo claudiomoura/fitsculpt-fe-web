@@ -8,6 +8,7 @@ export const copy = {
     nav: {
       home: "Inicio",
       login: "Iniciar sesión",
+      register: "Crear cuenta",
       goToApp: "Ir a la app",
       dashboard: "Panel",
       workouts: "Entrenamientos",
@@ -27,10 +28,17 @@ export const copy = {
     },
     auth: {
       loginTitle: "Iniciar sesión",
-      invalidCredentials: "Credenciales inválidas (validación fake por ahora).",
+      invalidCredentials: "Credenciales inválidas.",
+      registerTitle: "Crear cuenta",
+      registerSubtitle: "Crea tu cuenta y guarda tus entrenamientos en la nube.",
+      registerError: "No pudimos crear tu cuenta. ¿Ya existe ese email?",
       email: "Email",
       password: "Contraseña",
+      name: "Nombre",
       submit: "Entrar",
+      registerSubmit: "Crear cuenta",
+      noAccount: "¿No tienes cuenta?",
+      createAccount: "Crear una ahora",
     },
     app: {
       privateAreaTitle: "Área privada",

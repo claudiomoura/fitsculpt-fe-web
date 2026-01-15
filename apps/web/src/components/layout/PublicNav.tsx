@@ -20,9 +20,14 @@ export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
               {c.nav.goToApp}
             </Link>
           ) : (
-            <Link href="/login" className="nav-link">
-              {c.nav.login}
-            </Link>
+            <>
+              <Link href="/login" className="nav-link">
+                {c.nav.login}
+              </Link>
+              <Link href="/register" className="nav-link">
+                {c.nav.register}
+              </Link>
+            </>
           )}
         </nav>
       </div>
