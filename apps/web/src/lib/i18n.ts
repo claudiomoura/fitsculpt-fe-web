@@ -8,6 +8,7 @@ export const copy = {
     nav: {
       home: "Inicio",
       login: "Iniciar sesión",
+      register: "Crear cuenta",
       goToApp: "Ir a la app",
       dashboard: "Panel",
       workouts: "Entrenamientos",
@@ -27,16 +28,23 @@ export const copy = {
     },
     auth: {
       loginTitle: "Iniciar sesión",
-      invalidCredentials: "Credenciales inválidas (validación fake por ahora).",
+      invalidCredentials: "Credenciales inválidas.",
+      registerTitle: "Crear cuenta",
+      registerSubtitle: "Crea tu cuenta y guarda tus entrenamientos en la nube.",
+      registerError: "No pudimos crear tu cuenta. ¿Ya existe ese email?",
       email: "Email",
       password: "Contraseña",
+      name: "Nombre",
       submit: "Entrar",
+      registerSubmit: "Crear cuenta",
+      noAccount: "¿No tienes cuenta?",
+      createAccount: "Crear una ahora",
     },
     app: {
       privateAreaTitle: "Área privada",
       privateAreaSubtitle: "Si estás aquí, estás autenticado.",
       workoutsTitle: "Entrenamientos",
-      workoutsSubtitle: "CRUD local, guardado en el navegador.",
+      workoutsSubtitle: "CRUD conectado al backend, con datos por usuario.",
       macrosTitle: "Calculadora de calorías y macros",
       macrosSubtitle:
         "Estimación de TDEE (Mifflin-St Jeor) con objetivo y distribución de macros.",
