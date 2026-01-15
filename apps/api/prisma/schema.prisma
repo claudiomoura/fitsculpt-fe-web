@@ -23,6 +23,7 @@ model Workout {
   name        String
   notes       String?
   scheduledAt DateTime?
+  durationMin Int?
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())

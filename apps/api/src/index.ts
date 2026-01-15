@@ -165,6 +165,7 @@ const workoutCreateSchema = z.object({
   name: z.string().min(2),
   notes: z.string().min(1).optional(),
   scheduledAt: z.string().datetime().optional(),
+  durationMin: z.coerce.number().int().min(0).optional(),
 });
 
 const workoutUpdateSchema = workoutCreateSchema.partial();
@@ -191,6 +192,7 @@ app.post("/workouts", async (request, reply) => {
         name: data.name,
         notes: data.notes,
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
+        durationMin: data.durationMin ?? null,
         userId: user.id,
       },
     });
@@ -229,6 +231,7 @@ app.patch("/workouts/:id", async (request, reply) => {
         name: data.name,
         notes: data.notes,
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
+        durationMin: data.durationMin,
       },
     });
     if (workout.count === 0) {
