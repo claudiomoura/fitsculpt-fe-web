@@ -37,6 +37,11 @@ type NutritionPlan = {
   days: DayPlan[];
 };
 
+type ShoppingItem = {
+  name: string;
+  grams: number;
+};
+
 const STORAGE_KEY = "fs_nutrition_plan_v1";
 
 type IngredientProfile = {
@@ -287,6 +292,7 @@ export default function NutritionPlanClient() {
     cookingTime: "medium",
   });
   const [plan, setPlan] = useState<NutritionPlan | null>(null);
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -318,6 +324,22 @@ export default function NutritionPlanClient() {
   }
 
   const activePlan = plan ?? preview;
+
+  function buildShoppingList() {
+    const totals: Record<string, number> = {};
+    activePlan.days.forEach((day) => {
+      day.meals.forEach((meal) => {
+        meal.ingredients.forEach((ingredient) => {
+          totals[ingredient.name] = (totals[ingredient.name] || 0) + ingredient.grams;
+        });
+      });
+    });
+    const list = Object.entries(totals).map(([name, grams]) => ({
+      name,
+      grams: Math.round(grams),
+    }));
+    setShoppingList(list);
+  }
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -499,6 +521,26 @@ export default function NutritionPlanClient() {
       <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
         <h2 style={{ margin: 0, fontSize: 16 }}>{c.nutrition.tipsTitle}</h2>
         <p style={{ margin: 0, opacity: 0.75 }}>{c.nutrition.tips}</p>
+      </div>
+
+      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 16 }}>{c.nutrition.shoppingTitle}</h2>
+        <button type="button" onClick={buildShoppingList} style={{ marginTop: 8 }}>
+          {c.nutrition.shoppingGenerate}
+        </button>
+        <div style={{ marginTop: 12 }}>
+          {shoppingList.length === 0 ? (
+            <p style={{ opacity: 0.7 }}>{c.nutrition.shoppingEmpty}</p>
+          ) : (
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {shoppingList.map((item) => (
+                <li key={item.name}>
+                  {item.name}: {item.grams} g
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

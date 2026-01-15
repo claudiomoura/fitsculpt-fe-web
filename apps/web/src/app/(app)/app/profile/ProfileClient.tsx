@@ -64,14 +64,6 @@ export default function ProfileClient() {
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [saved, setSaved] = useState(false);
   const [latestCheckinDate, setLatestCheckinDate] = useState<string | null>(null);
-  const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [checkinWeight, setCheckinWeight] = useState<number>(75);
-  const [checkinWaist, setCheckinWaist] = useState<number>(80);
-  const [checkinEnergy, setCheckinEnergy] = useState<number>(3);
-  const [checkinHunger, setCheckinHunger] = useState<number>(3);
-  const [checkinNotes, setCheckinNotes] = useState("");
-  const [checkinFrontPhoto, setCheckinFrontPhoto] = useState<string | null>(null);
-  const [checkinSidePhoto, setCheckinSidePhoto] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);

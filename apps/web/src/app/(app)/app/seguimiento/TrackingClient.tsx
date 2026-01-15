@@ -38,17 +38,10 @@ type WorkoutEntry = {
   notes: string;
 };
 
-type ShoppingItem = {
-  name: string;
-  grams: number;
-};
-
 const CHECKIN_KEY = "fs_checkins_v1";
 const PROFILE_KEY = "fs_profile_v1";
 const FOOD_LOG_KEY = "fs_food_log_v1";
 const WORKOUT_LOG_KEY = "fs_workout_log_v1";
-const SHOPPING_KEY = "fs_shopping_list_v1";
-const NUTRITION_KEY = "fs_nutrition_plan_v1";
 
 const foodProfiles: Record<
   string,
@@ -110,19 +103,16 @@ export default function TrackingClient() {
   const [workoutNotes, setWorkoutNotes] = useState("");
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
 
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
 
   useEffect(() => {
     setCheckins(loadJson(CHECKIN_KEY, []));
     setFoodLog(loadJson(FOOD_LOG_KEY, []));
     setWorkoutLog(loadJson(WORKOUT_LOG_KEY, []));
-    setShoppingList(loadJson(SHOPPING_KEY, []));
   }, []);
 
   useEffect(() => saveJson(CHECKIN_KEY, checkins), [checkins]);
   useEffect(() => saveJson(FOOD_LOG_KEY, foodLog), [foodLog]);
   useEffect(() => saveJson(WORKOUT_LOG_KEY, workoutLog), [workoutLog]);
-  useEffect(() => saveJson(SHOPPING_KEY, shoppingList), [shoppingList]);
 
   function handlePhoto(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -227,23 +217,6 @@ export default function TrackingClient() {
     setWorkoutLog((prev) => [entry, ...prev]);
     setWorkoutName("");
     setWorkoutNotes("");
-  }
-
-  function generateShoppingList() {
-    const nutrition = loadJson<{ plan?: { days?: { meals?: { ingredients?: { name: string; grams: number }[] }[] }[] } }>(
-      NUTRITION_KEY,
-      {}
-    );
-    const items: Record<string, number> = {};
-    nutrition?.plan?.days?.forEach((day) => {
-      day.meals?.forEach((meal) => {
-        meal.ingredients?.forEach((ingredient) => {
-          items[ingredient.name] = (items[ingredient.name] || 0) + ingredient.grams;
-        });
-      });
-    });
-    const list = Object.entries(items).map(([name, grams]) => ({ name, grams: Math.round(grams) }));
-    setShoppingList(list);
   }
 
   const mealsByDate = useMemo(() => {
@@ -492,25 +465,6 @@ export default function TrackingClient() {
         </div>
       </section>
 
-      <section>
-        <h2>{c.tracking.sectionShopping}</h2>
-        <button type="button" onClick={generateShoppingList}>
-          {c.tracking.shoppingGenerate}
-        </button>
-        <div style={{ marginTop: 12 }}>
-          {shoppingList.length === 0 ? (
-            <p style={{ opacity: 0.7 }}>{c.tracking.shoppingEmpty}</p>
-          ) : (
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {shoppingList.map((item) => (
-                <li key={item.name}>
-                  {item.name}: {item.grams} g
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
     </div>
   );
 }
