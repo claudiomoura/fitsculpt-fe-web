@@ -1,6 +1,7 @@
 import { loginAction } from "./actions";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { copy } from "@/lib/i18n";
 
 type SearchParams =
   | { next?: string; error?: string }
@@ -11,44 +12,43 @@ export default async function LoginPage({
 }: {
   searchParams?: SearchParams;
 }) {
+  const c = copy.es;
   const sp = (await Promise.resolve(searchParams)) || {};
   const next = sp.next || "/app";
   const error = sp.error === "1";
 
   const hasSession = (await cookies()).get("fs_session")?.value === "1";
-if (hasSession) redirect("/app");
-
-
-
-
+  if (hasSession) redirect("/app");
 
   return (
-    <main style={{ width: 360, padding: 24 }}>
-      <h1>Login</h1>
+    <main className="auth-card card">
+      <div>
+        <h1 className="section-title">{c.auth.loginTitle}</h1>
+        <p className="section-subtitle">{c.landing.subtitle}</p>
+      </div>
 
       {error && (
-        <p style={{ marginTop: 12 }}>
-          Credenciais inválidas (validação fake por enquanto).
+        <p className="muted" style={{ marginTop: 4 }}>
+          {c.auth.invalidCredentials}
         </p>
       )}
 
-      <form
-        action={loginAction}
-        style={{ display: "grid", gap: 12, marginTop: 16 }}
-      >
+      <form action={loginAction} className="form-stack">
         <input type="hidden" name="next" value={next} />
 
-        <label style={{ display: "grid", gap: 6 }}>
-          Email
+        <label className="form-stack">
+          {c.auth.email}
           <input name="email" type="email" required />
         </label>
 
-        <label style={{ display: "grid", gap: 6 }}>
-          Password
+        <label className="form-stack">
+          {c.auth.password}
           <input name="password" type="password" required />
         </label>
 
-        <button type="submit">Entrar</button>
+        <button type="submit" className="btn">
+          {c.auth.submit}
+        </button>
       </form>
     </main>
   );

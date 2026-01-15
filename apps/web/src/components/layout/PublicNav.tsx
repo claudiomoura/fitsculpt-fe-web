@@ -1,35 +1,31 @@
 import Link from "next/link";
+import { copy } from "@/lib/i18n";
 
 export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
+  const c = copy.es;
   return (
-    <header
-      style={{
-        borderBottom: "1px solid #e5e5e5",
-        padding: "14px 20px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
-      <Link href="/" style={{ fontWeight: 700, textDecoration: "none" }}>
-        FitSculpt
-      </Link>
-
-      <nav style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <Link href="/" style={{ textDecoration: "none" }}>
-          Home
+    <header className="site-header">
+      <div className="nav-inner">
+        <Link href="/" className="nav-brand">
+          {c.appName}
         </Link>
 
-        {loggedIn ? (
-          <Link href="/app" style={{ textDecoration: "none" }}>
-            Ir para App
+        <nav className="nav-links">
+          <Link href="/" className="nav-link">
+            {c.nav.home}
           </Link>
-        ) : (
-          <Link href="/login" style={{ textDecoration: "none" }}>
-            Login
-          </Link>
-        )}
-      </nav>
+
+          {loggedIn ? (
+            <Link href="/app" className="nav-link">
+              {c.nav.goToApp}
+            </Link>
+          ) : (
+            <Link href="/login" className="nav-link">
+              {c.nav.login}
+            </Link>
+          )}
+        </nav>
+      </div>
     </header>
   );
 }
