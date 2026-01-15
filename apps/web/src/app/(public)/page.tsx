@@ -39,6 +39,26 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title">{c.landing.stepsTitle}</h2>
+            <p className="section-subtitle">{c.landing.stepsSubtitle}</p>
+          </div>
+        </div>
+        <ol className="steps-list">
+          {c.landing.steps.map((step) => (
+            <li className="steps-item" key={step.title}>
+              <div className="steps-index" aria-hidden="true" />
+              <div>
+                <h3>{step.title}</h3>
+                <p className="muted">{step.description}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
     </div>
   );
 }

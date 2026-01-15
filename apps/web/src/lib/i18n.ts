@@ -50,6 +50,25 @@ export const copy = {
             "Registra entrenos, check-ins y hábitos para medir tu avance.",
         },
       ],
+      stepsTitle: "Cómo funciona",
+      stepsSubtitle:
+        "En tres pasos simples, convierte tus metas en un plan realista y medible.",
+      steps: [
+        {
+          title: "Define tu objetivo",
+          description: "Selecciona tu meta y el nivel de entrenamiento ideal.",
+        },
+        {
+          title: "Ajusta tus macros",
+          description:
+            "Calcula calorías y distribuye nutrientes según tu rutina.",
+        },
+        {
+          title: "Haz seguimiento",
+          description:
+            "Registra cada sesión y revisa tu progreso semana a semana.",
+        },
+      ],
     },
     auth: {
       loginTitle: "Iniciar sesión",

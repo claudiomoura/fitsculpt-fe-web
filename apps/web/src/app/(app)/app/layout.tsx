@@ -1,6 +1,7 @@
 import Link from "next/link";
 import LogoutButton from "./LogoutButton";
 import { copy } from "@/lib/i18n";
+import AppUserBadge from "@/components/layout/AppUserBadge";
 
 function AppNavLink({ href, label }: { href: string; label: string }) {
   return (
@@ -29,7 +30,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <AppNavLink href="/app/macros" label={c.nav.macros} />
             <AppNavLink href="/app/profile" label={c.nav.profile} />
             <AppNavLink href="/app/settings" label={c.nav.settings} />
-
+          </div>
+          <div className="nav-actions">
+            <AppUserBadge />
             <LogoutButton />
           </div>
         </div>

@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 
-function getAuthCookie() {
-  const token = cookies().get("fs_token")?.value;
+async function getAuthCookie() {
+  const token = (await cookies()).get("fs_token")?.value;
   return token ? `fs_token=${token}` : null;
 }
 
 export async function GET() {
-  const authCookie = getAuthCookie();
+  const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authCookie = getAuthCookie();
+  const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }

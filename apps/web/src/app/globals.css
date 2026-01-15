@@ -131,6 +131,47 @@ label {
   font-size: 14px;
 }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 13px;
+}
+
+.nav-user-name {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+}
+
+.nav-avatar-fallback {
+  display: grid;
+  place-items: center;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-weight: 700;
+  font-size: 12px;
+}
+
 .nav-link {
   padding: 6px 10px;
   border-radius: 999px;
@@ -140,6 +181,24 @@ label {
 
 .nav-link:hover {
   background: #eef2ff;
+}
+
+@media (max-width: 900px) {
+  .nav-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nav-links {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .hero {
@@ -218,4 +277,52 @@ label {
 
 .feature-card p {
   margin: 0;
+}
+
+.steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  counter-reset: steps;
+}
+
+.steps-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  counter-increment: steps;
+}
+
+.steps-item h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.steps-item p {
+  margin: 0;
+}
+
+.steps-index {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #e0e7ff;
+  position: relative;
+}
+
+.steps-index::after {
+  content: counter(steps);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #3730a3;
 }
