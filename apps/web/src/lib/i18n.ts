@@ -36,7 +36,7 @@ export const copy = {
       privateAreaTitle: "Área privada",
       privateAreaSubtitle: "Si estás aquí, estás autenticado.",
       workoutsTitle: "Entrenamientos",
-      workoutsSubtitle: "CRUD local, guardado en el navegador.",
+      workoutsSubtitle: "CRUD conectado al backend, con datos por usuario.",
       macrosTitle: "Calculadora de calorías y macros",
       macrosSubtitle:
         "Estimación de TDEE (Mifflin-St Jeor) con objetivo y distribución de macros.",

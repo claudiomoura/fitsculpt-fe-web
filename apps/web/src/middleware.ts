@@ -9,7 +9,7 @@ export function middleware(req: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   if (!isProtected) return NextResponse.next();
 
-  const hasSession = req.cookies.get("fs_session")?.value === "1";
+  const hasSession = Boolean(req.cookies.get("fs_token")?.value);
   if (hasSession) return NextResponse.next();
 
   const loginUrl = req.nextUrl.clone();
