@@ -6,7 +6,7 @@ export default async function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const loggedIn = (await cookies()).get("fs_session")?.value === "1";
+  const loggedIn = Boolean((await cookies()).get("fs_token")?.value);
 
   return (
     <>

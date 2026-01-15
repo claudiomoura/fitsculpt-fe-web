@@ -38,22 +38,6 @@ type WorkoutEntry = {
   notes: string;
 };
 
-type StoredProfile = {
-  goal: "maintain" | "cut" | "bulk";
-  weightKg?: number;
-  measurements?: {
-    chestCm: number;
-    waistCm: number;
-    hipsCm: number;
-    bicepsCm: number;
-    thighCm: number;
-    calfCm: number;
-    neckCm: number;
-    bodyFatPercent: number;
-  };
-};
-
-
 const CHECKIN_KEY = "fs_checkins_v1";
 const PROFILE_KEY = "fs_profile_v1";
 const FOOD_LOG_KEY = "fs_food_log_v1";
@@ -91,19 +75,7 @@ function saveJson<T>(key: string, value: T) {
 
 export default function TrackingClient() {
   const c = copy.es;
-
-  const [checkins, setCheckins] = useState<CheckinEntry[]>(() =>
-  loadJson(CHECKIN_KEY, [])
-);
-
-const [foodLog, setFoodLog] = useState<FoodEntry[]>(() =>
-  loadJson(FOOD_LOG_KEY, [])
-);
-
-const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>(() =>
-  loadJson(WORKOUT_LOG_KEY, [])
-);
-
+  const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [checkinWeight, setCheckinWeight] = useState(75);
   const [checkinChest, setCheckinChest] = useState(90);
@@ -123,16 +95,16 @@ const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>(() =>
   const [foodDate, setFoodDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [foodKey, setFoodKey] = useState("salmon");
   const [foodGrams, setFoodGrams] = useState(150);
+  const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
 
   const [workoutDate, setWorkoutDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDuration, setWorkoutDuration] = useState(45);
   const [workoutNotes, setWorkoutNotes] = useState("");
- 
+  const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
 
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCheckins(loadJson(CHECKIN_KEY, []));
     setFoodLog(loadJson(FOOD_LOG_KEY, []));
     setWorkoutLog(loadJson(WORKOUT_LOG_KEY, []));
@@ -153,27 +125,25 @@ const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>(() =>
     reader.readAsDataURL(file);
   }
 
-function buildRecommendation(currentWeight: number) {
-  if (checkins.length === 0) return c.profile.checkinKeep;
-  const latest = [...checkins].sort((a, b) => b.date.localeCompare(a.date))[0];
-  const delta = currentWeight - latest.weightKg;
+  function buildRecommendation(currentWeight: number) {
+    if (checkins.length === 0) return c.profile.checkinKeep;
+    const latest = [...checkins].sort((a, b) => b.date.localeCompare(a.date))[0];
+    const delta = currentWeight - latest.weightKg;
+    const profile = loadJson(PROFILE_KEY, { goal: "maintain" });
 
-  const profile = loadJson<StoredProfile>(PROFILE_KEY, { goal: "maintain" });
+    if (profile.goal === "cut") {
+      if (delta >= 0) return c.profile.checkinReduceCalories;
+      return c.profile.checkinKeep;
+    }
 
-  if (profile.goal === "cut") {
-    if (delta >= 0) return c.profile.checkinReduceCalories;
+    if (profile.goal === "bulk") {
+      if (delta <= 0) return c.profile.checkinIncreaseCalories;
+      return c.profile.checkinKeep;
+    }
+
+    if (checkinEnergy <= 2 || checkinHunger >= 4) return c.profile.checkinIncreaseProtein;
     return c.profile.checkinKeep;
   }
-
-  if (profile.goal === "bulk") {
-    if (delta <= 0) return c.profile.checkinIncreaseCalories;
-    return c.profile.checkinKeep;
-  }
-
-  if (checkinEnergy <= 2 || checkinHunger >= 4) return c.profile.checkinIncreaseProtein;
-  return c.profile.checkinKeep;
-}
-
 
   function addCheckin(e: React.FormEvent) {
     e.preventDefault();
@@ -203,27 +173,26 @@ function buildRecommendation(currentWeight: number) {
     setCheckinFrontPhoto(null);
     setCheckinSidePhoto(null);
 
-const profile = loadJson<StoredProfile | null>(PROFILE_KEY, null);
+    const profile = loadJson(PROFILE_KEY, null);
+    if (profile) {
+      const next = {
+        ...profile,
+        weightKg: entry.weightKg,
+        measurements: {
+          chestCm: entry.chestCm,
+          waistCm: entry.waistCm,
+          hipsCm: entry.hipsCm,
+          bicepsCm: entry.bicepsCm,
+          thighCm: entry.thighCm,
+          calfCm: entry.calfCm,
+          neckCm: entry.neckCm,
+          bodyFatPercent: entry.bodyFatPercent,
+        },
+      };
+      saveJson(PROFILE_KEY, next);
+    }
+  }
 
-if (profile) {
-  const next: StoredProfile = {
-    ...profile,
-    weightKg: entry.weightKg,
-    measurements: {
-      ...(profile.measurements ?? {}),
-      chestCm: entry.chestCm,
-      waistCm: entry.waistCm,
-      hipsCm: entry.hipsCm,
-      bicepsCm: entry.bicepsCm,
-      thighCm: entry.thighCm,
-      calfCm: entry.calfCm,
-      neckCm: entry.neckCm,
-      bodyFatPercent: entry.bodyFatPercent,
-    },
-  };
-  saveJson(PROFILE_KEY, next);
-}
-}
   function addFoodEntry(e: React.FormEvent) {
     e.preventDefault();
     const entry: FoodEntry = {

@@ -1,0 +1,43 @@
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { getBackendUrl } from "@/lib/backend";
+
+function getAuthCookie() {
+  const token = cookies().get("fs_token")?.value;
+  return token ? `fs_token=${token}` : null;
+}
+
+export async function GET() {
+  const authCookie = getAuthCookie();
+  if (!authCookie) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const response = await fetch(`${getBackendUrl()}/workouts`, {
+    headers: { cookie: authCookie },
+    cache: "no-store",
+  });
+
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
+}
+
+export async function POST(request: Request) {
+  const authCookie = getAuthCookie();
+  if (!authCookie) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const response = await fetch(`${getBackendUrl()}/workouts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      cookie: authCookie,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
+}
