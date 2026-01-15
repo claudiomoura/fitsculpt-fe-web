@@ -38,6 +38,22 @@ type WorkoutEntry = {
   notes: string;
 };
 
+type StoredProfile = {
+  goal: "maintain" | "cut" | "bulk";
+  weightKg?: number;
+  measurements?: {
+    chestCm: number;
+    waistCm: number;
+    hipsCm: number;
+    bicepsCm: number;
+    thighCm: number;
+    calfCm: number;
+    neckCm: number;
+    bodyFatPercent: number;
+  };
+};
+
+
 const CHECKIN_KEY = "fs_checkins_v1";
 const PROFILE_KEY = "fs_profile_v1";
 const FOOD_LOG_KEY = "fs_food_log_v1";
@@ -125,25 +141,27 @@ export default function TrackingClient() {
     reader.readAsDataURL(file);
   }
 
-  function buildRecommendation(currentWeight: number) {
-    if (checkins.length === 0) return c.profile.checkinKeep;
-    const latest = [...checkins].sort((a, b) => b.date.localeCompare(a.date))[0];
-    const delta = currentWeight - latest.weightKg;
-    const profile = loadJson(PROFILE_KEY, { goal: "maintain" });
+function buildRecommendation(currentWeight: number) {
+  if (checkins.length === 0) return c.profile.checkinKeep;
+  const latest = [...checkins].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const delta = currentWeight - latest.weightKg;
 
-    if (profile.goal === "cut") {
-      if (delta >= 0) return c.profile.checkinReduceCalories;
-      return c.profile.checkinKeep;
-    }
+  const profile = loadJson<StoredProfile>(PROFILE_KEY, { goal: "maintain" });
 
-    if (profile.goal === "bulk") {
-      if (delta <= 0) return c.profile.checkinIncreaseCalories;
-      return c.profile.checkinKeep;
-    }
-
-    if (checkinEnergy <= 2 || checkinHunger >= 4) return c.profile.checkinIncreaseProtein;
+  if (profile.goal === "cut") {
+    if (delta >= 0) return c.profile.checkinReduceCalories;
     return c.profile.checkinKeep;
   }
+
+  if (profile.goal === "bulk") {
+    if (delta <= 0) return c.profile.checkinIncreaseCalories;
+    return c.profile.checkinKeep;
+  }
+
+  if (checkinEnergy <= 2 || checkinHunger >= 4) return c.profile.checkinIncreaseProtein;
+  return c.profile.checkinKeep;
+}
+
 
   function addCheckin(e: React.FormEvent) {
     e.preventDefault();
@@ -173,26 +191,27 @@ export default function TrackingClient() {
     setCheckinFrontPhoto(null);
     setCheckinSidePhoto(null);
 
-    const profile = loadJson(PROFILE_KEY, null);
-    if (profile) {
-      const next = {
-        ...profile,
-        weightKg: entry.weightKg,
-        measurements: {
-          chestCm: entry.chestCm,
-          waistCm: entry.waistCm,
-          hipsCm: entry.hipsCm,
-          bicepsCm: entry.bicepsCm,
-          thighCm: entry.thighCm,
-          calfCm: entry.calfCm,
-          neckCm: entry.neckCm,
-          bodyFatPercent: entry.bodyFatPercent,
-        },
-      };
-      saveJson(PROFILE_KEY, next);
-    }
-  }
+const profile = loadJson<StoredProfile | null>(PROFILE_KEY, null);
 
+if (profile) {
+  const next: StoredProfile = {
+    ...profile,
+    weightKg: entry.weightKg,
+    measurements: {
+      ...(profile.measurements ?? {}),
+      chestCm: entry.chestCm,
+      waistCm: entry.waistCm,
+      hipsCm: entry.hipsCm,
+      bicepsCm: entry.bicepsCm,
+      thighCm: entry.thighCm,
+      calfCm: entry.calfCm,
+      neckCm: entry.neckCm,
+      bodyFatPercent: entry.bodyFatPercent,
+    },
+  };
+  saveJson(PROFILE_KEY, next);
+}
+}
   function addFoodEntry(e: React.FormEvent) {
     e.preventDefault();
     const entry: FoodEntry = {
