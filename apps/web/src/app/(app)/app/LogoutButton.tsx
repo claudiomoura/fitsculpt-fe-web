@@ -5,7 +5,9 @@ export default function LogoutButton() {
   const c = copy.es;
   return (
     <form action={logoutAction}>
-      <button type="submit">{c.nav.logout}</button>
+      <button type="submit" className="btn secondary">
+        {c.nav.logout}
+      </button>
     </form>
   );
 }

@@ -21,32 +21,34 @@ export default async function LoginPage({
   if (hasSession) redirect("/app");
 
   return (
-    <main style={{ width: 360, padding: 24 }}>
-      <h1>{c.auth.loginTitle}</h1>
+    <main className="auth-card card">
+      <div>
+        <h1 className="section-title">{c.auth.loginTitle}</h1>
+        <p className="section-subtitle">{c.landing.subtitle}</p>
+      </div>
 
       {error && (
-        <p style={{ marginTop: 12 }}>
+        <p className="muted" style={{ marginTop: 4 }}>
           {c.auth.invalidCredentials}
         </p>
       )}
 
-      <form
-        action={loginAction}
-        style={{ display: "grid", gap: 12, marginTop: 16 }}
-      >
+      <form action={loginAction} className="form-stack">
         <input type="hidden" name="next" value={next} />
 
-        <label style={{ display: "grid", gap: 6 }}>
+        <label className="form-stack">
           {c.auth.email}
           <input name="email" type="email" required />
         </label>
 
-        <label style={{ display: "grid", gap: 6 }}>
+        <label className="form-stack">
           {c.auth.password}
           <input name="password" type="password" required />
         </label>
 
-        <button type="submit">{c.auth.submit}</button>
+        <button type="submit" className="btn">
+          {c.auth.submit}
+        </button>
       </form>
     </main>
   );
