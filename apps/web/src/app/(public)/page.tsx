@@ -1,14 +1,25 @@
 import Link from "next/link";
+import { copy } from "@/lib/i18n";
 
 export default function HomePage() {
+  const c = copy.es;
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui" }}>
-      <h1 style={{ fontSize: 32, marginBottom: 8 }}>FitSculpt</h1>
-      <p style={{ color: "#555", marginBottom: 16 }}>
-        Landing page simples (vamos evoluir depois).
-      </p>
+    <section className="hero">
+      <div style={{ maxWidth: 520, display: "grid", gap: 12 }}>
+        <h1>{c.landing.title}</h1>
+        <p className="muted" style={{ fontSize: 18 }}>
+          {c.landing.subtitle}
+        </p>
+      </div>
 
-      <Link href="/login">Ir para Login →</Link>
-    </main>
+      <div className="hero-actions">
+        <Link href="/login" className="btn">
+          {c.landing.cta}
+        </Link>
+        <Link href="/app" className="btn secondary">
+          {c.landing.secondaryCta}
+        </Link>
+      </div>
+    </section>
   );
 }
