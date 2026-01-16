@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 
@@ -13,7 +13,7 @@ export async function GET(_request: Request, context: { params: { id: string } }
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const response = await fetch(`${getBackendUrl()}/workouts/${context.params.id}`, {
+  const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     headers: { cookie: authCookie },
     cache: "no-store",
   });
@@ -29,7 +29,7 @@ export async function PATCH(request: Request, context: { params: { id: string } 
   }
 
   const body = await request.json();
-  const response = await fetch(`${getBackendUrl()}/workouts/${context.params.id}`, {
+  const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -48,7 +48,7 @@ export async function DELETE(_request: Request, context: { params: { id: string 
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const response = await fetch(`${getBackendUrl()}/workouts/${context.params.id}`, {
+  const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     method: "DELETE",
     headers: { cookie: authCookie },
   });
