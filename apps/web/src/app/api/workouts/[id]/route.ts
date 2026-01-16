@@ -7,12 +7,7 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-
+export async function GET(_request: Request, context: { params: { id: string } }) {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -27,13 +22,7 @@ export async function GET(
   return NextResponse.json(data, { status: response.status });
 }
 
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-
+export async function PATCH(request: Request, context: { params: { id: string } }) {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -53,12 +42,7 @@ export async function PATCH(
   return NextResponse.json(data, { status: response.status });
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-
+export async function DELETE(_request: Request, context: { params: { id: string } }) {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
