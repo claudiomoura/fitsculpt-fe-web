@@ -7,14 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String?
   name         String?
   provider     String   @default("email")
+  role         Role     @default(USER)
+  isBlocked    Boolean  @default(false)
+  emailVerifiedAt DateTime?
+  lastLoginAt  DateTime?
+  deletedAt    DateTime?
   profile      UserProfile?
   workouts     Workout[]
+  authProviders AuthProvider[]
+  emailVerificationTokens EmailVerificationToken[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -41,4 +53,43 @@ model UserProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuthProvider {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String
+  providerUserId String
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SignupAttempt {
+  id        String   @id @default(cuid())
+  email     String?
+  ipAddress String?
+  success   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model OAuthState {
+  id        String   @id @default(cuid())
+  provider  String
+  stateHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

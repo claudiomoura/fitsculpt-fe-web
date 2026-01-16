@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LogoutButton from "@/app/(app)/app/LogoutButton";
@@ -16,6 +16,25 @@ export default function AppNavBar() {
   const c = copy.es;
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as { role?: string };
+        if (active) setIsAdmin(data.role === "ADMIN");
+      } catch {
+        // Ignore.
+      }
+    };
+    void load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const navLinks: NavLink[] = [
     { href: "/app", label: c.nav.dashboard },
@@ -25,6 +44,7 @@ export default function AppNavBar() {
     { href: "/app/seguimiento", label: c.nav.tracking },
     { href: "/app/macros", label: c.nav.macros },
     { href: "/app/biblioteca", label: c.nav.library },
+    ...(isAdmin ? [{ href: "/app/admin", label: c.nav.admin }] : []),
     { href: "/app/profile", label: c.nav.profile },
     { href: "/app/settings", label: c.nav.settings },
   ];
