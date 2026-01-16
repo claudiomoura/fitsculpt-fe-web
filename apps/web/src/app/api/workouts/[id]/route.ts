@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 
@@ -7,13 +7,18 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET(_request: Request, context: { params: { id: string } }) {
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const response = await fetch(`${getBackendUrl()}/workouts/${context.params.id}`, {
+  const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     headers: { cookie: authCookie },
     cache: "no-store",
   });
@@ -22,14 +27,20 @@ export async function GET(_request: Request, context: { params: { id: string } }
   return NextResponse.json(data, { status: response.status });
 }
 
-export async function PATCH(request: Request, context: { params: { id: string } }) {
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   const body = await request.json();
-  const response = await fetch(`${getBackendUrl()}/workouts/${context.params.id}`, {
+  const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -42,13 +53,18 @@ export async function PATCH(request: Request, context: { params: { id: string } 
   return NextResponse.json(data, { status: response.status });
 }
 
-export async function DELETE(_request: Request, context: { params: { id: string } }) {
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const response = await fetch(`${getBackendUrl()}/workouts/${context.params.id}`, {
+  const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     method: "DELETE",
     headers: { cookie: authCookie },
   });
