@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import crypto from "crypto";
 
 export const PROMO_CODE = "FitSculpt-100%";
 
