@@ -10,7 +10,14 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
-  GOOGLE_REDIRECT_URL: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().optional(),
+  APP_BASE_URL: z.string().default("http://localhost:3000"),
+  EMAIL_PROVIDER: z.string().default("console"),
+  EMAIL_FROM: z.string().default("no-reply@fitsculpt.app"),
+  RESEND_API_KEY: z.string().optional(),
+  VERIFICATION_TOKEN_TTL_HOURS: z.coerce.number().default(24),
+  VERIFICATION_RESEND_COOLDOWN_MINUTES: z.coerce.number().default(10),
+  ADMIN_EMAIL_SEED: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -25,6 +32,13 @@ export function getEnv(): Env {
     CORS_ORIGIN: process.env.CORS_ORIGIN,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-    GOOGLE_REDIRECT_URL: process.env.GOOGLE_REDIRECT_URL,
+    GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI,
+    APP_BASE_URL: process.env.APP_BASE_URL,
+    EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
+    EMAIL_FROM: process.env.EMAIL_FROM,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    VERIFICATION_TOKEN_TTL_HOURS: process.env.VERIFICATION_TOKEN_TTL_HOURS,
+    VERIFICATION_RESEND_COOLDOWN_MINUTES: process.env.VERIFICATION_RESEND_COOLDOWN_MINUTES,
+    ADMIN_EMAIL_SEED: process.env.ADMIN_EMAIL_SEED,
   });
 }

@@ -11,6 +11,18 @@ type Workout = {
   notes: string | null;
 };
 
+type SessionLog = {
+  id: string;
+  date: string;
+  exercise: string;
+  sets: number;
+  reps: number;
+  loadKg: number;
+  rpe: number;
+};
+
+const SESSION_STORAGE_KEY = "fs_session_logs_v1";
+
 export default function WorkoutsClient() {
   const c = copy.es.workouts;
   const [workouts, setWorkouts] = useState<Workout[]>([]);
@@ -28,6 +40,14 @@ export default function WorkoutsClient() {
   const [error, setError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
+  const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [sessionExercise, setSessionExercise] = useState("");
+  const [sessionSets, setSessionSets] = useState(3);
+  const [sessionReps, setSessionReps] = useState(10);
+  const [sessionLoad, setSessionLoad] = useState(20);
+  const [sessionRpe, setSessionRpe] = useState(7);
 
   const loadWorkouts = useCallback(async () => {
     setLoading(true);
@@ -63,6 +83,21 @@ export default function WorkoutsClient() {
     void loadWorkouts();
   }, [loadWorkouts]);
 
+  useEffect(() => {
+    const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as SessionLog[];
+      setSessionLogs(parsed ?? []);
+    } catch {
+      setSessionLogs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionLogs));
+  }, [sessionLogs]);
+
   const editingWorkout = useMemo(
     () => workouts.find((w) => w.id === editingId) || null,
     [workouts, editingId]
@@ -95,6 +130,33 @@ export default function WorkoutsClient() {
 
     return items;
   }, [workouts, query, fromDate, toDate, sort]);
+
+  const sessionsByDate = useMemo(() => {
+    return sessionLogs.reduce<Record<string, SessionLog[]>>((acc, entry) => {
+      acc[entry.date] = acc[entry.date] ? [...acc[entry.date], entry] : [entry];
+      return acc;
+    }, {});
+  }, [sessionLogs]);
+
+  const progressionByExercise = useMemo(() => {
+    const byExercise: Record<string, SessionLog[]> = {};
+    sessionLogs.forEach((entry) => {
+      if (!byExercise[entry.exercise]) byExercise[entry.exercise] = [];
+      byExercise[entry.exercise].push(entry);
+    });
+
+    return Object.entries(byExercise).map(([exercise, logs]) => {
+      const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
+      const latest = sorted[sorted.length - 1];
+      const prev = sorted[sorted.length - 2];
+      const delta = prev ? latest.loadKg - prev.loadKg : 0;
+      return {
+        exercise,
+        latest,
+        delta,
+      };
+    });
+  }, [sessionLogs]);
 
   function resetForm() {
     setName("");
@@ -147,7 +209,7 @@ export default function WorkoutsClient() {
     if (!trimmed) return;
 
     const notesValue = notes.trim();
-    const response = await fetch(`/api/workouts/${editingWorkout.id}`, {
+    const response = await fetch(`/api/workouts/${editingWorkout.id}` as string, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -171,7 +233,7 @@ export default function WorkoutsClient() {
     const ok = window.confirm(c.confirmDelete);
     if (!ok) return;
 
-    const response = await fetch(`/api/workouts/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/workouts/${id}` as string, { method: "DELETE" });
     if (!response.ok) {
       setError("No pudimos eliminar el entrenamiento.");
       return;
@@ -182,26 +244,38 @@ export default function WorkoutsClient() {
     }
   }
 
+  function addSessionEntry(e: React.FormEvent) {
+    e.preventDefault();
+    if (!sessionExercise.trim()) return;
+
+    const entry: SessionLog = {
+      id: `${sessionDate}-${Date.now()}`,
+      date: sessionDate,
+      exercise: sessionExercise.trim(),
+      sets: Number(sessionSets),
+      reps: Number(sessionReps),
+      loadKg: Number(sessionLoad),
+      rpe: Number(sessionRpe),
+    };
+    setSessionLogs((prev) => [entry, ...prev]);
+    setSessionExercise("");
+  }
+
   const isEditing = Boolean(editingId);
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div
-        style={{
-          border: "1px solid #e5e5e5",
-          borderRadius: 12,
-          padding: 16,
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: 16 }}>
+    <div className="page">
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>
           {isEditing ? c.editWorkout : c.newWorkout}
         </h2>
 
         <form
           onSubmit={isEditing ? submitEdit : submitNew}
-          style={{ display: "grid", gap: 12, marginTop: 12 }}
+          className="form-stack"
+          style={{ marginTop: 12 }}
         >
-          <label style={{ display: "grid", gap: 6 }}>
+          <label className="form-stack">
             {c.name}
             <input
               value={name}
@@ -211,8 +285,8 @@ export default function WorkoutsClient() {
             />
           </label>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
               {c.date}
               <input
                 type="date"
@@ -222,7 +296,7 @@ export default function WorkoutsClient() {
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.duration}
               <input
                 type="number"
@@ -234,7 +308,7 @@ export default function WorkoutsClient() {
             </label>
           </div>
 
-          <label style={{ display: "grid", gap: 6 }}>
+          <label className="form-stack">
             {c.notes}
             <textarea
               value={notes}
@@ -244,11 +318,11 @@ export default function WorkoutsClient() {
             />
           </label>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button type="submit">{isEditing ? c.save : c.add}</button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <button type="submit" className="btn">{isEditing ? c.save : c.add}</button>
 
             {isEditing && (
-              <button type="button" onClick={resetForm}>
+              <button type="button" className="btn secondary" onClick={resetForm}>
                 {c.cancel}
               </button>
             )}
@@ -258,31 +332,25 @@ export default function WorkoutsClient() {
             ) : null}
           </div>
         </form>
-      </div>
+      </section>
 
-      <div
-        style={{
-          border: "1px solid #e5e5e5",
-          borderRadius: 12,
-          padding: 16,
-        }}
-      >
+      <section className="card">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>{c.list}</h2>
-          <span style={{ opacity: 0.7 }}>
+          <h2 className="section-title" style={{ fontSize: 20 }}>{c.list}</h2>
+          <span className="muted">
             ({visibleWorkouts.length} de {workouts.length})
           </span>
         </div>
 
-        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+        <div className="form-stack" style={{ marginTop: 12 }}>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={c.searchPlaceholder}
           />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+            <label className="form-stack">
               {c.from}
               <input
                 type="date"
@@ -291,7 +359,7 @@ export default function WorkoutsClient() {
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.to}
               <input
                 type="date"
@@ -300,7 +368,7 @@ export default function WorkoutsClient() {
               />
             </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.sort}
               <select value={sort} onChange={(e) => setSort(e.target.value as never)}>
                 <option value="date_desc">{c.sortNewest}</option>
@@ -314,6 +382,7 @@ export default function WorkoutsClient() {
           <div style={{ display: "flex", gap: 10 }}>
             <button
               type="button"
+              className="btn secondary"
               onClick={() => {
                 setQuery("");
                 setFromDate("");
@@ -327,9 +396,9 @@ export default function WorkoutsClient() {
         </div>
 
         {loading ? (
-          <p style={{ marginTop: 12, opacity: 0.7 }}>Cargando entrenamientos...</p>
+          <p style={{ marginTop: 12 }} className="muted">Cargando entrenamientos...</p>
         ) : workouts.length === 0 ? (
-          <p style={{ marginTop: 12, opacity: 0.7 }}>
+          <p style={{ marginTop: 12 }} className="muted">
             {c.empty}
           </p>
         ) : (
@@ -355,18 +424,18 @@ export default function WorkoutsClient() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                   <strong>{w.name}</strong>
-                  <span style={{ opacity: 0.7 }}>
+                  <span className="muted">
                     {w.date || "Sin fecha"} , {w.durationMin ?? 0} min
                   </span>
                 </div>
 
-                {w.notes ? <p style={{ margin: 0, opacity: 0.85 }}>{w.notes}</p> : null}
+                {w.notes ? <p style={{ margin: 0 }} className="muted">{w.notes}</p> : null}
 
                 <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                  <button type="button" onClick={() => startEdit(w)}>
+                  <button type="button" className="btn secondary" onClick={() => startEdit(w)}>
                     {c.edit}
                   </button>
-                  <button type="button" onClick={() => remove(w.id)}>
+                  <button type="button" className="btn secondary" onClick={() => remove(w.id)}>
                     {c.delete}
                   </button>
                 </div>
@@ -374,7 +443,83 @@ export default function WorkoutsClient() {
             ))}
           </ul>
         )}
-      </div>
+      </section>
+
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>Registro por sesión</h2>
+            <p className="section-subtitle">Trackea series, repeticiones y carga por ejercicio.</p>
+          </div>
+        </div>
+        <form onSubmit={addSessionEntry} className="form-stack">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
+              Fecha
+              <input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
+            </label>
+            <label className="form-stack">
+              Ejercicio
+              <input value={sessionExercise} onChange={(e) => setSessionExercise(e.target.value)} placeholder="Ej: Sentadilla" />
+            </label>
+            <label className="form-stack">
+              Series
+              <input type="number" min={1} value={sessionSets} onChange={(e) => setSessionSets(Number(e.target.value))} />
+            </label>
+            <label className="form-stack">
+              Reps
+              <input type="number" min={1} value={sessionReps} onChange={(e) => setSessionReps(Number(e.target.value))} />
+            </label>
+            <label className="form-stack">
+              Carga (kg)
+              <input type="number" min={0} value={sessionLoad} onChange={(e) => setSessionLoad(Number(e.target.value))} />
+            </label>
+            <label className="form-stack">
+              RPE
+              <input type="number" min={1} max={10} value={sessionRpe} onChange={(e) => setSessionRpe(Number(e.target.value))} />
+            </label>
+          </div>
+          <button type="submit" className="btn" style={{ width: "fit-content" }}>Agregar sesión</button>
+        </form>
+
+        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+          {Object.keys(sessionsByDate).length === 0 ? (
+            <p className="muted">Aún no hay sesiones registradas.</p>
+          ) : (
+            Object.entries(sessionsByDate).map(([day, entries]) => (
+              <div key={day} className="feature-card">
+                <strong>{day}</strong>
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                  {entries.map((entry) => (
+                    <li key={entry.id}>
+                      {entry.exercise}: {entry.sets}x{entry.reps} · {entry.loadKg}kg · RPE {entry.rpe}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>Progresión por ejercicio</h2>
+        <div className="list-grid" style={{ marginTop: 16 }}>
+          {progressionByExercise.length === 0 ? (
+            <p className="muted">Registra sesiones para ver progresiones.</p>
+          ) : (
+            progressionByExercise.map(({ exercise, latest, delta }) => (
+              <div key={exercise} className="feature-card">
+                <strong>{exercise}</strong>
+                <div className="muted">Última sesión: {latest.sets}x{latest.reps} · {latest.loadKg}kg</div>
+                <div style={{ marginTop: 6 }}>
+                  {delta === 0 ? "Sin cambio" : delta > 0 ? `+${delta} kg` : `${delta} kg`} vs sesión anterior
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
     </div>
   );
 }

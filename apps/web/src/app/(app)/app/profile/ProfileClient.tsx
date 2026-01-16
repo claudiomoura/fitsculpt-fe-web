@@ -2,7 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { copy } from "@/lib/i18n";
-import { defaultProfile, type Activity, type Goal, type ProfileData } from "@/lib/profile";
+import {
+  defaultProfile,
+  type Activity,
+  type Goal,
+  type MacroFormula,
+  type ProfileData,
+  type Sex,
+  type TrainingEquipment,
+  type TrainingFocus,
+  type TrainingLevel,
+  type SessionTime,
+  type NutritionCookingTime,
+} from "@/lib/profile";
+import { getUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
 
 export default function ProfileClient() {
   const c = copy.es;
@@ -14,18 +27,9 @@ export default function ProfileClient() {
     let active = true;
     const loadProfile = async () => {
       try {
-        const response = await fetch("/api/profile", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as Partial<ProfileData> | null;
-        if (active && data) {
-          setProfile({
-            ...defaultProfile,
-            ...data,
-            measurements: {
-              ...defaultProfile.measurements,
-              ...data.measurements,
-            },
-          });
+        const data = await getUserProfile();
+        if (active) {
+          setProfile(data);
         }
       } catch {
         // Ignore fetch errors on first load.
@@ -63,27 +67,55 @@ export default function ProfileClient() {
     setProfile((prev) => ({ ...prev, [key]: value }));
   }
 
+  function updateTraining<K extends keyof ProfileData["trainingPreferences"]>(
+    key: K,
+    value: ProfileData["trainingPreferences"][K]
+  ) {
+    setProfile((prev) => ({
+      ...prev,
+      trainingPreferences: {
+        ...prev.trainingPreferences,
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateNutrition<K extends keyof ProfileData["nutritionPreferences"]>(
+    key: K,
+    value: ProfileData["nutritionPreferences"][K]
+  ) {
+    setProfile((prev) => ({
+      ...prev,
+      nutritionPreferences: {
+        ...prev.nutritionPreferences,
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateMacros<K extends keyof ProfileData["macroPreferences"]>(
+    key: K,
+    value: ProfileData["macroPreferences"][K]
+  ) {
+    setProfile((prev) => ({
+      ...prev,
+      macroPreferences: {
+        ...prev.macroPreferences,
+        [key]: value,
+      },
+    }));
+  }
+
   async function saveProfile() {
-    const response = await fetch("/api/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profile),
-    });
-    if (response.ok) {
-      setSaved(true);
-      window.setTimeout(() => setSaved(false), 2000);
-    }
+    const nextProfile = await updateUserProfilePreferences(profile);
+    setProfile(nextProfile);
+    setSaved(true);
+    window.setTimeout(() => setSaved(false), 2000);
   }
 
   async function resetProfile() {
-    const response = await fetch("/api/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(defaultProfile),
-    });
-    if (response.ok) {
-      setProfile(defaultProfile);
-    }
+    const nextProfile = await updateUserProfilePreferences(defaultProfile);
+    setProfile(nextProfile);
   }
 
   function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -91,30 +123,38 @@ export default function ProfileClient() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setProfile((prev) => ({ ...prev, avatarDataUrl: String(reader.result || "") }));
+      const nextUrl = String(reader.result || "");
+      setProfile((prev) => ({ ...prev, profilePhotoUrl: nextUrl, avatarDataUrl: nextUrl }));
     };
     reader.readAsDataURL(file);
   }
 
   function removeAvatar() {
-    setProfile((prev) => ({ ...prev, avatarDataUrl: null }));
+    setProfile((prev) => ({ ...prev, profilePhotoUrl: null, avatarDataUrl: null }));
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.profile.formTitle}</h2>
+    <div className="page">
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>
+              {c.profile.formTitle}
+            </h2>
+            <p className="section-subtitle">{c.app.profileSubtitle}</p>
+          </div>
+        </div>
 
-        <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
+        <div className="form-stack">
           <div>
             <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{c.profile.basicsTitle}</h3>
-            <div style={{ display: "grid", gap: 12 }}>
-              <div style={{ display: "grid", gap: 10 }}>
+            <div className="form-stack">
+              <div className="form-stack">
                 <div style={{ fontWeight: 600 }}>{c.profile.avatarTitle}</div>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  {profile.avatarDataUrl ? (
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  {profile.profilePhotoUrl ? (
                     <img
-                      src={profile.avatarDataUrl}
+                      src={profile.profilePhotoUrl}
                       alt="Avatar"
                       style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }}
                     />
@@ -124,32 +164,33 @@ export default function ProfileClient() {
                         width: 72,
                         height: 72,
                         borderRadius: "50%",
-                        background: "#f3f4f6",
+                        background: "var(--primary-soft)",
                         display: "grid",
                         placeItems: "center",
-                        color: "#6b7280",
+                        color: "#9a3412",
                         fontSize: 12,
+                        fontWeight: 600,
                       }}
                     >
                       {c.profile.avatarTitle}
                     </div>
                   )}
-                  <div style={{ display: "grid", gap: 6 }}>
-                    <label style={{ display: "grid", gap: 6 }}>
+                  <div className="form-stack" style={{ minWidth: 200 }}>
+                    <label className="form-stack">
                       {c.profile.avatarUpload}
                       <input type="file" accept="image/*" onChange={handleAvatarUpload} />
                     </label>
-                    {profile.avatarDataUrl && (
-                      <button type="button" onClick={removeAvatar}>
+                    {profile.profilePhotoUrl && (
+                      <button type="button" className="btn secondary" onClick={removeAvatar}>
                         {c.profile.avatarRemove}
                       </button>
                     )}
-                    <span style={{ opacity: 0.7 }}>{c.profile.avatarHint}</span>
+                    <span className="muted">{c.profile.avatarHint}</span>
                   </div>
                 </div>
               </div>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="form-stack">
                 {c.profile.name}
                 <input
                   value={profile.name}
@@ -158,8 +199,16 @@ export default function ProfileClient() {
                 />
               </label>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                <label className="form-stack">
+                  {c.profile.sex}
+                  <select value={profile.sex} onChange={(e) => update("sex", e.target.value as Sex)}>
+                    <option value="male">{c.profile.sexMale}</option>
+                    <option value="female">{c.profile.sexFemale}</option>
+                  </select>
+                </label>
+
+                <label className="form-stack">
                   {c.profile.age}
                   <input
                     type="number"
@@ -170,7 +219,7 @@ export default function ProfileClient() {
                   />
                 </label>
 
-                <label style={{ display: "grid", gap: 6 }}>
+                <label className="form-stack">
                   {c.profile.height}
                   <input
                     type="number"
@@ -182,8 +231,8 @@ export default function ProfileClient() {
                 </label>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                <label className="form-stack">
                   {c.profile.weight}
                   <input
                     type="number"
@@ -194,7 +243,7 @@ export default function ProfileClient() {
                   />
                 </label>
 
-                <label style={{ display: "grid", gap: 6 }}>
+                <label className="form-stack">
                   {c.profile.goalWeight}
                   <input
                     type="number"
@@ -204,10 +253,8 @@ export default function ProfileClient() {
                     onChange={(e) => update("goalWeightKg", Number(e.target.value))}
                   />
                 </label>
-              </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
+                <label className="form-stack">
                   {c.profile.goal}
                   <select value={profile.goal} onChange={(e) => update("goal", e.target.value as Goal)}>
                     <option value="cut">{c.profile.goalCut}</option>
@@ -216,7 +263,7 @@ export default function ProfileClient() {
                   </select>
                 </label>
 
-                <label style={{ display: "grid", gap: 6 }}>
+                <label className="form-stack">
                   {c.profile.activity}
                   <select
                     value={profile.activity}
@@ -234,14 +281,105 @@ export default function ProfileClient() {
           </div>
 
           <div>
-            <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{c.profile.preferencesTitle}</h3>
-            <div style={{ display: "grid", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{c.profile.trainingPrefsTitle}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <label className="form-stack">
+                {c.profile.goal}
+                <select
+                  value={profile.trainingPreferences.goal}
+                  onChange={(e) => updateTraining("goal", e.target.value as Goal)}
+                >
+                  <option value="cut">{c.profile.goalCut}</option>
+                  <option value="maintain">{c.profile.goalMaintain}</option>
+                  <option value="bulk">{c.profile.goalBulk}</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
+                {c.profile.trainingLevel}
+                <select
+                  value={profile.trainingPreferences.level}
+                  onChange={(e) => updateTraining("level", e.target.value as TrainingLevel)}
+                >
+                  <option value="beginner">{c.profile.trainingLevelBeginner}</option>
+                  <option value="intermediate">{c.profile.trainingLevelIntermediate}</option>
+                  <option value="advanced">{c.profile.trainingLevelAdvanced}</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
+                {c.profile.trainingDays}
+                <select
+                  value={profile.trainingPreferences.daysPerWeek}
+                  onChange={(e) =>
+                    updateTraining("daysPerWeek", Number(e.target.value) as 2 | 3 | 4 | 5)
+                  }
+                >
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                  <option value={5}>5</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
+                {c.profile.trainingSessionTime}
+                <select
+                  value={profile.trainingPreferences.sessionTime}
+                  onChange={(e) => updateTraining("sessionTime", e.target.value as SessionTime)}
+                >
+                  <option value="short">{c.profile.trainingSessionShort}</option>
+                  <option value="medium">{c.profile.trainingSessionMedium}</option>
+                  <option value="long">{c.profile.trainingSessionLong}</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
+                {c.profile.trainingFocus}
+                <select
+                  value={profile.trainingPreferences.focus}
+                  onChange={(e) => updateTraining("focus", e.target.value as TrainingFocus)}
+                >
+                  <option value="full">{c.profile.trainingFocusFull}</option>
+                  <option value="upperLower">{c.profile.trainingFocusUpperLower}</option>
+                  <option value="ppl">{c.profile.trainingFocusPpl}</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
+                {c.profile.trainingEquipment}
+                <select
+                  value={profile.trainingPreferences.equipment}
+                  onChange={(e) => updateTraining("equipment", e.target.value as TrainingEquipment)}
+                >
+                  <option value="gym">{c.profile.trainingEquipmentGym}</option>
+                  <option value="home">{c.profile.trainingEquipmentHome}</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{c.profile.nutritionPrefsTitle}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <label className="form-stack">
+                {c.profile.goal}
+                <select
+                  value={profile.nutritionPreferences.goal}
+                  onChange={(e) => updateNutrition("goal", e.target.value as Goal)}
+                >
+                  <option value="maintain">{c.profile.goalMaintain}</option>
+                  <option value="cut">{c.profile.goalCut}</option>
+                  <option value="bulk">{c.profile.goalBulk}</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
                 {c.profile.mealsPerDay}
                 <select
-                  value={profile.mealsPerDay}
+                  value={profile.nutritionPreferences.mealsPerDay}
                   onChange={(e) =>
-                    update("mealsPerDay", Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)
+                    updateNutrition("mealsPerDay", Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)
                   }
                 >
                   <option value={1}>1</option>
@@ -253,31 +391,95 @@ export default function ProfileClient() {
                 </select>
               </label>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="form-stack">
+                {c.profile.cookingTime}
+                <select
+                  value={profile.nutritionPreferences.cookingTime}
+                  onChange={(e) => updateNutrition("cookingTime", e.target.value as NutritionCookingTime)}
+                >
+                  <option value="quick">{c.profile.cookingTimeOptionQuick}</option>
+                  <option value="medium">{c.profile.cookingTimeOptionMedium}</option>
+                  <option value="long">{c.profile.cookingTimeOptionLong}</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="form-stack" style={{ marginTop: 12 }}>
+              <label className="form-stack">
                 {c.profile.dietaryPrefs}
                 <input
-                  value={profile.dietaryPrefs}
-                  onChange={(e) => update("dietaryPrefs", e.target.value)}
+                  value={profile.nutritionPreferences.dietaryPrefs}
+                  onChange={(e) => updateNutrition("dietaryPrefs", e.target.value)}
                   placeholder={c.profile.dietaryPrefsPlaceholder}
                 />
               </label>
 
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="form-stack">
                 {c.profile.dislikes}
                 <input
-                  value={profile.dislikes}
-                  onChange={(e) => update("dislikes", e.target.value)}
+                  value={profile.nutritionPreferences.dislikes}
+                  onChange={(e) => updateNutrition("dislikes", e.target.value)}
                   placeholder={c.profile.dislikesPlaceholder}
                 />
               </label>
+            </div>
+          </div>
 
-              <label style={{ display: "grid", gap: 6 }}>
-                {c.profile.notes}
-                <textarea
-                  value={profile.notes}
-                  onChange={(e) => update("notes", e.target.value)}
-                  placeholder={c.profile.notesPlaceholder}
-                  rows={3}
+          <div>
+            <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{c.profile.macroPrefsTitle}</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <label className="form-stack">
+                {c.profile.macroFormula}
+                <select
+                  value={profile.macroPreferences.formula}
+                  onChange={(e) => updateMacros("formula", e.target.value as MacroFormula)}
+                >
+                  <option value="mifflin">{c.profile.macroFormulaMifflin}</option>
+                  <option value="katch">{c.profile.macroFormulaKatch}</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
+                {c.profile.macroProtein}
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={profile.macroPreferences.proteinGPerKg}
+                  onChange={(e) => updateMacros("proteinGPerKg", Number(e.target.value))}
+                />
+              </label>
+
+              <label className="form-stack">
+                {c.profile.macroFat}
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={profile.macroPreferences.fatGPerKg}
+                  onChange={(e) => updateMacros("fatGPerKg", Number(e.target.value))}
+                />
+              </label>
+
+              <label className="form-stack">
+                {c.profile.macroCutPercent}
+                <input
+                  type="number"
+                  min={0}
+                  max={40}
+                  value={profile.macroPreferences.cutPercent}
+                  onChange={(e) => updateMacros("cutPercent", Number(e.target.value))}
+                />
+              </label>
+
+              <label className="form-stack">
+                {c.profile.macroBulkPercent}
+                <input
+                  type="number"
+                  min={0}
+                  max={40}
+                  value={profile.macroPreferences.bulkPercent}
+                  onChange={(e) => updateMacros("bulkPercent", Number(e.target.value))}
                 />
               </label>
             </div>
@@ -285,43 +487,60 @@ export default function ProfileClient() {
 
           <div>
             <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{c.profile.latestMetricsTitle}</h3>
-            <p style={{ marginTop: 0 }}>{c.profile.latestMetricsHint}</p>
-            <div style={{ display: "grid", gap: 8 }}>
-              <div>
-                <strong>{c.profile.weight}:</strong> {profile.weightKg} kg
+            <p className="muted" style={{ marginTop: 0 }}>
+              {c.profile.latestMetricsHint}
+            </p>
+            <div className="info-grid">
+              <div className="info-item">
+                <div className="info-label">{c.profile.weight}</div>
+                <div className="info-value">{profile.weightKg} kg</div>
               </div>
-              <div>
-                <strong>{c.profile.waist}:</strong> {profile.measurements.waistCm} cm
+              <div className="info-item">
+                <div className="info-label">{c.profile.waist}</div>
+                <div className="info-value">{profile.measurements.waistCm} cm</div>
               </div>
-              <div>
-                <strong>{c.profile.chest}:</strong> {profile.measurements.chestCm} cm
+              <div className="info-item">
+                <div className="info-label">{c.profile.chest}</div>
+                <div className="info-value">{profile.measurements.chestCm} cm</div>
               </div>
-              <div>
-                <strong>{c.profile.hips}:</strong> {profile.measurements.hipsCm} cm
+              <div className="info-item">
+                <div className="info-label">{c.profile.hips}</div>
+                <div className="info-value">{profile.measurements.hipsCm} cm</div>
               </div>
-              <div>
-                <strong>{c.profile.bodyFat}:</strong> {profile.measurements.bodyFatPercent}%
+              <div className="info-item">
+                <div className="info-label">{c.profile.bodyFat}</div>
+                <div className="info-value">{profile.measurements.bodyFatPercent}%</div>
               </div>
               {latestCheckinDate && (
-                <div style={{ opacity: 0.75 }}>
-                  {c.profile.checkinDate}: {latestCheckinDate}
+                <div className="info-item">
+                  <div className="info-label">{c.profile.checkinDate}</div>
+                  <div className="info-value">{latestCheckinDate}</div>
                 </div>
               )}
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button type="button" onClick={saveProfile}>
+          <label className="form-stack">
+            {c.profile.notes}
+            <textarea
+              value={profile.notes}
+              onChange={(e) => update("notes", e.target.value)}
+              placeholder={c.profile.notesPlaceholder}
+              rows={3}
+            />
+          </label>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <button type="button" className="btn" onClick={saveProfile}>
               {c.profile.save}
             </button>
-            <button type="button" onClick={resetProfile}>
+            <button type="button" className="btn secondary" onClick={resetProfile}>
               {c.profile.reset}
             </button>
-            {saved && <span style={{ opacity: 0.7 }}>{c.profile.savedToast}</span>}
+            {saved && <span className="muted">{c.profile.savedToast}</span>}
           </div>
         </div>
-      </div>
-
+      </section>
     </div>
   );
 }

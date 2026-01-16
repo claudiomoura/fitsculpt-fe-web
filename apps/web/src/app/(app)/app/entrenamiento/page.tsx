@@ -5,13 +5,12 @@ export default function TrainingPlanPage() {
   const c = copy.es;
 
   return (
-    <section>
-      <h1>{c.app.trainingTitle}</h1>
-      <p style={{ marginTop: 6 }}>{c.app.trainingSubtitle}</p>
-
-      <div style={{ marginTop: 16 }}>
-        <TrainingPlanClient />
-      </div>
-    </section>
+    <div className="page">
+      <section className="card">
+        <h1 className="section-title">{c.app.trainingTitle}</h1>
+        <p className="section-subtitle">{c.app.trainingSubtitle}</p>
+      </section>
+      <TrainingPlanClient />
+    </div>
   );
 }
