@@ -5,7 +5,7 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -95,13 +95,14 @@ async function requireAdmin(request: FastifyRequest) {
 async function getOrCreateProfile(userId: string) {
   const existing = await prisma.userProfile.findUnique({ where: { userId } });
   if (existing) return existing;
-  return prisma.userProfile.create({
-    data: {
-      userId,
-      profile: null,
-      tracking: defaultTracking,
-    },
-  });
+return prisma.userProfile.create({
+  data: {
+    userId,
+    profile: Prisma.DbNull,
+    tracking: defaultTracking,
+  },
+});
+
 }
 
 const registerSchema = z.object({
@@ -285,20 +286,22 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
   }
 
   const passwordHash = await bcrypt.hash(data.password, 12);
-  const user = await prisma.user.create({
-    data: {
-      email: data.email,
-      passwordHash,
-      name: data.name,
-      provider: "email",
-      emailVerifiedAt: null,
-    },
-  });
+const user = await prisma.user.create({
+  data: {
+    email: data.email,
+    passwordHash,
+    name: data.name,
+    provider: "email",
+    emailVerifiedAt: new Date(), // auto-verificado por agora
+  },
+});
+
 
   await logSignupAttempt({ email: data.email, ipAddress, success: true });
 
-  const token = await createVerificationToken(user.id);
-  await sendVerificationEmail(user.email, token);
+  // Temporário: sem verificação por email
+  // const token = await createVerificationToken(user.id);
+  // await sendVerificationEmail(user.email, token);
 
   return reply.status(201).send({ id: user.id, email: user.email, name: user.name });
 }
@@ -631,17 +634,18 @@ app.put("/tracking", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const data = trackingSchema.parse(request.body);
-    const updated = await prisma.userProfile.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        profile: null,
-        tracking: data,
-      },
-      update: {
-        tracking: data,
-      },
-    });
+const updated = await prisma.userProfile.upsert({
+  where: { userId: user.id },
+  create: {
+    userId: user.id,
+    profile: Prisma.DbNull,
+    tracking: data,
+  },
+  update: {
+    tracking: data,
+  },
+});
+
     return updated.tracking ?? defaultTracking;
   } catch (error) {
     return handleRequestError(reply, error);
@@ -757,17 +761,18 @@ app.get("/admin/users", async (request, reply) => {
     });
     const { query, page } = querySchema.parse(request.query);
     const pageSize = 20;
-    const where = {
-      deletedAt: null,
-      ...(query
-        ? {
-            OR: [
-              { email: { contains: query, mode: "insensitive" } },
-              { name: { contains: query, mode: "insensitive" } },
-            ],
-          }
-        : {}),
-    };
+const where: Prisma.UserWhereInput = {
+  deletedAt: null,
+  ...(query
+    ? {
+        OR: [
+          { email: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+        ],
+      }
+    : {}),
+};
+
 
     const [total, users] = await Promise.all([
       prisma.user.count({ where }),
