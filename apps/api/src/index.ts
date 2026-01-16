@@ -52,11 +52,99 @@ async function requireUser(request: FastifyRequest) {
   return user;
 }
 
+async function getOrCreateProfile(userId: string) {
+  const existing = await prisma.userProfile.findUnique({ where: { userId } });
+  if (existing) return existing;
+  return prisma.userProfile.create({
+    data: {
+      userId,
+      profile: null,
+      tracking: defaultTracking,
+    },
+  });
+}
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(2).optional(),
 });
+
+const profileSchema = z.object({
+  name: z.string(),
+  age: z.number(),
+  heightCm: z.number(),
+  weightKg: z.number(),
+  goalWeightKg: z.number(),
+  goal: z.enum(["cut", "maintain", "bulk"]),
+  activity: z.enum(["sedentary", "light", "moderate", "very", "extra"]),
+  mealsPerDay: z.number().int().min(1).max(6),
+  dietaryPrefs: z.string(),
+  dislikes: z.string(),
+  notes: z.string(),
+  avatarDataUrl: z.string().nullable(),
+  measurements: z.object({
+    chestCm: z.number(),
+    waistCm: z.number(),
+    hipsCm: z.number(),
+    bicepsCm: z.number(),
+    thighCm: z.number(),
+    calfCm: z.number(),
+    neckCm: z.number(),
+    bodyFatPercent: z.number(),
+  }),
+});
+
+const profileUpdateSchema = profileSchema
+  .partial()
+  .extend({ measurements: profileSchema.shape.measurements.partial().optional() });
+
+const checkinSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  weightKg: z.number(),
+  chestCm: z.number(),
+  waistCm: z.number(),
+  hipsCm: z.number(),
+  bicepsCm: z.number(),
+  thighCm: z.number(),
+  calfCm: z.number(),
+  neckCm: z.number(),
+  bodyFatPercent: z.number(),
+  energy: z.number(),
+  hunger: z.number(),
+  notes: z.string(),
+  recommendation: z.string(),
+  frontPhotoUrl: z.string().nullable(),
+  sidePhotoUrl: z.string().nullable(),
+});
+
+const foodEntrySchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  foodKey: z.string(),
+  grams: z.number(),
+});
+
+const workoutEntrySchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  name: z.string(),
+  durationMin: z.number(),
+  notes: z.string(),
+});
+
+const trackingSchema = z.object({
+  checkins: z.array(checkinSchema),
+  foodLog: z.array(foodEntrySchema),
+  workoutLog: z.array(workoutEntrySchema),
+});
+
+const defaultTracking = {
+  checkins: [],
+  foodLog: [],
+  workoutLog: [],
+};
 
 app.post("/auth/register", async (request, reply) => {
   const data = registerSchema.parse(request.body);
@@ -125,6 +213,75 @@ app.get("/auth/me", async (request, reply) => {
   try {
     const user = await requireUser(request);
     return { id: user.id, email: user.email, name: user.name };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/profile", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const profile = await getOrCreateProfile(user.id);
+    return profile.profile ?? null;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.put("/profile", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const data = profileUpdateSchema.parse(request.body);
+    const current = await getOrCreateProfile(user.id);
+    const existingProfile = (current.profile as Record<string, unknown> | null) ?? {};
+    const existingMeasurements =
+      typeof existingProfile.measurements === "object" && existingProfile.measurements
+        ? (existingProfile.measurements as Record<string, unknown>)
+        : {};
+    const nextProfile = {
+      ...existingProfile,
+      ...data,
+      measurements: {
+        ...existingMeasurements,
+        ...data.measurements,
+      },
+    };
+    const updated = await prisma.userProfile.update({
+      where: { userId: user.id },
+      data: { profile: nextProfile },
+    });
+    return updated.profile ?? null;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/tracking", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const profile = await getOrCreateProfile(user.id);
+    return profile.tracking ?? defaultTracking;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.put("/tracking", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const data = trackingSchema.parse(request.body);
+    const updated = await prisma.userProfile.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        profile: null,
+        tracking: data,
+      },
+      update: {
+        tracking: data,
+      },
+    });
+    return updated.tracking ?? defaultTracking;
   } catch (error) {
     return handleRequestError(reply, error);
   }

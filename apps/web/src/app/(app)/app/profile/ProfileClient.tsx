@@ -2,62 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { copy } from "@/lib/i18n";
-
-type Goal = "cut" | "maintain" | "bulk";
-type Activity = "sedentary" | "light" | "moderate" | "very" | "extra";
-
-type ProfileData = {
-  name: string;
-  age: number;
-  heightCm: number;
-  weightKg: number;
-  goalWeightKg: number;
-  goal: Goal;
-  activity: Activity;
-  mealsPerDay: 1 | 2 | 3 | 4 | 5 | 6;
-  dietaryPrefs: string;
-  dislikes: string;
-  notes: string;
-  avatarDataUrl: string | null;
-  measurements: {
-    chestCm: number;
-    waistCm: number;
-    hipsCm: number;
-    bicepsCm: number;
-    thighCm: number;
-    calfCm: number;
-    neckCm: number;
-    bodyFatPercent: number;
-  };
-};
-
-const STORAGE_KEY = "fs_profile_v1";
-const CHECKIN_KEY = "fs_checkins_v1";
-
-const defaultProfile: ProfileData = {
-  name: "",
-  age: 30,
-  heightCm: 175,
-  weightKg: 75,
-  goalWeightKg: 70,
-  goal: "maintain",
-  activity: "moderate",
-  mealsPerDay: 4,
-  dietaryPrefs: "",
-  dislikes: "",
-  notes: "",
-  avatarDataUrl: null,
-  measurements: {
-    chestCm: 0,
-    waistCm: 0,
-    hipsCm: 0,
-    bicepsCm: 0,
-    thighCm: 0,
-    calfCm: 0,
-    neckCm: 0,
-    bodyFatPercent: 0,
-  },
-};
+import { defaultProfile, type Activity, type Goal, type ProfileData } from "@/lib/profile";
 
 export default function ProfileClient() {
   const c = copy.es;
@@ -66,43 +11,79 @@ export default function ProfileClient() {
   const [latestCheckinDate, setLatestCheckinDate] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored) as ProfileData;
-      setProfile({ ...defaultProfile, ...parsed });
-    } catch {
-      setProfile(defaultProfile);
-    }
+    let active = true;
+    const loadProfile = async () => {
+      try {
+        const response = await fetch("/api/profile", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as Partial<ProfileData> | null;
+        if (active && data) {
+          setProfile({
+            ...defaultProfile,
+            ...data,
+            measurements: {
+              ...defaultProfile.measurements,
+              ...data.measurements,
+            },
+          });
+        }
+      } catch {
+        // Ignore fetch errors on first load.
+      }
+    };
+    void loadProfile();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem(CHECKIN_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored) as Array<{ date?: string }>;
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const latest = [...parsed].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
-        setLatestCheckinDate(latest?.date ?? null);
+    let active = true;
+    const loadTracking = async () => {
+      try {
+        const response = await fetch("/api/tracking", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as { checkins?: Array<{ date?: string }> };
+        if (!active) return;
+        if (data.checkins && data.checkins.length > 0) {
+          const latest = [...data.checkins].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+          setLatestCheckinDate(latest?.date ?? null);
+        }
+      } catch {
+        setLatestCheckinDate(null);
       }
-    } catch {
-      setLatestCheckinDate(null);
-    }
+    };
+    void loadTracking();
+    return () => {
+      active = false;
+    };
   }, []);
 
   function update<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {
     setProfile((prev) => ({ ...prev, [key]: value }));
   }
 
-  function saveProfile() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
+  async function saveProfile() {
+    const response = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(profile),
+    });
+    if (response.ok) {
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2000);
+    }
   }
 
-  function resetProfile() {
-    localStorage.removeItem(STORAGE_KEY);
-    setProfile(defaultProfile);
+  async function resetProfile() {
+    const response = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(defaultProfile),
+    });
+    if (response.ok) {
+      setProfile(defaultProfile);
+    }
   }
 
   function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
