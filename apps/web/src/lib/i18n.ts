@@ -25,6 +25,50 @@ export const copy = {
       subtitle: "Landing simple (evolucionaremos luego).",
       cta: "Ir al inicio de sesión →",
       secondaryCta: "Explorar la app",
+      highlightsTitle: "Todo lo que necesitas para tu progreso",
+      highlightsSubtitle:
+        "Planifica entrenamientos, calcula macros y registra avances con herramientas claras y rápidas.",
+      highlights: [
+        {
+          title: "Rutinas guiadas",
+          description:
+            "Crea un plan semanal según objetivo, nivel y tiempo disponible.",
+        },
+        {
+          title: "Macros inteligentes",
+          description:
+            "Estima calorías y distribuye proteínas, grasas y carbs por comida.",
+        },
+        {
+          title: "Nutrición flexible",
+          description:
+            "Genera planes de comidas y listas de compras adaptadas a ti.",
+        },
+        {
+          title: "Seguimiento continuo",
+          description:
+            "Registra entrenos, check-ins y hábitos para medir tu avance.",
+        },
+      ],
+      stepsTitle: "Cómo funciona",
+      stepsSubtitle:
+        "En tres pasos simples, convierte tus metas en un plan realista y medible.",
+      steps: [
+        {
+          title: "Define tu objetivo",
+          description: "Selecciona tu meta y el nivel de entrenamiento ideal.",
+        },
+        {
+          title: "Ajusta tus macros",
+          description:
+            "Calcula calorías y distribuye nutrientes según tu rutina.",
+        },
+        {
+          title: "Haz seguimiento",
+          description:
+            "Registra cada sesión y revisa tu progreso semana a semana.",
+        },
+      ],
     },
     auth: {
       loginTitle: "Iniciar sesión",

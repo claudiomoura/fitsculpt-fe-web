@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { copy } from "@/lib/i18n";
+import { defaultProfile, type ProfileData } from "@/lib/profile";
 
 type CheckinEntry = {
   id: string;
@@ -38,11 +39,6 @@ type WorkoutEntry = {
   notes: string;
 };
 
-const CHECKIN_KEY = "fs_checkins_v1";
-const PROFILE_KEY = "fs_profile_v1";
-const FOOD_LOG_KEY = "fs_food_log_v1";
-const WORKOUT_LOG_KEY = "fs_workout_log_v1";
-
 const foodProfiles: Record<
   string,
   { label: string; protein: number; carbs: number; fat: number }
@@ -57,21 +53,11 @@ const foodProfiles: Record<
   avocado: { label: "Aguacate", protein: 2, carbs: 9, fat: 15 },
 };
 
-function loadJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveJson<T>(key: string, value: T) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(value));
-}
+type TrackingPayload = {
+  checkins: CheckinEntry[];
+  foodLog: FoodEntry[];
+  workoutLog: WorkoutEntry[];
+};
 
 export default function TrackingClient() {
   const c = copy.es;
@@ -102,17 +88,65 @@ export default function TrackingClient() {
   const [workoutDuration, setWorkoutDuration] = useState(45);
   const [workoutNotes, setWorkoutNotes] = useState("");
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
+  const [profile, setProfile] = useState<ProfileData>(defaultProfile);
+  const [trackingLoaded, setTrackingLoaded] = useState(false);
 
 
   useEffect(() => {
-    setCheckins(loadJson(CHECKIN_KEY, []));
-    setFoodLog(loadJson(FOOD_LOG_KEY, []));
-    setWorkoutLog(loadJson(WORKOUT_LOG_KEY, []));
+    let active = true;
+    const loadTracking = async () => {
+      try {
+        const response = await fetch("/api/tracking", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as TrackingPayload;
+        if (!active) return;
+        setCheckins(data.checkins ?? []);
+        setFoodLog(data.foodLog ?? []);
+        setWorkoutLog(data.workoutLog ?? []);
+        setTrackingLoaded(true);
+      } catch {
+        setTrackingLoaded(true);
+      }
+    };
+
+    const loadProfile = async () => {
+      try {
+        const response = await fetch("/api/profile", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as Partial<ProfileData> | null;
+        if (active && data) {
+          setProfile({
+            ...defaultProfile,
+            ...data,
+            measurements: {
+              ...defaultProfile.measurements,
+              ...data.measurements,
+            },
+          });
+        }
+      } catch {
+        // Ignore load errors.
+      }
+    };
+
+    void loadTracking();
+    void loadProfile();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  useEffect(() => saveJson(CHECKIN_KEY, checkins), [checkins]);
-  useEffect(() => saveJson(FOOD_LOG_KEY, foodLog), [foodLog]);
-  useEffect(() => saveJson(WORKOUT_LOG_KEY, workoutLog), [workoutLog]);
+  useEffect(() => {
+    if (!trackingLoaded) return;
+    const timeout = window.setTimeout(() => {
+      void fetch("/api/tracking", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkins, foodLog, workoutLog }),
+      });
+    }, 600);
+    return () => window.clearTimeout(timeout);
+  }, [checkins, foodLog, workoutLog, trackingLoaded]);
 
   function handlePhoto(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -129,8 +163,6 @@ export default function TrackingClient() {
     if (checkins.length === 0) return c.profile.checkinKeep;
     const latest = [...checkins].sort((a, b) => b.date.localeCompare(a.date))[0];
     const delta = currentWeight - latest.weightKg;
-    const profile = loadJson(PROFILE_KEY, { goal: "maintain" });
-
     if (profile.goal === "cut") {
       if (delta >= 0) return c.profile.checkinReduceCalories;
       return c.profile.checkinKeep;
@@ -173,24 +205,27 @@ export default function TrackingClient() {
     setCheckinFrontPhoto(null);
     setCheckinSidePhoto(null);
 
-    const profile = loadJson(PROFILE_KEY, null);
-    if (profile) {
-      const next = {
-        ...profile,
-        weightKg: entry.weightKg,
-        measurements: {
-          chestCm: entry.chestCm,
-          waistCm: entry.waistCm,
-          hipsCm: entry.hipsCm,
-          bicepsCm: entry.bicepsCm,
-          thighCm: entry.thighCm,
-          calfCm: entry.calfCm,
-          neckCm: entry.neckCm,
-          bodyFatPercent: entry.bodyFatPercent,
-        },
-      };
-      saveJson(PROFILE_KEY, next);
-    }
+    const nextProfile = {
+      ...profile,
+      weightKg: entry.weightKg,
+      measurements: {
+        ...profile.measurements,
+        chestCm: entry.chestCm,
+        waistCm: entry.waistCm,
+        hipsCm: entry.hipsCm,
+        bicepsCm: entry.bicepsCm,
+        thighCm: entry.thighCm,
+        calfCm: entry.calfCm,
+        neckCm: entry.neckCm,
+        bodyFatPercent: entry.bodyFatPercent,
+      },
+    };
+    setProfile(nextProfile);
+    void fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(nextProfile),
+    });
   }
 
   function addFoodEntry(e: React.FormEvent) {
