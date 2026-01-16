@@ -4,13 +4,12 @@ import { copy } from "@/lib/i18n";
 export default function ProfilePage() {
   const c = copy.es;
   return (
-    <section>
-      <h1>{c.app.profileTitle}</h1>
-      <p>{c.app.profileSubtitle}</p>
-
-      <div style={{ marginTop: 16 }}>
-        <ProfileClient />
-      </div>
-    </section>
+    <div className="page">
+      <section className="card">
+        <h1 className="section-title">{c.app.profileTitle}</h1>
+        <p className="section-subtitle">{c.app.profileSubtitle}</p>
+      </section>
+      <ProfileClient />
+    </div>
   );
 }
