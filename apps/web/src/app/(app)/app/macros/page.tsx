@@ -4,13 +4,12 @@ import { copy } from "@/lib/i18n";
 export default function MacrosPage() {
   const c = copy.es;
   return (
-    <section>
-      <h1>{c.app.nutritionTitle} · {c.app.macrosTitle}</h1>
-      <p style={{ marginTop: 6 }}>{c.app.macrosSubtitle}</p>
-
-      <div style={{ marginTop: 16 }}>
-        <MacrosClient />
-      </div>
-    </section>
+    <div className="page">
+      <section className="card">
+        <h1 className="section-title">{c.app.macrosTitle}</h1>
+        <p className="section-subtitle">{c.app.macrosSubtitle}</p>
+      </section>
+      <MacrosClient />
+    </div>
   );
 }
