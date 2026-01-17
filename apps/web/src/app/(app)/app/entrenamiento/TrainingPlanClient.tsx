@@ -2,21 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { copy } from "@/lib/i18n";
-
-type Goal = "cut" | "maintain" | "bulk";
-type Level = "beginner" | "intermediate" | "advanced";
-type Equipment = "gym" | "home";
-type Focus = "full" | "upperLower" | "ppl";
-type SessionTime = "short" | "medium" | "long";
-
-type TrainingForm = {
-  goal: Goal;
-  level: Level;
-  daysPerWeek: 2 | 3 | 4 | 5;
-  equipment: Equipment;
-  focus: Focus;
-  sessionTime: SessionTime;
-};
+import {
+  type Goal,
+  type TrainingEquipment,
+  type TrainingFocus,
+  type TrainingLevel,
+  type SessionTime,
+  type TrainingPlanData,
+  type ProfileData,
+} from "@/lib/profile";
+import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 
 type Exercise = {
   name: string;
@@ -30,11 +25,16 @@ type TrainingDay = {
   exercises: Exercise[];
 };
 
-type TrainingPlan = {
-  days: TrainingDay[];
-};
+type TrainingPlan = TrainingPlanData;
 
-const STORAGE_KEY = "fs_training_plan_v1";
+type TrainingForm = {
+  goal: Goal;
+  level: TrainingLevel;
+  daysPerWeek: 2 | 3 | 4 | 5;
+  equipment: TrainingEquipment;
+  focus: TrainingFocus;
+  sessionTime: SessionTime;
+};
 
 const exercisePool = {
   full: {
@@ -76,17 +76,13 @@ function durationFromSessionTime(sessionTime: SessionTime) {
   }
 }
 
-function setsForLevel(level: Level, goal: Goal) {
+function setsForLevel(level: TrainingLevel, goal: Goal) {
   if (level === "beginner") return goal === "cut" ? "2-3 x 10-12" : "3 x 8-12";
   if (level === "intermediate") return goal === "cut" ? "3 x 10-12" : "3-4 x 8-10";
   return goal === "cut" ? "3-4 x 8-12" : "4 x 6-10";
 }
 
-function buildExercises(
-  list: string[],
-  sets: string,
-  maxItems: number
-): Exercise[] {
+function buildExercises(list: string[], sets: string, maxItems: number): Exercise[] {
   return list.slice(0, maxItems).map((name) => ({ name, sets }));
 }
 
@@ -154,144 +150,159 @@ function adjustSets(sets: string, delta: number) {
 
 export default function TrainingPlanClient() {
   const c = copy.es;
-  const [form, setForm] = useState<TrainingForm>({
-    goal: "maintain",
-    level: "beginner",
-    daysPerWeek: 3,
-    equipment: "gym",
-    focus: "full",
-    sessionTime: "medium",
-  });
-  const [plan, setPlan] = useState<TrainingPlan | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [form, setForm] = useState<TrainingForm | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const loadProfile = async (activeRef: { current: boolean }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const profile = await getUserProfile();
+      if (!activeRef.current) return;
+      setProfile(profile);
+      setForm({
+        goal: profile.trainingPreferences.goal,
+        level: profile.trainingPreferences.level,
+        daysPerWeek: profile.trainingPreferences.daysPerWeek,
+        equipment: profile.trainingPreferences.equipment,
+        focus: profile.trainingPreferences.focus,
+        sessionTime: profile.trainingPreferences.sessionTime,
+      });
+      setSavedPlan(profile.trainingPlan ?? null);
+    } catch {
+      if (activeRef.current) setError("No pudimos cargar tu perfil.");
+    } finally {
+      if (activeRef.current) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored) as { form: TrainingForm; plan: TrainingPlan };
-      if (parsed?.form) setForm(parsed.form);
-      if (parsed?.plan) setPlan(parsed.plan);
-    } catch {
-      setPlan(null);
-    }
+    const ref = { current: true };
+    void loadProfile(ref);
+    return () => {
+      ref.current = false;
+    };
   }, []);
 
-  const preview = useMemo(() => generatePlan(form), [form]);
+  const plan = useMemo(() => (form ? generatePlan(form) : null), [form]);
+  const visiblePlan = savedPlan ?? plan;
 
-  function update<K extends keyof TrainingForm>(key: K, value: TrainingForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
+  const handleSavePlan = async () => {
+    if (!plan) return;
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const updated = await updateUserProfile({ trainingPlan: plan });
+      setSavedPlan(updated.trainingPlan ?? plan);
+      setSaveMessage(c.training.savePlanSuccess);
+    } catch {
+      setSaveMessage(c.training.savePlanError);
+    } finally {
+      setSaving(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
 
-  function savePlan() {
-    const nextPlan = generatePlan(form);
-    setPlan(nextPlan);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ form, plan: nextPlan }));
-  }
-
-  function resetPlan() {
-    localStorage.removeItem(STORAGE_KEY);
-    setPlan(null);
-  }
-
-  const activePlan = plan ?? preview;
+  const handleAiPlan = async () => {
+    if (!profile || !form) return;
+    setAiLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ai/training-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profile.name || undefined,
+          age: profile.age,
+          sex: profile.sex,
+          level: form.level,
+          goal: form.goal,
+          equipment: form.equipment,
+          daysPerWeek: form.daysPerWeek,
+          sessionTime: form.sessionTime,
+          focus: form.focus,
+          timeAvailableMinutes: form.sessionTime === "short" ? 35 : form.sessionTime === "medium" ? 50 : 65,
+          restrictions: profile.notes || undefined,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(c.training.aiError);
+      }
+      const data = (await response.json()) as TrainingPlan;
+      const updated = await updateUserProfile({ trainingPlan: data });
+      setSavedPlan(updated.trainingPlan ?? data);
+      setSaveMessage(c.training.aiSuccess);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : c.training.aiError);
+    } finally {
+      setAiLoading(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.training.formTitle}</h2>
-
-        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.training.goal}
-              <select value={form.goal} onChange={(e) => update("goal", e.target.value as Goal)}>
-                <option value="cut">{c.training.goalCut}</option>
-                <option value="maintain">{c.training.goalMaintain}</option>
-                <option value="bulk">{c.training.goalBulk}</option>
-              </select>
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.training.level}
-              <select value={form.level} onChange={(e) => update("level", e.target.value as Level)}>
-                <option value="beginner">{c.training.levelBeginner}</option>
-                <option value="intermediate">{c.training.levelIntermediate}</option>
-                <option value="advanced">{c.training.levelAdvanced}</option>
-              </select>
-            </label>
+    <div className="page">
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{c.training.formTitle}</h2>
+            <p className="section-subtitle">
+              {c.training.tips}
+            </p>
           </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.training.daysPerWeek}
-              <select
-                value={form.daysPerWeek}
-                onChange={(e) => update("daysPerWeek", Number(e.target.value) as 2 | 3 | 4 | 5)}
-              >
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-                <option value={5}>5</option>
-              </select>
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.training.equipment}
-              <select
-                value={form.equipment}
-                onChange={(e) => update("equipment", e.target.value as Equipment)}
-              >
-                <option value="gym">{c.training.equipmentGym}</option>
-                <option value="home">{c.training.equipmentHome}</option>
-              </select>
-            </label>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.training.sessionTime}
-              <select
-                value={form.sessionTime}
-                onChange={(e) => update("sessionTime", e.target.value as SessionTime)}
-              >
-                <option value="short">{c.training.sessionTimeShort}</option>
-                <option value="medium">{c.training.sessionTimeMedium}</option>
-                <option value="long">{c.training.sessionTimeLong}</option>
-              </select>
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.training.focus}
-              <select value={form.focus} onChange={(e) => update("focus", e.target.value as Focus)}>
-                <option value="full">{c.training.focusFullBody}</option>
-                <option value="upperLower">{c.training.focusUpperLower}</option>
-                <option value="ppl">{c.training.focusPushPullLegs}</option>
-              </select>
-            </label>
-          </div>
-
-          <div style={{ display: "flex", gap: 10 }}>
-            <button type="button" onClick={savePlan}>
-              {c.training.generate}
-            </button>
-            <button type="button" onClick={resetPlan}>
-              {c.training.resetPlan}
-            </button>
-          </div>
+          <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
+            {c.training.generate}
+          </button>
+          <button type="button" className="btn" disabled={!form || aiLoading} onClick={handleAiPlan}>
+            {aiLoading ? c.training.aiGenerating : c.training.aiGenerate}
+          </button>
+          <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+            {saving ? c.training.savePlanSaving : c.training.savePlan}
+          </button>
         </div>
-      </div>
 
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.training.weeklyPlanTitle}</h2>
-        <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
-          {activePlan.days.map((day) => (
-            <div key={day.label} style={{ border: "1px solid #ededed", borderRadius: 12, padding: 12 }}>
+        {loading ? (
+          <p className="muted">Cargando preferencias...</p>
+        ) : error ? (
+          <p className="muted">{error}</p>
+        ) : saveMessage ? (
+          <p className="muted">{saveMessage}</p>
+        ) : form ? (
+          <div className="badge-list">
+            <span className="badge">{c.training.goal}: {c.training[form.goal === "cut" ? "goalCut" : form.goal === "bulk" ? "goalBulk" : "goalMaintain"]}</span>
+            <span className="badge">{c.training.level}: {c.training[form.level === "beginner" ? "levelBeginner" : form.level === "intermediate" ? "levelIntermediate" : "levelAdvanced"]}</span>
+            <span className="badge">{c.training.daysPerWeek}: {form.daysPerWeek}</span>
+            <span className="badge">{c.training.equipment}: {form.equipment === "gym" ? c.training.equipmentGym : c.training.equipmentHome}</span>
+            <span className="badge">{c.training.sessionTime}: {c.training[form.sessionTime === "short" ? "sessionTimeShort" : form.sessionTime === "long" ? "sessionTimeLong" : "sessionTimeMedium"]}</span>
+            <span className="badge">{c.training.focus}: {c.training[form.focus === "ppl" ? "focusPushPullLegs" : form.focus === "upperLower" ? "focusUpperLower" : "focusFullBody"]}</span>
+          </div>
+        ) : null}
+
+        <p className="muted" style={{ marginTop: 12 }}>
+          Cambia estas preferencias desde <strong>Perfil</strong>.
+        </p>
+      </section>
+
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>{c.training.weeklyPlanTitle}</h2>
+        <div className="list-grid" style={{ marginTop: 16 }}>
+          {visiblePlan?.days.map((day) => (
+            <div key={day.label} className="feature-card">
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <strong>
                   {c.training.dayLabel} {day.label}
                 </strong>
-                <span style={{ opacity: 0.7 }}>
+                <span className="muted">
                   {c.training.durationLabel}: {day.duration} {c.training.minutesLabel}
                 </span>
               </div>
-              <div style={{ marginTop: 6, fontWeight: 600 }}>{day.focus}</div>
+              <div style={{ fontWeight: 600 }}>{day.focus}</div>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                 {day.exercises.map((exercise) => (
                   <li key={exercise.name}>
@@ -302,26 +313,22 @@ export default function TrainingPlanClient() {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.training.periodTitle}</h2>
-        <p style={{ marginTop: 6 }}>{c.training.periodSubtitle}</p>
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>{c.training.periodTitle}</h2>
+        <p className="section-subtitle" style={{ marginTop: 6 }}>{c.training.periodSubtitle}</p>
 
-        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+        <div className="list-grid" style={{ marginTop: 16 }}>
           {periodization.map((week, idx) => (
-            <div
-              key={week.label}
-              style={{ border: "1px solid #ededed", borderRadius: 10, padding: 12 }}
-            >
+            <div key={week.label} className="feature-card">
               <strong>
                 {c.training.weekLabel} {idx + 1} · {c.training[week.label as keyof typeof c.training]}
               </strong>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                {activePlan.days.map((day) => (
+                {plan?.days.map((day) => (
                   <li key={`${week.label}-${day.label}`}>
-                    {day.focus}:{" "}
-                    {day.exercises
+                    {day.focus}: {day.exercises
                       .slice(0, 2)
                       .map((ex) => adjustSets(ex.sets, week.setsDelta))
                       .join(" / ")}
@@ -331,12 +338,7 @@ export default function TrainingPlanClient() {
             </div>
           ))}
         </div>
-      </div>
-
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.training.tipsTitle}</h2>
-        <p style={{ margin: 0, opacity: 0.75 }}>{c.training.tips}</p>
-      </div>
+      </section>
     </div>
   );
 }
