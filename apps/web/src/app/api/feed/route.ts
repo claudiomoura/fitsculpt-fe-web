@@ -5,9 +5,9 @@ import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const authCookie = await getBackendAuthCookie(request);
+  const { header: authCookie, debug } = await getBackendAuthCookie(request);
   if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED_NO_FS_TOKEN" }, { status: 401 });
+    return NextResponse.json({ error: "UNAUTHORIZED_NO_FS_TOKEN", debug }, { status: 401 });
   }
 
   try {
