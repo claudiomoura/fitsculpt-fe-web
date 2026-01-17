@@ -4,20 +4,24 @@ import { getBackendUrl } from "@/lib/backend";
 
 async function getAuthCookie() {
   const token = (await cookies()).get("fs_token")?.value;
+  const signature = (await cookies()).get("fs_token.sig")?.value;
+  if (token && signature) {
+    return `fs_token=${token}; fs_token.sig=${signature}`;
+  }
   return token ? `fs_token=${token}` : null;
 }
 
-function extractAuthCookie(rawCookie: string | null) {
-  if (!rawCookie) return null;
-  const match = rawCookie
-    .split(";")
-    .map((cookie) => cookie.trim())
-    .find((cookie) => cookie.startsWith("fs_token="));
-  return match ?? null;
+function hasAuthCookie(rawCookie: string | null) {
+  if (!rawCookie) return false;
+  return rawCookie.includes("fs_token=") || rawCookie.includes("fs_token.sig=");
 }
 
 async function resolveAuthCookie(request: Request) {
-  return extractAuthCookie(request.headers.get("cookie")) ?? (await getAuthCookie());
+  const rawCookie = request.headers.get("cookie");
+  if (hasAuthCookie(rawCookie)) {
+    return rawCookie;
+  }
+  return await getAuthCookie();
 }
 
 export async function GET(request: Request) {
