@@ -8,26 +8,24 @@ async function buildCookieHeaderFromStore() {
   }
 
   const hasToken = allCookies.some((cookie) => cookie.name === "fs_token");
-  const hasSignature = allCookies.some((cookie) => cookie.name === "fs_token.sig");
-  if (!hasToken || !hasSignature) {
-    return { header: null, hasToken, hasSignature };
+  if (!hasToken) {
+    return { header: null, hasToken };
   }
 
   const header = allCookies.map(({ name, value }) => `${name}=${value}`).join("; ");
-  return { header, hasToken, hasSignature };
+  return { header, hasToken };
 }
 
 function buildCookieHeaderFromRequest(request: Request) {
   const rawCookie = request.headers.get("cookie");
   if (!rawCookie) return null;
   const hasToken = rawCookie.includes("fs_token=");
-  const hasSignature = rawCookie.includes("fs_token.sig=");
-  return hasToken && hasSignature ? rawCookie : null;
+  return hasToken ? rawCookie : null;
 }
 
 export async function getBackendAuthCookie(request: Request) {
-  const { header, hasToken, hasSignature } = await buildCookieHeaderFromStore();
-  if (header && hasToken && hasSignature) {
+  const { header, hasToken } = await buildCookieHeaderFromStore();
+  if (header && hasToken) {
     return header;
   }
 
