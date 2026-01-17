@@ -153,6 +153,8 @@ const profileSchema = z.object({
   activity: z.enum(["sedentary", "light", "moderate", "very", "extra"]),
   profilePhotoUrl: z.string().nullable(),
   avatarDataUrl: z.string().nullable().optional(),
+  trainingPlan: z.any().nullable().optional(),
+  nutritionPlan: z.any().nullable().optional(),
   trainingPreferences: trainingPreferencesSchema,
   nutritionPreferences: nutritionPreferencesSchema,
   macroPreferences: macroPreferencesSchema,
@@ -385,19 +387,6 @@ async function logSignupAttempt(data: { email?: string; ipAddress?: string; succ
 
   const token = await createVerificationToken(user.id);
   await sendVerificationEmail(user.email, token);
-
-  return reply.status(201).send({ id: user.id, email: user.email, name: user.name });
-}
-
-app.post("/auth/signup", handleSignup);
-app.post("/auth/register", handleSignup);
-
-
-  await logSignupAttempt({ email: data.email, ipAddress, success: true });
-
-  // Temporário: sem verificação por email
-  // const token = await createVerificationToken(user.id);
-  // await sendVerificationEmail(user.email, token);
 
   return reply.status(201).send({ id: user.id, email: user.email, name: user.name });
 }

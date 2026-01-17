@@ -11,6 +11,47 @@ export type NutritionCookingTime = "quick" | "medium" | "long";
 
 export type MacroFormula = "mifflin" | "katch";
 
+export type TrainingExercise = {
+  name: string;
+  sets: string;
+};
+
+export type TrainingDay = {
+  label: string;
+  focus: string;
+  duration: number;
+  exercises: TrainingExercise[];
+};
+
+export type TrainingPlanData = {
+  days: TrainingDay[];
+};
+
+export type NutritionIngredient = {
+  name: string;
+  grams: number;
+};
+
+export type NutritionMeal = {
+  title: string;
+  description: string;
+  ingredients: NutritionIngredient[];
+};
+
+export type NutritionDayPlan = {
+  dayLabel: string;
+  meals: NutritionMeal[];
+};
+
+export type NutritionPlanData = {
+  dailyCalories: number;
+  proteinG: number;
+  fatG: number;
+  carbsG: number;
+  days: NutritionDayPlan[];
+  shoppingList?: Array<{ name: string; grams: number }>;
+};
+
 export type ProfileData = {
   name: string;
   sex: Sex;
@@ -55,6 +96,8 @@ export type ProfileData = {
     neckCm: number;
     bodyFatPercent: number;
   };
+  trainingPlan?: TrainingPlanData | null;
+  nutritionPlan?: NutritionPlanData | null;
 };
 
 export const defaultProfile: ProfileData = {
@@ -101,4 +144,6 @@ export const defaultProfile: ProfileData = {
     neckCm: 0,
     bodyFatPercent: 0,
   },
+  trainingPlan: null,
+  nutritionPlan: null,
 };

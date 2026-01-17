@@ -2,8 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { copy } from "@/lib/i18n";
-import { type Goal, type TrainingEquipment, type TrainingFocus, type TrainingLevel, type SessionTime } from "@/lib/profile";
-import { getUserProfile } from "@/lib/profileService";
+import {
+  type Goal,
+  type TrainingEquipment,
+  type TrainingFocus,
+  type TrainingLevel,
+  type SessionTime,
+  type TrainingPlanData,
+} from "@/lib/profile";
+import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 
 type Exercise = {
   name: string;
@@ -17,9 +24,7 @@ type TrainingDay = {
   exercises: Exercise[];
 };
 
-type TrainingPlan = {
-  days: TrainingDay[];
-};
+type TrainingPlan = TrainingPlanData;
 
 type TrainingForm = {
   goal: Goal;
@@ -147,6 +152,9 @@ export default function TrainingPlanClient() {
   const [form, setForm] = useState<TrainingForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -162,6 +170,7 @@ export default function TrainingPlanClient() {
         focus: profile.trainingPreferences.focus,
         sessionTime: profile.trainingPreferences.sessionTime,
       });
+      setSavedPlan(profile.trainingPlan ?? null);
     } catch {
       if (activeRef.current) setError("No pudimos cargar tu perfil.");
     } finally {
@@ -178,6 +187,23 @@ export default function TrainingPlanClient() {
   }, []);
 
   const plan = useMemo(() => (form ? generatePlan(form) : null), [form]);
+  const visiblePlan = savedPlan ?? plan;
+
+  const handleSavePlan = async () => {
+    if (!plan) return;
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const updated = await updateUserProfile({ trainingPlan: plan });
+      setSavedPlan(updated.trainingPlan ?? plan);
+      setSaveMessage(c.training.savePlanSuccess);
+    } catch {
+      setSaveMessage(c.training.savePlanError);
+    } finally {
+      setSaving(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
 
   return (
     <div className="page">
@@ -192,12 +218,17 @@ export default function TrainingPlanClient() {
           <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
             {c.training.generate}
           </button>
+          <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+            {saving ? c.training.savePlanSaving : c.training.savePlan}
+          </button>
         </div>
 
         {loading ? (
           <p className="muted">Cargando preferencias...</p>
         ) : error ? (
           <p className="muted">{error}</p>
+        ) : saveMessage ? (
+          <p className="muted">{saveMessage}</p>
         ) : form ? (
           <div className="badge-list">
             <span className="badge">{c.training.goal}: {c.training[form.goal === "cut" ? "goalCut" : form.goal === "bulk" ? "goalBulk" : "goalMaintain"]}</span>
@@ -217,7 +248,7 @@ export default function TrainingPlanClient() {
       <section className="card">
         <h2 className="section-title" style={{ fontSize: 20 }}>{c.training.weeklyPlanTitle}</h2>
         <div className="list-grid" style={{ marginTop: 16 }}>
-          {plan?.days.map((day) => (
+          {visiblePlan?.days.map((day) => (
             <div key={day.label} className="feature-card">
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <strong>

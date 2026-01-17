@@ -2,8 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { copy } from "@/lib/i18n";
-import { type Activity, type Goal, type NutritionCookingTime, type ProfileData } from "@/lib/profile";
-import { getUserProfile } from "@/lib/profileService";
+import {
+  type Activity,
+  type Goal,
+  type NutritionCookingTime,
+  type ProfileData,
+  type NutritionPlanData,
+} from "@/lib/profile";
+import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 
 type NutritionForm = {
   age: number;
@@ -28,13 +34,7 @@ type DayPlan = {
   meals: Meal[];
 };
 
-type NutritionPlan = {
-  dailyCalories: number;
-  proteinG: number;
-  fatG: number;
-  carbsG: number;
-  days: DayPlan[];
-};
+type NutritionPlan = NutritionPlanData;
 
 type ShoppingItem = {
   name: string;
@@ -273,6 +273,9 @@ export default function NutritionPlanClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -281,6 +284,7 @@ export default function NutritionPlanClient() {
       const data = await getUserProfile();
       if (!activeRef.current) return;
       setProfile(data);
+      setSavedPlan(data.nutritionPlan ?? null);
     } catch {
       if (activeRef.current) setError("No pudimos cargar tu perfil.");
     } finally {
@@ -310,6 +314,7 @@ export default function NutritionPlanClient() {
       cookingTime: profile.nutritionPreferences.cookingTime,
     });
   }, [profile]);
+  const visiblePlan = savedPlan ?? plan;
 
   function buildShoppingList(activePlan: NutritionPlan) {
     const totals: Record<string, number> = {};
@@ -327,6 +332,26 @@ export default function NutritionPlanClient() {
     setShoppingList(list);
   }
 
+  const handleSavePlan = async () => {
+    if (!plan) return;
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const planToSave: NutritionPlan = {
+        ...plan,
+        shoppingList: shoppingList.length > 0 ? shoppingList : undefined,
+      };
+      const updated = await updateUserProfile({ nutritionPlan: planToSave });
+      setSavedPlan(updated.nutritionPlan ?? planToSave);
+      setSaveMessage(c.nutrition.savePlanSuccess);
+    } catch {
+      setSaveMessage(c.nutrition.savePlanError);
+    } finally {
+      setSaving(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
   return (
     <div className="page">
       <section className="card">
@@ -338,12 +363,17 @@ export default function NutritionPlanClient() {
           <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
             {c.nutrition.generate}
           </button>
+          <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+            {saving ? c.nutrition.savePlanSaving : c.nutrition.savePlan}
+          </button>
         </div>
 
         {loading ? (
           <p className="muted">Cargando preferencias...</p>
         ) : error ? (
           <p className="muted">{error}</p>
+        ) : saveMessage ? (
+          <p className="muted">{saveMessage}</p>
         ) : profile ? (
           <>
             <div className="badge-list">
@@ -387,19 +417,19 @@ export default function NutritionPlanClient() {
         <div className="info-grid" style={{ marginTop: 16 }}>
           <div className="info-item">
             <div className="info-label">{c.nutrition.calories}</div>
-            <div className="info-value">{plan?.dailyCalories ?? 0} kcal</div>
+            <div className="info-value">{visiblePlan?.dailyCalories ?? 0} kcal</div>
           </div>
           <div className="info-item">
             <div className="info-label">{c.nutrition.protein}</div>
-            <div className="info-value">{plan?.proteinG ?? 0} g</div>
+            <div className="info-value">{visiblePlan?.proteinG ?? 0} g</div>
           </div>
           <div className="info-item">
             <div className="info-label">{c.nutrition.fat}</div>
-            <div className="info-value">{plan?.fatG ?? 0} g</div>
+            <div className="info-value">{visiblePlan?.fatG ?? 0} g</div>
           </div>
           <div className="info-item">
             <div className="info-label">{c.nutrition.carbs}</div>
-            <div className="info-value">{plan?.carbsG ?? 0} g</div>
+            <div className="info-value">{visiblePlan?.carbsG ?? 0} g</div>
           </div>
         </div>
       </section>
@@ -407,7 +437,7 @@ export default function NutritionPlanClient() {
       <section className="card">
         <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.weeklyPlanTitle}</h2>
         <div className="list-grid" style={{ marginTop: 16 }}>
-          {plan?.days.map((day) => (
+          {visiblePlan?.days.map((day) => (
             <div key={day.dayLabel} className="feature-card">
               <strong>{day.dayLabel}</strong>
               <div className="table-grid" style={{ marginTop: 8 }}>
@@ -438,7 +468,7 @@ export default function NutritionPlanClient() {
         <button
           type="button"
           className="btn"
-          onClick={() => plan && buildShoppingList(plan)}
+          onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
           style={{ marginTop: 8 }}
         >
           {c.nutrition.shoppingGenerate}

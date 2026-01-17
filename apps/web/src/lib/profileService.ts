@@ -41,6 +41,8 @@ export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileDat
       ...defaultProfile.measurements,
       ...data?.measurements,
     },
+    trainingPlan: data?.trainingPlan ?? defaultProfile.trainingPlan,
+    nutritionPlan: data?.nutritionPlan ?? defaultProfile.nutritionPlan,
   };
 }
 
@@ -61,6 +63,19 @@ export async function updateUserProfilePreferences(profile: ProfileData): Promis
   });
   if (!response.ok) {
     return profile;
+  }
+  const data = (await response.json()) as Partial<ProfileData> | null;
+  return mergeProfileData(data ?? profile);
+}
+
+export async function updateUserProfile(profile: Partial<ProfileData>): Promise<ProfileData> {
+  const response = await fetch("/api/profile", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+  if (!response.ok) {
+    return mergeProfileData(profile);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
   return mergeProfileData(data ?? profile);
