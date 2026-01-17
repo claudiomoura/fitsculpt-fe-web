@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
+import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
 
-async function getAuthCookie() {
-  const token = (await cookies()).get("fs_token")?.value;
-  const signature = (await cookies()).get("fs_token.sig")?.value;
-  if (token && signature) {
-    return `fs_token=${token}; fs_token.sig=${signature}`;
-  }
-  return token ? `fs_token=${token}` : null;
-}
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const authCookie = await getAuthCookie();
+  const authCookie = getBackendAuthCookie(request);
   if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return NextResponse.json({ error: "UNAUTHORIZED_NO_COOKIE" }, { status: 401 });
   }
 
   try {
@@ -22,8 +15,21 @@ export async function GET(request: Request) {
       headers: { cookie: authCookie },
       cache: "no-store",
     });
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const responseText = await response.text();
+    if (!responseText) {
+      return new NextResponse(null, { status: response.status });
+    }
+    try {
+      const data = JSON.parse(responseText);
+      return NextResponse.json(data, { status: response.status });
+    } catch {
+      return new NextResponse(responseText, {
+        status: response.status,
+        headers: {
+          "content-type": response.headers.get("content-type") ?? "text/plain",
+        },
+      });
+    }
   } catch {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
