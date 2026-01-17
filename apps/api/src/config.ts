@@ -18,6 +18,10 @@ const envSchema = z.object({
   VERIFICATION_TOKEN_TTL_HOURS: z.coerce.number().default(24),
   VERIFICATION_RESEND_COOLDOWN_MINUTES: z.coerce.number().default(10),
   ADMIN_EMAIL_SEED: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_BASE_URL: z.string().default("https://api.openai.com/v1"),
+  AI_DAILY_LIMIT_FREE: z.coerce.number().default(3),
+  AI_DAILY_LIMIT_PRO: z.coerce.number().default(30),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -40,5 +44,9 @@ export function getEnv(): Env {
     VERIFICATION_TOKEN_TTL_HOURS: process.env.VERIFICATION_TOKEN_TTL_HOURS,
     VERIFICATION_RESEND_COOLDOWN_MINUTES: process.env.VERIFICATION_RESEND_COOLDOWN_MINUTES,
     ADMIN_EMAIL_SEED: process.env.ADMIN_EMAIL_SEED,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+    AI_DAILY_LIMIT_FREE: process.env.AI_DAILY_LIMIT_FREE,
+    AI_DAILY_LIMIT_PRO: process.env.AI_DAILY_LIMIT_PRO,
   });
 }

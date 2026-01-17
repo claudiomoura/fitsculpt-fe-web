@@ -225,6 +225,270 @@ const defaultTracking = {
   workoutLog: [],
 };
 
+const aiTrainingSchema = z.object({
+  name: z.string().min(1).optional(),
+  age: z.number().int().min(10).max(100),
+  sex: z.enum(["male", "female"]),
+  level: z.enum(["beginner", "intermediate", "advanced"]),
+  goal: z.enum(["cut", "maintain", "bulk"]),
+  equipment: z.enum(["gym", "home"]),
+  daysPerWeek: z.number().int().min(2).max(5),
+  sessionTime: z.enum(["short", "medium", "long"]),
+  focus: z.enum(["full", "upperLower", "ppl"]),
+  timeAvailableMinutes: z.number().int().min(20).max(120),
+  restrictions: z.string().optional(),
+});
+
+const aiNutritionSchema = z.object({
+  name: z.string().min(1).optional(),
+  age: z.number().int().min(10).max(100),
+  sex: z.enum(["male", "female"]),
+  goal: z.enum(["cut", "maintain", "bulk"]),
+  mealsPerDay: z.number().int().min(3).max(4),
+  calories: z.number().int().min(1200).max(4000),
+  dietaryRestrictions: z.string().optional(),
+});
+
+const aiTipSchema = z.object({
+  name: z.string().min(1).optional(),
+  goal: z.enum(["cut", "maintain", "bulk"]).optional(),
+});
+
+type AiRequestType = "training" | "nutrition" | "tip";
+
+function toDateKey(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+function stableStringify(value: unknown) {
+  if (!value || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+  return `{${entries.map(([key, val]) => `"${key}":${stableStringify(val)}`).join(",")}}`;
+}
+
+function buildCacheKey(type: AiRequestType, params: Record<string, unknown>) {
+  return `${type}:${stableStringify(params)}`;
+}
+
+function replaceTemplateVars(text: string, vars: Record<string, string | undefined>) {
+  return Object.entries(vars).reduce(
+    (acc, [key, value]) => (value ? acc.replaceAll(`{${key}}`, value) : acc),
+    text
+  );
+}
+
+function applyPersonalization<T>(payload: T, vars: Record<string, string | undefined>) {
+  const clone = JSON.parse(JSON.stringify(payload)) as T;
+  if (!clone || typeof clone !== "object") return clone;
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach((child) => walk(child));
+      return;
+    }
+    if (node && typeof node === "object") {
+      Object.entries(node as Record<string, unknown>).forEach(([key, value]) => {
+        if (typeof value === "string") {
+          (node as Record<string, unknown>)[key] = replaceTemplateVars(value, vars);
+        } else if (value && typeof value === "object") {
+          walk(value);
+        }
+      });
+    }
+  };
+  walk(clone);
+  return clone;
+}
+
+async function enforceAiQuota(user: { id: string; subscriptionPlan: string }) {
+  const dateKey = toDateKey();
+  const limit = user.subscriptionPlan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+  const usage = await prisma.aiUsage.findUnique({
+    where: { userId_date: { userId: user.id, date: dateKey } },
+  });
+  if (limit > 0 && usage && usage.count >= limit) {
+    throw createHttpError(429, "AI_LIMIT_REACHED");
+  }
+  await prisma.aiUsage.upsert({
+    where: { userId_date: { userId: user.id, date: dateKey } },
+    create: { userId: user.id, date: dateKey, count: 1 },
+    update: { count: { increment: 1 } },
+  });
+}
+
+async function storeAiContent(
+  userId: string,
+  type: AiRequestType,
+  source: "template" | "cache" | "ai",
+  payload: Record<string, unknown>
+) {
+  await prisma.aiContent.create({
+    data: { userId, type, source, payload },
+  });
+}
+
+async function getCachedAiPayload(key: string) {
+  const cached = await prisma.aiPromptCache.findUnique({ where: { key } });
+  if (!cached) return null;
+  await prisma.aiPromptCache.update({
+    where: { id: cached.id },
+    data: { lastUsedAt: new Date() },
+  });
+  return cached.payload as Record<string, unknown>;
+}
+
+async function saveCachedAiPayload(key: string, type: AiRequestType, payload: Record<string, unknown>) {
+  await prisma.aiPromptCache.upsert({
+    where: { key },
+    create: { key, type, payload },
+    update: { payload, lastUsedAt: new Date() },
+  });
+}
+
+function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
+  if (params.focus !== "ppl" || params.level !== "intermediate" || params.daysPerWeek < 3) {
+    return null;
+  }
+  return {
+    title: "Rutina Push/Pull/Legs intermedio",
+    days: [
+      {
+        day: "Día 1",
+        focus: "Push",
+        exercises: [
+          { name: "Press banca", sets: "4 x 8-10" },
+          { name: "Press militar", sets: "3 x 10" },
+          { name: "Fondos", sets: "3 x 12" },
+        ],
+      },
+      {
+        day: "Día 2",
+        focus: "Pull",
+        exercises: [
+          { name: "Remo con barra", sets: "4 x 8-10" },
+          { name: "Dominadas", sets: "3 x 8-10" },
+          { name: "Curl bíceps", sets: "3 x 12" },
+        ],
+      },
+      {
+        day: "Día 3",
+        focus: "Legs",
+        exercises: [
+          { name: "Sentadilla", sets: "4 x 8-10" },
+          { name: "Peso muerto rumano", sets: "3 x 10" },
+          { name: "Hip thrust", sets: "3 x 12" },
+        ],
+      },
+    ],
+    notes: "Plan base PPL. Ajusta cargas y descanso según progreso.",
+  };
+}
+
+function buildNutritionTemplate(params: z.infer<typeof aiNutritionSchema>) {
+  if (params.mealsPerDay !== 3 || params.goal !== "cut") {
+    return null;
+  }
+  return {
+    title: "Plan semanal de nutrición",
+    dailyCalories: params.calories,
+    proteinG: Math.round(params.calories * 0.3 / 4),
+    fatG: Math.round(params.calories * 0.25 / 9),
+    carbsG: Math.round(params.calories * 0.45 / 4),
+    days: [
+      {
+        day: "Lunes",
+        meals: [
+          { name: "Desayuno", calories: Math.round(params.calories * 0.3), macros: "P/C/F balanceado" },
+          { name: "Comida", calories: Math.round(params.calories * 0.4), macros: "Alta proteína" },
+          { name: "Cena", calories: Math.round(params.calories * 0.3), macros: "Ligera" },
+        ],
+      },
+    ],
+  };
+}
+
+function buildTipTemplate() {
+  return {
+    title: "Consejo diario",
+    message: "Hola {name}, recuerda que la constancia gana a la intensidad. ¡Haz algo hoy!",
+  };
+}
+
+function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
+  return [
+    "Eres un coach fitness.",
+    "Genera un plan semanal de entrenamiento en JSON.",
+    `Edad: ${data.age}. Sexo: ${data.sex}. Nivel: ${data.level}. Objetivo: ${data.goal}.`,
+    `Días/semana: ${data.daysPerWeek}. Equipo: ${data.equipment}. Enfoque: ${data.focus}.`,
+    `Tiempo disponible: ${data.timeAvailableMinutes} min. Restricciones: ${data.restrictions ?? "ninguna"}.`,
+    'Salida JSON: {"title":string,"days":[{"day":string,"focus":string,"exercises":[{"name":string,"sets":string,"reps":string}]}],"notes":string}',
+  ].join(" ");
+}
+
+function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
+  return [
+    "Eres un nutricionista.",
+    "Genera un plan semanal en JSON.",
+    `Edad: ${data.age}. Sexo: ${data.sex}. Objetivo: ${data.goal}.`,
+    `Calorías diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
+    `Restricciones: ${data.dietaryRestrictions ?? "ninguna"}.`,
+    'Salida JSON: {"title":string,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"day":string,"meals":[{"name":string,"calories":number,"macros":string}]}]}',
+  ].join(" ");
+}
+
+function buildTipPrompt(data: z.infer<typeof aiTipSchema>) {
+  return [
+    "Eres un coach motivacional.",
+    `Objetivo: ${data.goal ?? "general"}.`,
+    'Salida JSON: {"title":string,"message":string}. Máx 250 tokens.',
+  ].join(" ");
+}
+
+function extractJson(text: string) {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw createHttpError(502, "AI_PARSE_ERROR");
+  }
+  const json = text.slice(start, end + 1);
+  return JSON.parse(json) as Record<string, unknown>;
+}
+
+async function callOpenAi(prompt: string) {
+  if (!env.OPENAI_API_KEY) {
+    throw createHttpError(503, "AI_UNAVAILABLE");
+  }
+  const response = await fetch(`${env.OPENAI_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: "Responde solo con JSON válido, sin texto extra." },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 250,
+      temperature: 0.7,
+    }),
+  });
+  if (!response.ok) {
+    throw createHttpError(502, "AI_REQUEST_FAILED");
+  }
+  const data = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw createHttpError(502, "AI_EMPTY_RESPONSE");
+  }
+  return extractJson(content);
+}
+
 const feedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
@@ -732,6 +996,102 @@ const updated = await prisma.userProfile.upsert({
 });
 
     return updated.tracking ?? defaultTracking;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/ai/training-plan", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const data = aiTrainingSchema.parse(request.body);
+    const cacheKey = buildCacheKey("training", data);
+    const template = buildTrainingTemplate(data);
+
+    if (template) {
+      const personalized = applyPersonalization(template, { name: data.name });
+      await storeAiContent(user.id, "training", "template", personalized);
+      return reply.status(200).send(personalized);
+    }
+
+    const cached = await getCachedAiPayload(cacheKey);
+    if (cached) {
+      const personalized = applyPersonalization(cached, { name: data.name });
+      await storeAiContent(user.id, "training", "cache", personalized);
+      return reply.status(200).send(personalized);
+    }
+
+    await enforceAiQuota(user);
+    const prompt = buildTrainingPrompt(data);
+    const payload = await callOpenAi(prompt);
+    await saveCachedAiPayload(cacheKey, "training", payload);
+    const personalized = applyPersonalization(payload, { name: data.name });
+    await storeAiContent(user.id, "training", "ai", personalized);
+    return reply.status(200).send(personalized);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/ai/nutrition-plan", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const data = aiNutritionSchema.parse(request.body);
+    const cacheKey = buildCacheKey("nutrition", data);
+    const template = buildNutritionTemplate(data);
+
+    if (template) {
+      const personalized = applyPersonalization(template, { name: data.name });
+      await storeAiContent(user.id, "nutrition", "template", personalized);
+      return reply.status(200).send(personalized);
+    }
+
+    const cached = await getCachedAiPayload(cacheKey);
+    if (cached) {
+      const personalized = applyPersonalization(cached, { name: data.name });
+      await storeAiContent(user.id, "nutrition", "cache", personalized);
+      return reply.status(200).send(personalized);
+    }
+
+    await enforceAiQuota(user);
+    const prompt = buildNutritionPrompt(data);
+    const payload = await callOpenAi(prompt);
+    await saveCachedAiPayload(cacheKey, "nutrition", payload);
+    const personalized = applyPersonalization(payload, { name: data.name });
+    await storeAiContent(user.id, "nutrition", "ai", personalized);
+    return reply.status(200).send(personalized);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/ai/daily-tip", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const data = aiTipSchema.parse(request.body);
+    const cacheKey = buildCacheKey("tip", data);
+    const template = buildTipTemplate();
+
+    if (template) {
+      const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
+      await storeAiContent(user.id, "tip", "template", personalized);
+      return reply.status(200).send(personalized);
+    }
+
+    const cached = await getCachedAiPayload(cacheKey);
+    if (cached) {
+      const personalized = applyPersonalization(cached, { name: data.name ?? "amigo" });
+      await storeAiContent(user.id, "tip", "cache", personalized);
+      return reply.status(200).send(personalized);
+    }
+
+    await enforceAiQuota(user);
+    const prompt = buildTipPrompt(data);
+    const payload = await callOpenAi(prompt);
+    await saveCachedAiPayload(cacheKey, "tip", payload);
+    const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
+    await storeAiContent(user.id, "tip", "ai", personalized);
+    return reply.status(200).send(personalized);
   } catch (error) {
     return handleRequestError(reply, error);
   }
