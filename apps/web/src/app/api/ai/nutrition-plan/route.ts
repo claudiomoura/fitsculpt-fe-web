@@ -8,21 +8,24 @@ async function getAuthCookie() {
 }
 
 export async function POST(request: Request) {
-  const rawCookie = request.headers.get("cookie");
-  const authCookie = rawCookie ?? (await getAuthCookie());
+  const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   const body = await request.json();
-  const response = await fetch(`${getBackendUrl()}/ai/nutrition-plan`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      cookie: authCookie,
-    },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+  try {
+    const response = await fetch(`${getBackendUrl()}/ai/nutrition-plan`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: authCookie,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch {
+    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+  }
 }
