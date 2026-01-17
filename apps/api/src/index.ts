@@ -37,10 +37,11 @@ const RESEND_COOLDOWN_MS = env.VERIFICATION_RESEND_COOLDOWN_MINUTES * 60 * 1000;
 
 app.get("/health", async () => ({ status: "ok" }));
 
-function createHttpError(statusCode: number, code: string) {
-  const error = new Error(code) as Error & { statusCode?: number; code?: string };
+function createHttpError(statusCode: number, code: string, debug?: Record<string, unknown>) {
+  const error = new Error(code) as Error & { statusCode?: number; code?: string; debug?: Record<string, unknown> };
   error.statusCode = statusCode;
   error.code = code;
+  error.debug = debug;
   return error;
 }
 
@@ -48,9 +49,12 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
   if (error instanceof z.ZodError) {
     return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
   }
-  const typed = error as { statusCode?: number; code?: string };
+  const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
   if (typed.statusCode) {
-    return reply.status(typed.statusCode).send({ error: typed.code ?? "REQUEST_ERROR" });
+    return reply.status(typed.statusCode).send({
+      error: typed.code ?? "REQUEST_ERROR",
+      ...(typed.debug ? { debug: typed.debug } : {}),
+    });
   }
   return reply.status(401).send({ error: "UNAUTHORIZED" });
 }
@@ -81,14 +85,154 @@ function buildCookieOptions() {
   };
 }
 
-async function requireUser(request: FastifyRequest) {
-  const payload = await request.jwtVerify<{ sub: string }>();
+function parseBearerToken(header?: string) {
+  if (!header) return null;
+  const [scheme, ...rest] = header.trim().split(" ");
+  if (!scheme || scheme.toLowerCase() !== "bearer") return null;
+  const token = rest.join(" ").trim();
+  return token.length > 0 ? token : null;
+}
+
+function normalizeToken(rawToken: string) {
+  let token = rawToken.trim();
+  if ((token.startsWith("\"") && token.endsWith("\"")) || (token.startsWith("'") && token.endsWith("'"))) {
+    token = token.slice(1, -1).trim();
+  }
+  if (token.startsWith("fs_token=")) {
+    token = token.slice("fs_token=".length).trim();
+  }
+  const hadPercent = token.includes("%");
+  if (hadPercent) {
+    try {
+      token = decodeURIComponent(token);
+    } catch {
+      return { token, hadPercent, decodeFailed: true };
+    }
+  }
+  const parts = token.split(".");
+  if (parts.length > 3) {
+    token = parts.slice(0, 3).join(".");
+  }
+  const segments = token.split(".").length;
+  return { token, hadPercent, decodeFailed: false, segments };
+}
+
+function parseCookieHeader(cookieHeader?: string) {
+  if (!cookieHeader) return new Map<string, string>();
+  const entries = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const index = part.indexOf("=");
+      if (index === -1) return null;
+      const name = part.slice(0, index).trim();
+      const value = part.slice(index + 1).trim();
+      if (!name) return null;
+      return [name, value] as const;
+    })
+    .filter((entry): entry is readonly [string, string] => Boolean(entry));
+  return new Map(entries);
+}
+
+function getJwtTokenFromRequest(request: FastifyRequest) {
+  const authHeader = request.headers.authorization;
+  const bearerToken = parseBearerToken(authHeader);
+  const hasBearerPrefix = authHeader?.trim().toLowerCase().startsWith("bearer ") ?? false;
+  if (authHeader) {
+    const rawToken = bearerToken ?? authHeader;
+    const normalized = normalizeToken(rawToken);
+    return { token: normalized.token, source: "authorization" as const, hasBearerPrefix, normalized };
+  }
+  const cookieHeader = request.headers.cookie;
+  const cookieToken = parseCookieHeader(cookieHeader).get("fs_token") ?? null;
+  if (cookieToken) {
+    const normalized = normalizeToken(cookieToken);
+    return { token: normalized.token, source: "cookie" as const, hasBearerPrefix, normalized };
+  }
+  return { token: null, source: "none" as const, hasBearerPrefix, normalized: null };
+}
+
+async function requireUser(
+  request: FastifyRequest,
+  options?: {
+    logContext?: string;
+  }
+) {
+  const route = options?.logContext ?? request.routeOptions?.url ?? "unknown";
+  const hasAuthHeader = typeof request.headers.authorization === "string";
+  const hasCookieHeader = typeof request.headers.cookie === "string";
+  if (options?.logContext && process.env.NODE_ENV !== "production") {
+    app.log.info({ route, hasAuthHeader, hasCookieHeader }, "ai auth precheck");
+  }
+
+  const { token, source, hasBearerPrefix, normalized } = getJwtTokenFromRequest(request);
+  if (!token) {
+    if (options?.logContext && process.env.NODE_ENV !== "production") {
+      app.log.warn({ route, reason: "MISSING_TOKEN", source, hasBearerPrefix }, "ai auth failed");
+    }
+    throw createHttpError(401, "UNAUTHORIZED");
+  }
+  const segments = normalized?.segments ?? token.split(".").length;
+  const hasPercent = normalized?.hadPercent ?? false;
+  if (segments !== 3) {
+    if (options?.logContext && process.env.NODE_ENV !== "production") {
+      app.log.warn({ route, source, hasBearerPrefix, segments, hasPercent }, "ai auth invalid token format");
+    }
+    throw createHttpError(401, "INVALID_TOKEN_FORMAT", { segments, hasPercent });
+  }
+
+  if (options?.logContext && process.env.NODE_ENV !== "production") {
+    app.log.info(
+      {
+        route,
+        source,
+        hasBearerPrefix,
+        segments,
+        hasPercent,
+        tokenPreview: token.slice(0, 20),
+        tokenDecodeFailed: normalized?.decodeFailed ?? false,
+        tokenHasSpace: token.includes(" "),
+        tokenHasCookieLabel: token.includes("fs_token="),
+      },
+      "ai auth token debug"
+    );
+  }
+
+  let payload: { sub: string };
+  try {
+    payload = app.jwt.verify<{ sub: string }>(token);
+  } catch (error) {
+    if (options?.logContext && process.env.NODE_ENV !== "production") {
+      const typed = error as { message?: string; code?: string; name?: string };
+      const tokenPreview = token.slice(0, 20);
+      app.log.warn(
+        {
+          route,
+          reason: typed.message ?? typed.code ?? typed.name ?? "JWT_VERIFY_FAILED",
+          source,
+          hasBearerPrefix,
+          segments,
+          hasPercent,
+          tokenPreview,
+          tokenDecodeFailed: normalized?.decodeFailed ?? false,
+          tokenHasSpace: token.includes(" "),
+          tokenHasCookieLabel: token.includes("fs_token="),
+        },
+        "ai auth failed"
+      );
+    }
+    throw createHttpError(401, "UNAUTHORIZED");
+  }
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   if (!user || user.deletedAt) {
     throw createHttpError(404, "NOT_FOUND");
   }
   if (user.isBlocked) {
     throw createHttpError(403, "USER_BLOCKED");
+  }
+  if (options?.logContext && process.env.NODE_ENV !== "production") {
+    app.log.info({ route, userId: user.id, role: user.role }, "ai auth ok");
   }
   return user;
 }
@@ -998,7 +1142,7 @@ const updated = await prisma.userProfile.upsert({
 app.post("/ai/training-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
-    const user = await requireUser(request);
+    const user = await requireUser(request, { logContext: "/ai/training-plan" });
     const data = aiTrainingSchema.parse(request.body);
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
@@ -1031,7 +1175,7 @@ app.post("/ai/training-plan", async (request, reply) => {
 app.post("/ai/nutrition-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
-    const user = await requireUser(request);
+    const user = await requireUser(request, { logContext: "/ai/nutrition-plan" });
     const data = aiNutritionSchema.parse(request.body);
     const cacheKey = buildCacheKey("nutrition", data);
     const template = buildNutritionTemplate(data);
@@ -1064,7 +1208,7 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
 app.post("/ai/daily-tip", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/daily-tip");
-    const user = await requireUser(request);
+    const user = await requireUser(request, { logContext: "/ai/daily-tip" });
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();
