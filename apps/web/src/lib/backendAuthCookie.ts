@@ -4,7 +4,7 @@ async function buildCookieHeaderFromStore() {
   const cookieStore = await cookies();
   const allCookies = cookieStore.getAll();
   if (allCookies.length === 0) {
-    return { header: null, hasToken: false };
+    return { header: null, hasToken: false, hasSignature: false };
   }
 
   const hasToken = allCookies.some((cookie) => cookie.name === "fs_token");
