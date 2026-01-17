@@ -11,21 +11,8 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-function hasAuthCookie(rawCookie: string | null) {
-  if (!rawCookie) return false;
-  return rawCookie.includes("fs_token=") || rawCookie.includes("fs_token.sig=");
-}
-
-async function resolveAuthCookie(request: Request) {
-  const rawCookie = request.headers.get("cookie");
-  if (hasAuthCookie(rawCookie)) {
-    return rawCookie;
-  }
-  return await getAuthCookie();
-}
-
 export async function GET(request: Request) {
-  const authCookie = await resolveAuthCookie(request);
+  const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
