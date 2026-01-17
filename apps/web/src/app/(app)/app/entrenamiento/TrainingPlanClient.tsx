@@ -9,6 +9,7 @@ import {
   type TrainingLevel,
   type SessionTime,
   type TrainingPlanData,
+  type ProfileData,
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 
@@ -149,12 +150,14 @@ function adjustSets(sets: string, delta: number) {
 
 export default function TrainingPlanClient() {
   const c = copy.es;
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [form, setForm] = useState<TrainingForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -162,6 +165,7 @@ export default function TrainingPlanClient() {
     try {
       const profile = await getUserProfile();
       if (!activeRef.current) return;
+      setProfile(profile);
       setForm({
         goal: profile.trainingPreferences.goal,
         level: profile.trainingPreferences.level,
@@ -205,6 +209,43 @@ export default function TrainingPlanClient() {
     }
   };
 
+  const handleAiPlan = async () => {
+    if (!profile || !form) return;
+    setAiLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ai/training-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profile.name || undefined,
+          age: profile.age,
+          sex: profile.sex,
+          level: form.level,
+          goal: form.goal,
+          equipment: form.equipment,
+          daysPerWeek: form.daysPerWeek,
+          sessionTime: form.sessionTime,
+          focus: form.focus,
+          timeAvailableMinutes: form.sessionTime === "short" ? 35 : form.sessionTime === "medium" ? 50 : 65,
+          restrictions: profile.notes || undefined,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(c.training.aiError);
+      }
+      const data = (await response.json()) as TrainingPlan;
+      const updated = await updateUserProfile({ trainingPlan: data });
+      setSavedPlan(updated.trainingPlan ?? data);
+      setSaveMessage(c.training.aiSuccess);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : c.training.aiError);
+    } finally {
+      setAiLoading(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
   return (
     <div className="page">
       <section className="card">
@@ -217,6 +258,9 @@ export default function TrainingPlanClient() {
           </div>
           <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
             {c.training.generate}
+          </button>
+          <button type="button" className="btn" disabled={!form || aiLoading} onClick={handleAiPlan}>
+            {aiLoading ? c.training.aiGenerating : c.training.aiGenerate}
           </button>
           <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
             {saving ? c.training.savePlanSaving : c.training.savePlan}

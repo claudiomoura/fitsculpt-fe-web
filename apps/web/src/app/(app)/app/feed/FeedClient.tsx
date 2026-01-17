@@ -10,6 +10,11 @@ type FeedPost = {
   createdAt: string;
 };
 
+type DailyTip = {
+  title: string;
+  message: string;
+};
+
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -23,8 +28,10 @@ function formatDate(value: string) {
 export default function FeedClient() {
   const c = copy.es;
   const [items, setItems] = useState<FeedPost[]>([]);
+  const [tip, setTip] = useState<DailyTip | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [tipLoading, setTipLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadFeed = async () => {
@@ -65,6 +72,27 @@ export default function FeedClient() {
     }
   };
 
+  const handleTip = async () => {
+    setTipLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ai/daily-tip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        throw new Error(c.app.tipError);
+      }
+      const data = (await response.json()) as DailyTip;
+      setTip(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : c.app.tipError);
+    } finally {
+      setTipLoading(false);
+    }
+  };
+
   return (
     <section className="card">
       <div className="section-header">
@@ -72,9 +100,14 @@ export default function FeedClient() {
           <h2 className="section-title">{c.app.feedSectionTitle}</h2>
           <p className="section-subtitle">{c.app.feedSectionSubtitle}</p>
         </div>
-        <button className="btn" type="button" onClick={handleGenerate} disabled={generating}>
-          {generating ? c.app.feedGenerating : c.app.feedGenerate}
-        </button>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <button className="btn" type="button" onClick={handleGenerate} disabled={generating}>
+            {generating ? c.app.feedGenerating : c.app.feedGenerate}
+          </button>
+          <button className="btn secondary" type="button" onClick={handleTip} disabled={tipLoading}>
+            {tipLoading ? c.app.tipGenerating : c.app.tipGenerate}
+          </button>
+        </div>
       </div>
 
       {error ? <p className="muted">{error}</p> : null}
@@ -84,6 +117,15 @@ export default function FeedClient() {
       ) : null}
 
       <div className="feed-list">
+        {tip ? (
+          <article className="feed-item">
+            <div>
+              <h3>{tip.title}</h3>
+              <p className="muted">{c.app.tipSubtitle}</p>
+            </div>
+            <p>{tip.message}</p>
+          </article>
+        ) : null}
         {items.map((item) => (
           <article key={item.id} className="feed-item">
             <div>

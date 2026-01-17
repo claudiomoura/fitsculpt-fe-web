@@ -276,6 +276,7 @@ export default function NutritionPlanClient() {
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -352,6 +353,41 @@ export default function NutritionPlanClient() {
     }
   };
 
+  const handleAiPlan = async () => {
+    if (!profile) return;
+    setAiLoading(true);
+    setError(null);
+    try {
+      const mealsPerDay = Math.min(4, Math.max(3, profile.nutritionPreferences.mealsPerDay));
+      const calories = plan?.dailyCalories ?? 2000;
+      const response = await fetch("/api/ai/nutrition-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profile.name || undefined,
+          age: profile.age,
+          sex: profile.sex,
+          goal: profile.nutritionPreferences.goal,
+          mealsPerDay,
+          calories,
+          dietaryRestrictions: profile.nutritionPreferences.dietaryPrefs || profile.nutritionPreferences.dislikes || undefined,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(c.nutrition.aiError);
+      }
+      const data = (await response.json()) as NutritionPlan;
+      const updated = await updateUserProfile({ nutritionPlan: data });
+      setSavedPlan(updated.nutritionPlan ?? data);
+      setSaveMessage(c.nutrition.aiSuccess);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : c.nutrition.aiError);
+    } finally {
+      setAiLoading(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
   return (
     <div className="page">
       <section className="card">
@@ -362,6 +398,9 @@ export default function NutritionPlanClient() {
           </div>
           <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
             {c.nutrition.generate}
+          </button>
+          <button type="button" className="btn" disabled={!plan || aiLoading} onClick={handleAiPlan}>
+            {aiLoading ? c.nutrition.aiGenerating : c.nutrition.aiGenerate}
           </button>
           <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
             {saving ? c.nutrition.savePlanSaving : c.nutrition.savePlan}
