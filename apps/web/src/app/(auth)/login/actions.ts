@@ -5,20 +5,30 @@ import { redirect } from "next/navigation";
 import { getBackendUrl } from "@/lib/backend";
 
 async function storeAuthCookie(response: Response) {
-  const setCookie = response.headers.get("set-cookie");
-  if (!setCookie) return;
+  const setCookieHeader = response.headers.get("set-cookie");
+  const setCookies =
+    typeof response.headers.getSetCookie === "function"
+      ? response.headers.getSetCookie()
+      : setCookieHeader
+        ? setCookieHeader.split(/,(?=[^;]+?=)/)
+        : [];
 
-  const cookiePair = setCookie.split(";")[0] ?? "";
-  const separatorIndex = cookiePair.indexOf("=");
-  if (separatorIndex <= 0) return;
+  if (setCookies.length === 0) return;
 
-  const name = cookiePair.slice(0, separatorIndex);
-  const value = cookiePair.slice(separatorIndex + 1);
-  (await cookies()).set(name, value, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-  });
+  const cookieStore = await cookies();
+  for (const cookie of setCookies) {
+    const cookiePair = cookie.split(";")[0] ?? "";
+    const separatorIndex = cookiePair.indexOf("=");
+    if (separatorIndex <= 0) continue;
+
+    const name = cookiePair.slice(0, separatorIndex);
+    const value = cookiePair.slice(separatorIndex + 1);
+    cookieStore.set(name, value, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+    });
+  }
 }
 
 export async function loginAction(formData: FormData) {
@@ -79,6 +89,8 @@ export async function logoutAction() {
     method: "POST",
     headers,
   });
-  (await cookies()).delete("fs_token");
+  const cookieStore = await cookies();
+  cookieStore.delete("fs_token");
+  cookieStore.delete("fs_token.sig");
   redirect("/");
 }
