@@ -5,13 +5,12 @@ export default function TrackingPage() {
   const c = copy.es;
 
   return (
-    <section>
-      <h1>{c.app.trackingTitle}</h1>
-      <p style={{ marginTop: 6 }}>{c.app.trackingSubtitle}</p>
-
-      <div style={{ marginTop: 16 }}>
-        <TrackingClient />
-      </div>
-    </section>
+    <div className="page">
+      <section className="card">
+        <h1 className="section-title">{c.app.trackingTitle}</h1>
+        <p className="section-subtitle">{c.app.trackingSubtitle}</p>
+      </section>
+      <TrackingClient />
+    </div>
   );
 }

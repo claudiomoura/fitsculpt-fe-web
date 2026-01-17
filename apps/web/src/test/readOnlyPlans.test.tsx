@@ -1,0 +1,31 @@
+import { render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { defaultProfile } from "@/lib/profile";
+
+vi.mock("@/lib/profileService", () => ({
+  getUserProfile: () => Promise.resolve(defaultProfile),
+}));
+
+import TrainingPlanClient from "@/app/(app)/app/entrenamiento/TrainingPlanClient";
+import NutritionPlanClient from "@/app/(app)/app/nutricion/NutritionPlanClient";
+import MacrosClient from "@/app/(app)/app/macros/MacrosClient";
+
+describe("Read-only plan pages", () => {
+  it("renders training plan without editable form fields", async () => {
+    const { container, findByText } = render(<TrainingPlanClient />);
+    await findByText(/Plan semanal/i);
+    expect(container.querySelectorAll("input, select, textarea").length).toBe(0);
+  });
+
+  it("renders nutrition plan without editable form fields", async () => {
+    const { container, findByText } = render(<NutritionPlanClient />);
+    await findByText(/Objetivo diario/i);
+    expect(container.querySelectorAll("input, select, textarea").length).toBe(0);
+  });
+
+  it("renders macros without editable form fields", async () => {
+    const { container, findByText } = render(<MacrosClient />);
+    await findByText(/Macros/i);
+    expect(container.querySelectorAll("input, select, textarea").length).toBe(0);
+  });
+});
