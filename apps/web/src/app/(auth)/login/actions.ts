@@ -16,6 +16,7 @@ async function storeAuthCookie(response: Response) {
   if (setCookies.length === 0) return;
 
   const cookieStore = await cookies();
+  const secure = getBackendUrl().startsWith("https://");
   for (const cookie of setCookies) {
     const cookiePair = cookie.split(";")[0] ?? "";
     const separatorIndex = cookiePair.indexOf("=");
@@ -27,6 +28,7 @@ async function storeAuthCookie(response: Response) {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
+      secure,
     });
   }
 }

@@ -55,6 +55,15 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
   return reply.status(401).send({ error: "UNAUTHORIZED" });
 }
 
+function logAuthCookieDebug(request: FastifyRequest, route: string) {
+  if (process.env.NODE_ENV === "production") return;
+  const cookieHeader = request.headers.cookie;
+  const hasCookie = typeof cookieHeader === "string" && cookieHeader.length > 0;
+  const hasToken = hasCookie && cookieHeader.includes("fs_token=");
+  const hasSignature = hasCookie && cookieHeader.includes("fs_token.sig=");
+  app.log.info({ route, hasCookie, hasToken, hasSignature }, "auth cookie debug");
+}
+
 function getRequestIp(request: FastifyRequest) {
   const forwarded = request.headers["x-forwarded-for"];
   if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim();
@@ -988,6 +997,7 @@ const updated = await prisma.userProfile.upsert({
 
 app.post("/ai/training-plan", async (request, reply) => {
   try {
+    logAuthCookieDebug(request, "/ai/training-plan");
     const user = await requireUser(request);
     const data = aiTrainingSchema.parse(request.body);
     const cacheKey = buildCacheKey("training", data);
@@ -1020,6 +1030,7 @@ app.post("/ai/training-plan", async (request, reply) => {
 
 app.post("/ai/nutrition-plan", async (request, reply) => {
   try {
+    logAuthCookieDebug(request, "/ai/nutrition-plan");
     const user = await requireUser(request);
     const data = aiNutritionSchema.parse(request.body);
     const cacheKey = buildCacheKey("nutrition", data);
@@ -1052,6 +1063,7 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
 
 app.post("/ai/daily-tip", async (request, reply) => {
   try {
+    logAuthCookieDebug(request, "/ai/daily-tip");
     const user = await requireUser(request);
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
@@ -1084,6 +1096,7 @@ app.post("/ai/daily-tip", async (request, reply) => {
 
 app.get("/feed", async (request, reply) => {
   try {
+    logAuthCookieDebug(request, "/feed");
     const user = await requireUser(request);
     const { limit } = feedQuerySchema.parse(request.query);
     const posts = await prisma.feedPost.findMany({
@@ -1099,6 +1112,7 @@ app.get("/feed", async (request, reply) => {
 
 app.post("/feed/generate", async (request, reply) => {
   try {
+    logAuthCookieDebug(request, "/feed/generate");
     const user = await requireUser(request);
     const profile = await getOrCreateProfile(user.id);
     const profileData =
