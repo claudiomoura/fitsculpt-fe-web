@@ -81,14 +81,83 @@ function buildCookieOptions() {
   };
 }
 
-async function requireUser(request: FastifyRequest) {
-  const payload = await request.jwtVerify<{ sub: string }>();
+function parseBearerToken(header?: string) {
+  if (!header) return null;
+  const [scheme, ...rest] = header.trim().split(" ");
+  if (!scheme || scheme.toLowerCase() !== "bearer") return null;
+  const token = rest.join(" ").trim();
+  return token.length > 0 ? token : null;
+}
+
+function parseCookieHeader(cookieHeader?: string) {
+  if (!cookieHeader) return new Map<string, string>();
+  const entries = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const index = part.indexOf("=");
+      if (index === -1) return null;
+      const name = part.slice(0, index).trim();
+      const value = part.slice(index + 1).trim();
+      if (!name) return null;
+      return [name, value] as const;
+    })
+    .filter((entry): entry is readonly [string, string] => Boolean(entry));
+  return new Map(entries);
+}
+
+function getJwtTokenFromRequest(request: FastifyRequest) {
+  const authHeader = request.headers.authorization;
+  const bearerToken = parseBearerToken(authHeader);
+  if (bearerToken) {
+    return { token: bearerToken, source: "authorization" as const };
+  }
+  const cookieHeader = request.headers.cookie;
+  const cookieToken = parseCookieHeader(cookieHeader).get("fs_token") ?? null;
+  return { token: cookieToken, source: cookieToken ? ("cookie" as const) : ("none" as const) };
+}
+
+async function requireUser(
+  request: FastifyRequest,
+  options?: {
+    logContext?: string;
+  }
+) {
+  const route = options?.logContext ?? request.routeOptions?.url ?? "unknown";
+  const hasAuthHeader = typeof request.headers.authorization === "string";
+  const hasCookieHeader = typeof request.headers.cookie === "string";
+  if (options?.logContext && process.env.NODE_ENV !== "production") {
+    app.log.info({ route, hasAuthHeader, hasCookieHeader }, "ai auth precheck");
+  }
+
+  const { token } = getJwtTokenFromRequest(request);
+  if (!token) {
+    if (options?.logContext && process.env.NODE_ENV !== "production") {
+      app.log.warn({ route, reason: "MISSING_TOKEN" }, "ai auth failed");
+    }
+    throw createHttpError(401, "UNAUTHORIZED");
+  }
+
+  let payload: { sub: string };
+  try {
+    payload = app.jwt.verify<{ sub: string }>(token);
+  } catch (error) {
+    if (options?.logContext && process.env.NODE_ENV !== "production") {
+      const typed = error as { message?: string; code?: string; name?: string };
+      app.log.warn({ route, reason: typed.message ?? typed.code ?? typed.name ?? "JWT_VERIFY_FAILED" }, "ai auth failed");
+    }
+    throw createHttpError(401, "UNAUTHORIZED");
+  }
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   if (!user || user.deletedAt) {
     throw createHttpError(404, "NOT_FOUND");
   }
   if (user.isBlocked) {
     throw createHttpError(403, "USER_BLOCKED");
+  }
+  if (options?.logContext && process.env.NODE_ENV !== "production") {
+    app.log.info({ route, userId: user.id, role: user.role }, "ai auth ok");
   }
   return user;
 }
@@ -998,7 +1067,7 @@ const updated = await prisma.userProfile.upsert({
 app.post("/ai/training-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
-    const user = await requireUser(request);
+    const user = await requireUser(request, { logContext: "/ai/training-plan" });
     const data = aiTrainingSchema.parse(request.body);
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
@@ -1031,7 +1100,7 @@ app.post("/ai/training-plan", async (request, reply) => {
 app.post("/ai/nutrition-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
-    const user = await requireUser(request);
+    const user = await requireUser(request, { logContext: "/ai/nutrition-plan" });
     const data = aiNutritionSchema.parse(request.body);
     const cacheKey = buildCacheKey("nutrition", data);
     const template = buildNutritionTemplate(data);
@@ -1064,7 +1133,7 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
 app.post("/ai/daily-tip", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/daily-tip");
-    const user = await requireUser(request);
+    const user = await requireUser(request, { logContext: "/ai/daily-tip" });
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();
