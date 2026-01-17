@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
@@ -223,6 +223,77 @@ const defaultTracking = {
   workoutLog: [],
 };
 
+const feedQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+type TrackingSnapshot = {
+  checkins?: Array<{ date?: string; weightKg?: number }>;
+  foodLog?: Array<{ date?: string }>;
+  workoutLog?: Array<{ date?: string }>;
+};
+
+function toDate(value?: string) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getRecentEntries<T extends { date?: string }>(entries: T[], days: number) {
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setDate(now.getDate() - days);
+  return entries.filter((entry) => {
+    const date = toDate(entry.date);
+    return date ? date >= cutoff : false;
+  });
+}
+
+function buildFeedSummary(profile: Record<string, unknown> | null, tracking: TrackingSnapshot | null) {
+  const name = typeof profile?.name === "string" ? profile.name : "tu";
+  const normalizedTracking: TrackingSnapshot = tracking ?? {};
+  const checkins = Array.isArray(normalizedTracking.checkins) ? normalizedTracking.checkins : [];
+  const foodLog = Array.isArray(normalizedTracking.foodLog) ? normalizedTracking.foodLog : [];
+  const workoutLog = Array.isArray(normalizedTracking.workoutLog) ? normalizedTracking.workoutLog : [];
+
+  const recentCheckins = getRecentEntries(checkins, 7);
+  const recentWorkouts = getRecentEntries(workoutLog, 7);
+  const recentMeals = getRecentEntries(foodLog, 7);
+
+  const sortedCheckins = recentCheckins
+    .map((entry) => ({ ...entry, parsed: toDate(entry.date) }))
+    .filter((entry) => entry.parsed)
+    .sort((a, b) => (a.parsed!.getTime() > b.parsed!.getTime() ? 1 : -1));
+
+  let trendLine = "Aún no registraste suficientes check-ins esta semana.";
+  if (sortedCheckins.length >= 2) {
+    const first = sortedCheckins[0];
+    const last = sortedCheckins[sortedCheckins.length - 1];
+    const delta = Number((last.weightKg ?? 0) - (first.weightKg ?? 0));
+    const sign = delta > 0 ? "subiste" : delta < 0 ? "bajaste" : "mantuviste";
+    const formatted = Math.abs(delta).toFixed(1);
+    trendLine = `En los últimos 7 días ${sign} ${formatted} kg.`;
+  } else if (sortedCheckins.length === 1) {
+    trendLine = "Registraste 1 check-in esta semana. ¡Sigue así!";
+  }
+
+  const lines = [
+    `Hola ${name}, aquí va tu resumen semanal.`,
+    `Check-ins: ${recentCheckins.length}, entrenamientos: ${recentWorkouts.length}, comidas registradas: ${recentMeals.length}.`,
+    trendLine,
+  ];
+
+  return {
+    title: "Resumen semanal",
+    summary: lines.join(" "),
+    metadata: {
+      checkins: recentCheckins.length,
+      workouts: recentWorkouts.length,
+      meals: recentMeals.length,
+    },
+  };
+}
+
 async function createVerificationToken(userId: string) {
   const token = crypto.randomBytes(32).toString("base64url");
   const tokenHash = hashToken(token);
@@ -285,16 +356,41 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(409).send({ error: "EMAIL_IN_USE" });
   }
 
-  const passwordHash = await bcrypt.hash(data.password, 12);
-const user = await prisma.user.create({
-  data: {
-    email: data.email,
-    passwordHash,
-    name: data.name,
-    provider: "email",
-    emailVerifiedAt: new Date(), // auto-verificado por agora
-  },
-});
+async function sendVerificationEmail(email: string, token: string) {
+  const verifyUrl = `${env.APP_BASE_URL}/verify-email?token=${token}`;
+  const subject = "Verifica tu email en FitSculpt";
+  const text = `Hola! Verifica tu email aquí: ${verifyUrl}`;
+  const html = `<p>Hola!</p><p>Verifica tu email aquí: <a href="${verifyUrl}">${verifyUrl}</a></p>`;
+  await sendEmail({
+    to: email,
+    subject,
+    text,
+    html,
+  });
+}
+
+async function logSignupAttempt(data: { email?: string; ipAddress?: string; success: boolean }) {
+  await prisma.signupAttempt.create({
+    data: {
+      email: data.email,
+      passwordHash,
+      name: data.name,
+      provider: "email",
+      emailVerifiedAt: null,
+    },
+  });
+}
+
+  await logSignupAttempt({ email: data.email, ipAddress, success: true });
+
+  const token = await createVerificationToken(user.id);
+  await sendVerificationEmail(user.email, token);
+
+  return reply.status(201).send({ id: user.id, email: user.email, name: user.name });
+}
+
+app.post("/auth/signup", handleSignup);
+app.post("/auth/register", handleSignup);
 
 
   await logSignupAttempt({ email: data.email, ipAddress, success: true });
@@ -652,6 +748,45 @@ const updated = await prisma.userProfile.upsert({
   }
 });
 
+app.get("/feed", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { limit } = feedQuerySchema.parse(request.query);
+    const posts = await prisma.feedPost.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    return posts;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/feed/generate", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const profile = await getOrCreateProfile(user.id);
+    const profileData =
+      typeof profile.profile === "object" && profile.profile ? (profile.profile as Record<string, unknown>) : null;
+    const trackingData =
+      typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as TrackingSnapshot) : null;
+    const summary = buildFeedSummary(profileData, trackingData);
+    const post = await prisma.feedPost.create({
+      data: {
+        userId: user.id,
+        title: summary.title,
+        summary: summary.summary,
+        type: "summary",
+        metadata: summary.metadata,
+      },
+    });
+    return reply.status(201).send(post);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 const workoutCreateSchema = z.object({
   name: z.string().min(2),
   notes: z.string().min(1).optional(),
@@ -761,18 +896,17 @@ app.get("/admin/users", async (request, reply) => {
     });
     const { query, page } = querySchema.parse(request.query);
     const pageSize = 20;
-const where: Prisma.UserWhereInput = {
-  deletedAt: null,
-  ...(query
-    ? {
-        OR: [
-          { email: { contains: query, mode: Prisma.QueryMode.insensitive } },
-          { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
-        ],
-      }
-    : {}),
-};
-
+    const where = {
+      deletedAt: null,
+      ...(query
+        ? {
+            OR: [
+              { email: { contains: query, mode: "insensitive" } },
+              { name: { contains: query, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
 
     const [total, users] = await Promise.all([
       prisma.user.count({ where }),

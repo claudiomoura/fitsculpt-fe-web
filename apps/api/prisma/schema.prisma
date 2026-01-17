@@ -93,3 +93,16 @@ model OAuthState {
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
+
+model FeedPost {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  summary   String
+  type      String   @default("summary")
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

@@ -42,6 +42,7 @@ export default function AppNavBar() {
     { href: "/app/nutricion", label: c.nav.nutrition },
     { href: "/app/entrenamiento", label: c.nav.trainingPlan },
     { href: "/app/seguimiento", label: c.nav.tracking },
+    { href: "/app/feed", label: c.nav.feed },
     { href: "/app/macros", label: c.nav.macros },
     { href: "/app/biblioteca", label: c.nav.library },
     ...(isAdmin ? [{ href: "/app/admin", label: c.nav.admin }] : []),
