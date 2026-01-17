@@ -1,15 +1,20 @@
 import { cookies } from "next/headers";
 
-function buildCookieHeaderFromStore() {
-  const cookieStore = cookies();
+async function buildCookieHeaderFromStore() {
+  const cookieStore = await cookies();
   const allCookies = cookieStore.getAll();
   if (allCookies.length === 0) {
-    return { header: null, hasToken: false };
+    return { header: null, hasToken: false, hasSignature: false };
+  }
+
+  const hasToken = allCookies.some((cookie) => cookie.name === "fs_token");
+  const hasSignature = allCookies.some((cookie) => cookie.name === "fs_token.sig");
+  if (!hasToken || !hasSignature) {
+    return { header: null, hasToken, hasSignature };
   }
 
   const header = allCookies.map(({ name, value }) => `${name}=${value}`).join("; ");
-  const hasToken = allCookies.some((cookie) => cookie.name === "fs_token");
-  return { header, hasToken };
+  return { header, hasToken, hasSignature };
 }
 
 function buildCookieHeaderFromRequest(request: Request) {
@@ -20,17 +25,15 @@ function buildCookieHeaderFromRequest(request: Request) {
   return hasToken && hasSignature ? rawCookie : null;
 }
 
-export function getBackendAuthCookie(request: Request) {
-  const { header, hasToken } = buildCookieHeaderFromStore();
-  if (hasToken && header) {
+export async function getBackendAuthCookie(request: Request) {
+  const { header, hasToken, hasSignature } = await buildCookieHeaderFromStore();
+  if (header && hasToken && hasSignature) {
     return header;
   }
 
-  if (!hasToken) {
-    const fallback = buildCookieHeaderFromRequest(request);
-    if (fallback) {
-      return fallback;
-    }
+  const fallback = buildCookieHeaderFromRequest(request);
+  if (fallback) {
+    return fallback;
   }
 
   return null;
