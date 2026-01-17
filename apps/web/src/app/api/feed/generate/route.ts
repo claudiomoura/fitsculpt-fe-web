@@ -7,17 +7,33 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
+function extractAuthCookie(rawCookie: string | null) {
+  if (!rawCookie) return null;
+  const match = rawCookie
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .find((cookie) => cookie.startsWith("fs_token="));
+  return match ?? null;
+}
+
+async function resolveAuthCookie(request: Request) {
+  return extractAuthCookie(request.headers.get("cookie")) ?? (await getAuthCookie());
+}
+
 export async function POST(request: Request) {
-  const rawCookie = request.headers.get("cookie");
-  const authCookie = rawCookie ?? (await getAuthCookie());
+  const authCookie = await resolveAuthCookie(request);
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const response = await fetch(`${getBackendUrl()}/feed/generate`, {
-    method: "POST",
-    headers: { cookie: authCookie },
-  });
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+  try {
+    const response = await fetch(`${getBackendUrl()}/feed/generate`, {
+      method: "POST",
+      headers: { cookie: authCookie },
+    });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch {
+    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+  }
 }
