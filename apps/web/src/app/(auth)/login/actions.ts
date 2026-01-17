@@ -32,7 +32,9 @@ export async function loginAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    redirect("/login?error=1");
+    const data = (await response.json()) as { error?: string };
+    const error = data.error === "EMAIL_NOT_VERIFIED" ? "unverified" : data.error === "USER_BLOCKED" ? "blocked" : "1";
+    redirect(`/login?error=${error}`);
   }
 
   await storeAuthCookie(response);
@@ -45,23 +47,26 @@ export async function registerAction(formData: FormData) {
   const email = String(formData.get("email") || "");
   const password = String(formData.get("password") || "");
   const name = String(formData.get("name") || "");
+  const promoCode = String(formData.get("promoCode") || "");
 
-  const response = await fetch(`${getBackendUrl()}/auth/register`, {
+  const response = await fetch(`${getBackendUrl()}/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       email,
       password,
       name: name.trim() ? name : undefined,
+      promoCode,
     }),
   });
 
   if (!response.ok) {
-    redirect("/register?error=1");
+    const data = (await response.json()) as { error?: string };
+    const error = data.error === "INVALID_PROMO_CODE" ? "promo" : "1";
+    redirect(`/register?error=${error}`);
   }
 
-  await storeAuthCookie(response);
-  redirect("/app");
+  redirect("/login?registered=1");
 }
 
 export async function logoutAction() {

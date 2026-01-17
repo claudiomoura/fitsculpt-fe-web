@@ -2,9 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { copy } from "@/lib/i18n";
-
-type Activity = "sedentary" | "light" | "moderate" | "high" | "very";
-type Goal = "maintain" | "cut" | "bulk";
+import {
+  type Activity,
+  type Goal,
+  type NutritionCookingTime,
+  type ProfileData,
+  type NutritionPlanData,
+} from "@/lib/profile";
+import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 
 type NutritionForm = {
   age: number;
@@ -15,7 +20,7 @@ type NutritionForm = {
   mealsPerDay: 1 | 2 | 3 | 4 | 5 | 6;
   dietaryPrefs: string;
   dislikes: string;
-  cookingTime: "quick" | "medium" | "long";
+  cookingTime: NutritionCookingTime;
 };
 
 type Meal = {
@@ -29,20 +34,12 @@ type DayPlan = {
   meals: Meal[];
 };
 
-type NutritionPlan = {
-  dailyCalories: number;
-  proteinG: number;
-  fatG: number;
-  carbsG: number;
-  days: DayPlan[];
-};
+type NutritionPlan = NutritionPlanData;
 
 type ShoppingItem = {
   name: string;
   grams: number;
 };
-
-const STORAGE_KEY = "fs_nutrition_plan_v1";
 
 type IngredientProfile = {
   name: string;
@@ -148,15 +145,7 @@ const mealTemplates: Record<string, MealTemplate[]> = {
   ],
 };
 
-const dayLabels = [
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
-  "Domingo",
-];
+const dayLabels = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 function round(n: number) {
   return Math.round(n);
@@ -174,7 +163,7 @@ function activityMultiplier(activity: Activity) {
       return 1.375;
     case "moderate":
       return 1.55;
-    case "high":
+    case "very":
       return 1.725;
     default:
       return 1.9;
@@ -280,52 +269,54 @@ function calculatePlan(form: NutritionForm): NutritionPlan {
 
 export default function NutritionPlanClient() {
   const c = copy.es;
-  const [form, setForm] = useState<NutritionForm>({
-    age: 30,
-    heightCm: 175,
-    weightKg: 75,
-    activity: "moderate",
-    goal: "maintain",
-    mealsPerDay: 4,
-    dietaryPrefs: "",
-    dislikes: "",
-    cookingTime: "medium",
-  });
-  const [plan, setPlan] = useState<NutritionPlan | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  const loadProfile = async (activeRef: { current: boolean }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getUserProfile();
+      if (!activeRef.current) return;
+      setProfile(data);
+      setSavedPlan(data.nutritionPlan ?? null);
+    } catch {
+      if (activeRef.current) setError("No pudimos cargar tu perfil.");
+    } finally {
+      if (activeRef.current) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored) as { form: NutritionForm; plan: NutritionPlan };
-      if (parsed?.form) setForm(parsed.form);
-      if (parsed?.plan) setPlan(parsed.plan);
-    } catch {
-      setPlan(null);
-    }
+    const ref = { current: true };
+    void loadProfile(ref);
+    return () => {
+      ref.current = false;
+    };
   }, []);
 
-  const preview = useMemo(() => calculatePlan(form), [form]);
+  const plan = useMemo(() => {
+    if (!profile) return null;
+    return calculatePlan({
+      age: profile.age,
+      heightCm: profile.heightCm,
+      weightKg: profile.weightKg,
+      activity: profile.activity,
+      goal: profile.nutritionPreferences.goal,
+      mealsPerDay: profile.nutritionPreferences.mealsPerDay,
+      dietaryPrefs: profile.nutritionPreferences.dietaryPrefs,
+      dislikes: profile.nutritionPreferences.dislikes,
+      cookingTime: profile.nutritionPreferences.cookingTime,
+    });
+  }, [profile]);
+  const visiblePlan = savedPlan ?? plan;
 
-  function update<K extends keyof NutritionForm>(key: K, value: NutritionForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function savePlan() {
-    const nextPlan = calculatePlan(form);
-    setPlan(nextPlan);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ form, plan: nextPlan }));
-  }
-
-  function resetPlan() {
-    localStorage.removeItem(STORAGE_KEY);
-    setPlan(null);
-  }
-
-  const activePlan = plan ?? preview;
-
-  function buildShoppingList() {
+  function buildShoppingList(activePlan: NutritionPlan) {
     const totals: Record<string, number> = {};
     activePlan.days.forEach((day) => {
       day.meals.forEach((meal) => {
@@ -341,166 +332,120 @@ export default function NutritionPlanClient() {
     setShoppingList(list);
   }
 
+  const handleSavePlan = async () => {
+    if (!plan) return;
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const planToSave: NutritionPlan = {
+        ...plan,
+        shoppingList: shoppingList.length > 0 ? shoppingList : undefined,
+      };
+      const updated = await updateUserProfile({ nutritionPlan: planToSave });
+      setSavedPlan(updated.nutritionPlan ?? planToSave);
+      setSaveMessage(c.nutrition.savePlanSuccess);
+    } catch {
+      setSaveMessage(c.nutrition.savePlanError);
+    } finally {
+      setSaving(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.nutrition.formTitle}</h2>
-
-        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.macros.age}
-              <input
-                type="number"
-                min={10}
-                max={100}
-                value={form.age}
-                onChange={(e) => update("age", Number(e.target.value))}
-              />
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.macros.height}
-              <input
-                type="number"
-                min={120}
-                max={230}
-                value={form.heightCm}
-                onChange={(e) => update("heightCm", Number(e.target.value))}
-              />
-            </label>
+    <div className="page">
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.formTitle}</h2>
+            <p className="section-subtitle">{c.nutrition.tips}</p>
           </div>
+          <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
+            {c.nutrition.generate}
+          </button>
+          <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+            {saving ? c.nutrition.savePlanSaving : c.nutrition.savePlan}
+          </button>
+        </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.macros.weight}
-              <input
-                type="number"
-                min={35}
-                max={250}
-                value={form.weightKg}
-                onChange={(e) => update("weightKg", Number(e.target.value))}
-              />
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.macros.activity}
-              <select
-                value={form.activity}
-                onChange={(e) => update("activity", e.target.value as Activity)}
-              >
-                <option value="sedentary">{c.macros.activitySedentary}</option>
-                <option value="light">{c.macros.activityLight}</option>
-                <option value="moderate">{c.macros.activityModerate}</option>
-                <option value="high">{c.macros.activityVery}</option>
-                <option value="very">{c.macros.activityExtra}</option>
-              </select>
-            </label>
+        {loading ? (
+          <p className="muted">Cargando preferencias...</p>
+        ) : error ? (
+          <p className="muted">{error}</p>
+        ) : saveMessage ? (
+          <p className="muted">{saveMessage}</p>
+        ) : profile ? (
+          <>
+            <div className="badge-list">
+              <span className="badge">{c.macros.goal}: {c.macros[profile.nutritionPreferences.goal === "cut" ? "goalCut" : profile.nutritionPreferences.goal === "bulk" ? "goalBulk" : "goalMaintain"]}</span>
+              <span className="badge">{c.nutrition.mealsPerDay}: {profile.nutritionPreferences.mealsPerDay}</span>
+              <span className="badge">{c.nutrition.cookingTime}: {c.nutrition[profile.nutritionPreferences.cookingTime === "quick" ? "cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "cookingTimeOptionLong" : "cookingTimeOptionMedium"]}</span>
+            </div>
+
+            <div className="info-grid" style={{ marginTop: 16 }}>
+              <div className="info-item">
+                <div className="info-label">{c.macros.weight}</div>
+                <div className="info-value">{profile.weightKg} kg</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{c.macros.height}</div>
+                <div className="info-value">{profile.heightCm} cm</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{c.macros.activity}</div>
+                <div className="info-value">{c.macros[profile.activity === "sedentary" ? "activitySedentary" : profile.activity === "light" ? "activityLight" : profile.activity === "moderate" ? "activityModerate" : profile.activity === "very" ? "activityVery" : "activityExtra"]}</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{c.nutrition.dietaryPrefs}</div>
+                <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{c.nutrition.dislikes}</div>
+                <div className="info-value">{profile.nutritionPreferences.dislikes || "-"}</div>
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        <p className="muted" style={{ marginTop: 12 }}>
+          Cambia estas preferencias desde <strong>Perfil</strong>.
+        </p>
+      </section>
+
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.dailyTargetTitle}</h2>
+        <div className="info-grid" style={{ marginTop: 16 }}>
+          <div className="info-item">
+            <div className="info-label">{c.nutrition.calories}</div>
+            <div className="info-value">{visiblePlan?.dailyCalories ?? 0} kcal</div>
           </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.macros.goal}
-              <select value={form.goal} onChange={(e) => update("goal", e.target.value as Goal)}>
-                <option value="maintain">{c.macros.goalMaintain}</option>
-                <option value="cut">{c.macros.goalCut}</option>
-                <option value="bulk">{c.macros.goalBulk}</option>
-              </select>
-            </label>
-            <label style={{ display: "grid", gap: 6 }}>
-              {c.nutrition.mealsPerDay}
-              <select
-                value={form.mealsPerDay}
-                onChange={(e) =>
-                  update("mealsPerDay", Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)
-                }
-              >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-                <option value={5}>5</option>
-                <option value={6}>6</option>
-              </select>
-            </label>
+          <div className="info-item">
+            <div className="info-label">{c.nutrition.protein}</div>
+            <div className="info-value">{visiblePlan?.proteinG ?? 0} g</div>
           </div>
-
-          <label style={{ display: "grid", gap: 6 }}>
-            {c.nutrition.dietaryPrefs}
-            <input
-              value={form.dietaryPrefs}
-              onChange={(e) => update("dietaryPrefs", e.target.value)}
-              placeholder={c.nutrition.dietaryPrefsPlaceholder}
-            />
-          </label>
-
-          <label style={{ display: "grid", gap: 6 }}>
-            {c.nutrition.dislikes}
-            <input
-              value={form.dislikes}
-              onChange={(e) => update("dislikes", e.target.value)}
-              placeholder={c.nutrition.dislikesPlaceholder}
-            />
-          </label>
-
-          <label style={{ display: "grid", gap: 6 }}>
-            {c.nutrition.cookingTime}
-            <select
-              value={form.cookingTime}
-              onChange={(e) => update("cookingTime", e.target.value as NutritionForm["cookingTime"])}
-            >
-              <option value="quick">{c.nutrition.cookingTimeOptionQuick}</option>
-              <option value="medium">{c.nutrition.cookingTimeOptionMedium}</option>
-              <option value="long">{c.nutrition.cookingTimeOptionLong}</option>
-            </select>
-          </label>
-
-          <div style={{ display: "flex", gap: 10 }}>
-            <button type="button" onClick={savePlan}>
-              {c.nutrition.generate}
-            </button>
-            <button type="button" onClick={resetPlan}>
-              {c.nutrition.resetPlan}
-            </button>
+          <div className="info-item">
+            <div className="info-label">{c.nutrition.fat}</div>
+            <div className="info-value">{visiblePlan?.fatG ?? 0} g</div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{c.nutrition.carbs}</div>
+            <div className="info-value">{visiblePlan?.carbsG ?? 0} g</div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.nutrition.dailyTargetTitle}</h2>
-        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
-            <div>
-              <div style={{ opacity: 0.7 }}>{c.nutrition.calories}</div>
-              <strong>{activePlan.dailyCalories} kcal</strong>
-            </div>
-            <div>
-              <div style={{ opacity: 0.7 }}>{c.nutrition.protein}</div>
-              <strong>{activePlan.proteinG} g</strong>
-            </div>
-            <div>
-              <div style={{ opacity: 0.7 }}>{c.nutrition.fat}</div>
-              <strong>{activePlan.fatG} g</strong>
-            </div>
-            <div>
-              <div style={{ opacity: 0.7 }}>{c.nutrition.carbs}</div>
-              <strong>{activePlan.carbsG} g</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.nutrition.weeklyPlanTitle}</h2>
-
-        <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
-          {activePlan.days.map((day) => (
-            <div key={day.dayLabel} style={{ border: "1px solid #ededed", borderRadius: 12, padding: 12 }}>
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.weeklyPlanTitle}</h2>
+        <div className="list-grid" style={{ marginTop: 16 }}>
+          {visiblePlan?.days.map((day) => (
+            <div key={day.dayLabel} className="feature-card">
               <strong>{day.dayLabel}</strong>
-              <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+              <div className="table-grid" style={{ marginTop: 8 }}>
                 {day.meals.map((meal) => (
                   <div key={meal.title}>
                     <div style={{ fontWeight: 600 }}>{meal.title}</div>
-                    <div style={{ opacity: 0.75 }}>{meal.description}</div>
-                    <div style={{ marginTop: 6, opacity: 0.75 }}>
+                    <div className="muted">{meal.description}</div>
+                    <div style={{ marginTop: 6 }} className="muted">
                       {c.nutrition.ingredients}:
                     </div>
                     <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
@@ -516,21 +461,21 @@ export default function NutritionPlanClient() {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.nutrition.tipsTitle}</h2>
-        <p style={{ margin: 0, opacity: 0.75 }}>{c.nutrition.tips}</p>
-      </div>
-
-      <div style={{ border: "1px solid #e5e5e5", borderRadius: 12, padding: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 16 }}>{c.nutrition.shoppingTitle}</h2>
-        <button type="button" onClick={buildShoppingList} style={{ marginTop: 8 }}>
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.shoppingTitle}</h2>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
+          style={{ marginTop: 8 }}
+        >
           {c.nutrition.shoppingGenerate}
         </button>
         <div style={{ marginTop: 12 }}>
           {shoppingList.length === 0 ? (
-            <p style={{ opacity: 0.7 }}>{c.nutrition.shoppingEmpty}</p>
+            <p className="muted">{c.nutrition.shoppingEmpty}</p>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {shoppingList.map((item) => (
@@ -541,7 +486,7 @@ export default function NutritionPlanClient() {
             </ul>
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
