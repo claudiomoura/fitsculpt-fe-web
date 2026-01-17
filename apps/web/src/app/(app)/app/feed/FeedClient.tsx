@@ -59,7 +59,7 @@ export default function FeedClient() {
     setGenerating(true);
     setError(null);
     try {
-      const response = await fetch("/api/feed/generate", { method: "POST" });
+      const response = await fetch("/api/feed/generate", { method: "POST", credentials: "include" });
       if (!response.ok) {
         throw new Error("No pudimos generar el resumen.");
       }
@@ -79,6 +79,7 @@ export default function FeedClient() {
       const response = await fetch("/api/ai/daily-tip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({}),
       });
       if (!response.ok) {

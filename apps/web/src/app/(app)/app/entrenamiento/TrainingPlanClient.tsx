@@ -217,6 +217,7 @@ export default function TrainingPlanClient() {
       const response = await fetch("/api/ai/training-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: profile.name || undefined,
           age: profile.age,

@@ -363,6 +363,7 @@ export default function NutritionPlanClient() {
       const response = await fetch("/api/ai/nutrition-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: profile.name || undefined,
           age: profile.age,

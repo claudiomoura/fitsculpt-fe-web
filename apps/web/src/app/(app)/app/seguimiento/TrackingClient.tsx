@@ -422,8 +422,8 @@ export default function TrackingClient() {
           <p className="muted">Aún no hay datos suficientes para gráficos.</p>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
-            {checkinChart.map((point) => (
-              <div key={point.date} className="info-item">
+            {checkinChart.map((point, index) => (
+              <div key={`${point.date}-${index}`} className="info-item">
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                   <strong>{point.date}</strong>
                   <span className="muted">{point.weight} kg · {point.bodyFat}%</span>

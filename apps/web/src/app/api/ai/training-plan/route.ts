@@ -8,7 +8,8 @@ async function getAuthCookie() {
 }
 
 export async function POST(request: Request) {
-  const authCookie = await getAuthCookie();
+  const rawCookie = request.headers.get("cookie");
+  const authCookie = rawCookie ?? (await getAuthCookie());
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }

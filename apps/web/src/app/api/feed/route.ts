@@ -7,8 +7,9 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET() {
-  const authCookie = await getAuthCookie();
+export async function GET(request: Request) {
+  const rawCookie = request.headers.get("cookie");
+  const authCookie = rawCookie ?? (await getAuthCookie());
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
