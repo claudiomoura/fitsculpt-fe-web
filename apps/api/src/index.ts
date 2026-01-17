@@ -82,7 +82,18 @@ function buildCookieOptions() {
 }
 
 async function requireUser(request: FastifyRequest) {
-  const payload = await request.jwtVerify<{ sub: string }>();
+  let payload: { sub: string };
+  try {
+    payload = await request.jwtVerify<{ sub: string }>();
+  } catch (error) {
+    const route = request.routeOptions?.url ?? "unknown";
+    logAuthCookieDebug(request, route);
+    if (process.env.NODE_ENV !== "production") {
+      const typed = error as { code?: string; name?: string };
+      app.log.warn({ route, reason: typed.code ?? typed.name ?? "JWT_VERIFY_FAILED" }, "auth failed");
+    }
+    throw createHttpError(401, "UNAUTHORIZED");
+  }
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   if (!user || user.deletedAt) {
     throw createHttpError(404, "NOT_FOUND");
