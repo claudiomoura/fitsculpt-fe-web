@@ -1,0 +1,35 @@
+ALTER TABLE "User" ADD COLUMN "subscriptionPlan" TEXT NOT NULL DEFAULT 'FREE';
+
+CREATE TABLE "AiPromptCache" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "key" TEXT NOT NULL UNIQUE,
+    "type" TEXT NOT NULL,
+    "payload" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastUsedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE "AiUsage" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "date" TEXT NOT NULL,
+    "count" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AiUsage_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE UNIQUE INDEX "AiUsage_userId_date_key" ON "AiUsage"("userId", "date");
+CREATE INDEX "AiUsage_userId_idx" ON "AiUsage"("userId");
+
+CREATE TABLE "AiContent" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "source" TEXT NOT NULL,
+    "payload" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AiContent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX "AiContent_userId_idx" ON "AiContent"("userId");

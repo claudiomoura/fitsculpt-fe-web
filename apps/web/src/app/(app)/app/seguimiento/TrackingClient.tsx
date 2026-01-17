@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { copy } from "@/lib/i18n";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
+import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
 
 type CheckinEntry = {
   id: string;
@@ -91,7 +92,6 @@ export default function TrackingClient() {
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [trackingLoaded, setTrackingLoaded] = useState(false);
 
-
   useEffect(() => {
     let active = true;
     const loadTracking = async () => {
@@ -111,18 +111,18 @@ export default function TrackingClient() {
 
     const loadProfile = async () => {
       try {
-        const response = await fetch("/api/profile", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as Partial<ProfileData> | null;
-        if (active && data) {
-          setProfile({
-            ...defaultProfile,
-            ...data,
-            measurements: {
-              ...defaultProfile.measurements,
-              ...data.measurements,
-            },
-          });
+        const data = await getUserProfile();
+        if (active) {
+          setProfile(data);
+          setCheckinWeight(data.weightKg);
+          setCheckinChest(data.measurements.chestCm);
+          setCheckinWaist(data.measurements.waistCm);
+          setCheckinHips(data.measurements.hipsCm);
+          setCheckinBiceps(data.measurements.bicepsCm);
+          setCheckinThigh(data.measurements.thighCm);
+          setCheckinCalf(data.measurements.calfCm);
+          setCheckinNeck(data.measurements.neckCm);
+          setCheckinBodyFat(data.measurements.bodyFatPercent);
         }
       } catch {
         // Ignore load errors.
@@ -177,7 +177,7 @@ export default function TrackingClient() {
     return c.profile.checkinKeep;
   }
 
-  function addCheckin(e: React.FormEvent) {
+  async function addCheckin(e: React.FormEvent) {
     e.preventDefault();
     const recommendation = buildRecommendation(checkinWeight);
     const entry: CheckinEntry = {
@@ -200,16 +200,17 @@ export default function TrackingClient() {
       sidePhotoUrl: checkinSidePhoto,
     };
 
-    setCheckins((prev) => [entry, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
+    const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
+    setCheckins(nextCheckins);
     setCheckinNotes("");
     setCheckinFrontPhoto(null);
     setCheckinSidePhoto(null);
 
-    const nextProfile = {
-      ...profile,
-      weightKg: entry.weightKg,
-      measurements: {
-        ...profile.measurements,
+    const nextProfile = await saveCheckinAndSyncProfileMetrics(
+      { checkins: nextCheckins, foodLog, workoutLog },
+      profile,
+      {
+        weightKg: entry.weightKg,
         chestCm: entry.chestCm,
         waistCm: entry.waistCm,
         hipsCm: entry.hipsCm,
@@ -218,14 +219,9 @@ export default function TrackingClient() {
         calfCm: entry.calfCm,
         neckCm: entry.neckCm,
         bodyFatPercent: entry.bodyFatPercent,
-      },
-    };
+      }
+    );
     setProfile(nextProfile);
-    void fetch("/api/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nextProfile),
-    });
   }
 
   function addFoodEntry(e: React.FormEvent) {
@@ -275,109 +271,122 @@ export default function TrackingClient() {
     );
   }
 
+  const checkinChart = useMemo(() => {
+    if (checkins.length === 0) return [];
+    const sorted = [...checkins].sort((a, b) => a.date.localeCompare(b.date));
+    const weights = sorted.map((entry) => entry.weightKg);
+    const min = Math.min(...weights);
+    const max = Math.max(...weights);
+    const range = Math.max(1, max - min);
+    return sorted.map((entry) => ({
+      date: entry.date,
+      weight: entry.weightKg,
+      bodyFat: entry.bodyFatPercent,
+      percent: ((entry.weightKg - min) / range) * 100,
+    }));
+  }, [checkins]);
+
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <section>
-        <h2>{c.profile.checkinTitle}</h2>
-        <p>{c.profile.checkinSubtitle}</p>
-        <form onSubmit={addCheckin} style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+    <div className="page">
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{c.profile.checkinTitle}</h2>
+            <p className="section-subtitle">{c.profile.checkinSubtitle}</p>
+          </div>
+        </div>
+        <form onSubmit={addCheckin} className="form-stack">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
               {c.profile.checkinDate}
               <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.profile.checkinWeight}
               <input type="number" min={30} max={250} step="0.1" value={checkinWeight} onChange={(e) => setCheckinWeight(Number(e.target.value))} />
             </label>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
               {c.profile.chest}
               <input type="number" min={0} value={checkinChest} onChange={(e) => setCheckinChest(Number(e.target.value))} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.profile.waist}
               <input type="number" min={0} value={checkinWaist} onChange={(e) => setCheckinWaist(Number(e.target.value))} />
             </label>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.profile.hips}
               <input type="number" min={0} value={checkinHips} onChange={(e) => setCheckinHips(Number(e.target.value))} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.profile.biceps}
               <input type="number" min={0} value={checkinBiceps} onChange={(e) => setCheckinBiceps(Number(e.target.value))} />
             </label>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
               {c.profile.thigh}
               <input type="number" min={0} value={checkinThigh} onChange={(e) => setCheckinThigh(Number(e.target.value))} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.profile.calf}
               <input type="number" min={0} value={checkinCalf} onChange={(e) => setCheckinCalf(Number(e.target.value))} />
             </label>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.profile.neck}
               <input type="number" min={0} value={checkinNeck} onChange={(e) => setCheckinNeck(Number(e.target.value))} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.profile.bodyFat}
               <input type="number" min={0} max={60} step="0.1" value={checkinBodyFat} onChange={(e) => setCheckinBodyFat(Number(e.target.value))} />
             </label>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
               {c.profile.checkinEnergy}
               <input type="number" min={1} max={5} value={checkinEnergy} onChange={(e) => setCheckinEnergy(Number(e.target.value))} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.profile.checkinHunger}
               <input type="number" min={1} max={5} value={checkinHunger} onChange={(e) => setCheckinHunger(Number(e.target.value))} />
             </label>
           </div>
 
-          <label style={{ display: "grid", gap: 6 }}>
+          <label className="form-stack">
             {c.profile.checkinNotes}
             <textarea value={checkinNotes} onChange={(e) => setCheckinNotes(e.target.value)} rows={3} />
           </label>
 
-          <div style={{ display: "grid", gap: 8 }}>
+          <div className="form-stack">
             <div style={{ fontWeight: 600 }}>{c.profile.checkinPhotos}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <label className="form-stack">
                 {c.profile.checkinFrontPhoto}
                 <input type="file" accept="image/*" onChange={(e) => handlePhoto(e, setCheckinFrontPhoto)} />
               </label>
-              <label style={{ display: "grid", gap: 6 }}>
+              <label className="form-stack">
                 {c.profile.checkinSidePhoto}
                 <input type="file" accept="image/*" onChange={(e) => handlePhoto(e, setCheckinSidePhoto)} />
               </label>
             </div>
-            <span style={{ opacity: 0.7 }}>{c.profile.checkinPhotoHint}</span>
+            <span className="muted">{c.profile.checkinPhotoHint}</span>
           </div>
 
-          <button type="submit" style={{ width: "fit-content" }}>
+          <button type="submit" className="btn" style={{ width: "fit-content" }}>
             {c.profile.checkinAdd}
           </button>
         </form>
 
         <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
           {checkins.length === 0 ? (
-            <p style={{ opacity: 0.7 }}>{c.profile.checkinEmpty}</p>
+            <p className="muted">{c.profile.checkinEmpty}</p>
           ) : (
             checkins.map((entry) => (
-              <div key={entry.id} style={{ border: "1px solid #ededed", borderRadius: 10, padding: 12 }}>
+              <div key={entry.id} className="feature-card">
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                   <strong>{entry.date}</strong>
                   <span>
@@ -395,22 +404,55 @@ export default function TrackingClient() {
                     <img src={entry.sidePhotoUrl} alt="Perfil" style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8 }} />
                   )}
                 </div>
-                {entry.notes && <p style={{ marginTop: 6, opacity: 0.75 }}>{entry.notes}</p>}
+                {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
               </div>
             ))
           )}
         </div>
       </section>
 
-      <section>
-        <h2>{c.tracking.sectionMeals}</h2>
-        <form onSubmit={addFoodEntry} style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>Progreso semanal</h2>
+            <p className="section-subtitle">Visualiza la evolución de peso y % de grasa.</p>
+          </div>
+        </div>
+        {checkinChart.length === 0 ? (
+          <p className="muted">Aún no hay datos suficientes para gráficos.</p>
+        ) : (
+          <div style={{ display: "grid", gap: 12 }}>
+            {checkinChart.map((point) => (
+              <div key={point.date} className="info-item">
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <strong>{point.date}</strong>
+                  <span className="muted">{point.weight} kg · {point.bodyFat}%</span>
+                </div>
+                <div style={{ marginTop: 8, background: "#fef3c7", borderRadius: 999, overflow: "hidden", height: 10 }}>
+                  <div
+                    style={{
+                      width: `${point.percent}%`,
+                      height: "100%",
+                      background: "var(--primary)",
+                      borderRadius: 999,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>{c.tracking.sectionMeals}</h2>
+        <form onSubmit={addFoodEntry} className="form-stack">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
               {c.tracking.mealDate}
               <input type="date" value={foodDate} onChange={(e) => setFoodDate(e.target.value)} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.tracking.mealFood}
               <select value={foodKey} onChange={(e) => setFoodKey(e.target.value)}>
                 {Object.entries(foodProfiles).map(([key, profile]) => (
@@ -420,24 +462,24 @@ export default function TrackingClient() {
                 ))}
               </select>
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.tracking.mealGrams}
               <input type="number" min={0} value={foodGrams} onChange={(e) => setFoodGrams(Number(e.target.value))} />
             </label>
           </div>
-          <button type="submit" style={{ width: "fit-content" }}>
+          <button type="submit" className="btn" style={{ width: "fit-content" }}>
             {c.tracking.mealAdd}
           </button>
         </form>
 
         <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
           {Object.keys(mealsByDate).length === 0 ? (
-            <p style={{ opacity: 0.7 }}>{c.tracking.mealEmpty}</p>
+            <p className="muted">{c.tracking.mealEmpty}</p>
           ) : (
             Object.entries(mealsByDate).map(([date, entries]) => {
               const totals = macroTotals(entries);
               return (
-                <div key={date} style={{ border: "1px solid #ededed", borderRadius: 10, padding: 12 }}>
+                <div key={date} className="feature-card">
                   <strong>{date}</strong>
                   <div style={{ marginTop: 6 }}>
                     {c.tracking.mealTotals}: {totals.protein.toFixed(1)}g P · {totals.carbs.toFixed(1)}g C · {totals.fat.toFixed(1)}g G
@@ -460,46 +502,45 @@ export default function TrackingClient() {
         </div>
       </section>
 
-      <section>
-        <h2>{c.tracking.sectionWorkouts}</h2>
-        <form onSubmit={addWorkoutEntry} style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-            <label style={{ display: "grid", gap: 6 }}>
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>{c.tracking.sectionWorkouts}</h2>
+        <form onSubmit={addWorkoutEntry} className="form-stack">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
               {c.tracking.workoutDate}
               <input type="date" value={workoutDate} onChange={(e) => setWorkoutDate(e.target.value)} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.tracking.workoutName}
               <input value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label className="form-stack">
               {c.tracking.workoutDuration}
               <input type="number" min={0} value={workoutDuration} onChange={(e) => setWorkoutDuration(Number(e.target.value))} />
             </label>
           </div>
-          <label style={{ display: "grid", gap: 6 }}>
+          <label className="form-stack">
             {c.tracking.workoutNotes}
             <textarea value={workoutNotes} onChange={(e) => setWorkoutNotes(e.target.value)} rows={2} />
           </label>
-          <button type="submit" style={{ width: "fit-content" }}>
+          <button type="submit" className="btn" style={{ width: "fit-content" }}>
             {c.tracking.workoutAdd}
           </button>
         </form>
 
         <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
           {workoutLog.length === 0 ? (
-            <p style={{ opacity: 0.7 }}>{c.tracking.workoutEmpty}</p>
+            <p className="muted">{c.tracking.workoutEmpty}</p>
           ) : (
             workoutLog.map((entry) => (
-              <div key={entry.id} style={{ border: "1px solid #ededed", borderRadius: 10, padding: 12 }}>
+              <div key={entry.id} className="feature-card">
                 <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
-                {entry.notes && <p style={{ marginTop: 6, opacity: 0.75 }}>{entry.notes}</p>}
+                {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
               </div>
             ))
           )}
         </div>
       </section>
-
     </div>
   );
 }

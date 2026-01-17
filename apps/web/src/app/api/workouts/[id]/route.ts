@@ -7,12 +7,16 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET(_request: Request, context: { params: { id: string } }) {
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
+  const { id } = await context.params;
   const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     headers: { cookie: authCookie },
     cache: "no-store",
@@ -22,13 +26,17 @@ export async function GET(_request: Request, context: { params: { id: string } }
   return NextResponse.json(data, { status: response.status });
 }
 
-export async function PATCH(request: Request, context: { params: { id: string } }) {
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   const body = await request.json();
+  const { id } = await context.params;
   const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     method: "PATCH",
     headers: {
@@ -42,12 +50,16 @@ export async function PATCH(request: Request, context: { params: { id: string } 
   return NextResponse.json(data, { status: response.status });
 }
 
-export async function DELETE(_request: Request, context: { params: { id: string } }) {
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
+  const { id } = await context.params;
   const response = await fetch(`${getBackendUrl()}/workouts/${id}`, {
     method: "DELETE",
     headers: { cookie: authCookie },
