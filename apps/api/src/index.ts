@@ -37,10 +37,11 @@ const RESEND_COOLDOWN_MS = env.VERIFICATION_RESEND_COOLDOWN_MINUTES * 60 * 1000;
 
 app.get("/health", async () => ({ status: "ok" }));
 
-function createHttpError(statusCode: number, code: string) {
-  const error = new Error(code) as Error & { statusCode?: number; code?: string };
+function createHttpError(statusCode: number, code: string, debug?: Record<string, unknown>) {
+  const error = new Error(code) as Error & { statusCode?: number; code?: string; debug?: Record<string, unknown> };
   error.statusCode = statusCode;
   error.code = code;
+  error.debug = debug;
   return error;
 }
 
@@ -48,9 +49,12 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
   if (error instanceof z.ZodError) {
     return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
   }
-  const typed = error as { statusCode?: number; code?: string };
+  const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
   if (typed.statusCode) {
-    return reply.status(typed.statusCode).send({ error: typed.code ?? "REQUEST_ERROR" });
+    return reply.status(typed.statusCode).send({
+      error: typed.code ?? "REQUEST_ERROR",
+      ...(typed.debug ? { debug: typed.debug } : {}),
+    });
   }
   return reply.status(401).send({ error: "UNAUTHORIZED" });
 }
@@ -91,19 +95,26 @@ function parseBearerToken(header?: string) {
 
 function normalizeToken(rawToken: string) {
   let token = rawToken.trim();
+  if ((token.startsWith("\"") && token.endsWith("\"")) || (token.startsWith("'") && token.endsWith("'"))) {
+    token = token.slice(1, -1).trim();
+  }
+  if (token.startsWith("fs_token=")) {
+    token = token.slice("fs_token=".length).trim();
+  }
   const hadPercent = token.includes("%");
-  const hadDoubleEncoded = token.includes("%25");
   if (hadPercent) {
     try {
       token = decodeURIComponent(token);
-      if (hadDoubleEncoded && token.includes("%")) {
-        token = decodeURIComponent(token);
-      }
     } catch {
-      return { token: rawToken.trim(), hadPercent, hadDoubleEncoded, decodeFailed: true };
+      return { token, hadPercent, decodeFailed: true };
     }
   }
-  return { token, hadPercent, hadDoubleEncoded, decodeFailed: false };
+  const parts = token.split(".");
+  if (parts.length > 3) {
+    token = parts.slice(0, 3).join(".");
+  }
+  const segments = token.split(".").length;
+  return { token, hadPercent, decodeFailed: false, segments };
 }
 
 function parseCookieHeader(cookieHeader?: string) {
@@ -128,12 +139,9 @@ function getJwtTokenFromRequest(request: FastifyRequest) {
   const authHeader = request.headers.authorization;
   const bearerToken = parseBearerToken(authHeader);
   const hasBearerPrefix = authHeader?.trim().toLowerCase().startsWith("bearer ") ?? false;
-  if (bearerToken) {
-    const normalized = normalizeToken(bearerToken);
-    return { token: normalized.token, source: "authorization" as const, hasBearerPrefix, normalized };
-  }
   if (authHeader) {
-    const normalized = normalizeToken(authHeader);
+    const rawToken = bearerToken ?? authHeader;
+    const normalized = normalizeToken(rawToken);
     return { token: normalized.token, source: "authorization" as const, hasBearerPrefix, normalized };
   }
   const cookieHeader = request.headers.cookie;
@@ -165,6 +173,14 @@ async function requireUser(
     }
     throw createHttpError(401, "UNAUTHORIZED");
   }
+  const segments = normalized?.segments ?? token.split(".").length;
+  const hasPercent = normalized?.hadPercent ?? false;
+  if (segments !== 3) {
+    if (options?.logContext && process.env.NODE_ENV !== "production") {
+      app.log.warn({ route, source, hasBearerPrefix, segments, hasPercent }, "ai auth invalid token format");
+    }
+    throw createHttpError(401, "INVALID_TOKEN_FORMAT", { segments, hasPercent });
+  }
 
   if (options?.logContext && process.env.NODE_ENV !== "production") {
     app.log.info(
@@ -172,9 +188,9 @@ async function requireUser(
         route,
         source,
         hasBearerPrefix,
+        segments,
+        hasPercent,
         tokenPreview: token.slice(0, 20),
-        tokenHasPercent: normalized?.hadPercent ?? false,
-        tokenHadDoubleEncoded: normalized?.hadDoubleEncoded ?? false,
         tokenDecodeFailed: normalized?.decodeFailed ?? false,
         tokenHasSpace: token.includes(" "),
         tokenHasCookieLabel: token.includes("fs_token="),
@@ -196,9 +212,9 @@ async function requireUser(
           reason: typed.message ?? typed.code ?? typed.name ?? "JWT_VERIFY_FAILED",
           source,
           hasBearerPrefix,
+          segments,
+          hasPercent,
           tokenPreview,
-          tokenHasPercent: normalized?.hadPercent ?? false,
-          tokenHadDoubleEncoded: normalized?.hadDoubleEncoded ?? false,
           tokenDecodeFailed: normalized?.decodeFailed ?? false,
           tokenHasSpace: token.includes(" "),
           tokenHasCookieLabel: token.includes("fs_token="),
