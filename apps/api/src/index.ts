@@ -622,30 +622,15 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(409).send({ error: "EMAIL_IN_USE" });
   }
 
-async function sendVerificationEmail(email: string, token: string) {
-  const verifyUrl = `${env.APP_BASE_URL}/verify-email?token=${token}`;
-  const subject = "Verifica tu email en FitSculpt";
-  const text = `Hola! Verifica tu email aquí: ${verifyUrl}`;
-  const html = `<p>Hola!</p><p>Verifica tu email aquí: <a href="${verifyUrl}">${verifyUrl}</a></p>`;
-  await sendEmail({
-    to: email,
-    subject,
-    text,
-    html,
-  });
-}
-
-async function logSignupAttempt(data: { email?: string; ipAddress?: string; success: boolean }) {
-  await prisma.signupAttempt.create({
+  const passwordHash = await bcrypt.hash(data.password, 10);
+  const user = await prisma.user.create({
     data: {
       email: data.email,
       passwordHash,
-      name: data.name,
+      name: data.name?.trim() ? data.name : null,
       provider: "email",
-      emailVerifiedAt: null,
     },
   });
-}
 
   await logSignupAttempt({ email: data.email, ipAddress, success: true });
 
