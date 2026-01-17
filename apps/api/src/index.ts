@@ -89,6 +89,23 @@ function parseBearerToken(header?: string) {
   return token.length > 0 ? token : null;
 }
 
+function normalizeToken(rawToken: string) {
+  let token = rawToken.trim();
+  const hadPercent = token.includes("%");
+  const hadDoubleEncoded = token.includes("%25");
+  if (hadPercent) {
+    try {
+      token = decodeURIComponent(token);
+      if (hadDoubleEncoded && token.includes("%")) {
+        token = decodeURIComponent(token);
+      }
+    } catch {
+      return { token: rawToken.trim(), hadPercent, hadDoubleEncoded, decodeFailed: true };
+    }
+  }
+  return { token, hadPercent, hadDoubleEncoded, decodeFailed: false };
+}
+
 function parseCookieHeader(cookieHeader?: string) {
   if (!cookieHeader) return new Map<string, string>();
   const entries = cookieHeader
@@ -110,12 +127,22 @@ function parseCookieHeader(cookieHeader?: string) {
 function getJwtTokenFromRequest(request: FastifyRequest) {
   const authHeader = request.headers.authorization;
   const bearerToken = parseBearerToken(authHeader);
+  const hasBearerPrefix = authHeader?.trim().toLowerCase().startsWith("bearer ") ?? false;
   if (bearerToken) {
-    return { token: bearerToken, source: "authorization" as const };
+    const normalized = normalizeToken(bearerToken);
+    return { token: normalized.token, source: "authorization" as const, hasBearerPrefix, normalized };
+  }
+  if (authHeader) {
+    const normalized = normalizeToken(authHeader);
+    return { token: normalized.token, source: "authorization" as const, hasBearerPrefix, normalized };
   }
   const cookieHeader = request.headers.cookie;
   const cookieToken = parseCookieHeader(cookieHeader).get("fs_token") ?? null;
-  return { token: cookieToken, source: cookieToken ? ("cookie" as const) : ("none" as const) };
+  if (cookieToken) {
+    const normalized = normalizeToken(cookieToken);
+    return { token: normalized.token, source: "cookie" as const, hasBearerPrefix, normalized };
+  }
+  return { token: null, source: "none" as const, hasBearerPrefix, normalized: null };
 }
 
 async function requireUser(
@@ -131,12 +158,29 @@ async function requireUser(
     app.log.info({ route, hasAuthHeader, hasCookieHeader }, "ai auth precheck");
   }
 
-  const { token } = getJwtTokenFromRequest(request);
+  const { token, source, hasBearerPrefix, normalized } = getJwtTokenFromRequest(request);
   if (!token) {
     if (options?.logContext && process.env.NODE_ENV !== "production") {
-      app.log.warn({ route, reason: "MISSING_TOKEN" }, "ai auth failed");
+      app.log.warn({ route, reason: "MISSING_TOKEN", source, hasBearerPrefix }, "ai auth failed");
     }
     throw createHttpError(401, "UNAUTHORIZED");
+  }
+
+  if (options?.logContext && process.env.NODE_ENV !== "production") {
+    app.log.info(
+      {
+        route,
+        source,
+        hasBearerPrefix,
+        tokenPreview: token.slice(0, 20),
+        tokenHasPercent: normalized?.hadPercent ?? false,
+        tokenHadDoubleEncoded: normalized?.hadDoubleEncoded ?? false,
+        tokenDecodeFailed: normalized?.decodeFailed ?? false,
+        tokenHasSpace: token.includes(" "),
+        tokenHasCookieLabel: token.includes("fs_token="),
+      },
+      "ai auth token debug"
+    );
   }
 
   let payload: { sub: string };
@@ -145,7 +189,22 @@ async function requireUser(
   } catch (error) {
     if (options?.logContext && process.env.NODE_ENV !== "production") {
       const typed = error as { message?: string; code?: string; name?: string };
-      app.log.warn({ route, reason: typed.message ?? typed.code ?? typed.name ?? "JWT_VERIFY_FAILED" }, "ai auth failed");
+      const tokenPreview = token.slice(0, 20);
+      app.log.warn(
+        {
+          route,
+          reason: typed.message ?? typed.code ?? typed.name ?? "JWT_VERIFY_FAILED",
+          source,
+          hasBearerPrefix,
+          tokenPreview,
+          tokenHasPercent: normalized?.hadPercent ?? false,
+          tokenHadDoubleEncoded: normalized?.hadDoubleEncoded ?? false,
+          tokenDecodeFailed: normalized?.decodeFailed ?? false,
+          tokenHasSpace: token.includes(" "),
+          tokenHasCookieLabel: token.includes("fs_token="),
+        },
+        "ai auth failed"
+      );
     }
     throw createHttpError(401, "UNAUTHORIZED");
   }
