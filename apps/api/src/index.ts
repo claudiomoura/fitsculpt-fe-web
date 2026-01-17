@@ -5,7 +5,7 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -95,13 +95,14 @@ async function requireAdmin(request: FastifyRequest) {
 async function getOrCreateProfile(userId: string) {
   const existing = await prisma.userProfile.findUnique({ where: { userId } });
   if (existing) return existing;
-  return prisma.userProfile.create({
-    data: {
-      userId,
-      profile: null,
-      tracking: defaultTracking,
-    },
-  });
+return prisma.userProfile.create({
+  data: {
+    userId,
+    profile: Prisma.DbNull,
+    tracking: defaultTracking,
+  },
+});
+
 }
 
 const registerSchema = z.object({
@@ -357,8 +358,21 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(409).send({ error: "EMAIL_IN_USE" });
   }
 
-  const passwordHash = await bcrypt.hash(data.password, 12);
-  const user = await prisma.user.create({
+async function sendVerificationEmail(email: string, token: string) {
+  const verifyUrl = `${env.APP_BASE_URL}/verify-email?token=${token}`;
+  const subject = "Verifica tu email en FitSculpt";
+  const text = `Hola! Verifica tu email aquí: ${verifyUrl}`;
+  const html = `<p>Hola!</p><p>Verifica tu email aquí: <a href="${verifyUrl}">${verifyUrl}</a></p>`;
+  await sendEmail({
+    to: email,
+    subject,
+    text,
+    html,
+  });
+}
+
+async function logSignupAttempt(data: { email?: string; ipAddress?: string; success: boolean }) {
+  await prisma.signupAttempt.create({
     data: {
       email: data.email,
       passwordHash,
@@ -367,6 +381,7 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
       emailVerifiedAt: null,
     },
   });
+}
 
   await logSignupAttempt({ email: data.email, ipAddress, success: true });
 
@@ -704,17 +719,18 @@ app.put("/tracking", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const data = trackingSchema.parse(request.body);
-    const updated = await prisma.userProfile.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        profile: null,
-        tracking: data,
-      },
-      update: {
-        tracking: data,
-      },
-    });
+const updated = await prisma.userProfile.upsert({
+  where: { userId: user.id },
+  create: {
+    userId: user.id,
+    profile: Prisma.DbNull,
+    tracking: data,
+  },
+  update: {
+    tracking: data,
+  },
+});
+
     return updated.tracking ?? defaultTracking;
   } catch (error) {
     return handleRequestError(reply, error);
