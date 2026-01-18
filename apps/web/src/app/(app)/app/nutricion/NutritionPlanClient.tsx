@@ -24,8 +24,15 @@ type NutritionForm = {
 };
 
 type Meal = {
+  type: "breakfast" | "lunch" | "dinner" | "snack";
   title: string;
   description: string;
+  macros: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
   ingredients: { name: string; grams: number }[];
 };
 
@@ -245,9 +252,19 @@ function calculatePlan(form: NutritionForm): NutritionPlan {
     const meals = mealsOrder.map((slot, slotIndex) => {
       const options = mealTemplates[slot];
       const option = options[(dayIndex + slotIndex) % options.length];
+      const mealProtein = perMealProtein;
+      const mealCarbs = perMealCarbs;
+      const mealFat = perMealFat;
       return {
+        type: slot as Meal["type"],
         title: `${slotIndex + 1}. ${option.title}`,
         description: option.description,
+        macros: {
+          calories: round(mealProtein * 4 + mealCarbs * 4 + mealFat * 9),
+          protein: round(mealProtein),
+          carbs: round(mealCarbs),
+          fats: round(mealFat),
+        },
         ingredients: buildMealIngredients(option, perMealProtein, perMealCarbs, perMealFat),
       };
     });
