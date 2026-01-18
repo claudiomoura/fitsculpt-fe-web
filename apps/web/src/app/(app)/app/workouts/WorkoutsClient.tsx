@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { copy } from "@/lib/i18n";
+import type { Workout } from "@/lib/types";
 
-type Workout = {
+type WorkoutListItem = {
   id: string;
   name: string;
   date: string; // YYYY-MM-DD
@@ -25,7 +27,7 @@ const SESSION_STORAGE_KEY = "fs_session_logs_v1";
 
 export default function WorkoutsClient() {
   const c = copy.es.workouts;
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutListItem[]>([]);
   const [name, setName] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [durationMin, setDurationMin] = useState<number>(45);
@@ -57,13 +59,7 @@ export default function WorkoutsClient() {
       if (!response.ok) {
         throw new Error("FETCH_FAILED");
       }
-      const data = (await response.json()) as Array<{
-        id: string;
-        name: string;
-        notes?: string | null;
-        scheduledAt?: string | null;
-        durationMin?: number | null;
-      }>;
+      const data = (await response.json()) as Workout[];
       const mapped = data.map((item) => ({
         id: item.id,
         name: item.name,
@@ -193,7 +189,7 @@ export default function WorkoutsClient() {
     resetForm();
   }
 
-  function startEdit(w: Workout) {
+  function startEdit(w: WorkoutListItem) {
     setEditingId(w.id);
     setName(w.name);
     setDate(w.date || new Date().toISOString().slice(0, 10));
@@ -431,7 +427,10 @@ export default function WorkoutsClient() {
 
                 {w.notes ? <p style={{ margin: 0 }} className="muted">{w.notes}</p> : null}
 
-                <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+                  <Link className="btn secondary" href={`/app/entrenamientos/${w.id}`}>
+                    Ver detalle
+                  </Link>
                   <button type="button" className="btn secondary" onClick={() => startEdit(w)}>
                     {c.edit}
                   </button>

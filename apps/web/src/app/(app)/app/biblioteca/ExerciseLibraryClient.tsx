@@ -2,17 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-
-type Exercise = {
-  id: string;
-  name: string;
-  equipment?: string | null;
-  mainMuscleGroup?: string | null;
-  secondaryMuscleGroups?: string[] | null;
-  primaryMuscles?: string[];
-  secondaryMuscles?: string[];
-  description?: string | null;
-};
+import type { Exercise } from "@/lib/types";
 
 type ExerciseResponse = {
   items: Exercise[];
@@ -127,13 +117,9 @@ export default function ExerciseLibraryClient() {
         <div className="list-grid" style={{ marginTop: 16 }}>
           {exercises.map((exercise) => {
             const muscles = getExerciseMuscles(exercise);
-            return (
-              <Link
-                key={exercise.id}
-                href={`/app/biblioteca/${exercise.id}`}
-                className="feature-card"
-                style={{ textDecoration: "none" }}
-              >
+            const exerciseId = exercise.id;
+            const content = (
+              <>
                 <h3>{exercise.name}</h3>
                 <div className="badge-list">
                   {muscles.length > 0 ? (
@@ -148,6 +134,25 @@ export default function ExerciseLibraryClient() {
                 </div>
                 <p className="muted">Equipamiento: {exercise.equipment ?? "Sin especificar"}</p>
                 <p className="muted">{exercise.description ?? "Sin descripción disponible."}</p>
+              </>
+            );
+
+            if (!exerciseId) {
+              return (
+                <div key={exercise.name} className="feature-card">
+                  {content}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={exerciseId}
+                href={`/app/biblioteca/${exerciseId}`}
+                className="feature-card"
+                style={{ textDecoration: "none" }}
+              >
+                {content}
               </Link>
             );
           })}
