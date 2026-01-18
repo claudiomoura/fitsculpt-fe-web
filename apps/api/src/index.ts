@@ -477,18 +477,17 @@ const aiNutritionMealSchema = z
     type: z.enum(["breakfast", "lunch", "dinner", "snack"]),
     title: z.string().min(1),
     description: z.string().min(1),
-    macros: z
-      .object({
-        calories: z.number().int().min(50).max(1500),
-        protein: z.number().int().min(0).max(200),
-        carbs: z.number().int().min(0).max(250),
-        fats: z.number().int().min(0).max(150),
-      }),
+    macros: z.object({
+      calories: z.coerce.number().min(50).max(1500),
+      protein: z.coerce.number().min(0).max(200),
+      carbs: z.coerce.number().min(0).max(250),
+      fats: z.coerce.number().min(0).max(150),
+    }),
     ingredients: z
       .array(
         z.object({
           name: z.string().min(1),
-          grams: z.number().int().min(5).max(1000),
+          grams: z.coerce.number().min(5).max(1000),
         })
       )
       .min(2)
@@ -506,16 +505,16 @@ const aiNutritionDaySchema = z
 const aiNutritionPlanResponseSchema = z
   .object({
     title: z.string().min(1),
-    dailyCalories: z.number().int().min(1200).max(4000),
-    proteinG: z.number().int().min(50).max(300),
-    fatG: z.number().int().min(30).max(200),
-    carbsG: z.number().int().min(50).max(600),
+    dailyCalories: z.coerce.number().min(1200).max(4000),
+    proteinG: z.coerce.number().min(50).max(300),
+    fatG: z.coerce.number().min(30).max(200),
+    carbsG: z.coerce.number().min(50).max(600),
     days: z.array(aiNutritionDaySchema).min(1),
     shoppingList: z
       .array(
         z.object({
           name: z.string().min(1),
-          grams: z.number().int().min(0).max(5000),
+          grams: z.coerce.number().min(0).max(5000),
         })
       )
       .optional(),
@@ -840,13 +839,6 @@ function buildTipPrompt(data: z.infer<typeof aiTipSchema>) {
 
 function extractJson(text: string) {
   try {
-    const trimmed = text.trim();
-    const firstBrace = trimmed.indexOf("{");
-    const lastBrace = trimmed.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      const slice = trimmed.slice(firstBrace, lastBrace + 1);
-      return JSON.parse(slice) as Record<string, unknown>;
-    }
     return parseJsonFromText(text) as Record<string, unknown>;
   } catch (error) {
     if (error instanceof AiParseError) {
@@ -945,10 +937,162 @@ function getExerciseMetadata(name: string) {
   return exerciseMetadataByName[name.toLowerCase()];
 }
 
-async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
-  if (!("exercise" in prisma)) {
-    app.log.error("prisma.exercise is unavailable, skipping exercise upsert");
+type ExerciseRow = {
+  id: string;
+  name: string;
+  equipment: string | null;
+  primaryMuscles: string[];
+  secondaryMuscles: string[];
+  description: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function hasExerciseClient() {
+  return typeof (prisma as PrismaClient & { exercise?: unknown }).exercise !== "undefined";
+}
+
+async function upsertExerciseRecord(name: string, metadata?: ReturnType<typeof getExerciseMetadata>) {
+  const now = new Date();
+  if (hasExerciseClient()) {
+    await prisma.exercise.upsert({
+      where: { name },
+      create: {
+        name,
+        equipment: metadata?.equipment ?? null,
+        primaryMuscles: metadata?.primaryMuscles ?? [],
+        secondaryMuscles: metadata?.secondaryMuscles ?? [],
+        description: metadata?.description ?? null,
+      },
+      update: metadata
+        ? {
+            equipment: metadata.equipment ?? null,
+            primaryMuscles: metadata.primaryMuscles,
+            secondaryMuscles: metadata.secondaryMuscles,
+            description: metadata.description ?? null,
+          }
+        : {},
+    });
     return;
+  }
+
+  const id = crypto.randomUUID();
+  const equipment = metadata?.equipment ?? null;
+  const primaryMuscles = metadata?.primaryMuscles ?? [];
+  const secondaryMuscles = metadata?.secondaryMuscles ?? [];
+  const description = metadata?.description ?? null;
+  if (metadata) {
+    await prisma.$executeRaw(Prisma.sql`
+      INSERT INTO "Exercise" ("id", "name", "equipment", "primaryMuscles", "secondaryMuscles", "description", "createdAt", "updatedAt")
+      VALUES (${id}, ${name}, ${equipment}, ${primaryMuscles}, ${secondaryMuscles}, ${description}, ${now}, ${now})
+      ON CONFLICT ("name") DO UPDATE SET
+        "equipment" = EXCLUDED."equipment",
+        "primaryMuscles" = EXCLUDED."primaryMuscles",
+        "secondaryMuscles" = EXCLUDED."secondaryMuscles",
+        "description" = EXCLUDED."description",
+        "updatedAt" = ${now}
+    `);
+    return;
+  }
+
+  await prisma.$executeRaw(Prisma.sql`
+    INSERT INTO "Exercise" ("id", "name", "equipment", "primaryMuscles", "secondaryMuscles", "description", "createdAt", "updatedAt")
+    VALUES (${id}, ${name}, ${equipment}, ${primaryMuscles}, ${secondaryMuscles}, ${description}, ${now}, ${now})
+    ON CONFLICT ("name") DO NOTHING
+  `);
+}
+
+function buildExerciseFilters(params: {
+  query?: string;
+  muscle?: string;
+  equipment?: string;
+}) {
+  const filters: Prisma.Sql[] = [];
+  if (params.query) {
+    filters.push(Prisma.sql`name ILIKE ${`%${params.query}%`}`);
+  }
+  if (params.equipment && params.equipment !== "all") {
+    filters.push(Prisma.sql`equipment = ${params.equipment}`);
+  }
+  if (params.muscle && params.muscle !== "all") {
+    filters.push(
+      Prisma.sql`("primaryMuscles" @> ARRAY[${params.muscle}]::text[] OR "secondaryMuscles" @> ARRAY[${params.muscle}]::text[])`
+    );
+  }
+  const whereSql =
+    filters.length > 0 ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}` : Prisma.sql``;
+  return whereSql;
+}
+
+async function listExercises(params: {
+  query?: string;
+  muscle?: string;
+  equipment?: string;
+  limit: number;
+  offset: number;
+}) {
+  if (hasExerciseClient()) {
+    const where: Prisma.ExerciseWhereInput = {};
+    if (params.query) {
+      where.name = { contains: params.query, mode: "insensitive" };
+    }
+    if (params.equipment && params.equipment !== "all") {
+      where.equipment = params.equipment;
+    }
+    if (params.muscle && params.muscle !== "all") {
+      where.OR = [
+        { primaryMuscles: { has: params.muscle } },
+        { secondaryMuscles: { has: params.muscle } },
+      ];
+    }
+    const [items, total] = await prisma.$transaction([
+      prisma.exercise.findMany({
+        where,
+        orderBy: { name: "asc" },
+        skip: params.offset,
+        take: params.limit,
+      }),
+      prisma.exercise.count({ where }),
+    ]);
+    return { items, total };
+  }
+
+  const whereSql = buildExerciseFilters(params);
+  const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
+    SELECT "id", "name", "equipment", "primaryMuscles", "secondaryMuscles", "description", "createdAt", "updatedAt"
+    FROM "Exercise"
+    ${whereSql}
+    ORDER BY "name" ASC
+    LIMIT ${params.limit}
+    OFFSET ${params.offset}
+  `);
+  const totalRows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+    SELECT COUNT(*)::bigint as count
+    FROM "Exercise"
+    ${whereSql}
+  `);
+  const rawCount = totalRows[0]?.count ?? 0n;
+  const total = typeof rawCount === "bigint" ? Number(rawCount) : Number(rawCount);
+  return { items, total };
+}
+
+async function getExerciseById(id: string) {
+  if (hasExerciseClient()) {
+    return prisma.exercise.findUnique({ where: { id } });
+  }
+
+  const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
+    SELECT "id", "name", "equipment", "primaryMuscles", "secondaryMuscles", "description", "createdAt", "updatedAt"
+    FROM "Exercise"
+    WHERE "id" = ${id}
+    LIMIT 1
+  `);
+  return rows[0] ?? null;
+}
+
+async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
+  if (!hasExerciseClient()) {
+    app.log.warn("prisma.exercise is unavailable, using raw upsert fallback");
   }
   const names = new Map<string, string>();
   plan.days.forEach((day) => {
@@ -963,29 +1107,11 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
   });
   const uniqueNames = Array.from(names.values());
   if (uniqueNames.length === 0) return;
-  const exerciseClient = prisma.exercise;
   await Promise.all(
     uniqueNames.map(async (name) => {
       const metadata = getExerciseMetadata(name);
       try {
-        await exerciseClient.upsert({
-          where: { name },
-          create: {
-            name,
-            equipment: metadata?.equipment ?? null,
-            primaryMuscles: metadata?.primaryMuscles ?? [],
-            secondaryMuscles: metadata?.secondaryMuscles ?? [],
-            description: metadata?.description ?? null,
-          },
-          update: metadata
-            ? {
-                equipment: metadata.equipment ?? null,
-                primaryMuscles: metadata.primaryMuscles,
-                secondaryMuscles: metadata.secondaryMuscles,
-                description: metadata.description ?? null,
-              }
-            : {},
-        });
+        await upsertExerciseRecord(name, metadata);
       } catch (error) {
         app.log.warn({ err: error, name }, "exercise upsert failed");
       }
@@ -1751,28 +1877,7 @@ app.get("/exercises", async (request, reply) => {
   try {
     await requireUser(request);
     const { query, muscle, equipment, limit, offset } = exerciseListSchema.parse(request.query);
-    const where: Prisma.ExerciseWhereInput = {};
-    if (query) {
-      where.name = { contains: query, mode: "insensitive" };
-    }
-    if (equipment && equipment !== "all") {
-      where.equipment = equipment;
-    }
-    if (muscle && muscle !== "all") {
-      where.OR = [
-        { primaryMuscles: { has: muscle } },
-        { secondaryMuscles: { has: muscle } },
-      ];
-    }
-    const [items, total] = await prisma.$transaction([
-      prisma.exercise.findMany({
-        where,
-        orderBy: { name: "asc" },
-        skip: offset,
-        take: limit,
-      }),
-      prisma.exercise.count({ where }),
-    ]);
+    const { items, total } = await listExercises({ query, muscle, equipment, limit, offset });
     return { items, total, limit, offset };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -1783,7 +1888,7 @@ app.get("/exercises/:id", async (request, reply) => {
   try {
     await requireUser(request);
     const { id } = exerciseParamsSchema.parse(request.params);
-    const exercise = await prisma.exercise.findUnique({ where: { id } });
+    const exercise = await getExerciseById(id);
     if (!exercise) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
