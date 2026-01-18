@@ -4,7 +4,7 @@ import "dotenv/config";
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   HOST: z.string().default("0.0.0.0"),
-  DATABASE_URL: z.string().default("file:./dev.db"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 chars"),
   COOKIE_SECRET: z.string().min(16, "COOKIE_SECRET must be at least 16 chars"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
