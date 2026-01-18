@@ -354,7 +354,7 @@ export default function NutritionPlanClient() {
   };
 
   const handleAiPlan = async () => {
-    if (!profile) return;
+    if (!profile || aiLoading) return;
     setAiLoading(true);
     setError(null);
     try {
@@ -375,6 +375,15 @@ export default function NutritionPlanClient() {
         }),
       });
       if (!response.ok) {
+        if (response.status === 429) {
+          const payload = (await response.json().catch(() => null)) as
+            | { error?: string; message?: string; retryAfterSec?: number }
+            | null;
+          const message =
+            payload?.message ??
+            "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.";
+          throw new Error(message);
+        }
         throw new Error(c.nutrition.aiError);
       }
       const data = (await response.json()) as NutritionPlan;
