@@ -25,6 +25,8 @@ export type TrainingDay = {
 };
 
 export type TrainingPlanData = {
+  title?: string;
+  notes?: string;
   days: TrainingDay[];
 };
 
@@ -34,10 +36,10 @@ export type NutritionIngredient = {
 };
 
 export type NutritionMeal = {
-  type?: "breakfast" | "lunch" | "dinner" | "snack";
+  type: "breakfast" | "lunch" | "dinner" | "snack";
   title: string;
   description: string;
-  macros?: {
+  macros: {
     calories: number;
     protein: number;
     carbs: number;
@@ -52,6 +54,7 @@ export type NutritionDayPlan = {
 };
 
 export type NutritionPlanData = {
+  title?: string;
   dailyCalories: number;
   proteinG: number;
   fatG: number;
