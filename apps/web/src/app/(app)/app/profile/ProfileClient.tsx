@@ -16,6 +16,7 @@ import {
   type NutritionCookingTime,
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
+import BodyFatSelector from "@/components/profile/BodyFatSelector";
 
 export default function ProfileClient() {
   const c = copy.es;
@@ -105,6 +106,19 @@ export default function ProfileClient() {
       ...prev,
       macroPreferences: {
         ...prev.macroPreferences,
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateMeasurements<K extends keyof ProfileData["measurements"]>(
+    key: K,
+    value: ProfileData["measurements"][K]
+  ) {
+    setProfile((prev) => ({
+      ...prev,
+      measurements: {
+        ...prev.measurements,
         [key]: value,
       },
     }));
@@ -299,6 +313,14 @@ export default function ProfileClient() {
                     <option value="extra">{c.profile.activityExtra}</option>
                   </select>
                 </label>
+              </div>
+
+              <div className="form-stack" style={{ marginTop: 12 }}>
+                <div style={{ fontWeight: 600 }}>{c.profile.bodyFat}</div>
+                <BodyFatSelector
+                  value={profile.measurements.bodyFatPercent || null}
+                  onChange={(value) => updateMeasurements("bodyFatPercent", value)}
+                />
               </div>
             </div>
           </div>

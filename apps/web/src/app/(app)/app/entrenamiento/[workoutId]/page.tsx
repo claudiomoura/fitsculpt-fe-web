@@ -1,89 +1,51 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import type { Workout, WorkoutExercise } from "@/lib/types";
 
-type WorkoutExercise = {
-  id: string;
-  exerciseId: string;
-  exerciseName: string;
-  sets: number;
-  reps: number;
-  rir?: number | null;
-  restSeconds?: number | null;
-  notes?: string | null;
-  primaryMuscle?: string | null;
-};
-
-type Workout = {
-  id: string;
-  name: string;
-  goal?: string | null;
-  split?: string | null;
-  dayLabel?: string | null;
-  experienceLevel?: string | null;
-  targetMuscles?: string[] | null;
-  durationMin?: number | null;
-  estimatedDurationMin?: number | null;
-  totalSets?: number | null;
-  notes?: string | null;
-  exercises?: WorkoutExercise[] | null;
+type WorkoutExerciseApi = WorkoutExercise & {
+  exerciseName?: string | null;
+  muscleGroup?: string | null;
+  primaryMuscleGroup?: string | null;
 };
 
 type WorkoutApiResponse = Workout & {
   focus?: string | null;
-  scheduledAt?: string | null;
-  exercises?: Array<
-    WorkoutExercise & {
-      name?: string | null;
-      exerciseId?: string | null;
-      muscleGroup?: string | null;
-      primaryMuscleGroup?: string | null;
-    }
-  > | null;
+  exercises?: WorkoutExerciseApi[] | null;
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 function parseNumber(value: number | string | null | undefined) {
   if (typeof value === "number") return value;
-  if (typeof value === "string" && value.trim()) return Number(value);
+  if (typeof value === "string" && value.trim()) {
+    const match = value.match(/\d+/);
+    return match ? Number(match[0]) : null;
+  }
   return null;
-}
-
-function estimateDuration(workout: Workout, exercises: WorkoutExercise[]) {
-  if (workout.estimatedDurationMin) return workout.estimatedDurationMin;
-  if (workout.durationMin) return workout.durationMin;
-  if (exercises.length === 0) return null;
-  return exercises.length * 8;
 }
 
 function normalizeWorkout(data: WorkoutApiResponse): Workout {
   const exercises = Array.isArray(data.exercises)
     ? data.exercises.map((exercise, index) => ({
         id: exercise.id ?? `${data.id}-${index}`,
-        exerciseId: exercise.exerciseId ?? exercise.id ?? "",
-        exerciseName: exercise.exerciseName ?? exercise.name ?? "Ejercicio",
-        sets: parseNumber(exercise.sets) ?? 0,
-        reps: parseNumber(exercise.reps) ?? 0,
-        rir: parseNumber(exercise.rir) ?? null,
-        restSeconds: parseNumber(exercise.restSeconds) ?? null,
+        exerciseId: exercise.exerciseId ?? exercise.id ?? null,
+        name: exercise.name ?? exercise.exerciseName ?? "Ejercicio",
+        sets: exercise.sets ?? null,
+        reps: exercise.reps ?? null,
+        loadKg: exercise.loadKg ?? null,
+        rpe: exercise.rpe ?? null,
+        rir: exercise.rir ?? null,
+        restSeconds: exercise.restSeconds ?? null,
         notes: exercise.notes ?? null,
         primaryMuscle:
           exercise.primaryMuscle ?? exercise.primaryMuscleGroup ?? exercise.muscleGroup ?? null,
+        lastLog: exercise.lastLog ?? null,
       }))
     : [];
 
   return {
-    id: data.id,
-    name: data.name,
+    ...data,
     goal: data.goal ?? data.focus ?? null,
-    split: data.split ?? null,
-    dayLabel: data.dayLabel ?? null,
-    experienceLevel: data.experienceLevel ?? null,
-    targetMuscles: data.targetMuscles ?? null,
-    durationMin: data.durationMin ?? null,
-    estimatedDurationMin: data.estimatedDurationMin ?? null,
-    totalSets: data.totalSets ?? null,
-    notes: data.notes ?? null,
     exercises,
   };
 }
@@ -114,7 +76,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
           <p className="muted">No se encontró este entreno.</p>
           <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/entrenamientos">
-            Volver a entrenamientos
+            Volver a los entrenos
           </Link>
         </section>
       </div>
@@ -126,9 +88,9 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
     return (
       <div className="page">
         <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">No se encontró este entreno.</p>
+          <p className="muted">{error ?? "No se encontró este entreno."}</p>
           <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/entrenamientos">
-            Volver a entrenamientos
+            Volver a los entrenos
           </Link>
         </section>
       </div>
@@ -140,15 +102,27 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
   const totalSets =
     workout.totalSets ??
     exercises.reduce((acc, exercise) => {
-      const sets = Number.isFinite(exercise.sets) ? exercise.sets : 0;
-      return acc + sets;
+      const sets = parseNumber(exercise.sets);
+      return acc + (sets ?? 0);
     }, 0);
-  const estimatedDuration = estimateDuration(workout, exercises);
+  const totalVolume = exercises.reduce((acc, exercise) => {
+    const sets = parseNumber(exercise.sets);
+    const reps = parseNumber(exercise.reps);
+    if (!sets || !reps) return acc;
+    return acc + sets * reps;
+  }, 0);
+  const hasVolume = totalVolume > 0;
+
+  const scheduledDate = workout.scheduledAt ? new Date(workout.scheduledAt) : null;
+  const dayLabel =
+    workout.dayLabel ??
+    workout.split ??
+    (scheduledDate ? scheduledDate.toLocaleDateString("es-ES", { weekday: "long" }) : null);
 
   const badges = [
+    dayLabel ? `Día: ${dayLabel}` : null,
     workout.goal ? `Objetivo: ${workout.goal}` : null,
     workout.experienceLevel ? `Nivel: ${workout.experienceLevel}` : null,
-    workout.dayLabel ?? workout.split ? `Día: ${workout.dayLabel ?? workout.split}` : null,
   ].filter(Boolean);
 
   return (
@@ -183,24 +157,24 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
             <p className="muted" style={{ marginTop: 8 }}>
               Ejercicios: {totalExercises}
             </p>
-            <p className="muted">Volumen total: {totalSets || "Sin calcular"} series</p>
+            <p className="muted">Series totales: {totalSets || "Sin calcular"}</p>
             <p className="muted">
-              Duración estimada: {estimatedDuration ?? "Sin estimar"} min
+              Volumen estimado: {hasVolume ? `${totalVolume} reps` : "Sin estimar"}
             </p>
           </div>
           <div className="feature-card">
-            <h3>Split del día</h3>
+            <h3>Objetivo</h3>
             <p className="muted" style={{ marginTop: 8 }}>
-              {workout.dayLabel ?? workout.split ?? "Planificación libre"}
+              {workout.goal ?? "Sin definir"}
             </p>
-            <p className="muted">Objetivo: {workout.goal ?? "Sin definir"}</p>
+            <p className="muted">Split: {workout.split ?? "Planificación libre"}</p>
           </div>
           <div className="feature-card">
-            <h3>Preparación</h3>
+            <h3>Duración</h3>
             <p className="muted" style={{ marginTop: 8 }}>
-              Revisa tu calentamiento y elige cargas progresivas.
+              Estimada: {workout.estimatedDurationMin ?? workout.durationMin ?? "Sin estimar"} min
             </p>
-            <p className="muted">Mantén la técnica antes de subir intensidad.</p>
+            <p className="muted">Preparación: movilidad, cargas progresivas.</p>
           </div>
         </div>
       </section>
@@ -224,27 +198,34 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         ) : (
           <div className="list-grid" style={{ marginTop: 16 }}>
             {exercises.map((exercise, index) => {
-              const details = [
-                `${exercise.sets || "—"} x ${exercise.reps || "—"} reps`,
-                exercise.rir !== null && exercise.rir !== undefined ? `RIR ${exercise.rir}` : null,
-                exercise.restSeconds ? `descanso ${exercise.restSeconds} s` : null,
-              ].filter(Boolean);
+              const exerciseKey = exercise.exerciseId ?? exercise.id ?? `${exercise.name}-${index}`;
+              const setsLabel = exercise.sets ?? "—";
+              const repsLabel = exercise.reps ?? "—";
+              const intensityLabel =
+                exercise.rir !== null && exercise.rir !== undefined
+                  ? `RIR ${exercise.rir}`
+                  : exercise.rpe !== null && exercise.rpe !== undefined
+                    ? `RPE ${exercise.rpe}`
+                    : null;
+              const restLabel = exercise.restSeconds ? `Descanso ${exercise.restSeconds} s` : null;
 
               return (
-                <div key={`${exercise.exerciseId}-${index}`} className="feature-card">
+                <div key={exerciseKey} className="feature-card">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <strong>{exercise.exerciseName}</strong>
+                    <strong>{exercise.name}</strong>
                     <span className="muted">#{index + 1}</span>
                   </div>
                   <p className="muted" style={{ marginTop: 8 }}>
-                    {exercise.primaryMuscle ? `Grupo: ${exercise.primaryMuscle}` : "Grupo muscular por definir"}
+                    {setsLabel} x {repsLabel}
                   </p>
-                  <p className="muted">{details.join(" · ")}</p>
-                  {exercise.notes ? <p className="muted">{exercise.notes}</p> : null}
-                  <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
-                    <input type="checkbox" disabled aria-label="Completar serie" />
-                    <span className="muted">Marcar como completado (próximamente)</span>
+                  <div className="badge-list" style={{ marginTop: 8 }}>
+                    <span className="badge">
+                      {exercise.primaryMuscle ? `Grupo: ${exercise.primaryMuscle}` : "Grupo por definir"}
+                    </span>
+                    {intensityLabel ? <span className="badge">{intensityLabel}</span> : null}
+                    {restLabel ? <span className="badge">{restLabel}</span> : null}
                   </div>
+                  {exercise.notes ? <p className="muted">{exercise.notes}</p> : null}
                 </div>
               );
             })}
@@ -254,7 +235,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
 
       <div style={{ maxWidth: 960, margin: "16px auto 0" }}>
         <Link className="btn" href="/app/entrenamientos">
-          Volver a entrenamientos
+          Volver a los entrenos
         </Link>
       </div>
     </div>
