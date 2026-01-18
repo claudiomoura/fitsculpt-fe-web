@@ -49,6 +49,17 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
     return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
   }
   const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+  if (typed.statusCode === 429 && typed.code === "AI_LIMIT_REACHED") {
+    const retryAfterSec = typeof typed.debug?.retryAfterSec === "number" ? typed.debug.retryAfterSec : undefined;
+    if (retryAfterSec) {
+      reply.header("Retry-After", retryAfterSec.toString());
+    }
+    return reply.status(429).send({
+      error: "RATE_LIMIT",
+      message: "Has alcanzado el límite diario de solicitudes de IA. Intenta nuevamente más tarde.",
+      ...(retryAfterSec ? { retryAfterSec } : {}),
+    });
+  }
   if (typed.statusCode) {
     return reply.status(typed.statusCode).send({
       error: typed.code ?? "REQUEST_ERROR",
@@ -422,6 +433,12 @@ function toDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+function getSecondsUntilNextUtcDay(date = new Date()) {
+  const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
+  const diffMs = next.getTime() - date.getTime();
+  return Math.max(1, Math.ceil(diffMs / 1000));
+}
+
 function stableStringify(value: unknown) {
   if (!value || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) {
@@ -471,7 +488,8 @@ async function enforceAiQuota(user: { id: string; subscriptionPlan: string }) {
     where: { userId_date: { userId: user.id, date: dateKey } },
   });
   if (limit > 0 && usage && usage.count >= limit) {
-    throw createHttpError(429, "AI_LIMIT_REACHED");
+    const retryAfterSec = getSecondsUntilNextUtcDay();
+    throw createHttpError(429, "AI_LIMIT_REACHED", { retryAfterSec });
   }
   await prisma.aiUsage.upsert({
     where: { userId_date: { userId: user.id, date: dateKey } },
@@ -622,19 +640,28 @@ function buildTipPrompt(data: z.infer<typeof aiTipSchema>) {
 }
 
 function extractJson(text: string) {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
+  const cleaned = text.replace(/```(?:json)?/gi, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) {
     throw createHttpError(502, "AI_PARSE_ERROR");
   }
-  const json = text.slice(start, end + 1);
-  return JSON.parse(json) as Record<string, unknown>;
+  const json = cleaned.slice(start, end + 1);
+  try {
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    throw createHttpError(502, "AI_PARSE_ERROR");
+  }
 }
 
-async function callOpenAi(prompt: string) {
+async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, unknown>> {
   if (!env.OPENAI_API_KEY) {
     throw createHttpError(503, "AI_UNAVAILABLE");
   }
+  const systemMessage =
+    attempt === 0
+      ? "Devuelve exclusivamente JSON valido. Sin markdown. Sin texto extra."
+      : "DEVUELVE SOLO JSON VÁLIDO. Sin markdown. Sin texto extra.";
   const response = await fetch(`${env.OPENAI_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -645,7 +672,7 @@ body: JSON.stringify({
   model: "gpt-4o-mini",
   response_format: { type: "json_object" },
   messages: [
-    { role: "system", content: "Devuelve exclusivamente JSON valido. Sin markdown. Sin texto extra." },
+    { role: "system", content: systemMessage },
     { role: "user", content: prompt },
   ],
   max_tokens: 800,
@@ -663,7 +690,16 @@ body: JSON.stringify({
   if (!content) {
     throw createHttpError(502, "AI_EMPTY_RESPONSE");
   }
-  return extractJson(content);
+  try {
+    return extractJson(content);
+  } catch (error) {
+    const typed = error as { code?: string };
+    if (typed.code === "AI_PARSE_ERROR" && attempt === 0) {
+      app.log.warn({ err: error }, "ai response parse failed, retrying with strict json request");
+      return callOpenAi(prompt, 1);
+    }
+    throw error;
+  }
 }
 
 const feedQuerySchema = z.object({

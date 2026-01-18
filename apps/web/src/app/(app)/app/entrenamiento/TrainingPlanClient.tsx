@@ -293,8 +293,8 @@ export default function TrainingPlanClient() {
       <section className="card">
         <h2 className="section-title" style={{ fontSize: 20 }}>{c.training.weeklyPlanTitle}</h2>
         <div className="list-grid" style={{ marginTop: 16 }}>
-          {visiblePlan?.days.map((day) => (
-            <div key={day.label} className="feature-card">
+          {visiblePlan?.days.map((day, dayIdx) => (
+            <div key={`${day.label}-${dayIdx}`} className="feature-card">
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <strong>
                   {c.training.dayLabel} {day.label}
@@ -305,8 +305,8 @@ export default function TrainingPlanClient() {
               </div>
               <div style={{ fontWeight: 600 }}>{day.focus}</div>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                {day.exercises.map((exercise) => (
-                  <li key={exercise.name}>
+                {day.exercises.map((exercise, exerciseIdx) => (
+                  <li key={`${exercise.name}-${exerciseIdx}`}>
                     {exercise.name} — {exercise.sets}
                   </li>
                 ))}
@@ -322,7 +322,7 @@ export default function TrainingPlanClient() {
 
         <div className="list-grid" style={{ marginTop: 16 }}>
           {periodization.map((week, idx) => (
-            <div key={week.label} className="feature-card">
+            <div key={`${week.label}-${idx}`} className="feature-card">
               <strong>
                 {c.training.weekLabel} {idx + 1} · {c.training[week.label as keyof typeof c.training]}
               </strong>
