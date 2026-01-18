@@ -9,6 +9,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
+import { AiParseError, parseJsonFromText } from "./aiParsing.js";
 
 const env = getEnv();
 const prisma = new PrismaClient();
@@ -429,6 +430,85 @@ const aiTipSchema = z.object({
 
 type AiRequestType = "training" | "nutrition" | "tip";
 
+const aiTrainingExerciseSchema = z
+  .object({
+    name: z.string().min(1),
+    sets: z.string().min(1),
+    reps: z.string().min(1).optional(),
+    tempo: z.string().min(1).optional(),
+    rest: z.string().min(1).optional(),
+    notes: z.string().min(1).optional(),
+  })
+  .passthrough();
+
+const aiTrainingDaySchema = z
+  .object({
+    label: z.string().min(1),
+    focus: z.string().min(1),
+    duration: z.number().int().min(20).max(120),
+    exercises: z.array(aiTrainingExerciseSchema).min(3).max(8),
+  })
+  .passthrough();
+
+const aiTrainingPlanResponseSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    notes: z.string().min(1).optional(),
+    days: z.array(aiTrainingDaySchema).min(2).max(5),
+  })
+  .passthrough();
+
+const aiNutritionMealSchema = z
+  .object({
+    type: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
+    title: z.string().min(1),
+    description: z.string().min(1),
+    macros: z
+      .object({
+        calories: z.number().int().min(50).max(1500),
+        protein: z.number().int().min(0).max(200),
+        carbs: z.number().int().min(0).max(250),
+        fats: z.number().int().min(0).max(150),
+      })
+      .optional(),
+    ingredients: z
+      .array(
+        z.object({
+          name: z.string().min(1),
+          grams: z.number().int().min(5).max(1000),
+        })
+      )
+      .min(2)
+      .max(12),
+  })
+  .passthrough();
+
+const aiNutritionDaySchema = z
+  .object({
+    dayLabel: z.string().min(1),
+    meals: z.array(aiNutritionMealSchema).min(1).max(6),
+  })
+  .passthrough();
+
+const aiNutritionPlanResponseSchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    dailyCalories: z.number().int().min(1200).max(4000),
+    proteinG: z.number().int().min(50).max(300),
+    fatG: z.number().int().min(30).max(200),
+    carbsG: z.number().int().min(50).max(600),
+    days: z.array(aiNutritionDaySchema).min(1),
+    shoppingList: z
+      .array(
+        z.object({
+          name: z.string().min(1),
+          grams: z.number().int().min(0).max(5000),
+        })
+      )
+      .optional(),
+  })
+  .passthrough();
+
 function toDateKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
@@ -548,30 +628,39 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
     title: "Rutina Push/Pull/Legs intermedio",
     days: [
       {
-        day: "Día 1",
+        label: "Día 1",
         focus: "Push",
+        duration: params.timeAvailableMinutes,
         exercises: [
           { name: "Press banca", sets: "4 x 8-10" },
-          { name: "Press militar", sets: "3 x 10" },
-          { name: "Fondos", sets: "3 x 12" },
+          { name: "Press militar", sets: "3 x 8-10" },
+          { name: "Fondos", sets: "3 x 10-12" },
+          { name: "Elevaciones laterales", sets: "3 x 12-15" },
+          { name: "Extensión tríceps", sets: "3 x 12" },
         ],
       },
       {
-        day: "Día 2",
+        label: "Día 2",
         focus: "Pull",
+        duration: params.timeAvailableMinutes,
         exercises: [
           { name: "Remo con barra", sets: "4 x 8-10" },
-          { name: "Dominadas", sets: "3 x 8-10" },
+          { name: "Dominadas", sets: "3 x 6-10" },
+          { name: "Remo en polea", sets: "3 x 10-12" },
           { name: "Curl bíceps", sets: "3 x 12" },
+          { name: "Face pull", sets: "3 x 12-15" },
         ],
       },
       {
-        day: "Día 3",
+        label: "Día 3",
         focus: "Legs",
+        duration: params.timeAvailableMinutes,
         exercises: [
           { name: "Sentadilla", sets: "4 x 8-10" },
-          { name: "Peso muerto rumano", sets: "3 x 10" },
+          { name: "Peso muerto rumano", sets: "3 x 8-10" },
           { name: "Hip thrust", sets: "3 x 12" },
+          { name: "Prensa", sets: "3 x 10-12" },
+          { name: "Elevaciones de gemelo", sets: "3 x 12-15" },
         ],
       },
     ],
@@ -591,11 +680,41 @@ function buildNutritionTemplate(params: z.infer<typeof aiNutritionSchema>) {
     carbsG: Math.round(params.calories * 0.45 / 4),
     days: [
       {
-        day: "Lunes",
+        dayLabel: "Lunes",
         meals: [
-          { name: "Desayuno", calories: Math.round(params.calories * 0.3), macros: "P/C/F balanceado" },
-          { name: "Comida", calories: Math.round(params.calories * 0.4), macros: "Alta proteína" },
-          { name: "Cena", calories: Math.round(params.calories * 0.3), macros: "Ligera" },
+          {
+            type: "breakfast",
+            title: "Yogur griego con avena y fruta",
+            description: "Desayuno mediterráneo sencillo con proteína moderada.",
+            ingredients: [
+              { name: "Yogur griego", grams: 200 },
+              { name: "Avena", grams: 50 },
+              { name: "Fruta fresca", grams: 150 },
+              { name: "Nueces", grams: 20 },
+            ],
+          },
+          {
+            type: "lunch",
+            title: "Pollo a la plancha con arroz y ensalada",
+            description: "Plato principal equilibrado y saciante.",
+            ingredients: [
+              { name: "Pechuga de pollo", grams: 160 },
+              { name: "Arroz integral cocido", grams: 180 },
+              { name: "Verduras mixtas", grams: 200 },
+              { name: "Aceite de oliva", grams: 10 },
+            ],
+          },
+          {
+            type: "dinner",
+            title: "Salmón con patata y verduras",
+            description: "Cena ligera rica en omega 3.",
+            ingredients: [
+              { name: "Salmón", grams: 140 },
+              { name: "Patata cocida", grams: 180 },
+              { name: "Verduras salteadas", grams: 200 },
+              { name: "Aceite de oliva", grams: 8 },
+            ],
+          },
         ],
       },
     ],
@@ -611,23 +730,37 @@ function buildTipTemplate() {
 
 function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
   return [
-    "Eres un coach fitness.",
-    "Genera un plan semanal de entrenamiento en JSON.",
-    `Edad: ${data.age}. Sexo: ${data.sex}. Nivel: ${data.level}. Objetivo: ${data.goal}.`,
-    `Días/semana: ${data.daysPerWeek}. Equipo: ${data.equipment}. Enfoque: ${data.focus}.`,
-    `Tiempo disponible: ${data.timeAvailableMinutes} min. Restricciones: ${data.restrictions ?? "ninguna"}.`,
-    'Salida JSON: {"title":string,"days":[{"day":string,"focus":string,"exercises":[{"name":string,"sets":string,"reps":string}]}],"notes":string}',
+    "Eres un entrenador personal senior. Genera un plan semanal realista y usable en JSON válido.",
+    "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
+    "Respeta el nivel del usuario: principiante (volumen moderado, técnica, descanso),",
+    "intermedio (volumen medio, progresión), avanzado (mayor volumen/intensidad).",
+    "Limita a 4-8 ejercicios por día. Evita volúmenes absurdos.",
+    `Perfil: Edad ${data.age}, sexo ${data.sex}, nivel ${data.level}, objetivo ${data.goal}.`,
+    `Días/semana ${data.daysPerWeek}, enfoque ${data.focus}, equipo ${data.equipment}.`,
+    `Tiempo disponible por sesión ${data.timeAvailableMinutes} min. Restricciones/lesiones: ${data.restrictions ?? "ninguna"}.`,
+    "Estructura según el enfoque:",
+    "- full: cuerpo completo cada día.",
+    "- upperLower: alterna upper/lower empezando por upper.",
+    "- ppl: rota push, pull, legs en orden.",
+    "Duración: usa el tiempo disponible en cada día (campo duration).",
+    "Formato JSON EXACTO (sin markdown):",
+    '{"title":string,"notes":string,"days":[{"label":string,"focus":string,"duration":number,"exercises":[{"name":string,"sets":string,"reps":string,"tempo":string,"rest":string,"notes":string}]}]}',
   ].join(" ");
 }
 
 function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
   return [
-    "Eres un nutricionista.",
-    "Genera un plan semanal en JSON.",
-    `Edad: ${data.age}. Sexo: ${data.sex}. Objetivo: ${data.goal}.`,
-    `Calorías diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
-    `Restricciones: ${data.dietaryRestrictions ?? "ninguna"}.`,
-    'Salida JSON: {"title":string,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"day":string,"meals":[{"name":string,"calories":number,"macros":string}]}]}',
+    "Eres un nutricionista deportivo senior. Genera un plan semanal en JSON válido.",
+    "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, algo de carne blanca y frutos secos.",
+    "Evita cantidades absurdas o alimentos raros. Porciones realistas y fáciles de cocinar.",
+    "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
+    `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
+    `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
+    `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
+    "Tipos de comida: breakfast, lunch, dinner y snack si aplica.",
+    "Usa descripciones breves y concretas.",
+    "Formato JSON EXACTO (sin markdown):",
+    '{"title":string,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"dayLabel":string,"meals":[{"type":"breakfast"|"lunch"|"dinner"|"snack","title":string,"description":string,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients":[{"name":string,"grams":number}]}]}],"shoppingList":[{"name":string,"grams":number}]}',
   ].join(" ");
 }
 
@@ -640,16 +773,32 @@ function buildTipPrompt(data: z.infer<typeof aiTipSchema>) {
 }
 
 function extractJson(text: string) {
-  const cleaned = text.replace(/```(?:json)?/gi, "").trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
+  try {
+    return parseJsonFromText(text) as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof AiParseError) {
+      app.log.warn({ raw: error.raw, reason: error.message }, "ai response parse failed");
+    } else {
+      app.log.warn({ err: error }, "ai response parse failed");
+    }
     throw createHttpError(502, "AI_PARSE_ERROR");
   }
-  const json = cleaned.slice(start, end + 1);
+}
+
+function parseTrainingPlanPayload(payload: Record<string, unknown>) {
   try {
-    return JSON.parse(json) as Record<string, unknown>;
-  } catch {
+    return aiTrainingPlanResponseSchema.parse(payload);
+  } catch (error) {
+    app.log.warn({ err: error, payload }, "ai training response invalid");
+    throw createHttpError(502, "AI_PARSE_ERROR");
+  }
+}
+
+function parseNutritionPlanPayload(payload: Record<string, unknown>) {
+  try {
+    return aiNutritionPlanResponseSchema.parse(payload);
+  } catch (error) {
+    app.log.warn({ err: error, payload }, "ai nutrition response invalid");
     throw createHttpError(502, "AI_PARSE_ERROR");
   }
 }
@@ -668,17 +817,16 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, u
       "Content-Type": "application/json",
       Authorization: `Bearer ${env.OPENAI_API_KEY}`,
     },
-body: JSON.stringify({
-  model: "gpt-4o-mini",
-  response_format: { type: "json_object" },
-  messages: [
-    { role: "system", content: systemMessage },
-    { role: "user", content: prompt },
-  ],
-  max_tokens: 800,
-  temperature: 0.7,
-}),
-
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemMessage },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 800,
+      temperature: attempt === 0 ? 0.6 : 0.2,
+    }),
   });
   if (!response.ok) {
     throw createHttpError(502, "AI_REQUEST_FAILED");
@@ -1215,14 +1363,19 @@ app.post("/ai/training-plan", async (request, reply) => {
 
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
-      const personalized = applyPersonalization(cached, { name: data.name });
-      await storeAiContent(user.id, "training", "cache", personalized);
-      return reply.status(200).send(personalized);
+      try {
+        const validated = parseTrainingPlanPayload(cached);
+        const personalized = applyPersonalization(validated, { name: data.name });
+        await storeAiContent(user.id, "training", "cache", personalized);
+        return reply.status(200).send(personalized);
+      } catch (error) {
+        app.log.warn({ err: error, cacheKey }, "cached training plan invalid, regenerating");
+      }
     }
 
     await enforceAiQuota(user);
     const prompt = buildTrainingPrompt(data);
-    const payload = await callOpenAi(prompt);
+    const payload = parseTrainingPlanPayload(await callOpenAi(prompt));
     await saveCachedAiPayload(cacheKey, "training", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "training", "ai", personalized);
@@ -1248,14 +1401,19 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
 
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
-      const personalized = applyPersonalization(cached, { name: data.name });
-      await storeAiContent(user.id, "nutrition", "cache", personalized);
-      return reply.status(200).send(personalized);
+      try {
+        const validated = parseNutritionPlanPayload(cached);
+        const personalized = applyPersonalization(validated, { name: data.name });
+        await storeAiContent(user.id, "nutrition", "cache", personalized);
+        return reply.status(200).send(personalized);
+      } catch (error) {
+        app.log.warn({ err: error, cacheKey }, "cached nutrition plan invalid, regenerating");
+      }
     }
 
     await enforceAiQuota(user);
     const prompt = buildNutritionPrompt(data);
-    const payload = await callOpenAi(prompt);
+    const payload = parseNutritionPlanPayload(await callOpenAi(prompt));
     await saveCachedAiPayload(cacheKey, "nutrition", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);

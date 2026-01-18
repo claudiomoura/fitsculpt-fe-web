@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "test": "tsx src/tests/authUtils.test.ts"
+    "test": "tsx src/tests/authUtils.test.ts src/tests/aiParsing.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
