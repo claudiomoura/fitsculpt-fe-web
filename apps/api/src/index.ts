@@ -435,13 +435,22 @@ const aiTipSchema = z.object({
 
 type AiRequestType = "training" | "nutrition" | "tip";
 
+const aiTrainingSeriesSchema = z.preprocess(
+  (value) => {
+    if (typeof value === "number") return value.toString();
+    if (typeof value === "string") return value.trim();
+    return value;
+  },
+  z.string().min(1)
+);
+
 const aiTrainingExerciseSchema = z
   .object({
     name: z.string().min(1),
-    sets: z.string().min(1),
-    reps: z.string().min(1).optional(),
+    sets: aiTrainingSeriesSchema,
+    reps: aiTrainingSeriesSchema.optional(),
     tempo: z.string().min(1).optional(),
-    rest: z.string().min(1).optional(),
+    rest: aiTrainingSeriesSchema.optional(),
     notes: z.string().min(1).optional(),
   })
   .passthrough();
@@ -457,7 +466,7 @@ const aiTrainingDaySchema = z
 
 const aiTrainingPlanResponseSchema = z
   .object({
-    title: z.string().min(1).optional(),
+    title: z.string().min(1),
     notes: z.string().min(1).optional(),
     days: z.array(aiTrainingDaySchema).min(2).max(5),
   })
@@ -465,7 +474,7 @@ const aiTrainingPlanResponseSchema = z
 
 const aiNutritionMealSchema = z
   .object({
-    type: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
+    type: z.enum(["breakfast", "lunch", "dinner", "snack"]),
     title: z.string().min(1),
     description: z.string().min(1),
     macros: z
@@ -474,8 +483,7 @@ const aiNutritionMealSchema = z
         protein: z.number().int().min(0).max(200),
         carbs: z.number().int().min(0).max(250),
         fats: z.number().int().min(0).max(150),
-      })
-      .optional(),
+      }),
     ingredients: z
       .array(
         z.object({
@@ -497,7 +505,7 @@ const aiNutritionDaySchema = z
 
 const aiNutritionPlanResponseSchema = z
   .object({
-    title: z.string().min(1).optional(),
+    title: z.string().min(1),
     dailyCalories: z.number().int().min(1200).max(4000),
     proteinG: z.number().int().min(50).max(300),
     fatG: z.number().int().min(30).max(200),
@@ -637,11 +645,11 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
         focus: "Push",
         duration: params.timeAvailableMinutes,
         exercises: [
-          { name: "Press banca", sets: "4 x 8-10" },
-          { name: "Press militar", sets: "3 x 8-10" },
-          { name: "Fondos", sets: "3 x 10-12" },
-          { name: "Elevaciones laterales", sets: "3 x 12-15" },
-          { name: "Extensión tríceps", sets: "3 x 12" },
+          { name: "Press banca", sets: "4", reps: "8-10" },
+          { name: "Press militar", sets: "3", reps: "8-10" },
+          { name: "Fondos", sets: "3", reps: "10-12" },
+          { name: "Elevaciones laterales", sets: "3", reps: "12-15" },
+          { name: "Extensión tríceps", sets: "3", reps: "12" },
         ],
       },
       {
@@ -649,11 +657,11 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
         focus: "Pull",
         duration: params.timeAvailableMinutes,
         exercises: [
-          { name: "Remo con barra", sets: "4 x 8-10" },
-          { name: "Dominadas", sets: "3 x 6-10" },
-          { name: "Remo en polea", sets: "3 x 10-12" },
-          { name: "Curl bíceps", sets: "3 x 12" },
-          { name: "Face pull", sets: "3 x 12-15" },
+          { name: "Remo con barra", sets: "4", reps: "8-10" },
+          { name: "Dominadas", sets: "3", reps: "6-10" },
+          { name: "Remo en polea", sets: "3", reps: "10-12" },
+          { name: "Curl bíceps", sets: "3", reps: "12" },
+          { name: "Face pull", sets: "3", reps: "12-15" },
         ],
       },
       {
@@ -661,11 +669,11 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
         focus: "Legs",
         duration: params.timeAvailableMinutes,
         exercises: [
-          { name: "Sentadilla", sets: "4 x 8-10" },
-          { name: "Peso muerto rumano", sets: "3 x 8-10" },
-          { name: "Hip thrust", sets: "3 x 12" },
-          { name: "Prensa", sets: "3 x 10-12" },
-          { name: "Elevaciones de gemelo", sets: "3 x 12-15" },
+          { name: "Sentadilla", sets: "4", reps: "8-10" },
+          { name: "Peso muerto rumano", sets: "3", reps: "8-10" },
+          { name: "Hip thrust", sets: "3", reps: "12" },
+          { name: "Prensa", sets: "3", reps: "10-12" },
+          { name: "Elevaciones de gemelo", sets: "3", reps: "12-15" },
         ],
       },
     ],
@@ -691,6 +699,12 @@ function buildNutritionTemplate(params: z.infer<typeof aiNutritionSchema>) {
             type: "breakfast",
             title: "Yogur griego con avena y fruta",
             description: "Desayuno mediterráneo sencillo con proteína moderada.",
+            macros: {
+              calories: 420,
+              protein: 25,
+              carbs: 45,
+              fats: 12,
+            },
             ingredients: [
               { name: "Yogur griego", grams: 200 },
               { name: "Avena", grams: 50 },
@@ -702,6 +716,12 @@ function buildNutritionTemplate(params: z.infer<typeof aiNutritionSchema>) {
             type: "lunch",
             title: "Pollo a la plancha con arroz y ensalada",
             description: "Plato principal equilibrado y saciante.",
+            macros: {
+              calories: 680,
+              protein: 45,
+              carbs: 70,
+              fats: 18,
+            },
             ingredients: [
               { name: "Pechuga de pollo", grams: 160 },
               { name: "Arroz integral cocido", grams: 180 },
@@ -713,6 +733,12 @@ function buildNutritionTemplate(params: z.infer<typeof aiNutritionSchema>) {
             type: "dinner",
             title: "Salmón con patata y verduras",
             description: "Cena ligera rica en omega 3.",
+            macros: {
+              calories: 620,
+              protein: 38,
+              carbs: 55,
+              fats: 22,
+            },
             ingredients: [
               { name: "Salmón", grams: 140 },
               { name: "Patata cocida", grams: 180 },
@@ -735,12 +761,15 @@ function buildTipTemplate() {
 
 function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
   return [
-    "Eres un entrenador personal senior. Genera un plan semanal realista y usable en JSON válido.",
-    "Devuelve solo un JSON válido para este esquema. No escribas explicaciones ni texto antes o después del JSON.",
+    "Eres un entrenador personal senior. Genera un plan semanal realista en JSON válido.",
+    "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
+    "El JSON debe respetar exactamente este esquema:",
+    '{"title":string,"notes"?:string,"days":[{"label":string,"focus":string,"duration":number,"exercises":[{"name":string,"sets":string|number,"reps":string|number,"tempo"?:string,"rest"?:string|number,"notes"?:string}]}]}',
     "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
     "Respeta el nivel del usuario:",
     "- principiante: ejercicios básicos y seguros, 3-5 ejercicios por sesión, 45-60 minutos.",
     "- intermedio/avanzado: 4-6 ejercicios por sesión, básicos multiarticulares, 50-75 minutos.",
+    "Para avanzados, incluye ejercicios exigentes y coherentes con el objetivo.",
     "Evita volúmenes absurdos y mantén descansos coherentes.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, nivel ${data.level}, objetivo ${data.goal}.`,
     `Días/semana ${data.daysPerWeek}, enfoque ${data.focus}, equipo ${data.equipment}.`,
@@ -749,9 +778,9 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
     "- full: cuerpo completo cada día.",
     "- upperLower: alterna upper/lower empezando por upper.",
     "- ppl: rota push, pull, legs en orden.",
-    "Usa days.length = días por semana. label en español consistente (ej: \"Día 1\", \"Día 2\"...).",
+    "Usa days.length = días por semana. label en español consistente (ej: \"Día Lunes 1\", \"Día 2\"...).",
     "En cada día incluye duration en minutos (number).",
-    "En cada ejercicio incluye name (español), sets (string con número de series), reps (string con rango), tempo, rest y notes.",
+    "En cada ejercicio incluye name (español), sets, reps, tempo, rest y notes.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
     '{"title":"Plan de fuerza semanal","notes":"Enfocado en técnica y progreso gradual.","days":[{"label":"Día 1","focus":"Full body","duration":60,"exercises":[{"name":"Sentadilla con barra","sets":"4","reps":"8-10","tempo":"2-0-2","rest":"90","notes":"Calentamiento previo y técnica controlada."},{"name":"Press banca","sets":"4","reps":"8-10","tempo":"2-0-2","rest":"90","notes":"Escápulas retraídas."},{"name":"Remo con barra","sets":"3","reps":"8-10","tempo":"2-1-2","rest":"90","notes":"Espalda neutra."}]}]}',
   ].join(" ");
@@ -760,10 +789,11 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
 function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
   return [
     "Eres un nutricionista deportivo senior. Genera un plan semanal en JSON válido.",
-    "Debes devolver exactamente un JSON válido para el siguiente esquema. Nada de texto adicional ni markdown.",
+    "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
+    "El JSON debe respetar exactamente este esquema:",
     "Esquema exacto:",
     "{",
-    '  "title"?: string,',
+    '  "title": string,',
     '  "dailyCalories": number,',
     '  "proteinG": number,',
     '  "fatG": number,',
@@ -791,9 +821,10 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
     `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
     "Genera 7 días con dayLabel en español (Lunes a Domingo).",
+    "Cada día incluye desayuno, comida, cena y 1-2 snacks.",
     "Usa siempre type y macros en cada comida.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
-    "Incluye dailyCalories, proteinG, fatG y carbsG siempre.",
+    "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
     '{"title":"Plan mediterráneo semanal","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"dayLabel":"Lunes","meals":[{"type":"breakfast","title":"Tostadas integrales con aguacate y huevo","description":"Desayuno con grasas saludables y proteína.","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Pan integral","grams":80},{"name":"Aguacate","grams":70},{"name":"Huevo","grams":120}]},{"type":"lunch","title":"Salmón a la plancha con arroz integral y brócoli","description":"Plato principal rico en omega 3.","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Salmón","grams":160},{"name":"Arroz integral cocido","grams":180},{"name":"Brócoli","grams":200},{"name":"Aceite de oliva","grams":10}]},{"type":"snack","title":"Yogur griego con frutos rojos","description":"Snack ligero y alto en proteína.","macros":{"calories":250,"protein":20,"carbs":25,"fats":8},"ingredients":[{"name":"Yogur griego","grams":200},{"name":"Frutos rojos","grams":120},{"name":"Nueces","grams":15}]},{"type":"dinner","title":"Pechuga de pollo con verduras salteadas","description":"Cena ligera y saciante.","macros":{"calories":800,"protein":50,"carbs":110,"fats":19},"ingredients":[{"name":"Pechuga de pollo","grams":170},{"name":"Verduras mixtas","grams":250},{"name":"Patata cocida","grams":200},{"name":"Aceite de oliva","grams":10}]}]},{"dayLabel":"Martes","meals":[{"type":"breakfast","title":"Avena con yogur y fruta","description":"Desayuno completo y saciante.","macros":{"calories":430,"protein":22,"carbs":55,"fats":12},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180},{"name":"Plátano","grams":120}]},{"type":"lunch","title":"Ensalada de garbanzos con atún","description":"Legumbre + proteína magra.","macros":{"calories":650,"protein":40,"carbs":65,"fats":18},"ingredients":[{"name":"Garbanzos cocidos","grams":200},{"name":"Atún al natural","grams":120},{"name":"Tomate","grams":150},{"name":"Aceite de oliva","grams":10}]},{"type":"snack","title":"Fruta y frutos secos","description":"Snack energético controlado.","macros":{"calories":220,"protein":6,"carbs":25,"fats":10},"ingredients":[{"name":"Manzana","grams":160},{"name":"Almendras","grams":20}]},{"type":"dinner","title":"Pavo con quinoa y verduras","description":"Cena completa y ligera.","macros":{"calories":900,"protein":72,"carbs":105,"fats":30},"ingredients":[{"name":"Pavo","grams":180},{"name":"Quinoa cocida","grams":180},{"name":"Calabacín","grams":200},{"name":"Aceite de oliva","grams":10}]}]}],"shoppingList":[{"name":"Aceite de oliva","grams":200},{"name":"Verduras mixtas","grams":800}]}',
   ].join(" ");
@@ -809,6 +840,13 @@ function buildTipPrompt(data: z.infer<typeof aiTipSchema>) {
 
 function extractJson(text: string) {
   try {
+    const trimmed = text.trim();
+    const firstBrace = trimmed.indexOf("{");
+    const lastBrace = trimmed.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      const slice = trimmed.slice(firstBrace, lastBrace + 1);
+      return JSON.parse(slice) as Record<string, unknown>;
+    }
     return parseJsonFromText(text) as Record<string, unknown>;
   } catch (error) {
     if (error instanceof AiParseError) {
@@ -816,7 +854,9 @@ function extractJson(text: string) {
     } else {
       app.log.warn({ err: error }, "ai response parse failed");
     }
-    throw createHttpError(502, "AI_PARSE_ERROR");
+    throw createHttpError(502, "AI_PARSE_ERROR", {
+      message: "La respuesta de IA no es un JSON válido. Intenta nuevamente.",
+    });
   }
 }
 
@@ -906,36 +946,49 @@ function getExerciseMetadata(name: string) {
 }
 
 async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
-  const names = new Set<string>();
+  if (!("exercise" in prisma)) {
+    app.log.error("prisma.exercise is unavailable, skipping exercise upsert");
+    return;
+  }
+  const names = new Map<string, string>();
   plan.days.forEach((day) => {
     day.exercises.forEach((exercise) => {
       const normalized = normalizeExerciseName(exercise.name);
-      if (normalized) names.add(normalized);
+      if (!normalized) return;
+      const key = normalized.toLowerCase();
+      if (!names.has(key)) {
+        names.set(key, normalized);
+      }
     });
   });
-  const uniqueNames = Array.from(names);
+  const uniqueNames = Array.from(names.values());
   if (uniqueNames.length === 0) return;
+  const exerciseClient = prisma.exercise;
   await Promise.all(
-    uniqueNames.map((name) => {
+    uniqueNames.map(async (name) => {
       const metadata = getExerciseMetadata(name);
-      return prisma.exercise.upsert({
-        where: { name },
-        create: {
-          name,
-          equipment: metadata?.equipment ?? null,
-          primaryMuscles: metadata?.primaryMuscles ?? [],
-          secondaryMuscles: metadata?.secondaryMuscles ?? [],
-          description: metadata?.description ?? null,
-        },
-        update: metadata
-          ? {
-              equipment: metadata.equipment ?? null,
-              primaryMuscles: metadata.primaryMuscles,
-              secondaryMuscles: metadata.secondaryMuscles,
-              description: metadata.description ?? null,
-            }
-          : {},
-      });
+      try {
+        await exerciseClient.upsert({
+          where: { name },
+          create: {
+            name,
+            equipment: metadata?.equipment ?? null,
+            primaryMuscles: metadata?.primaryMuscles ?? [],
+            secondaryMuscles: metadata?.secondaryMuscles ?? [],
+            description: metadata?.description ?? null,
+          },
+          update: metadata
+            ? {
+                equipment: metadata.equipment ?? null,
+                primaryMuscles: metadata.primaryMuscles,
+                secondaryMuscles: metadata.secondaryMuscles,
+                description: metadata.description ?? null,
+              }
+            : {},
+        });
+      } catch (error) {
+        app.log.warn({ err: error, name }, "exercise upsert failed");
+      }
     })
   );
 }
@@ -1680,8 +1733,16 @@ const exerciseListSchema = z.object({
   query: z.string().min(1).optional(),
   muscle: z.string().min(1).optional(),
   equipment: z.string().min(1).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(1).max(200).default(200)),
+  offset: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(0).default(0)),
 });
 
 const exerciseParamsSchema = z.object({ id: z.string().min(1) });

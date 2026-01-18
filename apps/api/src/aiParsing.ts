@@ -79,5 +79,16 @@ export function parseJsonFromText(text: string) {
     }
   }
 
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const sliced = cleaned.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(sliced) as unknown;
+    } catch {
+      throw new AiParseError("Invalid JSON block", text);
+    }
+  }
+
   throw new AiParseError("No valid JSON found", text);
 }
