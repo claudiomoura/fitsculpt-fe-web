@@ -20,8 +20,10 @@ export type WorkoutExercise = {
   reps?: string | number | null;
   loadKg?: number | string | null;
   rpe?: number | string | null;
+  rir?: number | string | null;
   restSeconds?: number | string | null;
   notes?: string | null;
+  primaryMuscle?: string | null;
   lastLog?: {
     loadKg?: number | string | null;
     reps?: number | string | null;
@@ -36,6 +38,9 @@ export type Workout = {
   durationMin?: number | null;
   goal?: string | null;
   dayLabel?: string | null;
+  split?: string | null;
+  experienceLevel?: string | null;
+  targetMuscles?: string[] | null;
   focus?: string | null;
   totalSets?: number | null;
   estimatedDurationMin?: number | null;
