@@ -641,15 +641,17 @@ async function callOpenAi(prompt: string) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${env.OPENAI_API_KEY}`,
     },
-    body: JSON.stringify({
-      model: "gpt-3.5-turbo",
-      messages: [
-        { role: "system", content: "Responde solo con JSON válido, sin texto extra." },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 250,
-      temperature: 0.7,
-    }),
+body: JSON.stringify({
+  model: "gpt-4o-mini",
+  response_format: { type: "json_object" },
+  messages: [
+    { role: "system", content: "Devuelve exclusivamente JSON valido. Sin markdown. Sin texto extra." },
+    { role: "user", content: prompt },
+  ],
+  max_tokens: 800,
+  temperature: 0.7,
+}),
+
   });
   if (!response.ok) {
     throw createHttpError(502, "AI_REQUEST_FAILED");

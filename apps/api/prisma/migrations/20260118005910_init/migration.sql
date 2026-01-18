@@ -1,6 +1,9 @@
 -- CreateEnum
 CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN');
 
+-- CreateEnum
+CREATE TYPE "SubscriptionPlan" AS ENUM ('FREE', 'PRO');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
@@ -9,6 +12,7 @@ CREATE TABLE "User" (
     "name" TEXT,
     "provider" TEXT NOT NULL DEFAULT 'email',
     "role" "Role" NOT NULL DEFAULT 'USER',
+    "subscriptionPlan" "SubscriptionPlan" NOT NULL DEFAULT 'FREE',
     "isBlocked" BOOLEAN NOT NULL DEFAULT false,
     "emailVerifiedAt" TIMESTAMP(3),
     "lastLoginAt" TIMESTAMP(3),
@@ -89,6 +93,55 @@ CREATE TABLE "OAuthState" (
     CONSTRAINT "OAuthState_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "FeedPost" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "summary" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'summary',
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "FeedPost_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AiPromptCache" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastUsedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AiPromptCache_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AiUsage" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "date" TEXT NOT NULL,
+    "count" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AiUsage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AiContent" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "source" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AiContent_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -113,6 +166,21 @@ CREATE INDEX "EmailVerificationToken_userId_idx" ON "EmailVerificationToken"("us
 -- CreateIndex
 CREATE UNIQUE INDEX "OAuthState_stateHash_key" ON "OAuthState"("stateHash");
 
+-- CreateIndex
+CREATE INDEX "FeedPost_userId_idx" ON "FeedPost"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AiPromptCache_key_key" ON "AiPromptCache"("key");
+
+-- CreateIndex
+CREATE INDEX "AiUsage_userId_idx" ON "AiUsage"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AiUsage_userId_date_key" ON "AiUsage"("userId", "date");
+
+-- CreateIndex
+CREATE INDEX "AiContent_userId_idx" ON "AiContent"("userId");
+
 -- AddForeignKey
 ALTER TABLE "Workout" ADD CONSTRAINT "Workout_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -124,3 +192,12 @@ ALTER TABLE "AuthProvider" ADD CONSTRAINT "AuthProvider_userId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "EmailVerificationToken" ADD CONSTRAINT "EmailVerificationToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "FeedPost" ADD CONSTRAINT "FeedPost_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AiUsage" ADD CONSTRAINT "AiUsage_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AiContent" ADD CONSTRAINT "AiContent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
