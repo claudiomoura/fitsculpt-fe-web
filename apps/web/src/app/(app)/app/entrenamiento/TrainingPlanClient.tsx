@@ -16,6 +16,7 @@ import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 type Exercise = {
   name: string;
   sets: string;
+  reps?: string;
 };
 
 type TrainingDay = {
@@ -307,7 +308,7 @@ export default function TrainingPlanClient() {
               <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                 {day.exercises.map((exercise, exerciseIdx) => (
                   <li key={`${exercise.name}-${exerciseIdx}`}>
-                    {exercise.name} — {exercise.sets}
+                    {exercise.name} — {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
                   </li>
                 ))}
               </ul>
