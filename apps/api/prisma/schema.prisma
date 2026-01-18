@@ -7,16 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
-enum SubscriptionPlan {
-  FREE
-  PRO
-}
-
 model User {
   id                      String                   @id @default(cuid())
   email                   String                   @unique
@@ -29,17 +19,15 @@ model User {
   emailVerifiedAt         DateTime?
   lastLoginAt             DateTime?
   deletedAt               DateTime?
-  profile                 UserProfile?
-  workouts                Workout[]
-  authProviders           AuthProvider[]
-  emailVerificationTokens EmailVerificationToken[]
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
-
-  // AÑADIR ESTO:
-  feedPosts  FeedPost[]
-  aiUsages   AiUsage[]
-  aiContents AiContent[]
+  aiContents              AiContent[]
+  aiUsages                AiUsage[]
+  authProviders           AuthProvider[]
+  emailVerificationTokens EmailVerificationToken[]
+  feedPosts               FeedPost[]
+  profile                 UserProfile?
+  workouts                Workout[]
 }
 
 model Workout {
@@ -49,22 +37,26 @@ model Workout {
   scheduledAt DateTime?
   durationMin Int?
   userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model Exercise {
-  id               String   @id @default(cuid())
-  name             String   @unique
-  equipment        String?
-  primaryMuscles   String[] @default([])
-  secondaryMuscles String[] @default([])
-  description      String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  name                  String
+  equipment             String?
+  description           String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  isUserCreated         Boolean  @default(false)
+  mainMuscleGroup       String
+  secondaryMuscleGroups String[]
+  slug                  String   @unique
+  technique             String?
+  tips                  String?
 }
 
 model UserProfile {
@@ -161,4 +153,14 @@ model AiContent {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
 }

@@ -819,7 +819,8 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
     `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
-    "Genera 7 días con dayLabel en español (Lunes a Domingo).",
+  "Genera exactamente 3 días con dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
+
     "Cada día incluye desayuno, comida, cena y 1-2 snacks.",
     "Usa siempre type y macros en cada comida.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
@@ -952,55 +953,92 @@ function hasExerciseClient() {
   return typeof (prisma as PrismaClient & { exercise?: unknown }).exercise !== "undefined";
 }
 
+function slugifyName(name: string) {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // quita acentos
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+
 async function upsertExerciseRecord(name: string, metadata?: ReturnType<typeof getExerciseMetadata>) {
   const now = new Date();
+  const slug = slugifyName(name);
+
+  const mainMuscleGroup =
+    metadata?.primaryMuscles && metadata.primaryMuscles.length > 0
+      ? metadata.primaryMuscles[0]
+      : "General";
+
+  const secondaryMuscleGroups = metadata?.secondaryMuscles ?? [];
+
   if (hasExerciseClient()) {
     await prisma.exercise.upsert({
-      where: { name },
+      where: { slug }, // ahora usamos el slug como clave única
       create: {
+        slug,
         name,
+        mainMuscleGroup,
+        secondaryMuscleGroups,
         equipment: metadata?.equipment ?? null,
-        primaryMuscles: metadata?.primaryMuscles ?? [],
-        secondaryMuscles: metadata?.secondaryMuscles ?? [],
         description: metadata?.description ?? null,
+        technique: null,
+        tips: null,
+        isUserCreated: false,
       },
-      update: metadata
-        ? {
-            equipment: metadata.equipment ?? null,
-            primaryMuscles: metadata.primaryMuscles,
-            secondaryMuscles: metadata.secondaryMuscles,
-            description: metadata.description ?? null,
-          }
-        : {},
+      update: {
+        name,
+        mainMuscleGroup,
+        secondaryMuscleGroups,
+        equipment: metadata?.equipment ?? undefined,
+        description: metadata?.description ?? undefined,
+      },
     });
     return;
   }
 
-  const id = crypto.randomUUID();
-  const equipment = metadata?.equipment ?? null;
-  const primaryMuscles = metadata?.primaryMuscles ?? [];
-  const secondaryMuscles = metadata?.secondaryMuscles ?? [];
-  const description = metadata?.description ?? null;
-  if (metadata) {
-    await prisma.$executeRaw(Prisma.sql`
-      INSERT INTO "Exercise" ("id", "name", "equipment", "primaryMuscles", "secondaryMuscles", "description", "createdAt", "updatedAt")
-      VALUES (${id}, ${name}, ${equipment}, ${primaryMuscles}, ${secondaryMuscles}, ${description}, ${now}, ${now})
-      ON CONFLICT ("name") DO UPDATE SET
-        "equipment" = EXCLUDED."equipment",
-        "primaryMuscles" = EXCLUDED."primaryMuscles",
-        "secondaryMuscles" = EXCLUDED."secondaryMuscles",
-        "description" = EXCLUDED."description",
-        "updatedAt" = ${now}
-    `);
-    return;
-  }
-
+  // rama fallback con SQL crudo (prácticamente no se usará ya que prisma.exercise existe)
   await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO "Exercise" ("id", "name", "equipment", "primaryMuscles", "secondaryMuscles", "description", "createdAt", "updatedAt")
-    VALUES (${id}, ${name}, ${equipment}, ${primaryMuscles}, ${secondaryMuscles}, ${description}, ${now}, ${now})
-    ON CONFLICT ("name") DO NOTHING
+    INSERT INTO "Exercise" (
+      "id",
+      "slug",
+      "name",
+      "mainMuscleGroup",
+      "secondaryMuscleGroups",
+      "equipment",
+      "description",
+      "technique",
+      "tips",
+      "isUserCreated",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (
+      ${crypto.randomUUID()},
+      ${slug},
+      ${name},
+      ${mainMuscleGroup},
+      ${secondaryMuscleGroups},
+      ${metadata?.equipment ?? null},
+      ${metadata?.description ?? null},
+      ${null},
+      ${null},
+      ${false},
+      ${now},
+      ${now}
+    )
+    ON CONFLICT ("slug") DO UPDATE SET
+      "name" = EXCLUDED."name",
+      "mainMuscleGroup" = EXCLUDED."mainMuscleGroup",
+      "secondaryMuscleGroups" = EXCLUDED."secondaryMuscleGroups",
+      "equipment" = EXCLUDED."equipment",
+      "description" = EXCLUDED."description",
+      "updatedAt" = EXCLUDED."updatedAt"
   `);
 }
+
 
 function buildExerciseFilters(params: {
   query?: string;
@@ -1140,7 +1178,7 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, u
         { role: "system", content: systemMessage },
         { role: "user", content: prompt },
       ],
-      max_tokens: 800,
+      max_tokens: 1600,
       temperature: attempt === 0 ? 0.6 : 0.2,
     }),
   });
@@ -2176,6 +2214,72 @@ app.delete("/admin/users/:id", async (request, reply) => {
     return { ok: true };
   } catch (error) {
     return handleRequestError(reply, error);
+  }
+});
+
+
+// Ruta solo para desarrollo, mete algunos ejercicios en la tabla Exercise
+app.post("/dev/seed-exercises", async (_request, reply) => {
+  try {
+    // Solo permitir en desarrollo por seguridad
+    if (process.env.NODE_ENV === "production") {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const baseExercises = [
+      {
+        name: "Sentadilla con barra",
+        equipment: "Barra",
+        primaryMuscles: ["Piernas"],
+        secondaryMuscles: ["Glúteos"],
+        description: "Mantén la espalda neutra y baja con control.",
+      },
+      {
+        name: "Press banca",
+        equipment: "Barra",
+        primaryMuscles: ["Pecho"],
+        secondaryMuscles: ["Tríceps"],
+        description: "Apoya bien los pies y retrae escápulas.",
+      },
+      {
+        name: "Peso muerto rumano",
+        equipment: "Barra",
+        primaryMuscles: ["Isquios"],
+        secondaryMuscles: ["Glúteos"],
+        description: "Cadera atrás, rodillas levemente flexionadas.",
+      },
+      {
+        name: "Remo con barra",
+        equipment: "Barra",
+        primaryMuscles: ["Espalda"],
+        secondaryMuscles: ["Bíceps"],
+        description: "Tronco inclinado, abdomen activo.",
+      },
+      {
+        name: "Press militar",
+        equipment: "Barra o mancuernas",
+        primaryMuscles: ["Hombros"],
+        secondaryMuscles: ["Tríceps"],
+        description: "Aprieta el core para no arquear la espalda.",
+      },
+    ];
+
+    let seeded = 0;
+
+    for (const ex of baseExercises) {
+      await upsertExerciseRecord(ex.name, {
+        equipment: ex.equipment,
+        primaryMuscles: ex.primaryMuscles,
+        secondaryMuscles: ex.secondaryMuscles,
+        description: ex.description,
+      });
+      seeded += 1;
+    }
+
+    return reply.status(200).send({ ok: true, seeded });
+  } catch (err) {
+    app.log.error({ err }, "seed exercises failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR" });
   }
 });
 
