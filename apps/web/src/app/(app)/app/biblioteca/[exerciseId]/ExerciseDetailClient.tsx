@@ -1,32 +1,13 @@
 import Link from "next/link";
-import type { Exercise } from "@/lib/types";
 
-function getExerciseMuscles(exercise: Exercise) {
-  const main = exercise.mainMuscleGroup ? [exercise.mainMuscleGroup] : [];
-  const secondary = Array.isArray(exercise.secondaryMuscleGroups) ? exercise.secondaryMuscleGroups : [];
-  const legacyPrimary = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
-  const legacySecondary = Array.isArray(exercise.secondaryMuscles) ? exercise.secondaryMuscles : [];
-  return [...main, ...secondary, ...legacyPrimary, ...legacySecondary].filter(Boolean);
-}
-
-const fallbackSteps = [
-  "Colócate en la posición inicial con postura estable.",
-  "Ejecuta el movimiento principal de forma controlada.",
-  "Mantén la respiración constante y el core activado.",
-  "Regresa a la posición inicial sin perder la técnica.",
-];
-
-const fallbackTips = [
-  "Mantén la espalda neutra en todo momento.",
-  "Evita balanceos o movimientos bruscos.",
-  "Ajusta la carga para completar todas las repeticiones con buena forma.",
-];
-
-const fallbackMistakes = [
-  "Curvar la espalda o perder el control postural.",
-  "Bloquear las articulaciones al final del movimiento.",
-  "Usar impulso en lugar de fuerza controlada.",
-];
+type Exercise = {
+  id: string;
+  name: string;
+  equipment?: string | null;
+  primaryMuscles: string[];
+  secondaryMuscles: string[];
+  description?: string | null;
+};
 
 type ExerciseDetailClientProps = {
   exercise: Exercise | null;
@@ -45,15 +26,15 @@ export default function ExerciseDetailClient({ exercise, error }: ExerciseDetail
     );
   }
 
-  const muscles = getExerciseMuscles(exercise);
+  const muscles = [...(exercise.primaryMuscles ?? []), ...(exercise.secondaryMuscles ?? [])];
+  const description =
+    exercise.description ?? "Sin descripción disponible. Pronto añadiremos vídeo y técnica paso a paso.";
 
   return (
     <section className="card" style={{ maxWidth: 860, margin: "0 auto" }}>
       <div className="form-stack">
         <h1 className="section-title">{exercise.name}</h1>
-        <p className="section-subtitle">
-          {exercise.description ?? "Guía técnica con foco en seguridad y control."}
-        </p>
+        <p className="section-subtitle">{description}</p>
       </div>
 
       <div className="badge-list" style={{ marginTop: 12 }}>
@@ -81,44 +62,13 @@ export default function ExerciseDetailClient({ exercise, error }: ExerciseDetail
         }}
       >
         <p className="muted" style={{ textAlign: "center" }}>
-          Aquí irá el vídeo demostrativo.
+          Aquí irá el vídeo o GIF de demostración.
         </p>
       </div>
 
-      <div className="list-grid" style={{ marginTop: 20 }}>
-        <div className="feature-card">
-          <h3>Técnica</h3>
-          {exercise.technique ? (
-            <p className="muted" style={{ marginTop: 8 }}>{exercise.technique}</p>
-          ) : (
-            <ul className="muted" style={{ marginTop: 8 }}>
-              {fallbackSteps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="feature-card">
-          <h3>Consejos</h3>
-          {exercise.tips ? (
-            <p className="muted" style={{ marginTop: 8 }}>{exercise.tips}</p>
-          ) : (
-            <ul className="muted" style={{ marginTop: 8 }}>
-              {fallbackTips.map((tip) => (
-                <li key={tip}>{tip}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="feature-card">
-          <h3>Errores comunes</h3>
-          <ul className="muted" style={{ marginTop: 8 }}>
-            {fallbackMistakes.map((mistake) => (
-              <li key={mistake}>{mistake}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <Link className="btn" style={{ width: "fit-content", marginTop: 20 }} href="/app/biblioteca">
+        Volver a la biblioteca
+      </Link>
     </section>
   );
 }

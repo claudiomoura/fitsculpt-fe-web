@@ -428,7 +428,7 @@ export default function WorkoutsClient() {
                 {w.notes ? <p style={{ margin: 0 }} className="muted">{w.notes}</p> : null}
 
                 <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
-                  <Link className="btn secondary" href={`/app/entrenamientos/${w.id}`}>
+                  <Link className="btn secondary" href={`/app/entrenamiento/${w.id}`}>
                     Ver detalle
                   </Link>
                   <button type="button" className="btn secondary" onClick={() => startEdit(w)}>
