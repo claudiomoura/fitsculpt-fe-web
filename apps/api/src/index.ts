@@ -533,7 +533,7 @@ function stableStringify(value: unknown) {
   return `{${entries.map(([key, val]) => `"${key}":${stableStringify(val)}`).join(",")}}`;
 }
 
-function buildCacheKey(type: AiRequestType, params: Record<string, unknown>) {
+function buildCacheKey(type: string, params: Record<string, unknown>) {
   return `${type}:${stableStringify(params)}`;
 }
 
@@ -760,16 +760,39 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
 function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
   return [
     "Eres un nutricionista deportivo senior. Genera un plan semanal en JSON válido.",
-    "Debes devolver exactamente un JSON válido para este esquema. Nada de texto adicional.",
+    "Debes devolver exactamente un JSON válido para el siguiente esquema. Nada de texto adicional ni markdown.",
+    "Esquema exacto:",
+    "{",
+    '  "title"?: string,',
+    '  "dailyCalories": number,',
+    '  "proteinG": number,',
+    '  "fatG": number,',
+    '  "carbsG": number,',
+    '  "days": [',
+    "    {",
+    '      "dayLabel": string,',
+    '      "meals": [',
+    "        {",
+    '          "type": "breakfast" | "lunch" | "dinner" | "snack",',
+    '          "title": string,',
+    '          "description": string,',
+    '          "macros": { "calories": number, "protein": number, "carbs": number, "fats": number },',
+    '          "ingredients": [{ "name": string, "grams": number }]',
+    "        }",
+    "      ]",
+    "    }",
+    "  ],",
+    '  "shoppingList"?: [{ "name": string, "grams": number }]',
+    "}",
     "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, carne magra y frutos secos.",
     "Evita cantidades absurdas. Porciones realistas y fáciles de cocinar.",
     "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
     `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
-    "Usa dayLabel en español (Lunes, Martes, ...).",
-    "Tipos de comida: breakfast, lunch, dinner y snack si aplica.",
-    "Incluye macros por comida y que sumen aproximadamente al total diario.",
+    "Genera 7 días con dayLabel en español (Lunes a Domingo).",
+    "Usa siempre type y macros en cada comida.",
+    "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
     '{"title":"Plan mediterráneo semanal","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"dayLabel":"Lunes","meals":[{"type":"breakfast","title":"Tostadas integrales con aguacate y huevo","description":"Desayuno con grasas saludables y proteína.","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Pan integral","grams":80},{"name":"Aguacate","grams":70},{"name":"Huevo","grams":120}]},{"type":"lunch","title":"Salmón a la plancha con arroz integral y brócoli","description":"Plato principal rico en omega 3.","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Salmón","grams":160},{"name":"Arroz integral cocido","grams":180},{"name":"Brócoli","grams":200},{"name":"Aceite de oliva","grams":10}]},{"type":"snack","title":"Yogur griego con frutos rojos","description":"Snack ligero y alto en proteína.","macros":{"calories":250,"protein":20,"carbs":25,"fats":8},"ingredients":[{"name":"Yogur griego","grams":200},{"name":"Frutos rojos","grams":120},{"name":"Nueces","grams":15}]},{"type":"dinner","title":"Pechuga de pollo con verduras salteadas","description":"Cena ligera y saciante.","macros":{"calories":800,"protein":50,"carbs":110,"fats":19},"ingredients":[{"name":"Pechuga de pollo","grams":170},{"name":"Verduras mixtas","grams":250},{"name":"Patata cocida","grams":200},{"name":"Aceite de oliva","grams":10}]}]},{"dayLabel":"Martes","meals":[{"type":"breakfast","title":"Avena con yogur y fruta","description":"Desayuno completo y saciante.","macros":{"calories":430,"protein":22,"carbs":55,"fats":12},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180},{"name":"Plátano","grams":120}]},{"type":"lunch","title":"Ensalada de garbanzos con atún","description":"Legumbre + proteína magra.","macros":{"calories":650,"protein":40,"carbs":65,"fats":18},"ingredients":[{"name":"Garbanzos cocidos","grams":200},{"name":"Atún al natural","grams":120},{"name":"Tomate","grams":150},{"name":"Aceite de oliva","grams":10}]},{"type":"snack","title":"Fruta y frutos secos","description":"Snack energético controlado.","macros":{"calories":220,"protein":6,"carbs":25,"fats":10},"ingredients":[{"name":"Manzana","grams":160},{"name":"Almendras","grams":20}]},{"type":"dinner","title":"Pavo con quinoa y verduras","description":"Cena completa y ligera.","macros":{"calories":900,"protein":72,"carbs":105,"fats":30},"ingredients":[{"name":"Pavo","grams":180},{"name":"Quinoa cocida","grams":180},{"name":"Calabacín","grams":200},{"name":"Aceite de oliva","grams":10}]}]}],"shoppingList":[{"name":"Aceite de oliva","grams":200},{"name":"Verduras mixtas","grams":800}]}',
@@ -815,6 +838,108 @@ function parseNutritionPlanPayload(payload: Record<string, unknown>) {
   }
 }
 
+const exerciseMetadataByName: Record<
+  string,
+  {
+    equipment?: string;
+    primaryMuscles: string[];
+    secondaryMuscles: string[];
+    description?: string;
+  }
+> = {
+  sentadilla: {
+    equipment: "Barra",
+    primaryMuscles: ["Piernas"],
+    secondaryMuscles: ["Glúteos"],
+    description: "Mantén la espalda neutra y controla la profundidad.",
+  },
+  "press banca": {
+    equipment: "Barra",
+    primaryMuscles: ["Pecho"],
+    secondaryMuscles: ["Tríceps"],
+    description: "Alinea los hombros y baja con control.",
+  },
+  "peso muerto rumano": {
+    equipment: "Barra",
+    primaryMuscles: ["Femoral"],
+    secondaryMuscles: ["Glúteos"],
+    description: "Cadera atrás y rodillas levemente flexionadas.",
+  },
+  "remo con barra": {
+    equipment: "Barra",
+    primaryMuscles: ["Espalda"],
+    secondaryMuscles: ["Bíceps"],
+    description: "Tronco inclinado y abdomen activo.",
+  },
+  "press militar": {
+    equipment: "Barra o mancuernas",
+    primaryMuscles: ["Hombros"],
+    secondaryMuscles: ["Tríceps"],
+    description: "Contrae el core para evitar arqueo.",
+  },
+  "hip thrust": {
+    equipment: "Banco",
+    primaryMuscles: ["Glúteos"],
+    secondaryMuscles: [],
+    description: "Extiende cadera y pausa arriba.",
+  },
+  dominadas: {
+    equipment: "Barra fija",
+    primaryMuscles: ["Espalda"],
+    secondaryMuscles: ["Bíceps"],
+    description: "Controla el descenso y evita balanceos.",
+  },
+  fondos: {
+    equipment: "Paralelas",
+    primaryMuscles: ["Pecho"],
+    secondaryMuscles: ["Tríceps"],
+    description: "Inclina el torso para enfatizar el pecho.",
+  },
+};
+
+function normalizeExerciseName(name: string) {
+  return name.trim().replace(/\s+/g, " ");
+}
+
+function getExerciseMetadata(name: string) {
+  return exerciseMetadataByName[name.toLowerCase()];
+}
+
+async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
+  const names = new Set<string>();
+  plan.days.forEach((day) => {
+    day.exercises.forEach((exercise) => {
+      const normalized = normalizeExerciseName(exercise.name);
+      if (normalized) names.add(normalized);
+    });
+  });
+  const uniqueNames = Array.from(names);
+  if (uniqueNames.length === 0) return;
+  await Promise.all(
+    uniqueNames.map((name) => {
+      const metadata = getExerciseMetadata(name);
+      return prisma.exercise.upsert({
+        where: { name },
+        create: {
+          name,
+          equipment: metadata?.equipment ?? null,
+          primaryMuscles: metadata?.primaryMuscles ?? [],
+          secondaryMuscles: metadata?.secondaryMuscles ?? [],
+          description: metadata?.description ?? null,
+        },
+        update: metadata
+          ? {
+              equipment: metadata.equipment ?? null,
+              primaryMuscles: metadata.primaryMuscles,
+              secondaryMuscles: metadata.secondaryMuscles,
+              description: metadata.description ?? null,
+            }
+          : {},
+      });
+    })
+  );
+}
+
 async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, unknown>> {
   if (!env.OPENAI_API_KEY) {
     throw createHttpError(503, "AI_UNAVAILABLE");
@@ -851,6 +976,7 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, u
     throw createHttpError(502, "AI_EMPTY_RESPONSE");
   }
   try {
+    app.log.info({ attempt, rawResponse: content }, "ai raw response");
     return extractJson(content);
   } catch (error) {
     const typed = error as { code?: string };
@@ -1391,6 +1517,7 @@ app.post("/ai/training-plan", async (request, reply) => {
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name });
+      await upsertExercisesFromPlan(personalized);
       await storeAiContent(user.id, "training", "template", personalized);
       return reply.status(200).send(personalized);
     }
@@ -1400,6 +1527,7 @@ app.post("/ai/training-plan", async (request, reply) => {
       try {
         const validated = parseTrainingPlanPayload(cached);
         const personalized = applyPersonalization(validated, { name: data.name });
+        await upsertExercisesFromPlan(personalized);
         await storeAiContent(user.id, "training", "cache", personalized);
         return reply.status(200).send(personalized);
       } catch (error) {
@@ -1410,6 +1538,7 @@ app.post("/ai/training-plan", async (request, reply) => {
     await enforceAiQuota(user);
     const prompt = buildTrainingPrompt(data);
     const payload = parseTrainingPlanPayload(await callOpenAi(prompt));
+    await upsertExercisesFromPlan(payload);
     await saveCachedAiPayload(cacheKey, "training", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "training", "ai", personalized);
@@ -1424,7 +1553,14 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
     const user = await requireUser(request, { logContext: "/ai/nutrition-plan" });
     const data = aiNutritionSchema.parse(request.body);
-    const cacheKey = buildCacheKey("nutrition", data);
+    await prisma.aiPromptCache.deleteMany({
+      where: {
+        type: "nutrition",
+        key: { startsWith: "nutrition:" },
+        NOT: { key: { startsWith: "nutrition:v2:" } },
+      },
+    });
+    const cacheKey = buildCacheKey("nutrition:v2", data);
     const template = buildNutritionTemplate(data);
 
     if (template) {
@@ -1539,6 +1675,62 @@ const workoutCreateSchema = z.object({
 });
 
 const workoutUpdateSchema = workoutCreateSchema.partial();
+
+const exerciseListSchema = z.object({
+  query: z.string().min(1).optional(),
+  muscle: z.string().min(1).optional(),
+  equipment: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const exerciseParamsSchema = z.object({ id: z.string().min(1) });
+
+app.get("/exercises", async (request, reply) => {
+  try {
+    await requireUser(request);
+    const { query, muscle, equipment, limit, offset } = exerciseListSchema.parse(request.query);
+    const where: Prisma.ExerciseWhereInput = {};
+    if (query) {
+      where.name = { contains: query, mode: "insensitive" };
+    }
+    if (equipment && equipment !== "all") {
+      where.equipment = equipment;
+    }
+    if (muscle && muscle !== "all") {
+      where.OR = [
+        { primaryMuscles: { has: muscle } },
+        { secondaryMuscles: { has: muscle } },
+      ];
+    }
+    const [items, total] = await prisma.$transaction([
+      prisma.exercise.findMany({
+        where,
+        orderBy: { name: "asc" },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.exercise.count({ where }),
+    ]);
+    return { items, total, limit, offset };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/exercises/:id", async (request, reply) => {
+  try {
+    await requireUser(request);
+    const { id } = exerciseParamsSchema.parse(request.params);
+    const exercise = await prisma.exercise.findUnique({ where: { id } });
+    if (!exercise) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+    return exercise;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
 
 app.get("/workouts", async (request, reply) => {
   try {
