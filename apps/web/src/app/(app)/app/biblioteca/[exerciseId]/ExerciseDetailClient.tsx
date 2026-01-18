@@ -6,10 +6,20 @@ type ExerciseDetail = {
   id: string;
   name: string;
   equipment?: string | null;
-  primaryMuscles: string[];
-  secondaryMuscles: string[];
+  mainMuscleGroup?: string | null;
+  secondaryMuscleGroups?: string[] | null;
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
   description?: string | null;
 };
+
+function getExerciseMuscles(exercise: ExerciseDetail) {
+  const main = exercise.mainMuscleGroup ? [exercise.mainMuscleGroup] : [];
+  const secondary = Array.isArray(exercise.secondaryMuscleGroups) ? exercise.secondaryMuscleGroups : [];
+  const legacyPrimary = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
+  const legacySecondary = Array.isArray(exercise.secondaryMuscles) ? exercise.secondaryMuscles : [];
+  return [...main, ...secondary, ...legacyPrimary, ...legacySecondary].filter(Boolean);
+}
 
 export default function ExerciseDetailClient({ exerciseId }: { exerciseId: string }) {
   const [exercise, setExercise] = useState<ExerciseDetail | null>(null);
@@ -91,7 +101,7 @@ export default function ExerciseDetailClient({ exerciseId }: { exerciseId: strin
     );
   }
 
-  const muscles = [...exercise.primaryMuscles, ...exercise.secondaryMuscles];
+  const muscles = getExerciseMuscles(exercise);
 
   return (
     <section className="card" style={{ maxWidth: 860, margin: "0 auto" }}>

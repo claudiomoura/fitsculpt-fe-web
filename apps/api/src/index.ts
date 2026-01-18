@@ -934,6 +934,15 @@ function normalizeExerciseName(name: string) {
   return name.trim().replace(/\s+/g, " ");
 }
 
+type ExerciseMetadata = {
+  equipment?: string;
+  description?: string | null;
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
+  mainMuscleGroup?: string;
+  secondaryMuscleGroups?: string[];
+};
+
 function getExerciseMetadata(name: string) {
   return exerciseMetadataByName[name.toLowerCase()];
 }
@@ -942,11 +951,22 @@ type ExerciseRow = {
   id: string;
   name: string;
   equipment: string | null;
-  primaryMuscles: string[];
-  secondaryMuscles: string[];
   description: string | null;
+  mainMuscleGroup?: string | null;
+  secondaryMuscleGroups?: string[] | null;
+  primaryMuscles?: string[] | null;
+  secondaryMuscles?: string[] | null;
   createdAt: Date;
   updatedAt: Date;
+};
+
+type ExerciseApiDto = {
+  id: string;
+  name: string;
+  equipment: string | null;
+  mainMuscleGroup: string | null;
+  secondaryMuscleGroups: string[];
+  description: string | null;
 };
 
 function hasExerciseClient() {
@@ -962,17 +982,44 @@ function slugifyName(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
+  const main =
+    typeof exercise.mainMuscleGroup === "string" && exercise.mainMuscleGroup.trim()
+      ? exercise.mainMuscleGroup
+      : Array.isArray(exercise.primaryMuscles)
+        ? exercise.primaryMuscles.find((muscle) => typeof muscle === "string" && muscle.trim())
+        : null;
 
-async function upsertExerciseRecord(name: string, metadata?: ReturnType<typeof getExerciseMetadata>) {
+  const secondarySource = Array.isArray(exercise.secondaryMuscleGroups)
+    ? exercise.secondaryMuscleGroups
+    : Array.isArray(exercise.secondaryMuscles)
+      ? exercise.secondaryMuscles
+      : [];
+
+  const secondaryMuscleGroups = secondarySource.filter(
+    (muscle): muscle is string => typeof muscle === "string" && muscle.trim().length > 0
+  );
+
+  return {
+    id: exercise.id,
+    name: exercise.name,
+    equipment: exercise.equipment ?? null,
+    description: exercise.description ?? null,
+    mainMuscleGroup: main ?? null,
+    secondaryMuscleGroups,
+  };
+}
+
+
+async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
   const now = new Date();
   const slug = slugifyName(name);
 
   const mainMuscleGroup =
-    metadata?.primaryMuscles && metadata.primaryMuscles.length > 0
-      ? metadata.primaryMuscles[0]
-      : "General";
+    metadata?.mainMuscleGroup?.trim() ||
+    (metadata?.primaryMuscles && metadata.primaryMuscles.length > 0 ? metadata.primaryMuscles[0] : "General");
 
-  const secondaryMuscleGroups = metadata?.secondaryMuscles ?? [];
+  const secondaryMuscleGroups = metadata?.secondaryMuscleGroups ?? metadata?.secondaryMuscles ?? [];
 
   if (hasExerciseClient()) {
     await prisma.exercise.upsert({
@@ -1054,7 +1101,7 @@ function buildExerciseFilters(params: {
   }
   if (params.muscle && params.muscle !== "all") {
     filters.push(
-      Prisma.sql`("primaryMuscles" @> ARRAY[${params.muscle}]::text[] OR "secondaryMuscles" @> ARRAY[${params.muscle}]::text[])`
+      Prisma.sql`("mainMuscleGroup" = ${params.muscle} OR "secondaryMuscleGroups" @> ARRAY[${params.muscle}]::text[])`
     );
   }
   const whereSql =
@@ -1079,25 +1126,44 @@ async function listExercises(params: {
     }
     if (params.muscle && params.muscle !== "all") {
       where.OR = [
-        { primaryMuscles: { has: params.muscle } },
-        { secondaryMuscles: { has: params.muscle } },
+        { mainMuscleGroup: params.muscle },
+        { secondaryMuscleGroups: { has: params.muscle } },
       ];
     }
     const [items, total] = await prisma.$transaction([
       prisma.exercise.findMany({
         where,
+        select: {
+          id: true,
+          name: true,
+          equipment: true,
+          description: true,
+          mainMuscleGroup: true,
+          secondaryMuscleGroups: true,
+          createdAt: true,
+          updatedAt: true,
+        },
         orderBy: { name: "asc" },
         skip: params.offset,
         take: params.limit,
       }),
       prisma.exercise.count({ where }),
     ]);
-    return { items, total };
+    return {
+      items: items.map((item) =>
+        normalizeExercisePayload({
+          ...item,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        })
+      ),
+      total,
+    };
   }
 
   const whereSql = buildExerciseFilters(params);
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "name", "equipment", "primaryMuscles", "secondaryMuscles", "description", "createdAt", "updatedAt"
+    SELECT "id", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
     ORDER BY "name" ASC
@@ -1111,21 +1177,40 @@ async function listExercises(params: {
   `);
   const rawCount = totalRows[0]?.count ?? 0n;
   const total = typeof rawCount === "bigint" ? Number(rawCount) : Number(rawCount);
-  return { items, total };
+  return { items: items.map(normalizeExercisePayload), total };
 }
 
 async function getExerciseById(id: string) {
   if (hasExerciseClient()) {
-    return prisma.exercise.findUnique({ where: { id } });
+    const exercise = await prisma.exercise.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        equipment: true,
+        description: true,
+        mainMuscleGroup: true,
+        secondaryMuscleGroups: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    return exercise
+      ? normalizeExercisePayload({
+          ...exercise,
+          createdAt: exercise.createdAt,
+          updatedAt: exercise.updatedAt,
+        })
+      : null;
   }
 
   const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "name", "equipment", "primaryMuscles", "secondaryMuscles", "description", "createdAt", "updatedAt"
+    SELECT "id", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "createdAt", "updatedAt"
     FROM "Exercise"
     WHERE "id" = ${id}
     LIMIT 1
   `);
-  return rows[0] ?? null;
+  return rows[0] ? normalizeExercisePayload(rows[0]) : null;
 }
 
 async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
@@ -2230,36 +2315,36 @@ app.post("/dev/seed-exercises", async (_request, reply) => {
       {
         name: "Sentadilla con barra",
         equipment: "Barra",
-        primaryMuscles: ["Piernas"],
-        secondaryMuscles: ["Glúteos"],
+        mainMuscleGroup: "Piernas",
+        secondaryMuscleGroups: ["Glúteos"],
         description: "Mantén la espalda neutra y baja con control.",
       },
       {
         name: "Press banca",
         equipment: "Barra",
-        primaryMuscles: ["Pecho"],
-        secondaryMuscles: ["Tríceps"],
+        mainMuscleGroup: "Pecho",
+        secondaryMuscleGroups: ["Tríceps"],
         description: "Apoya bien los pies y retrae escápulas.",
       },
       {
         name: "Peso muerto rumano",
         equipment: "Barra",
-        primaryMuscles: ["Isquios"],
-        secondaryMuscles: ["Glúteos"],
+        mainMuscleGroup: "Isquios",
+        secondaryMuscleGroups: ["Glúteos"],
         description: "Cadera atrás, rodillas levemente flexionadas.",
       },
       {
         name: "Remo con barra",
         equipment: "Barra",
-        primaryMuscles: ["Espalda"],
-        secondaryMuscles: ["Bíceps"],
+        mainMuscleGroup: "Espalda",
+        secondaryMuscleGroups: ["Bíceps"],
         description: "Tronco inclinado, abdomen activo.",
       },
       {
         name: "Press militar",
         equipment: "Barra o mancuernas",
-        primaryMuscles: ["Hombros"],
-        secondaryMuscles: ["Tríceps"],
+        mainMuscleGroup: "Hombros",
+        secondaryMuscleGroups: ["Tríceps"],
         description: "Aprieta el core para no arquear la espalda.",
       },
     ];
@@ -2269,8 +2354,8 @@ app.post("/dev/seed-exercises", async (_request, reply) => {
     for (const ex of baseExercises) {
       await upsertExerciseRecord(ex.name, {
         equipment: ex.equipment,
-        primaryMuscles: ex.primaryMuscles,
-        secondaryMuscles: ex.secondaryMuscles,
+        mainMuscleGroup: ex.mainMuscleGroup,
+        secondaryMuscleGroups: ex.secondaryMuscleGroups,
         description: ex.description,
       });
       seeded += 1;

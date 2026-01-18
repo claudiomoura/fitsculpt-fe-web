@@ -7,14 +7,24 @@ type Exercise = {
   id: string;
   name: string;
   equipment?: string | null;
-  primaryMuscles: string[];
-  secondaryMuscles: string[];
+  mainMuscleGroup?: string | null;
+  secondaryMuscleGroups?: string[] | null;
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
   description?: string | null;
 };
 
 type ExerciseResponse = {
   items: Exercise[];
 };
+
+function getExerciseMuscles(exercise: Exercise) {
+  const main = exercise.mainMuscleGroup ? [exercise.mainMuscleGroup] : [];
+  const secondary = Array.isArray(exercise.secondaryMuscleGroups) ? exercise.secondaryMuscleGroups : [];
+  const legacyPrimary = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
+  const legacySecondary = Array.isArray(exercise.secondaryMuscles) ? exercise.secondaryMuscles : [];
+  return [...main, ...secondary, ...legacyPrimary, ...legacySecondary].filter(Boolean);
+}
 
 export default function ExerciseLibraryClient() {
   const [query, setQuery] = useState("");
@@ -66,7 +76,7 @@ export default function ExerciseLibraryClient() {
   }, [exercises]);
 
   const muscleOptions = useMemo(() => {
-    const all = exercises.flatMap((ex) => [...ex.primaryMuscles, ...ex.secondaryMuscles]);
+    const all = exercises.flatMap((ex) => getExerciseMuscles(ex));
     const unique = Array.from(new Set(all)).filter(Boolean);
     return ["all", ...unique];
   }, [exercises]);
@@ -116,7 +126,7 @@ export default function ExerciseLibraryClient() {
       ) : (
         <div className="list-grid" style={{ marginTop: 16 }}>
           {exercises.map((exercise) => {
-            const muscles = [...exercise.primaryMuscles, ...exercise.secondaryMuscles];
+            const muscles = getExerciseMuscles(exercise);
             return (
               <Link
                 key={exercise.id}
