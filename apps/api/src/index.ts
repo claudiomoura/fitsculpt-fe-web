@@ -28,7 +28,6 @@ await app.register(jwt, {
   secret: env.JWT_SECRET,
   cookie: {
     cookieName: "fs_token",
-    signed: true,
   },
 });
 
@@ -56,7 +55,8 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
       ...(typed.debug ? { debug: typed.debug } : {}),
     });
   }
-  return reply.status(401).send({ error: "UNAUTHORIZED" });
+  app.log.error({ err: error }, "unhandled error");
+  return reply.status(500).send({ error: "INTERNAL_ERROR" });
 }
 
 function logAuthCookieDebug(request: FastifyRequest, route: string) {
@@ -81,7 +81,6 @@ function buildCookieOptions() {
     httpOnly: true,
     sameSite: "lax" as const,
     secure,
-    signed: true,
   };
 }
 
@@ -196,6 +195,16 @@ async function requireUser(
         tokenHasCookieLabel: token.includes("fs_token="),
       },
       "ai auth token debug"
+    );
+  }
+  if (process.env.NODE_ENV !== "production") {
+    app.log.info(
+      {
+        route,
+        source,
+        tokenSegmentsCount: token.split(".").length,
+      },
+      "auth token segments count"
     );
   }
 
@@ -480,6 +489,19 @@ async function storeAiContent(
   await prisma.aiContent.create({
     data: { userId, type, source, payload },
   });
+}
+
+async function safeStoreAiContent(
+  userId: string,
+  type: AiRequestType,
+  source: "template" | "cache" | "ai",
+  payload: Record<string, unknown>
+) {
+  try {
+    await storeAiContent(userId, type, source, payload);
+  } catch (error) {
+    app.log.warn({ err: error, userId, type, source }, "ai content store failed");
+  }
 }
 
 async function getCachedAiPayload(key: string) {
@@ -1215,14 +1237,14 @@ app.post("/ai/daily-tip", async (request, reply) => {
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
-      await storeAiContent(user.id, "tip", "template", personalized);
+      await safeStoreAiContent(user.id, "tip", "template", personalized);
       return reply.status(200).send(personalized);
     }
 
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
       const personalized = applyPersonalization(cached, { name: data.name ?? "amigo" });
-      await storeAiContent(user.id, "tip", "cache", personalized);
+      await safeStoreAiContent(user.id, "tip", "cache", personalized);
       return reply.status(200).send(personalized);
     }
 
@@ -1231,7 +1253,7 @@ app.post("/ai/daily-tip", async (request, reply) => {
     const payload = await callOpenAi(prompt);
     await saveCachedAiPayload(cacheKey, "tip", payload);
     const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
-    await storeAiContent(user.id, "tip", "ai", personalized);
+    await safeStoreAiContent(user.id, "tip", "ai", personalized);
     return reply.status(200).send(personalized);
   } catch (error) {
     return handleRequestError(reply, error);

@@ -59,3 +59,26 @@ npm run prisma:generate
 npm run prisma:migrate
 npm run test
 ```
+
+## Testes manuais (curl)
+
+```bash
+# Login (salva cookie)
+curl -i -c /tmp/fs_cookie.txt \\
+  -X POST http://localhost:4000/auth/login \\
+  -H "Content-Type: application/json" \\
+  -d '{"email":"user@example.com","password":"password"}'
+
+# Daily tip (usa cookie)
+curl -i -b /tmp/fs_cookie.txt \\
+  -X POST http://localhost:4000/ai/daily-tip \\
+  -H "Content-Type: application/json" \\
+  -d '{}'
+
+# Feed (usa cookie)
+curl -i -b /tmp/fs_cookie.txt http://localhost:4000/feed
+```
+
+## Troubleshooting
+
+- Se aparecer `Can't reach database server at \`localhost:5432\``, verifique se o Postgres está rodando e se `DATABASE_URL` aponta para a instância correta.
