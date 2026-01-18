@@ -14,6 +14,7 @@ export type MacroFormula = "mifflin" | "katch";
 export type TrainingExercise = {
   name: string;
   sets: string;
+  reps?: string;
 };
 
 export type TrainingDay = {
@@ -33,8 +34,15 @@ export type NutritionIngredient = {
 };
 
 export type NutritionMeal = {
+  type?: "breakfast" | "lunch" | "dinner" | "snack";
   title: string;
   description: string;
+  macros?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fats: number;
+  };
   ingredients: NutritionIngredient[];
 };
 

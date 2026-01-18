@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { copy } from "@/lib/i18n";
 import {
   defaultProfile,
@@ -22,6 +22,10 @@ export default function ProfileClient() {
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [saved, setSaved] = useState(false);
   const [latestCheckinDate, setLatestCheckinDate] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -131,6 +135,25 @@ export default function ProfileClient() {
 
   function removeAvatar() {
     setProfile((prev) => ({ ...prev, profilePhotoUrl: null, avatarDataUrl: null }));
+  }
+
+  async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPasswordMessage(null);
+    setPasswordLoading(true);
+    const response = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    setPasswordLoading(false);
+    if (!response.ok) {
+      setPasswordMessage("No pudimos actualizar la contraseña. Revisa la actual.");
+      return;
+    }
+    setPasswordMessage("Contraseña actualizada.");
+    setCurrentPassword("");
+    setNewPassword("");
   }
 
   return (
@@ -540,6 +563,44 @@ export default function ProfileClient() {
             {saved && <span className="muted">{c.profile.savedToast}</span>}
           </div>
         </div>
+      </section>
+
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>
+              Cambiar contraseña
+            </h2>
+            <p className="section-subtitle">Actualiza tu contraseña de acceso.</p>
+          </div>
+        </div>
+
+        <form className="form-stack" onSubmit={handleChangePassword}>
+          <label className="form-stack">
+            Contraseña actual
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              minLength={8}
+            />
+          </label>
+          <label className="form-stack">
+            Nueva contraseña
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={8}
+            />
+          </label>
+          <button type="submit" className="btn" disabled={passwordLoading}>
+            {passwordLoading ? "Guardando..." : "Actualizar contraseña"}
+          </button>
+          {passwordMessage && <p className="muted">{passwordMessage}</p>}
+        </form>
       </section>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 type UserRow = {
   id: string;
@@ -31,6 +31,13 @@ export default function AdminUsersClient() {
   const [data, setData] = useState<UsersResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createRole, setCreateRole] = useState<"USER" | "ADMIN">("USER");
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [resetUser, setResetUser] = useState<UserRow | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   async function loadUsers() {
     setLoading(true);
@@ -75,6 +82,53 @@ export default function AdminUsersClient() {
     await loadUsers();
   }
 
+  async function verifyEmail(userId: string) {
+    await fetch(`/api/admin/users/${userId}/verify-email`, { method: "POST" });
+    await loadUsers();
+  }
+
+  async function createUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreateMessage(null);
+    const response = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: createEmail,
+        password: createPassword,
+        role: createRole,
+      }),
+    });
+    if (!response.ok) {
+      setCreateMessage("No pudimos crear el usuario.");
+      return;
+    }
+    setCreateMessage("Usuario creado.");
+    setCreateEmail("");
+    setCreatePassword("");
+    setCreateRole("USER");
+    await loadUsers();
+  }
+
+  async function submitResetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!resetUser) return;
+    setResetMessage(null);
+    const response = await fetch(`/api/admin/users/${resetUser.id}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newPassword: resetPassword }),
+    });
+    if (!response.ok) {
+      setResetMessage("No pudimos resetear la contraseña.");
+      return;
+    }
+    setResetMessage("Contraseña actualizada.");
+    setResetPassword("");
+    setResetUser(null);
+    await loadUsers();
+  }
+
   async function removeUser(userId: string) {
     const ok = window.confirm("Eliminar este usuario?");
     if (!ok) return;
@@ -88,6 +142,35 @@ export default function AdminUsersClient() {
 
   return (
     <div className="form-stack">
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 18 }}>Crear usuario</h2>
+        <form className="form-stack" onSubmit={createUser}>
+          <label className="muted">Email</label>
+          <input
+            value={createEmail}
+            onChange={(e) => setCreateEmail(e.target.value)}
+            placeholder="correo@dominio.com"
+            required
+            type="email"
+          />
+          <label className="muted">Contraseña</label>
+          <input
+            value={createPassword}
+            onChange={(e) => setCreatePassword(e.target.value)}
+            placeholder="Mínimo 8 caracteres"
+            required
+            type="password"
+          />
+          <label className="muted">Rol</label>
+          <select value={createRole} onChange={(e) => setCreateRole(e.target.value as "USER" | "ADMIN")}>
+            <option value="USER">USER</option>
+            <option value="ADMIN">ADMIN</option>
+          </select>
+          <button type="submit" className="btn">Crear usuario</button>
+          {createMessage && <p className="muted">{createMessage}</p>}
+        </form>
+      </section>
+
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <input
           value={query}
@@ -134,6 +217,18 @@ export default function AdminUsersClient() {
                 >
                   {user.isBlocked ? "Desbloquear" : "Bloquear"}
                 </button>
+                {!user.emailVerified && (
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => verifyEmail(user.id)}
+                  >
+                    Verificar email
+                  </button>
+                )}
+                <button type="button" className="btn secondary" onClick={() => { setResetUser(user); setResetMessage(null); }}>
+                  Resetear contraseña
+                </button>
                 <button type="button" className="btn secondary" onClick={() => removeUser(user.id)}>
                   Eliminar
                 </button>
@@ -161,6 +256,34 @@ export default function AdminUsersClient() {
             </button>
           </div>
         </div>
+      )}
+
+      {resetUser && (
+        <dialog open style={{ padding: 20, borderRadius: 12, border: "1px solid #ccc" }}>
+          <form onSubmit={submitResetPassword} className="form-stack">
+            <strong>Resetear contraseña</strong>
+            <p className="muted">{resetUser.email}</p>
+            <label className="muted">Nueva contraseña</label>
+            <input
+              value={resetPassword}
+              onChange={(e) => setResetPassword(e.target.value)}
+              type="password"
+              required
+              minLength={8}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="submit" className="btn">Guardar</button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => { setResetUser(null); setResetPassword(""); }}
+              >
+                Cancelar
+              </button>
+            </div>
+            {resetMessage && <p className="muted">{resetMessage}</p>}
+          </form>
+        </dialog>
       )}
     </div>
   );
