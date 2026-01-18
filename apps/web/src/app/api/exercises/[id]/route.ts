@@ -7,13 +7,14 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const response = await fetch(`${getBackendUrl()}/exercises/${params.id}`, {
+  const { id } = await context.params;
+  const response = await fetch(`${getBackendUrl()}/exercises/${id}`, {
     headers: { cookie: authCookie },
     cache: "no-store",
   });
