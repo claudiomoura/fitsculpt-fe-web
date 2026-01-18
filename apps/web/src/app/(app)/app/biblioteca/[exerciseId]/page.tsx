@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { cookies } from "next/headers";
+import ExerciseDetailClient from "./ExerciseDetailClient";
 
 type Exercise = {
   id: string;
@@ -9,18 +10,44 @@ type Exercise = {
   description?: string | null;
 };
 
-async function fetchExercise(exerciseId: string): Promise<Exercise | null> {
-  // Llamamos directamente al route handler interno de Next
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+type ExerciseApiResponse = Exercise & {
+  mainMuscleGroup?: string | null;
+  secondaryMuscleGroups?: string[] | null;
+  primaryMuscles?: string[] | null;
+  secondaryMuscles?: string[] | null;
+};
 
-  const res = await fetch(`${baseUrl}/api/exercises/${exerciseId}`, {
-    cache: "no-store",
-  });
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-  if (!res.ok) return null;
+function normalizeExercise(data: ExerciseApiResponse): Exercise {
+  const primaryMuscles = data.primaryMuscles ?? (data.mainMuscleGroup ? [data.mainMuscleGroup] : []);
+  const secondaryMuscles = data.secondaryMuscles ?? data.secondaryMuscleGroups ?? [];
+  return {
+    id: data.id,
+    name: data.name,
+    equipment: data.equipment ?? null,
+    description: data.description ?? null,
+    primaryMuscles,
+    secondaryMuscles,
+  };
+}
 
-  const data = await res.json();
-  return data as Exercise;
+async function fetchExercise(exerciseId: string) {
+  try {
+    const token = (await cookies()).get("fs_token")?.value;
+    const authCookie = token ? `fs_token=${token}` : "";
+    const response = await fetch(`${APP_URL}/api/exercises/${exerciseId}`, {
+      headers: authCookie ? { cookie: authCookie } : undefined,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return { exercise: null, error: "No se pudo cargar el ejercicio." };
+    }
+    const data = (await response.json()) as ExerciseApiResponse;
+    return { exercise: normalizeExercise(data), error: null };
+  } catch {
+    return { exercise: null, error: "No se pudo cargar el ejercicio." };
+  }
 }
 
 // Ojo: params es una Promise en Next 16
