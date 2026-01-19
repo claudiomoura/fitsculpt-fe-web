@@ -12,7 +12,7 @@ export default async function RegisterPage({
 }: {
   searchParams?: SearchParams;
 }) {
-  const { t } = getServerT();
+  const { t } = await getServerT();
   const sp = (await Promise.resolve(searchParams)) || {};
   const error = sp.error === "1";
   const promoError = sp.error === "promo";

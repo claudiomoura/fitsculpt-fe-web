@@ -4,7 +4,7 @@ import VerifyEmailClient from "./VerifyEmailClient";
 type SearchParams = { token?: string } | Promise<{ token?: string }>;
 
 export default async function VerifyEmailPage({ searchParams }: { searchParams?: SearchParams }) {
-  const { t } = getServerT();
+  const { t } = await getServerT();
   const sp = (await Promise.resolve(searchParams)) || {};
   const token = sp.token ?? null;
 

@@ -1,7 +1,7 @@
 import { getServerT } from "@/lib/serverI18n";
 
-export default function SettingsPage() {
-  const { t } = getServerT();
+export default async function SettingsPage() {
+  const { t } = await getServerT();
   return (
     <section className="card">
       <h1 className="section-title">{t("app.settingsTitle")}</h1>

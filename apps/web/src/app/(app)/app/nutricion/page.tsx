@@ -2,8 +2,8 @@ import NutritionPlanClient from "./NutritionPlanClient";
 import Link from "next/link";
 import { getServerT } from "@/lib/serverI18n";
 
-export default function NutritionPlanPage() {
-  const { t } = getServerT();
+export default async function NutritionPlanPage() {
+  const { t } = await getServerT();
 
   return (
     <div className="page">

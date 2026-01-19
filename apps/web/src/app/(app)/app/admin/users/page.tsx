@@ -1,8 +1,8 @@
 import { getServerT } from "@/lib/serverI18n";
 import AdminUsersClient from "./AdminUsersClient";
 
-export default function AdminUsersPage() {
-  const { t } = getServerT();
+export default async function AdminUsersPage() {
+  const { t } = await getServerT();
   return (
     <div className="page">
       <section className="card">

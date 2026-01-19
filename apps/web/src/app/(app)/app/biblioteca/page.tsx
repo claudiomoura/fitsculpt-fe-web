@@ -1,8 +1,8 @@
 import { getServerT } from "@/lib/serverI18n";
 import ExerciseLibraryClient from "./ExerciseLibraryClient";
 
-export default function ExerciseLibraryPage() {
-  const { t } = getServerT();
+export default async function ExerciseLibraryPage() {
+  const { t } = await getServerT();
   return (
     <div className="page">
       <section className="card">

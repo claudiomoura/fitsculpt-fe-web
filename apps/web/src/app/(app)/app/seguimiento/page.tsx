@@ -1,8 +1,8 @@
 import TrackingClient from "./TrackingClient";
 import { getServerT } from "@/lib/serverI18n";
 
-export default function TrackingPage() {
-  const { t } = getServerT();
+export default async function TrackingPage() {
+  const { t } = await getServerT();
 
   return (
     <div className="page">

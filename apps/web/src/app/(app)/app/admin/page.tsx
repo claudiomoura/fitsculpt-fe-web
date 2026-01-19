@@ -1,8 +1,8 @@
 import { getServerT } from "@/lib/serverI18n";
 import AdminDashboardClient from "./AdminDashboardClient";
 
-export default function AdminPage() {
-  const { t } = getServerT();
+export default async function AdminPage() {
+  const { t } = await getServerT();
   return (
     <div className="page">
       <section className="card">

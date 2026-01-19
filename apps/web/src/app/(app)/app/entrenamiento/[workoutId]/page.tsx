@@ -71,7 +71,7 @@ async function fetchWorkout(workoutId: string) {
 }
 
 export default async function WorkoutDetailPage(props: { params: Promise<{ workoutId: string }> }) {
-  const { t, localeCode } = getServerT();
+  const { t, localeCode } = await getServerT();
   const { workoutId } = await props.params;
   if (!workoutId) {
     return (

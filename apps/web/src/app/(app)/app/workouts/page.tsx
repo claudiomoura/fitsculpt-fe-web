@@ -1,8 +1,8 @@
 import WorkoutsClient from "./WorkoutsClient";
 import { getServerT } from "@/lib/serverI18n";
 
-export default function WorkoutsPage() {
-  const { t } = getServerT();
+export default async function WorkoutsPage() {
+  const { t } = await getServerT();
   return (
     <div className="page">
       <section className="card">

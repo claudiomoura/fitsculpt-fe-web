@@ -1,8 +1,8 @@
 import TrainingPlanClient from "./TrainingPlanClient";
 import { getServerT } from "@/lib/serverI18n";
 
-export default function TrainingPlanPage() {
-  const { t } = getServerT();
+export default async function TrainingPlanPage() {
+  const { t } = await getServerT();
 
   return (
     <div className="page">

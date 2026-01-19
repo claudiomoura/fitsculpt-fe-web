@@ -1,8 +1,8 @@
 import FeedClient from "./FeedClient";
 import { getServerT } from "@/lib/serverI18n";
 
-export default function FeedPage() {
-  const { t } = getServerT();
+export default async function FeedPage() {
+  const { t } = await getServerT();
   return (
     <div className="page">
       <section className="card">

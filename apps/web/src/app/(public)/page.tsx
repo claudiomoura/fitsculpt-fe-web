@@ -2,8 +2,8 @@ import Link from "next/link";
 import { messages } from "@/lib/i18n";
 import { getServerT } from "@/lib/serverI18n";
 
-export default function HomePage() {
-  const { locale } = getServerT();
+export default async function HomePage() {
+  const { locale } = await getServerT();
   const landing = messages[locale].landing;
   return (
     <div className="page">
