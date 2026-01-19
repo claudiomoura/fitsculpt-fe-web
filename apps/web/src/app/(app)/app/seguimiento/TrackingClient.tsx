@@ -40,7 +40,18 @@ type WorkoutEntry = {
   notes: string;
 };
 
-const foodProfiles: Record<
+type UserFood = {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  unit: "100g" | "serving" | "unit";
+  brand?: string | null;
+};
+
+const defaultFoodProfiles: Record<
   string,
   { labelKey: string; protein: number; carbs: number; fat: number }
 > = {
@@ -91,6 +102,19 @@ export default function TrackingClient() {
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [trackingLoaded, setTrackingLoaded] = useState(false);
+  const [userFoods, setUserFoods] = useState<UserFood[]>([]);
+  const [foodModalOpen, setFoodModalOpen] = useState(false);
+  const [foodForm, setFoodForm] = useState({
+    id: "",
+    name: "",
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+    unit: "100g" as UserFood["unit"],
+    brand: "",
+  });
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -109,6 +133,17 @@ export default function TrackingClient() {
         setTrackingLoaded(true);
       } catch {
         console.warn("Tracking load failed");
+      }
+    };
+
+    const loadUserFoods = async () => {
+      try {
+        const response = await fetch("/api/user-foods", { cache: "no-store", credentials: "include" });
+        if (!response.ok) return;
+        const data = (await response.json()) as UserFood[];
+        if (active) setUserFoods(data);
+      } catch {
+        // Ignore load errors.
       }
     };
 
@@ -134,6 +169,7 @@ export default function TrackingClient() {
 
     void loadTracking();
     void loadProfile();
+    void loadUserFoods();
     return () => {
       active = false;
     };
@@ -258,6 +294,113 @@ export default function TrackingClient() {
     setWorkoutNotes("");
   }
 
+  const userFoodMap = useMemo(() => new Map(userFoods.map((food) => [food.id, food])), [userFoods]);
+
+  function resolveFoodProfile(key: string) {
+    if (key.startsWith("user:")) {
+      const id = key.replace("user:", "");
+      const food = userFoodMap.get(id);
+      if (!food) return null;
+      return { label: food.name, protein: food.protein, carbs: food.carbs, fat: food.fat };
+    }
+    const profile = defaultFoodProfiles[key];
+    if (!profile) return null;
+    return { label: t(profile.labelKey), protein: profile.protein, carbs: profile.carbs, fat: profile.fat };
+  }
+
+  function showMessage(message: string) {
+    setActionMessage(message);
+    window.setTimeout(() => setActionMessage(null), 2000);
+  }
+
+  async function handleDeleteEntry(collection: "checkins" | "foodLog" | "workoutLog", id: string) {
+    const confirmed = window.confirm(t("tracking.deleteConfirm"));
+    if (!confirmed) return;
+    const response = await fetch(`/api/tracking/${collection}/${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      showMessage(t("tracking.deleteError"));
+      return;
+    }
+    if (collection === "checkins") {
+      setCheckins((prev) => prev.filter((entry) => entry.id !== id));
+    } else if (collection === "foodLog") {
+      setFoodLog((prev) => prev.filter((entry) => entry.id !== id));
+    } else {
+      setWorkoutLog((prev) => prev.filter((entry) => entry.id !== id));
+    }
+    showMessage(t("tracking.deleteSuccess"));
+  }
+
+  function openFoodModal(food?: UserFood) {
+    if (food) {
+      setFoodForm({
+        id: food.id,
+        name: food.name,
+        calories: food.calories,
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+        unit: food.unit,
+        brand: food.brand ?? "",
+      });
+    } else {
+      setFoodForm({
+        id: "",
+        name: "",
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        unit: "100g",
+        brand: "",
+      });
+    }
+    setFoodModalOpen(true);
+  }
+
+  async function handleSaveFood(e: React.FormEvent) {
+    e.preventDefault();
+    const payload = {
+      name: foodForm.name.trim(),
+      calories: Number(foodForm.calories),
+      protein: Number(foodForm.protein),
+      carbs: Number(foodForm.carbs),
+      fat: Number(foodForm.fat),
+      unit: foodForm.unit,
+      brand: foodForm.brand.trim() || null,
+    };
+    if (!payload.name) return;
+    const isEditing = Boolean(foodForm.id);
+    const response = await fetch(isEditing ? `/api/user-foods/${foodForm.id}` : "/api/user-foods", {
+      method: isEditing ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      showMessage(t("tracking.foodSaveError"));
+      return;
+    }
+    const data = (await response.json()) as UserFood;
+    setUserFoods((prev) => {
+      const next = isEditing ? prev.map((item) => (item.id === data.id ? data : item)) : [data, ...prev];
+      return next;
+    });
+    setFoodModalOpen(false);
+    showMessage(isEditing ? t("tracking.foodUpdated") : t("tracking.foodCreated"));
+  }
+
+  async function handleDeleteFood(foodId: string) {
+    const confirmed = window.confirm(t("tracking.foodDeleteConfirm"));
+    if (!confirmed) return;
+    const response = await fetch(`/api/user-foods/${foodId}`, { method: "DELETE" });
+    if (!response.ok) {
+      showMessage(t("tracking.foodDeleteError"));
+      return;
+    }
+    setUserFoods((prev) => prev.filter((food) => food.id !== foodId));
+    showMessage(t("tracking.foodDeleteSuccess"));
+  }
+
   const mealsByDate = useMemo(() => {
     return foodLog.reduce<Record<string, FoodEntry[]>>((acc, entry) => {
       acc[entry.date] = acc[entry.date] ? [...acc[entry.date], entry] : [entry];
@@ -268,7 +411,8 @@ export default function TrackingClient() {
   function macroTotals(entries: FoodEntry[]) {
     return entries.reduce(
       (totals, entry) => {
-        const profile = foodProfiles[entry.foodKey];
+        const profile = resolveFoodProfile(entry.foodKey);
+        if (!profile) return totals;
         const factor = entry.grams / 100;
         totals.protein += profile.protein * factor;
         totals.carbs += profile.carbs * factor;
@@ -296,6 +440,7 @@ export default function TrackingClient() {
 
   return (
     <div className="page">
+      {actionMessage && <div className="toast">{actionMessage}</div>}
       <section className="card">
         <div className="section-head">
           <div>
@@ -397,9 +542,18 @@ export default function TrackingClient() {
               <div key={entry.id} className="feature-card">
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                   <strong>{entry.date}</strong>
-                  <span>
-                    {entry.weightKg} kg · {entry.waistCm} cm
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span>
+                      {entry.weightKg} kg · {entry.waistCm} cm
+                    </span>
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      onClick={() => handleDeleteEntry("checkins", entry.id)}
+                    >
+                      {t("tracking.delete")}
+                    </button>
+                  </div>
                 </div>
                 <div style={{ marginTop: 6 }}>
                   {t("profile.checkinRecommendation")}: <strong>{entry.recommendation}</strong>
@@ -471,11 +625,20 @@ export default function TrackingClient() {
             <label className="form-stack">
               {t("tracking.mealFood")}
               <select value={foodKey} onChange={(e) => setFoodKey(e.target.value)}>
-                {Object.entries(foodProfiles).map(([key, profile]) => (
+                {Object.entries(defaultFoodProfiles).map(([key, profile]) => (
                   <option key={key} value={key}>
                     {t(profile.labelKey)}
                   </option>
                 ))}
+                {userFoods.length > 0 && (
+                  <optgroup label={t("tracking.customFoodsLabel")}>
+                    {userFoods.map((food) => (
+                      <option key={food.id} value={`user:${food.id}`}>
+                        {food.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </label>
             <label className="form-stack">
@@ -485,6 +648,9 @@ export default function TrackingClient() {
           </div>
           <button type="submit" className="btn" style={{ width: "fit-content" }}>
             {t("tracking.mealAdd")}
+          </button>
+          <button type="button" className="btn secondary" style={{ width: "fit-content" }} onClick={() => openFoodModal()}>
+            {t("tracking.foodCreate")}
           </button>
         </form>
 
@@ -502,11 +668,24 @@ export default function TrackingClient() {
                   </div>
                   <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                     {entries.map((entry) => {
-                      const profile = foodProfiles[entry.foodKey];
+                      const profile = resolveFoodProfile(entry.foodKey);
+                      if (!profile) return null;
                       const factor = entry.grams / 100;
                       return (
                         <li key={entry.id}>
-                          {t(profile.labelKey)} {entry.grams}g → {(profile.protein * factor).toFixed(1)}P / {(profile.carbs * factor).toFixed(1)}C / {(profile.fat * factor).toFixed(1)}G
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span>
+                              {profile.label} {entry.grams}g → {(profile.protein * factor).toFixed(1)}P /{" "}
+                              {(profile.carbs * factor).toFixed(1)}C / {(profile.fat * factor).toFixed(1)}G
+                            </span>
+                            <button
+                              type="button"
+                              className="btn secondary"
+                              onClick={() => handleDeleteEntry("foodLog", entry.id)}
+                            >
+                              {t("tracking.delete")}
+                            </button>
+                          </div>
                         </li>
                       );
                     })}
@@ -516,6 +695,44 @@ export default function TrackingClient() {
             })
           )}
         </div>
+      </section>
+
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.customFoodsTitle")}</h2>
+            <p className="section-subtitle">{t("tracking.customFoodsSubtitle")}</p>
+          </div>
+          <button type="button" className="btn secondary" onClick={() => openFoodModal()}>
+            {t("tracking.foodCreate")}
+          </button>
+        </div>
+        {userFoods.length === 0 ? (
+          <p className="muted">{t("tracking.customFoodsEmpty")}</p>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {userFoods.map((food) => (
+              <div key={food.id} className="feature-card" style={{ display: "grid", gap: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                  <strong>{food.name}</strong>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" className="btn secondary" onClick={() => openFoodModal(food)}>
+                      {t("tracking.edit")}
+                    </button>
+                    <button type="button" className="btn secondary" onClick={() => handleDeleteFood(food.id)}>
+                      {t("tracking.delete")}
+                    </button>
+                  </div>
+                </div>
+                <span className="muted">
+                  {food.calories} kcal · {food.protein}P / {food.carbs}C / {food.fat}F · {t("tracking.unitLabel")}{" "}
+                  {food.unit}
+                </span>
+                {food.brand ? <span className="muted">{t("tracking.brandLabel")}: {food.brand}</span> : null}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="card">
@@ -550,13 +767,117 @@ export default function TrackingClient() {
           ) : (
             workoutLog.map((entry) => (
               <div key={entry.id} className="feature-card">
-                <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                  <span>
+                    <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
+                  </span>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => handleDeleteEntry("workoutLog", entry.id)}
+                  >
+                    {t("tracking.delete")}
+                  </button>
+                </div>
                 {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
               </div>
             ))
           )}
         </div>
       </section>
+
+      {foodModalOpen && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setFoodModalOpen(false)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={foodForm.id ? t("tracking.foodEditTitle") : t("tracking.foodCreateTitle")}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <form className="form-stack" onSubmit={handleSaveFood}>
+              <h3 style={{ margin: 0 }}>
+                {foodForm.id ? t("tracking.foodEditTitle") : t("tracking.foodCreateTitle")}
+              </h3>
+              <label className="form-stack">
+                {t("tracking.foodName")}
+                <input
+                  value={foodForm.name}
+                  onChange={(e) => setFoodForm((prev) => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </label>
+              <label className="form-stack">
+                {t("tracking.foodBrand")}
+                <input
+                  value={foodForm.brand}
+                  onChange={(e) => setFoodForm((prev) => ({ ...prev, brand: e.target.value }))}
+                />
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+                <label className="form-stack">
+                  {t("tracking.foodCalories")}
+                  <input
+                    type="number"
+                    min={0}
+                    value={foodForm.calories}
+                    onChange={(e) => setFoodForm((prev) => ({ ...prev, calories: Number(e.target.value) }))}
+                  />
+                </label>
+                <label className="form-stack">
+                  {t("tracking.foodProtein")}
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={foodForm.protein}
+                    onChange={(e) => setFoodForm((prev) => ({ ...prev, protein: Number(e.target.value) }))}
+                  />
+                </label>
+                <label className="form-stack">
+                  {t("tracking.foodCarbs")}
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={foodForm.carbs}
+                    onChange={(e) => setFoodForm((prev) => ({ ...prev, carbs: Number(e.target.value) }))}
+                  />
+                </label>
+                <label className="form-stack">
+                  {t("tracking.foodFat")}
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={foodForm.fat}
+                    onChange={(e) => setFoodForm((prev) => ({ ...prev, fat: Number(e.target.value) }))}
+                  />
+                </label>
+              </div>
+              <label className="form-stack">
+                {t("tracking.foodUnit")}
+                <select
+                  value={foodForm.unit}
+                  onChange={(e) => setFoodForm((prev) => ({ ...prev, unit: e.target.value as UserFood["unit"] }))}
+                >
+                  <option value="100g">{t("tracking.unit100g")}</option>
+                  <option value="serving">{t("tracking.unitServing")}</option>
+                  <option value="unit">{t("tracking.unitUnit")}</option>
+                </select>
+              </label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="submit" className="btn">
+                  {t("tracking.save")}
+                </button>
+                <button type="button" className="btn secondary" onClick={() => setFoodModalOpen(false)}>
+                  {t("tracking.cancel")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

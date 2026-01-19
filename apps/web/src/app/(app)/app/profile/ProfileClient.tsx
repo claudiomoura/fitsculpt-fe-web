@@ -1,14 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import {
   defaultProfile,
   type Activity,
   type Goal,
-  type MealDistribution,
   type NutritionDietType,
-  type FoodAllergy,
   type MacroFormula,
   type ProfileData,
   type Sex,
@@ -16,7 +15,11 @@ import {
   type TrainingFocus,
   type TrainingLevel,
   type SessionTime,
+  type GoalTag,
+  type MealDistributionPreset,
   type NutritionCookingTime,
+  type TimerSound,
+  type WorkoutLength,
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
 import BodyFatSelector from "@/components/profile/BodyFatSelector";
@@ -30,6 +33,23 @@ export default function ProfileClient() {
   const [newPassword, setNewPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [allergyInput, setAllergyInput] = useState("");
+
+  const goalOptions: Array<{ value: GoalTag; label: string }> = [
+    { value: "buildStrength", label: t("profile.goalTagStrength") },
+    { value: "loseFat", label: t("profile.goalTagLoseFat") },
+    { value: "betterHealth", label: t("profile.goalTagHealth") },
+    { value: "moreEnergy", label: t("profile.goalTagEnergy") },
+    { value: "tonedMuscles", label: t("profile.goalTagToned") },
+  ];
+
+  const mealDistributionOptions: Array<{ value: MealDistributionPreset; label: string }> = [
+    { value: "balanced", label: t("profile.mealDistributionBalanced") },
+    { value: "lightDinner", label: t("profile.mealDistributionLightDinner") },
+    { value: "bigBreakfast", label: t("profile.mealDistributionBigBreakfast") },
+    { value: "bigLunch", label: t("profile.mealDistributionBigLunch") },
+    { value: "custom", label: t("profile.mealDistributionCustom") },
+  ];
 
   useEffect(() => {
     let active = true;
@@ -127,6 +147,71 @@ export default function ProfileClient() {
     }));
   }
 
+  function toggleGoal(goal: GoalTag) {
+    setProfile((prev) => {
+      const exists = prev.goals.includes(goal);
+      const goals = exists ? prev.goals.filter((item) => item !== goal) : [...prev.goals, goal];
+      return { ...prev, goals };
+    });
+  }
+
+  function addAllergy() {
+    const value = allergyInput.trim();
+    if (!value) return;
+    setProfile((prev) => ({
+      ...prev,
+      nutritionPreferences: {
+        ...prev.nutritionPreferences,
+        allergies: Array.from(new Set([...prev.nutritionPreferences.allergies, value])),
+      },
+    }));
+    setAllergyInput("");
+  }
+
+  function removeAllergy(value: string) {
+    setProfile((prev) => ({
+      ...prev,
+      nutritionPreferences: {
+        ...prev.nutritionPreferences,
+        allergies: prev.nutritionPreferences.allergies.filter((item) => item !== value),
+      },
+    }));
+  }
+
+  function updateMealDistributionPreset(preset: MealDistributionPreset) {
+    setProfile((prev) => ({
+      ...prev,
+      nutritionPreferences: {
+        ...prev.nutritionPreferences,
+        mealDistribution: {
+          preset,
+          percentages:
+            preset === "custom"
+              ? prev.nutritionPreferences.mealDistribution.percentages ?? [30, 35, 25, 10]
+              : undefined,
+        },
+      },
+    }));
+  }
+
+  function updateMealDistributionPercentage(index: number, value: number) {
+    setProfile((prev) => {
+      const current = prev.nutritionPreferences.mealDistribution.percentages ?? [30, 35, 25, 10];
+      const next = [...current];
+      next[index] = value;
+      return {
+        ...prev,
+        nutritionPreferences: {
+          ...prev.nutritionPreferences,
+          mealDistribution: {
+            preset: "custom",
+            percentages: next,
+          },
+        },
+      };
+    });
+  }
+
   async function saveProfile() {
     const nextProfile = await updateUserProfilePreferences(profile);
     setProfile(nextProfile);
@@ -183,6 +268,9 @@ export default function ProfileClient() {
             </h2>
             <p className="section-subtitle">{t("app.profileSubtitle")}</p>
           </div>
+          <Link href="/app/onboarding" className="btn secondary">
+            {t("profile.openOnboarding")}
+          </Link>
         </div>
 
         <div className="form-stack">
@@ -284,26 +372,6 @@ export default function ProfileClient() {
                 </label>
 
                 <label className="form-stack">
-                  {t("profile.goalWeight")}
-                  <input
-                    type="number"
-                    min={35}
-                    max={250}
-                    value={profile.goalWeightKg}
-                    onChange={(e) => update("goalWeightKg", Number(e.target.value))}
-                  />
-                </label>
-
-                <label className="form-stack">
-                  {t("profile.goal")}
-                  <select value={profile.goal} onChange={(e) => update("goal", e.target.value as Goal)}>
-                    <option value="cut">{t("profile.goalCut")}</option>
-                    <option value="maintain">{t("profile.goalMaintain")}</option>
-                    <option value="bulk">{t("profile.goalBulk")}</option>
-                  </select>
-                </label>
-
-                <label className="form-stack">
                   {t("profile.activity")}
                   <select
                     value={profile.activity}
@@ -324,6 +392,50 @@ export default function ProfileClient() {
                   value={profile.measurements.bodyFatPercent || null}
                   onChange={(value) => updateMeasurements("bodyFatPercent", value)}
                 />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{t("profile.goalsTitle")}</h3>
+            <div className="form-stack">
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                <label className="form-stack">
+                  {t("profile.goalWeight")}
+                  <input
+                    type="number"
+                    min={35}
+                    max={250}
+                    value={profile.goalWeightKg}
+                    onChange={(e) => update("goalWeightKg", Number(e.target.value))}
+                  />
+                </label>
+
+                <label className="form-stack">
+                  {t("profile.goal")}
+                  <select value={profile.goal} onChange={(e) => update("goal", e.target.value as Goal)}>
+                    <option value="cut">{t("profile.goalCut")}</option>
+                    <option value="maintain">{t("profile.goalMaintain")}</option>
+                    <option value="bulk">{t("profile.goalBulk")}</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="form-stack">
+                <div style={{ fontWeight: 600 }}>{t("profile.goalTagsLabel")}</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {goalOptions.map((option) => (
+                    <label key={option.value} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={profile.goals.includes(option.value)}
+                        onChange={() => toggleGoal(option.value)}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <span className="muted">{t("profile.goalTagsHint")}</span>
               </div>
             </div>
           </div>
@@ -395,6 +507,49 @@ export default function ProfileClient() {
                   <option value="home">{t("profile.trainingEquipmentHome")}</option>
                 </select>
               </label>
+
+              <label className="form-stack">
+                {t("profile.workoutLength")}
+                <select
+                  value={profile.trainingPreferences.workoutLength}
+                  onChange={(e) => updateTraining("workoutLength", e.target.value as WorkoutLength)}
+                >
+                  <option value="30m">30 min</option>
+                  <option value="45m">45 min</option>
+                  <option value="60m">60 min</option>
+                  <option value="flexible">{t("profile.workoutLengthFlexible")}</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
+                {t("profile.timerSound")}
+                <select
+                  value={profile.trainingPreferences.timerSound}
+                  onChange={(e) => updateTraining("timerSound", e.target.value as TimerSound)}
+                >
+                  <option value="ding">{t("profile.timerSoundDing")}</option>
+                  <option value="repsToDo">{t("profile.timerSoundReps")}</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="form-stack" style={{ marginTop: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={profile.trainingPreferences.includeCardio}
+                  onChange={(e) => updateTraining("includeCardio", e.target.checked)}
+                />
+                <span>{t("profile.includeCardio")}</span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={profile.trainingPreferences.includeMobilityWarmups}
+                  onChange={(e) => updateTraining("includeMobilityWarmups", e.target.checked)}
+                />
+                <span>{t("profile.includeMobility")}</span>
+              </label>
             </div>
           </div>
 
@@ -450,40 +605,80 @@ export default function ProfileClient() {
               <label className="form-stack">
                 {t("profile.mealDistributionLabel")}
                 <select
-                  value={profile.nutritionPreferences.mealDistribution}
-                  onChange={(e) => updateNutrition("mealDistribution", e.target.value as MealDistribution)}
+                  value={profile.nutritionPreferences.mealDistribution.preset}
+                  onChange={(e) => updateMealDistributionPreset(e.target.value as MealDistributionPreset)}
                 >
-                  <option value="balanced">{t("profile.mealDistribution.balanced")}</option>
-                  <option value="lightDinner">{t("profile.mealDistribution.lightDinner")}</option>
-                  <option value="bigBreakfast">{t("profile.mealDistribution.bigBreakfast")}</option>
-                  <option value="bigLunch">{t("profile.mealDistribution.bigLunch")}</option>
+                  {mealDistributionOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
 
+            {profile.nutritionPreferences.mealDistribution.preset === "custom" && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: 12,
+                  marginTop: 12,
+                }}
+              >
+                {[
+                  t("profile.mealDistributionBreakfast"),
+                  t("profile.mealDistributionLunch"),
+                  t("profile.mealDistributionDinner"),
+                  t("profile.mealDistributionSnack"),
+                ].map((label, index) => (
+                  <label key={label} className="form-stack">
+                    {label}
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={profile.nutritionPreferences.mealDistribution.percentages?.[index] ?? 0}
+                      onChange={(e) => updateMealDistributionPercentage(index, Number(e.target.value))}
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
+
             <div className="form-stack" style={{ marginTop: 12 }}>
               <div className="form-stack">
                 <div style={{ fontWeight: 600 }}>{t("profile.allergiesLabel")}</div>
-                <div style={{ display: "grid", gap: 8 }}>
-                  {(["gluten", "lactose", "nuts", "shellfish", "egg", "soy"] as FoodAllergy[]).map((allergy) => (
-                    <label
-                      key={allergy}
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={profile.nutritionPreferences.allergies.includes(allergy)}
-                        onChange={(e) => {
-                          const next = e.target.checked
-                            ? [...profile.nutritionPreferences.allergies, allergy]
-                            : profile.nutritionPreferences.allergies.filter((item) => item !== allergy);
-                          updateNutrition("allergies", next);
-                        }}
-                      />
-                      <span>{t(`profile.allergy.${allergy}`)}</span>
-                    </label>
-                  ))}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {profile.nutritionPreferences.allergies.length === 0 ? (
+                    <span className="muted">{t("profile.allergiesEmpty")}</span>
+                  ) : (
+                    profile.nutritionPreferences.allergies.map((allergy) => (
+                      <span key={allergy} className="badge">
+                        {allergy}
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          style={{ marginLeft: 6, padding: "2px 6px" }}
+                          onClick={() => removeAllergy(allergy)}
+                        >
+                          {t("profile.remove")}
+                        </button>
+                      </span>
+                    ))
+                  )}
                 </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input
+                    value={allergyInput}
+                    onChange={(e) => setAllergyInput(e.target.value)}
+                    placeholder={t("profile.allergiesPlaceholder")}
+                  />
+                  <button type="button" className="btn secondary" onClick={addAllergy}>
+                    {t("profile.addAllergy")}
+                  </button>
+                </div>
+                <span className="muted">{t("profile.allergiesHint")}</span>
               </div>
 
               <label className="form-stack">
@@ -513,6 +708,20 @@ export default function ProfileClient() {
                 />
               </label>
             </div>
+          </div>
+
+          <div>
+            <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{t("profile.injuriesTitle")}</h3>
+            <label className="form-stack">
+              {t("profile.injuriesLabel")}
+              <textarea
+                value={profile.injuries}
+                onChange={(e) => update("injuries", e.target.value)}
+                placeholder={t("profile.injuriesPlaceholder")}
+                rows={3}
+              />
+            </label>
+            <span className="muted">{t("profile.injuriesHint")}</span>
           </div>
 
           <div>

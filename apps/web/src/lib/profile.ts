@@ -6,6 +6,10 @@ export type TrainingLevel = "beginner" | "intermediate" | "advanced";
 export type TrainingEquipment = "gym" | "home";
 export type TrainingFocus = "full" | "upperLower" | "ppl";
 export type SessionTime = "short" | "medium" | "long";
+export type WorkoutLength = "30m" | "45m" | "60m" | "flexible";
+export type TimerSound = "ding" | "repsToDo";
+
+export type GoalTag = "buildStrength" | "loseFat" | "betterHealth" | "moreEnergy" | "tonedMuscles";
 
 export type NutritionCookingTime = "quick" | "medium" | "long";
 export type NutritionDietType =
@@ -17,8 +21,11 @@ export type NutritionDietType =
   | "pescatarian"
   | "paleo"
   | "flexible";
-export type MealDistribution = "balanced" | "lightDinner" | "bigBreakfast" | "bigLunch";
-export type FoodAllergy = "gluten" | "lactose" | "nuts" | "shellfish" | "egg" | "soy";
+export type MealDistributionPreset = "balanced" | "lightDinner" | "bigBreakfast" | "bigLunch" | "custom";
+export type MealDistribution = {
+  preset: MealDistributionPreset;
+  percentages?: number[];
+};
 
 export type MacroFormula = "mifflin" | "katch";
 
@@ -82,20 +89,26 @@ export type ProfileData = {
   weightKg: number;
   goalWeightKg: number;
   goal: Goal;
+  goals: GoalTag[];
   activity: Activity;
   profilePhotoUrl: string | null;
   avatarDataUrl?: string | null;
+  injuries: string;
   trainingPreferences: {
     level: TrainingLevel;
     daysPerWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7;
     sessionTime: SessionTime;
     focus: TrainingFocus;
     equipment: TrainingEquipment;
+    includeCardio: boolean;
+    includeMobilityWarmups: boolean;
+    workoutLength: WorkoutLength;
+    timerSound: TimerSound;
   };
   nutritionPreferences: {
     mealsPerDay: 1 | 2 | 3 | 4 | 5 | 6;
     dietType: NutritionDietType;
-    allergies: FoodAllergy[];
+    allergies: string[];
     preferredFoods: string;
     dislikedFoods: string;
     dietaryPrefs: string;
@@ -132,15 +145,21 @@ export const defaultProfile: ProfileData = {
   weightKg: 75,
   goalWeightKg: 70,
   goal: "maintain",
+  goals: ["betterHealth"],
   activity: "moderate",
   profilePhotoUrl: null,
   avatarDataUrl: null,
+  injuries: "",
   trainingPreferences: {
     level: "beginner",
     daysPerWeek: 3,
     sessionTime: "medium",
     focus: "full",
     equipment: "gym",
+    includeCardio: true,
+    includeMobilityWarmups: true,
+    workoutLength: "45m",
+    timerSound: "ding",
   },
   nutritionPreferences: {
     mealsPerDay: 4,
@@ -150,7 +169,7 @@ export const defaultProfile: ProfileData = {
     dislikedFoods: "",
     dietaryPrefs: "",
     cookingTime: "medium",
-    mealDistribution: "balanced",
+    mealDistribution: { preset: "balanced" },
   },
   macroPreferences: {
     formula: "mifflin",

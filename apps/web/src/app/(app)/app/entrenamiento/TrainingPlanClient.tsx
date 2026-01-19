@@ -197,6 +197,18 @@ function generatePlan(
   return { days };
 }
 
+function createEmptyPlan(daysPerWeek: number, locale: Locale, t: (key: string) => string): TrainingPlan {
+  const dayLabels = DAY_LABELS[locale];
+  return {
+    days: Array.from({ length: daysPerWeek }).map((_, index) => ({
+      label: dayLabels[index] ?? `${t("training.dayLabel")} ${index + 1}`,
+      focus: t("training.focusFullBody"),
+      duration: 45,
+      exercises: [],
+    })),
+  };
+}
+
 const periodization = [
   { label: "weekBase", setsDelta: 0 },
   { label: "weekBuild", setsDelta: 1 },
@@ -224,6 +236,7 @@ export default function TrainingPlanClient() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
 
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -259,6 +272,21 @@ export default function TrainingPlanClient() {
   const plan = useMemo(() => (form ? generatePlan(form, locale, t) : null), [form, locale, t]);
   const visiblePlan = savedPlan ?? plan;
 
+  useEffect(() => {
+    if (manualPlan) return;
+    if (savedPlan) {
+      setManualPlan(savedPlan);
+      return;
+    }
+    if (plan) {
+      setManualPlan(plan);
+      return;
+    }
+    if (form) {
+      setManualPlan(createEmptyPlan(form.daysPerWeek, locale, t));
+    }
+  }, [manualPlan, savedPlan, plan, form, locale, t]);
+
   const handleSavePlan = async () => {
     if (!plan) return;
     setSaving(true);
@@ -275,6 +303,68 @@ export default function TrainingPlanClient() {
     }
   };
 
+  const handleSaveManualPlan = async () => {
+    if (!manualPlan) return;
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const updated = await updateUserProfile({ trainingPlan: manualPlan });
+      setSavedPlan(updated.trainingPlan ?? manualPlan);
+      setSaveMessage(t("training.manualSaveSuccess"));
+    } catch {
+      setSaveMessage(t("training.savePlanError"));
+    } finally {
+      setSaving(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
+  function updateManualDay(dayIndex: number, field: keyof TrainingDay, value: string | number) {
+    setManualPlan((prev) => {
+      if (!prev) return prev;
+      const days = [...prev.days];
+      const day = { ...days[dayIndex], [field]: value };
+      days[dayIndex] = day;
+      return { ...prev, days };
+    });
+  }
+
+  function updateManualExercise(
+    dayIndex: number,
+    exerciseIndex: number,
+    field: keyof Exercise,
+    value: string
+  ) {
+    setManualPlan((prev) => {
+      if (!prev) return prev;
+      const days = [...prev.days];
+      const exercises = [...days[dayIndex].exercises];
+      exercises[exerciseIndex] = { ...exercises[exerciseIndex], [field]: value };
+      days[dayIndex] = { ...days[dayIndex], exercises };
+      return { ...prev, days };
+    });
+  }
+
+  function addManualExercise(dayIndex: number) {
+    setManualPlan((prev) => {
+      if (!prev) return prev;
+      const days = [...prev.days];
+      const exercises = [...days[dayIndex].exercises, { name: "", sets: "", reps: "" }];
+      days[dayIndex] = { ...days[dayIndex], exercises };
+      return { ...prev, days };
+    });
+  }
+
+  function removeManualExercise(dayIndex: number, exerciseIndex: number) {
+    setManualPlan((prev) => {
+      if (!prev) return prev;
+      const days = [...prev.days];
+      const exercises = days[dayIndex].exercises.filter((_, index) => index !== exerciseIndex);
+      days[dayIndex] = { ...days[dayIndex], exercises };
+      return { ...prev, days };
+    });
+  }
+
   const handleAiPlan = async () => {
     if (!profile || !form) return;
     setAiLoading(true);
@@ -290,11 +380,17 @@ export default function TrainingPlanClient() {
           sex: profile.sex,
           level: form.level,
           goal: form.goal,
+          goals: profile.goals,
           equipment: form.equipment,
           daysPerWeek: form.daysPerWeek,
           sessionTime: form.sessionTime,
           focus: form.focus,
           timeAvailableMinutes: form.sessionTime === "short" ? 35 : form.sessionTime === "medium" ? 50 : 65,
+          includeCardio: profile.trainingPreferences.includeCardio,
+          includeMobilityWarmups: profile.trainingPreferences.includeMobilityWarmups,
+          workoutLength: profile.trainingPreferences.workoutLength,
+          timerSound: profile.trainingPreferences.timerSound,
+          injuries: profile.injuries || undefined,
           restrictions: profile.notes || undefined,
         }),
       });
@@ -390,6 +486,103 @@ export default function TrainingPlanClient() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.manualPlanTitle")}</h2>
+            <p className="section-subtitle">{t("training.manualPlanSubtitle")}</p>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" className="btn secondary" onClick={() => visiblePlan && setManualPlan(visiblePlan)}>
+              {t("training.manualPlanReset")}
+            </button>
+            <button type="button" className="btn" disabled={!manualPlan || saving} onClick={handleSaveManualPlan}>
+              {saving ? t("training.savePlanSaving") : t("training.manualPlanSave")}
+            </button>
+          </div>
+        </div>
+
+        {manualPlan ? (
+          <div className="form-stack">
+            {manualPlan.days.map((day, dayIndex) => (
+              <div key={`${day.label}-${dayIndex}`} className="feature-card" style={{ display: "grid", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                  <label className="form-stack">
+                    {t("training.manualDayLabel")}
+                    <input
+                      value={day.label}
+                      onChange={(e) => updateManualDay(dayIndex, "label", e.target.value)}
+                    />
+                  </label>
+                  <label className="form-stack">
+                    {t("training.manualDayFocus")}
+                    <input
+                      value={day.focus}
+                      onChange={(e) => updateManualDay(dayIndex, "focus", e.target.value)}
+                    />
+                  </label>
+                  <label className="form-stack">
+                    {t("training.manualDayDuration")}
+                    <input
+                      type="number"
+                      min={20}
+                      max={120}
+                      value={day.duration}
+                      onChange={(e) => updateManualDay(dayIndex, "duration", Number(e.target.value))}
+                    />
+                  </label>
+                </div>
+                <div className="form-stack">
+                  {day.exercises.length === 0 ? (
+                    <p className="muted">{t("training.manualExercisesEmpty")}</p>
+                  ) : (
+                    day.exercises.map((exercise, exerciseIndex) => (
+                      <div
+                        key={`${exercise.name}-${exerciseIndex}`}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "2fr 1fr 1fr auto",
+                          gap: 8,
+                          alignItems: "center",
+                        }}
+                      >
+                        <input
+                          value={exercise.name}
+                          onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "name", e.target.value)}
+                          placeholder={t("training.manualExerciseName")}
+                        />
+                        <input
+                          value={exercise.sets}
+                          onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "sets", e.target.value)}
+                          placeholder={t("training.manualExerciseSets")}
+                        />
+                        <input
+                          value={exercise.reps ?? ""}
+                          onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "reps", e.target.value)}
+                          placeholder={t("training.manualExerciseReps")}
+                        />
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => removeManualExercise(dayIndex, exerciseIndex)}
+                        >
+                          {t("training.manualExerciseRemove")}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                  <button type="button" className="btn secondary" onClick={() => addManualExercise(dayIndex)}>
+                    {t("training.manualExerciseAdd")}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">{t("training.manualPlanEmpty")}</p>
+        )}
       </section>
 
       <section className="card">

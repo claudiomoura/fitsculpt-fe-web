@@ -1,4 +1,4 @@
-import { defaultProfile, type ProfileData } from "@/lib/profile";
+import { defaultProfile, type MealDistribution, type ProfileData } from "@/lib/profile";
 
 type CheckinMetrics = {
   weightKg: number;
@@ -18,9 +18,23 @@ type TrackingPayload = {
   workoutLog: Array<Record<string, unknown>>;
 };
 
+function normalizeMealDistribution(input?: MealDistribution | string | null): MealDistribution {
+  if (!input) return defaultProfile.nutritionPreferences.mealDistribution;
+  if (typeof input === "string") {
+    return { preset: input as MealDistribution["preset"] };
+  }
+  return {
+    preset: input.preset ?? defaultProfile.nutritionPreferences.mealDistribution.preset,
+    percentages: input.percentages,
+  };
+}
+
 export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileData {
   const profilePhotoUrl = data?.profilePhotoUrl ?? data?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
   const incomingNutrition = data?.nutritionPreferences;
+  const mealDistribution = normalizeMealDistribution(
+    incomingNutrition?.mealDistribution ?? defaultProfile.nutritionPreferences.mealDistribution
+  );
   return {
     ...defaultProfile,
     ...data,
@@ -37,6 +51,7 @@ export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileDat
         incomingNutrition?.dislikedFoods ??
         (incomingNutrition as { dislikes?: string } | undefined)?.dislikes ??
         defaultProfile.nutritionPreferences.dislikedFoods,
+      mealDistribution,
     },
     macroPreferences: {
       ...defaultProfile.macroPreferences,
