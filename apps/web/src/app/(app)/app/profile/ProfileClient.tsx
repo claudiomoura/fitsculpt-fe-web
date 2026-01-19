@@ -6,6 +6,9 @@ import {
   defaultProfile,
   type Activity,
   type Goal,
+  type MealDistribution,
+  type NutritionDietType,
+  type FoodAllergy,
   type MacroFormula,
   type ProfileData,
   type Sex,
@@ -50,7 +53,7 @@ export default function ProfileClient() {
     let active = true;
     const loadTracking = async () => {
       try {
-        const response = await fetch("/api/tracking", { cache: "no-store" });
+        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
         if (!response.ok) return;
         const data = (await response.json()) as { checkins?: Array<{ date?: string }> };
         if (!active) return;
@@ -329,18 +332,6 @@ export default function ProfileClient() {
             <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{t("profile.trainingPrefsTitle")}</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
               <label className="form-stack">
-                {t("profile.goal")}
-                <select
-                  value={profile.trainingPreferences.goal}
-                  onChange={(e) => updateTraining("goal", e.target.value as Goal)}
-                >
-                  <option value="cut">{t("profile.goalCut")}</option>
-                  <option value="maintain">{t("profile.goalMaintain")}</option>
-                  <option value="bulk">{t("profile.goalBulk")}</option>
-                </select>
-              </label>
-
-              <label className="form-stack">
                 {t("profile.trainingLevel")}
                 <select
                   value={profile.trainingPreferences.level}
@@ -357,13 +348,16 @@ export default function ProfileClient() {
                 <select
                   value={profile.trainingPreferences.daysPerWeek}
                   onChange={(e) =>
-                    updateTraining("daysPerWeek", Number(e.target.value) as 2 | 3 | 4 | 5)
+                    updateTraining("daysPerWeek", Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 7)
                   }
                 >
+                  <option value={1}>1</option>
                   <option value={2}>2</option>
                   <option value={3}>3</option>
                   <option value={4}>4</option>
                   <option value={5}>5</option>
+                  <option value={6}>6</option>
+                  <option value={7}>7</option>
                 </select>
               </label>
 
@@ -408,18 +402,6 @@ export default function ProfileClient() {
             <h3 style={{ margin: "0 0 10px", fontSize: 14 }}>{t("profile.nutritionPrefsTitle")}</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
               <label className="form-stack">
-                {t("profile.goal")}
-                <select
-                  value={profile.nutritionPreferences.goal}
-                  onChange={(e) => updateNutrition("goal", e.target.value as Goal)}
-                >
-                  <option value="maintain">{t("profile.goalMaintain")}</option>
-                  <option value="cut">{t("profile.goalCut")}</option>
-                  <option value="bulk">{t("profile.goalBulk")}</option>
-                </select>
-              </label>
-
-              <label className="form-stack">
                 {t("profile.mealsPerDay")}
                 <select
                   value={profile.nutritionPreferences.mealsPerDay}
@@ -437,6 +419,23 @@ export default function ProfileClient() {
               </label>
 
               <label className="form-stack">
+                {t("profile.dietTypeLabel")}
+                <select
+                  value={profile.nutritionPreferences.dietType}
+                  onChange={(e) => updateNutrition("dietType", e.target.value as NutritionDietType)}
+                >
+                  <option value="balanced">{t("profile.dietType.balanced")}</option>
+                  <option value="mediterranean">{t("profile.dietType.mediterranean")}</option>
+                  <option value="keto">{t("profile.dietType.keto")}</option>
+                  <option value="vegetarian">{t("profile.dietType.vegetarian")}</option>
+                  <option value="vegan">{t("profile.dietType.vegan")}</option>
+                  <option value="pescatarian">{t("profile.dietType.pescatarian")}</option>
+                  <option value="paleo">{t("profile.dietType.paleo")}</option>
+                  <option value="flexible">{t("profile.dietType.flexible")}</option>
+                </select>
+              </label>
+
+              <label className="form-stack">
                 {t("profile.cookingTime")}
                 <select
                   value={profile.nutritionPreferences.cookingTime}
@@ -447,9 +446,46 @@ export default function ProfileClient() {
                   <option value="long">{t("profile.cookingTimeOptionLong")}</option>
                 </select>
               </label>
+
+              <label className="form-stack">
+                {t("profile.mealDistributionLabel")}
+                <select
+                  value={profile.nutritionPreferences.mealDistribution}
+                  onChange={(e) => updateNutrition("mealDistribution", e.target.value as MealDistribution)}
+                >
+                  <option value="balanced">{t("profile.mealDistribution.balanced")}</option>
+                  <option value="lightDinner">{t("profile.mealDistribution.lightDinner")}</option>
+                  <option value="bigBreakfast">{t("profile.mealDistribution.bigBreakfast")}</option>
+                  <option value="bigLunch">{t("profile.mealDistribution.bigLunch")}</option>
+                </select>
+              </label>
             </div>
 
             <div className="form-stack" style={{ marginTop: 12 }}>
+              <div className="form-stack">
+                <div style={{ fontWeight: 600 }}>{t("profile.allergiesLabel")}</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {(["gluten", "lactose", "nuts", "shellfish", "egg", "soy"] as FoodAllergy[]).map((allergy) => (
+                    <label
+                      key={allergy}
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={profile.nutritionPreferences.allergies.includes(allergy)}
+                        onChange={(e) => {
+                          const next = e.target.checked
+                            ? [...profile.nutritionPreferences.allergies, allergy]
+                            : profile.nutritionPreferences.allergies.filter((item) => item !== allergy);
+                          updateNutrition("allergies", next);
+                        }}
+                      />
+                      <span>{t(`profile.allergy.${allergy}`)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <label className="form-stack">
                 {t("profile.dietaryPrefs")}
                 <input
@@ -460,11 +496,20 @@ export default function ProfileClient() {
               </label>
 
               <label className="form-stack">
-                {t("profile.dislikes")}
+                {t("profile.preferredFoods")}
                 <input
-                  value={profile.nutritionPreferences.dislikes}
-                  onChange={(e) => updateNutrition("dislikes", e.target.value)}
-                  placeholder={t("profile.dislikesPlaceholder")}
+                  value={profile.nutritionPreferences.preferredFoods}
+                  onChange={(e) => updateNutrition("preferredFoods", e.target.value)}
+                  placeholder={t("profile.preferredFoodsPlaceholder")}
+                />
+              </label>
+
+              <label className="form-stack">
+                {t("profile.dislikedFoods")}
+                <input
+                  value={profile.nutritionPreferences.dislikedFoods}
+                  onChange={(e) => updateNutrition("dislikedFoods", e.target.value)}
+                  placeholder={t("profile.dislikedFoodsPlaceholder")}
                 />
               </label>
             </div>

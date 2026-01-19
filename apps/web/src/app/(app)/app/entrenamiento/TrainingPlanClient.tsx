@@ -32,7 +32,7 @@ type TrainingPlan = TrainingPlanData;
 type TrainingForm = {
   goal: Goal;
   level: TrainingLevel;
-  daysPerWeek: 2 | 3 | 4 | 5;
+  daysPerWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   equipment: TrainingEquipment;
   focus: TrainingFocus;
   sessionTime: SessionTime;
@@ -121,8 +121,8 @@ const EXERCISE_POOL: Record<Locale, typeof baseExercisePool> = {
 };
 
 const DAY_LABELS: Record<Locale, string[]> = {
-  es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"],
-  en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+  es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
+  en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
 };
 
 function durationFromSessionTime(sessionTime: SessionTime) {
@@ -233,7 +233,7 @@ export default function TrainingPlanClient() {
       if (!activeRef.current) return;
       setProfile(profile);
       setForm({
-        goal: profile.trainingPreferences.goal,
+        goal: profile.goal,
         level: profile.trainingPreferences.level,
         daysPerWeek: profile.trainingPreferences.daysPerWeek,
         equipment: profile.trainingPreferences.equipment,

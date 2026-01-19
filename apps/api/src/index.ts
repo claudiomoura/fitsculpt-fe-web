@@ -300,20 +300,31 @@ const changePasswordSchema = z.object({
 });
 
 const trainingPreferencesSchema = z.object({
-  goal: z.enum(["cut", "maintain", "bulk"]),
   level: z.enum(["beginner", "intermediate", "advanced"]),
-  daysPerWeek: z.number().int().min(2).max(5),
+  daysPerWeek: z.number().int().min(1).max(7),
   sessionTime: z.enum(["short", "medium", "long"]),
   focus: z.enum(["full", "upperLower", "ppl"]),
   equipment: z.enum(["gym", "home"]),
 });
 
 const nutritionPreferencesSchema = z.object({
-  goal: z.enum(["cut", "maintain", "bulk"]),
   mealsPerDay: z.number().int().min(1).max(6),
+  dietType: z.enum([
+    "balanced",
+    "mediterranean",
+    "keto",
+    "vegetarian",
+    "vegan",
+    "pescatarian",
+    "paleo",
+    "flexible",
+  ]),
+  allergies: z.array(z.enum(["gluten", "lactose", "nuts", "shellfish", "egg", "soy"])),
+  preferredFoods: z.string(),
+  dislikedFoods: z.string(),
   dietaryPrefs: z.string(),
-  dislikes: z.string(),
   cookingTime: z.enum(["quick", "medium", "long"]),
+  mealDistribution: z.enum(["balanced", "lightDinner", "bigBreakfast", "bigLunch"]),
 });
 
 const macroPreferencesSchema = z.object({
@@ -407,6 +418,25 @@ const defaultTracking = {
   workoutLog: [],
 };
 
+const defaultTrainingPreferences = {
+  level: "beginner",
+  daysPerWeek: 3,
+  sessionTime: "medium",
+  focus: "full",
+  equipment: "gym",
+};
+
+const defaultNutritionPreferences = {
+  mealsPerDay: 4,
+  dietType: "balanced",
+  allergies: [],
+  preferredFoods: "",
+  dislikedFoods: "",
+  dietaryPrefs: "",
+  cookingTime: "medium",
+  mealDistribution: "balanced",
+};
+
 const aiTrainingSchema = z.object({
   name: z.string().min(1).optional(),
   age: z.number().int().min(10).max(100),
@@ -414,7 +444,7 @@ const aiTrainingSchema = z.object({
   level: z.enum(["beginner", "intermediate", "advanced"]),
   goal: z.enum(["cut", "maintain", "bulk"]),
   equipment: z.enum(["gym", "home"]),
-  daysPerWeek: z.number().int().min(2).max(5),
+  daysPerWeek: z.number().int().min(1).max(7),
   sessionTime: z.enum(["short", "medium", "long"]),
   focus: z.enum(["full", "upperLower", "ppl"]),
   timeAvailableMinutes: z.number().int().min(20).max(120),
@@ -426,9 +456,16 @@ const aiNutritionSchema = z.object({
   age: z.number().int().min(10).max(100),
   sex: z.enum(["male", "female"]),
   goal: z.enum(["cut", "maintain", "bulk"]),
-  mealsPerDay: z.number().int().min(3).max(4),
+  mealsPerDay: z.number().int().min(3).max(6),
   calories: z.number().int().min(1200).max(4000),
   dietaryRestrictions: z.string().optional(),
+  dietType: z
+    .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
+    .optional(),
+  allergies: z.array(z.enum(["gluten", "lactose", "nuts", "shellfish", "egg", "soy"])).optional(),
+  preferredFoods: z.string().optional(),
+  dislikedFoods: z.string().optional(),
+  mealDistribution: z.enum(["balanced", "lightDinner", "bigBreakfast", "bigLunch"]).optional(),
 });
 
 const aiTipSchema = z.object({
@@ -471,7 +508,7 @@ const aiTrainingPlanResponseSchema = z
   .object({
     title: z.string().min(1),
     notes: z.string().min(1).optional(),
-    days: z.array(aiTrainingDaySchema).min(2).max(5),
+    days: z.array(aiTrainingDaySchema).min(1).max(7),
   })
   .passthrough();
 
@@ -512,7 +549,7 @@ const aiNutritionPlanResponseSchema = z
     proteinG: z.coerce.number().min(50).max(300),
     fatG: z.coerce.number().min(30).max(200),
     carbsG: z.coerce.number().min(50).max(600),
-    days: z.array(aiNutritionDaySchema).min(1),
+    days: z.array(aiNutritionDaySchema).min(3).max(7),
     shoppingList: z
       .array(
         z.object({
@@ -836,8 +873,12 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
     `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
-  "Genera exactamente 3 días con dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
-
+    `Tipo de dieta: ${data.dietType ?? "equilibrada"}.`,
+    `Alergias: ${data.allergies?.join(", ") ?? "ninguna"}.`,
+    `Preferencias (favoritos): ${data.preferredFoods ?? "ninguna"}.`,
+    `Alimentos a evitar: ${data.dislikedFoods ?? "ninguno"}.`,
+    `Distribución de comidas: ${data.mealDistribution ?? "equilibrada"}.`,
+    "Genera exactamente 7 días con dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
     "Cada día incluye desayuno, comida, cena y 1-2 snacks.",
     "Usa siempre type y macros en cada comida.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
@@ -879,9 +920,28 @@ function parseTrainingPlanPayload(payload: Record<string, unknown>) {
   }
 }
 
+const NUTRITION_DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+function normalizeNutritionPlanDays(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>
+): z.infer<typeof aiNutritionPlanResponseSchema> {
+  if (plan.days.length >= NUTRITION_DAY_LABELS.length) return plan;
+  const nextDays = [...plan.days];
+  let index = 0;
+  while (nextDays.length < NUTRITION_DAY_LABELS.length) {
+    const source = plan.days[index % plan.days.length];
+    nextDays.push({
+      ...source,
+      dayLabel: NUTRITION_DAY_LABELS[nextDays.length] ?? source.dayLabel,
+    });
+    index += 1;
+  }
+  return { ...plan, days: nextDays };
+}
+
 function parseNutritionPlanPayload(payload: Record<string, unknown>) {
   try {
-    return aiNutritionPlanResponseSchema.parse(payload);
+    return normalizeNutritionPlanDays(aiNutritionPlanResponseSchema.parse(payload));
   } catch (error) {
     app.log.warn({ err: error, payload }, "ai nutrition response invalid");
     throw createHttpError(502, "AI_PARSE_ERROR");
@@ -1778,26 +1838,53 @@ app.put("/profile", async (request, reply) => {
       typeof existingProfile.macroPreferences === "object" && existingProfile.macroPreferences
         ? (existingProfile.macroPreferences as Record<string, unknown>)
         : {};
+    const fallbackGoal =
+      typeof existingProfile.goal === "string"
+        ? existingProfile.goal
+        : typeof existingTraining.goal === "string"
+          ? existingTraining.goal
+          : typeof existingNutrition.goal === "string"
+            ? existingNutrition.goal
+            : "maintain";
+
     const nextProfile = {
       ...existingProfile,
       ...data,
+      goal: typeof data.goal === "string" ? data.goal : fallbackGoal,
       measurements: {
         ...existingMeasurements,
         ...data.measurements,
       },
       trainingPreferences: {
+        ...defaultTrainingPreferences,
         ...existingTraining,
         ...data.trainingPreferences,
       },
       nutritionPreferences: {
+        ...defaultNutritionPreferences,
         ...existingNutrition,
         ...data.nutritionPreferences,
+        dislikedFoods:
+          typeof data.nutritionPreferences?.dislikedFoods === "string"
+            ? data.nutritionPreferences.dislikedFoods
+            : typeof existingNutrition.dislikedFoods === "string"
+              ? existingNutrition.dislikedFoods
+              : typeof existingNutrition.dislikes === "string"
+                ? existingNutrition.dislikes
+                : "",
       },
       macroPreferences: {
         ...existingMacros,
         ...data.macroPreferences,
       },
     };
+    if (nextProfile.trainingPreferences && typeof nextProfile.trainingPreferences === "object") {
+      delete (nextProfile.trainingPreferences as Record<string, unknown>).goal;
+    }
+    if (nextProfile.nutritionPreferences && typeof nextProfile.nutritionPreferences === "object") {
+      delete (nextProfile.nutritionPreferences as Record<string, unknown>).goal;
+      delete (nextProfile.nutritionPreferences as Record<string, unknown>).dislikes;
+    }
     const updated = await prisma.userProfile.update({
       where: { userId: user.id },
       data: { profile: nextProfile },
@@ -1822,17 +1909,21 @@ app.put("/tracking", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const data = trackingSchema.parse(request.body);
-const updated = await prisma.userProfile.upsert({
-  where: { userId: user.id },
-  create: {
-    userId: user.id,
-    profile: Prisma.DbNull,
-    tracking: data,
-  },
-  update: {
-    tracking: data,
-  },
-});
+    const updated = await prisma.userProfile.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        profile: Prisma.DbNull,
+        tracking: data,
+      },
+      update: {
+        tracking: data,
+      },
+    });
+    app.log.info(
+      { userId: user.id, checkins: data.checkins.length, foodLog: data.foodLog.length, workoutLog: data.workoutLog.length },
+      "tracking updated"
+    );
 
     return updated.tracking ?? defaultTracking;
   } catch (error) {

@@ -8,6 +8,17 @@ export type TrainingFocus = "full" | "upperLower" | "ppl";
 export type SessionTime = "short" | "medium" | "long";
 
 export type NutritionCookingTime = "quick" | "medium" | "long";
+export type NutritionDietType =
+  | "balanced"
+  | "mediterranean"
+  | "keto"
+  | "vegetarian"
+  | "vegan"
+  | "pescatarian"
+  | "paleo"
+  | "flexible";
+export type MealDistribution = "balanced" | "lightDinner" | "bigBreakfast" | "bigLunch";
+export type FoodAllergy = "gluten" | "lactose" | "nuts" | "shellfish" | "egg" | "soy";
 
 export type MacroFormula = "mifflin" | "katch";
 
@@ -75,19 +86,21 @@ export type ProfileData = {
   profilePhotoUrl: string | null;
   avatarDataUrl?: string | null;
   trainingPreferences: {
-    goal: Goal;
     level: TrainingLevel;
-    daysPerWeek: 2 | 3 | 4 | 5;
+    daysPerWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7;
     sessionTime: SessionTime;
     focus: TrainingFocus;
     equipment: TrainingEquipment;
   };
   nutritionPreferences: {
-    goal: Goal;
     mealsPerDay: 1 | 2 | 3 | 4 | 5 | 6;
+    dietType: NutritionDietType;
+    allergies: FoodAllergy[];
+    preferredFoods: string;
+    dislikedFoods: string;
     dietaryPrefs: string;
-    dislikes: string;
     cookingTime: NutritionCookingTime;
+    mealDistribution: MealDistribution;
   };
   macroPreferences: {
     formula: MacroFormula;
@@ -123,7 +136,6 @@ export const defaultProfile: ProfileData = {
   profilePhotoUrl: null,
   avatarDataUrl: null,
   trainingPreferences: {
-    goal: "maintain",
     level: "beginner",
     daysPerWeek: 3,
     sessionTime: "medium",
@@ -131,11 +143,14 @@ export const defaultProfile: ProfileData = {
     equipment: "gym",
   },
   nutritionPreferences: {
-    goal: "maintain",
     mealsPerDay: 4,
+    dietType: "balanced",
+    allergies: [],
+    preferredFoods: "",
+    dislikedFoods: "",
     dietaryPrefs: "",
-    dislikes: "",
     cookingTime: "medium",
+    mealDistribution: "balanced",
   },
   macroPreferences: {
     formula: "mifflin",
