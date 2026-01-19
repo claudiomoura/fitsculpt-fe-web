@@ -1,13 +1,13 @@
 import MacrosClient from "./MacrosClient";
-import { copy } from "@/lib/i18n";
+import { getServerT } from "@/lib/serverI18n";
 
-export default function MacrosPage() {
-  const c = copy.es;
+export default async function MacrosPage() {
+  const { t } = await getServerT();
   return (
     <div className="page">
       <section className="card">
-        <h1 className="section-title">{c.app.macrosTitle}</h1>
-        <p className="section-subtitle">{c.app.macrosSubtitle}</p>
+        <h1 className="section-title">{t("app.macrosTitle")}</h1>
+        <p className="section-subtitle">{t("app.macrosSubtitle")}</p>
       </section>
       <MacrosClient />
     </div>

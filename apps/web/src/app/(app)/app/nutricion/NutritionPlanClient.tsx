@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
+import type { Locale } from "@/lib/i18n";
 import {
   type Activity,
   type Goal,
@@ -64,95 +65,188 @@ type MealTemplate = {
   veg?: IngredientProfile;
 };
 
-const ingredientProfiles = {
-  salmon: { name: "Salmón", protein: 20, carbs: 0, fat: 13 },
-  chicken: { name: "Pollo", protein: 31, carbs: 0, fat: 3.6 },
-  turkey: { name: "Pavo", protein: 29, carbs: 0, fat: 2 },
-  eggs: { name: "Huevos", protein: 13, carbs: 1.1, fat: 10 },
-  yogurt: { name: "Yogur griego", protein: 10, carbs: 4, fat: 4 },
-  oats: { name: "Avena", protein: 17, carbs: 66, fat: 7 },
-  rice: { name: "Arroz integral", protein: 2.7, carbs: 28, fat: 0.3 },
-  quinoa: { name: "Quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
-  chickpeas: { name: "Garbanzos", protein: 9, carbs: 27, fat: 2.6 },
-  potatoes: { name: "Patata", protein: 2, carbs: 17, fat: 0.1 },
-  zucchini: { name: "Calabacín", protein: 1.2, carbs: 3.1, fat: 0.3 },
-  avocado: { name: "Aguacate", protein: 2, carbs: 9, fat: 15 },
-  oliveOil: { name: "Aceite de oliva", protein: 0, carbs: 0, fat: 100 },
-  berries: { name: "Frutos rojos", protein: 1, carbs: 12, fat: 0.3 },
-  milk: { name: "Leche", protein: 3.3, carbs: 5, fat: 3.2 },
-  bread: { name: "Pan integral", protein: 13, carbs: 43, fat: 4 },
+const INGREDIENT_PROFILES: Record<Locale, Record<string, IngredientProfile>> = {
+  es: {
+    salmon: { name: "Salmón", protein: 20, carbs: 0, fat: 13 },
+    chicken: { name: "Pollo", protein: 31, carbs: 0, fat: 3.6 },
+    turkey: { name: "Pavo", protein: 29, carbs: 0, fat: 2 },
+    eggs: { name: "Huevos", protein: 13, carbs: 1.1, fat: 10 },
+    yogurt: { name: "Yogur griego", protein: 10, carbs: 4, fat: 4 },
+    oats: { name: "Avena", protein: 17, carbs: 66, fat: 7 },
+    rice: { name: "Arroz integral", protein: 2.7, carbs: 28, fat: 0.3 },
+    quinoa: { name: "Quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
+    chickpeas: { name: "Garbanzos", protein: 9, carbs: 27, fat: 2.6 },
+    potatoes: { name: "Patata", protein: 2, carbs: 17, fat: 0.1 },
+    zucchini: { name: "Calabacín", protein: 1.2, carbs: 3.1, fat: 0.3 },
+    avocado: { name: "Aguacate", protein: 2, carbs: 9, fat: 15 },
+    oliveOil: { name: "Aceite de oliva", protein: 0, carbs: 0, fat: 100 },
+    berries: { name: "Frutos rojos", protein: 1, carbs: 12, fat: 0.3 },
+    milk: { name: "Leche", protein: 3.3, carbs: 5, fat: 3.2 },
+    bread: { name: "Pan integral", protein: 13, carbs: 43, fat: 4 },
+  },
+  en: {
+    salmon: { name: "Salmon", protein: 20, carbs: 0, fat: 13 },
+    chicken: { name: "Chicken", protein: 31, carbs: 0, fat: 3.6 },
+    turkey: { name: "Turkey", protein: 29, carbs: 0, fat: 2 },
+    eggs: { name: "Eggs", protein: 13, carbs: 1.1, fat: 10 },
+    yogurt: { name: "Greek yogurt", protein: 10, carbs: 4, fat: 4 },
+    oats: { name: "Oats", protein: 17, carbs: 66, fat: 7 },
+    rice: { name: "Brown rice", protein: 2.7, carbs: 28, fat: 0.3 },
+    quinoa: { name: "Quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
+    chickpeas: { name: "Chickpeas", protein: 9, carbs: 27, fat: 2.6 },
+    potatoes: { name: "Potato", protein: 2, carbs: 17, fat: 0.1 },
+    zucchini: { name: "Zucchini", protein: 1.2, carbs: 3.1, fat: 0.3 },
+    avocado: { name: "Avocado", protein: 2, carbs: 9, fat: 15 },
+    oliveOil: { name: "Olive oil", protein: 0, carbs: 0, fat: 100 },
+    berries: { name: "Berries", protein: 1, carbs: 12, fat: 0.3 },
+    milk: { name: "Milk", protein: 3.3, carbs: 5, fat: 3.2 },
+    bread: { name: "Whole-grain bread", protein: 13, carbs: 43, fat: 4 },
+  },
 };
 
-const mealTemplates: Record<string, MealTemplate[]> = {
-  breakfast: [
-    {
-      title: "Avena con fruta",
-      description: "Avena, yogur natural, frutos rojos y semillas.",
-      protein: ingredientProfiles.yogurt,
-      carbs: ingredientProfiles.oats,
-      fat: ingredientProfiles.oliveOil,
-      veg: ingredientProfiles.berries,
-    },
-    {
-      title: "Tostadas con huevo",
-      description: "Pan integral, huevos revueltos y aguacate.",
-      protein: ingredientProfiles.eggs,
-      carbs: ingredientProfiles.bread,
-      fat: ingredientProfiles.avocado,
-    },
-  ],
-  lunch: [
-    {
-      title: "Pollo con arroz",
-      description: "Pechuga a la plancha, arroz integral y ensalada.",
-      protein: ingredientProfiles.chicken,
-      carbs: ingredientProfiles.rice,
-      veg: ingredientProfiles.zucchini,
-    },
-    {
-      title: "Bowl mediterráneo",
-      description: "Quinoa, garbanzos, verduras y aceite de oliva.",
-      protein: ingredientProfiles.chickpeas,
-      carbs: ingredientProfiles.quinoa,
-      fat: ingredientProfiles.oliveOil,
-      veg: ingredientProfiles.zucchini,
-    },
-  ],
-  dinner: [
-    {
-      title: "Salmón con verduras",
-      description: "Salmón al horno, calabacín y patata.",
-      protein: ingredientProfiles.salmon,
-      carbs: ingredientProfiles.potatoes,
-      veg: ingredientProfiles.zucchini,
-    },
-    {
-      title: "Salteado rápido",
-      description: "Pavo, verduras mixtas y noodles integrales.",
-      protein: ingredientProfiles.turkey,
-      carbs: ingredientProfiles.rice,
-      veg: ingredientProfiles.zucchini,
-    },
-  ],
-  snack: [
-    {
-      title: "Snack proteico",
-      description: "Yogur griego con frutos secos.",
-      protein: ingredientProfiles.yogurt,
-      fat: ingredientProfiles.avocado,
-      carbs: ingredientProfiles.berries,
-    },
-    {
-      title: "Batido",
-      description: "Leche, fruta y proteína en polvo.",
-      protein: ingredientProfiles.milk,
-      carbs: ingredientProfiles.berries,
-      fat: ingredientProfiles.oliveOil,
-    },
-  ],
+const MEAL_TEMPLATES: Record<Locale, Record<string, MealTemplate[]>> = {
+  es: {
+    breakfast: [
+      {
+        title: "Avena con fruta",
+        description: "Avena, yogur natural, frutos rojos y semillas.",
+        protein: INGREDIENT_PROFILES.es.yogurt,
+        carbs: INGREDIENT_PROFILES.es.oats,
+        fat: INGREDIENT_PROFILES.es.oliveOil,
+        veg: INGREDIENT_PROFILES.es.berries,
+      },
+      {
+        title: "Tostadas con huevo",
+        description: "Pan integral, huevos revueltos y aguacate.",
+        protein: INGREDIENT_PROFILES.es.eggs,
+        carbs: INGREDIENT_PROFILES.es.bread,
+        fat: INGREDIENT_PROFILES.es.avocado,
+      },
+    ],
+    lunch: [
+      {
+        title: "Pollo con arroz",
+        description: "Pechuga a la plancha, arroz integral y ensalada.",
+        protein: INGREDIENT_PROFILES.es.chicken,
+        carbs: INGREDIENT_PROFILES.es.rice,
+        veg: INGREDIENT_PROFILES.es.zucchini,
+      },
+      {
+        title: "Bowl mediterráneo",
+        description: "Quinoa, garbanzos, verduras y aceite de oliva.",
+        protein: INGREDIENT_PROFILES.es.chickpeas,
+        carbs: INGREDIENT_PROFILES.es.quinoa,
+        fat: INGREDIENT_PROFILES.es.oliveOil,
+        veg: INGREDIENT_PROFILES.es.zucchini,
+      },
+    ],
+    dinner: [
+      {
+        title: "Salmón con verduras",
+        description: "Salmón al horno, calabacín y patata.",
+        protein: INGREDIENT_PROFILES.es.salmon,
+        carbs: INGREDIENT_PROFILES.es.potatoes,
+        veg: INGREDIENT_PROFILES.es.zucchini,
+      },
+      {
+        title: "Salteado rápido",
+        description: "Pavo, verduras mixtas y noodles integrales.",
+        protein: INGREDIENT_PROFILES.es.turkey,
+        carbs: INGREDIENT_PROFILES.es.rice,
+        veg: INGREDIENT_PROFILES.es.zucchini,
+      },
+    ],
+    snack: [
+      {
+        title: "Snack proteico",
+        description: "Yogur griego con frutos secos.",
+        protein: INGREDIENT_PROFILES.es.yogurt,
+        fat: INGREDIENT_PROFILES.es.avocado,
+        carbs: INGREDIENT_PROFILES.es.berries,
+      },
+      {
+        title: "Batido",
+        description: "Leche, fruta y proteína en polvo.",
+        protein: INGREDIENT_PROFILES.es.milk,
+        carbs: INGREDIENT_PROFILES.es.berries,
+        fat: INGREDIENT_PROFILES.es.oliveOil,
+      },
+    ],
+  },
+  en: {
+    breakfast: [
+      {
+        title: "Oats with fruit",
+        description: "Oats, plain yogurt, berries, and seeds.",
+        protein: INGREDIENT_PROFILES.en.yogurt,
+        carbs: INGREDIENT_PROFILES.en.oats,
+        fat: INGREDIENT_PROFILES.en.oliveOil,
+        veg: INGREDIENT_PROFILES.en.berries,
+      },
+      {
+        title: "Egg toast",
+        description: "Whole-grain toast, scrambled eggs, and avocado.",
+        protein: INGREDIENT_PROFILES.en.eggs,
+        carbs: INGREDIENT_PROFILES.en.bread,
+        fat: INGREDIENT_PROFILES.en.avocado,
+      },
+    ],
+    lunch: [
+      {
+        title: "Chicken with rice",
+        description: "Grilled chicken breast, brown rice, and salad.",
+        protein: INGREDIENT_PROFILES.en.chicken,
+        carbs: INGREDIENT_PROFILES.en.rice,
+        veg: INGREDIENT_PROFILES.en.zucchini,
+      },
+      {
+        title: "Mediterranean bowl",
+        description: "Quinoa, chickpeas, veggies, and olive oil.",
+        protein: INGREDIENT_PROFILES.en.chickpeas,
+        carbs: INGREDIENT_PROFILES.en.quinoa,
+        fat: INGREDIENT_PROFILES.en.oliveOil,
+        veg: INGREDIENT_PROFILES.en.zucchini,
+      },
+    ],
+    dinner: [
+      {
+        title: "Salmon with veggies",
+        description: "Baked salmon, zucchini, and potato.",
+        protein: INGREDIENT_PROFILES.en.salmon,
+        carbs: INGREDIENT_PROFILES.en.potatoes,
+        veg: INGREDIENT_PROFILES.en.zucchini,
+      },
+      {
+        title: "Quick stir-fry",
+        description: "Turkey, mixed veggies, and whole-grain noodles.",
+        protein: INGREDIENT_PROFILES.en.turkey,
+        carbs: INGREDIENT_PROFILES.en.rice,
+        veg: INGREDIENT_PROFILES.en.zucchini,
+      },
+    ],
+    snack: [
+      {
+        title: "Protein snack",
+        description: "Greek yogurt with nuts.",
+        protein: INGREDIENT_PROFILES.en.yogurt,
+        fat: INGREDIENT_PROFILES.en.avocado,
+        carbs: INGREDIENT_PROFILES.en.berries,
+      },
+      {
+        title: "Shake",
+        description: "Milk, fruit, and protein powder.",
+        protein: INGREDIENT_PROFILES.en.milk,
+        carbs: INGREDIENT_PROFILES.en.berries,
+        fat: INGREDIENT_PROFILES.en.oliveOil,
+      },
+    ],
+  },
 };
 
-const dayLabels = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const DAY_LABELS: Record<Locale, string[]> = {
+  es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
+  en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+};
 
 function round(n: number) {
   return Math.round(n);
@@ -213,7 +307,11 @@ function buildMealIngredients(
   return ingredients;
 }
 
-function calculatePlan(form: NutritionForm): NutritionPlan {
+function calculatePlan(
+  form: NutritionForm,
+  mealTemplates: Record<string, MealTemplate[]>,
+  dayLabels: string[]
+): NutritionPlan {
   const weight = clamp(form.weightKg, 35, 250);
   const height = clamp(form.heightCm, 120, 230);
   const age = clamp(form.age, 10, 100);
@@ -285,7 +383,9 @@ function calculatePlan(form: NutritionForm): NutritionPlan {
 }
 
 export default function NutritionPlanClient() {
-  const c = copy.es;
+  const { t, locale } = useLanguage();
+  const mealTemplates = MEAL_TEMPLATES[locale];
+  const dayLabels = DAY_LABELS[locale];
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -304,7 +404,7 @@ export default function NutritionPlanClient() {
       setProfile(data);
       setSavedPlan(data.nutritionPlan ?? null);
     } catch {
-      if (activeRef.current) setError("No pudimos cargar tu perfil.");
+      if (activeRef.current) setError(t("nutrition.profileError"));
     } finally {
       if (activeRef.current) setLoading(false);
     }
@@ -320,18 +420,22 @@ export default function NutritionPlanClient() {
 
   const plan = useMemo(() => {
     if (!profile) return null;
-    return calculatePlan({
-      age: profile.age,
-      heightCm: profile.heightCm,
-      weightKg: profile.weightKg,
-      activity: profile.activity,
-      goal: profile.nutritionPreferences.goal,
-      mealsPerDay: profile.nutritionPreferences.mealsPerDay,
-      dietaryPrefs: profile.nutritionPreferences.dietaryPrefs,
-      dislikes: profile.nutritionPreferences.dislikes,
-      cookingTime: profile.nutritionPreferences.cookingTime,
-    });
-  }, [profile]);
+    return calculatePlan(
+      {
+        age: profile.age,
+        heightCm: profile.heightCm,
+        weightKg: profile.weightKg,
+        activity: profile.activity,
+        goal: profile.nutritionPreferences.goal,
+        mealsPerDay: profile.nutritionPreferences.mealsPerDay,
+        dietaryPrefs: profile.nutritionPreferences.dietaryPrefs,
+        dislikes: profile.nutritionPreferences.dislikes,
+        cookingTime: profile.nutritionPreferences.cookingTime,
+      },
+      mealTemplates,
+      dayLabels
+    );
+  }, [profile, mealTemplates, dayLabels]);
   const visiblePlan = savedPlan ?? plan;
 
   function buildShoppingList(activePlan: NutritionPlan) {
@@ -361,9 +465,9 @@ export default function NutritionPlanClient() {
       };
       const updated = await updateUserProfile({ nutritionPlan: planToSave });
       setSavedPlan(updated.nutritionPlan ?? planToSave);
-      setSaveMessage(c.nutrition.savePlanSuccess);
+      setSaveMessage(t("nutrition.savePlanSuccess"));
     } catch {
-      setSaveMessage(c.nutrition.savePlanError);
+      setSaveMessage(t("nutrition.savePlanError"));
     } finally {
       setSaving(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
@@ -398,17 +502,17 @@ export default function NutritionPlanClient() {
             | null;
           const message =
             payload?.message ??
-            "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.";
+            t("nutrition.aiRateLimit");
           throw new Error(message);
         }
-        throw new Error(c.nutrition.aiError);
+        throw new Error(t("nutrition.aiError"));
       }
       const data = (await response.json()) as NutritionPlan;
       const updated = await updateUserProfile({ nutritionPlan: data });
       setSavedPlan(updated.nutritionPlan ?? data);
-      setSaveMessage(c.nutrition.aiSuccess);
+      setSaveMessage(t("nutrition.aiSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : c.nutrition.aiError);
+      setError(err instanceof Error ? err.message : t("nutrition.aiError"));
     } finally {
       setAiLoading(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
@@ -420,22 +524,22 @@ export default function NutritionPlanClient() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.formTitle}</h2>
-            <p className="section-subtitle">{c.nutrition.tips}</p>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.formTitle")}</h2>
+            <p className="section-subtitle">{t("nutrition.tips")}</p>
           </div>
           <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
-            {c.nutrition.generate}
+            {t("nutrition.generate")}
           </button>
           <button type="button" className="btn" disabled={!plan || aiLoading} onClick={handleAiPlan}>
-            {aiLoading ? c.nutrition.aiGenerating : c.nutrition.aiGenerate}
+            {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
           </button>
           <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-            {saving ? c.nutrition.savePlanSaving : c.nutrition.savePlan}
+            {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
           </button>
         </div>
 
         {loading ? (
-          <p className="muted">Cargando preferencias...</p>
+          <p className="muted">{t("nutrition.profileLoading")}</p>
         ) : error ? (
           <p className="muted">{error}</p>
         ) : saveMessage ? (
@@ -443,30 +547,36 @@ export default function NutritionPlanClient() {
         ) : profile ? (
           <>
             <div className="badge-list">
-              <span className="badge">{c.macros.goal}: {c.macros[profile.nutritionPreferences.goal === "cut" ? "goalCut" : profile.nutritionPreferences.goal === "bulk" ? "goalBulk" : "goalMaintain"]}</span>
-              <span className="badge">{c.nutrition.mealsPerDay}: {profile.nutritionPreferences.mealsPerDay}</span>
-              <span className="badge">{c.nutrition.cookingTime}: {c.nutrition[profile.nutritionPreferences.cookingTime === "quick" ? "cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "cookingTimeOptionLong" : "cookingTimeOptionMedium"]}</span>
+              <span className="badge">
+                {t("macros.goal")}: {t(profile.nutritionPreferences.goal === "cut" ? "macros.goalCut" : profile.nutritionPreferences.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
+              </span>
+              <span className="badge">{t("nutrition.mealsPerDay")}: {profile.nutritionPreferences.mealsPerDay}</span>
+              <span className="badge">
+                {t("nutrition.cookingTime")}: {t(profile.nutritionPreferences.cookingTime === "quick" ? "nutrition.cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "nutrition.cookingTimeOptionLong" : "nutrition.cookingTimeOptionMedium")}
+              </span>
             </div>
 
             <div className="info-grid" style={{ marginTop: 16 }}>
               <div className="info-item">
-                <div className="info-label">{c.macros.weight}</div>
+                <div className="info-label">{t("macros.weight")}</div>
                 <div className="info-value">{profile.weightKg} kg</div>
               </div>
               <div className="info-item">
-                <div className="info-label">{c.macros.height}</div>
+                <div className="info-label">{t("macros.height")}</div>
                 <div className="info-value">{profile.heightCm} cm</div>
               </div>
               <div className="info-item">
-                <div className="info-label">{c.macros.activity}</div>
-                <div className="info-value">{c.macros[profile.activity === "sedentary" ? "activitySedentary" : profile.activity === "light" ? "activityLight" : profile.activity === "moderate" ? "activityModerate" : profile.activity === "very" ? "activityVery" : "activityExtra"]}</div>
+                <div className="info-label">{t("macros.activity")}</div>
+                <div className="info-value">
+                  {t(profile.activity === "sedentary" ? "macros.activitySedentary" : profile.activity === "light" ? "macros.activityLight" : profile.activity === "moderate" ? "macros.activityModerate" : profile.activity === "very" ? "macros.activityVery" : "macros.activityExtra")}
+                </div>
               </div>
               <div className="info-item">
-                <div className="info-label">{c.nutrition.dietaryPrefs}</div>
+                <div className="info-label">{t("nutrition.dietaryPrefs")}</div>
                 <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
               </div>
               <div className="info-item">
-                <div className="info-label">{c.nutrition.dislikes}</div>
+                <div className="info-label">{t("nutrition.dislikes")}</div>
                 <div className="info-value">{profile.nutritionPreferences.dislikes || "-"}</div>
               </div>
             </div>
@@ -479,29 +589,29 @@ export default function NutritionPlanClient() {
       </section>
 
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.dailyTargetTitle}</h2>
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.dailyTargetTitle")}</h2>
         <div className="info-grid" style={{ marginTop: 16 }}>
           <div className="info-item">
-            <div className="info-label">{c.nutrition.calories}</div>
+            <div className="info-label">{t("nutrition.calories")}</div>
             <div className="info-value">{visiblePlan?.dailyCalories ?? 0} kcal</div>
           </div>
           <div className="info-item">
-            <div className="info-label">{c.nutrition.protein}</div>
+            <div className="info-label">{t("nutrition.protein")}</div>
             <div className="info-value">{visiblePlan?.proteinG ?? 0} g</div>
           </div>
           <div className="info-item">
-            <div className="info-label">{c.nutrition.fat}</div>
+            <div className="info-label">{t("nutrition.fat")}</div>
             <div className="info-value">{visiblePlan?.fatG ?? 0} g</div>
           </div>
           <div className="info-item">
-            <div className="info-label">{c.nutrition.carbs}</div>
+            <div className="info-label">{t("nutrition.carbs")}</div>
             <div className="info-value">{visiblePlan?.carbsG ?? 0} g</div>
           </div>
         </div>
       </section>
 
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.weeklyPlanTitle}</h2>
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.weeklyPlanTitle")}</h2>
         <div className="list-grid" style={{ marginTop: 16 }}>
           {visiblePlan?.days.map((day) => (
             <div key={day.dayLabel} className="feature-card">
@@ -512,12 +622,12 @@ export default function NutritionPlanClient() {
                     <div style={{ fontWeight: 600 }}>{meal.title}</div>
                     <div className="muted">{meal.description}</div>
                     <div style={{ marginTop: 6 }} className="muted">
-                      {c.nutrition.ingredients}:
+                      {t("nutrition.ingredients")}:
                     </div>
                     <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
                       {meal.ingredients.map((ingredient) => (
                         <li key={ingredient.name}>
-                          {ingredient.name}: {ingredient.grams} {c.nutrition.grams}
+                          {ingredient.name}: {ingredient.grams} {t("nutrition.grams")}
                         </li>
                       ))}
                     </ul>
@@ -530,18 +640,18 @@ export default function NutritionPlanClient() {
       </section>
 
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{c.nutrition.shoppingTitle}</h2>
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.shoppingTitle")}</h2>
         <button
           type="button"
           className="btn"
           onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
           style={{ marginTop: 8 }}
         >
-          {c.nutrition.shoppingGenerate}
+          {t("nutrition.shoppingGenerate")}
         </button>
         <div style={{ marginTop: 12 }}>
           {shoppingList.length === 0 ? (
-            <p className="muted">{c.nutrition.shoppingEmpty}</p>
+            <p className="muted">{t("nutrition.shoppingEmpty")}</p>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {shoppingList.map((item) => (

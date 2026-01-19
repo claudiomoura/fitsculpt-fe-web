@@ -1,14 +1,14 @@
 import TrackingClient from "./TrackingClient";
-import { copy } from "@/lib/i18n";
+import { getServerT } from "@/lib/serverI18n";
 
-export default function TrackingPage() {
-  const c = copy.es;
+export default async function TrackingPage() {
+  const { t } = await getServerT();
 
   return (
     <div className="page">
       <section className="card">
-        <h1 className="section-title">{c.app.trackingTitle}</h1>
-        <p className="section-subtitle">{c.app.trackingSubtitle}</p>
+        <h1 className="section-title">{t("app.trackingTitle")}</h1>
+        <p className="section-subtitle">{t("app.trackingSubtitle")}</p>
       </section>
       <TrackingClient />
     </div>

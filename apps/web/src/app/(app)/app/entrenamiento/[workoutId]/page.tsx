@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import type { Workout, WorkoutExercise } from "@/lib/types";
+import { getServerT } from "@/lib/serverI18n";
 
 type WorkoutExerciseApi = WorkoutExercise & {
   muscleGroup?: string | null;
@@ -29,8 +30,7 @@ function normalizeWorkout(data: WorkoutApiResponse): Workout {
     ? data.exercises.map((exercise, index) => ({
         id: exercise.id ?? `${data.id}-${index}`,
         exerciseId: exercise.exerciseId ?? exercise.id ?? null,
-        // AQUÍ EL CAMBIO
-        name: exercise.name ?? "Ejercicio",
+        name: exercise.name ?? null,
         sets: exercise.sets ?? null,
         reps: exercise.reps ?? null,
         loadKg: exercise.loadKg ?? null,
@@ -61,24 +61,25 @@ async function fetchWorkout(workoutId: string) {
       cache: "no-store",
     });
     if (!response.ok) {
-      return { workout: null, error: "No se pudo cargar el entrenamiento." };
+      return { workout: null, error: "LOAD_ERROR" };
     }
     const data = (await response.json()) as WorkoutApiResponse;
     return { workout: normalizeWorkout(data), error: null };
   } catch {
-    return { workout: null, error: "No se pudo cargar el entrenamiento." };
+    return { workout: null, error: "LOAD_ERROR" };
   }
 }
 
 export default async function WorkoutDetailPage(props: { params: Promise<{ workoutId: string }> }) {
+  const { t, localeCode } = await getServerT();
   const { workoutId } = await props.params;
   if (!workoutId) {
     return (
       <div className="page">
         <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">No se encontró este entreno.</p>
+          <p className="muted">{t("workoutDetail.notFound")}</p>
           <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/entrenamientos">
-            Volver a los entrenos
+            {t("workoutDetail.backToWorkouts")}
           </Link>
         </section>
       </div>
@@ -87,12 +88,13 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
 
   const { workout, error } = await fetchWorkout(workoutId);
   if (error || !workout) {
+    const message = error ? t("workoutDetail.loadError") : t("workoutDetail.notFound");
     return (
       <div className="page">
         <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">{error ?? "No se encontró este entreno."}</p>
+          <p className="muted">{message}</p>
           <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/entrenamientos">
-            Volver a los entrenos
+            {t("workoutDetail.backToWorkouts")}
           </Link>
         </section>
       </div>
@@ -119,12 +121,12 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
   const dayLabel =
     workout.dayLabel ??
     workout.split ??
-    (scheduledDate ? scheduledDate.toLocaleDateString("es-ES", { weekday: "long" }) : null);
+    (scheduledDate ? scheduledDate.toLocaleDateString(localeCode, { weekday: "long" }) : null);
 
   const badges = [
-    dayLabel ? `Día: ${dayLabel}` : null,
-    workout.goal ? `Objetivo: ${workout.goal}` : null,
-    workout.experienceLevel ? `Nivel: ${workout.experienceLevel}` : null,
+    dayLabel ? `${t("workoutDetail.dayLabel")}: ${dayLabel}` : null,
+    workout.goal ? `${t("workoutDetail.goalLabel")}: ${workout.goal}` : null,
+    workout.experienceLevel ? `${t("workoutDetail.levelLabel")}: ${workout.experienceLevel}` : null,
   ].filter(Boolean);
 
   return (
@@ -133,7 +135,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         <div className="form-stack">
           <h1 className="section-title">{workout.name}</h1>
           <p className="section-subtitle">
-            {workout.notes ?? "Resumen del entreno con foco en ejecución y progresión."}
+            {workout.notes ?? t("workoutDetail.notesFallback")}
           </p>
         </div>
 
@@ -149,34 +151,34 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
 
         {workout.targetMuscles && workout.targetMuscles.length > 0 ? (
           <p className="muted" style={{ marginTop: 8 }}>
-            Músculos objetivo: {workout.targetMuscles.join(", ")}
+            {t("workoutDetail.targetMuscles")}: {workout.targetMuscles.join(", ")}
           </p>
         ) : null}
 
         <div className="list-grid" style={{ marginTop: 16 }}>
           <div className="feature-card">
-            <h3>Resumen</h3>
+            <h3>{t("workoutDetail.summaryTitle")}</h3>
             <p className="muted" style={{ marginTop: 8 }}>
-              Ejercicios: {totalExercises}
+              {t("workoutDetail.exercisesLabel")}: {totalExercises}
             </p>
-            <p className="muted">Series totales: {totalSets || "Sin calcular"}</p>
+            <p className="muted">{t("workoutDetail.setsTotal")}: {totalSets || t("workoutDetail.setsFallback")}</p>
             <p className="muted">
-              Volumen estimado: {hasVolume ? `${totalVolume} reps` : "Sin estimar"}
+              {t("workoutDetail.volumeEstimated")}: {hasVolume ? `${totalVolume} ${t("workoutDetail.reps")}` : t("workoutDetail.volumeMissing")}
             </p>
           </div>
           <div className="feature-card">
-            <h3>Objetivo</h3>
+            <h3>{t("workoutDetail.goalTitle")}</h3>
             <p className="muted" style={{ marginTop: 8 }}>
-              {workout.goal ?? "Sin definir"}
+              {workout.goal ?? t("workoutDetail.goalMissing")}
             </p>
-            <p className="muted">Split: {workout.split ?? "Planificación libre"}</p>
+            <p className="muted">{t("workoutDetail.splitLabel")}: {workout.split ?? t("workoutDetail.splitFallback")}</p>
           </div>
           <div className="feature-card">
-            <h3>Duración</h3>
+            <h3>{t("workoutDetail.durationTitle")}</h3>
             <p className="muted" style={{ marginTop: 8 }}>
-              Estimada: {workout.estimatedDurationMin ?? workout.durationMin ?? "Sin estimar"} min
+              {t("workoutDetail.durationEstimate")}: {workout.estimatedDurationMin ?? workout.durationMin ?? t("workoutDetail.volumeMissing")} {t("training.minutesLabel")}
             </p>
-            <p className="muted">Preparación: movilidad, cargas progresivas.</p>
+            <p className="muted">{t("workoutDetail.durationPrep")}</p>
           </div>
         </div>
       </section>
@@ -185,17 +187,17 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         <div className="section-head">
           <div>
             <h2 className="section-title" style={{ fontSize: 20 }}>
-              Ejercicios
+              {t("workoutDetail.exerciseSectionTitle")}
             </h2>
             <p className="section-subtitle">
-              Orden y parámetros al estilo FitnessAI para ejecutar cada bloque.
+              {t("workoutDetail.exerciseSectionSubtitle")}
             </p>
           </div>
         </div>
 
         {exercises.length === 0 ? (
           <p className="muted" style={{ marginTop: 12 }}>
-            Este entreno aún no tiene ejercicios asociados.
+            {t("workoutDetail.exerciseEmpty")}
           </p>
         ) : (
           <div className="list-grid" style={{ marginTop: 16 }}>
@@ -209,20 +211,20 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
                   : exercise.rpe !== null && exercise.rpe !== undefined
                     ? `RPE ${exercise.rpe}`
                     : null;
-              const restLabel = exercise.restSeconds ? `Descanso ${exercise.restSeconds} s` : null;
+              const restLabel = exercise.restSeconds ? `${t("workoutDetail.restLabel")} ${exercise.restSeconds} s` : null;
 
               return (
                 <div key={exerciseKey} className="feature-card">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <strong>{exercise.name}</strong>
-                    <span className="muted">#{index + 1}</span>
+                    <strong>{exercise.name ?? t("workoutDetail.exerciseFallback")}</strong>
+                    <span className="muted">{t("workoutDetail.exerciseIndex")}{index + 1}</span>
                   </div>
                   <p className="muted" style={{ marginTop: 8 }}>
                     {setsLabel} x {repsLabel}
                   </p>
                   <div className="badge-list" style={{ marginTop: 8 }}>
                     <span className="badge">
-                      {exercise.primaryMuscle ? `Grupo: ${exercise.primaryMuscle}` : "Grupo por definir"}
+                      {exercise.primaryMuscle ? `${t("workoutDetail.exerciseGroup")}: ${exercise.primaryMuscle}` : t("workoutDetail.exerciseGroupFallback")}
                     </span>
                     {intensityLabel ? <span className="badge">{intensityLabel}</span> : null}
                     {restLabel ? <span className="badge">{restLabel}</span> : null}
@@ -237,7 +239,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
 
       <div style={{ maxWidth: 960, margin: "16px auto 0" }}>
         <Link className="btn" href="/app/entrenamientos">
-          Volver a los entrenos
+          {t("workoutDetail.backToWorkouts")}
         </Link>
       </div>
     </div>

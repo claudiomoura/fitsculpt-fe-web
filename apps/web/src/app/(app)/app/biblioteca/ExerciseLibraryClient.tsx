@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise } from "@/lib/types";
 
 type ExerciseResponse = {
@@ -17,6 +18,7 @@ function getExerciseMuscles(exercise: Exercise) {
 }
 
 export default function ExerciseLibraryClient() {
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const [equipmentFilter, setEquipmentFilter] = useState("all");
   const [muscleFilter, setMuscleFilter] = useState("all");
@@ -40,7 +42,7 @@ export default function ExerciseLibraryClient() {
           signal: controller.signal,
         });
         if (!response.ok) {
-          setError("No se pudieron cargar los ejercicios.");
+          setError(t("library.loadErrorList"));
           setExercises([]);
           setLoading(false);
           return;
@@ -50,7 +52,7 @@ export default function ExerciseLibraryClient() {
         setLoading(false);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setError("No se pudieron cargar los ejercicios.");
+        setError(t("library.loadErrorList"));
         setExercises([]);
         setLoading(false);
       }
@@ -58,7 +60,7 @@ export default function ExerciseLibraryClient() {
 
     void loadExercises();
     return () => controller.abort();
-  }, [equipmentFilter, muscleFilter, query]);
+  }, [equipmentFilter, muscleFilter, query, t]);
 
   const equipmentOptions = useMemo(() => {
     const options = Array.from(new Set(exercises.map((ex) => ex.equipment).filter(Boolean)));
@@ -77,24 +79,24 @@ export default function ExerciseLibraryClient() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por ejercicio o músculo"
+          placeholder={t("library.searchPlaceholder")}
         />
         <label className="form-stack">
-          Equipamiento
+          {t("library.equipmentFilterLabel")}
           <select value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)}>
             {equipmentOptions.map((option) => (
               <option key={option ?? "all"} value={option ?? "all"}>
-                {option === "all" ? "Todos" : option}
+                {option === "all" ? t("library.allOption") : option}
               </option>
             ))}
           </select>
         </label>
         <label className="form-stack">
-          Grupo muscular
+          {t("library.muscleFilterLabel")}
           <select value={muscleFilter} onChange={(e) => setMuscleFilter(e.target.value)}>
             {muscleOptions.map((option) => (
               <option key={option} value={option}>
-                {option === "all" ? "Todos" : option}
+                {option === "all" ? t("library.allOption") : option}
               </option>
             ))}
           </select>
@@ -103,7 +105,7 @@ export default function ExerciseLibraryClient() {
 
       {loading ? (
         <p className="muted" style={{ marginTop: 16 }}>
-          Cargando ejercicios...
+          {t("library.loading")}
         </p>
       ) : error ? (
         <p className="muted" style={{ marginTop: 16 }}>
@@ -111,7 +113,7 @@ export default function ExerciseLibraryClient() {
         </p>
       ) : exercises.length === 0 ? (
         <p className="muted" style={{ marginTop: 16 }}>
-          Aún no hay ejercicios registrados. Genera un plan de entrenamiento con IA para poblar la biblioteca.
+          {t("library.empty")}
         </p>
       ) : (
         <div className="list-grid" style={{ marginTop: 16 }}>
@@ -129,11 +131,11 @@ export default function ExerciseLibraryClient() {
                       </span>
                     ))
                   ) : (
-                    <span className="badge">Sin datos musculares</span>
+                    <span className="badge">{t("library.noMuscleData")}</span>
                   )}
                 </div>
-                <p className="muted">Equipamiento: {exercise.equipment ?? "Sin especificar"}</p>
-                <p className="muted">{exercise.description ?? "Sin descripción disponible."}</p>
+                <p className="muted">{t("library.equipmentLabel")}: {exercise.equipment ?? t("library.equipmentFallback")}</p>
+                <p className="muted">{exercise.description ?? t("library.descriptionFallback")}</p>
               </>
             );
 

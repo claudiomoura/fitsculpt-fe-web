@@ -1,11 +1,11 @@
-import { copy } from "@/lib/i18n";
+import { getServerT } from "@/lib/serverI18n";
 
-export default function SettingsPage() {
-  const c = copy.es;
+export default async function SettingsPage() {
+  const { t } = await getServerT();
   return (
-    <section>
-      <h1>{c.app.settingsTitle}</h1>
-      <p>{c.app.settingsSubtitle}</p>
+    <section className="card">
+      <h1 className="section-title">{t("app.settingsTitle")}</h1>
+      <p className="section-subtitle">{t("app.settingsSubtitle")}</p>
     </section>
   );
 }

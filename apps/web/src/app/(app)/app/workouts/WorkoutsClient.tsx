@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
 import type { Workout } from "@/lib/types";
 
 type WorkoutListItem = {
@@ -26,7 +26,7 @@ type SessionLog = {
 const SESSION_STORAGE_KEY = "fs_session_logs_v1";
 
 export default function WorkoutsClient() {
-  const c = copy.es.workouts;
+  const { t } = useLanguage();
   const [workouts, setWorkouts] = useState<WorkoutListItem[]>([]);
   const [name, setName] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -69,11 +69,11 @@ export default function WorkoutsClient() {
       }));
       setWorkouts(mapped);
     } catch {
-      setError("No pudimos cargar tus entrenamientos.");
+      setError(t("workouts.loadError"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadWorkouts();
@@ -181,7 +181,7 @@ export default function WorkoutsClient() {
     });
 
     if (!response.ok) {
-      setError("No pudimos guardar el entrenamiento.");
+      setError(t("workouts.saveError"));
       return;
     }
 
@@ -217,7 +217,7 @@ export default function WorkoutsClient() {
     });
 
     if (!response.ok) {
-      setError("No pudimos actualizar el entrenamiento.");
+      setError(t("workouts.updateError"));
       return;
     }
 
@@ -226,12 +226,12 @@ export default function WorkoutsClient() {
   }
 
   async function remove(id: string) {
-    const ok = window.confirm(c.confirmDelete);
+    const ok = window.confirm(t("workouts.confirmDelete"));
     if (!ok) return;
 
     const response = await fetch(`/api/workouts/${id}` as string, { method: "DELETE" });
     if (!response.ok) {
-      setError("No pudimos eliminar el entrenamiento.");
+      setError(t("workouts.deleteError"));
       return;
     }
     await loadWorkouts();
@@ -263,7 +263,7 @@ export default function WorkoutsClient() {
     <div className="page">
       <section className="card">
         <h2 className="section-title" style={{ fontSize: 20 }}>
-          {isEditing ? c.editWorkout : c.newWorkout}
+          {isEditing ? t("workouts.editWorkout") : t("workouts.newWorkout")}
         </h2>
 
         <form
@@ -272,7 +272,7 @@ export default function WorkoutsClient() {
           style={{ marginTop: 12 }}
         >
           <label className="form-stack">
-            {c.name}
+            {t("workouts.name")}
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -283,7 +283,7 @@ export default function WorkoutsClient() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <label className="form-stack">
-              {c.date}
+              {t("workouts.date")}
               <input
                 type="date"
                 value={date}
@@ -293,7 +293,7 @@ export default function WorkoutsClient() {
             </label>
 
             <label className="form-stack">
-              {c.duration}
+              {t("workouts.duration")}
               <input
                 type="number"
                 min={0}
@@ -305,7 +305,7 @@ export default function WorkoutsClient() {
           </div>
 
           <label className="form-stack">
-            {c.notes}
+            {t("workouts.notes")}
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -315,11 +315,11 @@ export default function WorkoutsClient() {
           </label>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <button type="submit" className="btn">{isEditing ? c.save : c.add}</button>
+            <button type="submit" className="btn">{isEditing ? t("workouts.save") : t("workouts.add")}</button>
 
             {isEditing && (
               <button type="button" className="btn secondary" onClick={resetForm}>
-                {c.cancel}
+                {t("workouts.cancel")}
               </button>
             )}
 
@@ -332,7 +332,7 @@ export default function WorkoutsClient() {
 
       <section className="card">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 className="section-title" style={{ fontSize: 20 }}>{c.list}</h2>
+          <h2 className="section-title" style={{ fontSize: 20 }}>{t("workouts.list")}</h2>
           <span className="muted">
             ({visibleWorkouts.length} de {workouts.length})
           </span>
@@ -342,12 +342,12 @@ export default function WorkoutsClient() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={c.searchPlaceholder}
+            placeholder={t("workouts.searchPlaceholder")}
           />
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
             <label className="form-stack">
-              {c.from}
+              {t("workouts.from")}
               <input
                 type="date"
                 value={fromDate}
@@ -356,7 +356,7 @@ export default function WorkoutsClient() {
             </label>
 
             <label className="form-stack">
-              {c.to}
+              {t("workouts.to")}
               <input
                 type="date"
                 value={toDate}
@@ -365,12 +365,12 @@ export default function WorkoutsClient() {
             </label>
 
             <label className="form-stack">
-              {c.sort}
+              {t("workouts.sort")}
               <select value={sort} onChange={(e) => setSort(e.target.value as never)}>
-                <option value="date_desc">{c.sortNewest}</option>
-                <option value="date_asc">{c.sortOldest}</option>
-                <option value="duration_desc">{c.sortDurationDesc}</option>
-                <option value="duration_asc">{c.sortDurationAsc}</option>
+                <option value="date_desc">{t("workouts.sortNewest")}</option>
+                <option value="date_asc">{t("workouts.sortOldest")}</option>
+                <option value="duration_desc">{t("workouts.sortDurationDesc")}</option>
+                <option value="duration_asc">{t("workouts.sortDurationAsc")}</option>
               </select>
             </label>
           </div>
@@ -386,16 +386,16 @@ export default function WorkoutsClient() {
                 setSort("date_desc");
               }}
             >
-              {c.clearFilters}
+              {t("workouts.clearFilters")}
             </button>
           </div>
         </div>
 
         {loading ? (
-          <p style={{ marginTop: 12 }} className="muted">Cargando entrenamientos...</p>
+          <p style={{ marginTop: 12 }} className="muted">{t("workouts.loading")}</p>
         ) : workouts.length === 0 ? (
           <p style={{ marginTop: 12 }} className="muted">
-            {c.empty}
+            {t("workouts.empty")}
           </p>
         ) : (
           <ul
@@ -411,7 +411,7 @@ export default function WorkoutsClient() {
               <li
                 key={w.id}
                 style={{
-                  border: "1px solid #ededed",
+                  border: "1px solid var(--border)",
                   borderRadius: 12,
                   padding: 12,
                   display: "grid",
@@ -429,13 +429,13 @@ export default function WorkoutsClient() {
 
                 <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
                   <Link className="btn secondary" href={`/app/entrenamiento/${w.id}`}>
-                    Ver detalle
+                    {t("workouts.viewDetail")}
                   </Link>
                   <button type="button" className="btn secondary" onClick={() => startEdit(w)}>
-                    {c.edit}
+                    {t("workouts.edit")}
                   </button>
                   <button type="button" className="btn secondary" onClick={() => remove(w.id)}>
-                    {c.delete}
+                    {t("workouts.delete")}
                   </button>
                 </div>
               </li>
@@ -447,43 +447,47 @@ export default function WorkoutsClient() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>Registro por sesión</h2>
-            <p className="section-subtitle">Trackea series, repeticiones y carga por ejercicio.</p>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("workouts.sessionTitle")}</h2>
+            <p className="section-subtitle">{t("workouts.sessionSubtitle")}</p>
           </div>
         </div>
         <form onSubmit={addSessionEntry} className="form-stack">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <label className="form-stack">
-              Fecha
+              {t("workouts.sessionDate")}
               <input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
             </label>
             <label className="form-stack">
-              Ejercicio
-              <input value={sessionExercise} onChange={(e) => setSessionExercise(e.target.value)} placeholder="Ej: Sentadilla" />
+              {t("workouts.sessionExercise")}
+              <input
+                value={sessionExercise}
+                onChange={(e) => setSessionExercise(e.target.value)}
+                placeholder={t("workouts.sessionExercisePlaceholder")}
+              />
             </label>
             <label className="form-stack">
-              Series
+              {t("workouts.sessionSets")}
               <input type="number" min={1} value={sessionSets} onChange={(e) => setSessionSets(Number(e.target.value))} />
             </label>
             <label className="form-stack">
-              Reps
+              {t("workouts.sessionReps")}
               <input type="number" min={1} value={sessionReps} onChange={(e) => setSessionReps(Number(e.target.value))} />
             </label>
             <label className="form-stack">
-              Carga (kg)
+              {t("workouts.sessionLoad")}
               <input type="number" min={0} value={sessionLoad} onChange={(e) => setSessionLoad(Number(e.target.value))} />
             </label>
             <label className="form-stack">
-              RPE
+              {t("workouts.sessionRpe")}
               <input type="number" min={1} max={10} value={sessionRpe} onChange={(e) => setSessionRpe(Number(e.target.value))} />
             </label>
           </div>
-          <button type="submit" className="btn" style={{ width: "fit-content" }}>Agregar sesión</button>
+          <button type="submit" className="btn" style={{ width: "fit-content" }}>{t("workouts.sessionAdd")}</button>
         </form>
 
         <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
           {Object.keys(sessionsByDate).length === 0 ? (
-            <p className="muted">Aún no hay sesiones registradas.</p>
+            <p className="muted">{t("workouts.sessionEmpty")}</p>
           ) : (
             Object.entries(sessionsByDate).map(([day, entries]) => (
               <div key={day} className="feature-card">
@@ -502,17 +506,17 @@ export default function WorkoutsClient() {
       </section>
 
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>Progresión por ejercicio</h2>
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("workouts.progressTitle")}</h2>
         <div className="list-grid" style={{ marginTop: 16 }}>
           {progressionByExercise.length === 0 ? (
-            <p className="muted">Registra sesiones para ver progresiones.</p>
+            <p className="muted">{t("workouts.progressEmpty")}</p>
           ) : (
             progressionByExercise.map(({ exercise, latest, delta }) => (
               <div key={exercise} className="feature-card">
                 <strong>{exercise}</strong>
-                <div className="muted">Última sesión: {latest.sets}x{latest.reps} · {latest.loadKg}kg</div>
+                <div className="muted">{t("workouts.progressLatest")}: {latest.sets}x{latest.reps} · {latest.loadKg}kg</div>
                 <div style={{ marginTop: 6 }}>
-                  {delta === 0 ? "Sin cambio" : delta > 0 ? `+${delta} kg` : `${delta} kg`} vs sesión anterior
+                  {(delta === 0 ? t("workouts.progressDeltaSame") : delta > 0 ? `+${delta} kg` : `${delta} kg`)} {t("workouts.progressDeltaSuffix")}
                 </div>
               </div>
             ))

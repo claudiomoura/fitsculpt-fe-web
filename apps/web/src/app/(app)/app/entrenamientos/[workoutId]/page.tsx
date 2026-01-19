@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import type { Workout, WorkoutExercise } from "@/lib/types";
+import { getServerT } from "@/lib/serverI18n";
 
 async function getAppUrl() {
   const headerList = headers();
@@ -35,24 +36,25 @@ async function fetchWorkout(workoutId: string) {
       cache: "no-store",
     });
     if (!response.ok) {
-      return { workout: null, error: "No se pudo cargar el entrenamiento." };
+      return { workout: null, error: "LOAD_ERROR" };
     }
     const data = (await response.json()) as Workout;
     return { workout: data, error: null };
   } catch {
-    return { workout: null, error: "No se pudo cargar el entrenamiento." };
+    return { workout: null, error: "LOAD_ERROR" };
   }
 }
 
 export default async function WorkoutDetailPage(props: { params: Promise<{ workoutId: string }> }) {
+  const { t, localeCode } = await getServerT();
   const { workoutId } = await props.params;
   if (!workoutId) {
     return (
       <div className="page">
         <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">No se pudo cargar el entrenamiento.</p>
+          <p className="muted">{t("workoutDetail.loadError")}</p>
           <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/entrenamientos">
-            Volver a entrenamientos
+            {t("workoutDetail.backToWorkouts")}
           </Link>
         </section>
       </div>
@@ -61,12 +63,13 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
 
   const { workout, error } = await fetchWorkout(workoutId);
   if (error || !workout) {
+    const message = error ? t("workoutDetail.loadError") : t("workoutDetail.notFound");
     return (
       <div className="page">
         <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">{error ?? "No se pudo cargar el entrenamiento."}</p>
+          <p className="muted">{message}</p>
           <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/entrenamientos">
-            Volver a entrenamientos
+            {t("workoutDetail.backToWorkouts")}
           </Link>
         </section>
       </div>
@@ -83,14 +86,14 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
     }, 0);
   const focusText = workout.focus ?? workout.goal ?? null;
   const summaryParts = [
-    focusText ? `Hoy toca ${focusText}` : "Hoy toca trabajo planificado",
-    totalExercises > 0 ? `${totalExercises} ejercicios` : null,
-    totalSets ? `volumen total aproximado ${totalSets} series` : null,
+    focusText ? `${t("workoutDetail.todayFocus")} ${focusText}` : t("workoutDetail.todayPlanned"),
+    totalExercises > 0 ? `${totalExercises} ${t("workoutDetail.exercisesLabel").toLowerCase()}` : null,
+    totalSets ? `${t("workoutDetail.volumeTotal")} ${totalSets} ${t("workoutDetail.setsLabel")}` : null,
   ].filter(Boolean);
 
   const scheduledDate = workout.scheduledAt ? new Date(workout.scheduledAt) : null;
   const dayLabel = scheduledDate
-    ? scheduledDate.toLocaleDateString("es-ES", { weekday: "long" })
+    ? scheduledDate.toLocaleDateString(localeCode, { weekday: "long" })
     : workout.dayLabel ?? null;
 
   return (
@@ -103,27 +106,27 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
 
         <div className="list-grid" style={{ marginTop: 16 }}>
           <div className="feature-card">
-            <h3>Meta</h3>
+            <h3>{t("workoutDetail.goalTitle")}</h3>
             <p className="muted" style={{ marginTop: 8 }}>
-              Objetivo: {workout.goal ?? workout.focus ?? "Sin definir"}
+              {t("workoutDetail.goalLabel")}: {workout.goal ?? workout.focus ?? t("workoutDetail.goalMissing")}
             </p>
             <p className="muted">
-              Día: {dayLabel ?? "Sin asignar"}
+              {t("workoutDetail.dayLabel")}: {dayLabel ?? t("workoutDetail.dayFallback")}
             </p>
           </div>
           <div className="feature-card">
-            <h3>Volumen</h3>
+            <h3>{t("workoutDetail.volumeTitle")}</h3>
             <p className="muted" style={{ marginTop: 8 }}>
-              Ejercicios: {totalExercises || "0"}
+              {t("workoutDetail.exercisesLabel")}: {totalExercises || "0"}
             </p>
-            <p className="muted">Series: {totalSets || "Sin calcular"}</p>
+            <p className="muted">{t("workoutDetail.setsLabel")}: {totalSets || t("workoutDetail.setsFallback")}</p>
           </div>
           <div className="feature-card">
-            <h3>Duración</h3>
+            <h3>{t("workoutDetail.durationTitle")}</h3>
             <p className="muted" style={{ marginTop: 8 }}>
-              Estimada: {workout.estimatedDurationMin ?? workout.durationMin ?? "Sin estimar"} min
+              {t("workoutDetail.durationEstimate")}: {workout.estimatedDurationMin ?? workout.durationMin ?? t("workoutDetail.volumeMissing")} {t("training.minutesLabel")}
             </p>
-            <p className="muted">Notas: {workout.notes ?? "Sin notas adicionales."}</p>
+            <p className="muted">{t("workoutDetail.notesLabel")}: {workout.notes ?? t("workoutDetail.notesEmpty")}</p>
           </div>
         </div>
       </section>
@@ -131,48 +134,48 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
       <section className="card" style={{ maxWidth: 960, margin: "16px auto 0" }}>
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>Ejercicios</h2>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("workoutDetail.exerciseSectionTitle")}</h2>
             <p className="section-subtitle">
-              Orden y parámetros del entreno con foco en rendimiento.
+              {t("workoutDetail.exerciseSectionSubtitleAlt")}
             </p>
           </div>
         </div>
 
         {exercises.length === 0 ? (
           <p className="muted" style={{ marginTop: 12 }}>
-            Este entreno aún no tiene ejercicios asociados.
+            {t("workoutDetail.exerciseEmpty")}
           </p>
         ) : (
           <div className="list-grid" style={{ marginTop: 16 }}>
             {exercises.map((exercise, index) => {
               const exerciseId = exercise.exerciseId ?? exercise.id ?? null;
-              const reps = exercise.reps ?? "Sin rango";
-              const sets = exercise.sets ?? "Sin series";
+              const reps = exercise.reps ?? t("workoutDetail.repsFallback");
+              const sets = exercise.sets ?? t("workoutDetail.setsFallback");
               const load = formatLoad(exercise.loadKg);
               return (
                 <div key={`${exercise.name}-${index}`} className="feature-card">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <strong>{exercise.name}</strong>
-                    <span className="muted">#{index + 1}</span>
+                    <strong>{exercise.name ?? t("workoutDetail.exerciseFallback")}</strong>
+                    <span className="muted">{t("workoutDetail.exerciseIndex")}{index + 1}</span>
                   </div>
                   <p className="muted" style={{ marginTop: 8 }}>
                     {sets} x {reps}
                     {load ? ` · ${load}` : ""}
                   </p>
                   <p className="muted">
-                    RPE objetivo: {exercise.rpe ?? "Sin dato"} · Descanso:{" "}
-                    {exercise.restSeconds ? `${exercise.restSeconds} s` : "Sin dato"}
+                    {t("workoutDetail.rpeTarget")}: {exercise.rpe ?? t("workoutDetail.metricFallback")} · {t("workoutDetail.restLabel")}:{" "}
+                    {exercise.restSeconds ? `${exercise.restSeconds} s` : t("workoutDetail.metricFallback")}
                   </p>
                   {exercise.lastLog ? (
                     <p className="muted">
-                      Último registro: {exercise.lastLog.loadKg ?? "—"} kg ·{" "}
-                      {exercise.lastLog.reps ?? "—"} reps
+                      {t("workoutDetail.lastLog")}: {exercise.lastLog.loadKg ?? "—"} kg ·{" "}
+                      {exercise.lastLog.reps ?? "—"} {t("workoutDetail.reps")}
                     </p>
                   ) : null}
                   {exercise.notes ? <p className="muted">{exercise.notes}</p> : null}
                   {exerciseId ? (
                     <Link className="btn secondary" style={{ marginTop: 10 }} href={`/app/biblioteca/${exerciseId}`}>
-                      Ver detalles del ejercicio
+                      {t("workoutDetail.exerciseLink")}
                     </Link>
                   ) : null}
                 </div>
