@@ -57,7 +57,7 @@ function buildState(profile: ProfileData): MacroState {
     heightCm: profile.heightCm,
     weightKg: profile.weightKg,
     activity: profile.activity,
-    goal: profile.nutritionPreferences.goal,
+    goal: profile.goal,
     mealsPerDay: profile.nutritionPreferences.mealsPerDay,
     formula: profile.macroPreferences.formula,
     bodyFatPercent: profile.measurements.bodyFatPercent,

@@ -6,9 +6,12 @@ import type { Locale } from "@/lib/i18n";
 import {
   type Activity,
   type Goal,
+  type MealDistribution,
+  type NutritionDietType,
   type NutritionCookingTime,
   type ProfileData,
   type NutritionPlanData,
+  type FoodAllergy,
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 
@@ -19,9 +22,13 @@ type NutritionForm = {
   activity: Activity;
   goal: Goal;
   mealsPerDay: 1 | 2 | 3 | 4 | 5 | 6;
+  dietType: NutritionDietType;
+  allergies: FoodAllergy[];
+  preferredFoods: string;
+  dislikedFoods: string;
   dietaryPrefs: string;
-  dislikes: string;
   cookingTime: NutritionCookingTime;
+  mealDistribution: MealDistribution;
 };
 
 type Meal = {
@@ -243,9 +250,29 @@ const MEAL_TEMPLATES: Record<Locale, Record<string, MealTemplate[]>> = {
   },
 };
 
-const DAY_LABELS: Record<Locale, string[]> = {
+export const DAY_LABELS: Record<Locale, string[]> = {
   es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
   en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+};
+
+const ALLERGY_KEYWORDS: Record<FoodAllergy, string[]> = {
+  gluten: ["pan", "bread", "avena", "oats"],
+  lactose: ["leche", "milk", "yogur", "yogurt"],
+  nuts: ["nueces", "nuts", "almendras", "peanuts"],
+  shellfish: ["mariscos", "shrimp", "shellfish"],
+  egg: ["huevo", "eggs"],
+  soy: ["soja", "soy", "tofu"],
+};
+
+const DIET_EXCLUSIONS: Record<NutritionDietType, string[]> = {
+  balanced: [],
+  mediterranean: [],
+  keto: ["pan", "bread", "arroz", "rice", "avena", "oats", "quinoa", "patata", "potato"],
+  vegetarian: ["pollo", "chicken", "pavo", "turkey", "salmón", "salmon"],
+  vegan: ["pollo", "chicken", "pavo", "turkey", "salmón", "salmon", "huevo", "eggs", "leche", "milk", "yogur", "yogurt"],
+  pescatarian: ["pollo", "chicken", "pavo", "turkey"],
+  paleo: ["pan", "bread", "avena", "oats", "arroz", "rice", "quinoa", "lentejas", "legumbre", "legume"],
+  flexible: [],
 };
 
 function round(n: number) {
@@ -274,6 +301,67 @@ function activityMultiplier(activity: Activity) {
 function gramsForMacro(target: number, macroPer100: number) {
   if (macroPer100 <= 0) return 0;
   return Math.max(0, Math.round((target / macroPer100) * 100));
+}
+
+function matchesRestrictedKeywords(text: string, keywords: string[]) {
+  const normalized = text.toLowerCase();
+  return keywords.some((keyword) => normalized.includes(keyword));
+}
+
+function filterMealTemplates(
+  templates: MealTemplate[],
+  form: NutritionForm
+) {
+  const restrictions = [
+    ...form.allergies.flatMap((allergy) => ALLERGY_KEYWORDS[allergy] ?? []),
+    ...DIET_EXCLUSIONS[form.dietType],
+    ...form.dislikedFoods
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  ];
+  if (restrictions.length === 0) return templates;
+  const filtered = templates.filter((template) => {
+    const haystack = [
+      template.title,
+      template.description,
+      template.protein.name,
+      template.carbs?.name,
+      template.fat?.name,
+      template.veg?.name,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return !matchesRestrictedKeywords(haystack, restrictions);
+  });
+  const available = filtered.length > 0 ? filtered : templates;
+  const preferred = form.preferredFoods
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (preferred.length === 0) return available;
+  return [...available].sort((a, b) => {
+    const aText = `${a.title} ${a.description}`.toLowerCase();
+    const bText = `${b.title} ${b.description}`.toLowerCase();
+    const aScore = preferred.reduce((acc, keyword) => acc + (aText.includes(keyword.toLowerCase()) ? 1 : 0), 0);
+    const bScore = preferred.reduce((acc, keyword) => acc + (bText.includes(keyword.toLowerCase()) ? 1 : 0), 0);
+    return bScore - aScore;
+  });
+}
+
+function buildMealDistributionWeights(
+  mealSlots: string[],
+  mealDistribution: MealDistribution
+) {
+  const baseWeights: Record<MealDistribution, Record<string, number>> = {
+    balanced: { breakfast: 1, lunch: 1, dinner: 1, snack: 1 },
+    lightDinner: { breakfast: 1.1, lunch: 1.2, dinner: 0.7, snack: 0.6 },
+    bigBreakfast: { breakfast: 1.4, lunch: 1, dinner: 0.8, snack: 0.6 },
+    bigLunch: { breakfast: 1, lunch: 1.4, dinner: 0.8, snack: 0.6 },
+  };
+  const weights = mealSlots.map((slot) => baseWeights[mealDistribution][slot] ?? 1);
+  const total = weights.reduce((acc, value) => acc + value, 0) || 1;
+  return weights.map((value) => value / total);
 }
 
 function buildMealIngredients(
@@ -342,17 +430,16 @@ function calculatePlan(
               ? ["breakfast", "snack", "lunch", "snack", "dinner"]
               : ["breakfast", "snack", "lunch", "snack", "dinner", "snack"];
 
-  const perMealProtein = proteinG / form.mealsPerDay;
-  const perMealCarbs = carbsG / form.mealsPerDay;
-  const perMealFat = fatG / form.mealsPerDay;
+  const distributionWeights = buildMealDistributionWeights(mealsOrder, form.mealDistribution);
 
   const days = dayLabels.map((label, dayIndex) => {
     const meals = mealsOrder.map((slot, slotIndex) => {
-      const options = mealTemplates[slot];
+      const options = filterMealTemplates(mealTemplates[slot], form);
       const option = options[(dayIndex + slotIndex) % options.length];
-      const mealProtein = perMealProtein;
-      const mealCarbs = perMealCarbs;
-      const mealFat = perMealFat;
+      const weight = distributionWeights[slotIndex] ?? 1 / mealsOrder.length;
+      const mealProtein = proteinG * weight;
+      const mealCarbs = carbsG * weight;
+      const mealFat = fatG * weight;
       return {
         type: slot as Meal["type"],
         title: `${slotIndex + 1}. ${option.title}`,
@@ -363,7 +450,7 @@ function calculatePlan(
           carbs: round(mealCarbs),
           fats: round(mealFat),
         },
-        ingredients: buildMealIngredients(option, perMealProtein, perMealCarbs, perMealFat),
+        ingredients: buildMealIngredients(option, mealProtein, mealCarbs, mealFat),
       };
     });
 
@@ -380,6 +467,22 @@ function calculatePlan(
     carbsG: round(carbsG),
     days,
   };
+}
+
+export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: string[]): NutritionPlan | null {
+  if (!plan) return null;
+  if (plan.days.length >= dayLabels.length) return plan;
+  const nextDays = [...plan.days];
+  let index = 0;
+  while (nextDays.length < dayLabels.length) {
+    const source = plan.days[index % plan.days.length];
+    nextDays.push({
+      ...source,
+      dayLabel: dayLabels[nextDays.length] ?? source.dayLabel,
+    });
+    index += 1;
+  }
+  return { ...plan, days: nextDays };
 }
 
 export default function NutritionPlanClient() {
@@ -426,17 +529,24 @@ export default function NutritionPlanClient() {
         heightCm: profile.heightCm,
         weightKg: profile.weightKg,
         activity: profile.activity,
-        goal: profile.nutritionPreferences.goal,
+        goal: profile.goal,
         mealsPerDay: profile.nutritionPreferences.mealsPerDay,
+        dietType: profile.nutritionPreferences.dietType,
+        allergies: profile.nutritionPreferences.allergies,
+        preferredFoods: profile.nutritionPreferences.preferredFoods,
+        dislikedFoods: profile.nutritionPreferences.dislikedFoods,
         dietaryPrefs: profile.nutritionPreferences.dietaryPrefs,
-        dislikes: profile.nutritionPreferences.dislikes,
         cookingTime: profile.nutritionPreferences.cookingTime,
+        mealDistribution: profile.nutritionPreferences.mealDistribution,
       },
       mealTemplates,
       dayLabels
     );
   }, [profile, mealTemplates, dayLabels]);
-  const visiblePlan = savedPlan ?? plan;
+  const visiblePlan = useMemo(
+    () => normalizeNutritionPlan(savedPlan ?? plan, dayLabels),
+    [savedPlan, plan, dayLabels]
+  );
 
   function buildShoppingList(activePlan: NutritionPlan) {
     const totals: Record<string, number> = {};
@@ -479,7 +589,7 @@ export default function NutritionPlanClient() {
     setAiLoading(true);
     setError(null);
     try {
-      const mealsPerDay = Math.min(4, Math.max(3, profile.nutritionPreferences.mealsPerDay));
+      const mealsPerDay = Math.min(6, Math.max(3, profile.nutritionPreferences.mealsPerDay));
       const calories = plan?.dailyCalories ?? 2000;
       const response = await fetch("/api/ai/nutrition-plan", {
         method: "POST",
@@ -489,10 +599,18 @@ export default function NutritionPlanClient() {
           name: profile.name || undefined,
           age: profile.age,
           sex: profile.sex,
-          goal: profile.nutritionPreferences.goal,
+          goal: profile.goal,
           mealsPerDay,
           calories,
-          dietaryRestrictions: profile.nutritionPreferences.dietaryPrefs || profile.nutritionPreferences.dislikes || undefined,
+          dietType: profile.nutritionPreferences.dietType,
+          allergies: profile.nutritionPreferences.allergies,
+          preferredFoods: profile.nutritionPreferences.preferredFoods,
+          dislikedFoods: profile.nutritionPreferences.dislikedFoods,
+          mealDistribution: profile.nutritionPreferences.mealDistribution,
+          dietaryRestrictions:
+            profile.nutritionPreferences.dietaryPrefs ||
+            profile.nutritionPreferences.dislikedFoods ||
+            undefined,
         }),
       });
       if (!response.ok) {
@@ -548,7 +666,7 @@ export default function NutritionPlanClient() {
           <>
             <div className="badge-list">
               <span className="badge">
-                {t("macros.goal")}: {t(profile.nutritionPreferences.goal === "cut" ? "macros.goalCut" : profile.nutritionPreferences.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
+                {t("macros.goal")}: {t(profile.goal === "cut" ? "macros.goalCut" : profile.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
               </span>
               <span className="badge">{t("nutrition.mealsPerDay")}: {profile.nutritionPreferences.mealsPerDay}</span>
               <span className="badge">
@@ -572,12 +690,36 @@ export default function NutritionPlanClient() {
                 </div>
               </div>
               <div className="info-item">
+                <div className="info-label">{t("nutrition.dietTypeLabel")}</div>
+                <div className="info-value">{t(`nutrition.dietType.${profile.nutritionPreferences.dietType}`)}</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{t("nutrition.mealDistributionLabel")}</div>
+                <div className="info-value">
+                  {t(`nutrition.mealDistribution.${profile.nutritionPreferences.mealDistribution}`)}
+                </div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{t("nutrition.allergiesLabel")}</div>
+                <div className="info-value">
+                  {profile.nutritionPreferences.allergies.length > 0
+                    ? profile.nutritionPreferences.allergies
+                        .map((allergy) => t(`nutrition.allergy.${allergy}`))
+                        .join(", ")
+                    : "-"}
+                </div>
+              </div>
+              <div className="info-item">
                 <div className="info-label">{t("nutrition.dietaryPrefs")}</div>
                 <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
               </div>
               <div className="info-item">
-                <div className="info-label">{t("nutrition.dislikes")}</div>
-                <div className="info-value">{profile.nutritionPreferences.dislikes || "-"}</div>
+                <div className="info-label">{t("nutrition.preferredFoods")}</div>
+                <div className="info-value">{profile.nutritionPreferences.preferredFoods || "-"}</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{t("nutrition.dislikedFoods")}</div>
+                <div className="info-value">{profile.nutritionPreferences.dislikedFoods || "-"}</div>
               </div>
             </div>
           </>

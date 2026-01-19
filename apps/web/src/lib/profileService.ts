@@ -20,6 +20,7 @@ type TrackingPayload = {
 
 export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileData {
   const profilePhotoUrl = data?.profilePhotoUrl ?? data?.avatarDataUrl ?? defaultProfile.profilePhotoUrl;
+  const incomingNutrition = data?.nutritionPreferences;
   return {
     ...defaultProfile,
     ...data,
@@ -31,7 +32,11 @@ export function mergeProfileData(data?: Partial<ProfileData> | null): ProfileDat
     },
     nutritionPreferences: {
       ...defaultProfile.nutritionPreferences,
-      ...data?.nutritionPreferences,
+      ...incomingNutrition,
+      dislikedFoods:
+        incomingNutrition?.dislikedFoods ??
+        (incomingNutrition as { dislikes?: string } | undefined)?.dislikes ??
+        defaultProfile.nutritionPreferences.dislikedFoods,
     },
     macroPreferences: {
       ...defaultProfile.macroPreferences,
@@ -105,6 +110,7 @@ export async function saveCheckinAndSyncProfileMetrics(
   await fetch("/api/tracking", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(tracking),
   });
 

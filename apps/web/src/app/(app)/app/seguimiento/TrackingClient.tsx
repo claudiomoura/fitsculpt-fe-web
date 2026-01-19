@@ -96,8 +96,11 @@ export default function TrackingClient() {
     let active = true;
     const loadTracking = async () => {
       try {
-        const response = await fetch("/api/tracking", { cache: "no-store" });
-        if (!response.ok) return;
+        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
+        if (!response.ok) {
+          console.warn("Tracking load failed", response.status);
+          return;
+        }
         const data = (await response.json()) as TrackingPayload;
         if (!active) return;
         setCheckins(data.checkins ?? []);
@@ -105,7 +108,7 @@ export default function TrackingClient() {
         setWorkoutLog(data.workoutLog ?? []);
         setTrackingLoaded(true);
       } catch {
-        setTrackingLoaded(true);
+        console.warn("Tracking load failed");
       }
     };
 
@@ -142,7 +145,12 @@ export default function TrackingClient() {
       void fetch("/api/tracking", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ checkins, foodLog, workoutLog }),
+      }).then((response) => {
+        if (!response.ok) {
+          console.warn("Tracking save failed", response.status);
+        }
       });
     }, 600);
     return () => window.clearTimeout(timeout);
