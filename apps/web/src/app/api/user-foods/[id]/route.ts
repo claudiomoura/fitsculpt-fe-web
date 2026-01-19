@@ -9,7 +9,8 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function PUT(request: Request, { params }: { params: Params }) {
+export async function PUT(request: Request, { params }: { params: Promise<Params> }) {
+  const { id } = await params;
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -17,7 +18,7 @@ export async function PUT(request: Request, { params }: { params: Params }) {
 
   const body = await request.json();
   try {
-    const response = await fetch(`${getBackendUrl()}/user-foods/${params.id}`, {
+const response = await fetch(`${getBackendUrl()}/user-foods/${id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -33,14 +34,15 @@ export async function PUT(request: Request, { params }: { params: Params }) {
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: Params }) {
+export async function DELETE(_: Request, { params }: { params: Promise<Params> }) {
+  const { id } = await params;
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/user-foods/${params.id}`, {
+const response = await fetch(`${getBackendUrl()}/user-foods/${id}`, {
       method: "DELETE",
       headers: { cookie: authCookie },
     });

@@ -1469,9 +1469,9 @@ const feedQuerySchema = z.object({
 });
 
 type TrackingSnapshot = {
-  checkins?: Array<{ date?: string; weightKg?: number }>;
-  foodLog?: Array<{ date?: string }>;
-  workoutLog?: Array<{ date?: string }>;
+  checkins?: Array<{ id?: string; date?: string; weightKg?: number }>;
+  foodLog?: Array<{ id?: string; date?: string }>;
+  workoutLog?: Array<{ id?: string; date?: string }>;
 };
 
 function toDate(value?: string) {
@@ -2035,8 +2035,10 @@ app.delete("/tracking/:collection/:id", async (request, reply) => {
     const profile = await getOrCreateProfile(user.id);
     const currentTracking =
       typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as TrackingSnapshot) : defaultTracking;
-    const currentList = Array.isArray(currentTracking[params.collection]) ? currentTracking[params.collection] : [];
-    const nextList = currentList.filter((entry) => entry.id !== params.id);
+const rawList = currentTracking[params.collection];
+const currentList = Array.isArray(rawList) ? rawList : [];
+const nextList = currentList.filter((entry) => entry.id !== params.id);
+
     const nextTracking = { ...currentTracking, [params.collection]: nextList };
     const updated = await prisma.userProfile.update({
       where: { userId: user.id },

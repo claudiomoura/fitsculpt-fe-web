@@ -9,14 +9,16 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function DELETE(_: Request, { params }: { params: Params }) {
+export async function DELETE(_: Request, { params }: { params: Promise<Params> }) {
+  const { collection, id } = await params;
+
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   try {
-    const response = await fetch(`${getBackendUrl()}/tracking/${params.collection}/${params.id}`, {
+    const response = await fetch(`${getBackendUrl()}/tracking/${collection}/${id}`, {
       method: "DELETE",
       headers: { cookie: authCookie },
     });
