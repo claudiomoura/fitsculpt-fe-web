@@ -1,4 +1,4 @@
-export type NavSection = "summary" | "training" | "nutrition" | "account";
+export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin";
 
 export type NavItem = {
   id: string;
@@ -14,6 +14,7 @@ export const NAV_SECTIONS: Array<{ id: NavSection; labelKey: string }> = [
   { id: "training", labelKey: "navSections.training" },
   { id: "nutrition", labelKey: "navSections.nutrition" },
   { id: "account", labelKey: "navSections.account" },
+  { id: "admin", labelKey: "navSections.admin" },
 ];
 
 export const NAV_ITEMS: NavItem[] = [
@@ -35,7 +36,6 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/app/feed",
     labelKey: "nav.feed",
     section: "summary",
-    adminOnly: true, // Ajusta aquí si quieres mostrar esta sección a usuarios normales.
   },
   {
     id: "workouts",
@@ -70,7 +70,6 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/app/macros",
     labelKey: "nav.macros",
     section: "nutrition",
-    adminOnly: true, // Ajusta aquí si quieres mostrar esta sección a usuarios normales.
   },
   {
     id: "profile",
@@ -83,5 +82,19 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/app/settings",
     labelKey: "nav.settings",
     section: "account",
+  },
+  {
+    id: "admin-dashboard",
+    href: "/app/admin",
+    labelKey: "nav.admin",
+    section: "admin",
+    adminOnly: true,
+  },
+  {
+    id: "admin-users",
+    href: "/app/admin/users",
+    labelKey: "nav.adminUsers",
+    section: "admin",
+    adminOnly: true,
   },
 ];

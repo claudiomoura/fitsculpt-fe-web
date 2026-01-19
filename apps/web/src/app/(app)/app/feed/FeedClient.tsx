@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
+import { getLocaleCode } from "@/lib/i18n";
 
 type FeedPost = {
   id: string;
@@ -15,10 +16,10 @@ type DailyTip = {
   message: string;
 };
 
-function formatDate(value: string) {
+function formatDate(value: string, localeCode: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("es-ES", {
+  return date.toLocaleDateString(localeCode, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -26,7 +27,8 @@ function formatDate(value: string) {
 }
 
 export default function FeedClient() {
-  const c = copy.es;
+  const { t, locale } = useLanguage();
+  const localeCode = getLocaleCode(locale);
   const [items, setItems] = useState<FeedPost[]>([]);
   const [tip, setTip] = useState<DailyTip | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,12 +42,12 @@ export default function FeedClient() {
     try {
       const response = await fetch("/api/feed", { cache: "no-store" });
       if (!response.ok) {
-        throw new Error("No pudimos cargar el feed.");
+        throw new Error(t("feed.errorLoad"));
       }
       const data = (await response.json()) as FeedPost[];
       setItems(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error inesperado.");
+      setError(err instanceof Error ? err.message : t("feed.errorUnexpected"));
     } finally {
       setLoading(false);
     }
@@ -61,12 +63,12 @@ export default function FeedClient() {
     try {
       const response = await fetch("/api/feed/generate", { method: "POST", credentials: "include" });
       if (!response.ok) {
-        throw new Error("No pudimos generar el resumen.");
+        throw new Error(t("feed.errorGenerate"));
       }
       const post = (await response.json()) as FeedPost;
       setItems((prev) => [post, ...prev]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error inesperado.");
+      setError(err instanceof Error ? err.message : t("feed.errorUnexpected"));
     } finally {
       setGenerating(false);
     }
@@ -83,12 +85,12 @@ export default function FeedClient() {
         body: JSON.stringify({}),
       });
       if (!response.ok) {
-        throw new Error(c.app.tipError);
+        throw new Error(t("feed.tipError"));
       }
       const data = (await response.json()) as DailyTip;
       setTip(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : c.app.tipError);
+      setError(err instanceof Error ? err.message : t("feed.tipError"));
     } finally {
       setTipLoading(false);
     }
@@ -98,23 +100,23 @@ export default function FeedClient() {
     <section className="card">
       <div className="section-header">
         <div>
-          <h2 className="section-title">{c.app.feedSectionTitle}</h2>
-          <p className="section-subtitle">{c.app.feedSectionSubtitle}</p>
+          <h2 className="section-title">{t("app.feedSectionTitle")}</h2>
+          <p className="section-subtitle">{t("app.feedSectionSubtitle")}</p>
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <button className="btn" type="button" onClick={handleGenerate} disabled={generating}>
-            {generating ? c.app.feedGenerating : c.app.feedGenerate}
+            {generating ? t("feed.generating") : t("feed.generate")}
           </button>
           <button className="btn secondary" type="button" onClick={handleTip} disabled={tipLoading}>
-            {tipLoading ? c.app.tipGenerating : c.app.tipGenerate}
+            {tipLoading ? t("feed.tipGenerating") : t("feed.tipGenerate")}
           </button>
         </div>
       </div>
 
       {error ? <p className="muted">{error}</p> : null}
-      {loading ? <p className="muted">{c.app.feedLoading}</p> : null}
+      {loading ? <p className="muted">{t("feed.loading")}</p> : null}
       {!loading && items.length === 0 ? (
-        <p className="muted">{c.app.feedEmpty}</p>
+        <p className="muted">{t("feed.empty")}</p>
       ) : null}
 
       <div className="feed-list">
@@ -122,7 +124,7 @@ export default function FeedClient() {
           <article className="feed-item">
             <div>
               <h3>{tip.title}</h3>
-              <p className="muted">{c.app.tipSubtitle}</p>
+              <p className="muted">{t("feed.tipSubtitle")}</p>
             </div>
             <p>{tip.message}</p>
           </article>
@@ -131,7 +133,7 @@ export default function FeedClient() {
           <article key={item.id} className="feed-item">
             <div>
               <h3>{item.title}</h3>
-              <p className="muted">{formatDate(item.createdAt)}</p>
+              <p className="muted">{formatDate(item.createdAt, localeCode)}</p>
             </div>
             <p>{item.summary}</p>
           </article>

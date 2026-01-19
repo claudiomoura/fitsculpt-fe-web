@@ -1,15 +1,14 @@
 import AppNavBar from "@/components/layout/AppNavBar";
-import { LanguageProvider } from "@/context/LanguageProvider";
-import { ThemeProvider } from "@/context/ThemeProvider";
+import AppSidebar from "@/components/layout/AppSidebar";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <AppNavBar />
-
-        <main className="container">{children}</main>
-      </LanguageProvider>
-    </ThemeProvider>
+    <>
+      <AppNavBar />
+      <div className="app-shell">
+        <AppSidebar />
+        <main className="app-content">{children}</main>
+      </div>
+    </>
   );
 }

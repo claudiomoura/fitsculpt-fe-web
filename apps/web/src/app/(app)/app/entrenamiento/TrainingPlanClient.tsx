@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
+import type { Locale } from "@/lib/i18n";
 import {
   type Goal,
   type TrainingEquipment,
@@ -37,34 +38,92 @@ type TrainingForm = {
   sessionTime: SessionTime;
 };
 
-const exercisePool = {
+const baseExercisePool = {
   full: {
-    gym: ["Sentadilla", "Press banca", "Remo con barra", "Peso muerto rumano", "Press militar", "Plancha"],
-    home: ["Sentadilla", "Flexiones", "Remo con banda", "Zancadas", "Pike push-ups", "Plancha"],
+    gym: [] as string[],
+    home: [] as string[],
   },
   upper: {
-    gym: ["Press banca", "Remo con barra", "Press militar", "Dominadas", "Curl bíceps", "Extensión tríceps"],
-    home: ["Flexiones", "Remo con banda", "Press militar con mancuernas", "Fondos en banco", "Curl bíceps", "Plancha"],
+    gym: [] as string[],
+    home: [] as string[],
   },
   lower: {
-    gym: ["Sentadilla", "Peso muerto rumano", "Prensa", "Elevación gemelos", "Hip thrust", "Core"],
-    home: ["Sentadilla", "Zancadas", "Puente de glúteo", "Elevación gemelos", "Buenos días", "Core"],
+    gym: [] as string[],
+    home: [] as string[],
   },
   push: {
-    gym: ["Press banca", "Press militar", "Press inclinado", "Fondos", "Elevaciones laterales", "Tríceps"],
-    home: ["Flexiones", "Press militar con mancuernas", "Press inclinado con mancuernas", "Fondos", "Elevaciones laterales", "Tríceps"],
+    gym: [] as string[],
+    home: [] as string[],
   },
   pull: {
-    gym: ["Remo con barra", "Dominadas", "Face pull", "Curl bíceps", "Remo en polea", "Core"],
-    home: ["Remo con banda", "Dominadas asistidas", "Face pull con banda", "Curl bíceps", "Remo invertido", "Core"],
+    gym: [] as string[],
+    home: [] as string[],
   },
   legs: {
-    gym: ["Sentadilla", "Peso muerto rumano", "Prensa", "Curl femoral", "Elevación gemelos", "Core"],
-    home: ["Sentadilla", "Zancadas", "Peso muerto rumano con mancuerna", "Curl femoral con fitball", "Elevación gemelos", "Core"],
+    gym: [] as string[],
+    home: [] as string[],
   },
 };
 
-const dayLabels = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"];
+const EXERCISE_POOL: Record<Locale, typeof baseExercisePool> = {
+  es: {
+    full: {
+      gym: ["Sentadilla", "Press banca", "Remo con barra", "Peso muerto rumano", "Press militar", "Plancha"],
+      home: ["Sentadilla", "Flexiones", "Remo con banda", "Zancadas", "Pike push-ups", "Plancha"],
+    },
+    upper: {
+      gym: ["Press banca", "Remo con barra", "Press militar", "Dominadas", "Curl bíceps", "Extensión tríceps"],
+      home: ["Flexiones", "Remo con banda", "Press militar con mancuernas", "Fondos en banco", "Curl bíceps", "Plancha"],
+    },
+    lower: {
+      gym: ["Sentadilla", "Peso muerto rumano", "Prensa", "Elevación gemelos", "Hip thrust", "Core"],
+      home: ["Sentadilla", "Zancadas", "Puente de glúteo", "Elevación gemelos", "Buenos días", "Core"],
+    },
+    push: {
+      gym: ["Press banca", "Press militar", "Press inclinado", "Fondos", "Elevaciones laterales", "Tríceps"],
+      home: ["Flexiones", "Press militar con mancuernas", "Press inclinado con mancuernas", "Fondos", "Elevaciones laterales", "Tríceps"],
+    },
+    pull: {
+      gym: ["Remo con barra", "Dominadas", "Face pull", "Curl bíceps", "Remo en polea", "Core"],
+      home: ["Remo con banda", "Dominadas asistidas", "Face pull con banda", "Curl bíceps", "Remo invertido", "Core"],
+    },
+    legs: {
+      gym: ["Sentadilla", "Peso muerto rumano", "Prensa", "Curl femoral", "Elevación gemelos", "Core"],
+      home: ["Sentadilla", "Zancadas", "Peso muerto rumano con mancuerna", "Curl femoral con fitball", "Elevación gemelos", "Core"],
+    },
+  },
+  en: {
+    full: {
+      gym: ["Squat", "Bench press", "Barbell row", "Romanian deadlift", "Overhead press", "Plank"],
+      home: ["Squat", "Push-ups", "Band row", "Lunges", "Pike push-ups", "Plank"],
+    },
+    upper: {
+      gym: ["Bench press", "Barbell row", "Overhead press", "Pull-ups", "Biceps curl", "Triceps extension"],
+      home: ["Push-ups", "Band row", "Dumbbell overhead press", "Bench dips", "Biceps curl", "Plank"],
+    },
+    lower: {
+      gym: ["Squat", "Romanian deadlift", "Leg press", "Calf raise", "Hip thrust", "Core"],
+      home: ["Squat", "Lunges", "Glute bridge", "Calf raise", "Good morning", "Core"],
+    },
+    push: {
+      gym: ["Bench press", "Overhead press", "Incline press", "Dips", "Lateral raises", "Triceps"],
+      home: ["Push-ups", "Dumbbell overhead press", "Incline dumbbell press", "Dips", "Lateral raises", "Triceps"],
+    },
+    pull: {
+      gym: ["Barbell row", "Pull-ups", "Face pull", "Biceps curl", "Cable row", "Core"],
+      home: ["Band row", "Assisted pull-ups", "Band face pull", "Biceps curl", "Inverted row", "Core"],
+    },
+    legs: {
+      gym: ["Squat", "Romanian deadlift", "Leg press", "Hamstring curl", "Calf raise", "Core"],
+      home: ["Squat", "Lunges", "Dumbbell Romanian deadlift", "Swiss ball leg curl", "Calf raise", "Core"],
+    },
+  },
+};
+
+const DAY_LABELS: Record<Locale, string[]> = {
+  es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"],
+  en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+};
 
 function durationFromSessionTime(sessionTime: SessionTime) {
   switch (sessionTime) {
@@ -87,18 +146,24 @@ function buildExercises(list: string[], sets: string, maxItems: number): Exercis
   return list.slice(0, maxItems).map((name) => ({ name, sets }));
 }
 
-function generatePlan(form: TrainingForm): TrainingPlan {
+function generatePlan(
+  form: TrainingForm,
+  locale: Locale,
+  t: (key: string) => string
+): TrainingPlan {
   const sets = setsForLevel(form.level, form.goal);
   const duration = durationFromSessionTime(form.sessionTime);
+  const dayLabels = DAY_LABELS[locale];
+  const exercisePool = EXERCISE_POOL[locale];
   const days = Array.from({ length: form.daysPerWeek }).map((_, i) => {
-    const label = `${dayLabels[i] ?? "Día"} ${i + 1}`;
+    const label = `${dayLabels[i] ?? t("training.dayLabel")} ${i + 1}`;
     const equipmentKey = form.equipment;
-    let focusLabel = "Full-body";
+    let focusLabel = t("training.focusFullBody");
     let exercises: Exercise[] = [];
 
     if (form.focus === "upperLower") {
       const isUpper = i % 2 === 0;
-      focusLabel = isUpper ? "Upper" : "Lower";
+      focusLabel = isUpper ? t("training.focusUpper") : t("training.focusLower");
       exercises = buildExercises(
         isUpper ? exercisePool.upper[equipmentKey] : exercisePool.lower[equipmentKey],
         sets,
@@ -107,17 +172,17 @@ function generatePlan(form: TrainingForm): TrainingPlan {
     } else if (form.focus === "ppl") {
       const phase = i % 3;
       if (phase === 0) {
-        focusLabel = "Push";
+        focusLabel = t("training.focusPush");
         exercises = buildExercises(exercisePool.push[equipmentKey], sets, 6);
       } else if (phase === 1) {
-        focusLabel = "Pull";
+        focusLabel = t("training.focusPull");
         exercises = buildExercises(exercisePool.pull[equipmentKey], sets, 6);
       } else {
-        focusLabel = "Legs";
+        focusLabel = t("training.focusLegs");
         exercises = buildExercises(exercisePool.legs[equipmentKey], sets, 6);
       }
     } else {
-      focusLabel = "Full-body";
+      focusLabel = t("training.focusFullBody");
       exercises = buildExercises(exercisePool.full[equipmentKey], sets, 6);
     }
 
@@ -150,7 +215,7 @@ function adjustSets(sets: string, delta: number) {
 }
 
 export default function TrainingPlanClient() {
-  const c = copy.es;
+  const { t, locale } = useLanguage();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [form, setForm] = useState<TrainingForm | null>(null);
   const [loading, setLoading] = useState(true);
@@ -177,7 +242,7 @@ export default function TrainingPlanClient() {
       });
       setSavedPlan(profile.trainingPlan ?? null);
     } catch {
-      if (activeRef.current) setError("No pudimos cargar tu perfil.");
+      if (activeRef.current) setError(t("training.profileError"));
     } finally {
       if (activeRef.current) setLoading(false);
     }
@@ -191,7 +256,7 @@ export default function TrainingPlanClient() {
     };
   }, []);
 
-  const plan = useMemo(() => (form ? generatePlan(form) : null), [form]);
+  const plan = useMemo(() => (form ? generatePlan(form, locale, t) : null), [form, locale, t]);
   const visiblePlan = savedPlan ?? plan;
 
   const handleSavePlan = async () => {
@@ -201,9 +266,9 @@ export default function TrainingPlanClient() {
     try {
       const updated = await updateUserProfile({ trainingPlan: plan });
       setSavedPlan(updated.trainingPlan ?? plan);
-      setSaveMessage(c.training.savePlanSuccess);
+      setSaveMessage(t("training.savePlanSuccess"));
     } catch {
-      setSaveMessage(c.training.savePlanError);
+      setSaveMessage(t("training.savePlanError"));
     } finally {
       setSaving(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
@@ -234,14 +299,14 @@ export default function TrainingPlanClient() {
         }),
       });
       if (!response.ok) {
-        throw new Error(c.training.aiError);
+        throw new Error(t("training.aiError"));
       }
       const data = (await response.json()) as TrainingPlan;
       const updated = await updateUserProfile({ trainingPlan: data });
       setSavedPlan(updated.trainingPlan ?? data);
-      setSaveMessage(c.training.aiSuccess);
+      setSaveMessage(t("training.aiSuccess"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : c.training.aiError);
+      setError(err instanceof Error ? err.message : t("training.aiError"));
     } finally {
       setAiLoading(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
@@ -253,36 +318,46 @@ export default function TrainingPlanClient() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{c.training.formTitle}</h2>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.formTitle")}</h2>
             <p className="section-subtitle">
-              {c.training.tips}
+              {t("training.tips")}
             </p>
           </div>
           <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
-            {c.training.generate}
+            {t("training.generate")}
           </button>
           <button type="button" className="btn" disabled={!form || aiLoading} onClick={handleAiPlan}>
-            {aiLoading ? c.training.aiGenerating : c.training.aiGenerate}
+            {aiLoading ? t("training.aiGenerating") : t("training.aiGenerate")}
           </button>
           <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-            {saving ? c.training.savePlanSaving : c.training.savePlan}
+            {saving ? t("training.savePlanSaving") : t("training.savePlan")}
           </button>
         </div>
 
         {loading ? (
-          <p className="muted">Cargando preferencias...</p>
+          <p className="muted">{t("training.profileLoading")}</p>
         ) : error ? (
           <p className="muted">{error}</p>
         ) : saveMessage ? (
           <p className="muted">{saveMessage}</p>
         ) : form ? (
           <div className="badge-list">
-            <span className="badge">{c.training.goal}: {c.training[form.goal === "cut" ? "goalCut" : form.goal === "bulk" ? "goalBulk" : "goalMaintain"]}</span>
-            <span className="badge">{c.training.level}: {c.training[form.level === "beginner" ? "levelBeginner" : form.level === "intermediate" ? "levelIntermediate" : "levelAdvanced"]}</span>
-            <span className="badge">{c.training.daysPerWeek}: {form.daysPerWeek}</span>
-            <span className="badge">{c.training.equipment}: {form.equipment === "gym" ? c.training.equipmentGym : c.training.equipmentHome}</span>
-            <span className="badge">{c.training.sessionTime}: {c.training[form.sessionTime === "short" ? "sessionTimeShort" : form.sessionTime === "long" ? "sessionTimeLong" : "sessionTimeMedium"]}</span>
-            <span className="badge">{c.training.focus}: {c.training[form.focus === "ppl" ? "focusPushPullLegs" : form.focus === "upperLower" ? "focusUpperLower" : "focusFullBody"]}</span>
+            <span className="badge">
+              {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
+            </span>
+            <span className="badge">
+              {t("training.level")}: {t(form.level === "beginner" ? "training.levelBeginner" : form.level === "intermediate" ? "training.levelIntermediate" : "training.levelAdvanced")}
+            </span>
+            <span className="badge">{t("training.daysPerWeek")}: {form.daysPerWeek}</span>
+            <span className="badge">
+              {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
+            </span>
+            <span className="badge">
+              {t("training.sessionTime")}: {t(form.sessionTime === "short" ? "training.sessionTimeShort" : form.sessionTime === "long" ? "training.sessionTimeLong" : "training.sessionTimeMedium")}
+            </span>
+            <span className="badge">
+              {t("training.focus")}: {t(form.focus === "ppl" ? "training.focusPushPullLegs" : form.focus === "upperLower" ? "training.focusUpperLower" : "training.focusFullBody")}
+            </span>
           </div>
         ) : null}
 
@@ -292,16 +367,16 @@ export default function TrainingPlanClient() {
       </section>
 
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{c.training.weeklyPlanTitle}</h2>
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.weeklyPlanTitle")}</h2>
         <div className="list-grid" style={{ marginTop: 16 }}>
           {visiblePlan?.days.map((day, dayIdx) => (
             <div key={`${day.label}-${dayIdx}`} className="feature-card">
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                 <strong>
-                  {c.training.dayLabel} {day.label}
+                  {t("training.dayLabel")} {day.label}
                 </strong>
                 <span className="muted">
-                  {c.training.durationLabel}: {day.duration} {c.training.minutesLabel}
+                  {t("training.durationLabel")}: {day.duration} {t("training.minutesLabel")}
                 </span>
               </div>
               <div style={{ fontWeight: 600 }}>{day.focus}</div>
@@ -318,14 +393,14 @@ export default function TrainingPlanClient() {
       </section>
 
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{c.training.periodTitle}</h2>
-        <p className="section-subtitle" style={{ marginTop: 6 }}>{c.training.periodSubtitle}</p>
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.periodTitle")}</h2>
+        <p className="section-subtitle" style={{ marginTop: 6 }}>{t("training.periodSubtitle")}</p>
 
         <div className="list-grid" style={{ marginTop: 16 }}>
           {periodization.map((week, idx) => (
             <div key={`${week.label}-${idx}`} className="feature-card">
               <strong>
-                {c.training.weekLabel} {idx + 1} · {c.training[week.label as keyof typeof c.training]}
+                {t("training.weekLabel")} {idx + 1} · {t(`training.${week.label}`)}
               </strong>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                 {plan?.days.map((day) => (

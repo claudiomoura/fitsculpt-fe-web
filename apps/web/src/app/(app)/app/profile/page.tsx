@@ -1,13 +1,13 @@
 import ProfileClient from "./ProfileClient";
-import { copy } from "@/lib/i18n";
+import { getServerT } from "@/lib/serverI18n";
 
 export default function ProfilePage() {
-  const c = copy.es;
+  const { t } = getServerT();
   return (
     <div className="page">
       <section className="card">
-        <h1 className="section-title">{c.app.profileTitle}</h1>
-        <p className="section-subtitle">{c.app.profileSubtitle}</p>
+        <h1 className="section-title">{t("app.profileTitle")}</h1>
+        <p className="section-subtitle">{t("app.profileSubtitle")}</p>
       </section>
       <ProfileClient />
     </div>

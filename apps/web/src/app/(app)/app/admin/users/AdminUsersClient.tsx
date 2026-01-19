@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useLanguage } from "@/context/LanguageProvider";
+import { getLocaleCode } from "@/lib/i18n";
 
 type UserRow = {
   id: string;
@@ -26,6 +28,8 @@ type MeResponse = {
 };
 
 export default function AdminUsersClient() {
+  const { t, locale } = useLanguage();
+  const localeCode = getLocaleCode(locale);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<UsersResponse | null>(null);
@@ -100,10 +104,10 @@ export default function AdminUsersClient() {
       }),
     });
     if (!response.ok) {
-      setCreateMessage("No pudimos crear el usuario.");
+      setCreateMessage(t("admin.createUserError"));
       return;
     }
-    setCreateMessage("Usuario creado.");
+    setCreateMessage(t("admin.createUserSuccess"));
     setCreateEmail("");
     setCreatePassword("");
     setCreateRole("USER");
@@ -120,53 +124,53 @@ export default function AdminUsersClient() {
       body: JSON.stringify({ newPassword: resetPassword }),
     });
     if (!response.ok) {
-      setResetMessage("No pudimos resetear la contraseña.");
+      setResetMessage(t("admin.resetPasswordError"));
       return;
     }
-    setResetMessage("Contraseña actualizada.");
+    setResetMessage(t("admin.resetPasswordSuccess"));
     setResetPassword("");
     setResetUser(null);
     await loadUsers();
   }
 
   async function removeUser(userId: string) {
-    const ok = window.confirm("Eliminar este usuario?");
+    const ok = window.confirm(t("admin.confirmDelete"));
     if (!ok) return;
     await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
     await loadUsers();
   }
 
   if (unauthorized) {
-    return <p className="muted">No tienes acceso a esta sección.</p>;
+    return <p className="muted">{t("admin.unauthorized")}</p>;
   }
 
   return (
     <div className="form-stack">
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 18 }}>Crear usuario</h2>
+        <h2 className="section-title" style={{ fontSize: 18 }}>{t("admin.createUserTitle")}</h2>
         <form className="form-stack" onSubmit={createUser}>
-          <label className="muted">Email</label>
+          <label className="muted">{t("auth.email")}</label>
           <input
             value={createEmail}
             onChange={(e) => setCreateEmail(e.target.value)}
-            placeholder="correo@dominio.com"
+            placeholder={t("admin.emailPlaceholder")}
             required
             type="email"
           />
-          <label className="muted">Contraseña</label>
+          <label className="muted">{t("auth.password")}</label>
           <input
             value={createPassword}
             onChange={(e) => setCreatePassword(e.target.value)}
-            placeholder="Mínimo 8 caracteres"
+            placeholder={t("admin.passwordPlaceholder")}
             required
             type="password"
           />
-          <label className="muted">Rol</label>
+          <label className="muted">{t("admin.roleLabel")}</label>
           <select value={createRole} onChange={(e) => setCreateRole(e.target.value as "USER" | "ADMIN")}>
-            <option value="USER">USER</option>
-            <option value="ADMIN">ADMIN</option>
+            <option value="USER">{t("admin.roleUser")}</option>
+            <option value="ADMIN">{t("admin.roleAdmin")}</option>
           </select>
-          <button type="submit" className="btn">Crear usuario</button>
+          <button type="submit" className="btn">{t("admin.createUserAction")}</button>
           {createMessage && <p className="muted">{createMessage}</p>}
         </form>
       </section>
@@ -175,19 +179,19 @@ export default function AdminUsersClient() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por email o nombre"
+          placeholder={t("admin.searchPlaceholder")}
         />
         <button type="button" className="btn secondary" onClick={() => { setPage(1); void loadUsers(); }}>
-          Buscar
+          {t("admin.searchAction")}
         </button>
       </div>
 
       {loading ? (
-        <p className="muted">Cargando usuarios...</p>
+        <p className="muted">{t("admin.usersLoading")}</p>
       ) : (
         <div className="table-grid">
           <div className="feature-card">
-            <div className="info-label">Total</div>
+            <div className="info-label">{t("admin.totalUsers")}</div>
             <div className="info-value">{data?.total ?? 0}</div>
           </div>
 
@@ -197,17 +201,17 @@ export default function AdminUsersClient() {
                 <strong>{user.email}</strong>
                 <span className="muted">{user.method}</span>
               </div>
-              <div className="muted">{user.name || "Sin nombre"}</div>
+              <div className="muted">{user.name || t("admin.noName")}</div>
               <div className="badge-list" style={{ marginTop: 8 }}>
                 <span className="badge">{user.role}</span>
-                <span className="badge">{user.emailVerified ? "Verificado" : "No verificado"}</span>
-                <span className="badge">{user.isBlocked ? "Bloqueado" : "Activo"}</span>
+                <span className="badge">{user.emailVerified ? t("admin.emailVerified") : t("admin.emailUnverified")}</span>
+                <span className="badge">{user.isBlocked ? t("admin.statusBlocked") : t("admin.statusActive")}</span>
               </div>
               <div className="muted" style={{ marginTop: 8 }}>
-                Creado: {new Date(user.createdAt).toLocaleDateString()}
+                {t("admin.createdAt")}: {new Date(user.createdAt).toLocaleDateString(localeCode)}
               </div>
               <div className="muted">
-                Último acceso: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : "-"}
+                {t("admin.lastLogin")}: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString(localeCode) : "-"}
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                 <button
@@ -215,7 +219,7 @@ export default function AdminUsersClient() {
                   className="btn secondary"
                   onClick={() => updateBlock(user.id, !user.isBlocked)}
                 >
-                  {user.isBlocked ? "Desbloquear" : "Bloquear"}
+                  {user.isBlocked ? t("admin.actionUnblock") : t("admin.actionBlock")}
                 </button>
                 {!user.emailVerified && (
                   <button
@@ -223,14 +227,14 @@ export default function AdminUsersClient() {
                     className="btn secondary"
                     onClick={() => verifyEmail(user.id)}
                   >
-                    Verificar email
+                    {t("admin.verifyEmail")}
                   </button>
                 )}
                 <button type="button" className="btn secondary" onClick={() => { setResetUser(user); setResetMessage(null); }}>
-                  Resetear contraseña
+                  {t("admin.resetPassword")}
                 </button>
                 <button type="button" className="btn secondary" onClick={() => removeUser(user.id)}>
-                  Eliminar
+                  {t("admin.actionDelete")}
                 </button>
               </div>
             </div>
@@ -243,27 +247,27 @@ export default function AdminUsersClient() {
               disabled={page <= 1}
               onClick={() => setPage((prev) => Math.max(1, prev - 1))}
             >
-              Anterior
+              {t("admin.paginationPrev")}
             </button>
-            <span className="muted">Página {page}</span>
+            <span className="muted">{t("admin.paginationLabel")} {page}</span>
             <button
               type="button"
               className="btn secondary"
               disabled={Boolean(data && page * data.pageSize >= data.total)}
               onClick={() => setPage((prev) => prev + 1)}
             >
-              Siguiente
+              {t("admin.paginationNext")}
             </button>
           </div>
         </div>
       )}
 
       {resetUser && (
-        <dialog open style={{ padding: 20, borderRadius: 12, border: "1px solid #ccc" }}>
+        <dialog open style={{ padding: 20, borderRadius: 12, border: "1px solid var(--border)" }}>
           <form onSubmit={submitResetPassword} className="form-stack">
-            <strong>Resetear contraseña</strong>
+            <strong>{t("admin.resetPassword")}</strong>
             <p className="muted">{resetUser.email}</p>
-            <label className="muted">Nueva contraseña</label>
+            <label className="muted">{t("admin.newPassword")}</label>
             <input
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
@@ -272,13 +276,13 @@ export default function AdminUsersClient() {
               minLength={8}
             />
             <div style={{ display: "flex", gap: 8 }}>
-              <button type="submit" className="btn">Guardar</button>
+              <button type="submit" className="btn">{t("ui.save")}</button>
               <button
                 type="button"
                 className="btn secondary"
                 onClick={() => { setResetUser(null); setResetPassword(""); }}
               >
-                Cancelar
+                {t("ui.cancel")}
               </button>
             </div>
             {resetMessage && <p className="muted">{resetMessage}</p>}

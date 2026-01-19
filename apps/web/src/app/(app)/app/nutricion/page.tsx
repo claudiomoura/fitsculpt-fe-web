@@ -1,20 +1,20 @@
 import NutritionPlanClient from "./NutritionPlanClient";
 import Link from "next/link";
-import { copy } from "@/lib/i18n";
+import { getServerT } from "@/lib/serverI18n";
 
 export default function NutritionPlanPage() {
-  const c = copy.es;
+  const { t } = getServerT();
 
   return (
     <div className="page">
       <section className="card">
         <div className="section-head">
           <div>
-            <h1 className="section-title">{c.app.nutritionTitle}</h1>
-            <p className="section-subtitle">{c.app.nutritionSubtitle}</p>
+            <h1 className="section-title">{t("app.nutritionTitle")}</h1>
+            <p className="section-subtitle">{t("app.nutritionSubtitle")}</p>
           </div>
           <Link href="/app/macros" className="btn secondary">
-            {c.app.nutritionMacrosLink}
+            {t("app.nutritionMacrosLink")}
           </Link>
         </div>
       </section>

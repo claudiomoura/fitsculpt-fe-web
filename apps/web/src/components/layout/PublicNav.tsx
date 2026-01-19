@@ -1,31 +1,33 @@
-import Link from "next/link";
-import { copy } from "@/lib/i18n";
+\"use client\";
+
+import Link from \"next/link\";
+import { useLanguage } from \"@/context/LanguageProvider\";
 
 export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
-  const c = copy.es;
+  const { t } = useLanguage();
   return (
     <header className="site-header">
       <div className="nav-inner">
         <Link href="/" className="nav-brand">
-          {c.appName}
+          {t("appName")}
         </Link>
 
         <nav className="nav-links">
           <Link href="/" className="nav-link">
-            {c.nav.home}
+            {t("nav.home")}
           </Link>
 
           {loggedIn ? (
             <Link href="/app" className="nav-link">
-              {c.nav.goToApp}
+              {t("nav.goToApp")}
             </Link>
           ) : (
             <>
               <Link href="/login" className="nav-link">
-                {c.nav.login}
+                {t("nav.login")}
               </Link>
               <Link href="/register" className="nav-link">
-                {c.nav.register}
+                {t("nav.register")}
               </Link>
             </>
           )}
