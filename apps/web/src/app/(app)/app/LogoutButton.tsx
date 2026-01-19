@@ -1,12 +1,14 @@
+"use client";
+
 import { logoutAction } from "../../(auth)/login/actions";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
 
 export default function LogoutButton() {
-  const c = copy.es;
+  const { t } = useLanguage();
   return (
     <form action={logoutAction}>
       <button type="submit" className="btn secondary">
-        {c.nav.logout}
+        {t("nav.logout")}
       </button>
     </form>
   );

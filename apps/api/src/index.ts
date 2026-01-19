@@ -966,6 +966,7 @@ function getExerciseMetadata(name: string) {
 
 type ExerciseRow = {
   id: string;
+  slug?: string | null;
   name: string;
   equipment: string | null;
   description: string | null;
@@ -979,6 +980,7 @@ type ExerciseRow = {
 
 type ExerciseApiDto = {
   id: string;
+  slug: string;
   name: string;
   equipment: string | null;
   mainMuscleGroup: string | null;
@@ -1019,6 +1021,7 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
 
   return {
     id: exercise.id,
+    slug: exercise.slug ?? slugifyName(exercise.name),
     name: exercise.name,
     equipment: exercise.equipment ?? null,
     description: exercise.description ?? null,
@@ -1161,6 +1164,7 @@ async function listExercises(params: {
         where,
         select: {
           id: true,
+          slug: true,
           name: true,
           equipment: true,
           description: true,
@@ -1189,7 +1193,7 @@ async function listExercises(params: {
 
   const whereSql = buildExerciseFilters(params);
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "createdAt", "updatedAt"
+    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
     ORDER BY "name" ASC
@@ -1212,6 +1216,7 @@ async function getExerciseById(id: string) {
       where: { id },
       select: {
         id: true,
+        slug: true,
         name: true,
         equipment: true,
         description: true,
@@ -1231,7 +1236,7 @@ async function getExerciseById(id: string) {
   }
 
   const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "createdAt", "updatedAt"
+    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "createdAt", "updatedAt"
     FROM "Exercise"
     WHERE "id" = ${id}
     LIMIT 1

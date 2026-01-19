@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import LogoutButton from "@/app/(app)/app/LogoutButton";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
 import { getUserProfile } from "@/lib/profileService";
 
 type ProfileSummary = {
@@ -13,7 +13,7 @@ type ProfileSummary = {
 };
 
 export default function AppUserBadge() {
-  const c = copy.es;
+  const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -77,15 +77,15 @@ export default function AppUserBadge() {
             {initials}
           </div>
         )}
-        <span className="nav-user-name">{profile?.name || "FitSculpt"}</span>
+        <span className="nav-user-name">{profile?.name || t("ui.userFallback")}</span>
       </button>
 
       <div className={`nav-user-dropdown ${open ? "is-open" : ""}`} role="menu">
         <Link href="/app/profile" role="menuitem" className="nav-user-link" onClick={() => setOpen(false)}>
-          {c.nav.profile}
+          {t("nav.profile")}
         </Link>
         <Link href="/app/settings" role="menuitem" className="nav-user-link" onClick={() => setOpen(false)}>
-          {c.nav.settings}
+          {t("nav.settings")}
         </Link>
         <div className="nav-user-divider" role="presentation" />
         <div className="nav-user-logout">
