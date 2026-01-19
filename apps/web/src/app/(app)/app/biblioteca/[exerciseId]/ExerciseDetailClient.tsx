@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise } from "@/lib/types";
 
 type ExerciseDetailClientProps = {
   exercise: Exercise | null;
   error?: string | null;
+  mediaUrl?: string | null;
+  hasMedia?: boolean;
 };
 
 type MuscleGroups = {
@@ -23,13 +28,19 @@ function getMuscleGroups(exercise: Exercise): MuscleGroups {
   };
 }
 
-export default function ExerciseDetailClient({ exercise, error }: ExerciseDetailClientProps) {
+export default function ExerciseDetailClient({
+  exercise,
+  error,
+  mediaUrl,
+  hasMedia = false,
+}: ExerciseDetailClientProps) {
+  const { t } = useLanguage();
   if (error || !exercise) {
     return (
       <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
         <p className="muted">{error ?? "No se pudo cargar el ejercicio."}</p>
         <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/biblioteca">
-          Volver a la biblioteca
+          {t("ui.backToLibrary")}
         </Link>
       </section>
     );
@@ -49,9 +60,7 @@ export default function ExerciseDetailClient({ exercise, error }: ExerciseDetail
         <h1 className="section-title" style={{ fontSize: 28 }}>
           {exercise.name}
         </h1>
-        <p className="section-subtitle">
-          Guía completa con foco en técnica, ejecución y progresión.
-        </p>
+        <p className="section-subtitle">{t("ui.exerciseGuide")}</p>
       </div>
 
       <div className="badge-list" style={{ marginTop: 12 }}>
@@ -80,25 +89,24 @@ export default function ExerciseDetailClient({ exercise, error }: ExerciseDetail
           alignItems: "start",
         }}
       >
-        <div
-          className="feature-card"
-          style={{
-            background: "var(--primary-soft)",
-            border: "1px dashed rgba(15, 23, 42, 0.15)",
-            display: "grid",
-            placeItems: "center",
-            minHeight: 220,
-            textAlign: "center",
-            padding: 24,
-          }}
-        >
-          <p className="muted" style={{ margin: 0 }}>
-            Aquí irá el modelo 3D / GIF del ejercicio, como en FitnessAI.
-          </p>
+        <div className="feature-card exercise-media">
+          {hasMedia && mediaUrl ? (
+            <img
+              src={mediaUrl}
+              alt={`Demostración del ejercicio ${exercise.name}`}
+              className="exercise-media-img"
+            />
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              Aquí irá el modelo 3D / GIF del ejercicio, como en FitnessAI.
+            </p>
+          )}
+          {/* Para activar el GIF, sube el archivo en /public/exercises con el slug del ejercicio.
+              Ejemplo: "elevaciones-de-talones.gif" para "Elevaciones de talones". */}
         </div>
 
         <div className="feature-card">
-          <h3>Descripción</h3>
+          <h3>{t("ui.description")}</h3>
           <p className="muted" style={{ marginTop: 8 }}>
             {descriptionText}
           </p>
@@ -107,13 +115,13 @@ export default function ExerciseDetailClient({ exercise, error }: ExerciseDetail
 
       <div className="list-grid" style={{ marginTop: 16 }}>
         <div className="feature-card">
-          <h3>Técnica</h3>
+          <h3>{t("ui.technique")}</h3>
           <p className="muted" style={{ marginTop: 8 }}>
             {techniqueText}
           </p>
         </div>
         <div className="feature-card">
-          <h3>Consejos</h3>
+          <h3>{t("ui.tips")}</h3>
           <p className="muted" style={{ marginTop: 8 }}>
             {tipsText}
           </p>
@@ -121,7 +129,7 @@ export default function ExerciseDetailClient({ exercise, error }: ExerciseDetail
       </div>
 
       <Link className="btn" style={{ width: "fit-content", marginTop: 20 }} href="/app/biblioteca">
-        Volver a la biblioteca
+        {t("ui.backToLibrary")}
       </Link>
     </section>
   );
