@@ -13,6 +13,7 @@ export type Exercise = {
 };
 
 export type WorkoutExercise = {
+  muscleGroup: string | null | undefined;
   id?: string | null;
   exerciseId?: string | null;
   name: string;

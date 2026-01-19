@@ -3,10 +3,10 @@ import { cookies } from "next/headers";
 import type { Workout, WorkoutExercise } from "@/lib/types";
 
 type WorkoutExerciseApi = WorkoutExercise & {
-  exerciseName?: string | null;
   muscleGroup?: string | null;
   primaryMuscleGroup?: string | null;
 };
+
 
 type WorkoutApiResponse = Workout & {
   focus?: string | null;
@@ -29,7 +29,8 @@ function normalizeWorkout(data: WorkoutApiResponse): Workout {
     ? data.exercises.map((exercise, index) => ({
         id: exercise.id ?? `${data.id}-${index}`,
         exerciseId: exercise.exerciseId ?? exercise.id ?? null,
-        name: exercise.name ?? exercise.exerciseName ?? "Ejercicio",
+        // AQUÍ EL CAMBIO
+        name: exercise.name ?? "Ejercicio",
         sets: exercise.sets ?? null,
         reps: exercise.reps ?? null,
         loadKg: exercise.loadKg ?? null,
@@ -37,16 +38,17 @@ function normalizeWorkout(data: WorkoutApiResponse): Workout {
         rir: exercise.rir ?? null,
         restSeconds: exercise.restSeconds ?? null,
         notes: exercise.notes ?? null,
-        primaryMuscle:
-          exercise.primaryMuscle ?? exercise.primaryMuscleGroup ?? exercise.muscleGroup ?? null,
+       primaryMuscle: exercise.primaryMuscle ?? null,
+
         lastLog: exercise.lastLog ?? null,
       }))
     : [];
 
+
   return {
     ...data,
     goal: data.goal ?? data.focus ?? null,
-    exercises,
+  
   };
 }
 

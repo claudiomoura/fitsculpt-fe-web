@@ -11,6 +11,7 @@ import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText } from "./aiParsing.js";
 
+
 const env = getEnv();
 const prisma = new PrismaClient();
 
@@ -29,8 +30,10 @@ await app.register(jwt, {
   secret: env.JWT_SECRET,
   cookie: {
     cookieName: "fs_token",
+    signed: false,
   },
 });
+
 
 const VERIFICATION_TTL_MS = env.VERIFICATION_TOKEN_TTL_HOURS * 60 * 60 * 1000;
 const RESEND_COOLDOWN_MS = env.VERIFICATION_RESEND_COOLDOWN_MINUTES * 60 * 1000;
@@ -531,14 +534,26 @@ function getSecondsUntilNextUtcDay(date = new Date()) {
   return Math.max(1, Math.ceil(diffMs / 1000));
 }
 
-function stableStringify(value: unknown) {
-  if (!value || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
   }
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
-  return `{${entries.map(([key, val]) => `"${key}":${stableStringify(val)}`).join(",")}}`;
+
+  if (Array.isArray(value)) {
+    return `[${(value as unknown[])
+      .map((item) => stableStringify(item))
+      .join(",")}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+
+  return `{${entries
+    .map(([key, val]) => `"${key}":${stableStringify(val)}`)
+    .join(",")}}`;
 }
+
 
 function buildCacheKey(type: string, params: Record<string, unknown>) {
   return `${type}:${stableStringify(params)}`;
@@ -596,9 +611,10 @@ async function storeAiContent(
   source: "template" | "cache" | "ai",
   payload: Record<string, unknown>
 ) {
-  await prisma.aiContent.create({
-    data: { userId, type, source, payload },
-  });
+await prisma.aiContent.create({
+  data: { userId, type, source, payload: payload as Prisma.InputJsonValue },
+});
+
 }
 
 async function safeStoreAiContent(
@@ -625,11 +641,12 @@ async function getCachedAiPayload(key: string) {
 }
 
 async function saveCachedAiPayload(key: string, type: AiRequestType, payload: Record<string, unknown>) {
-  await prisma.aiPromptCache.upsert({
-    where: { key },
-    create: { key, type, payload },
-    update: { payload, lastUsedAt: new Date() },
-  });
+await prisma.aiPromptCache.upsert({
+  where: { key },
+  create: { key, type, payload: payload as Prisma.InputJsonValue },
+  update: { payload: payload as Prisma.InputJsonValue, lastUsedAt: new Date() },
+});
+
 }
 
 function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
@@ -1091,23 +1108,32 @@ function buildExerciseFilters(params: {
   query?: string;
   muscle?: string;
   equipment?: string;
-}) {
+}): Prisma.Sql {
   const filters: Prisma.Sql[] = [];
+
   if (params.query) {
     filters.push(Prisma.sql`name ILIKE ${`%${params.query}%`}`);
   }
+
   if (params.equipment && params.equipment !== "all") {
     filters.push(Prisma.sql`equipment = ${params.equipment}`);
   }
+
   if (params.muscle && params.muscle !== "all") {
     filters.push(
       Prisma.sql`("mainMuscleGroup" = ${params.muscle} OR "secondaryMuscleGroups" @> ARRAY[${params.muscle}]::text[])`
     );
   }
-  const whereSql =
-    filters.length > 0 ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}` : Prisma.sql``;
-  return whereSql;
+
+  const whereClause =
+    filters.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(filters)}`
+      : Prisma.sql``;
+
+  return whereClause;
 }
+
+
 
 async function listExercises(params: {
   query?: string;
@@ -2118,53 +2144,35 @@ const adminCreateUserSchema = z.object({
   role: z.enum(["USER", "ADMIN"]).optional(),
 });
 
-app.post("/admin/users", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const data = adminCreateUserSchema.parse(request.body);
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) {
-      return reply.status(409).send({ error: "EMAIL_IN_USE" });
-    }
-    const passwordHash = await bcrypt.hash(data.password, 10);
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        passwordHash,
-        role: data.role ?? "USER",
-        provider: "email",
-        emailVerifiedAt: new Date(),
-      },
-    });
-    return reply.status(201).send({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      emailVerified: Boolean(user.emailVerifiedAt),
-      emailVerifiedAt: user.emailVerifiedAt,
-      createdAt: user.createdAt,
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
 app.get("/admin/users", async (request, reply) => {
   try {
     await requireAdmin(request);
+
     const querySchema = z.object({
       query: z.string().optional(),
       page: z.coerce.number().min(1).default(1),
     });
+
     const { query, page } = querySchema.parse(request.query);
     const pageSize = 20;
-    const where = {
+
+    const where: Prisma.UserWhereInput = {
       deletedAt: null,
       ...(query
         ? {
             OR: [
-              { email: { contains: query, mode: "insensitive" } },
-              { name: { contains: query, mode: "insensitive" } },
+              {
+                email: {
+                  contains: query,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                name: {
+                  contains: query,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
             ],
           }
         : {}),
@@ -2184,9 +2192,10 @@ app.get("/admin/users", async (request, reply) => {
     const payload = users.map((user) => {
       const method = user.passwordHash
         ? "local"
-        : user.authProviders.some((provider) => provider.provider === "google")
-          ? "google"
-          : user.provider;
+        : user.authProviders && user.authProviders.some((provider) => provider.provider === "google")
+        ? "google"
+        : user.provider;
+
       return {
         id: user.id,
         email: user.email,
@@ -2205,6 +2214,7 @@ app.get("/admin/users", async (request, reply) => {
     return handleRequestError(reply, error);
   }
 });
+
 
 app.post("/admin/users/:id/verify-email", async (request, reply) => {
   try {

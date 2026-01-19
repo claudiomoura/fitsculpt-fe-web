@@ -2,10 +2,10 @@ import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import type { Workout, WorkoutExercise } from "@/lib/types";
 
-function getAppUrl() {
+async function getAppUrl() {
   const headerList = headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const protocol = headerList.get("x-forwarded-proto") ?? "http";
+  const host = (await headerList).get("x-forwarded-host") ?? (await headerList).get("host");
+  const protocol = (await headerList).get("x-forwarded-proto") ?? "http";
   if (!host) {
     return "http://localhost:3000";
   }
