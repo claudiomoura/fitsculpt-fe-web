@@ -1,24 +1,26 @@
 import Link from "next/link";
-import { copy } from "@/lib/i18n";
+import { messages } from "@/lib/i18n";
+import { getServerT } from "@/lib/serverI18n";
 
 export default function HomePage() {
-  const c = copy.es;
+  const { locale } = getServerT();
+  const landing = messages[locale].landing;
   return (
     <div className="page">
       <section className="hero">
         <div style={{ maxWidth: 520, display: "grid", gap: 12 }}>
-          <h1>{c.landing.title}</h1>
+          <h1>{landing.title}</h1>
           <p className="muted" style={{ fontSize: 18 }}>
-            {c.landing.subtitle}
+            {landing.subtitle}
           </p>
         </div>
 
         <div className="hero-actions">
           <Link href="/login" className="btn">
-            {c.landing.cta}
+            {landing.cta}
           </Link>
           <Link href="/app" className="btn secondary">
-            {c.landing.secondaryCta}
+            {landing.secondaryCta}
           </Link>
         </div>
       </section>
@@ -26,12 +28,12 @@ export default function HomePage() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title">{c.landing.highlightsTitle}</h2>
-            <p className="section-subtitle">{c.landing.highlightsSubtitle}</p>
+            <h2 className="section-title">{landing.highlightsTitle}</h2>
+            <p className="section-subtitle">{landing.highlightsSubtitle}</p>
           </div>
         </div>
         <div className="list-grid feature-grid">
-          {c.landing.highlights.map((item) => (
+          {landing.highlights.map((item) => (
             <article className="feature-card" key={item.title}>
               <h3>{item.title}</h3>
               <p className="muted">{item.description}</p>
@@ -43,12 +45,12 @@ export default function HomePage() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title">{c.landing.stepsTitle}</h2>
-            <p className="section-subtitle">{c.landing.stepsSubtitle}</p>
+            <h2 className="section-title">{landing.stepsTitle}</h2>
+            <p className="section-subtitle">{landing.stepsSubtitle}</p>
           </div>
         </div>
         <ol className="steps-list">
-          {c.landing.steps.map((step) => (
+          {landing.steps.map((step) => (
             <li className="steps-item" key={step.title}>
               <div className="steps-index" aria-hidden="true" />
               <div>

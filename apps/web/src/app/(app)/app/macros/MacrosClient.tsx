@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
 import { type MacroFormula, type ProfileData, type Sex } from "@/lib/profile";
 import { getUserProfile } from "@/lib/profileService";
 
@@ -69,7 +69,7 @@ function buildState(profile: ProfileData): MacroState {
 }
 
 export default function MacrosClient() {
-  const c = copy.es.macros;
+  const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export default function MacrosClient() {
         const data = await getUserProfile();
         if (active) setProfile(data);
       } catch {
-        if (active) setError("No pudimos cargar tu perfil.");
+        if (active) setError(t("macros.profileError"));
       } finally {
         if (active) setLoading(false);
       }
@@ -149,97 +149,97 @@ export default function MacrosClient() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{c.dataTitle}</h2>
-            <p className="section-subtitle">{copy.es.profile.preferencesTitle}</p>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("macros.dataTitle")}</h2>
+            <p className="section-subtitle">{t("profile.preferencesTitle")}</p>
           </div>
         </div>
 
         {loading ? (
-          <p className="muted">Cargando preferencias...</p>
+          <p className="muted">{t("macros.profileLoading")}</p>
         ) : error ? (
           <p className="muted">{error}</p>
         ) : state ? (
           <div className="info-grid">
             <div className="info-item">
-              <div className="info-label">{c.sex}</div>
-              <div className="info-value">{state.sex === "male" ? c.male : c.female}</div>
+              <div className="info-label">{t("macros.sex")}</div>
+              <div className="info-value">{state.sex === "male" ? t("macros.male") : t("macros.female")}</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.age}</div>
+              <div className="info-label">{t("macros.age")}</div>
               <div className="info-value">{state.age}</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.height}</div>
+              <div className="info-label">{t("macros.height")}</div>
               <div className="info-value">{state.heightCm} cm</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.weight}</div>
+              <div className="info-label">{t("macros.weight")}</div>
               <div className="info-value">{state.weightKg} kg</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.activity}</div>
+              <div className="info-label">{t("macros.activity")}</div>
               <div className="info-value">
-                {c[state.activity === "sedentary"
-                  ? "activitySedentary"
+                {t(state.activity === "sedentary"
+                  ? "macros.activitySedentary"
                   : state.activity === "light"
-                    ? "activityLight"
+                    ? "macros.activityLight"
                     : state.activity === "moderate"
-                      ? "activityModerate"
+                      ? "macros.activityModerate"
                       : state.activity === "very"
-                        ? "activityVery"
-                        : "activityExtra"]}
+                        ? "macros.activityVery"
+                        : "macros.activityExtra")}
               </div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.goal}</div>
+              <div className="info-label">{t("macros.goal")}</div>
               <div className="info-value">
-                {c[state.goal === "cut" ? "goalCut" : state.goal === "bulk" ? "goalBulk" : "goalMaintain"]}
+                {t(state.goal === "cut" ? "macros.goalCut" : state.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
               </div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.mealsPerDay}</div>
+              <div className="info-label">{t("macros.mealsPerDay")}</div>
               <div className="info-value">{state.mealsPerDay}</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.formula}</div>
+              <div className="info-label">{t("macros.formula")}</div>
               <div className="info-value">
-                {state.formula === "katch" ? c.katch : c.mifflin}
+                {state.formula === "katch" ? t("macros.katch") : t("macros.mifflin")}
               </div>
             </div>
           </div>
         ) : null}
 
         <p className="muted" style={{ marginTop: 12 }}>
-          Cambia estas preferencias desde <strong>Perfil</strong>.
+          {t("macros.profileHint")} <strong>{t("nav.profile")}</strong>.
         </p>
       </section>
 
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{c.macrosTitle}</h2>
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("macros.macrosTitle")}</h2>
         {result ? (
           <div className="info-grid" style={{ marginTop: 16 }}>
             <div className="info-item">
-              <div className="info-label">{c.bmr}</div>
+              <div className="info-label">{t("macros.bmr")}</div>
               <div className="info-value">{round(result.bmr)} kcal</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.tdee}</div>
+              <div className="info-label">{t("macros.tdee")}</div>
               <div className="info-value">{round(result.tdee)} kcal</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.target}</div>
+              <div className="info-label">{t("macros.target")}</div>
               <div className="info-value">{round(result.targetCalories)} kcal</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.proteinLabel}</div>
+              <div className="info-label">{t("macros.proteinLabel")}</div>
               <div className="info-value">{round(result.macros.proteinG)} g</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.fatLabel}</div>
+              <div className="info-label">{t("macros.fatLabel")}</div>
               <div className="info-value">{round(result.macros.fatG)} g</div>
             </div>
             <div className="info-item">
-              <div className="info-label">{c.carbsLabel}</div>
+              <div className="info-label">{t("macros.carbsLabel")}</div>
               <div className="info-value">{round(result.macros.carbsG)} g</div>
             </div>
           </div>
@@ -247,13 +247,13 @@ export default function MacrosClient() {
 
         {result?.macros.carbsG === 0 && (
           <p style={{ marginTop: 10, marginBottom: 0 }} className="muted">
-            {c.noteZeroCarbs}
+            {t("macros.noteZeroCarbs")}
           </p>
         )}
       </section>
 
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{c.resultTitle}</h2>
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("macros.resultTitle")}</h2>
         {result && state ? (
           <div className="info-grid" style={{ marginTop: 16 }}>
             {Array.from({ length: state.mealsPerDay }).map((_, i) => {
@@ -265,7 +265,7 @@ export default function MacrosClient() {
 
               return (
                 <div key={i} className="info-item">
-                  <div className="info-label">{c.mealLabel} {i + 1}</div>
+                  <div className="info-label">{t("macros.mealLabel")} {i + 1}</div>
                   <div className="info-value">{round(kcal)} kcal</div>
                   <div className="muted">
                     {round(prot)}g P · {round(fat)}g G · {round(carbs)}g C
@@ -278,7 +278,7 @@ export default function MacrosClient() {
       </section>
 
       <p className="muted" style={{ margin: 0 }}>
-        {c.disclaimer}
+        {t("macros.disclaimer")}
       </p>
     </div>
   );

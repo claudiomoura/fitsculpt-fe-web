@@ -38,7 +38,7 @@ export default function ExerciseDetailClient({
   if (error || !exercise) {
     return (
       <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-        <p className="muted">{error ?? "No se pudo cargar el ejercicio."}</p>
+        <p className="muted">{error ?? t("library.loadError")}</p>
         <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/biblioteca">
           {t("ui.backToLibrary")}
         </Link>
@@ -47,12 +47,12 @@ export default function ExerciseDetailClient({
   }
 
   const { primary, secondary } = getMuscleGroups(exercise);
-  const levelLabel = "General";
-  const equipmentLabel = exercise.equipment ?? "Sin especificar";
+  const levelLabel = t("library.levelGeneral");
+  const equipmentLabel = exercise.equipment ?? t("library.equipmentFallback");
   const descriptionText =
-    exercise.description ?? "Pronto añadiremos la explicación paso a paso.";
-  const techniqueText = exercise.technique ?? "Pronto añadiremos la explicación paso a paso.";
-  const tipsText = exercise.tips ?? "Pronto añadiremos la explicación paso a paso.";
+    exercise.description ?? t("library.descriptionFallback");
+  const techniqueText = exercise.technique ?? t("library.descriptionFallback");
+  const tipsText = exercise.tips ?? t("library.descriptionFallback");
 
   return (
     <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
@@ -65,19 +65,19 @@ export default function ExerciseDetailClient({
 
       <div className="badge-list" style={{ marginTop: 12 }}>
         <span className="badge">
-          Principal: {primary[0] ?? "General"}
+          {t("library.primaryLabel")}: {primary[0] ?? t("library.levelGeneral")}
         </span>
         {secondary.length > 0 ? (
           secondary.map((muscle) => (
             <span key={muscle} className="badge">
-              Secundario: {muscle}
+              {t("library.secondaryLabel")}: {muscle}
             </span>
           ))
         ) : (
-          <span className="badge">Secundarios: Sin definir</span>
+          <span className="badge">{t("library.secondaryLabel")}: {t("library.secondaryFallback")}</span>
         )}
-        <span className="badge">Nivel: {levelLabel}</span>
-        <span className="badge">Equipamiento: {equipmentLabel}</span>
+        <span className="badge">{t("library.levelLabel")}: {levelLabel}</span>
+        <span className="badge">{t("library.equipmentLabel")}: {equipmentLabel}</span>
       </div>
 
       <div
@@ -93,12 +93,12 @@ export default function ExerciseDetailClient({
           {hasMedia && mediaUrl ? (
             <img
               src={mediaUrl}
-              alt={`Demostración del ejercicio ${exercise.name}`}
+              alt={`${t("library.mediaAlt")} ${exercise.name}`}
               className="exercise-media-img"
             />
           ) : (
             <p className="muted" style={{ margin: 0 }}>
-              Aquí irá el modelo 3D / GIF del ejercicio, como en FitnessAI.
+              {t("library.mediaFallback")}
             </p>
           )}
           {/* Para activar el GIF, sube el archivo en /public/exercises con el slug del ejercicio.

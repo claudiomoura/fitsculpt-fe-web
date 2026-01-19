@@ -1,7 +1,7 @@
 import { loginAction } from "./actions";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { copy } from "@/lib/i18n";
+import { getServerT } from "@/lib/serverI18n";
 import Link from "next/link";
 import ResendVerificationButton from "./ResendVerificationButton";
 
@@ -14,7 +14,7 @@ export default async function LoginPage({
 }: {
   searchParams?: SearchParams;
 }) {
-  const c = copy.es;
+  const { t } = getServerT();
   const sp = (await Promise.resolve(searchParams)) || {};
   const next = sp.next || "/app";
   const error = sp.error === "1";
@@ -28,19 +28,19 @@ export default async function LoginPage({
   return (
     <main className="auth-card card">
       <div>
-        <h1 className="section-title">{c.auth.loginTitle}</h1>
-        <p className="section-subtitle">{c.landing.subtitle}</p>
+        <h1 className="section-title">{t("auth.loginTitle")}</h1>
+        <p className="section-subtitle">{t("landing.subtitle")}</p>
       </div>
 
       {(error || unverified || blocked || registered) && (
         <p className="muted" style={{ marginTop: 4 }}>
           {registered
-            ? c.auth.registerSuccess
+            ? t("auth.registerSuccess")
             : blocked
-              ? c.auth.blockedAccount
+              ? t("auth.blockedAccount")
               : unverified
-                ? c.auth.emailNotVerified
-                : c.auth.invalidCredentials}
+                ? t("auth.emailNotVerified")
+                : t("auth.invalidCredentials")}
         </p>
       )}
 
@@ -48,22 +48,22 @@ export default async function LoginPage({
         <input type="hidden" name="next" value={next} />
 
         <label className="form-stack">
-          {c.auth.email}
+          {t("auth.email")}
           <input name="email" type="email" required />
         </label>
 
         <label className="form-stack">
-          {c.auth.password}
+          {t("auth.password")}
           <input name="password" type="password" required />
         </label>
 
         <button type="submit" className="btn">
-          {c.auth.submit}
+          {t("auth.submit")}
         </button>
       </form>
 
       <Link href="/api/auth/google/start" className="btn secondary" style={{ justifyContent: "center" }}>
-        {c.auth.google}
+        {t("auth.google")}
       </Link>
 
       {unverified && (
@@ -73,9 +73,9 @@ export default async function LoginPage({
       )}
 
       <p className="muted" style={{ marginTop: 12 }}>
-        {c.auth.noAccount}{" "}
+        {t("auth.noAccount")}{" "}
         <Link href="/register" className="link">
-          {c.auth.createAccount}
+          {t("auth.createAccount")}
         </Link>
       </p>
     </main>

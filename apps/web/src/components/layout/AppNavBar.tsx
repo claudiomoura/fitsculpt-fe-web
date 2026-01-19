@@ -48,11 +48,6 @@ export default function AppNavBar() {
     [isAdmin]
   );
 
-  const topNavItems = useMemo(
-    () => visibleItems.filter((item) => item.showInTopNav),
-    [visibleItems]
-  );
-
   const closeMenu = () => setOpen(false);
 
   const isActive = (href: string) => {
@@ -67,22 +62,6 @@ export default function AppNavBar() {
         <Link href="/" className="nav-brand">
           {t("appName")}
         </Link>
-
-        <nav className="nav-links" aria-label={t("appName")}>
-          {topNavItems.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                className={`nav-link ${active ? "is-active" : ""}`}
-                aria-current={active ? "page" : undefined}
-              >
-                {t(item.labelKey)}
-              </Link>
-            );
-          })}
-        </nav>
 
         <div className="nav-actions">
           <div className="nav-utility">

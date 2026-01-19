@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import ClientProviders from "@/components/layout/ClientProviders";
 
 export const metadata: Metadata = {
   title: "FitSculpt",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <ClientProviders>{children}</ClientProviders>
+      </body>
     </html>
   );
 }

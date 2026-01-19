@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
 
 export default function VerifyEmailClient({ token }: { token: string | null }) {
-  const c = copy.es;
+  const { t } = useLanguage();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
 
   useEffect(() => {
@@ -22,12 +22,12 @@ export default function VerifyEmailClient({ token }: { token: string | null }) {
   }, [token]);
 
   if (status === "loading") {
-    return <p className="muted">{c.auth.verifyLoading}</p>;
+    return <p className="muted">{t("auth.verifyLoading")}</p>;
   }
 
   if (status === "success") {
-    return <p className="muted">{c.auth.verifySuccess}</p>;
+    return <p className="muted">{t("auth.verifySuccess")}</p>;
   }
 
-  return <p className="muted">{c.auth.verifyError}</p>;
+  return <p className="muted">{t("auth.verifyError")}</p>;
 }

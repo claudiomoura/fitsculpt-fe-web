@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useLanguage } from "@/context/LanguageProvider";
 
 type BodyFatOption = {
   id: string;
@@ -27,12 +28,12 @@ function getActiveOption(value: number | null) {
   return BODY_FAT_OPTIONS.find((option) => value >= option.min && value <= option.max) ?? null;
 }
 
-function renderPreview(option: BodyFatOption): ReactNode {
+function renderPreview(option: BodyFatOption, label: string): ReactNode {
   if (option.imageSrc) {
     return (
       <img
         src={option.imageSrc}
-        alt={`Ejemplo ${option.label}`}
+        alt={label}
         style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 12 }}
       />
     );
@@ -47,7 +48,7 @@ function renderPreview(option: BodyFatOption): ReactNode {
         background: "var(--primary-soft)",
         display: "grid",
         placeItems: "center",
-        color: "#9a3412",
+        color: "var(--text-muted)",
         fontWeight: 600,
       }}
     >
@@ -57,6 +58,7 @@ function renderPreview(option: BodyFatOption): ReactNode {
 }
 
 export default function BodyFatSelector({ value, onChange }: BodyFatSelectorProps) {
+  const { t } = useLanguage();
   const activeOption = getActiveOption(value);
 
   return (
@@ -70,6 +72,7 @@ export default function BodyFatSelector({ value, onChange }: BodyFatSelectorProp
       >
         {BODY_FAT_OPTIONS.map((option) => {
           const isActive = activeOption?.id === option.id;
+          const previewLabel = `${t("profile.bodyFatExample")} ${option.label}`;
           return (
             <button
               key={option.id}
@@ -77,13 +80,13 @@ export default function BodyFatSelector({ value, onChange }: BodyFatSelectorProp
               onClick={() => onChange(option.value)}
               className="feature-card"
               style={{
-                borderColor: isActive ? "var(--primary)" : "#ededed",
+                borderColor: isActive ? "var(--primary)" : "var(--border)",
                 textAlign: "left",
                 cursor: "pointer",
               }}
               aria-pressed={isActive}
             >
-              {renderPreview(option)}
+              {renderPreview(option, previewLabel)}
               <div style={{ marginTop: 8, fontWeight: 600 }}>{option.label}</div>
             </button>
           );
@@ -91,7 +94,7 @@ export default function BodyFatSelector({ value, onChange }: BodyFatSelectorProp
       </div>
 
       <p className="muted" style={{ marginTop: 8 }}>
-        Selección actual: {activeOption ? activeOption.label : "Sin seleccionar"}. Estimación visual, no es un valor médico.
+        {t("profile.bodyFatSelection")}: {activeOption ? activeOption.label : t("profile.bodyFatSelectionEmpty")}. {t("profile.bodyFatDisclaimer")}
       </p>
     </div>
   );

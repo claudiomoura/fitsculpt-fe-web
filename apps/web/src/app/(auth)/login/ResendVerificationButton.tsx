@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { copy } from "@/lib/i18n";
+import { useLanguage } from "@/context/LanguageProvider";
 
 export default function ResendVerificationButton() {
-  const c = copy.es;
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sent" | "error">("idle");
 
@@ -26,7 +26,7 @@ export default function ResendVerificationButton() {
   return (
     <form onSubmit={handleResend} className="form-stack">
       <label className="form-stack">
-        {c.auth.email}
+        {t("auth.email")}
         <input
           type="email"
           value={email}
@@ -35,10 +35,10 @@ export default function ResendVerificationButton() {
         />
       </label>
       <button type="submit" className="btn secondary">
-        {c.auth.resendVerification}
+        {t("auth.resendVerification")}
       </button>
-      {status === "sent" && <span className="muted">{c.auth.resendSent}</span>}
-      {status === "error" && <span className="muted">{c.auth.resendError}</span>}
+      {status === "sent" && <span className="muted">{t("auth.resendSent")}</span>}
+      {status === "error" && <span className="muted">{t("auth.resendError")}</span>}
     </form>
   );
 }

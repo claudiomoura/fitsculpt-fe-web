@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageProvider";
 
 type AdminSummary = {
   total?: number;
@@ -12,6 +13,7 @@ type MeResponse = {
 };
 
 export default function AdminDashboardClient() {
+  const { t } = useLanguage();
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
@@ -48,28 +50,28 @@ export default function AdminDashboardClient() {
   }, []);
 
   if (unauthorized) {
-    return <p className="muted">No tienes acceso a esta sección.</p>;
+    return <p className="muted">{t("admin.unauthorized")}</p>;
   }
 
   if (loading) {
-    return <p className="muted">Cargando panel...</p>;
+    return <p className="muted">{t("admin.loading")}</p>;
   }
 
   return (
     <div className="list-grid">
       <div className="feature-card">
-        <div className="info-label">Total de usuarios</div>
+        <div className="info-label">{t("admin.totalUsers")}</div>
         <div className="info-value">{summary?.total ?? 0}</div>
       </div>
       <div className="feature-card">
-        <div className="info-label">Gestión</div>
+        <div className="info-label">{t("admin.management")}</div>
         <Link href="/app/admin/users" className="btn secondary">
-          Ver usuarios
+          {t("admin.viewUsers")}
         </Link>
       </div>
       <div className="feature-card">
-        <div className="info-label">Acciones</div>
-        <p className="muted">Bloquea, desbloquea o elimina cuentas desde la lista.</p>
+        <div className="info-label">{t("admin.actions")}</div>
+        <p className="muted">{t("admin.actionsHint")}</p>
       </div>
     </div>
   );
