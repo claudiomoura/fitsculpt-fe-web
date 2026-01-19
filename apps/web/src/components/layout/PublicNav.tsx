@@ -1,7 +1,7 @@
-\"use client\";
+"use client";
 
-import Link from \"next/link\";
-import { useLanguage } from \"@/context/LanguageProvider\";
+import Link from "next/link";
+import { useLanguage } from "@/context/LanguageProvider";
 
 export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
   const { t } = useLanguage();
