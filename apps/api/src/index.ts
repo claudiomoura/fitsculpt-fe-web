@@ -1113,6 +1113,8 @@ type ExerciseRow = {
   name: string;
   equipment: string | null;
   description: string | null;
+  technique?: string | null;
+  tips?: string | null;
   mainMuscleGroup?: string | null;
   secondaryMuscleGroups?: string[] | null;
   primaryMuscles?: string[] | null;
@@ -1129,6 +1131,8 @@ type ExerciseApiDto = {
   mainMuscleGroup: string | null;
   secondaryMuscleGroups: string[];
   description: string | null;
+  technique: string | null;
+  tips: string | null;
 };
 
 function hasExerciseClient() {
@@ -1168,6 +1172,8 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
     name: exercise.name,
     equipment: exercise.equipment ?? null,
     description: exercise.description ?? null,
+    technique: exercise.technique ?? null,
+    tips: exercise.tips ?? null,
     mainMuscleGroup: main ?? null,
     secondaryMuscleGroups,
   };
@@ -1311,6 +1317,8 @@ async function listExercises(params: {
           name: true,
           equipment: true,
           description: true,
+          technique: true,
+          tips: true,
           mainMuscleGroup: true,
           secondaryMuscleGroups: true,
           createdAt: true,
@@ -1336,7 +1344,7 @@ async function listExercises(params: {
 
   const whereSql = buildExerciseFilters(params);
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "createdAt", "updatedAt"
+    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
     ORDER BY "name" ASC
@@ -1363,6 +1371,8 @@ async function getExerciseById(id: string) {
         name: true,
         equipment: true,
         description: true,
+        technique: true,
+        tips: true,
         mainMuscleGroup: true,
         secondaryMuscleGroups: true,
         createdAt: true,
@@ -1379,7 +1389,7 @@ async function getExerciseById(id: string) {
   }
 
   const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "createdAt", "updatedAt"
+    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     WHERE "id" = ${id}
     LIMIT 1

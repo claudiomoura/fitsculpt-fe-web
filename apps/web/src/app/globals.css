@@ -684,6 +684,15 @@ label {
   gap: 8px;
 }
 
+.exercise-card-media {
+  width: 100%;
+  height: 160px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--bg-highlight);
+  border: 1px solid var(--border);
+}
+
 .exercise-media {
   background: var(--bg-highlight);
   border: 1px dashed var(--border);

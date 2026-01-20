@@ -1,8 +1,5 @@
-import { existsSync } from "fs";
-import path from "path";
 import { cookies } from "next/headers";
 import type { Exercise } from "@/lib/types";
-import { slugifyExerciseName } from "@/lib/slugify";
 import ExerciseDetailClient from "./ExerciseDetailClient";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -58,21 +55,10 @@ export default async function ExerciseDetailPage(props: {
   }
 
   const { exercise, error } = await fetchExercise(exerciseId);
-  const slug = exercise?.slug || (exercise?.name ? slugifyExerciseName(exercise.name) : null);
-  const mediaUrl = slug ? `/exercises/${slug}.gif` : null;
-  const mediaPath = slug
-    ? path.join(process.cwd(), "public", "exercises", `${slug}.gif`)
-    : null;
-  const hasMedia = mediaPath ? existsSync(mediaPath) : false;
 
   return (
     <div className="page">
-      <ExerciseDetailClient
-        exercise={exercise}
-        error={error}
-        mediaUrl={mediaUrl}
-        hasMedia={hasMedia}
-      />
+      <ExerciseDetailClient exercise={exercise} error={error} />
     </div>
   );
 }

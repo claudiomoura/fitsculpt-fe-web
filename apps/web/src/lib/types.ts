@@ -4,6 +4,10 @@ export type Exercise = {
   name: string;
   equipment?: string | null;
   description?: string | null;
+  imageUrl?: string | null;
+  posterUrl?: string | null;
+  mediaUrl?: string | null;
+  videoUrl?: string | null;
   mainMuscleGroup?: string | null;
   secondaryMuscleGroups?: string[] | null;
   primaryMuscles?: string[] | null;
