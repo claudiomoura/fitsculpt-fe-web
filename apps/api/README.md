@@ -57,7 +57,16 @@ npm run build
 npm run start
 npm run prisma:generate
 npm run prisma:migrate
+npm run seed:exercises
 npm run test
+```
+
+## Seed de exercícios
+
+Para carregar a biblioteca inicial de exercícios, execute:
+
+```bash
+npm run seed:exercises
 ```
 
 ## Testes manuais (curl)

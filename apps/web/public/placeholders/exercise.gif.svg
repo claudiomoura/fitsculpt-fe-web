@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">
+  <title id="title">Placeholder de GIF de ejercicio</title>
+  <desc id="desc">Animación de reserva para el detalle de ejercicio</desc>
+  <rect width="640" height="360" fill="#17171f" />
+  <rect x="24" y="24" width="592" height="312" rx="28" fill="#262631" stroke="#4b4b5a" stroke-width="2" />
+  <rect x="80" y="120" width="140" height="140" rx="18" fill="#3a3a4a" />
+  <rect x="250" y="140" width="320" height="28" rx="14" fill="#3a3a4a" />
+  <rect x="250" y="190" width="260" height="20" rx="10" fill="#3a3a4a" />
+  <text x="250" y="250" font-family="Inter, Arial, sans-serif" font-size="20" fill="#b8b8c8">GIF no disponible</text>
+</svg>
