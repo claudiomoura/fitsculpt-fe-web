@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
+import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import type { Exercise } from "@/lib/types";
 
 type ExerciseResponse = {
@@ -120,8 +121,17 @@ export default function ExerciseLibraryClient() {
           {exercises.map((exercise) => {
             const muscles = getExerciseMuscles(exercise);
             const exerciseId = exercise.id;
+            const coverUrl = getExerciseCoverUrl(exercise);
             const content = (
               <>
+                <img
+                  src={coverUrl}
+                  alt={`${t("library.mediaAlt")} ${exercise.name}`}
+                  className="exercise-card-media"
+                  onError={(event) => {
+                    event.currentTarget.src = "/placeholders/exercise-cover.svg";
+                  }}
+                />
                 <h3>{exercise.name}</h3>
                 <div className="badge-list">
                   {muscles.length > 0 ? (

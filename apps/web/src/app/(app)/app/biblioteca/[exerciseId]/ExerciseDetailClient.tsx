@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
+import { getExerciseDemoUrl } from "@/lib/exerciseMedia";
 import type { Exercise } from "@/lib/types";
 
 type ExerciseDetailClientProps = {
   exercise: Exercise | null;
   error?: string | null;
-  mediaUrl?: string | null;
-  hasMedia?: boolean;
 };
 
 type MuscleGroups = {
@@ -31,10 +31,9 @@ function getMuscleGroups(exercise: Exercise): MuscleGroups {
 export default function ExerciseDetailClient({
   exercise,
   error,
-  mediaUrl,
-  hasMedia = false,
 }: ExerciseDetailClientProps) {
   const { t } = useLanguage();
+  const [forceImageFallback, setForceImageFallback] = useState(false);
   if (error || !exercise) {
     return (
       <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
@@ -53,6 +52,8 @@ export default function ExerciseDetailClient({
     exercise.description ?? t("library.descriptionFallback");
   const techniqueText = exercise.technique ?? t("library.descriptionFallback");
   const tipsText = exercise.tips ?? t("library.descriptionFallback");
+  const demoMedia = getExerciseDemoUrl(exercise);
+  const demoImageUrl = forceImageFallback ? "/placeholders/exercise-demo.svg" : demoMedia.url;
 
   return (
     <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
@@ -90,19 +91,28 @@ export default function ExerciseDetailClient({
         }}
       >
         <div className="feature-card exercise-media">
-          {hasMedia && mediaUrl ? (
+          {demoMedia.kind === "video" && !forceImageFallback ? (
+            <video
+              className="exercise-media-img"
+              autoPlay
+              loop
+              muted
+              playsInline
+              poster={demoMedia.poster}
+              onError={() => setForceImageFallback(true)}
+            >
+              <source src={demoMedia.url} />
+            </video>
+          ) : (
             <img
-              src={mediaUrl}
+              src={demoImageUrl}
               alt={`${t("library.mediaAlt")} ${exercise.name}`}
               className="exercise-media-img"
+              onError={(event) => {
+                event.currentTarget.src = "/placeholders/exercise-demo.svg";
+              }}
             />
-          ) : (
-            <p className="muted" style={{ margin: 0 }}>
-              {t("library.mediaFallback")}
-            </p>
           )}
-          {/* Para activar el GIF, sube el archivo en /public/exercises con el slug del ejercicio.
-              Ejemplo: "elevaciones-de-talones.gif" para "Elevaciones de talones". */}
         </div>
 
         <div className="feature-card">
