@@ -2,7 +2,10 @@ import { cookies } from "next/headers";
 import type { Exercise } from "@/lib/types";
 import ExerciseDetailClient from "./ExerciseDetailClient";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 
 type ExerciseApiResponse = Exercise & {
   mainMuscleGroup?: string | null;
@@ -24,10 +27,12 @@ async function fetchExercise(exerciseId: string) {
   try {
     const token = (await cookies()).get("fs_token")?.value;
     const authCookie = token ? `fs_token=${token}` : "";
-    const response = await fetch(`${APP_URL}/api/exercises/${exerciseId}` as string, {
-      headers: authCookie ? { cookie: authCookie } : undefined,
-      cache: "no-store",
-    });
+ const url = new URL(`/api/exercises/${exerciseId}`, APP_URL);
+const response = await fetch(url, {
+  headers: authCookie ? { cookie: authCookie } : undefined,
+  cache: "no-store",
+});
+
     if (!response.ok) {
       return { exercise: null, error: "No se pudo cargar el ejercicio." };
     }

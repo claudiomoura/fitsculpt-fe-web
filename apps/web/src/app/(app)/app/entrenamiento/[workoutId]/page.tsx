@@ -14,7 +14,10 @@ type WorkoutApiResponse = Workout & {
   exercises?: WorkoutExerciseApi[] | null;
 };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 
 function parseNumber(value: number | string | null | undefined) {
   if (typeof value === "number") return value;
@@ -56,10 +59,14 @@ async function fetchWorkout(workoutId: string) {
   try {
     const token = (await cookies()).get("fs_token")?.value;
     const authCookie = token ? `fs_token=${token}` : "";
-    const response = await fetch(`${APP_URL}/api/workouts/${workoutId}`, {
-      headers: authCookie ? { cookie: authCookie } : undefined,
-      cache: "no-store",
-    });
+    const url = new URL(`/api/exercises/${workoutId}`, APP_URL)
+
+    
+const response = await fetch(url, {
+  headers: authCookie ? { cookie: authCookie } : undefined,
+  cache: "no-store",
+});
+
     if (!response.ok) {
       return { workout: null, error: "LOAD_ERROR" };
     }
