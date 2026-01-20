@@ -420,26 +420,31 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       {!isManualView ? (
         <>
           <section className="card">
-            <div className="section-head">
-              <div>
-                <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.formTitle")}</h2>
-                <p className="section-subtitle">
-                  {t("training.tips")}
-                </p>
-              </div>
-              <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
-                {t("training.generate")}
-              </button>
-              <button type="button" className="btn" disabled={!form || aiLoading} onClick={handleAiPlan}>
-                {aiLoading ? t("training.aiGenerating") : t("training.aiGenerate")}
-              </button>
-              <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-                {saving ? t("training.savePlanSaving") : t("training.savePlan")}
-              </button>
-              <Link href="/app/entrenamiento/editar" className="btn secondary">
-                {t("training.editPlan")}
-              </Link>
-            </div>
+<div className="section-head section-head-actions">
+  <div style={{ minWidth: 0 }}>
+    <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.formTitle")}</h2>
+    <p className="section-subtitle">{t("training.tips")}</p>
+  </div>
+
+  <div className="section-actions">
+    {/* <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
+      {t("training.generate")}
+    </button> */}
+
+    <button type="button" className="btn" disabled={!form || aiLoading} onClick={handleAiPlan}>
+      {aiLoading ? t("training.aiGenerating") : t("training.aiGenerate")}
+    </button>
+
+    {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+      {saving ? t("training.savePlanSaving") : t("training.savePlan")}
+    </button> */}
+
+    <Link href="/app/entrenamiento/editar" className="btn secondary">
+      {t("training.editPlan")}
+    </Link>
+  </div>
+</div>
+
 
             {loading ? (
               <p className="muted">{t("training.profileLoading")}</p>

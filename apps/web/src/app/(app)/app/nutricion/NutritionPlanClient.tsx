@@ -792,23 +792,26 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       {!isManualView ? (
         <>
           <section className="card">
-            <div className="section-head">
+            <div className="section-head section-head-actions">
               <div>
                 <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.formTitle")}</h2>
                 <p className="section-subtitle">{t("nutrition.tips")}</p>
               </div>
-              <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
+
+            <div className="section-actions">
+              {/* <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
                 {t("nutrition.generate")}
-              </button>
+              </button> */}
               <button type="button" className="btn" disabled={!plan || aiLoading} onClick={handleAiPlan}>
                 {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
               </button>
-              <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+              {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
                 {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
-              </button>
+              </button> */}
               <Link href="/app/nutricion/editar" className="btn secondary">
                 {t("nutrition.editPlan")}
               </Link>
+              </div>
             </div>
 
             {loading ? (

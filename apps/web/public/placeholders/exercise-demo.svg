@@ -1,29 +1,115 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="640" height="440" role="img" aria-label="Ejercicio animado: curl de mancuerna">
   <defs>
-    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0b0f14"/>
-      <stop offset="1" stop-color="#141a22"/>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#101827"/>
+      <stop offset="1" stop-color="#0b1220"/>
     </linearGradient>
+
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
 
-  <rect width="800" height="450" rx="28" fill="url(#bg2)"/>
+  <!-- Fondo -->
+  <rect x="8" y="8" width="304" height="204" rx="18" fill="url(#bg)"/>
+  <rect x="8" y="8" width="304" height="204" rx="18" fill="none" stroke="#23304a" stroke-width="2"/>
 
-  <text x="70" y="95" fill="#f5b942" font-family="system-ui, -apple-system, Segoe UI, Roboto" font-size="20" font-weight="600">Demo</text>
-  <text x="70" y="118" fill="#94a3b8" font-family="system-ui, -apple-system, Segoe UI, Roboto" font-size="14">Placeholder animado</text>
+  <!-- Suelo -->
+  <path d="M40 184 H280" stroke="#24324d" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
 
-  <g transform="translate(70,170)">
-    <rect x="0" y="0" width="660" height="24" rx="12" fill="#1a212c" stroke="#2b3340"/>
-    <rect x="0" y="52" width="660" height="24" rx="12" fill="#1a212c" stroke="#2b3340"/>
-    <rect x="0" y="104" width="660" height="24" rx="12" fill="#1a212c" stroke="#2b3340"/>
+  <!-- Brillos (sparkles) -->
+  <g opacity="0.9">
+    <g transform="translate(258 44)">
+      <path d="M0 -6 L2 -2 L6 0 L2 2 L0 6 L-2 2 L-6 0 L-2 -2 Z" fill="#7dd3fc" filter="url(#soft)">
+        <animateTransform attributeName="transform" type="rotate" values="0 0 0;180 0 0;360 0 0" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.35;0.95;0.35" dur="1.8s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    <g transform="translate(52 56)">
+      <path d="M0 -5 L1.8 -1.8 L5 0 L1.8 1.8 L0 5 L-1.8 1.8 L-5 0 L-1.8 -1.8 Z" fill="#a78bfa" filter="url(#soft)">
+        <animateTransform attributeName="transform" type="rotate" values="360 0 0;180 0 0;0 0 0" dur="2.2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.25;0.8;0.25" dur="2.2s" repeatCount="indefinite"/>
+      </path>
+    </g>
+  </g>
 
-    <rect x="0" y="0" width="140" height="24" rx="12" fill="#f5b942" opacity="0.18">
-      <animate attributeName="x" values="0;520;0" dur="2.2s" repeatCount="indefinite"/>
-    </rect>
-    <rect x="0" y="52" width="220" height="24" rx="12" fill="#f5b942" opacity="0.14">
-      <animate attributeName="x" values="80;420;80" dur="2.6s" repeatCount="indefinite"/>
-    </rect>
-    <rect x="0" y="104" width="180" height="24" rx="12" fill="#f5b942" opacity="0.12">
-      <animate attributeName="x" values="200;360;200" dur="2.4s" repeatCount="indefinite"/>
-    </rect>
+  <!-- Muñeco -->
+  <g stroke="#e5e7eb" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Cabeza -->
+    <g>
+      <circle cx="140" cy="72" r="16" />
+      <!-- Cara -->
+      <path d="M134 70 Q140 76 146 70" stroke-width="3"/>
+      <circle cx="134" cy="66" r="2.2" fill="#e5e7eb" stroke="none"/>
+      <circle cx="146" cy="66" r="2.2" fill="#e5e7eb" stroke="none"/>
+
+      <!-- Bob de la cabeza -->
+      <animateTransform attributeName="transform" type="translate"
+        values="0 0; 0 1.5; 0 0" dur="1.2s" repeatCount="indefinite"/>
+    </g>
+
+    <!-- Cuerpo -->
+    <path d="M140 88 L140 132" />
+
+    <!-- Piernas -->
+    <path d="M140 132 L122 172" />
+    <path d="M140 132 L158 172" />
+
+    <!-- Brazo izquierdo (quieto) -->
+    <path d="M140 102 L118 120" />
+
+    <!-- Brazo derecho + mancuerna (animado) -->
+    <g>
+      <!-- Grupo del brazo que rota alrededor del hombro -->
+      <g>
+        <!-- Upper arm -->
+        <path d="M140 102 L165 112" />
+        <!-- Forearm -->
+        <path d="M165 112 L192 100" />
+
+        <!-- Mancuerna -->
+        <g transform="translate(192 100)">
+          <rect x="-6" y="-4" width="12" height="8" rx="3" fill="#e5e7eb" stroke="none"/>
+          <rect x="-18" y="-10" width="10" height="20" rx="4" fill="#9ca3af" stroke="none"/>
+          <rect x="8" y="-10" width="10" height="20" rx="4" fill="#9ca3af" stroke="none"/>
+
+          <!-- Pequeño rebote -->
+          <animateTransform attributeName="transform" type="translate"
+            values="192 100; 192 98.8; 192 100" dur="0.6s" repeatCount="indefinite"/>
+        </g>
+
+        <!-- Rotación del brazo (curl) -->
+        <animateTransform attributeName="transform" type="rotate"
+          values="18 140 102; -42 140 102; 18 140 102"
+          keyTimes="0;0.5;1"
+          keySplines="0.4 0 0.2 1; 0.4 0 0.2 1"
+          calcMode="spline"
+          dur="1.2s"
+          repeatCount="indefinite"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Sudor (gotitas) -->
+  <g fill="#60a5fa" opacity="0.0">
+    <path d="M168 62 C170 58,174 58,176 62 C176 67,172 71,172 71 C172 71,168 67,168 62 Z">
+      <animate attributeName="opacity" values="0;0.9;0" dur="1.2s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0 0; 0 10; 0 0" dur="1.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M156 58 C158 54,162 54,164 58 C164 63,160 67,160 67 C160 67,156 63,156 58 Z">
+      <animate attributeName="opacity" values="0;0.75;0" dur="1.2s" begin="0.15s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0 0; 0 12; 0 0" dur="1.2s" begin="0.15s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Texto -->
+  <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial" fill="#cbd5e1">
+    <text x="24" y="40" font-size="16" opacity="0.95">¡A darle!</text>
+    <text x="24" y="62" font-size="12" opacity="0.75">Demo placeholder animado</text>
   </g>
 </svg>
