@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
 import {
@@ -49,6 +50,10 @@ type DayPlan = {
 };
 
 type NutritionPlan = NutritionPlanData;
+
+type NutritionPlanClientProps = {
+  mode?: "suggested" | "manual";
+};
 
 type ShoppingItem = {
   name: string;
@@ -493,7 +498,7 @@ export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: st
   return { ...plan, days: nextDays };
 }
 
-export default function NutritionPlanClient() {
+export default function NutritionPlanClient({ mode = "suggested" }: NutritionPlanClientProps) {
   const { t, locale } = useLanguage();
   const mealTemplates = MEAL_TEMPLATES[locale];
   const dayLabels = DAY_LABELS[locale];
@@ -506,6 +511,7 @@ export default function NutritionPlanClient() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
+  const isManualView = mode === "manual";
 
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -783,332 +789,349 @@ export default function NutritionPlanClient() {
 
   return (
     <div className="page">
-      <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.formTitle")}</h2>
-            <p className="section-subtitle">{t("nutrition.tips")}</p>
-          </div>
-          <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
-            {t("nutrition.generate")}
-          </button>
-          <button type="button" className="btn" disabled={!plan || aiLoading} onClick={handleAiPlan}>
-            {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-          </button>
-          <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-            {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
-          </button>
-        </div>
-
-        {loading ? (
-          <p className="muted">{t("nutrition.profileLoading")}</p>
-        ) : error ? (
-          <p className="muted">{error}</p>
-        ) : saveMessage ? (
-          <p className="muted">{saveMessage}</p>
-        ) : profile ? (
-          <>
-            <div className="badge-list">
-              <span className="badge">
-                {t("macros.goal")}: {t(profile.goal === "cut" ? "macros.goalCut" : profile.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
-              </span>
-              <span className="badge">{t("nutrition.mealsPerDay")}: {profile.nutritionPreferences.mealsPerDay}</span>
-              <span className="badge">
-                {t("nutrition.cookingTime")}: {t(profile.nutritionPreferences.cookingTime === "quick" ? "nutrition.cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "nutrition.cookingTimeOptionLong" : "nutrition.cookingTimeOptionMedium")}
-              </span>
+      {!isManualView ? (
+        <>
+          <section className="card">
+            <div className="section-head">
+              <div>
+                <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.formTitle")}</h2>
+                <p className="section-subtitle">{t("nutrition.tips")}</p>
+              </div>
+              <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
+                {t("nutrition.generate")}
+              </button>
+              <button type="button" className="btn" disabled={!plan || aiLoading} onClick={handleAiPlan}>
+                {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+              </button>
+              <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+                {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
+              </button>
+              <Link href="/app/nutricion/editar" className="btn secondary">
+                {t("nutrition.editPlan")}
+              </Link>
             </div>
 
+            {loading ? (
+              <p className="muted">{t("nutrition.profileLoading")}</p>
+            ) : error ? (
+              <p className="muted">{error}</p>
+            ) : saveMessage ? (
+              <p className="muted">{saveMessage}</p>
+            ) : profile ? (
+              <>
+                <div className="badge-list">
+                  <span className="badge">
+                    {t("macros.goal")}: {t(profile.goal === "cut" ? "macros.goalCut" : profile.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
+                  </span>
+                  <span className="badge">{t("nutrition.mealsPerDay")}: {profile.nutritionPreferences.mealsPerDay}</span>
+                  <span className="badge">
+                    {t("nutrition.cookingTime")}: {t(profile.nutritionPreferences.cookingTime === "quick" ? "nutrition.cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "nutrition.cookingTimeOptionLong" : "nutrition.cookingTimeOptionMedium")}
+                  </span>
+                </div>
+
+                <div className="info-grid" style={{ marginTop: 16 }}>
+                  <div className="info-item">
+                    <div className="info-label">{t("macros.weight")}</div>
+                    <div className="info-value">{profile.weightKg} kg</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">{t("macros.height")}</div>
+                    <div className="info-value">{profile.heightCm} cm</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">{t("macros.activity")}</div>
+                    <div className="info-value">
+                      {t(profile.activity === "sedentary" ? "macros.activitySedentary" : profile.activity === "light" ? "macros.activityLight" : profile.activity === "moderate" ? "macros.activityModerate" : profile.activity === "very" ? "macros.activityVery" : "macros.activityExtra")}
+                    </div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">{t("nutrition.dietTypeLabel")}</div>
+                    <div className="info-value">{t(`nutrition.dietType.${profile.nutritionPreferences.dietType}`)}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">{t("nutrition.mealDistributionLabel")}</div>
+                    <div className="info-value">
+                      {t(`nutrition.mealDistribution.${profile.nutritionPreferences.mealDistribution.preset}`)}
+                    </div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">{t("nutrition.allergiesLabel")}</div>
+                    <div className="info-value">
+                      {profile.nutritionPreferences.allergies.length > 0
+                        ? profile.nutritionPreferences.allergies.join(", ")
+                        : "-"}
+                    </div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">{t("nutrition.dietaryPrefs")}</div>
+                    <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">{t("nutrition.preferredFoods")}</div>
+                    <div className="info-value">{profile.nutritionPreferences.preferredFoods || "-"}</div>
+                  </div>
+                  <div className="info-item">
+                    <div className="info-label">{t("nutrition.dislikedFoods")}</div>
+                    <div className="info-value">{profile.nutritionPreferences.dislikedFoods || "-"}</div>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            <p className="muted" style={{ marginTop: 12 }}>
+              Cambia estas preferencias desde <strong>Perfil</strong>.
+            </p>
+          </section>
+
+          <section className="card">
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.dailyTargetTitle")}</h2>
             <div className="info-grid" style={{ marginTop: 16 }}>
               <div className="info-item">
-                <div className="info-label">{t("macros.weight")}</div>
-                <div className="info-value">{profile.weightKg} kg</div>
+                <div className="info-label">{t("nutrition.calories")}</div>
+                <div className="info-value">{visiblePlan?.dailyCalories ?? 0} kcal</div>
               </div>
               <div className="info-item">
-                <div className="info-label">{t("macros.height")}</div>
-                <div className="info-value">{profile.heightCm} cm</div>
+                <div className="info-label">{t("nutrition.protein")}</div>
+                <div className="info-value">{visiblePlan?.proteinG ?? 0} g</div>
               </div>
               <div className="info-item">
-                <div className="info-label">{t("macros.activity")}</div>
-                <div className="info-value">
-                  {t(profile.activity === "sedentary" ? "macros.activitySedentary" : profile.activity === "light" ? "macros.activityLight" : profile.activity === "moderate" ? "macros.activityModerate" : profile.activity === "very" ? "macros.activityVery" : "macros.activityExtra")}
-                </div>
+                <div className="info-label">{t("nutrition.fat")}</div>
+                <div className="info-value">{visiblePlan?.fatG ?? 0} g</div>
               </div>
               <div className="info-item">
-                <div className="info-label">{t("nutrition.dietTypeLabel")}</div>
-                <div className="info-value">{t(`nutrition.dietType.${profile.nutritionPreferences.dietType}`)}</div>
-              </div>
-              <div className="info-item">
-                <div className="info-label">{t("nutrition.mealDistributionLabel")}</div>
-                <div className="info-value">
-                  {t(`nutrition.mealDistribution.${profile.nutritionPreferences.mealDistribution.preset}`)}
-                </div>
-              </div>
-              <div className="info-item">
-                <div className="info-label">{t("nutrition.allergiesLabel")}</div>
-                <div className="info-value">
-                  {profile.nutritionPreferences.allergies.length > 0
-                    ? profile.nutritionPreferences.allergies.join(", ")
-                    : "-"}
-                </div>
-              </div>
-              <div className="info-item">
-                <div className="info-label">{t("nutrition.dietaryPrefs")}</div>
-                <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
-              </div>
-              <div className="info-item">
-                <div className="info-label">{t("nutrition.preferredFoods")}</div>
-                <div className="info-value">{profile.nutritionPreferences.preferredFoods || "-"}</div>
-              </div>
-              <div className="info-item">
-                <div className="info-label">{t("nutrition.dislikedFoods")}</div>
-                <div className="info-value">{profile.nutritionPreferences.dislikedFoods || "-"}</div>
+                <div className="info-label">{t("nutrition.carbs")}</div>
+                <div className="info-value">{visiblePlan?.carbsG ?? 0} g</div>
               </div>
             </div>
-          </>
-        ) : null}
+          </section>
 
-        <p className="muted" style={{ marginTop: 12 }}>
-          Cambia estas preferencias desde <strong>Perfil</strong>.
-        </p>
-      </section>
-
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.dailyTargetTitle")}</h2>
-        <div className="info-grid" style={{ marginTop: 16 }}>
-          <div className="info-item">
-            <div className="info-label">{t("nutrition.calories")}</div>
-            <div className="info-value">{visiblePlan?.dailyCalories ?? 0} kcal</div>
-          </div>
-          <div className="info-item">
-            <div className="info-label">{t("nutrition.protein")}</div>
-            <div className="info-value">{visiblePlan?.proteinG ?? 0} g</div>
-          </div>
-          <div className="info-item">
-            <div className="info-label">{t("nutrition.fat")}</div>
-            <div className="info-value">{visiblePlan?.fatG ?? 0} g</div>
-          </div>
-          <div className="info-item">
-            <div className="info-label">{t("nutrition.carbs")}</div>
-            <div className="info-value">{visiblePlan?.carbsG ?? 0} g</div>
-          </div>
-        </div>
-      </section>
-
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.weeklyPlanTitle")}</h2>
-        <div className="list-grid" style={{ marginTop: 16 }}>
-          {visiblePlan?.days.map((day) => (
-            <div key={day.dayLabel} className="feature-card">
-              <strong>{day.dayLabel}</strong>
-              <div className="table-grid" style={{ marginTop: 8 }}>
-                {day.meals.map((meal) => (
-                  <div key={meal.title}>
-                    <div style={{ fontWeight: 600 }}>{meal.title}</div>
-                    <div className="muted">{meal.description}</div>
-                    <div style={{ marginTop: 6 }} className="muted">
-                      {t("nutrition.ingredients")}:
-                    </div>
-                    <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-                      {meal.ingredients.map((ingredient) => (
-                        <li key={ingredient.name}>
-                          {ingredient.name}: {ingredient.grams} {t("nutrition.grams")}
-                        </li>
-                      ))}
-                    </ul>
+          <section className="card">
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.weeklyPlanTitle")}</h2>
+            <div className="list-grid" style={{ marginTop: 16 }}>
+              {visiblePlan?.days.map((day) => (
+                <div key={day.dayLabel} className="feature-card">
+                  <strong>{day.dayLabel}</strong>
+                  <div className="table-grid" style={{ marginTop: 8 }}>
+                    {day.meals.map((meal) => (
+                      <div key={meal.title}>
+                        <div style={{ fontWeight: 600 }}>{meal.title}</div>
+                        <div className="muted">{meal.description}</div>
+                        <div style={{ marginTop: 6 }} className="muted">
+                          {t("nutrition.ingredients")}:
+                        </div>
+                        <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                          {meal.ingredients.map((ingredient) => (
+                            <li key={ingredient.name}>
+                              {ingredient.name}: {ingredient.grams} {t("nutrition.grams")}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.manualPlanTitle")}</h2>
-            <p className="section-subtitle">{t("nutrition.manualPlanSubtitle")}</p>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" className="btn secondary" onClick={() => visiblePlan && setManualPlan(visiblePlan)}>
-              {t("nutrition.manualPlanReset")}
-            </button>
-            <button type="button" className="btn" disabled={!manualPlan || saving} onClick={handleSaveManualPlan}>
-              {saving ? t("nutrition.savePlanSaving") : t("nutrition.manualPlanSave")}
-            </button>
-          </div>
-        </div>
-
-        {manualPlan ? (
-          <div className="form-stack">
-            {manualPlan.days.map((day, dayIndex) => (
-              <div key={`${day.dayLabel}-${dayIndex}`} className="feature-card" style={{ display: "grid", gap: 12 }}>
-                <label className="form-stack">
-                  {t("nutrition.manualDayLabel")}
-                  <input
-                    value={day.dayLabel}
-                    onChange={(e) => updateManualDayLabel(dayIndex, e.target.value)}
-                  />
-                </label>
-                <div className="form-stack">
-                  {day.meals.map((meal, mealIndex) => (
-                    <div key={`${meal.title}-${mealIndex}`} className="info-item" style={{ display: "grid", gap: 10 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                        <strong>{t("nutrition.manualMeal")}</strong>
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          onClick={() => removeManualMeal(dayIndex, mealIndex)}
-                        >
-                          {t("nutrition.manualMealRemove")}
-                        </button>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
-                        <label className="form-stack">
-                          {t("nutrition.manualMealType")}
-                          <select
-                            value={meal.type}
-                            onChange={(e) =>
-                              updateManualMeal(dayIndex, mealIndex, "type", e.target.value as Meal["type"])
-                            }
-                          >
-                            <option value="breakfast">{t("nutrition.mealTypeBreakfast")}</option>
-                            <option value="lunch">{t("nutrition.mealTypeLunch")}</option>
-                            <option value="dinner">{t("nutrition.mealTypeDinner")}</option>
-                            <option value="snack">{t("nutrition.mealTypeSnack")}</option>
-                          </select>
-                        </label>
-                        <label className="form-stack">
-                          {t("nutrition.manualMealTitleLabel")}
-                          <input
-                            value={meal.title}
-                            onChange={(e) => updateManualMeal(dayIndex, mealIndex, "title", e.target.value)}
-                          />
-                        </label>
-                      </div>
-                      <label className="form-stack">
-                        {t("nutrition.manualMealDescription")}
-                        <textarea
-                          rows={2}
-                          value={meal.description}
-                          onChange={(e) => updateManualMeal(dayIndex, mealIndex, "description", e.target.value)}
-                        />
-                      </label>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
-                        <label className="form-stack">
-                          {t("nutrition.manualMealCalories")}
-                          <input
-                            type="number"
-                            min={0}
-                            value={meal.macros.calories}
-                            onChange={(e) => updateManualMealMacro(dayIndex, mealIndex, "calories", Number(e.target.value))}
-                          />
-                        </label>
-                        <label className="form-stack">
-                          {t("nutrition.manualMealProtein")}
-                          <input
-                            type="number"
-                            min={0}
-                            value={meal.macros.protein}
-                            onChange={(e) => updateManualMealMacro(dayIndex, mealIndex, "protein", Number(e.target.value))}
-                          />
-                        </label>
-                        <label className="form-stack">
-                          {t("nutrition.manualMealCarbs")}
-                          <input
-                            type="number"
-                            min={0}
-                            value={meal.macros.carbs}
-                            onChange={(e) => updateManualMealMacro(dayIndex, mealIndex, "carbs", Number(e.target.value))}
-                          />
-                        </label>
-                        <label className="form-stack">
-                          {t("nutrition.manualMealFats")}
-                          <input
-                            type="number"
-                            min={0}
-                            value={meal.macros.fats}
-                            onChange={(e) => updateManualMealMacro(dayIndex, mealIndex, "fats", Number(e.target.value))}
-                          />
-                        </label>
-                      </div>
-                      <div className="form-stack">
-                        <div style={{ fontWeight: 600 }}>{t("nutrition.manualIngredients")}</div>
-                        {meal.ingredients.length === 0 ? (
-                          <p className="muted">{t("nutrition.manualIngredientsEmpty")}</p>
-                        ) : (
-                          meal.ingredients.map((ingredient, ingredientIndex) => (
-                            <div
-                              key={`${ingredient.name}-${ingredientIndex}`}
-                              style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "center" }}
-                            >
-                              <input
-                                value={ingredient.name}
-                                onChange={(e) =>
-                                  updateIngredient(dayIndex, mealIndex, ingredientIndex, "name", e.target.value)
-                                }
-                                placeholder={t("nutrition.manualIngredientName")}
-                              />
-                              <input
-                                type="number"
-                                min={0}
-                                value={ingredient.grams}
-                                onChange={(e) =>
-                                  updateIngredient(dayIndex, mealIndex, ingredientIndex, "grams", Number(e.target.value))
-                                }
-                              />
-                              <button
-                                type="button"
-                                className="btn secondary"
-                                onClick={() => removeIngredient(dayIndex, mealIndex, ingredientIndex)}
-                              >
-                                {t("nutrition.manualIngredientRemove")}
-                              </button>
-                            </div>
-                          ))
-                        )}
-                        <button type="button" className="btn secondary" onClick={() => addIngredient(dayIndex, mealIndex)}>
-                          {t("nutrition.manualIngredientAdd")}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
                 </div>
-                <button type="button" className="btn secondary" onClick={() => addManualMeal(dayIndex)}>
-                  {t("nutrition.manualMealAdd")}
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="muted">{t("nutrition.manualPlanEmpty")}</p>
-        )}
-      </section>
-
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.shoppingTitle")}</h2>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
-          style={{ marginTop: 8 }}
-        >
-          {t("nutrition.shoppingGenerate")}
-        </button>
-        <div style={{ marginTop: 12 }}>
-          {shoppingList.length === 0 ? (
-            <p className="muted">{t("nutrition.shoppingEmpty")}</p>
-          ) : (
-            <ul style={{ margin: 0, paddingLeft: 18 }}>
-              {shoppingList.map((item) => (
-                <li key={item.name}>
-                  {item.name}: {item.grams} g
-                </li>
               ))}
-            </ul>
+            </div>
+          </section>
+
+          <section className="card">
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.shoppingTitle")}</h2>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
+              style={{ marginTop: 8 }}
+            >
+              {t("nutrition.shoppingGenerate")}
+            </button>
+            <div style={{ marginTop: 12 }}>
+              {shoppingList.length === 0 ? (
+                <p className="muted">{t("nutrition.shoppingEmpty")}</p>
+              ) : (
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {shoppingList.map((item) => (
+                    <li key={item.name}>
+                      {item.name}: {item.grams} g
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {isManualView ? (
+        <section className="card">
+          <div className="section-head">
+            <div>
+              <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.manualPlanTitle")}</h2>
+              <p className="section-subtitle">{t("nutrition.manualPlanSubtitle")}</p>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="btn secondary" onClick={() => visiblePlan && setManualPlan(visiblePlan)}>
+                {t("nutrition.manualPlanReset")}
+              </button>
+              <button type="button" className="btn" disabled={!manualPlan || saving} onClick={handleSaveManualPlan}>
+                {saving ? t("nutrition.savePlanSaving") : t("nutrition.manualPlanSave")}
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <p className="muted">{t("nutrition.profileLoading")}</p>
+          ) : error ? (
+            <p className="muted">{error}</p>
+          ) : saveMessage ? (
+            <p className="muted">{saveMessage}</p>
+          ) : null}
+
+          {manualPlan ? (
+            <div className="form-stack">
+              {manualPlan.days.map((day, dayIndex) => (
+                <div key={`${day.dayLabel}-${dayIndex}`} className="feature-card" style={{ display: "grid", gap: 12 }}>
+                  <label className="form-stack">
+                    {t("nutrition.manualDayLabel")}
+                    <input
+                      value={day.dayLabel}
+                      onChange={(e) => updateManualDayLabel(dayIndex, e.target.value)}
+                    />
+                  </label>
+                  <div className="form-stack">
+                    {day.meals.map((meal, mealIndex) => (
+                      <div key={`${meal.title}-${mealIndex}`} className="info-item" style={{ display: "grid", gap: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                          <strong>{t("nutrition.manualMeal")}</strong>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => removeManualMeal(dayIndex, mealIndex)}
+                          >
+                            {t("nutrition.manualMealRemove")}
+                          </button>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+                          <label className="form-stack">
+                            {t("nutrition.manualMealType")}
+                            <select
+                              value={meal.type}
+                              onChange={(e) =>
+                                updateManualMeal(dayIndex, mealIndex, "type", e.target.value as Meal["type"])
+                              }
+                            >
+                              <option value="breakfast">{t("nutrition.mealTypeBreakfast")}</option>
+                              <option value="lunch">{t("nutrition.mealTypeLunch")}</option>
+                              <option value="dinner">{t("nutrition.mealTypeDinner")}</option>
+                              <option value="snack">{t("nutrition.mealTypeSnack")}</option>
+                            </select>
+                          </label>
+                          <label className="form-stack">
+                            {t("nutrition.manualMealTitleLabel")}
+                            <input
+                              value={meal.title}
+                              onChange={(e) => updateManualMeal(dayIndex, mealIndex, "title", e.target.value)}
+                            />
+                          </label>
+                        </div>
+                        <label className="form-stack">
+                          {t("nutrition.manualMealDescription")}
+                          <textarea
+                            rows={2}
+                            value={meal.description}
+                            onChange={(e) => updateManualMeal(dayIndex, mealIndex, "description", e.target.value)}
+                          />
+                        </label>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
+                          <label className="form-stack">
+                            {t("nutrition.manualMealCalories")}
+                            <input
+                              type="number"
+                              min={0}
+                              value={meal.macros.calories}
+                              onChange={(e) => updateManualMealMacro(dayIndex, mealIndex, "calories", Number(e.target.value))}
+                            />
+                          </label>
+                          <label className="form-stack">
+                            {t("nutrition.manualMealProtein")}
+                            <input
+                              type="number"
+                              min={0}
+                              value={meal.macros.protein}
+                              onChange={(e) => updateManualMealMacro(dayIndex, mealIndex, "protein", Number(e.target.value))}
+                            />
+                          </label>
+                          <label className="form-stack">
+                            {t("nutrition.manualMealCarbs")}
+                            <input
+                              type="number"
+                              min={0}
+                              value={meal.macros.carbs}
+                              onChange={(e) => updateManualMealMacro(dayIndex, mealIndex, "carbs", Number(e.target.value))}
+                            />
+                          </label>
+                          <label className="form-stack">
+                            {t("nutrition.manualMealFats")}
+                            <input
+                              type="number"
+                              min={0}
+                              value={meal.macros.fats}
+                              onChange={(e) => updateManualMealMacro(dayIndex, mealIndex, "fats", Number(e.target.value))}
+                            />
+                          </label>
+                        </div>
+                        <div className="form-stack">
+                          <div style={{ fontWeight: 600 }}>{t("nutrition.manualIngredients")}</div>
+                          {meal.ingredients.length === 0 ? (
+                            <p className="muted">{t("nutrition.manualIngredientsEmpty")}</p>
+                          ) : (
+                            meal.ingredients.map((ingredient, ingredientIndex) => (
+                              <div
+                                key={`${ingredient.name}-${ingredientIndex}`}
+                                style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "center" }}
+                              >
+                                <input
+                                  value={ingredient.name}
+                                  onChange={(e) =>
+                                    updateIngredient(dayIndex, mealIndex, ingredientIndex, "name", e.target.value)
+                                  }
+                                  placeholder={t("nutrition.manualIngredientName")}
+                                />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={ingredient.grams}
+                                  onChange={(e) =>
+                                    updateIngredient(dayIndex, mealIndex, ingredientIndex, "grams", Number(e.target.value))
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  className="btn secondary"
+                                  onClick={() => removeIngredient(dayIndex, mealIndex, ingredientIndex)}
+                                >
+                                  {t("nutrition.manualIngredientRemove")}
+                                </button>
+                              </div>
+                            ))
+                          )}
+                          <button type="button" className="btn secondary" onClick={() => addIngredient(dayIndex, mealIndex)}>
+                            {t("nutrition.manualIngredientAdd")}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" className="btn secondary" onClick={() => addManualMeal(dayIndex)}>
+                    {t("nutrition.manualMealAdd")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">{t("nutrition.manualPlanEmpty")}</p>
           )}
-        </div>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

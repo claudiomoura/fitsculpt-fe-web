@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
 import {
@@ -36,6 +37,10 @@ type TrainingForm = {
   equipment: TrainingEquipment;
   focus: TrainingFocus;
   sessionTime: SessionTime;
+};
+
+type TrainingPlanClientProps = {
+  mode?: "suggested" | "manual";
 };
 
 const baseExercisePool = {
@@ -226,7 +231,7 @@ function adjustSets(sets: string, delta: number) {
   return end ? `${start}-${end} x ${reps}` : `${start} x ${reps}`;
 }
 
-export default function TrainingPlanClient() {
+export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanClientProps) {
   const { t, locale } = useLanguage();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [form, setForm] = useState<TrainingForm | null>(null);
@@ -237,6 +242,7 @@ export default function TrainingPlanClient() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
+  const isManualView = mode === "manual";
 
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -411,204 +417,221 @@ export default function TrainingPlanClient() {
 
   return (
     <div className="page">
-      <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.formTitle")}</h2>
-            <p className="section-subtitle">
-              {t("training.tips")}
-            </p>
-          </div>
-          <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
-            {t("training.generate")}
-          </button>
-          <button type="button" className="btn" disabled={!form || aiLoading} onClick={handleAiPlan}>
-            {aiLoading ? t("training.aiGenerating") : t("training.aiGenerate")}
-          </button>
-          <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-            {saving ? t("training.savePlanSaving") : t("training.savePlan")}
-          </button>
-        </div>
+      {!isManualView ? (
+        <>
+          <section className="card">
+            <div className="section-head">
+              <div>
+                <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.formTitle")}</h2>
+                <p className="section-subtitle">
+                  {t("training.tips")}
+                </p>
+              </div>
+              <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
+                {t("training.generate")}
+              </button>
+              <button type="button" className="btn" disabled={!form || aiLoading} onClick={handleAiPlan}>
+                {aiLoading ? t("training.aiGenerating") : t("training.aiGenerate")}
+              </button>
+              <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+                {saving ? t("training.savePlanSaving") : t("training.savePlan")}
+              </button>
+              <Link href="/app/entrenamiento/editar" className="btn secondary">
+                {t("training.editPlan")}
+              </Link>
+            </div>
 
-        {loading ? (
-          <p className="muted">{t("training.profileLoading")}</p>
-        ) : error ? (
-          <p className="muted">{error}</p>
-        ) : saveMessage ? (
-          <p className="muted">{saveMessage}</p>
-        ) : form ? (
-          <div className="badge-list">
-            <span className="badge">
-              {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
-            </span>
-            <span className="badge">
-              {t("training.level")}: {t(form.level === "beginner" ? "training.levelBeginner" : form.level === "intermediate" ? "training.levelIntermediate" : "training.levelAdvanced")}
-            </span>
-            <span className="badge">{t("training.daysPerWeek")}: {form.daysPerWeek}</span>
-            <span className="badge">
-              {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
-            </span>
-            <span className="badge">
-              {t("training.sessionTime")}: {t(form.sessionTime === "short" ? "training.sessionTimeShort" : form.sessionTime === "long" ? "training.sessionTimeLong" : "training.sessionTimeMedium")}
-            </span>
-            <span className="badge">
-              {t("training.focus")}: {t(form.focus === "ppl" ? "training.focusPushPullLegs" : form.focus === "upperLower" ? "training.focusUpperLower" : "training.focusFullBody")}
-            </span>
-          </div>
-        ) : null}
-
-        <p className="muted" style={{ marginTop: 12 }}>
-          Cambia estas preferencias desde <strong>Perfil</strong>.
-        </p>
-      </section>
-
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.weeklyPlanTitle")}</h2>
-        <div className="list-grid" style={{ marginTop: 16 }}>
-          {visiblePlan?.days.map((day, dayIdx) => (
-            <div key={`${day.label}-${dayIdx}`} className="feature-card">
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                <strong>
-                  {t("training.dayLabel")} {day.label}
-                </strong>
-                <span className="muted">
-                  {t("training.durationLabel")}: {day.duration} {t("training.minutesLabel")}
+            {loading ? (
+              <p className="muted">{t("training.profileLoading")}</p>
+            ) : error ? (
+              <p className="muted">{error}</p>
+            ) : saveMessage ? (
+              <p className="muted">{saveMessage}</p>
+            ) : form ? (
+              <div className="badge-list">
+                <span className="badge">
+                  {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
+                </span>
+                <span className="badge">
+                  {t("training.level")}: {t(form.level === "beginner" ? "training.levelBeginner" : form.level === "intermediate" ? "training.levelIntermediate" : "training.levelAdvanced")}
+                </span>
+                <span className="badge">{t("training.daysPerWeek")}: {form.daysPerWeek}</span>
+                <span className="badge">
+                  {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
+                </span>
+                <span className="badge">
+                  {t("training.sessionTime")}: {t(form.sessionTime === "short" ? "training.sessionTimeShort" : form.sessionTime === "long" ? "training.sessionTimeLong" : "training.sessionTimeMedium")}
+                </span>
+                <span className="badge">
+                  {t("training.focus")}: {t(form.focus === "ppl" ? "training.focusPushPullLegs" : form.focus === "upperLower" ? "training.focusUpperLower" : "training.focusFullBody")}
                 </span>
               </div>
-              <div style={{ fontWeight: 600 }}>{day.focus}</div>
-              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                {day.exercises.map((exercise, exerciseIdx) => (
-                  <li key={`${exercise.name}-${exerciseIdx}`}>
-                    {exercise.name} — {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
+            ) : null}
 
-      <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.manualPlanTitle")}</h2>
-            <p className="section-subtitle">{t("training.manualPlanSubtitle")}</p>
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" className="btn secondary" onClick={() => visiblePlan && setManualPlan(visiblePlan)}>
-              {t("training.manualPlanReset")}
-            </button>
-            <button type="button" className="btn" disabled={!manualPlan || saving} onClick={handleSaveManualPlan}>
-              {saving ? t("training.savePlanSaving") : t("training.manualPlanSave")}
-            </button>
-          </div>
-        </div>
+            <p className="muted" style={{ marginTop: 12 }}>
+              Cambia estas preferencias desde <strong>Perfil</strong>.
+            </p>
+          </section>
 
-        {manualPlan ? (
-          <div className="form-stack">
-            {manualPlan.days.map((day, dayIndex) => (
-              <div key={`${day.label}-${dayIndex}`} className="feature-card" style={{ display: "grid", gap: 12 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-                  <label className="form-stack">
-                    {t("training.manualDayLabel")}
-                    <input
-                      value={day.label}
-                      onChange={(e) => updateManualDay(dayIndex, "label", e.target.value)}
-                    />
-                  </label>
-                  <label className="form-stack">
-                    {t("training.manualDayFocus")}
-                    <input
-                      value={day.focus}
-                      onChange={(e) => updateManualDay(dayIndex, "focus", e.target.value)}
-                    />
-                  </label>
-                  <label className="form-stack">
-                    {t("training.manualDayDuration")}
-                    <input
-                      type="number"
-                      min={20}
-                      max={120}
-                      value={day.duration}
-                      onChange={(e) => updateManualDay(dayIndex, "duration", Number(e.target.value))}
-                    />
-                  </label>
+          <section className="card">
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.weeklyPlanTitle")}</h2>
+            <div className="list-grid" style={{ marginTop: 16 }}>
+              {visiblePlan?.days.map((day, dayIdx) => (
+                <div key={`${day.label}-${dayIdx}`} className="feature-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <strong>
+                      {t("training.dayLabel")} {day.label}
+                    </strong>
+                    <span className="muted">
+                      {t("training.durationLabel")}: {day.duration} {t("training.minutesLabel")}
+                    </span>
+                  </div>
+                  <div style={{ fontWeight: 600 }}>{day.focus}</div>
+                  <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                    {day.exercises.map((exercise, exerciseIdx) => (
+                      <li key={`${exercise.name}-${exerciseIdx}`}>
+                        {exercise.name} — {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <div className="form-stack">
-                  {day.exercises.length === 0 ? (
-                    <p className="muted">{t("training.manualExercisesEmpty")}</p>
-                  ) : (
-                    day.exercises.map((exercise, exerciseIndex) => (
-                      <div
-                        key={`${exercise.name}-${exerciseIndex}`}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "2fr 1fr 1fr auto",
-                          gap: 8,
-                          alignItems: "center",
-                        }}
-                      >
-                        <input
-                          value={exercise.name}
-                          onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "name", e.target.value)}
-                          placeholder={t("training.manualExerciseName")}
-                        />
-                        <input
-                          value={exercise.sets}
-                          onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "sets", e.target.value)}
-                          placeholder={t("training.manualExerciseSets")}
-                        />
-                        <input
-                          value={exercise.reps ?? ""}
-                          onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "reps", e.target.value)}
-                          placeholder={t("training.manualExerciseReps")}
-                        />
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          onClick={() => removeManualExercise(dayIndex, exerciseIndex)}
+              ))}
+            </div>
+          </section>
+
+          <section className="card">
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.periodTitle")}</h2>
+            <p className="section-subtitle" style={{ marginTop: 6 }}>{t("training.periodSubtitle")}</p>
+
+            <div className="list-grid" style={{ marginTop: 16 }}>
+              {periodization.map((week, idx) => (
+                <div key={`${week.label}-${idx}`} className="feature-card">
+                  <strong>
+                    {t("training.weekLabel")} {idx + 1} · {t(`training.${week.label}`)}
+                  </strong>
+                  <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                    {plan?.days.map((day) => (
+                      <li key={`${week.label}-${day.label}`}>
+                        {day.focus}: {day.exercises
+                          .slice(0, 2)
+                          .map((ex) => adjustSets(ex.sets, week.setsDelta))
+                          .join(" / ")}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {isManualView ? (
+        <section className="card">
+          <div className="section-head">
+            <div>
+              <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.manualPlanTitle")}</h2>
+              <p className="section-subtitle">{t("training.manualPlanSubtitle")}</p>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="btn secondary" onClick={() => visiblePlan && setManualPlan(visiblePlan)}>
+                {t("training.manualPlanReset")}
+              </button>
+              <button type="button" className="btn" disabled={!manualPlan || saving} onClick={handleSaveManualPlan}>
+                {saving ? t("training.savePlanSaving") : t("training.manualPlanSave")}
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <p className="muted">{t("training.profileLoading")}</p>
+          ) : error ? (
+            <p className="muted">{error}</p>
+          ) : saveMessage ? (
+            <p className="muted">{saveMessage}</p>
+          ) : null}
+
+          {manualPlan ? (
+            <div className="form-stack">
+              {manualPlan.days.map((day, dayIndex) => (
+                <div key={`${day.label}-${dayIndex}`} className="feature-card" style={{ display: "grid", gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                    <label className="form-stack">
+                      {t("training.manualDayLabel")}
+                      <input
+                        value={day.label}
+                        onChange={(e) => updateManualDay(dayIndex, "label", e.target.value)}
+                      />
+                    </label>
+                    <label className="form-stack">
+                      {t("training.manualDayFocus")}
+                      <input
+                        value={day.focus}
+                        onChange={(e) => updateManualDay(dayIndex, "focus", e.target.value)}
+                      />
+                    </label>
+                    <label className="form-stack">
+                      {t("training.manualDayDuration")}
+                      <input
+                        type="number"
+                        min={20}
+                        max={120}
+                        value={day.duration}
+                        onChange={(e) => updateManualDay(dayIndex, "duration", Number(e.target.value))}
+                      />
+                    </label>
+                  </div>
+                  <div className="form-stack">
+                    {day.exercises.length === 0 ? (
+                      <p className="muted">{t("training.manualExercisesEmpty")}</p>
+                    ) : (
+                      day.exercises.map((exercise, exerciseIndex) => (
+                        <div
+                          key={`${exercise.name}-${exerciseIndex}`}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "2fr 1fr 1fr auto",
+                            gap: 8,
+                            alignItems: "center",
+                          }}
                         >
-                          {t("training.manualExerciseRemove")}
-                        </button>
-                      </div>
-                    ))
-                  )}
-                  <button type="button" className="btn secondary" onClick={() => addManualExercise(dayIndex)}>
-                    {t("training.manualExerciseAdd")}
-                  </button>
+                          <input
+                            value={exercise.name}
+                            onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "name", e.target.value)}
+                            placeholder={t("training.manualExerciseName")}
+                          />
+                          <input
+                            value={exercise.sets}
+                            onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "sets", e.target.value)}
+                            placeholder={t("training.manualExerciseSets")}
+                          />
+                          <input
+                            value={exercise.reps ?? ""}
+                            onChange={(e) => updateManualExercise(dayIndex, exerciseIndex, "reps", e.target.value)}
+                            placeholder={t("training.manualExerciseReps")}
+                          />
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => removeManualExercise(dayIndex, exerciseIndex)}
+                          >
+                            {t("training.manualExerciseRemove")}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                    <button type="button" className="btn secondary" onClick={() => addManualExercise(dayIndex)}>
+                      {t("training.manualExerciseAdd")}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="muted">{t("training.manualPlanEmpty")}</p>
-        )}
-      </section>
-
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.periodTitle")}</h2>
-        <p className="section-subtitle" style={{ marginTop: 6 }}>{t("training.periodSubtitle")}</p>
-
-        <div className="list-grid" style={{ marginTop: 16 }}>
-          {periodization.map((week, idx) => (
-            <div key={`${week.label}-${idx}`} className="feature-card">
-              <strong>
-                {t("training.weekLabel")} {idx + 1} · {t(`training.${week.label}`)}
-              </strong>
-              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                {plan?.days.map((day) => (
-                  <li key={`${week.label}-${day.label}`}>
-                    {day.focus}: {day.exercises
-                      .slice(0, 2)
-                      .map((ex) => adjustSets(ex.sets, week.setsDelta))
-                      .join(" / ")}
-                  </li>
-                ))}
-              </ul>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          ) : (
+            <p className="muted">{t("training.manualPlanEmpty")}</p>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }
