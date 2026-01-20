@@ -56,7 +56,10 @@ test@gmail.com
 Password123
 
 
-##  acceder a BD 
+##  acceder a BD  
+
+NOTE: Tem de serr onde esta o eschema  em C:\Users\Moura\Documents\Work\FitSculpt\fitsculpt-fe-web\apps\api>
+
 $env:DATABASE_URL="postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a.virginia-postgres.render.com/fitsculpt_db" 
 npx prisma studio
 

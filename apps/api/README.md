@@ -82,3 +82,37 @@ curl -i -b /tmp/fs_cookie.txt http://localhost:4000/feed
 ## Troubleshooting
 
 - Se aparecer `Can't reach database server at \`localhost:5432\``, verifique se o Postgres está rodando e se `DATABASE_URL` aponta para a instância correta.
+
+
+## Password e como acceder
+intern
+postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a/fitsculpt_db
+
+
+Exter
+postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a.virginia-postgres.render.com/fitsculpt_db
+
+
+FitSculpt-100%
+
+
+claudio.moura@sapo.pt
+Password1234
+
+test@gmail.com	
+Password123
+
+
+##  acceder a BD 
+
+Tem de serr onde esta o eschema  em C:\Users\Moura\Documents\Work\FitSculpt\fitsculpt-fe-web\apps\api>
+$env:DATABASE_URL="postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a.virginia-postgres.render.com/fitsculpt_db" 
+
+npx prisma studio
+
+##  crear usuario na BD
+node scripts/create-user.mjs tu@email.com TuPassword123 "Tu Nombre" ADMIN
+
+##  mudar pass de  usuario na BD
+cd apps\api
+node -e "const b=require('cmkh4tvhr0000kxq8os6qhids'); b.hash('Password1234',12).then(h=>console.log(h))"
