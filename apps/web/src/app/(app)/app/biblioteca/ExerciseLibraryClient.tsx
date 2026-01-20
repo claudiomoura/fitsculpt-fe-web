@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
+import { buildExerciseMediaUrl } from "@/lib/media";
+import { slugifyExerciseName } from "@/lib/slugify";
 import type { Exercise } from "@/lib/types";
 
 type ExerciseResponse = {
@@ -25,6 +27,7 @@ export default function ExerciseLibraryClient() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const placeholderCard = "/placeholders/exercise-card.svg";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -120,8 +123,18 @@ export default function ExerciseLibraryClient() {
           {exercises.map((exercise) => {
             const muscles = getExerciseMuscles(exercise);
             const exerciseId = exercise.id;
+            const slug = exercise.slug ?? (exercise.name ? slugifyExerciseName(exercise.name) : null);
+            const imageUrl = buildExerciseMediaUrl(slug, "jpg") ?? placeholderCard;
             const content = (
               <>
+                <img
+                  src={imageUrl}
+                  alt={`${t("library.mediaAlt")} ${exercise.name}`}
+                  className="exercise-card-img"
+                  onError={(event) => {
+                    event.currentTarget.src = placeholderCard;
+                  }}
+                />
                 <h3>{exercise.name}</h3>
                 <div className="badge-list">
                   {muscles.length > 0 ? (

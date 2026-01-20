@@ -702,6 +702,14 @@ label {
   background: var(--bg-card);
 }
 
+.exercise-card-img {
+  width: 100%;
+  height: 160px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--bg-highlight);
+}
+
 .feature-card h3 {
   margin: 0;
   font-size: 18px;

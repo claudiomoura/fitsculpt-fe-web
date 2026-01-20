@@ -10,6 +10,12 @@ import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText } from "./aiParsing.js";
+import {
+  hasExerciseClient,
+  slugifyName,
+  type ExerciseMetadata,
+  upsertExerciseRecord,
+} from "./exercises/service.js";
 
 
 const env = getEnv();
@@ -1094,16 +1100,7 @@ function normalizeExerciseName(name: string) {
   return name.trim().replace(/\s+/g, " ");
 }
 
-type ExerciseMetadata = {
-  equipment?: string;
-  description?: string | null;
-  primaryMuscles?: string[];
-  secondaryMuscles?: string[];
-  mainMuscleGroup?: string;
-  secondaryMuscleGroups?: string[];
-};
-
-function getExerciseMetadata(name: string) {
+function getExerciseMetadata(name: string): ExerciseMetadata | undefined {
   return exerciseMetadataByName[name.toLowerCase()];
 }
 
@@ -1130,19 +1127,6 @@ type ExerciseApiDto = {
   secondaryMuscleGroups: string[];
   description: string | null;
 };
-
-function hasExerciseClient() {
-  return typeof (prisma as PrismaClient & { exercise?: unknown }).exercise !== "undefined";
-}
-
-function slugifyName(name: string) {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // quita acentos
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
   const main =
@@ -1174,80 +1158,6 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
 }
 
 
-async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
-  const now = new Date();
-  const slug = slugifyName(name);
-
-  const mainMuscleGroup =
-    metadata?.mainMuscleGroup?.trim() ||
-    (metadata?.primaryMuscles && metadata.primaryMuscles.length > 0 ? metadata.primaryMuscles[0] : "General");
-
-  const secondaryMuscleGroups = metadata?.secondaryMuscleGroups ?? metadata?.secondaryMuscles ?? [];
-
-  if (hasExerciseClient()) {
-    await prisma.exercise.upsert({
-      where: { slug }, // ahora usamos el slug como clave única
-      create: {
-        slug,
-        name,
-        mainMuscleGroup,
-        secondaryMuscleGroups,
-        equipment: metadata?.equipment ?? null,
-        description: metadata?.description ?? null,
-        technique: null,
-        tips: null,
-        isUserCreated: false,
-      },
-      update: {
-        name,
-        mainMuscleGroup,
-        secondaryMuscleGroups,
-        equipment: metadata?.equipment ?? undefined,
-        description: metadata?.description ?? undefined,
-      },
-    });
-    return;
-  }
-
-  // rama fallback con SQL crudo (prácticamente no se usará ya que prisma.exercise existe)
-  await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO "Exercise" (
-      "id",
-      "slug",
-      "name",
-      "mainMuscleGroup",
-      "secondaryMuscleGroups",
-      "equipment",
-      "description",
-      "technique",
-      "tips",
-      "isUserCreated",
-      "createdAt",
-      "updatedAt"
-    )
-    VALUES (
-      ${crypto.randomUUID()},
-      ${slug},
-      ${name},
-      ${mainMuscleGroup},
-      ${secondaryMuscleGroups},
-      ${metadata?.equipment ?? null},
-      ${metadata?.description ?? null},
-      ${null},
-      ${null},
-      ${false},
-      ${now},
-      ${now}
-    )
-    ON CONFLICT ("slug") DO UPDATE SET
-      "name" = EXCLUDED."name",
-      "mainMuscleGroup" = EXCLUDED."mainMuscleGroup",
-      "secondaryMuscleGroups" = EXCLUDED."secondaryMuscleGroups",
-      "equipment" = EXCLUDED."equipment",
-      "description" = EXCLUDED."description",
-      "updatedAt" = EXCLUDED."updatedAt"
-  `);
-}
 
 
 function buildExerciseFilters(params: {
@@ -1288,7 +1198,7 @@ async function listExercises(params: {
   limit: number;
   offset: number;
 }) {
-  if (hasExerciseClient()) {
+  if (hasExerciseClient(prisma)) {
     const where: Prisma.ExerciseWhereInput = {};
     if (params.query) {
       where.name = { contains: params.query, mode: "insensitive" };
@@ -1354,7 +1264,7 @@ async function listExercises(params: {
 }
 
 async function getExerciseById(id: string) {
-  if (hasExerciseClient()) {
+  if (hasExerciseClient(prisma)) {
     const exercise = await prisma.exercise.findUnique({
       where: { id },
       select: {
@@ -1388,7 +1298,7 @@ async function getExerciseById(id: string) {
 }
 
 async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
-  if (!hasExerciseClient()) {
+  if (!hasExerciseClient(prisma)) {
     app.log.warn("prisma.exercise is unavailable, using raw upsert fallback");
   }
   const names = new Map<string, string>();
@@ -1408,7 +1318,7 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
     uniqueNames.map(async (name) => {
       const metadata = getExerciseMetadata(name);
       try {
-        await upsertExerciseRecord(name, metadata);
+        await upsertExerciseRecord(prisma, name, metadata);
       } catch (error) {
         app.log.warn({ err: error, name }, "exercise upsert failed");
       }
@@ -2641,7 +2551,7 @@ app.post("/dev/seed-exercises", async (_request, reply) => {
     let seeded = 0;
 
     for (const ex of baseExercises) {
-      await upsertExerciseRecord(ex.name, {
+      await upsertExerciseRecord(prisma, ex.name, {
         equipment: ex.equipment,
         mainMuscleGroup: ex.mainMuscleGroup,
         secondaryMuscleGroups: ex.secondaryMuscleGroups,
