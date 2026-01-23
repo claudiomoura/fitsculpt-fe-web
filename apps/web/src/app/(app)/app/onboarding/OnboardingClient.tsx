@@ -1,30 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import {
   defaultProfile,
   type Activity,
   type Goal,
   type GoalTag,
+  type MacroFormula,
   type MealDistributionPreset,
+  type NutritionCookingTime,
   type NutritionDietType,
   type ProfileData,
   type Sex,
+  type SessionTime,
+  type TimerSound,
   type TrainingEquipment,
+  type TrainingFocus,
   type TrainingLevel,
+  type WorkoutLength,
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
+import BodyFatSelector from "@/components/profile/BodyFatSelector";
 
-const TOTAL_STEPS = 3;
+type CheckinEntry = {
+  date?: string;
+};
 
 export default function OnboardingClient() {
   const { t } = useLanguage();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
-  const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [allergyInput, setAllergyInput] = useState("");
+  const [latestCheckinDate, setLatestCheckinDate] = useState<string | null>(null);
 
   const goalOptions: Array<{ value: GoalTag; label: string }> = [
     { value: "buildStrength", label: t("profile.goalTagStrength") },
@@ -52,7 +64,22 @@ export default function OnboardingClient() {
         // ignore
       }
     };
+    const loadTracking = async () => {
+      try {
+        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
+        if (!response.ok) return;
+        const data = (await response.json()) as { checkins?: CheckinEntry[] };
+        if (!active) return;
+        if (data.checkins && data.checkins.length > 0) {
+          const latest = [...data.checkins].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+          setLatestCheckinDate(latest?.date ?? null);
+        }
+      } catch {
+        setLatestCheckinDate(null);
+      }
+    };
     void loadProfile();
+    void loadTracking();
     return () => {
       active = false;
     };
@@ -83,6 +110,32 @@ export default function OnboardingClient() {
       ...prev,
       nutritionPreferences: {
         ...prev.nutritionPreferences,
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateMacros<K extends keyof ProfileData["macroPreferences"]>(
+    key: K,
+    value: ProfileData["macroPreferences"][K]
+  ) {
+    setProfile((prev) => ({
+      ...prev,
+      macroPreferences: {
+        ...prev.macroPreferences,
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateMeasurements<K extends keyof ProfileData["measurements"]>(
+    key: K,
+    value: ProfileData["measurements"][K]
+  ) {
+    setProfile((prev) => ({
+      ...prev,
+      measurements: {
+        ...prev.measurements,
         [key]: value,
       },
     }));
@@ -159,6 +212,20 @@ export default function OnboardingClient() {
     setProfile(updated);
     setSaving(false);
     setMessage(t("onboarding.saved"));
+    const next = searchParams.get("next");
+    const ai = searchParams.get("ai");
+    if (ai === "training") {
+      router.push("/app/entrenamiento?ai=1");
+      return;
+    }
+    if (ai === "nutrition") {
+      router.push("/app/nutricion?ai=1");
+      return;
+    }
+    if (next) {
+      router.push(next);
+      return;
+    }
     window.setTimeout(() => setMessage(null), 2000);
   }
 
@@ -170,11 +237,13 @@ export default function OnboardingClient() {
             <h2 className="section-title" style={{ fontSize: 20 }}>{t("onboarding.title")}</h2>
             <p className="section-subtitle">{t("onboarding.subtitle")}</p>
           </div>
-          <span className="badge">{t("onboarding.stepLabel")} {step}/{TOTAL_STEPS}</span>
         </div>
+      </section>
 
-        {step === 1 && (
-          <div className="form-stack">
+      <section className="card">
+        <details className="accordion-card" open>
+          <summary>{t("onboarding.sectionBasics")}</summary>
+          <div className="form-stack" style={{ marginTop: 12 }}>
             <label className="form-stack">
               {t("profile.name")}
               <input value={profile.name} onChange={(e) => update("name", e.target.value)} />
@@ -210,16 +279,19 @@ export default function OnboardingClient() {
                 </select>
               </label>
             </div>
+            <div className="form-stack">
+              <span>{t("profile.bodyFat")}</span>
+              <BodyFatSelector value={profile.measurements.bodyFatPercent} onChange={(value) => updateMeasurements("bodyFatPercent", value)} />
+            </div>
           </div>
-        )}
+        </details>
+      </section>
 
-        {step === 2 && (
-          <div className="form-stack">
+      <section className="card">
+        <details className="accordion-card" open>
+          <summary>{t("onboarding.sectionGoals")}</summary>
+          <div className="form-stack" style={{ marginTop: 12 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-              <label className="form-stack">
-                {t("profile.goalWeight")}
-                <input type="number" min={35} max={250} value={profile.goalWeightKg} onChange={(e) => update("goalWeightKg", Number(e.target.value))} />
-              </label>
               <label className="form-stack">
                 {t("profile.goal")}
                 <select value={profile.goal} onChange={(e) => update("goal", e.target.value as Goal)}>
@@ -228,23 +300,34 @@ export default function OnboardingClient() {
                   <option value="bulk">{t("profile.goalBulk")}</option>
                 </select>
               </label>
+              <label className="form-stack">
+                {t("profile.goalWeight")}
+                <input type="number" min={35} max={250} value={profile.goalWeightKg} onChange={(e) => update("goalWeightKg", Number(e.target.value))} />
+              </label>
             </div>
             <div className="form-stack">
-              <div style={{ fontWeight: 600 }}>{t("profile.goalTagsLabel")}</div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {goalOptions.map((option) => (
-                  <label key={option.value} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="checkbox" checked={profile.goals.includes(option.value)} onChange={() => toggleGoal(option.value)} />
-                    <span>{option.label}</span>
+              <span>{t("profile.goalTagsLabel")}</span>
+              <div className="checkbox-grid">
+                {goalOptions.map((goal) => (
+                  <label key={goal.value} className="checkbox-card">
+                    <input
+                      type="checkbox"
+                      checked={profile.goals.includes(goal.value)}
+                      onChange={() => toggleGoal(goal.value)}
+                    />
+                    <span>{goal.label}</span>
                   </label>
                 ))}
               </div>
             </div>
           </div>
-        )}
+        </details>
+      </section>
 
-        {step === 3 && (
-          <div className="form-stack">
+      <section className="card">
+        <details className="accordion-card" open>
+          <summary>{t("onboarding.sectionTraining")}</summary>
+          <div className="form-stack" style={{ marginTop: 12 }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
               <label className="form-stack">
                 {t("profile.trainingLevel")}
@@ -256,17 +339,28 @@ export default function OnboardingClient() {
               </label>
               <label className="form-stack">
                 {t("profile.trainingDays")}
-                <select
-                  value={profile.trainingPreferences.daysPerWeek}
-                  onChange={(e) => updateTraining("daysPerWeek", Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 7)}
-                >
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                  <option value={3}>3</option>
-                  <option value={4}>4</option>
-                  <option value={5}>5</option>
-                  <option value={6}>6</option>
-                  <option value={7}>7</option>
+                <select value={profile.trainingPreferences.daysPerWeek} onChange={(e) => updateTraining("daysPerWeek", Number(e.target.value) as ProfileData["trainingPreferences"]["daysPerWeek"])}>
+                  {[1, 2, 3, 4, 5, 6, 7].map((day) => (
+                    <option key={day} value={day}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-stack">
+                {t("profile.trainingSessionTime")}
+                <select value={profile.trainingPreferences.sessionTime} onChange={(e) => updateTraining("sessionTime", e.target.value as SessionTime)}>
+                  <option value="short">{t("profile.trainingSessionShort")}</option>
+                  <option value="medium">{t("profile.trainingSessionMedium")}</option>
+                  <option value="long">{t("profile.trainingSessionLong")}</option>
+                </select>
+              </label>
+              <label className="form-stack">
+                {t("profile.trainingFocus")}
+                <select value={profile.trainingPreferences.focus} onChange={(e) => updateTraining("focus", e.target.value as TrainingFocus)}>
+                  <option value="full">{t("profile.trainingFocusFull")}</option>
+                  <option value="upperLower">{t("profile.trainingFocusUpperLower")}</option>
+                  <option value="ppl">{t("profile.trainingFocusPpl")}</option>
                 </select>
               </label>
               <label className="form-stack">
@@ -277,25 +371,62 @@ export default function OnboardingClient() {
                 </select>
               </label>
               <label className="form-stack">
+                {t("profile.workoutLength")}
+                <select value={profile.trainingPreferences.workoutLength} onChange={(e) => updateTraining("workoutLength", e.target.value as WorkoutLength)}>
+                  <option value="30m">30 min</option>
+                  <option value="45m">45 min</option>
+                  <option value="60m">60 min</option>
+                  <option value="flexible">{t("profile.workoutLengthFlexible")}</option>
+                </select>
+              </label>
+              <label className="form-stack">
+                {t("profile.timerSound")}
+                <select value={profile.trainingPreferences.timerSound} onChange={(e) => updateTraining("timerSound", e.target.value as TimerSound)}>
+                  <option value="ding">{t("profile.timerSoundDing")}</option>
+                  <option value="repsToDo">{t("profile.timerSoundReps")}</option>
+                </select>
+              </label>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <label className="checkbox-card">
+                <input
+                  type="checkbox"
+                  checked={profile.trainingPreferences.includeCardio}
+                  onChange={(e) => updateTraining("includeCardio", e.target.checked)}
+                />
+                <span>{t("profile.includeCardio")}</span>
+              </label>
+              <label className="checkbox-card">
+                <input
+                  type="checkbox"
+                  checked={profile.trainingPreferences.includeMobilityWarmups}
+                  onChange={(e) => updateTraining("includeMobilityWarmups", e.target.checked)}
+                />
+                <span>{t("profile.includeMobility")}</span>
+              </label>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section className="card">
+        <details className="accordion-card" open>
+          <summary>{t("onboarding.sectionNutrition")}</summary>
+          <div className="form-stack" style={{ marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <label className="form-stack">
                 {t("profile.mealsPerDay")}
-                <select
-                  value={profile.nutritionPreferences.mealsPerDay}
-                  onChange={(e) => updateNutrition("mealsPerDay", Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)}
-                >
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                  <option value={3}>3</option>
-                  <option value={4}>4</option>
-                  <option value={5}>5</option>
-                  <option value={6}>6</option>
+                <select value={profile.nutritionPreferences.mealsPerDay} onChange={(e) => updateNutrition("mealsPerDay", Number(e.target.value) as ProfileData["nutritionPreferences"]["mealsPerDay"])}>
+                  {[1, 2, 3, 4, 5, 6].map((day) => (
+                    <option key={day} value={day}>
+                      {day}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="form-stack">
                 {t("profile.dietTypeLabel")}
-                <select
-                  value={profile.nutritionPreferences.dietType}
-                  onChange={(e) => updateNutrition("dietType", e.target.value as NutritionDietType)}
-                >
+                <select value={profile.nutritionPreferences.dietType} onChange={(e) => updateNutrition("dietType", e.target.value as NutritionDietType)}>
                   <option value="balanced">{t("profile.dietType.balanced")}</option>
                   <option value="mediterranean">{t("profile.dietType.mediterranean")}</option>
                   <option value="keto">{t("profile.dietType.keto")}</option>
@@ -307,65 +438,64 @@ export default function OnboardingClient() {
                 </select>
               </label>
               <label className="form-stack">
-                {t("profile.mealDistributionLabel")}
-                <select
-                  value={profile.nutritionPreferences.mealDistribution.preset}
-                  onChange={(e) => updateMealDistributionPreset(e.target.value as MealDistributionPreset)}
-                >
-                  {mealDistributionOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
+                {t("profile.cookingTime")}
+                <select value={profile.nutritionPreferences.cookingTime} onChange={(e) => updateNutrition("cookingTime", e.target.value as NutritionCookingTime)}>
+                  <option value="quick">{t("profile.cookingTimeOptionQuick")}</option>
+                  <option value="medium">{t("profile.cookingTimeOptionMedium")}</option>
+                  <option value="long">{t("profile.cookingTimeOptionLong")}</option>
                 </select>
               </label>
             </div>
 
-            {profile.nutritionPreferences.mealDistribution.preset === "custom" && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
-                {[t("profile.mealDistributionBreakfast"), t("profile.mealDistributionLunch"), t("profile.mealDistributionDinner"), t("profile.mealDistributionSnack")].map(
-                  (label, index) => (
-                    <label key={label} className="form-stack">
-                      {label}
+            <div className="form-stack">
+              <span>{t("profile.mealDistributionLabel")}</span>
+              <div className="badge-list">
+                {mealDistributionOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`badge ${profile.nutritionPreferences.mealDistribution.preset === option.value ? "active" : ""}`}
+                    onClick={() => updateMealDistributionPreset(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {profile.nutritionPreferences.mealDistribution.preset === "custom" && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
+                  {(profile.nutritionPreferences.mealDistribution.percentages ?? [30, 35, 25, 10]).map((percent, index) => (
+                    <label key={index} className="form-stack">
+                      {t(
+                        index === 0
+                          ? "profile.mealDistributionBreakfast"
+                          : index === 1
+                            ? "profile.mealDistributionLunch"
+                            : index === 2
+                              ? "profile.mealDistributionDinner"
+                              : "profile.mealDistributionSnack"
+                      )}
                       <input
                         type="number"
                         min={0}
                         max={100}
-                        value={profile.nutritionPreferences.mealDistribution.percentages?.[index] ?? 0}
+                        value={percent}
                         onChange={(e) => updateMealDistributionPercentage(index, Number(e.target.value))}
                       />
                     </label>
-                  )
-                )}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </details>
+      </section>
 
-            <label className="form-stack">
-              {t("profile.injuriesLabel")}
-              <textarea value={profile.injuries} onChange={(e) => update("injuries", e.target.value)} rows={3} />
-            </label>
-
+      <section className="card">
+        <details className="accordion-card" open>
+          <summary>{t("onboarding.sectionAllergies")}</summary>
+          <div className="form-stack" style={{ marginTop: 12 }}>
             <div className="form-stack">
-              <div style={{ fontWeight: 600 }}>{t("profile.allergiesLabel")}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {profile.nutritionPreferences.allergies.length === 0 ? (
-                  <span className="muted">{t("profile.allergiesEmpty")}</span>
-                ) : (
-                  profile.nutritionPreferences.allergies.map((allergy) => (
-                    <span key={allergy} className="badge">
-                      {allergy}
-                      <button
-                        type="button"
-                        className="btn secondary"
-                        style={{ marginLeft: 6, padding: "2px 6px" }}
-                        onClick={() => removeAllergy(allergy)}
-                      >
-                        {t("profile.remove")}
-                      </button>
-                    </span>
-                  ))
-                )}
-              </div>
+              <span>{t("profile.allergiesLabel")}</span>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
                   value={allergyInput}
@@ -376,23 +506,175 @@ export default function OnboardingClient() {
                   {t("profile.addAllergy")}
                 </button>
               </div>
+              {profile.nutritionPreferences.allergies.length > 0 && (
+                <div className="badge-list">
+                  {profile.nutritionPreferences.allergies.map((allergy) => (
+                    <span key={allergy} className="badge" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {allergy}
+                      <button type="button" className="btn secondary" onClick={() => removeAllergy(allergy)}>
+                        {t("profile.remove")}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <label className="form-stack">
+              {t("profile.dietaryPrefs")}
+              <textarea
+                value={profile.nutritionPreferences.dietaryPrefs}
+                onChange={(e) => updateNutrition("dietaryPrefs", e.target.value)}
+                rows={2}
+              />
+            </label>
+            <label className="form-stack">
+              {t("profile.preferredFoods")}
+              <textarea
+                value={profile.nutritionPreferences.preferredFoods}
+                onChange={(e) => updateNutrition("preferredFoods", e.target.value)}
+                rows={2}
+              />
+            </label>
+            <label className="form-stack">
+              {t("profile.dislikedFoods")}
+              <textarea
+                value={profile.nutritionPreferences.dislikedFoods}
+                onChange={(e) => updateNutrition("dislikedFoods", e.target.value)}
+                rows={2}
+              />
+            </label>
+          </div>
+        </details>
+      </section>
+
+      <section className="card">
+        <details className="accordion-card" open>
+          <summary>{t("onboarding.sectionInjuries")}</summary>
+          <div className="form-stack" style={{ marginTop: 12 }}>
+            <label className="form-stack">
+              {t("profile.injuries")}
+              <textarea value={profile.injuries} onChange={(e) => update("injuries", e.target.value)} rows={3} />
+            </label>
+            <label className="form-stack">
+              {t("profile.notes")}
+              <textarea value={profile.notes} onChange={(e) => update("notes", e.target.value)} rows={3} />
+            </label>
+          </div>
+        </details>
+      </section>
+
+      <section className="card">
+        <details className="accordion-card" open>
+          <summary>{t("onboarding.sectionMacros")}</summary>
+          <div className="form-stack" style={{ marginTop: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <label className="form-stack">
+                {t("profile.macroFormula")}
+                <select value={profile.macroPreferences.formula} onChange={(e) => updateMacros("formula", e.target.value as MacroFormula)}>
+                  <option value="mifflin">{t("profile.macroFormulaMifflin")}</option>
+                  <option value="katch">{t("profile.macroFormulaKatch")}</option>
+                </select>
+              </label>
+              <label className="form-stack">
+                {t("profile.macroProtein")}
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={profile.macroPreferences.proteinGPerKg}
+                  onChange={(e) => updateMacros("proteinGPerKg", Number(e.target.value))}
+                />
+              </label>
+              <label className="form-stack">
+                {t("profile.macroFat")}
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={profile.macroPreferences.fatGPerKg}
+                  onChange={(e) => updateMacros("fatGPerKg", Number(e.target.value))}
+                />
+              </label>
+              <label className="form-stack">
+                {t("profile.macroCutPercent")}
+                <input
+                  type="number"
+                  min={0}
+                  max={40}
+                  value={profile.macroPreferences.cutPercent}
+                  onChange={(e) => updateMacros("cutPercent", Number(e.target.value))}
+                />
+              </label>
+              <label className="form-stack">
+                {t("profile.macroBulkPercent")}
+                <input
+                  type="number"
+                  min={0}
+                  max={40}
+                  value={profile.macroPreferences.bulkPercent}
+                  onChange={(e) => updateMacros("bulkPercent", Number(e.target.value))}
+                />
+              </label>
             </div>
           </div>
-        )}
+        </details>
+      </section>
 
-        <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
-          <button type="button" className="btn secondary" disabled={step === 1} onClick={() => setStep((prev) => Math.max(1, prev - 1))}>
-            {t("onboarding.back")}
+      <section className="card">
+        <details className="accordion-card" open>
+          <summary>{t("onboarding.sectionMetrics")}</summary>
+          <div className="info-grid" style={{ marginTop: 12 }}>
+            <div className="info-item">
+              <div className="info-label">{t("profile.weight")}</div>
+              <div className="info-value">{profile.weightKg} kg</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">{t("profile.waist")}</div>
+              <div className="info-value">{profile.measurements.waistCm} cm</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">{t("profile.chest")}</div>
+              <div className="info-value">{profile.measurements.chestCm} cm</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">{t("profile.hips")}</div>
+              <div className="info-value">{profile.measurements.hipsCm} cm</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">{t("profile.neck")}</div>
+              <div className="info-value">{profile.measurements.neckCm} cm</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">{t("profile.biceps")}</div>
+              <div className="info-value">{profile.measurements.bicepsCm} cm</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">{t("profile.thigh")}</div>
+              <div className="info-value">{profile.measurements.thighCm} cm</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">{t("profile.calf")}</div>
+              <div className="info-value">{profile.measurements.calfCm} cm</div>
+            </div>
+            <div className="info-item">
+              <div className="info-label">{t("profile.bodyFat")}</div>
+              <div className="info-value">{profile.measurements.bodyFatPercent}%</div>
+            </div>
+            {latestCheckinDate && (
+              <div className="info-item">
+                <div className="info-label">{t("profile.checkinDate")}</div>
+                <div className="info-value">{latestCheckinDate}</div>
+              </div>
+            )}
+          </div>
+        </details>
+      </section>
+
+      <section className="card">
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="button" className="btn" disabled={saving} onClick={saveProfile}>
+            {saving ? t("onboarding.saving") : t("onboarding.finish")}
           </button>
-          {step < TOTAL_STEPS ? (
-            <button type="button" className="btn" onClick={() => setStep((prev) => Math.min(TOTAL_STEPS, prev + 1))}>
-              {t("onboarding.next")}
-            </button>
-          ) : (
-            <button type="button" className="btn" disabled={saving} onClick={saveProfile}>
-              {saving ? t("onboarding.saving") : t("onboarding.finish")}
-            </button>
-          )}
           {message && <span className="muted">{message}</span>}
         </div>
       </section>
