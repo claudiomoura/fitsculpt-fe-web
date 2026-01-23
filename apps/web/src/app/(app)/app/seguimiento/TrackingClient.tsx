@@ -73,6 +73,7 @@ type TrackingPayload = {
 
 export default function TrackingClient() {
   const { t } = useLanguage();
+  const CHECKIN_MODE_KEY = "fs_checkin_mode_v1";
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [checkinWeight, setCheckinWeight] = useState(75);
@@ -89,6 +90,7 @@ export default function TrackingClient() {
   const [checkinNotes, setCheckinNotes] = useState("");
   const [checkinFrontPhoto, setCheckinFrontPhoto] = useState<string | null>(null);
   const [checkinSidePhoto, setCheckinSidePhoto] = useState<string | null>(null);
+  const [checkinMode, setCheckinMode] = useState<"quick" | "full">("quick");
 
   const [foodDate, setFoodDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [foodKey, setFoodKey] = useState("salmon");
@@ -115,6 +117,17 @@ export default function TrackingClient() {
     brand: "",
   });
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedMode = localStorage.getItem(CHECKIN_MODE_KEY);
+    if (storedMode === "quick" || storedMode === "full") {
+      setCheckinMode(storedMode);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
+  }, [checkinMode]);
 
   useEffect(() => {
     let active = true;
@@ -449,6 +462,26 @@ export default function TrackingClient() {
           </div>
         </div>
         <form onSubmit={addCheckin} className="form-stack">
+          <div className="segmented-control">
+            <button
+              type="button"
+              className={`btn secondary ${checkinMode === "quick" ? "is-active" : ""}`}
+              onClick={() => setCheckinMode("quick")}
+            >
+              {t("tracking.checkinModeQuick")}
+            </button>
+            <button
+              type="button"
+              className={`btn secondary ${checkinMode === "full" ? "is-active" : ""}`}
+              onClick={() => setCheckinMode("full")}
+            >
+              {t("tracking.checkinModeFull")}
+            </button>
+          </div>
+          <p className="muted" style={{ marginTop: 4 }}>
+            {checkinMode === "quick" ? t("tracking.checkinModeQuickHint") : t("tracking.checkinModeFullHint")}
+          </p>
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <label className="form-stack">
               {t("profile.checkinDate")}
@@ -458,76 +491,91 @@ export default function TrackingClient() {
               {t("profile.checkinWeight")}
               <input type="number" min={30} max={250} step="0.1" value={checkinWeight} onChange={(e) => setCheckinWeight(Number(e.target.value))} />
             </label>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("profile.chest")}
-              <input type="number" min={0} value={checkinChest} onChange={(e) => setCheckinChest(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("profile.waist")}
-              <input type="number" min={0} value={checkinWaist} onChange={(e) => setCheckinWaist(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("profile.hips")}
-              <input type="number" min={0} value={checkinHips} onChange={(e) => setCheckinHips(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("profile.biceps")}
-              <input type="number" min={0} value={checkinBiceps} onChange={(e) => setCheckinBiceps(Number(e.target.value))} />
-            </label>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("profile.thigh")}
-              <input type="number" min={0} value={checkinThigh} onChange={(e) => setCheckinThigh(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("profile.calf")}
-              <input type="number" min={0} value={checkinCalf} onChange={(e) => setCheckinCalf(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("profile.neck")}
-              <input type="number" min={0} value={checkinNeck} onChange={(e) => setCheckinNeck(Number(e.target.value))} />
-            </label>
             <label className="form-stack">
               {t("profile.bodyFat")}
               <input type="number" min={0} max={60} step="0.1" value={checkinBodyFat} onChange={(e) => setCheckinBodyFat(Number(e.target.value))} />
             </label>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <label className="form-stack">
-              {t("profile.checkinEnergy")}
-              <input type="number" min={1} max={5} value={checkinEnergy} onChange={(e) => setCheckinEnergy(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("profile.checkinHunger")}
-              <input type="number" min={1} max={5} value={checkinHunger} onChange={(e) => setCheckinHunger(Number(e.target.value))} />
+              {t("tracking.checkinWaistOptional")}
+              <input type="number" min={0} value={checkinWaist} onChange={(e) => setCheckinWaist(Number(e.target.value))} />
             </label>
           </div>
 
-          <label className="form-stack">
-            {t("profile.checkinNotes")}
-            <textarea value={checkinNotes} onChange={(e) => setCheckinNotes(e.target.value)} rows={3} />
-          </label>
+          {checkinMode === "full" ? (
+            <details className="accordion-card">
+              <summary>{t("tracking.checkinAdvancedTitle")}</summary>
+              <p className="muted" style={{ marginTop: 8 }}>
+                {t("tracking.checkinAdvancedHint")}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                <label className="form-stack">
+                  {t("profile.chest")}
+                  <input type="number" min={0} value={checkinChest} onChange={(e) => setCheckinChest(Number(e.target.value))} />
+                </label>
+                <label className="form-stack">
+                  {t("profile.hips")}
+                  <input type="number" min={0} value={checkinHips} onChange={(e) => setCheckinHips(Number(e.target.value))} />
+                </label>
+                <label className="form-stack">
+                  {t("profile.biceps")}
+                  <input type="number" min={0} value={checkinBiceps} onChange={(e) => setCheckinBiceps(Number(e.target.value))} />
+                </label>
+                <label className="form-stack">
+                  {t("profile.thigh")}
+                  <input type="number" min={0} value={checkinThigh} onChange={(e) => setCheckinThigh(Number(e.target.value))} />
+                </label>
+                <label className="form-stack">
+                  {t("profile.calf")}
+                  <input type="number" min={0} value={checkinCalf} onChange={(e) => setCheckinCalf(Number(e.target.value))} />
+                </label>
+                <label className="form-stack">
+                  {t("profile.neck")}
+                  <input type="number" min={0} value={checkinNeck} onChange={(e) => setCheckinNeck(Number(e.target.value))} />
+                </label>
+              </div>
 
-          <div className="form-stack">
-            <div style={{ fontWeight: 600 }}>{t("profile.checkinPhotos")}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                <label className="form-stack">
+                  {t("profile.checkinEnergy")}
+                  <input type="number" min={1} max={5} value={checkinEnergy} onChange={(e) => setCheckinEnergy(Number(e.target.value))} />
+                </label>
+                <label className="form-stack">
+                  {t("profile.checkinHunger")}
+                  <input type="number" min={1} max={5} value={checkinHunger} onChange={(e) => setCheckinHunger(Number(e.target.value))} />
+                </label>
+              </div>
+
               <label className="form-stack">
-                {t("profile.checkinFrontPhoto")}
-                <input type="file" accept="image/*" onChange={(e) => handlePhoto(e, setCheckinFrontPhoto)} />
+                {t("profile.checkinNotes")}
+                <textarea value={checkinNotes} onChange={(e) => setCheckinNotes(e.target.value)} rows={3} />
               </label>
-              <label className="form-stack">
-                {t("profile.checkinSidePhoto")}
-                <input type="file" accept="image/*" onChange={(e) => handlePhoto(e, setCheckinSidePhoto)} />
-              </label>
-            </div>
-            <span className="muted">{t("profile.checkinPhotoHint")}</span>
-          </div>
+
+              <div className="form-stack">
+                <div style={{ fontWeight: 600 }}>{t("profile.checkinPhotos")}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                  <label className="form-stack">
+                    {t("profile.checkinFrontPhoto")}
+                    <input type="file" accept="image/*" onChange={(e) => handlePhoto(e, setCheckinFrontPhoto)} />
+                  </label>
+                  <label className="form-stack">
+                    {t("profile.checkinSidePhoto")}
+                    <input type="file" accept="image/*" onChange={(e) => handlePhoto(e, setCheckinSidePhoto)} />
+                  </label>
+                </div>
+                <span className="muted">{t("profile.checkinPhotoHint")}</span>
+              </div>
+
+              <div className="feature-card" style={{ marginTop: 12 }}>
+                <strong>{t("tracking.checkinPhotoSoonTitle")}</strong>
+                <p className="muted" style={{ marginTop: 6 }}>
+                  {t("tracking.checkinPhotoSoonSubtitle")}
+                </p>
+                <button type="button" className="btn secondary" disabled title={t("tracking.comingSoon")}>
+                  {t("tracking.checkinPhotoSoonCta")}
+                </button>
+              </div>
+            </details>
+          ) : null}
 
           <button type="submit" className="btn" style={{ width: "fit-content" }}>
             {t("profile.checkinAdd")}

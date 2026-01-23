@@ -2,6 +2,7 @@ import { registerAction } from "../login/actions";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerT } from "@/lib/serverI18n";
+import RegisterForm from "./RegisterForm";
 
 type SearchParams =
   | { error?: string }
@@ -33,35 +34,23 @@ export default async function RegisterPage({
         </p>
       )}
 
-      <form action={registerAction} className="form-stack">
-        <label className="form-stack">
-          {t("auth.name")}
-          <input name="name" type="text" />
-        </label>
+      <RegisterForm
+        action={registerAction}
+        labels={{
+          name: t("auth.name"),
+          email: t("auth.email"),
+          password: t("auth.password"),
+          promoCode: t("auth.promoCode"),
+          submit: t("auth.registerSubmit"),
+          loading: t("auth.registerLoading"),
+          showPassword: t("auth.showPassword"),
+          hidePassword: t("auth.hidePassword"),
+        }}
+      />
 
-        <label className="form-stack">
-          {t("auth.email")}
-          <input name="email" type="email" required />
-        </label>
-
-        <label className="form-stack">
-          {t("auth.password")}
-          <input name="password" type="password" required minLength={8} />
-        </label>
-
-        <label className="form-stack">
-          {t("auth.promoCode")}
-          <input name="promoCode" type="text" required />
-        </label>
-
-        <p className="muted" style={{ margin: 0 }}>
-          {t("auth.verifyHint")}
-        </p>
-
-        <button type="submit" className="btn">
-          {t("auth.registerSubmit")}
-        </button>
-      </form>
+      <p className="muted" style={{ margin: 0 }}>
+        {t("auth.verifyHint")}
+      </p>
     </main>
   );
 }

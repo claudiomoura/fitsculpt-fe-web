@@ -511,6 +511,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const isManualView = mode === "manual";
 
   const loadProfile = async (activeRef: { current: boolean }) => {
@@ -583,6 +584,21 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       grams: Math.round(grams),
     }));
     setShoppingList(list);
+  }
+
+  function aggregateShoppingList(activePlan: NutritionPlan) {
+    const totals: Record<string, number> = {};
+    activePlan.days.forEach((day) => {
+      day.meals.forEach((meal) => {
+        meal.ingredients.forEach((ingredient) => {
+          totals[ingredient.name] = (totals[ingredient.name] || 0) + ingredient.grams;
+        });
+      });
+    });
+    return Object.entries(totals).map(([name, grams]) => ({
+      name,
+      grams: Math.round(grams),
+    }));
   }
 
   const handleSavePlan = async () => {
@@ -787,6 +803,88 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     }
   };
 
+  const handleExportCsv = () => {
+    if (!visiblePlan) {
+      setExportMessage(t("nutrition.exportEmpty"));
+      return;
+    }
+
+    const escape = (value: string | number) => {
+      const text = String(value).replace(/\"/g, "\"\"");
+      return `"${text}"`;
+    };
+
+    const rows = [
+      [
+        t("nutrition.exportDay"),
+        t("nutrition.exportMealType"),
+        t("nutrition.exportMealTitle"),
+        t("nutrition.exportDescription"),
+        t("nutrition.exportCalories"),
+        t("nutrition.exportProtein"),
+        t("nutrition.exportCarbs"),
+        t("nutrition.exportFats"),
+        t("nutrition.exportIngredients"),
+      ].map(escape).join(","),
+    ];
+
+    visiblePlan.days.forEach((day) => {
+      day.meals.forEach((meal) => {
+        const ingredients = meal.ingredients
+          .map((ingredient) => `${ingredient.name} ${ingredient.grams}g`)
+          .join(" | ");
+        rows.push([
+          day.dayLabel,
+          meal.type,
+          meal.title,
+          meal.description,
+          meal.macros.calories,
+          meal.macros.protein,
+          meal.macros.carbs,
+          meal.macros.fats,
+          ingredients,
+        ].map(escape).join(","));
+      });
+    });
+
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "fitsculpt-nutrition-plan.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+    setExportMessage(t("nutrition.exportSuccess"));
+    window.setTimeout(() => setExportMessage(null), 2000);
+  };
+
+  const handleCopyShoppingList = async () => {
+    if (!visiblePlan) {
+      setExportMessage(t("nutrition.exportEmpty"));
+      return;
+    }
+    const items = aggregateShoppingList(visiblePlan);
+    if (items.length === 0) {
+      setExportMessage(t("nutrition.exportEmpty"));
+      return;
+    }
+    const text = items.map((item) => `${item.name}: ${item.grams} g`).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+    setExportMessage(t("nutrition.exportCopySuccess"));
+    window.setTimeout(() => setExportMessage(null), 2000);
+  };
+
   return (
     <div className="page">
       {!isManualView ? (
@@ -798,20 +896,36 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                 <p className="section-subtitle">{t("nutrition.tips")}</p>
               </div>
 
-            <div className="section-actions">
-              {/* <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
-                {t("nutrition.generate")}
-              </button> */}
-              <button type="button" className="btn" disabled={!plan || aiLoading} onClick={handleAiPlan}>
-                {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-              </button>
-              {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-                {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
-              </button> */}
-              <Link href="/app/nutricion/editar" className="btn secondary">
-                {t("nutrition.editPlan")}
-              </Link>
+              <div className="section-actions">
+                {/* <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
+                  {t("nutrition.generate")}
+                </button> */}
+                <button type="button" className="btn" disabled={!plan || aiLoading} onClick={handleAiPlan}>
+                  {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                </button>
+                {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+                  {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
+                </button> */}
+                <Link href="/app/nutricion/editar" className="btn secondary">
+                  {t("nutrition.editPlan")}
+                </Link>
               </div>
+            </div>
+
+            {exportMessage && (
+              <p className="muted" style={{ marginTop: 8 }}>{exportMessage}</p>
+            )}
+
+            <div className="export-actions" style={{ marginTop: 12 }}>
+              <button type="button" className="btn secondary" onClick={handleExportCsv}>
+                {t("nutrition.exportCsv")}
+              </button>
+              <button type="button" className="btn secondary" disabled title={t("nutrition.comingSoon")}>
+                {t("nutrition.exportPdf")}
+              </button>
+              <button type="button" className="btn" onClick={handleCopyShoppingList}>
+                {t("nutrition.exportCopyList")}
+              </button>
             </div>
 
             {loading ? (
@@ -882,7 +996,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             ) : null}
 
             <p className="muted" style={{ marginTop: 12 }}>
-              Cambia estas preferencias desde <strong>Perfil</strong>.
+              {t("nutrition.preferencesHint")}
             </p>
           </section>
 

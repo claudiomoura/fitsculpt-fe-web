@@ -26,13 +26,14 @@ type SessionLog = {
 const SESSION_STORAGE_KEY = "fs_session_logs_v1";
 
 export default function WorkoutsClient() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [workouts, setWorkouts] = useState<WorkoutListItem[]>([]);
   const [name, setName] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [durationMin, setDurationMin] = useState<number>(45);
   const [notes, setNotes] = useState("");
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [sort, setSort] = useState<
     "date_desc" | "date_asc" | "duration_desc" | "duration_asc"
   >("date_desc");
@@ -126,6 +127,32 @@ export default function WorkoutsClient() {
 
     return items;
   }, [workouts, query, fromDate, toDate, sort]);
+
+  const calendarDays = useMemo(() => {
+    const base = new Date(Date.UTC(2023, 0, 2));
+    return Array.from({ length: 7 }).map((_, index) => {
+      const date = new Date(base);
+      date.setUTCDate(base.getUTCDate() + index);
+      return new Intl.DateTimeFormat(locale, { weekday: "long" }).format(date);
+    });
+  }, [locale]);
+
+  const { calendarWorkouts, undatedWorkouts } = useMemo(() => {
+    const calendarWorkouts = Array.from({ length: 7 }).map(() => [] as WorkoutListItem[]);
+    const undatedWorkouts: WorkoutListItem[] = [];
+
+    visibleWorkouts.forEach((workout) => {
+      if (!workout.date) {
+        undatedWorkouts.push(workout);
+        return;
+      }
+      const date = new Date(`${workout.date}T00:00:00`);
+      const dayIndex = (date.getDay() + 6) % 7;
+      calendarWorkouts[dayIndex].push(workout);
+    });
+
+    return { calendarWorkouts, undatedWorkouts };
+  }, [visibleWorkouts]);
 
   const sessionsByDate = useMemo(() => {
     return sessionLogs.reduce<Record<string, SessionLog[]>>((acc, entry) => {
@@ -331,11 +358,29 @@ export default function WorkoutsClient() {
       </section>
 
       <section className="card">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 className="section-title" style={{ fontSize: 20 }}>{t("workouts.list")}</h2>
-          <span className="muted">
-            ({visibleWorkouts.length} de {workouts.length})
-          </span>
+        <div className="section-head">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("workouts.list")}</h2>
+            <span className="muted">
+              ({visibleWorkouts.length} de {workouts.length})
+            </span>
+          </div>
+          <div className="segmented-control">
+            <button
+              type="button"
+              className={`btn secondary ${viewMode === "list" ? "is-active" : ""}`}
+              onClick={() => setViewMode("list")}
+            >
+              {t("workouts.viewList")}
+            </button>
+            <button
+              type="button"
+              className={`btn secondary ${viewMode === "calendar" ? "is-active" : ""}`}
+              onClick={() => setViewMode("calendar")}
+            >
+              {t("workouts.viewCalendar")}
+            </button>
+          </div>
         </div>
 
         <div className="form-stack" style={{ marginTop: 12 }}>
@@ -397,7 +442,7 @@ export default function WorkoutsClient() {
           <p style={{ marginTop: 12 }} className="muted">
             {t("workouts.empty")}
           </p>
-        ) : (
+        ) : viewMode === "list" ? (
           <ul
             style={{
               listStyle: "none",
@@ -421,7 +466,7 @@ export default function WorkoutsClient() {
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                   <strong>{w.name}</strong>
                   <span className="muted">
-                    {w.date || "Sin fecha"} , {w.durationMin ?? 0} min
+                    {w.date || t("workouts.noDate")} , {w.durationMin ?? 0} min
                   </span>
                 </div>
 
@@ -441,6 +486,51 @@ export default function WorkoutsClient() {
               </li>
             ))}
           </ul>
+        ) : visibleWorkouts.length === 0 ? (
+          <p style={{ marginTop: 12 }} className="muted">
+            {t("workouts.calendarEmpty")}
+          </p>
+        ) : (
+          <>
+            <div className="calendar-grid" style={{ marginTop: 16 }}>
+              {calendarDays.map((dayLabel, index) => (
+                <div key={dayLabel} className="calendar-day">
+                  <strong>{dayLabel}</strong>
+                  {calendarWorkouts[index].length === 0 ? (
+                    <span className="muted">{t("workouts.calendarDayEmpty")}</span>
+                  ) : (
+                    calendarWorkouts[index].map((workout) => (
+                      <div key={workout.id} className="calendar-card">
+                        <strong>{workout.name}</strong>
+                        <span className="muted">{workout.durationMin ?? 0} min</span>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <Link className="btn secondary" href={`/app/entrenamiento/${workout.id}`}>
+                            {t("workouts.viewDetail")}
+                          </Link>
+                          <button type="button" className="btn secondary" onClick={() => startEdit(workout)}>
+                            {t("workouts.edit")}
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ))}
+            </div>
+            {undatedWorkouts.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <h3 style={{ marginBottom: 8 }}>{t("workouts.noDate")}</h3>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {undatedWorkouts.map((workout) => (
+                    <div key={workout.id} className="feature-card">
+                      <strong>{workout.name}</strong>
+                      <span className="muted">{workout.durationMin ?? 0} min</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </section>
 
