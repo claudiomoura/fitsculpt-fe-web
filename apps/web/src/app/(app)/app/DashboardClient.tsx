@@ -104,19 +104,30 @@ export default function DashboardClient() {
 
   return (
     <div className="page">
-      <section className="card ai-card">
-        <div className="ai-card-content">
+      <section className="card">
+        <div className="section-head">
           <div>
-            <p className="ai-card-eyebrow">{t("dashboard.aiEyebrow")}</p>
-            <h2 className="section-title" style={{ fontSize: 22 }}>{t("dashboard.aiTitle")}</h2>
-            <p className="section-subtitle">{t("dashboard.aiSubtitle")}</p>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("dashboard.aiSectionTitle")}</h2>
+            <p className="section-subtitle">{t("dashboard.aiSectionSubtitle")}</p>
           </div>
-          <div className="ai-card-actions">
-            <Link className="btn" href="/app/entrenamiento">
-              {t("dashboard.aiPrimaryCta")}
+        </div>
+        <div className="list-grid" style={{ marginTop: 16 }}>
+          <div className="feature-card" style={{ display: "grid", gap: 12 }}>
+            <div>
+              <strong>{t("dashboard.aiTrainingTitle")}</strong>
+              <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.aiTrainingSubtitle")}</p>
+            </div>
+            <Link className="btn" href="/app/entrenamiento?ai=1">
+              {t("dashboard.aiTrainingCta")}
             </Link>
-            <Link className="btn secondary" href="/app/nutricion">
-              {t("dashboard.aiSecondaryCta")}
+          </div>
+          <div className="feature-card" style={{ display: "grid", gap: 12 }}>
+            <div>
+              <strong>{t("dashboard.aiNutritionTitle")}</strong>
+              <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.aiNutritionSubtitle")}</p>
+            </div>
+            <Link className="btn" href="/app/nutricion?ai=1">
+              {t("dashboard.aiNutritionCta")}
             </Link>
           </div>
         </div>

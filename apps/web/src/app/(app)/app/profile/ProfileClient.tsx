@@ -35,6 +35,11 @@ export default function ProfileClient() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [allergyInput, setAllergyInput] = useState("");
 
+  const formatMetric = (value: number | null | undefined, suffix: string) => {
+    if (value === null || value === undefined) return t("profile.noData");
+    return `${value} ${suffix}`;
+  };
+
   const goalOptions: Array<{ value: GoalTag; label: string }> = [
     { value: "buildStrength", label: t("profile.goalTagStrength") },
     { value: "loseFat", label: t("profile.goalTagLoseFat") },
@@ -792,23 +797,39 @@ export default function ProfileClient() {
             <div className="info-grid">
               <div className="info-item">
                 <div className="info-label">{t("profile.weight")}</div>
-                <div className="info-value">{profile.weightKg} kg</div>
+                <div className="info-value">{formatMetric(profile.weightKg, "kg")}</div>
               </div>
               <div className="info-item">
                 <div className="info-label">{t("profile.waist")}</div>
-                <div className="info-value">{profile.measurements.waistCm} cm</div>
+                <div className="info-value">{formatMetric(profile.measurements.waistCm, "cm")}</div>
               </div>
               <div className="info-item">
                 <div className="info-label">{t("profile.chest")}</div>
-                <div className="info-value">{profile.measurements.chestCm} cm</div>
+                <div className="info-value">{formatMetric(profile.measurements.chestCm, "cm")}</div>
               </div>
               <div className="info-item">
                 <div className="info-label">{t("profile.hips")}</div>
-                <div className="info-value">{profile.measurements.hipsCm} cm</div>
+                <div className="info-value">{formatMetric(profile.measurements.hipsCm, "cm")}</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{t("profile.neck")}</div>
+                <div className="info-value">{formatMetric(profile.measurements.neckCm, "cm")}</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{t("profile.biceps")}</div>
+                <div className="info-value">{formatMetric(profile.measurements.bicepsCm, "cm")}</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{t("profile.thigh")}</div>
+                <div className="info-value">{formatMetric(profile.measurements.thighCm, "cm")}</div>
+              </div>
+              <div className="info-item">
+                <div className="info-label">{t("profile.calf")}</div>
+                <div className="info-value">{formatMetric(profile.measurements.calfCm, "cm")}</div>
               </div>
               <div className="info-item">
                 <div className="info-label">{t("profile.bodyFat")}</div>
-                <div className="info-value">{profile.measurements.bodyFatPercent}%</div>
+                <div className="info-value">{formatMetric(profile.measurements.bodyFatPercent, "%")}</div>
               </div>
               {latestCheckinDate && (
                 <div className="info-item">
