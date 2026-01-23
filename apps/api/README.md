@@ -18,6 +18,9 @@
 | `GOOGLE_CLIENT_ID` | OAuth client ID. | `...apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | OAuth client secret. | `...` |
 | `GOOGLE_REDIRECT_URI` | Callback do OAuth no frontend (`/api/auth/google/callback`). | `https://fitsculpt-fe-web.vercel.app/api/auth/google/callback` |
+| `STRIPE_SECRET_KEY` | Chave secreta do Stripe (modo test/live). | `sk_test_...` |
+| `STRIPE_WEBHOOK_SECRET` | Segredo do webhook do Stripe. | `whsec_...` |
+| `STRIPE_PRO_PRICE_ID` | Price ID do plano PRO (assinatura). | `price_...` |
 
 ## Fluxo de autenticação
 
@@ -59,6 +62,14 @@ npm run prisma:generate
 npm run prisma:migrate
 npm run test
 ```
+
+## Stripe (assinaturas PRO)
+
+1. Crie um produto e um preço recorrente no Stripe.
+2. Copie o `Price ID` e configure em `STRIPE_PRO_PRICE_ID`.
+3. Gere uma chave secreta e configure `STRIPE_SECRET_KEY`.
+4. Crie um endpoint de webhook no Stripe apontando para `POST /billing/webhook` e copie o `Signing secret` para `STRIPE_WEBHOOK_SECRET`.
+5. Após alterar o schema, rode `npm run prisma:migrate` e `npm run prisma:generate` para garantir que o banco e o Prisma Client estão atualizados.
 
 ## Testes manuais (curl)
 
