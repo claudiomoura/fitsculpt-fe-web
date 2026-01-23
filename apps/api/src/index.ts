@@ -58,6 +58,10 @@ app.addContentTypeParser("application/json", { parseAs: "buffer" }, (request, bo
     done(null, body);
     return;
   }
+  if (body.length === 0) {
+    done(null, null);
+    return;
+  }
   try {
     const parsed = JSON.parse(body.toString("utf8"));
     done(null, parsed);
