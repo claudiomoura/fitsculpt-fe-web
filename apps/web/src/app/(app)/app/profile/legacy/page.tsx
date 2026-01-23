@@ -1,15 +1,15 @@
-import ProfileSummaryClient from "./ProfileSummaryClient";
+import ProfileClient from "../ProfileClient";
 import { getServerT } from "@/lib/serverI18n";
 
-export default async function ProfilePage() {
+export default async function ProfileLegacyPage() {
   const { t } = await getServerT();
   return (
     <div className="page">
       <section className="card">
         <h1 className="section-title">{t("app.profileTitle")}</h1>
-        <p className="section-subtitle">{t("app.profileSubtitle")}</p>
+        <p className="section-subtitle">{t("profile.legacySubtitle")}</p>
       </section>
-      <ProfileSummaryClient />
+      <ProfileClient />
     </div>
   );
 }
