@@ -242,6 +242,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
+  const [techniqueModal, setTechniqueModal] = useState<{
+    dayLabel: string;
+    exercise: Exercise;
+  } | null>(null);
   const isManualView = mode === "manual";
 
   const loadProfile = async (activeRef: { current: boolean }) => {
@@ -474,59 +478,78 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             ) : null}
 
             <p className="muted" style={{ marginTop: 12 }}>
-              Cambia estas preferencias desde <strong>Perfil</strong>.
+              {t("training.preferencesHint")}
             </p>
           </section>
 
           <section className="card">
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.weeklyPlanTitle")}</h2>
+            <div className="section-head">
+              <div>
+                <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.weeklyPlanTitle")}</h2>
+                <p className="section-subtitle">{t("training.weeklyPlanSubtitle")}</p>
+              </div>
+            </div>
+            <ul className="muted" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+              <li>{t("training.weeklyPlanTipOne")}</li>
+              <li>{t("training.weeklyPlanTipTwo")}</li>
+              <li>{t("training.weeklyPlanTipThree")}</li>
+            </ul>
             <div className="list-grid" style={{ marginTop: 16 }}>
               {visiblePlan?.days.map((day, dayIdx) => (
-                <div key={`${day.label}-${dayIdx}`} className="feature-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <strong>
-                      {t("training.dayLabel")} {day.label}
-                    </strong>
+                <details key={`${day.label}-${dayIdx}`} className="accordion-card">
+                  <summary>
+                    <span>{t("training.dayLabel")} {day.label}</span>
                     <span className="muted">
-                      {t("training.durationLabel")}: {day.duration} {t("training.minutesLabel")}
+                      {day.focus} · {day.duration} {t("training.minutesLabel")}
                     </span>
-                  </div>
-                  <div style={{ fontWeight: 600 }}>{day.focus}</div>
-                  <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                  </summary>
+                  <div className="list-grid" style={{ marginTop: 12 }}>
                     {day.exercises.map((exercise, exerciseIdx) => (
-                      <li key={`${exercise.name}-${exerciseIdx}`}>
-                        {exercise.name} — {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
-                      </li>
+                      <div key={`${exercise.name}-${exerciseIdx}`} className="exercise-mini-card">
+                        <strong>{exercise.name}</strong>
+                        <span className="muted">
+                          {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => setTechniqueModal({ dayLabel: day.label, exercise })}
+                        >
+                          {t("training.viewTechnique")}
+                        </button>
+                      </div>
                     ))}
-                  </ul>
-                </div>
+                  </div>
+                </details>
               ))}
             </div>
           </section>
 
           <section className="card">
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.periodTitle")}</h2>
-            <p className="section-subtitle" style={{ marginTop: 6 }}>{t("training.periodSubtitle")}</p>
+            <details className="accordion-card">
+              <summary>{t("training.periodTitle")}</summary>
+              <p className="section-subtitle" style={{ marginTop: 6 }}>{t("training.periodSubtitle")}</p>
 
-            <div className="list-grid" style={{ marginTop: 16 }}>
-              {periodization.map((week, idx) => (
-                <div key={`${week.label}-${idx}`} className="feature-card">
-                  <strong>
-                    {t("training.weekLabel")} {idx + 1} · {t(`training.${week.label}`)}
-                  </strong>
-                  <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                    {plan?.days.map((day) => (
-                      <li key={`${week.label}-${day.label}`}>
-                        {day.focus}: {day.exercises
-                          .slice(0, 2)
-                          .map((ex) => adjustSets(ex.sets, week.setsDelta))
-                          .join(" / ")}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+              <div className="list-grid" style={{ marginTop: 16 }}>
+                {periodization.map((week, idx) => (
+                  <div key={`${week.label}-${idx}`} className="feature-card">
+                    <strong>
+                      {t("training.weekLabel")} {idx + 1} · {t(`training.${week.label}`)}
+                    </strong>
+                    <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                      {plan?.days.map((day) => (
+                        <li key={`${week.label}-${day.label}`}>
+                          {day.focus}: {day.exercises
+                            .slice(0, 2)
+                            .map((ex) => adjustSets(ex.sets, week.setsDelta))
+                            .join(" / ")}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </details>
           </section>
         </>
       ) : null}
@@ -636,6 +659,58 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             <p className="muted">{t("training.manualPlanEmpty")}</p>
           )}
         </section>
+      ) : null}
+
+      {techniqueModal ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setTechniqueModal(null)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exercise-technique-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <div>
+                <h3 id="exercise-technique-title" style={{ margin: 0 }}>{techniqueModal.exercise.name}</h3>
+                <p className="muted" style={{ margin: "4px 0 0" }}>
+                  {t("training.techniqueSubtitle")} {techniqueModal.dayLabel}
+                </p>
+              </div>
+              <button type="button" className="btn secondary" onClick={() => setTechniqueModal(null)}>
+                {t("ui.closeLabel")}
+              </button>
+            </div>
+            <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
+              <img
+                src="/placeholders/exercise-demo.svg"
+                alt={t("training.techniquePlaceholderAlt")}
+                style={{ width: "100%", borderRadius: 12, border: "1px solid var(--border)" }}
+              />
+              <div className="feature-card">
+                <strong>{t("ui.technique")}</strong>
+                <p className="muted" style={{ marginTop: 6 }}>
+                  {t("training.techniquePlaceholder")}
+                </p>
+                <p style={{ marginTop: 6 }}>
+                  {t("training.techniqueSets")}: {techniqueModal.exercise.sets}
+                </p>
+                {techniqueModal.exercise.reps && (
+                  <p className="muted" style={{ marginTop: 4 }}>
+                    {t("training.techniqueReps")}: {techniqueModal.exercise.reps}
+                  </p>
+                )}
+              </div>
+              <div className="feature-card">
+                <strong>{t("ui.tips")}</strong>
+                <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                  <li>{t("training.techniqueTipOne")}</li>
+                  <li>{t("training.techniqueTipTwo")}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

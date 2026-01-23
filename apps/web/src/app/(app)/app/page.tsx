@@ -1,11 +1,15 @@
 import { getServerT } from "@/lib/serverI18n";
+import DashboardClient from "./DashboardClient";
 
 export default async function AppHomePage() {
   const { t } = await getServerT();
   return (
-    <section className="card">
-      <h1 className="section-title">{t("app.privateAreaTitle")}</h1>
-      <p className="section-subtitle">{t("app.privateAreaSubtitle")}</p>
-    </section>
+    <div className="page">
+      <section className="card">
+        <h1 className="section-title">{t("dashboard.title")}</h1>
+        <p className="section-subtitle">{t("dashboard.subtitle")}</p>
+      </section>
+      <DashboardClient />
+    </div>
   );
 }

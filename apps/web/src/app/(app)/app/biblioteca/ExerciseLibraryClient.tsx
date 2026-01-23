@@ -121,7 +121,7 @@ export default function ExerciseLibraryClient() {
           {exercises.map((exercise) => {
             const muscles = getExerciseMuscles(exercise);
             const exerciseId = exercise.id;
-            const coverUrl = getExerciseCoverUrl(exercise);
+            const coverUrl = getExerciseCoverUrl(exercise) || "/placeholders/exercise-cover.svg";
             const content = (
               <>
                 <img
@@ -145,7 +145,7 @@ export default function ExerciseLibraryClient() {
                   )}
                 </div>
                 <p className="muted">{t("library.equipmentLabel")}: {exercise.equipment ?? t("library.equipmentFallback")}</p>
-                <p className="muted">{exercise.description ?? t("library.descriptionFallback")}</p>
+                <p className="muted">{exercise.description ? exercise.description : t("library.descriptionFallback")}</p>
               </>
             );
 

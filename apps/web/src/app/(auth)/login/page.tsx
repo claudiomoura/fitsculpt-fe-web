@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getServerT } from "@/lib/serverI18n";
 import Link from "next/link";
 import ResendVerificationButton from "./ResendVerificationButton";
+import LoginForm from "./LoginForm";
 
 type SearchParams =
   | { next?: string; error?: string; registered?: string }
@@ -44,23 +45,18 @@ export default async function LoginPage({
         </p>
       )}
 
-      <form action={loginAction} className="form-stack">
-        <input type="hidden" name="next" value={next} />
-
-        <label className="form-stack">
-          {t("auth.email")}
-          <input name="email" type="email" required />
-        </label>
-
-        <label className="form-stack">
-          {t("auth.password")}
-          <input name="password" type="password" required />
-        </label>
-
-        <button type="submit" className="btn">
-          {t("auth.submit")}
-        </button>
-      </form>
+      <LoginForm
+        action={loginAction}
+        next={next}
+        labels={{
+          email: t("auth.email"),
+          password: t("auth.password"),
+          submit: t("auth.submit"),
+          loading: t("auth.loginLoading"),
+          showPassword: t("auth.showPassword"),
+          hidePassword: t("auth.hidePassword"),
+        }}
+      />
 
       <Link href="/api/auth/google/start" className="btn secondary" style={{ justifyContent: "center" }}>
         {t("auth.google")}
@@ -73,7 +69,7 @@ export default async function LoginPage({
       )}
 
       <p className="muted" style={{ marginTop: 12 }}>
-        {t("auth.noAccount")}{" "}
+        {t("auth.noAccount")} {" "}
         <Link href="/register" className="link">
           {t("auth.createAccount")}
         </Link>
