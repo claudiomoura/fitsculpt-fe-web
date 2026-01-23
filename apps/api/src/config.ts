@@ -22,6 +22,9 @@ const envSchema = z.object({
   OPENAI_BASE_URL: z.string().default("https://api.openai.com/v1"),
   AI_DAILY_LIMIT_FREE: z.coerce.number().default(3),
   AI_DAILY_LIMIT_PRO: z.coerce.number().default(30),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRO_PRICE_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -48,5 +51,8 @@ export function getEnv(): Env {
     OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
     AI_DAILY_LIMIT_FREE: process.env.AI_DAILY_LIMIT_FREE,
     AI_DAILY_LIMIT_PRO: process.env.AI_DAILY_LIMIT_PRO,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+    STRIPE_PRO_PRICE_ID: process.env.STRIPE_PRO_PRICE_ID,
   });
 }

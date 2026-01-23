@@ -17,6 +17,25 @@ const prisma = new PrismaClient();
 
 const app = Fastify({ logger: true });
 
+type StripeCheckoutSession = {
+  id: string;
+  url: string | null;
+  customer?: string | null;
+  subscription?: string | null;
+};
+
+type StripePortalSession = {
+  id: string;
+  url: string;
+};
+
+type StripeSubscription = {
+  id: string;
+  customer: string;
+  status: string;
+  current_period_end: number | null;
+};
+
 await app.register(cors, {
   origin: env.CORS_ORIGIN,
   credentials: true,
@@ -34,6 +53,18 @@ await app.register(jwt, {
   },
 });
 
+app.addContentTypeParser("application/json", { parseAs: "buffer" }, (request, body, done) => {
+  if (request.url?.startsWith("/billing/webhook")) {
+    done(null, body);
+    return;
+  }
+  try {
+    const parsed = JSON.parse(body.toString("utf8"));
+    done(null, parsed);
+  } catch (error) {
+    done(error as Error, undefined);
+  }
+});
 
 const VERIFICATION_TTL_MS = env.VERIFICATION_TOKEN_TTL_HOURS * 60 * 60 * 1000;
 const RESEND_COOLDOWN_MS = env.VERIFICATION_RESEND_COOLDOWN_MINUTES * 60 * 1000;
@@ -72,6 +103,100 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
   }
   app.log.error({ err: error }, "unhandled error");
   return reply.status(500).send({ error: "INTERNAL_ERROR" });
+}
+
+function requireStripeSecret() {
+  if (!env.STRIPE_SECRET_KEY) {
+    throw createHttpError(500, "STRIPE_NOT_CONFIGURED");
+  }
+  return env.STRIPE_SECRET_KEY;
+}
+
+function requireStripePriceId() {
+  if (!env.STRIPE_PRO_PRICE_ID) {
+    throw createHttpError(500, "STRIPE_PRICE_NOT_CONFIGURED");
+  }
+  return env.STRIPE_PRO_PRICE_ID;
+}
+
+function requireStripeWebhookSecret() {
+  if (!env.STRIPE_WEBHOOK_SECRET) {
+    throw createHttpError(500, "STRIPE_WEBHOOK_NOT_CONFIGURED");
+  }
+  return env.STRIPE_WEBHOOK_SECRET;
+}
+
+async function stripeRequest<T>(
+  path: string,
+  params: Record<string, string | number | null | undefined>,
+  options?: { method?: "POST" | "GET"; idempotencyKey?: string }
+): Promise<T> {
+  const secret = requireStripeSecret();
+  const method = options?.method ?? "POST";
+  const query = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => [key, String(value)])
+  );
+  const url = `https://api.stripe.com/v1/${path}`;
+  const queryString = query.toString();
+  const response = await fetch(method === "GET" && queryString ? `${url}?${queryString}` : url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      ...(options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
+    },
+    body: method === "GET" ? undefined : queryString,
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw createHttpError(502, "STRIPE_REQUEST_FAILED", { status: response.status, body: errorBody });
+  }
+  return (await response.json()) as T;
+}
+
+function verifyStripeSignature(rawBody: Buffer, signatureHeader: string, webhookSecret: string) {
+  const elements = signatureHeader.split(",").map((part) => part.trim());
+  const timestampPart = elements.find((part) => part.startsWith("t="));
+  const signaturePart = elements.find((part) => part.startsWith("v1="));
+  if (!timestampPart || !signaturePart) {
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE");
+  }
+  const timestamp = timestampPart.split("=")[1];
+  const signature = signaturePart.split("=")[1];
+  if (!timestamp || !signature) {
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE");
+  }
+  const signedPayload = `${timestamp}.${rawBody.toString("utf8")}`;
+  const expected = crypto.createHmac("sha256", webhookSecret).update(signedPayload).digest("hex");
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE");
+  }
+}
+
+async function updateUserSubscriptionFromStripe(subscription: StripeSubscription) {
+  const isActive = subscription.status === "active" || subscription.status === "trialing";
+  const currentPeriodEnd = subscription.current_period_end
+    ? new Date(subscription.current_period_end * 1000)
+    : null;
+  const result = await prisma.user.updateMany({
+    where: {
+      OR: [{ stripeCustomerId: subscription.customer }, { stripeSubscriptionId: subscription.id }],
+    },
+    data: {
+      stripeCustomerId: subscription.customer,
+      stripeSubscriptionId: subscription.id,
+      subscriptionStatus: subscription.status,
+      currentPeriodEnd,
+      subscriptionPlan: isActive ? "PRO" : "FREE",
+    },
+  });
+  if (result.count === 0) {
+    app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
+  }
 }
 
 function logAuthCookieDebug(request: FastifyRequest, route: string) {
@@ -1726,6 +1851,106 @@ app.get("/auth/verify-email", async (request, reply) => {
   }
 });
 
+app.post("/billing/checkout", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const priceId = requireStripePriceId();
+    const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripeRequest<{ id: string }>("customers", {
+        email: user.email,
+        name: user.name ?? undefined,
+        "metadata[userId]": user.id,
+      });
+      customerId = customer.id;
+      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+    }
+    const session = await stripeRequest<StripeCheckoutSession>(
+      "checkout/sessions",
+      {
+        mode: "subscription",
+        customer: customerId,
+        client_reference_id: user.id,
+        "line_items[0][price]": priceId,
+        "line_items[0][quantity]": 1,
+        "subscription_data[metadata][userId]": user.id,
+        success_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=success`,
+        cancel_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=cancel`,
+      },
+      { idempotencyKey }
+    );
+    if (!session.url) {
+      throw createHttpError(502, "STRIPE_CHECKOUT_URL_MISSING");
+    }
+    return { url: session.url };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/billing/portal", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripeRequest<{ id: string }>("customers", {
+        email: user.email,
+        name: user.name ?? undefined,
+        "metadata[userId]": user.id,
+      });
+      customerId = customer.id;
+      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+    }
+    const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
+      customer: customerId,
+      return_url: `${env.APP_BASE_URL}/app/settings/billing`,
+    });
+    return { url: session.url };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/billing/webhook", async (request, reply) => {
+  try {
+    const signature = request.headers["stripe-signature"];
+    if (typeof signature !== "string") {
+      return reply.status(400).send({ error: "MISSING_SIGNATURE" });
+    }
+    const rawBody = request.body;
+    if (!Buffer.isBuffer(rawBody)) {
+      return reply.status(400).send({ error: "INVALID_BODY" });
+    }
+    verifyStripeSignature(rawBody, signature, requireStripeWebhookSecret());
+    const event = JSON.parse(rawBody.toString("utf8")) as { type: string; data?: { object?: unknown } };
+    const payload = event.data?.object;
+
+    if (event.type === "checkout.session.completed") {
+      const session = payload as { customer?: string | null; subscription?: string | null };
+      if (session?.subscription && session?.customer) {
+        const subscription = await stripeRequest<StripeSubscription>(
+          `subscriptions/${session.subscription}`,
+          {},
+          { method: "GET" }
+        );
+        await updateUserSubscriptionFromStripe(subscription);
+      }
+    }
+
+    if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
+      const subscription = payload as StripeSubscription;
+      if (subscription?.id && subscription?.customer) {
+        await updateUserSubscriptionFromStripe(subscription);
+      }
+    }
+
+    return reply.status(200).send({ received: true });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.get("/auth/me", async (request, reply) => {
   try {
     const user = await requireUser(request);
@@ -1736,6 +1961,9 @@ app.get("/auth/me", async (request, reply) => {
       role: user.role,
       emailVerifiedAt: user.emailVerifiedAt,
       lastLoginAt: user.lastLoginAt,
+      subscriptionPlan: user.subscriptionPlan,
+      subscriptionStatus: user.subscriptionStatus,
+      currentPeriodEnd: user.currentPeriodEnd,
     };
   } catch (error) {
     return handleRequestError(reply, error);

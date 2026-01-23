@@ -1,0 +1,126 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
+};
+
+type BillingProfile = {
+  subscriptionPlan?: "FREE" | "PRO";
+  subscriptionStatus?: string | null;
+  currentPeriodEnd?: string | null;
+};
+
+type BillingAction = "checkout" | "portal" | null;
+
+export default function BillingClient() {
+  const [profile, setProfile] = useState<BillingProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [action, setAction] = useState<BillingAction>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!response.ok) {
+          setError("No pudimos cargar tu estado de suscripción.");
+          return;
+        }
+        const data = (await response.json()) as BillingProfile;
+        setProfile(data);
+      } catch {
+        setError("No pudimos cargar tu estado de suscripción.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    void loadProfile();
+  }, []);
+
+  const handleCheckout = async () => {
+    setAction("checkout");
+    setError(null);
+    try {
+      const response = await fetch("/api/billing/checkout", { method: "POST" });
+      const data = (await response.json()) as { url?: string };
+      if (!response.ok || !data.url) {
+        setError("No pudimos iniciar el checkout.");
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setError("No pudimos iniciar el checkout.");
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const handlePortal = async () => {
+    setAction("portal");
+    setError(null);
+    try {
+      const response = await fetch("/api/billing/portal", { method: "POST" });
+      const data = (await response.json()) as { url?: string };
+      if (!response.ok || !data.url) {
+        setError("No pudimos abrir el portal de facturación.");
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setError("No pudimos abrir el portal de facturación.");
+    } finally {
+      setAction(null);
+    }
+  };
+
+  return (
+    <section className="card">
+      <h1 className="section-title">Facturación</h1>
+      <p className="section-subtitle">Gestiona tu suscripción y acceso a PRO.</p>
+
+      {loading ? (
+        <p className="muted">Cargando estado de suscripción...</p>
+      ) : (
+        <div style={{ display: "grid", gap: 12 }}>
+          <div className="card" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Plan actual
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 600 }}>{profile?.subscriptionPlan ?? "FREE"}</div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Estado de Stripe
+                </div>
+                <div>{profile?.subscriptionStatus ?? "-"}</div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Próxima renovación
+                </div>
+                <div>{formatDate(profile?.currentPeriodEnd)}</div>
+              </div>
+            </div>
+          </div>
+
+          {error ? <p className="muted">{error}</p> : null}
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <button type="button" className="btn" onClick={handleCheckout} disabled={action === "checkout"}>
+              {action === "checkout" ? "Redirigiendo..." : "Mejorar a PRO"}
+            </button>
+            <button type="button" className="btn secondary" onClick={handlePortal} disabled={action === "portal"}>
+              {action === "portal" ? "Abriendo..." : "Gestionar suscripción"}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

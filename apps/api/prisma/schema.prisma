@@ -15,6 +15,10 @@ model User {
   provider                String                   @default("email")
   role                    Role                     @default(USER)
   subscriptionPlan        SubscriptionPlan         @default(FREE)
+  stripeCustomerId        String?                  @unique
+  stripeSubscriptionId    String?                  @unique
+  subscriptionStatus      String?
+  currentPeriodEnd        DateTime?
   isBlocked               Boolean                  @default(false)
   emailVerifiedAt         DateTime?
   lastLoginAt             DateTime?
