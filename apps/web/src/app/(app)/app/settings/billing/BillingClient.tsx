@@ -13,6 +13,9 @@ type BillingProfile = {
   subscriptionPlan?: "FREE" | "PRO";
   subscriptionStatus?: string | null;
   currentPeriodEnd?: string | null;
+  aiTokenBalance?: number;
+  aiTokenMonthlyAllowance?: number;
+  aiTokenResetAt?: string | null;
 };
 
 type BillingAction = "checkout" | "portal" | null;
@@ -112,6 +115,28 @@ export default function BillingClient() {
                   Próxima renovación
                 </div>
                 <div>{formatDate(profile?.currentPeriodEnd)}</div>
+              </div>
+            </div>
+          </div>
+          <div className="card" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Tokens IA disponibles
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 600 }}>{profile?.aiTokenBalance ?? 0}</div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Tokens mensuales
+                </div>
+                <div>{profile?.aiTokenMonthlyAllowance ?? 0}</div>
+              </div>
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Renovación de tokens
+                </div>
+                <div>{formatDate(profile?.aiTokenResetAt)}</div>
               </div>
             </div>
           </div>

@@ -478,6 +478,7 @@
     "aiGenerating": "Generando IA...",
     "aiSuccess": "Plan IA guardado.",
     "aiError": "No pudimos generar el plan con IA.",
+    "aiRateLimit": "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.",
     "editPlan": "Editar plan",
     "savePlan": "Guardar plan",
     "savePlanSaving": "Guardando...",
@@ -952,5 +953,11 @@
     "errorLoad": "No pudimos cargar el feed.",
     "errorGenerate": "No pudimos generar el resumen.",
     "errorUnexpected": "Error inesperado."
+  },
+  "ai": {
+    "tokensRemaining": "Tokens IA restantes:",
+    "tokensReset": "Renueva",
+    "insufficientTokens": "No tienes tokens suficientes para usar la IA.",
+    "notPro": "Necesitas PRO para usar la IA."
   }
 }

@@ -57,6 +57,12 @@ type NutritionPlanClientProps = {
   mode?: "suggested" | "manual";
 };
 
+const formatDate = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
+};
+
 type ShoppingItem = {
   name: string;
   grams: number;
@@ -517,6 +523,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
+  const [aiTokenResetAt, setAiTokenResetAt] = useState<string | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
@@ -555,21 +563,28 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     };
   }, []);
 
-  useEffect(() => {
-    const loadSubscription = async () => {
-      try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
-        if (!response.ok) {
-          setSubscriptionPlan("FREE");
-          return;
-        }
-        const data = (await response.json()) as { subscriptionPlan?: "FREE" | "PRO" };
-        setSubscriptionPlan(data.subscriptionPlan ?? "FREE");
-      } catch {
+  const refreshSubscription = async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!response.ok) {
         setSubscriptionPlan("FREE");
+        return;
       }
-    };
-    void loadSubscription();
+      const data = (await response.json()) as {
+        subscriptionPlan?: "FREE" | "PRO";
+        aiTokenBalance?: number;
+        aiTokenResetAt?: string | null;
+      };
+      setSubscriptionPlan(data.subscriptionPlan ?? "FREE");
+      setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
+      setAiTokenResetAt(data.aiTokenResetAt ?? null);
+    } catch {
+      setSubscriptionPlan("FREE");
+    }
+  };
+
+  useEffect(() => {
+    void refreshSubscription();
   }, []);
 
   const plan = useMemo(() => {
@@ -846,13 +861,17 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         }),
       });
       if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string; retryAfterSec?: number }
+          | null;
+        if (payload?.error === "INSUFFICIENT_TOKENS") {
+          throw new Error(t("ai.insufficientTokens"));
+        }
+        if (payload?.error === "NOT_PRO") {
+          throw new Error(t("ai.notPro"));
+        }
         if (response.status === 429) {
-          const payload = (await response.json().catch(() => null)) as
-            | { error?: string; message?: string; retryAfterSec?: number }
-            | null;
-          const message =
-            payload?.message ??
-            t("nutrition.aiRateLimit");
+          const message = payload?.message ?? t("nutrition.aiRateLimit");
           throw new Error(message);
         }
         throw new Error(t("nutrition.aiError"));
@@ -861,6 +880,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       const updated = await updateUserProfile({ nutritionPlan: data });
       setSavedPlan(updated.nutritionPlan ?? data);
       setSaveMessage(t("nutrition.aiSuccess"));
+      void refreshSubscription();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("nutrition.aiError"));
     } finally {
@@ -1051,6 +1071,13 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                 </Link>
               </div>
             </div>
+
+            {aiTokenBalance !== null ? (
+              <p className="muted" style={{ marginTop: 8 }}>
+                {t("ai.tokensRemaining")} {aiTokenBalance}
+                {aiTokenResetAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenResetAt)}` : ""}
+              </p>
+            ) : null}
 
             {exportMessage && (
               <p className="muted" style={{ marginTop: 8 }}>{exportMessage}</p>

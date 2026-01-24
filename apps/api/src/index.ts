@@ -10,10 +10,13 @@ import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText } from "./aiParsing.js";
+import { chargeAiUsage } from "./ai/chargeAiUsage.js";
+import { loadAiPricing } from "./ai/pricing.js";
 
 
 const env = getEnv();
 const prisma = new PrismaClient();
+const aiPricing = loadAiPricing(env);
 
 const app = Fastify({ logger: true });
 
@@ -110,6 +113,18 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
       ...(retryAfterSec ? { retryAfterSec } : {}),
     });
   }
+  if (typed.statusCode === 403 && typed.code === "NOT_PRO") {
+    return reply.status(403).send({
+      error: "NOT_PRO",
+      message: "Necesitas PRO para usar la IA.",
+    });
+  }
+  if (typed.statusCode === 403 && typed.code === "INSUFFICIENT_TOKENS") {
+    return reply.status(403).send({
+      error: "INSUFFICIENT_TOKENS",
+      message: "No tienes tokens suficientes para completar esta acción.",
+    });
+  }
   if (typed.statusCode) {
     return reply.status(typed.statusCode).send({
       error: typed.code ?? "REQUEST_ERROR",
@@ -197,10 +212,17 @@ async function updateUserSubscriptionFromStripe(subscription: StripeSubscription
   const currentPeriodEnd = subscription.current_period_end
     ? new Date(subscription.current_period_end * 1000)
     : null;
-  const result = await prisma.user.updateMany({
+  const user = await prisma.user.findFirst({
     where: {
       OR: [{ stripeCustomerId: subscription.customer }, { stripeSubscriptionId: subscription.id }],
     },
+  });
+  if (!user) {
+    app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
+    return null;
+  }
+  return prisma.user.update({
+    where: { id: user.id },
     data: {
       stripeCustomerId: subscription.customer,
       stripeSubscriptionId: subscription.id,
@@ -209,9 +231,6 @@ async function updateUserSubscriptionFromStripe(subscription: StripeSubscription
       subscriptionPlan: isActive ? "PRO" : "FREE",
     },
   });
-  if (result.count === 0) {
-    app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
-  }
 }
 
 async function syncUserSubscriptionFromStripe(user: {
@@ -249,6 +268,63 @@ async function syncUserSubscriptionFromStripe(user: {
       },
     });
   }
+}
+
+async function findUserByStripeIdentifiers(customerId?: string | null, subscriptionId?: string | null) {
+  if (!customerId && !subscriptionId) return null;
+  return prisma.user.findFirst({
+    where: {
+      OR: [
+        ...(customerId ? [{ stripeCustomerId: customerId }] : []),
+        ...(subscriptionId ? [{ stripeSubscriptionId: subscriptionId }] : []),
+      ],
+    },
+  });
+}
+
+function resolveMonthlyAllowance(user: { aiTokenMonthlyAllowance: number }) {
+  if (user.aiTokenMonthlyAllowance > 0) return user.aiTokenMonthlyAllowance;
+  return env.PRO_MONTHLY_TOKENS > 0 ? env.PRO_MONTHLY_TOKENS : 0;
+}
+
+async function resetAiTokensForUser(args: {
+  userId: string;
+  currentPeriodEnd: Date | null;
+  monthlyAllowance: number;
+}) {
+  const { userId, currentPeriodEnd, monthlyAllowance } = args;
+  const data: Prisma.UserUpdateInput = {
+    aiTokenResetAt: currentPeriodEnd ?? null,
+  };
+  if (monthlyAllowance > 0) {
+    data.aiTokenMonthlyAllowance = monthlyAllowance;
+    data.aiTokenBalance = monthlyAllowance;
+  }
+  await prisma.user.update({
+    where: { id: userId },
+    data,
+  });
+}
+
+async function applyAiTokenRenewalFromSubscription(subscription: StripeSubscription) {
+  const currentPeriodEnd = subscription.current_period_end
+    ? new Date(subscription.current_period_end * 1000)
+    : null;
+  const user = await findUserByStripeIdentifiers(subscription.customer, subscription.id);
+  if (!user) {
+    app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
+    return;
+  }
+  const allowance = resolveMonthlyAllowance(user);
+  if (allowance <= 0) {
+    app.log.info({ userId: user.id }, "ai token allowance not configured");
+    return;
+  }
+  await resetAiTokensForUser({
+    userId: user.id,
+    currentPeriodEnd,
+    monthlyAllowance: allowance,
+  });
 }
 
 function logAuthCookieDebug(request: FastifyRequest, route: string) {
@@ -447,6 +523,15 @@ async function requireUser(
 function requireProSubscription(user: { subscriptionPlan: string }) {
   if (user.subscriptionPlan !== "PRO") {
     throw createHttpError(403, "PRO_REQUIRED");
+  }
+}
+
+function assertAiAccess(user: { subscriptionPlan: string; aiTokenBalance: number }) {
+  if (user.subscriptionPlan !== "PRO") {
+    throw createHttpError(403, "NOT_PRO");
+  }
+  if (user.aiTokenBalance <= 0) {
+    throw createHttpError(403, "INSUFFICIENT_TOKENS");
   }
 }
 
@@ -1615,7 +1700,20 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
   );
 }
 
-async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, unknown>> {
+type OpenAiUsage = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+};
+
+type OpenAiResponse = {
+  payload: Record<string, unknown>;
+  usage?: OpenAiUsage;
+  model?: string;
+  requestId?: string;
+};
+
+async function callOpenAi(prompt: string, attempt = 0): Promise<OpenAiResponse> {
   if (!env.OPENAI_API_KEY) {
     throw createHttpError(503, "AI_UNAVAILABLE");
   }
@@ -1644,7 +1742,10 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, u
     throw createHttpError(502, "AI_REQUEST_FAILED");
   }
   const data = (await response.json()) as {
+    id?: string;
+    model?: string;
     choices?: Array<{ message?: { content?: string } }>;
+    usage?: OpenAiUsage;
   };
   const content = data.choices?.[0]?.message?.content;
   if (!content) {
@@ -1652,7 +1753,12 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, u
   }
   try {
     app.log.info({ attempt, rawResponse: content }, "ai raw response");
-    return extractJson(content);
+    return {
+      payload: extractJson(content),
+      usage: data.usage,
+      model: data.model,
+      requestId: data.id,
+    };
   } catch (error) {
     const typed = error as { code?: string };
     if (typed.code === "AI_PARSE_ERROR" && attempt === 0) {
@@ -1677,6 +1783,12 @@ function toDate(value?: string) {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function addMonths(date: Date, months: number) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
 }
 
 function getRecentEntries<T extends { date?: string }>(entries: T[], days: number) {
@@ -1991,6 +2103,9 @@ app.get("/billing/status", async (request, reply) => {
       subscriptionPlan: refreshed?.subscriptionPlan ?? "FREE",
       subscriptionStatus: refreshed?.subscriptionStatus ?? null,
       currentPeriodEnd: refreshed?.currentPeriodEnd ?? null,
+      aiTokenBalance: refreshed?.aiTokenBalance ?? 0,
+      aiTokenMonthlyAllowance: refreshed?.aiTokenMonthlyAllowance ?? 0,
+      aiTokenResetAt: refreshed?.aiTokenResetAt ?? null,
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2020,6 +2135,7 @@ app.post("/billing/webhook", async (request, reply) => {
           { method: "GET" }
         );
         await updateUserSubscriptionFromStripe(subscription);
+        await applyAiTokenRenewalFromSubscription(subscription);
       }
     }
 
@@ -2027,6 +2143,19 @@ app.post("/billing/webhook", async (request, reply) => {
       const subscription = payload as StripeSubscription;
       if (subscription?.id && subscription?.customer) {
         await updateUserSubscriptionFromStripe(subscription);
+      }
+    }
+
+    if (event.type === "invoice.paid") {
+      const invoice = payload as { customer?: string | null; subscription?: string | null };
+      if (invoice?.subscription && invoice?.customer) {
+        const subscription = await stripeRequest<StripeSubscription>(
+          `subscriptions/${invoice.subscription}`,
+          {},
+          { method: "GET" }
+        );
+        await updateUserSubscriptionFromStripe(subscription);
+        await applyAiTokenRenewalFromSubscription(subscription);
       }
     }
 
@@ -2049,6 +2178,9 @@ app.get("/auth/me", async (request, reply) => {
       subscriptionPlan: user.subscriptionPlan,
       subscriptionStatus: user.subscriptionStatus,
       currentPeriodEnd: user.currentPeriodEnd,
+      aiTokenBalance: user.aiTokenBalance,
+      aiTokenMonthlyAllowance: user.aiTokenMonthlyAllowance,
+      aiTokenResetAt: user.aiTokenResetAt,
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2491,9 +2623,18 @@ app.post("/ai/training-plan", async (request, reply) => {
       }
     }
 
+    assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildTrainingPrompt(data);
-    const payload = parseTrainingPlanPayload(await callOpenAi(prompt));
+    const charged = await chargeAiUsage({
+      prisma,
+      pricing: aiPricing,
+      user,
+      feature: "training_plan",
+      execute: () => callOpenAi(prompt),
+      createHttpError,
+    });
+    const payload = parseTrainingPlanPayload(charged.payload);
     await upsertExercisesFromPlan(payload);
     await saveCachedAiPayload(cacheKey, "training", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
@@ -2538,9 +2679,18 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
       }
     }
 
+    assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildNutritionPrompt(data);
-    const payload = parseNutritionPlanPayload(await callOpenAi(prompt));
+    const charged = await chargeAiUsage({
+      prisma,
+      pricing: aiPricing,
+      user,
+      feature: "nutrition_plan",
+      execute: () => callOpenAi(prompt),
+      createHttpError,
+    });
+    const payload = parseNutritionPlanPayload(charged.payload);
     await saveCachedAiPayload(cacheKey, "nutrition", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
@@ -2572,9 +2722,18 @@ app.post("/ai/daily-tip", async (request, reply) => {
       return reply.status(200).send(personalized);
     }
 
+    assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildTipPrompt(data);
-    const payload = await callOpenAi(prompt);
+    const charged = await chargeAiUsage({
+      prisma,
+      pricing: aiPricing,
+      user,
+      feature: "daily_tip",
+      execute: () => callOpenAi(prompt),
+      createHttpError,
+    });
+    const payload = charged.payload;
     await saveCachedAiPayload(cacheKey, "tip", payload);
     const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
@@ -2840,6 +2999,140 @@ app.get("/admin/users", async (request, reply) => {
     });
 
     return { total, page, pageSize, users: payload };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/admin/users/:id/grant-pro", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const paramsSchema = z.object({ id: z.string().min(1) });
+    const bodySchema = z.object({
+      monthlyAllowance: z.coerce.number().int().min(1).optional(),
+      initialTokens: z.coerce.number().int().min(0).optional(),
+    });
+    const { id } = paramsSchema.parse(request.params);
+    const { monthlyAllowance, initialTokens } = bodySchema.parse(request.body ?? {});
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+    const allowance = monthlyAllowance ?? resolveMonthlyAllowance(user);
+    const startingTokens = initialTokens ?? allowance;
+    const resetAt = addMonths(new Date(), 1);
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        subscriptionPlan: "PRO",
+        subscriptionStatus: "manual_admin",
+        aiTokenMonthlyAllowance: allowance,
+        aiTokenBalance: startingTokens,
+        aiTokenResetAt: resetAt,
+      },
+    });
+
+    return {
+      id: updated.id,
+      subscriptionPlan: updated.subscriptionPlan,
+      subscriptionStatus: updated.subscriptionStatus,
+      aiTokenBalance: updated.aiTokenBalance,
+      aiTokenMonthlyAllowance: updated.aiTokenMonthlyAllowance,
+      aiTokenResetAt: updated.aiTokenResetAt,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/admin/users/:id/credit-tokens", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const paramsSchema = z.object({ id: z.string().min(1) });
+    const bodySchema = z.object({
+      amount: z.coerce.number().int().positive(),
+      reason: z.string().min(1).max(200).optional(),
+    });
+    const { id } = paramsSchema.parse(request.params);
+    const { amount, reason } = bodySchema.parse(request.body ?? {});
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    const [updated] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id },
+        data: { aiTokenBalance: { increment: amount } },
+      }),
+      prisma.aiUsageLog.create({
+        data: {
+          userId: id,
+          feature: "admin_credit",
+          model: "manual",
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: -amount,
+          costCents: 0,
+          currency: "usd",
+          meta: reason ? ({ reason } as Record<string, unknown>) : undefined,
+        },
+      }),
+    ]);
+
+    return {
+      id: updated.id,
+      aiTokenBalance: updated.aiTokenBalance,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/admin/ai-usage", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const querySchema = z.object({
+      userId: z.string().min(1).optional(),
+      from: z.string().optional(),
+      to: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+    });
+    const { userId, from, to, limit } = querySchema.parse(request.query);
+    const fromDate = toDate(from ?? undefined);
+    const toDateValue = toDate(to ?? undefined);
+
+    const createdAt: Prisma.DateTimeFilter = {};
+    if (fromDate) createdAt.gte = fromDate;
+    if (toDateValue) createdAt.lte = toDateValue;
+
+    const where: Prisma.AiUsageLogWhereInput = {
+      ...(userId ? { userId } : {}),
+      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
+    };
+
+    const [items, summary] = await prisma.$transaction([
+      prisma.aiUsageLog.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      }),
+      prisma.aiUsageLog.aggregate({
+        where,
+        _sum: { totalTokens: true, costCents: true },
+      }),
+    ]);
+
+    return {
+      items,
+      summary: {
+        totalTokens: summary._sum.totalTokens ?? 0,
+        costCents: summary._sum.costCents ?? 0,
+      },
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }

@@ -474,6 +474,7 @@
     "aiGenerating": "Generating with AI...",
     "aiSuccess": "AI plan saved.",
     "aiError": "We couldn't generate the plan with AI.",
+    "aiRateLimit": "You've reached the AI request limit. Try again later.",
     "editPlan": "Edit plan",
     "savePlan": "Save plan",
     "savePlanSaving": "Saving...",
@@ -952,5 +953,11 @@
     "errorLoad": "We couldn't load the feed.",
     "errorGenerate": "We couldn't generate the summary.",
     "errorUnexpected": "Unexpected error."
+  },
+  "ai": {
+    "tokensRemaining": "AI tokens remaining:",
+    "tokensReset": "Resets",
+    "insufficientTokens": "You don't have enough tokens to use AI.",
+    "notPro": "You need PRO to use AI."
   }
 }
