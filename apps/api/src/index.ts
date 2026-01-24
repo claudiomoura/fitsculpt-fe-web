@@ -284,7 +284,7 @@ async function findUserByStripeIdentifiers(customerId?: string | null, subscript
 
 function resolveMonthlyAllowance(user: { aiTokenMonthlyAllowance: number }) {
   if (user.aiTokenMonthlyAllowance > 0) return user.aiTokenMonthlyAllowance;
-  return env.PRO_MONTHLY_TOKENS > 0 ? env.PRO_MONTHLY_TOKENS : 0;
+  return env.PRO_MONTHLY_TOKENS > 0 ? env.PRO_MONTHLY_TOKENS : 2000;
 }
 
 async function resetAiTokensForUser(args: {
@@ -317,14 +317,7 @@ async function applyAiTokenRenewalFromSubscription(subscription: StripeSubscript
     app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
     return;
   }
-  if (currentPeriodEnd && user.aiTokenRenewalAt?.getTime() === currentPeriodEnd.getTime()) {
-    return;
-  }
   const allowance = resolveMonthlyAllowance(user);
-  if (allowance <= 0) {
-    app.log.info({ userId: user.id }, "ai token allowance not configured");
-    return;
-  }
   await resetAiTokensForUser({
     userId: user.id,
     currentPeriodEnd,
@@ -2104,7 +2097,9 @@ app.get("/billing/status", async (request, reply) => {
       await syncUserSubscriptionFromStripe(user);
     }
     const refreshed = sync ? await prisma.user.findUnique({ where: { id: user.id } }) : user;
+    const isPro = refreshed?.subscriptionPlan === "PRO";
     let stripePeriodEnd: Date | null = refreshed?.currentPeriodEnd ?? null;
+    let aiTokenRenewalAt = refreshed?.aiTokenRenewalAt ?? null;
     if (env.STRIPE_SECRET_KEY && refreshed?.stripeSubscriptionId) {
       try {
         const subscription = await stripeRequest<StripeSubscription>(
@@ -2115,18 +2110,43 @@ app.get("/billing/status", async (request, reply) => {
         stripePeriodEnd = subscription.current_period_end
           ? new Date(subscription.current_period_end * 1000)
           : null;
-        if (
-          stripePeriodEnd &&
-          (!refreshed.currentPeriodEnd || refreshed.currentPeriodEnd.getTime() !== stripePeriodEnd.getTime())
-        ) {
+        if (isPro && stripePeriodEnd) {
+          aiTokenRenewalAt = stripePeriodEnd;
+        }
+        if (stripePeriodEnd && (!refreshed.currentPeriodEnd || refreshed.currentPeriodEnd.getTime() !== stripePeriodEnd.getTime())) {
           await prisma.user.update({
             where: { id: refreshed.id },
-            data: { currentPeriodEnd: stripePeriodEnd },
+            data: {
+              currentPeriodEnd: stripePeriodEnd,
+              ...(isPro ? { aiTokenRenewalAt: stripePeriodEnd } : {}),
+            },
           });
         }
       } catch (error) {
         app.log.warn({ err: error, userId: refreshed?.id }, "stripe subscription fetch failed");
       }
+    } else if (isPro) {
+      let nextPeriodEnd = stripePeriodEnd;
+      if (!nextPeriodEnd) {
+        nextPeriodEnd = addMonths(new Date(), 1);
+      }
+      if (!aiTokenRenewalAt || aiTokenRenewalAt.getTime() !== nextPeriodEnd.getTime()) {
+        aiTokenRenewalAt = nextPeriodEnd;
+      }
+      if (
+        !refreshed?.currentPeriodEnd ||
+        refreshed.currentPeriodEnd.getTime() !== nextPeriodEnd.getTime() ||
+        refreshed.aiTokenRenewalAt?.getTime() !== aiTokenRenewalAt.getTime()
+      ) {
+        await prisma.user.update({
+          where: { id: refreshed.id },
+          data: {
+            currentPeriodEnd: nextPeriodEnd,
+            aiTokenRenewalAt,
+          },
+        });
+      }
+      stripePeriodEnd = nextPeriodEnd;
     }
     return {
       subscriptionPlan: refreshed?.subscriptionPlan ?? "FREE",
@@ -2134,7 +2154,9 @@ app.get("/billing/status", async (request, reply) => {
       currentPeriodEnd: stripePeriodEnd ?? null,
       aiTokenBalance: refreshed?.aiTokenBalance ?? 0,
       aiTokenMonthlyAllowance: refreshed?.aiTokenMonthlyAllowance ?? 0,
-      aiTokenRenewalAt: refreshed?.aiTokenRenewalAt ?? null,
+      aiTokenRenewalAt: aiTokenRenewalAt ?? null,
+      stripeCustomerId: refreshed?.stripeCustomerId ?? null,
+      stripeSubscriptionId: refreshed?.stripeSubscriptionId ?? null,
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2637,7 +2659,11 @@ app.post("/ai/training-plan", async (request, reply) => {
       const personalized = applyPersonalization(template, { name: data.name });
       await upsertExercisesFromPlan(personalized);
       await storeAiContent(user.id, "training", "template", personalized);
-      return reply.status(200).send(personalized);
+      return reply.status(200).send({
+        plan: personalized,
+        aiTokenBalance: user.aiTokenBalance,
+        aiTokenRenewalAt: user.aiTokenRenewalAt,
+      });
     }
 
     const cached = await getCachedAiPayload(cacheKey);
@@ -2647,7 +2673,11 @@ app.post("/ai/training-plan", async (request, reply) => {
         const personalized = applyPersonalization(validated, { name: data.name });
         await upsertExercisesFromPlan(personalized);
         await storeAiContent(user.id, "training", "cache", personalized);
-        return reply.status(200).send(personalized);
+        return reply.status(200).send({
+          plan: personalized,
+          aiTokenBalance: user.aiTokenBalance,
+          aiTokenRenewalAt: user.aiTokenRenewalAt,
+        });
       } catch (error) {
         app.log.warn({ err: error, cacheKey }, "cached training plan invalid, regenerating");
       }
@@ -2669,7 +2699,11 @@ app.post("/ai/training-plan", async (request, reply) => {
     await saveCachedAiPayload(cacheKey, "training", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "training", "ai", personalized);
-    return reply.status(200).send(personalized);
+    return reply.status(200).send({
+      plan: personalized,
+      aiTokenBalance: charged.balance,
+      aiTokenRenewalAt: user.aiTokenRenewalAt,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -2694,7 +2728,11 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name });
       await storeAiContent(user.id, "nutrition", "template", personalized);
-      return reply.status(200).send(personalized);
+      return reply.status(200).send({
+        plan: personalized,
+        aiTokenBalance: user.aiTokenBalance,
+        aiTokenRenewalAt: user.aiTokenRenewalAt,
+      });
     }
 
     const cached = await getCachedAiPayload(cacheKey);
@@ -2703,7 +2741,11 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
         const validated = parseNutritionPlanPayload(cached);
         const personalized = applyPersonalization(validated, { name: data.name });
         await storeAiContent(user.id, "nutrition", "cache", personalized);
-        return reply.status(200).send(personalized);
+        return reply.status(200).send({
+          plan: personalized,
+          aiTokenBalance: user.aiTokenBalance,
+          aiTokenRenewalAt: user.aiTokenRenewalAt,
+        });
       } catch (error) {
         app.log.warn({ err: error, cacheKey }, "cached nutrition plan invalid, regenerating");
       }
@@ -2724,7 +2766,11 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
     await saveCachedAiPayload(cacheKey, "nutrition", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
-    return reply.status(200).send(personalized);
+    return reply.status(200).send({
+      plan: personalized,
+      aiTokenBalance: charged.balance,
+      aiTokenRenewalAt: user.aiTokenRenewalAt,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -2742,14 +2788,22 @@ app.post("/ai/daily-tip", async (request, reply) => {
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
       await safeStoreAiContent(user.id, "tip", "template", personalized);
-      return reply.status(200).send(personalized);
+      return reply.status(200).send({
+        tip: personalized,
+        aiTokenBalance: user.aiTokenBalance,
+        aiTokenRenewalAt: user.aiTokenRenewalAt,
+      });
     }
 
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
       const personalized = applyPersonalization(cached, { name: data.name ?? "amigo" });
       await safeStoreAiContent(user.id, "tip", "cache", personalized);
-      return reply.status(200).send(personalized);
+      return reply.status(200).send({
+        tip: personalized,
+        aiTokenBalance: user.aiTokenBalance,
+        aiTokenRenewalAt: user.aiTokenRenewalAt,
+      });
     }
 
     assertAiAccess(user);
@@ -2767,7 +2821,11 @@ app.post("/ai/daily-tip", async (request, reply) => {
     await saveCachedAiPayload(cacheKey, "tip", payload);
     const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
-    return reply.status(200).send(personalized);
+    return reply.status(200).send({
+      tip: personalized,
+      aiTokenBalance: charged.balance,
+      aiTokenRenewalAt: user.aiTokenRenewalAt,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -2964,7 +3022,6 @@ const adminCreateUserSchema = z.object({
   subscriptionPlan: z.enum(["FREE", "PRO"]).optional(),
   aiTokenBalance: z.coerce.number().int().min(0).optional(),
   aiTokenMonthlyAllowance: z.coerce.number().int().min(0).optional(),
-  aiTokenRenewalAt: z.string().datetime().optional(),
 });
 
 app.post("/admin/users", async (request, reply) => {
@@ -2975,12 +3032,8 @@ app.post("/admin/users", async (request, reply) => {
     const aiTokenMonthlyAllowance = data.aiTokenMonthlyAllowance ?? 0;
     const fallbackBalance = subscriptionPlan === "PRO" ? aiTokenMonthlyAllowance : 0;
     const aiTokenBalance = Math.max(0, data.aiTokenBalance ?? fallbackBalance);
-    const aiTokenRenewalAt =
-      subscriptionPlan === "PRO" && aiTokenMonthlyAllowance > 0
-        ? data.aiTokenRenewalAt
-          ? new Date(data.aiTokenRenewalAt)
-          : addMonths(new Date(), 1)
-        : null;
+    const currentPeriodEnd = subscriptionPlan === "PRO" ? addMonths(new Date(), 1) : null;
+    const aiTokenRenewalAt = subscriptionPlan === "PRO" ? currentPeriodEnd : null;
     const passwordHash = await bcrypt.hash(data.password, 10);
 
     const created = await prisma.user.create({
@@ -2990,6 +3043,7 @@ app.post("/admin/users", async (request, reply) => {
         role: data.role ?? "USER",
         subscriptionPlan,
         subscriptionStatus: subscriptionPlan === "PRO" ? "manual_admin" : null,
+        currentPeriodEnd,
         aiTokenBalance,
         aiTokenMonthlyAllowance,
         aiTokenRenewalAt,
@@ -3001,6 +3055,7 @@ app.post("/admin/users", async (request, reply) => {
       email: created.email,
       role: created.role,
       subscriptionPlan: created.subscriptionPlan,
+      currentPeriodEnd: created.currentPeriodEnd,
       aiTokenBalance: created.aiTokenBalance,
       aiTokenMonthlyAllowance: created.aiTokenMonthlyAllowance,
       aiTokenRenewalAt: created.aiTokenRenewalAt,
@@ -3114,6 +3169,7 @@ app.post("/admin/users/:id/grant-pro", async (request, reply) => {
         subscriptionStatus: "manual_admin",
         aiTokenMonthlyAllowance: allowance,
         aiTokenBalance: startingTokens,
+        currentPeriodEnd: resetAt,
         aiTokenRenewalAt: resetAt,
       },
     });
@@ -3122,6 +3178,7 @@ app.post("/admin/users/:id/grant-pro", async (request, reply) => {
       id: updated.id,
       subscriptionPlan: updated.subscriptionPlan,
       subscriptionStatus: updated.subscriptionStatus,
+      currentPeriodEnd: updated.currentPeriodEnd,
       aiTokenBalance: updated.aiTokenBalance,
       aiTokenMonthlyAllowance: updated.aiTokenMonthlyAllowance,
       aiTokenRenewalAt: updated.aiTokenRenewalAt,
@@ -3153,7 +3210,7 @@ app.patch("/admin/users/:id/plan", async (request, reply) => {
           ? nextAllowance
           : Math.max(user.aiTokenBalance, nextAllowance)
         : 0;
-    const nextResetAt = subscriptionPlan === "PRO" ? user.aiTokenRenewalAt ?? addMonths(new Date(), 1) : null;
+    const nextPeriodEnd = subscriptionPlan === "PRO" ? user.currentPeriodEnd ?? addMonths(new Date(), 1) : null;
 
     const updated = await prisma.user.update({
       where: { id },
@@ -3162,7 +3219,8 @@ app.patch("/admin/users/:id/plan", async (request, reply) => {
         subscriptionStatus: "manual_admin",
         aiTokenMonthlyAllowance: nextAllowance,
         aiTokenBalance: nextBalance,
-        aiTokenRenewalAt: nextResetAt,
+        currentPeriodEnd: nextPeriodEnd,
+        aiTokenRenewalAt: subscriptionPlan === "PRO" ? nextPeriodEnd : null,
       },
     });
 
@@ -3170,6 +3228,7 @@ app.patch("/admin/users/:id/plan", async (request, reply) => {
       id: updated.id,
       subscriptionPlan: updated.subscriptionPlan,
       subscriptionStatus: updated.subscriptionStatus,
+      currentPeriodEnd: updated.currentPeriodEnd,
       aiTokenBalance: updated.aiTokenBalance,
       aiTokenMonthlyAllowance: updated.aiTokenMonthlyAllowance,
       aiTokenRenewalAt: updated.aiTokenRenewalAt,
@@ -3239,7 +3298,9 @@ app.patch("/admin/users/:id/tokens-allowance", async (request, reply) => {
     const data: Prisma.UserUpdateInput = { aiTokenMonthlyAllowance };
     if (topUpNow) {
       data.aiTokenBalance = aiTokenMonthlyAllowance;
-      data.aiTokenRenewalAt = user.currentPeriodEnd ?? addMonths(new Date(), 1);
+      const periodEnd = user.currentPeriodEnd ?? addMonths(new Date(), 1);
+      data.currentPeriodEnd = periodEnd;
+      data.aiTokenRenewalAt = periodEnd;
     }
 
     const updated = await prisma.user.update({
