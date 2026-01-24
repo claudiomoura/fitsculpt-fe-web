@@ -36,9 +36,15 @@ export default function AppNavBar() {
         // Ignore.
       }
     };
+    const handleRefresh = () => {
+      if (!active) return;
+      void load();
+    };
+    window.addEventListener("auth:refresh", handleRefresh);
     void load();
     return () => {
       active = false;
+      window.removeEventListener("auth:refresh", handleRefresh);
     };
   }, []);
 
