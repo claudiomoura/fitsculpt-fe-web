@@ -21,7 +21,7 @@ model User {
   currentPeriodEnd        DateTime?
   aiTokenBalance          Int                      @default(0)
   aiTokenMonthlyAllowance Int                      @default(0)
-  aiTokenResetAt          DateTime?
+  aiTokenRenewalAt        DateTime?
   isBlocked               Boolean                  @default(false)
   emailVerifiedAt         DateTime?
   lastLoginAt             DateTime?

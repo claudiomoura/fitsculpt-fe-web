@@ -256,7 +256,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [error, setError] = useState<string | null>(null);
   const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
-  const [aiTokenResetAt, setAiTokenResetAt] = useState<string | null>(null);
+  const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [saving, setSaving] = useState(false);
@@ -315,11 +315,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const data = (await response.json()) as {
         subscriptionPlan?: "FREE" | "PRO";
         aiTokenBalance?: number;
-        aiTokenResetAt?: string | null;
+        aiTokenRenewalAt?: string | null;
       };
       setSubscriptionPlan(data.subscriptionPlan ?? "FREE");
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
-      setAiTokenResetAt(data.aiTokenResetAt ?? null);
+      setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
+      window.dispatchEvent(new Event("auth:refresh"));
     } catch {
       setSubscriptionPlan("FREE");
     }
@@ -617,7 +618,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             {aiTokenBalance !== null ? (
               <p className="muted" style={{ marginTop: 8 }}>
                 {t("ai.tokensRemaining")} {aiTokenBalance}
-                {aiTokenResetAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenResetAt)}` : ""}
+                {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
               </p>
             ) : null}
 

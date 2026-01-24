@@ -6,9 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 const formatDate = (value?: string | null) => {
   if (!value) return "No disponible";
   const date = new Date(value);
+  const formatter = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
   return Number.isNaN(date.getTime())
     ? "No disponible"
-    : date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+    : formatter.format(date);
 };
 
 type BillingProfile = {
@@ -17,7 +18,7 @@ type BillingProfile = {
   currentPeriodEnd?: string | null;
   aiTokenBalance?: number;
   aiTokenMonthlyAllowance?: number;
-  aiTokenResetAt?: string | null;
+  aiTokenRenewalAt?: string | null;
 };
 
 type BillingAction = "checkout" | "portal" | null;
@@ -138,7 +139,7 @@ export default function BillingClient() {
                 <div className="muted" style={{ fontSize: 12 }}>
                   Renovación de tokens
                 </div>
-                <div>{formatDate(profile?.aiTokenResetAt)}</div>
+                <div>{formatDate(profile?.aiTokenRenewalAt)}</div>
               </div>
             </div>
           </div>
