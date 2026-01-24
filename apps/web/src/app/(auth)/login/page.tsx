@@ -5,6 +5,7 @@ import { getServerT } from "@/lib/serverI18n";
 import Link from "next/link";
 import ResendVerificationButton from "./ResendVerificationButton";
 import LoginForm from "./LoginForm";
+import GoogleLoginButton from "./GoogleLoginButton";
 
 type SearchParams =
   | { next?: string; error?: string; registered?: string }
@@ -21,6 +22,8 @@ export default async function LoginPage({
   const error = sp.error === "1";
   const unverified = sp.error === "unverified";
   const blocked = sp.error === "blocked";
+  const promoError = sp.error === "promo";
+  const oauthError = sp.error === "oauth";
   const registered = sp.registered === "1";
 
   const hasSession = Boolean((await cookies()).get("fs_token")?.value);
@@ -33,12 +36,16 @@ export default async function LoginPage({
         <p className="section-subtitle">{t("landing.subtitle")}</p>
       </div>
 
-      {(error || unverified || blocked || registered) && (
+      {(error || unverified || blocked || promoError || oauthError || registered) && (
         <p className="muted" style={{ marginTop: 4 }}>
           {registered
             ? t("auth.registerSuccess")
             : blocked
               ? t("auth.blockedAccount")
+              : promoError
+                ? t("auth.googlePromoError")
+                : oauthError
+                  ? t("auth.oauthError")
               : unverified
                 ? t("auth.emailNotVerified")
                 : t("auth.invalidCredentials")}
@@ -58,9 +65,21 @@ export default async function LoginPage({
         }}
       />
 
-      <Link href="/api/auth/google/start" className="btn secondary" style={{ justifyContent: "center" }}>
-        {t("auth.google")}
-      </Link>
+      <GoogleLoginButton
+        labels={{
+          button: t("auth.google"),
+          modalTitle: t("auth.googlePromoTitle"),
+          modalSubtitle: t("auth.googlePromoSubtitle"),
+          promoLabel: t("auth.promoCode"),
+          promoPlaceholder: t("auth.googlePromoPlaceholder"),
+          promoHint: t("auth.googlePromoHint"),
+          confirm: t("auth.googlePromoConfirm"),
+          skip: t("auth.googlePromoSkip"),
+          cancel: t("auth.googlePromoCancel"),
+          promoError: t("auth.googlePromoError"),
+          oauthError: t("auth.oauthError"),
+        }}
+      />
 
       {unverified && (
         <div style={{ marginTop: 12 }}>

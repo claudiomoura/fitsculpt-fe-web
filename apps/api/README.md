@@ -17,7 +17,7 @@
 | `ADMIN_EMAIL_SEED` | Email a promover para ADMIN no boot. | `admin@fitsculpt.app` |
 | `GOOGLE_CLIENT_ID` | OAuth client ID. | `...apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | OAuth client secret. | `...` |
-| `GOOGLE_REDIRECT_URI` | Callback do OAuth no frontend (`/api/auth/google/callback`). | `https://fitsculpt-fe-web.vercel.app/api/auth/google/callback` |
+| `GOOGLE_REDIRECT_URI` | Callback do OAuth no backend (`/auth/google/callback`). | `https://api.fitsculpt.app/auth/google/callback` |
 | `STRIPE_SECRET_KEY` | Chave secreta do Stripe (modo test/live). | `sk_test_...` |
 | `STRIPE_WEBHOOK_SECRET` | Segredo do webhook do Stripe. | `whsec_...` |
 | `STRIPE_PRO_PRICE_ID` | Price ID do plano PRO (assinatura). | `price_...` |
@@ -44,10 +44,10 @@
 2. Se ainda não verificado e respeitando cooldown, reenvia o email.
 
 ### Google OAuth
-1. Front chama `/api/auth/google/start` (Next proxy).
-2. Backend gera `state` e retorna a URL do Google.
-3. O Google redireciona para `/api/auth/google/callback` (frontend) e o proxy chama o backend.
-4. Backend valida `state`, cria/associa usuário e retorna o cookie de sessão.
+1. Front chama `GET /auth/google/start` no backend e recebe `{ url }`.
+2. O frontend redireciona o usuário para a URL do Google.
+3. O Google redireciona para `GET /auth/google/callback` (backend).
+4. O backend valida o `state`, cria/associa usuário, seta o cookie `fs_token` e redireciona para o frontend.
 
 ### Admin
 - Usuários com `role=ADMIN` podem acessar `/admin/users` para listar, bloquear e remover usuários.

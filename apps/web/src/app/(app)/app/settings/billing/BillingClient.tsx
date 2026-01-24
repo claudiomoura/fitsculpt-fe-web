@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -17,6 +18,8 @@ type BillingProfile = {
 type BillingAction = "checkout" | "portal" | null;
 
 export default function BillingClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<BillingAction>(null);
@@ -25,13 +28,17 @@ export default function BillingClient() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        const shouldSync = searchParams.get("checkout") === "success";
+        const response = await fetch(`/api/billing/status${shouldSync ? "?sync=1" : ""}`, { cache: "no-store" });
         if (!response.ok) {
           setError("No pudimos cargar tu estado de suscripción.");
           return;
         }
         const data = (await response.json()) as BillingProfile;
         setProfile(data);
+        if (shouldSync) {
+          router.replace("/app/settings/billing");
+        }
       } catch {
         setError("No pudimos cargar tu estado de suscripción.");
       } finally {
@@ -39,7 +46,7 @@ export default function BillingClient() {
       }
     };
     void loadProfile();
-  }, []);
+  }, [router, searchParams]);
 
   const handleCheckout = async () => {
     setAction("checkout");
