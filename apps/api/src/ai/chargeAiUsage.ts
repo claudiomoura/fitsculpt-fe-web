@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { calculateCostCents, type AiPricingMap } from "./pricing.js";
+import { computeCostCents, getModelPricing, type AiPricingMap } from "./pricing.js";
 
 type AiUsageUser = {
   id: string;
@@ -43,79 +43,61 @@ function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
   };
 }
 
-function computeCostCents(args: {
-  pricing: AiPricingMap;
-  model?: string | null;
-  usage?: OpenAiUsage | null;
-}) {
-  const totals = buildUsageTotals(args.usage);
-  const pricingResult = calculateCostCents({
-    pricing: args.pricing,
-    model: args.model,
-    promptTokens: totals.promptTokens,
-    completionTokens: totals.completionTokens,
+async function debitAiTokensTx(
+  prisma: PrismaClient,
+  userId: string,
+  args: {
+    feature: string;
+    model: string;
+    usage: UsageTotals;
+    costCents: number;
+    meta?: Record<string, unknown>;
+    requestId?: string | null;
+  },
+  createHttpError: (statusCode: number, code: string, debug?: Record<string, unknown>) => Error
+) {
+  const { feature, model, usage, costCents, meta, requestId } = args;
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw createHttpError(404, "USER_NOT_FOUND");
+    }
+    if (user.aiTokenBalance <= 0) {
+      throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
+    }
+
+    const nextBalance = Math.max(0, user.aiTokenBalance - costCents);
+    const mergedMeta = { ...(meta ?? {}) };
+    if (costCents > user.aiTokenBalance) {
+      mergedMeta.overdraw = true;
+    }
+    const logMeta = Object.keys(mergedMeta).length > 0 ? (mergedMeta as Prisma.InputJsonValue) : undefined;
+
+    const [updatedUser] = await Promise.all([
+      tx.user.update({
+        where: { id: userId },
+        data: { aiTokenBalance: nextBalance },
+      }),
+      tx.aiUsageLog.create({
+        data: {
+          userId,
+          feature,
+          model,
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          totalTokens: usage.totalTokens,
+          costCents,
+          currency: "usd",
+          requestId: requestId ?? undefined,
+          meta: logMeta,
+        },
+      }),
+    ]);
+
+    return {
+      balance: updatedUser.aiTokenBalance,
+    };
   });
-
-  return {
-    ...totals,
-    costCents: pricingResult.costCents,
-    pricingFound: pricingResult.pricingFound,
-  };
-}
-
-async function chargeUserForAiUsage(args: {
-  prisma: PrismaClient;
-  user: AiUsageUser;
-  feature: string;
-  model: string;
-  usage: UsageTotals;
-  costCents: number;
-  pricingFound: boolean;
-  usageProvided: boolean;
-  requestId?: string | null;
-}) {
-  const { prisma, user, feature, model, usage, costCents, pricingFound, usageProvided, requestId } = args;
-  const shouldCharge = usageProvided && costCents > 0;
-  const chargeAmount = shouldCharge ? costCents : 0;
-  const nextBalance = Math.max(0, user.aiTokenBalance - chargeAmount);
-  const meta: Record<string, unknown> = {};
-
-  if (!usageProvided) {
-    meta.usageMissing = true;
-  }
-  if (!pricingFound) {
-    meta.pricingMissing = true;
-  }
-  if (chargeAmount > user.aiTokenBalance) {
-    meta.overdraw = true;
-  }
-
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: user.id },
-      data: { aiTokenBalance: nextBalance },
-    }),
-    prisma.aiUsageLog.create({
-      data: {
-        userId: user.id,
-        feature,
-        model,
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        totalTokens: usage.totalTokens,
-        costCents,
-        currency: "usd",
-        requestId: requestId ?? undefined,
-        meta: Object.keys(meta).length > 0 ? (meta as Prisma.InputJsonValue) : undefined,
-      },
-    }),
-  ]);
-
-  return {
-    balance: nextBalance,
-    chargeAmount,
-    overdrawn: chargeAmount > user.aiTokenBalance,
-  };
 }
 
 export async function chargeAiUsage(params: ChargeAiUsageParams) {
@@ -134,34 +116,49 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
   if (!usageProvided) {
     console.warn("AI usage missing from provider response", { feature, userId: user.id });
   }
-  const costSummary = computeCostCents({ pricing, model: result.model, usage: result.usage });
-  const charging = await chargeUserForAiUsage({
-    prisma,
-    user,
-    feature,
-    model: result.model ?? "unknown",
-    usage: {
-      promptTokens: costSummary.promptTokens,
-      completionTokens: costSummary.completionTokens,
-      totalTokens: costSummary.totalTokens,
-    },
-    costCents: usageProvided ? costSummary.costCents : 0,
-    pricingFound: costSummary.pricingFound,
-    usageProvided,
-    requestId: result.requestId ?? undefined,
+  const totals = buildUsageTotals(result.usage);
+  const pricingEntry = getModelPricing(result.model, pricing);
+  const pricingFound = Boolean(pricingEntry);
+  let costCents = computeCostCents({
+    pricing,
+    model: result.model,
+    promptTokens: totals.promptTokens,
+    completionTokens: totals.completionTokens,
   });
+  const meta: Record<string, unknown> = {};
 
-  if (charging.overdrawn) {
-    throw createHttpError(402, "INSUFFICIENT_TOKENS", {
-      required: charging.chargeAmount,
-      balance: user.aiTokenBalance,
-    });
+  if (!usageProvided) {
+    meta.usageMissing = true;
   }
+  if (!pricingFound) {
+    meta.pricingMissing = true;
+  }
+  if (costCents <= 0) {
+    meta.zeroCost = true;
+    costCents = 1;
+  }
+  if (!usageProvided || !pricingFound) {
+    costCents = Math.max(1, costCents);
+  }
+
+  const charging = await debitAiTokensTx(
+    prisma,
+    user.id,
+    {
+      feature,
+      model: result.model ?? "unknown",
+      usage: totals,
+      costCents,
+      meta,
+      requestId: result.requestId ?? undefined,
+    },
+    createHttpError
+  );
 
   return {
     payload: result.payload,
-    tokensSpent: charging.chargeAmount,
-    costCents: costSummary.costCents,
+    tokensSpent: costCents,
+    costCents,
     balance: charging.balance,
   };
 }

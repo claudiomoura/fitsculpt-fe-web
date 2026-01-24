@@ -877,9 +877,20 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         }
         throw new Error(t("nutrition.aiError"));
       }
-      const data = (await response.json()) as NutritionPlan;
-      const updated = await updateUserProfile({ nutritionPlan: data });
-      setSavedPlan(updated.nutritionPlan ?? data);
+      const data = (await response.json()) as {
+        plan?: NutritionPlan;
+        aiTokenBalance?: number;
+        aiTokenRenewalAt?: string | null;
+      };
+      const plan = data.plan ?? (data as unknown as NutritionPlan);
+      if (typeof data.aiTokenBalance === "number") {
+        setAiTokenBalance(data.aiTokenBalance);
+      }
+      if (typeof data.aiTokenRenewalAt === "string" || data.aiTokenRenewalAt === null) {
+        setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
+      }
+      const updated = await updateUserProfile({ nutritionPlan: plan });
+      setSavedPlan(updated.nutritionPlan ?? plan);
       setSaveMessage(t("nutrition.aiSuccess"));
       void refreshSubscription();
     } catch (err) {

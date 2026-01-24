@@ -1,6 +1,6 @@
 export type AiPricingEntry = {
-  inputPer1K: number;
-  outputPer1K: number;
+  inputPer1M: number;
+  outputPer1M: number;
 };
 
 export type AiPricingMap = Record<string, AiPricingEntry>;
@@ -12,14 +12,18 @@ type PricingSource = {
 export function loadAiPricing(source: PricingSource): AiPricingMap {
   if (!source.AI_PRICING_JSON) return {};
   try {
-    const parsed = JSON.parse(source.AI_PRICING_JSON) as AiPricingMap;
+    const parsed = JSON.parse(source.AI_PRICING_JSON) as Record<string, Record<string, number>>;
     if (!parsed || typeof parsed !== "object") return {};
     return Object.entries(parsed).reduce<AiPricingMap>((acc, [model, value]) => {
       if (!value || typeof value !== "object") return acc;
-      const inputPer1K = Number((value as AiPricingEntry).inputPer1K);
-      const outputPer1K = Number((value as AiPricingEntry).outputPer1K);
-      if (Number.isFinite(inputPer1K) && Number.isFinite(outputPer1K)) {
-        acc[model] = { inputPer1K, outputPer1K };
+      const inputPer1M =
+        Number(value.inputPer1M) ||
+        (Number.isFinite(Number(value.inputPer1K)) ? Number(value.inputPer1K) * 1000 : NaN);
+      const outputPer1M =
+        Number(value.outputPer1M) ||
+        (Number.isFinite(Number(value.outputPer1K)) ? Number(value.outputPer1K) * 1000 : NaN);
+      if (Number.isFinite(inputPer1M) && Number.isFinite(outputPer1M)) {
+        acc[model] = { inputPer1M, outputPer1M };
       }
       return acc;
     }, {});
@@ -28,19 +32,26 @@ export function loadAiPricing(source: PricingSource): AiPricingMap {
   }
 }
 
-export function calculateCostCents(args: {
-  pricing: AiPricingMap;
+const DEFAULT_MODEL_PRICING: AiPricingMap = {
+  "gpt-4o-mini": { inputPer1M: 0.15, outputPer1M: 0.6 },
+  "gpt-4o": { inputPer1M: 5, outputPer1M: 15 },
+};
+
+export function getModelPricing(model?: string | null, pricing?: AiPricingMap) {
+  const trimmed = model?.trim();
+  if (!trimmed) return null;
+  return pricing?.[trimmed] ?? DEFAULT_MODEL_PRICING[trimmed] ?? null;
+}
+
+export function computeCostCents(args: {
+  pricing?: AiPricingMap;
   model?: string | null;
   promptTokens: number;
   completionTokens: number;
 }) {
-  const model = args.model ?? "";
-  const entry = model ? args.pricing[model] : undefined;
-  if (!entry) {
-    return { costCents: 0, pricingFound: false };
-  }
-  const inputCost = (args.promptTokens / 1000) * entry.inputPer1K;
-  const outputCost = (args.completionTokens / 1000) * entry.outputPer1K;
-  const total = Math.round((inputCost + outputCost) * 100) / 100;
-  return { costCents: Math.round(total), pricingFound: true };
+  const entry = getModelPricing(args.model, args.pricing);
+  if (!entry) return 0;
+  const inputCost = (args.promptTokens / 1_000_000) * entry.inputPer1M;
+  const outputCost = (args.completionTokens / 1_000_000) * entry.outputPer1M;
+  return Math.max(0, Math.ceil((inputCost + outputCost) * 100));
 }

@@ -131,8 +131,9 @@ export default function FeedClient() {
       if (!response.ok) {
         throw new Error(t("feed.tipError"));
       }
-      const data = (await response.json()) as DailyTip;
-      setTip(data);
+      const data = (await response.json()) as { tip?: DailyTip; aiTokenBalance?: number; aiTokenRenewalAt?: string | null };
+      const tip = data.tip ?? (data as unknown as DailyTip);
+      setTip(tip);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("feed.tipError"));
     } finally {

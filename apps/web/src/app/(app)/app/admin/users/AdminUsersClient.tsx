@@ -48,7 +48,6 @@ export default function AdminUsersClient() {
   const [createPlan, setCreatePlan] = useState<"FREE" | "PRO">("FREE");
   const [createTokens, setCreateTokens] = useState("0");
   const [createAllowance, setCreateAllowance] = useState("0");
-  const [createRenewalAt, setCreateRenewalAt] = useState("");
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [resetUser, setResetUser] = useState<UserRow | null>(null);
   const [resetPassword, setResetPassword] = useState("");
@@ -58,8 +57,14 @@ export default function AdminUsersClient() {
   const [allowanceUpdates, setAllowanceUpdates] = useState<Record<string, string>>({});
   const [allowanceTopUpNow, setAllowanceTopUpNow] = useState<Record<string, boolean>>({});
   const [balanceUpdates, setBalanceUpdates] = useState<Record<string, string>>({});
-  const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
   const [actionUserId, setActionUserId] = useState<string | null>(null);
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString(localeCode);
+  };
 
   async function loadUsers() {
     setLoading(true);
@@ -126,7 +131,6 @@ export default function AdminUsersClient() {
         subscriptionPlan: createPlan,
         aiTokenBalance,
         aiTokenMonthlyAllowance,
-        aiTokenRenewalAt: createRenewalAt ? new Date(createRenewalAt).toISOString() : undefined,
       }),
     });
     if (!response.ok) {
@@ -140,7 +144,6 @@ export default function AdminUsersClient() {
     setCreatePlan("FREE");
     setCreateTokens("0");
     setCreateAllowance("0");
-    setCreateRenewalAt("");
     await loadUsers();
   }
 
@@ -228,6 +231,17 @@ export default function AdminUsersClient() {
     setActionUserId(null);
   }
 
+  const openEdit = (user: UserRow) => {
+    setPlanUpdates((prev) => ({ ...prev, [user.id]: prev[user.id] ?? user.subscriptionPlan }));
+    setAllowanceUpdates((prev) => ({ ...prev, [user.id]: prev[user.id] ?? String(user.aiTokenMonthlyAllowance) }));
+    setBalanceUpdates((prev) => ({ ...prev, [user.id]: prev[user.id] ?? String(user.aiTokenBalance) }));
+    setEditUser(user);
+  };
+
+  const closeEdit = () => {
+    setEditUser(null);
+  };
+
   if (unauthorized) {
     return <p className="muted">{t("admin.unauthorized")}</p>;
   }
@@ -277,16 +291,6 @@ export default function AdminUsersClient() {
             type="number"
             min={0}
           />
-          {createPlan === "PRO" && Number(createAllowance) > 0 ? (
-            <>
-              <label className="muted">Renovación tokens (opcional)</label>
-              <input
-                value={createRenewalAt}
-                onChange={(e) => setCreateRenewalAt(e.target.value)}
-                type="date"
-              />
-            </>
-          ) : null}
           <button type="submit" className="btn">{t("admin.createUserAction")}</button>
           {createMessage && <p className="muted">{createMessage}</p>}
         </form>
@@ -312,190 +316,42 @@ export default function AdminUsersClient() {
             <div className="info-value">{data?.total ?? 0}</div>
           </div>
 
-          {data?.users.map((user) => {
-            const isExpanded = expandedUsers[user.id] ?? false;
-            const allowanceValue = allowanceUpdates[user.id] ?? String(user.aiTokenMonthlyAllowance);
-            const balanceValue = balanceUpdates[user.id] ?? String(user.aiTokenBalance);
-            const planValue = planUpdates[user.id] ?? user.subscriptionPlan;
-            return (
-              <div key={user.id} className="feature-card">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                  <div>
-                    <strong>{user.email}</strong>
-                    <div className="muted">{user.name || t("admin.noName")}</div>
-                    <div className="badge-list" style={{ marginTop: 8 }}>
-                      <span className="badge">{user.role}</span>
-                      <span className="badge">{user.subscriptionPlan}</span>
-                      <span className="badge">{user.provider || user.method}</span>
-                      <span className="badge">
-                        {user.emailVerified ? t("admin.emailVerified") : t("admin.emailUnverified")}
-                      </span>
-                      <span className="badge">{user.isBlocked ? t("admin.statusBlocked") : t("admin.statusActive")}</span>
-                    </div>
+          {data?.users.map((user) => (
+            <div key={user.id} className="feature-card">
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <div>
+                  <strong>{user.email}</strong>
+                  <div className="muted">{user.name || t("admin.noName")}</div>
+                  <div className="badge-list" style={{ marginTop: 8 }}>
+                    <span className="badge">{user.role}</span>
+                    <span className="badge">{user.subscriptionPlan}</span>
+                    <span className="badge">{user.provider || user.method}</span>
+                    <span className="badge">
+                      {user.subscriptionStatus ?? "-"}
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    onClick={() => setExpandedUsers((prev) => ({ ...prev, [user.id]: !isExpanded }))}
-                  >
-                    {isExpanded ? t("ui.close") : "Editar"}
-                  </button>
                 </div>
-                <div className="muted" style={{ marginTop: 8 }}>
-                  {t("admin.createdAt")}: {new Date(user.createdAt).toLocaleDateString(localeCode)}
-                </div>
-                <div className="muted">
-                  {t("admin.lastLogin")}: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString(localeCode) : "-"}
-                </div>
-                <div className="muted" style={{ marginTop: 4 }}>
-                  Estado Stripe: {user.subscriptionStatus ?? "-"}
-                </div>
-                <div className="muted">
-                  Tokens: {user.aiTokenBalance} · Allowance: {user.aiTokenMonthlyAllowance}
-                </div>
-
-                {isExpanded ? (
-                  <div className="card" style={{ marginTop: 12, background: "rgba(255,255,255,0.03)" }}>
-                    <div className="form-stack">
-                      <div>
-                        <div className="muted" style={{ fontSize: 12 }}>{t("admin.subscriptionPlanLabel")}</div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                          <select
-                            value={planValue}
-                            onChange={(e) => setPlanUpdates((prev) => ({
-                              ...prev,
-                              [user.id]: e.target.value as "FREE" | "PRO",
-                            }))}
-                          >
-                            <option value="FREE">{t("admin.planFree")}</option>
-                            <option value="PRO">{t("admin.planPro")}</option>
-                          </select>
-                          <label className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <input
-                              type="checkbox"
-                              checked={planTopUpNow[user.id] ?? false}
-                              onChange={(e) =>
-                                setPlanTopUpNow((prev) => ({ ...prev, [user.id]: e.target.checked }))
-                              }
-                            />
-                            Recargar ahora
-                          </label>
-                          <button
-                            type="button"
-                            className="btn secondary"
-                            onClick={() => updatePlan(user.id, planValue)}
-                            disabled={actionUserId === user.id}
-                          >
-                            {t("admin.updatePlan")}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensAllowanceLabel")}</div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                          <input
-                            value={allowanceValue}
-                            onChange={(e) => setAllowanceUpdates((prev) => ({ ...prev, [user.id]: e.target.value }))}
-                            type="number"
-                            min={0}
-                          />
-                          <label className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <input
-                              type="checkbox"
-                              checked={allowanceTopUpNow[user.id] ?? false}
-                              onChange={(e) =>
-                                setAllowanceTopUpNow((prev) => ({ ...prev, [user.id]: e.target.checked }))
-                              }
-                            />
-                            Recargar ahora
-                          </label>
-                          <button
-                            type="button"
-                            className="btn secondary"
-                            onClick={() => updateAllowance(user.id)}
-                            disabled={actionUserId === user.id}
-                          >
-                            {t("admin.updateAllowance")}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensBalanceLabel")}</div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                          <button
-                            type="button"
-                            className="btn secondary"
-                            onClick={() => addTokens(user.id, 100)}
-                            disabled={actionUserId === user.id}
-                          >
-                            +100
-                          </button>
-                          <button
-                            type="button"
-                            className="btn secondary"
-                            onClick={() => addTokens(user.id, 500)}
-                            disabled={actionUserId === user.id}
-                          >
-                            +500
-                          </button>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
-                          <input
-                            value={balanceValue}
-                            onChange={(e) => setBalanceUpdates((prev) => ({ ...prev, [user.id]: e.target.value }))}
-                            type="number"
-                            min={0}
-                          />
-                          <button
-                            type="button"
-                            className="btn secondary"
-                            onClick={() => setTokenBalance(user.id)}
-                            disabled={actionUserId === user.id}
-                          >
-                            {t("admin.tokensSet")}
-                          </button>
-                        </div>
-                        <div className="muted" style={{ marginTop: 6 }}>
-                          {t("admin.tokensCurrent")}: {user.aiTokenBalance}
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          onClick={() => updateBlock(user.id, !user.isBlocked)}
-                        >
-                          {user.isBlocked ? t("admin.actionUnblock") : t("admin.actionBlock")}
-                        </button>
-                        {!user.emailVerified && (
-                          <button
-                            type="button"
-                            className="btn secondary"
-                            onClick={() => verifyEmail(user.id)}
-                          >
-                            {t("admin.verifyEmail")}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          onClick={() => { setResetUser(user); setResetMessage(null); }}
-                        >
-                          {t("admin.resetPassword")}
-                        </button>
-                        <button type="button" className="btn secondary" onClick={() => removeUser(user.id)}>
-                          {t("admin.actionDelete")}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
+                <button type="button" className="btn secondary" onClick={() => openEdit(user)}>
+                  Editar
+                </button>
               </div>
-            );
-          })}
+              <div className="muted" style={{ marginTop: 8 }}>
+                {t("admin.createdAt")}: {new Date(user.createdAt).toLocaleDateString(localeCode)}
+              </div>
+              <div className="muted">
+                {t("admin.lastLogin")}: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString(localeCode) : "-"}
+              </div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                {t("admin.subscriptionPlanLabel")}: {user.subscriptionPlan} · {user.subscriptionStatus ?? "-"}
+              </div>
+              <div className="muted">
+                Tokens: {user.aiTokenBalance} · Allowance: {user.aiTokenMonthlyAllowance}
+              </div>
+              <div className="muted">
+                Renovación cuenta: {formatDate(user.currentPeriodEnd)} · Renovación tokens: {formatDate(user.aiTokenRenewalAt)}
+              </div>
+            </div>
+          ))}
 
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <button
@@ -544,6 +400,157 @@ export default function AdminUsersClient() {
             </div>
             {resetMessage && <p className="muted">{resetMessage}</p>}
           </form>
+        </dialog>
+      )}
+
+      {editUser && (
+        <dialog open style={{ padding: 20, borderRadius: 12, border: "1px solid var(--border)", maxWidth: 640 }}>
+          <div className="form-stack">
+            <div>
+              <strong>Editar usuario</strong>
+              <p className="muted">{editUser.email}</p>
+            </div>
+
+            <div>
+              <div className="muted" style={{ fontSize: 12 }}>{t("admin.subscriptionPlanLabel")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <select
+                  value={planUpdates[editUser.id] ?? editUser.subscriptionPlan}
+                  onChange={(e) => setPlanUpdates((prev) => ({
+                    ...prev,
+                    [editUser.id]: e.target.value as "FREE" | "PRO",
+                  }))}
+                >
+                  <option value="FREE">{t("admin.planFree")}</option>
+                  <option value="PRO">{t("admin.planPro")}</option>
+                </select>
+                <label className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={planTopUpNow[editUser.id] ?? false}
+                    onChange={(e) =>
+                      setPlanTopUpNow((prev) => ({ ...prev, [editUser.id]: e.target.checked }))
+                    }
+                  />
+                  Recargar ahora
+                </label>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => updatePlan(editUser.id, planUpdates[editUser.id] ?? editUser.subscriptionPlan)}
+                  disabled={actionUserId === editUser.id}
+                >
+                  {t("admin.updatePlan")}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensAllowanceLabel")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input
+                  value={allowanceUpdates[editUser.id] ?? String(editUser.aiTokenMonthlyAllowance)}
+                  onChange={(e) => setAllowanceUpdates((prev) => ({ ...prev, [editUser.id]: e.target.value }))}
+                  type="number"
+                  min={0}
+                />
+                <label className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={allowanceTopUpNow[editUser.id] ?? false}
+                    onChange={(e) =>
+                      setAllowanceTopUpNow((prev) => ({ ...prev, [editUser.id]: e.target.checked }))
+                    }
+                  />
+                  Recargar ahora
+                </label>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => updateAllowance(editUser.id)}
+                  disabled={actionUserId === editUser.id}
+                >
+                  {t("admin.updateAllowance")}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensBalanceLabel")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => addTokens(editUser.id, 100)}
+                  disabled={actionUserId === editUser.id}
+                >
+                  +100
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => addTokens(editUser.id, 500)}
+                  disabled={actionUserId === editUser.id}
+                >
+                  +500
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
+                <input
+                  value={balanceUpdates[editUser.id] ?? String(editUser.aiTokenBalance)}
+                  onChange={(e) => setBalanceUpdates((prev) => ({ ...prev, [editUser.id]: e.target.value }))}
+                  type="number"
+                  min={0}
+                />
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => setTokenBalance(editUser.id)}
+                  disabled={actionUserId === editUser.id}
+                >
+                  {t("admin.tokensSet")}
+                </button>
+              </div>
+              <div className="muted" style={{ marginTop: 6 }}>
+                {t("admin.tokensCurrent")}: {editUser.aiTokenBalance}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => updateBlock(editUser.id, !editUser.isBlocked)}
+              >
+                {editUser.isBlocked ? t("admin.actionUnblock") : t("admin.actionBlock")}
+              </button>
+              {!editUser.emailVerified && (
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => verifyEmail(editUser.id)}
+                >
+                  {t("admin.verifyEmail")}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => { setResetUser(editUser); setResetMessage(null); }}
+              >
+                {t("admin.resetPassword")}
+              </button>
+              <button type="button" className="btn secondary" onClick={() => removeUser(editUser.id)}>
+                {t("admin.actionDelete")}
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" className="btn secondary" onClick={closeEdit}>
+                {t("ui.close")}
+              </button>
+            </div>
+          </div>
         </dialog>
       )}
     </div>

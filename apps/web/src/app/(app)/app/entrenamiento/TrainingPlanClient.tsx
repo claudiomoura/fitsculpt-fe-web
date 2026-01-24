@@ -502,9 +502,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         }
         throw new Error(t("training.aiError"));
       }
-      const data = (await response.json()) as TrainingPlan;
-      const updated = await updateUserProfile({ trainingPlan: data });
-      setSavedPlan(updated.trainingPlan ?? data);
+      const data = (await response.json()) as { plan?: TrainingPlan; aiTokenBalance?: number; aiTokenRenewalAt?: string | null };
+      const plan = data.plan ?? (data as unknown as TrainingPlan);
+      if (typeof data.aiTokenBalance === "number") {
+        setAiTokenBalance(data.aiTokenBalance);
+      }
+      if (typeof data.aiTokenRenewalAt === "string" || data.aiTokenRenewalAt === null) {
+        setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
+      }
+      const updated = await updateUserProfile({ trainingPlan: plan });
+      setSavedPlan(updated.trainingPlan ?? plan);
       setSaveMessage(t("training.aiSuccess"));
       void refreshSubscription();
     } catch (err) {
