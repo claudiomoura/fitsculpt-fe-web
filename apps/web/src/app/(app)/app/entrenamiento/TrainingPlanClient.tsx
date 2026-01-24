@@ -45,6 +45,12 @@ type TrainingPlanClientProps = {
   mode?: "suggested" | "manual";
 };
 
+const formatDate = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
+};
+
 const baseExercisePool = {
   full: {
     gym: [] as string[],
@@ -249,6 +255,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
+  const [aiTokenResetAt, setAiTokenResetAt] = useState<string | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [saving, setSaving] = useState(false);
@@ -297,21 +305,28 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     };
   }, []);
 
-  useEffect(() => {
-    const loadSubscription = async () => {
-      try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
-        if (!response.ok) {
-          setSubscriptionPlan("FREE");
-          return;
-        }
-        const data = (await response.json()) as { subscriptionPlan?: "FREE" | "PRO" };
-        setSubscriptionPlan(data.subscriptionPlan ?? "FREE");
-      } catch {
+  const refreshSubscription = async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!response.ok) {
         setSubscriptionPlan("FREE");
+        return;
       }
-    };
-    void loadSubscription();
+      const data = (await response.json()) as {
+        subscriptionPlan?: "FREE" | "PRO";
+        aiTokenBalance?: number;
+        aiTokenResetAt?: string | null;
+      };
+      setSubscriptionPlan(data.subscriptionPlan ?? "FREE");
+      setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
+      setAiTokenResetAt(data.aiTokenResetAt ?? null);
+    } catch {
+      setSubscriptionPlan("FREE");
+    }
+  };
+
+  useEffect(() => {
+    void refreshSubscription();
   }, []);
 
   const plan = useMemo(() => (form ? generatePlan(form, locale, t) : null), [form, locale, t]);
@@ -471,12 +486,26 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         }),
       });
       if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; message?: string; retryAfterSec?: number }
+          | null;
+        if (payload?.error === "INSUFFICIENT_TOKENS") {
+          throw new Error(t("ai.insufficientTokens"));
+        }
+        if (payload?.error === "NOT_PRO") {
+          throw new Error(t("ai.notPro"));
+        }
+        if (response.status === 429) {
+          const message = payload?.message ?? t("training.aiRateLimit");
+          throw new Error(message);
+        }
         throw new Error(t("training.aiError"));
       }
       const data = (await response.json()) as TrainingPlan;
       const updated = await updateUserProfile({ trainingPlan: data });
       setSavedPlan(updated.trainingPlan ?? data);
       setSaveMessage(t("training.aiSuccess"));
+      void refreshSubscription();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("training.aiError"));
     } finally {
@@ -584,6 +613,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     </Link>
   </div>
 </div>
+
+            {aiTokenBalance !== null ? (
+              <p className="muted" style={{ marginTop: 8 }}>
+                {t("ai.tokensRemaining")} {aiTokenBalance}
+                {aiTokenResetAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenResetAt)}` : ""}
+              </p>
+            ) : null}
 
 
             {loading ? (

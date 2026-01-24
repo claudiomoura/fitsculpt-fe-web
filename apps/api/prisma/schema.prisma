@@ -19,6 +19,9 @@ model User {
   stripeSubscriptionId    String?                  @unique    @db.VarChar(255)
   subscriptionStatus      String?
   currentPeriodEnd        DateTime?
+  aiTokenBalance          Int                      @default(0)
+  aiTokenMonthlyAllowance Int                      @default(0)
+  aiTokenResetAt          DateTime?
   isBlocked               Boolean                  @default(false)
   emailVerifiedAt         DateTime?
   lastLoginAt             DateTime?
@@ -27,6 +30,7 @@ model User {
   updatedAt               DateTime                 @updatedAt
   aiContents              AiContent[]
   aiUsages                AiUsage[]
+  aiUsageLogs             AiUsageLog[]
   authProviders           AuthProvider[]
   emailVerificationTokens EmailVerificationToken[]
   feedPosts               FeedPost[]
@@ -169,6 +173,25 @@ model AiUsage {
 
   @@unique([userId, date])
   @@index([userId])
+}
+
+model AiUsageLog {
+  id               String   @id @default(cuid())
+  userId           String
+  feature          String
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  costCents        Int      @default(0)
+  currency         String   @default("usd")
+  requestId        String?
+  meta             Json?
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model AiContent {

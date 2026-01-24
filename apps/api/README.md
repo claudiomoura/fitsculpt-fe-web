@@ -18,6 +18,12 @@
 | `GOOGLE_CLIENT_ID` | OAuth client ID. | `...apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | OAuth client secret. | `...` |
 | `GOOGLE_REDIRECT_URI` | Callback do OAuth no backend (`/auth/google/callback`). | `https://api.fitsculpt.app/auth/google/callback` |
+| `OPENAI_API_KEY` | Chave da API da OpenAI. | `sk-...` |
+| `OPENAI_BASE_URL` | Base URL da OpenAI (opcional). | `https://api.openai.com/v1` |
+| `AI_DAILY_LIMIT_FREE` | Limite diário de chamadas IA (FREE). | `3` |
+| `AI_DAILY_LIMIT_PRO` | Limite diário de chamadas IA (PRO). | `30` |
+| `AI_PRICING_JSON` | JSON com preços por modelo (centavos por 1k tokens). | `{"gpt-4o-mini":{"inputPer1K":15,"outputPer1K":60}}` |
+| `PRO_MONTHLY_TOKENS` | Tokens mensais para PRO (recarga Stripe). | `15000` |
 | `STRIPE_SECRET_KEY` | Chave secreta do Stripe (modo test/live). | `sk_test_...` |
 | `STRIPE_WEBHOOK_SECRET` | Segredo do webhook do Stripe. | `whsec_...` |
 | `STRIPE_PRO_PRICE_ID` | Price ID do plano PRO (assinatura). | `price_...` |
