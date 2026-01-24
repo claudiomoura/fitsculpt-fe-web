@@ -28,6 +28,7 @@ export default function BillingClient() {
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<BillingAction>(null);
   const [error, setError] = useState<string | null>(null);
+  const tokenRenewalDate = profile?.aiTokenRenewalAt ?? profile?.currentPeriodEnd ?? null;
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -137,7 +138,7 @@ export default function BillingClient() {
                 <div className="muted" style={{ fontSize: 12 }}>
                   Renovación de tokens
                 </div>
-                <div>{formatDate(profile?.aiTokenRenewalAt)}</div>
+                <div>{formatDate(tokenRenewalDate)}</div>
               </div>
             </div>
           </div>
