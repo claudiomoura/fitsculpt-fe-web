@@ -119,6 +119,9 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
   const totals = buildUsageTotals(result.usage);
   const pricingEntry = getModelPricing(result.model, pricing);
   const pricingFound = Boolean(pricingEntry);
+  if (!pricingFound) {
+    console.warn("AI pricing missing for model", { feature, userId: user.id, model: result.model });
+  }
   let costCents = computeCostCents({
     pricing,
     model: result.model,
@@ -134,6 +137,14 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
     meta.pricingMissing = true;
   }
   if (costCents <= 0) {
+    console.warn("AI costCents=0", {
+      feature,
+      userId: user.id,
+      model: result.model,
+      usageProvided,
+      pricingFound,
+      totals,
+    });
     meta.zeroCost = true;
     costCents = 1;
   }
@@ -160,5 +171,6 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
     tokensSpent: costCents,
     costCents,
     balance: charging.balance,
+    totalTokens: totals.totalTokens,
   };
 }

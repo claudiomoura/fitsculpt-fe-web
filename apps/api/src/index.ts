@@ -233,6 +233,20 @@ async function updateUserSubscriptionFromStripe(subscription: StripeSubscription
   });
 }
 
+function selectPrimarySubscription(subscriptions: StripeSubscription[]) {
+  if (subscriptions.length === 0) {
+    return { selected: null, count: 0 };
+  }
+  const active = subscriptions.filter((sub) => sub.status === "active" || sub.status === "trialing");
+  const pool = active.length > 0 ? active : subscriptions;
+  const sorted = [...pool].sort((a, b) => {
+    const aEnd = a.current_period_end ?? 0;
+    const bEnd = b.current_period_end ?? 0;
+    return bEnd - aEnd;
+  });
+  return { selected: sorted[0] ?? null, count: subscriptions.length };
+}
+
 async function syncUserSubscriptionFromStripe(user: {
   id: string;
   stripeCustomerId: string | null;
@@ -251,12 +265,12 @@ async function syncUserSubscriptionFromStripe(user: {
   if (user.stripeCustomerId) {
     const list = await stripeRequest<{ data?: StripeSubscription[] }>(
       "subscriptions",
-      { customer: user.stripeCustomerId, status: "all", limit: 1 },
+      { customer: user.stripeCustomerId, status: "all", limit: 20 },
       { method: "GET" }
     );
-    const subscription = list.data?.[0];
-    if (subscription) {
-      await updateUserSubscriptionFromStripe(subscription);
+    const { selected } = selectPrimarySubscription(list.data ?? []);
+    if (selected) {
+      await updateUserSubscriptionFromStripe(selected);
       return;
     }
     await prisma.user.update({
@@ -2096,67 +2110,99 @@ app.get("/billing/status", async (request, reply) => {
     if (sync) {
       await syncUserSubscriptionFromStripe(user);
     }
-    const refreshed = sync ? await prisma.user.findUnique({ where: { id: user.id } }) : user;
-    const isPro = refreshed?.subscriptionPlan === "PRO";
+    let refreshed = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!refreshed) {
+      refreshed = user;
+    }
     let stripePeriodEnd: Date | null = refreshed?.currentPeriodEnd ?? null;
     let aiTokenRenewalAt = refreshed?.aiTokenRenewalAt ?? null;
-    if (env.STRIPE_SECRET_KEY && refreshed?.stripeSubscriptionId) {
+    let subscriptionStatus = refreshed?.subscriptionStatus ?? null;
+    let subscriptionPlan = refreshed?.subscriptionPlan ?? "FREE";
+    let stripeSubscriptionId = refreshed?.stripeSubscriptionId ?? null;
+    let stripeCustomerId = refreshed?.stripeCustomerId ?? null;
+    let subscriptionsCount = 0;
+    let selectedSubscriptionId: string | null = null;
+
+    if (env.STRIPE_SECRET_KEY && (stripeSubscriptionId || stripeCustomerId)) {
       try {
-        const subscription = await stripeRequest<StripeSubscription>(
-          `subscriptions/${refreshed.stripeSubscriptionId}`,
-          {},
-          { method: "GET" }
-        );
-        stripePeriodEnd = subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000)
-          : null;
-        if (isPro && stripePeriodEnd) {
-          aiTokenRenewalAt = stripePeriodEnd;
+        let subscription: StripeSubscription | null = null;
+        if (stripeSubscriptionId) {
+          subscription = await stripeRequest<StripeSubscription>(
+            `subscriptions/${stripeSubscriptionId}`,
+            {},
+            { method: "GET" }
+          );
+        } else if (stripeCustomerId) {
+          const list = await stripeRequest<{ data?: StripeSubscription[] }>(
+            "subscriptions",
+            { customer: stripeCustomerId, status: "all", limit: 20 },
+            { method: "GET" }
+          );
+          const selection = selectPrimarySubscription(list.data ?? []);
+          subscription = selection.selected;
+          subscriptionsCount = selection.count;
+          selectedSubscriptionId = selection.selected?.id ?? null;
+          stripeSubscriptionId = selection.selected?.id ?? stripeSubscriptionId;
         }
-        if (stripePeriodEnd && (!refreshed.currentPeriodEnd || refreshed.currentPeriodEnd.getTime() !== stripePeriodEnd.getTime())) {
-          await prisma.user.update({
-            where: { id: refreshed.id },
-            data: {
-              currentPeriodEnd: stripePeriodEnd,
-              ...(isPro ? { aiTokenRenewalAt: stripePeriodEnd } : {}),
-            },
-          });
+
+        if (subscription) {
+          const isActive = subscription.status === "active" || subscription.status === "trialing";
+          subscriptionStatus = subscription.status;
+          subscriptionPlan = isActive ? "PRO" : "FREE";
+          stripePeriodEnd = subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000)
+            : null;
+          if (!aiTokenRenewalAt && stripePeriodEnd) {
+            aiTokenRenewalAt = stripePeriodEnd;
+          }
+          const needsUpdate =
+            refreshed?.subscriptionStatus !== subscriptionStatus ||
+            refreshed?.subscriptionPlan !== subscriptionPlan ||
+            refreshed?.stripeSubscriptionId !== subscription.id ||
+            (stripePeriodEnd &&
+              (!refreshed?.currentPeriodEnd ||
+                refreshed.currentPeriodEnd.getTime() !== stripePeriodEnd.getTime())) ||
+            (aiTokenRenewalAt &&
+              (!refreshed?.aiTokenRenewalAt || refreshed.aiTokenRenewalAt.getTime() !== aiTokenRenewalAt.getTime()));
+          if (needsUpdate && refreshed) {
+            refreshed = await prisma.user.update({
+              where: { id: refreshed.id },
+              data: {
+                stripeSubscriptionId: subscription.id,
+                stripeCustomerId: subscription.customer,
+                subscriptionStatus,
+                subscriptionPlan,
+                currentPeriodEnd: stripePeriodEnd,
+                aiTokenRenewalAt,
+              },
+            });
+          }
         }
       } catch (error) {
         app.log.warn({ err: error, userId: refreshed?.id }, "stripe subscription fetch failed");
       }
-    } else if (isPro) {
-      let nextPeriodEnd = stripePeriodEnd;
-      if (!nextPeriodEnd) {
-        nextPeriodEnd = addMonths(new Date(), 1);
-      }
-      if (!aiTokenRenewalAt || aiTokenRenewalAt.getTime() !== nextPeriodEnd.getTime()) {
-        aiTokenRenewalAt = nextPeriodEnd;
-      }
-      if (
-        !refreshed?.currentPeriodEnd ||
-        refreshed.currentPeriodEnd.getTime() !== nextPeriodEnd.getTime() ||
-        refreshed.aiTokenRenewalAt?.getTime() !== aiTokenRenewalAt.getTime()
-      ) {
-        await prisma.user.update({
-          where: { id: refreshed.id },
-          data: {
-            currentPeriodEnd: nextPeriodEnd,
-            aiTokenRenewalAt,
-          },
-        });
-      }
-      stripePeriodEnd = nextPeriodEnd;
     }
+
+    if (!aiTokenRenewalAt && stripePeriodEnd && refreshed) {
+      aiTokenRenewalAt = stripePeriodEnd;
+      refreshed = await prisma.user.update({
+        where: { id: refreshed.id },
+        data: { aiTokenRenewalAt },
+      });
+    }
+
     return {
-      subscriptionPlan: refreshed?.subscriptionPlan ?? "FREE",
-      subscriptionStatus: refreshed?.subscriptionStatus ?? null,
-      currentPeriodEnd: stripePeriodEnd ?? null,
+      subscriptionPlan: refreshed?.subscriptionPlan ?? subscriptionPlan,
+      subscriptionStatus: refreshed?.subscriptionStatus ?? subscriptionStatus,
+      currentPeriodEnd: refreshed?.currentPeriodEnd ?? stripePeriodEnd ?? null,
       aiTokenBalance: refreshed?.aiTokenBalance ?? 0,
       aiTokenMonthlyAllowance: refreshed?.aiTokenMonthlyAllowance ?? 0,
-      aiTokenRenewalAt: aiTokenRenewalAt ?? null,
-      stripeCustomerId: refreshed?.stripeCustomerId ?? null,
-      stripeSubscriptionId: refreshed?.stripeSubscriptionId ?? null,
+      aiTokenRenewalAt: refreshed?.aiTokenRenewalAt ?? aiTokenRenewalAt ?? null,
+      stripeCustomerId: refreshed?.stripeCustomerId ?? stripeCustomerId ?? null,
+      stripeSubscriptionId: refreshed?.stripeSubscriptionId ?? stripeSubscriptionId ?? null,
+      ...(process.env.NODE_ENV === "production"
+        ? {}
+        : { subscriptionsCount, selectedSubscriptionId }),
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2178,10 +2224,37 @@ app.post("/billing/webhook", async (request, reply) => {
     const payload = event.data?.object;
 
     if (event.type === "checkout.session.completed") {
-      const session = payload as { customer?: string | null; subscription?: string | null };
-      if (session?.subscription && session?.customer) {
+      const session = payload as {
+        customer?: string | null;
+        subscription?: string | null;
+        customer_details?: { email?: string | null };
+        metadata?: { userId?: string | null };
+      };
+      const userId = session.metadata?.userId ?? null;
+      const email = session.customer_details?.email ?? null;
+      const customerId = session.customer ?? null;
+      const subscriptionId = session.subscription ?? null;
+      let matchedUser = null;
+      if (userId) {
+        matchedUser = await prisma.user.findUnique({ where: { id: userId } });
+      }
+      if (!matchedUser && email) {
+        matchedUser = await prisma.user.findUnique({ where: { email } });
+      }
+      if (matchedUser && (customerId || subscriptionId)) {
+        await prisma.user.update({
+          where: { id: matchedUser.id },
+          data: {
+            stripeCustomerId: customerId ?? matchedUser.stripeCustomerId,
+            stripeSubscriptionId: subscriptionId ?? matchedUser.stripeSubscriptionId,
+          },
+        });
+      } else if (!matchedUser) {
+        app.log.warn({ userId, email }, "checkout session completed: user not found");
+      }
+      if (subscriptionId && customerId) {
         const subscription = await stripeRequest<StripeSubscription>(
-          `subscriptions/${session.subscription}`,
+          `subscriptions/${subscriptionId}`,
           {},
           { method: "GET" }
         );
@@ -2190,11 +2263,27 @@ app.post("/billing/webhook", async (request, reply) => {
       }
     }
 
-    if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
+    if (
+      event.type === "customer.subscription.created" ||
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.deleted"
+    ) {
       const subscription = payload as StripeSubscription;
       if (subscription?.id && subscription?.customer) {
         await updateUserSubscriptionFromStripe(subscription);
-        await applyAiTokenRenewalFromSubscription(subscription);
+        if (event.type === "customer.subscription.deleted") {
+          await prisma.user.updateMany({
+            where: { stripeSubscriptionId: subscription.id },
+            data: {
+              subscriptionPlan: "FREE",
+              subscriptionStatus: "canceled",
+              aiTokenRenewalAt: null,
+              // Mantiene el balance actual, pero no habrá recargas automáticas.
+            },
+          });
+        } else {
+          await applyAiTokenRenewalFromSubscription(subscription);
+        }
       }
     }
 
@@ -2686,6 +2775,11 @@ app.post("/ai/training-plan", async (request, reply) => {
     assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildTrainingPrompt(data);
+    const balanceBefore = user.aiTokenBalance;
+    app.log.info(
+      { userId: user.id, feature: "training_plan", plan: user.subscriptionPlan, balanceBefore },
+      "ai charge start"
+    );
     const charged = await chargeAiUsage({
       prisma,
       pricing: aiPricing,
@@ -2694,15 +2788,35 @@ app.post("/ai/training-plan", async (request, reply) => {
       execute: () => callOpenAi(prompt),
       createHttpError,
     });
+    app.log.info(
+      {
+        userId: user.id,
+        feature: "training_plan",
+        costCents: charged.costCents,
+        totalTokens: charged.totalTokens,
+        balanceAfter: charged.balance,
+      },
+      "ai charge complete"
+    );
     const payload = parseTrainingPlanPayload(charged.payload);
     await upsertExercisesFromPlan(payload);
     await saveCachedAiPayload(cacheKey, "training", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "training", "ai", personalized);
+    const debit =
+      process.env.NODE_ENV === "production"
+        ? undefined
+        : {
+            costCents: charged.costCents,
+            balanceBefore,
+            balanceAfter: charged.balance,
+            totalTokens: charged.totalTokens,
+          };
     return reply.status(200).send({
       plan: personalized,
       aiTokenBalance: charged.balance,
       aiTokenRenewalAt: user.aiTokenRenewalAt,
+      ...(debit ? { debit } : {}),
     });
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2754,6 +2868,11 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
     assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildNutritionPrompt(data);
+    const balanceBefore = user.aiTokenBalance;
+    app.log.info(
+      { userId: user.id, feature: "nutrition_plan", plan: user.subscriptionPlan, balanceBefore },
+      "ai charge start"
+    );
     const charged = await chargeAiUsage({
       prisma,
       pricing: aiPricing,
@@ -2762,14 +2881,34 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
       execute: () => callOpenAi(prompt),
       createHttpError,
     });
+    app.log.info(
+      {
+        userId: user.id,
+        feature: "nutrition_plan",
+        costCents: charged.costCents,
+        totalTokens: charged.totalTokens,
+        balanceAfter: charged.balance,
+      },
+      "ai charge complete"
+    );
     const payload = parseNutritionPlanPayload(charged.payload);
     await saveCachedAiPayload(cacheKey, "nutrition", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
+    const debit =
+      process.env.NODE_ENV === "production"
+        ? undefined
+        : {
+            costCents: charged.costCents,
+            balanceBefore,
+            balanceAfter: charged.balance,
+            totalTokens: charged.totalTokens,
+          };
     return reply.status(200).send({
       plan: personalized,
       aiTokenBalance: charged.balance,
       aiTokenRenewalAt: user.aiTokenRenewalAt,
+      ...(debit ? { debit } : {}),
     });
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2809,6 +2948,11 @@ app.post("/ai/daily-tip", async (request, reply) => {
     assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildTipPrompt(data);
+    const balanceBefore = user.aiTokenBalance;
+    app.log.info(
+      { userId: user.id, feature: "daily_tip", plan: user.subscriptionPlan, balanceBefore },
+      "ai charge start"
+    );
     const charged = await chargeAiUsage({
       prisma,
       pricing: aiPricing,
@@ -2817,14 +2961,34 @@ app.post("/ai/daily-tip", async (request, reply) => {
       execute: () => callOpenAi(prompt),
       createHttpError,
     });
+    app.log.info(
+      {
+        userId: user.id,
+        feature: "daily_tip",
+        costCents: charged.costCents,
+        totalTokens: charged.totalTokens,
+        balanceAfter: charged.balance,
+      },
+      "ai charge complete"
+    );
     const payload = charged.payload;
     await saveCachedAiPayload(cacheKey, "tip", payload);
     const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
+    const debit =
+      process.env.NODE_ENV === "production"
+        ? undefined
+        : {
+            costCents: charged.costCents,
+            balanceBefore,
+            balanceAfter: charged.balance,
+            totalTokens: charged.totalTokens,
+          };
     return reply.status(200).send({
       tip: personalized,
       aiTokenBalance: charged.balance,
       aiTokenRenewalAt: user.aiTokenRenewalAt,
+      ...(debit ? { debit } : {}),
     });
   } catch (error) {
     return handleRequestError(reply, error);
