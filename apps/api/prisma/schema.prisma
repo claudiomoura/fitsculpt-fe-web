@@ -37,6 +37,7 @@ model User {
   profile                 UserProfile?
   userFoods               UserFood[]
   workouts                Workout[]
+  aiTokenRenewalAt        DateTime?
 
 
   @@index([stripeCustomerId])
