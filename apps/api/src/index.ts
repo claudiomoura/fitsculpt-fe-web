@@ -310,9 +310,14 @@ async function applyAiTokenRenewalFromSubscription(subscription: StripeSubscript
   const currentPeriodEnd = subscription.current_period_end
     ? new Date(subscription.current_period_end * 1000)
     : null;
+  const isActive = subscription.status === "active" || subscription.status === "trialing";
+  if (!isActive) return;
   const user = await findUserByStripeIdentifiers(subscription.customer, subscription.id);
   if (!user) {
     app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
+    return;
+  }
+  if (currentPeriodEnd && user.aiTokenResetAt?.getTime() === currentPeriodEnd.getTime()) {
     return;
   }
   const allowance = resolveMonthlyAllowance(user);
@@ -2995,6 +3000,10 @@ app.get("/admin/users", async (request, reply) => {
         method,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
+        subscriptionPlan: user.subscriptionPlan,
+        subscriptionStatus: user.subscriptionStatus,
+        aiTokenBalance: user.aiTokenBalance,
+        aiTokenMonthlyAllowance: user.aiTokenMonthlyAllowance,
       };
     });
 
@@ -3047,6 +3056,113 @@ app.post("/admin/users/:id/grant-pro", async (request, reply) => {
   }
 });
 
+app.patch("/admin/users/:id/plan", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const paramsSchema = z.object({ id: z.string().min(1) });
+    const bodySchema = z.object({
+      subscriptionPlan: z.enum(["FREE", "PRO"]),
+    });
+    const { id } = paramsSchema.parse(request.params);
+    const { subscriptionPlan } = bodySchema.parse(request.body ?? {});
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    const nextAllowance = subscriptionPlan === "PRO" ? resolveMonthlyAllowance(user) : 0;
+    const nextBalance = subscriptionPlan === "PRO" ? Math.max(user.aiTokenBalance, nextAllowance) : 0;
+    const nextResetAt = subscriptionPlan === "PRO" ? user.aiTokenResetAt ?? addMonths(new Date(), 1) : null;
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        subscriptionPlan,
+        subscriptionStatus: "manual_admin",
+        aiTokenMonthlyAllowance: nextAllowance,
+        aiTokenBalance: nextBalance,
+        aiTokenResetAt: nextResetAt,
+      },
+    });
+
+    return {
+      id: updated.id,
+      subscriptionPlan: updated.subscriptionPlan,
+      subscriptionStatus: updated.subscriptionStatus,
+      aiTokenBalance: updated.aiTokenBalance,
+      aiTokenMonthlyAllowance: updated.aiTokenMonthlyAllowance,
+      aiTokenResetAt: updated.aiTokenResetAt,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/tokens", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const paramsSchema = z.object({ id: z.string().min(1) });
+    const bodySchema = z.object({
+      op: z.enum(["set", "add", "sub"]),
+      amount: z.coerce.number().int().min(0),
+    });
+    const { id } = paramsSchema.parse(request.params);
+    const { op, amount } = bodySchema.parse(request.body ?? {});
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    let nextBalance = user.aiTokenBalance;
+    if (op === "set") {
+      nextBalance = amount;
+    }
+    if (op === "add") {
+      nextBalance = user.aiTokenBalance + amount;
+    }
+    if (op === "sub") {
+      nextBalance = Math.max(0, user.aiTokenBalance - amount);
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { aiTokenBalance: nextBalance },
+    });
+
+    return {
+      id: updated.id,
+      aiTokenBalance: updated.aiTokenBalance,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/tokens-allowance", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const paramsSchema = z.object({ id: z.string().min(1) });
+    const bodySchema = z.object({
+      aiTokenMonthlyAllowance: z.coerce.number().int().min(0),
+    });
+    const { id } = paramsSchema.parse(request.params);
+    const { aiTokenMonthlyAllowance } = bodySchema.parse(request.body ?? {});
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { aiTokenMonthlyAllowance },
+    });
+
+    return {
+      id: updated.id,
+      aiTokenMonthlyAllowance: updated.aiTokenMonthlyAllowance,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.post("/admin/users/:id/credit-tokens", async (request, reply) => {
   try {
     await requireAdmin(request);
@@ -3078,7 +3194,7 @@ app.post("/admin/users/:id/credit-tokens", async (request, reply) => {
           totalTokens: -amount,
           costCents: 0,
           currency: "usd",
-          meta: reason ? ({ reason } as Record<string, unknown>) : undefined,
+          meta: reason ? ({ reason } as Prisma.InputJsonValue) : undefined,
         },
       }),
     ]);

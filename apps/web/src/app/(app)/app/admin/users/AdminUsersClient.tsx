@@ -14,6 +14,10 @@ type UserRow = {
   method: string;
   createdAt: string;
   lastLoginAt: string | null;
+  subscriptionPlan: "FREE" | "PRO";
+  subscriptionStatus: string | null;
+  aiTokenBalance: number;
+  aiTokenMonthlyAllowance: number;
 };
 
 type UsersResponse = {
@@ -42,6 +46,10 @@ export default function AdminUsersClient() {
   const [resetUser, setResetUser] = useState<UserRow | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [planUpdates, setPlanUpdates] = useState<Record<string, "FREE" | "PRO">>({});
+  const [allowanceUpdates, setAllowanceUpdates] = useState<Record<string, string>>({});
+  const [tokenAdjustments, setTokenAdjustments] = useState<Record<string, string>>({});
+  const [actionUserId, setActionUserId] = useState<string | null>(null);
 
   async function loadUsers() {
     setLoading(true);
@@ -140,6 +148,45 @@ export default function AdminUsersClient() {
     await loadUsers();
   }
 
+  async function updatePlan(userId: string, subscriptionPlan: "FREE" | "PRO") {
+    setActionUserId(userId);
+    await fetch(`/api/admin/users/${userId}/plan`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscriptionPlan }),
+    });
+    await loadUsers();
+    setActionUserId(null);
+  }
+
+  async function updateAllowance(userId: string) {
+    const value = allowanceUpdates[userId];
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) return;
+    setActionUserId(userId);
+    await fetch(`/api/admin/users/${userId}/tokens-allowance`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aiTokenMonthlyAllowance: amount }),
+    });
+    await loadUsers();
+    setActionUserId(null);
+  }
+
+  async function updateTokens(userId: string, op: "set" | "add" | "sub") {
+    const value = tokenAdjustments[userId];
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) return;
+    setActionUserId(userId);
+    await fetch(`/api/admin/users/${userId}/tokens`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op, amount }),
+    });
+    await loadUsers();
+    setActionUserId(null);
+  }
+
   if (unauthorized) {
     return <p className="muted">{t("admin.unauthorized")}</p>;
   }
@@ -212,6 +259,86 @@ export default function AdminUsersClient() {
               </div>
               <div className="muted">
                 {t("admin.lastLogin")}: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString(localeCode) : "-"}
+              </div>
+              <div className="feature-card" style={{ marginTop: 12, background: "rgba(255,255,255,0.03)" }}>
+                <div className="muted" style={{ fontSize: 12 }}>{t("admin.subscriptionPlanLabel")}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <select
+                    value={planUpdates[user.id] ?? user.subscriptionPlan}
+                    onChange={(e) => setPlanUpdates((prev) => ({ ...prev, [user.id]: e.target.value as "FREE" | "PRO" }))}
+                  >
+                    <option value="FREE">{t("admin.planFree")}</option>
+                    <option value="PRO">{t("admin.planPro")}</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => updatePlan(user.id, planUpdates[user.id] ?? user.subscriptionPlan)}
+                    disabled={actionUserId === user.id}
+                  >
+                    {t("admin.updatePlan")}
+                  </button>
+                </div>
+                <div className="muted" style={{ marginTop: 6 }}>
+                  {t("admin.subscriptionStatusLabel")}: {user.subscriptionStatus ?? "-"}
+                </div>
+              </div>
+              <div className="feature-card" style={{ marginTop: 12, background: "rgba(255,255,255,0.03)" }}>
+                <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensBalanceLabel")}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input
+                    value={tokenAdjustments[user.id] ?? "100"}
+                    onChange={(e) => setTokenAdjustments((prev) => ({ ...prev, [user.id]: e.target.value }))}
+                    type="number"
+                    min={0}
+                  />
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => updateTokens(user.id, "add")}
+                    disabled={actionUserId === user.id}
+                  >
+                    {t("admin.tokensAdd")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => updateTokens(user.id, "sub")}
+                    disabled={actionUserId === user.id}
+                  >
+                    {t("admin.tokensSub")}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => updateTokens(user.id, "set")}
+                    disabled={actionUserId === user.id}
+                  >
+                    {t("admin.tokensSet")}
+                  </button>
+                </div>
+                <div className="muted" style={{ marginTop: 6 }}>
+                  {t("admin.tokensCurrent")}: {user.aiTokenBalance}
+                </div>
+              </div>
+              <div className="feature-card" style={{ marginTop: 12, background: "rgba(255,255,255,0.03)" }}>
+                <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensAllowanceLabel")}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input
+                    value={allowanceUpdates[user.id] ?? String(user.aiTokenMonthlyAllowance)}
+                    onChange={(e) => setAllowanceUpdates((prev) => ({ ...prev, [user.id]: e.target.value }))}
+                    type="number"
+                    min={0}
+                  />
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => updateAllowance(user.id)}
+                    disabled={actionUserId === user.id}
+                  >
+                    {t("admin.updateAllowance")}
+                  </button>
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                 <button

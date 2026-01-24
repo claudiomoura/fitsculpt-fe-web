@@ -14,6 +14,8 @@ type AuthUser = {
   name?: string | null;
   email?: string | null;
   role?: string | null;
+  subscriptionPlan?: "FREE" | "PRO";
+  aiTokenBalance?: number;
 };
 
 export default function AppNavBar() {
@@ -42,6 +44,8 @@ export default function AppNavBar() {
 
   const isAdmin = user?.role === "ADMIN";
   const userMeta = user?.email || user?.role || "";
+  const isPro = user?.subscriptionPlan === "PRO";
+  const planLabel = user?.subscriptionPlan ?? "FREE";
 
   const visibleItems = useMemo(
     () => NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin),
@@ -67,6 +71,10 @@ export default function AppNavBar() {
           <div className="nav-utility">
             <ThemeToggle />
             <LanguageSwitcher />
+          </div>
+          <div className={`account-pill ${isPro ? "is-pro" : "is-free"}`}>
+            <span className="account-pill-label">{planLabel}</span>
+            {isPro ? <span className="account-pill-meta">Tokens: {user?.aiTokenBalance ?? 0}</span> : null}
           </div>
           <AppUserBadge />
           <button

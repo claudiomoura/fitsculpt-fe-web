@@ -871,7 +871,19 @@
     "paginationPrev": "Previous",
     "paginationNext": "Next",
     "paginationLabel": "Page",
-    "newPassword": "New password"
+    "newPassword": "New password",
+    "subscriptionPlanLabel": "Subscription plan",
+    "subscriptionStatusLabel": "Subscription status",
+    "planFree": "FREE",
+    "planPro": "PRO",
+    "updatePlan": "Update plan",
+    "tokensBalanceLabel": "Tokens balance",
+    "tokensAllowanceLabel": "Monthly allowance",
+    "tokensCurrent": "Current balance",
+    "tokensAdd": "+ Add",
+    "tokensSub": "- Remove",
+    "tokensSet": "Set",
+    "updateAllowance": "Update allowance"
   },
   "library": {
     "loadError": "We couldn't load the exercise.",
