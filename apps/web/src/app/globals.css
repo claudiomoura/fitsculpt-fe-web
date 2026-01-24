@@ -561,6 +561,37 @@ label {
   background: var(--bg-card);
 }
 
+.account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 12px;
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+
+.account-pill.is-pro {
+  border-color: rgba(255, 140, 64, 0.6);
+  color: #ffb16b;
+}
+
+.account-pill.is-free {
+  color: var(--text-muted);
+}
+
+.account-pill-label {
+  letter-spacing: 0.02em;
+}
+
+.account-pill-meta {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
 .nav-icon-button {
   border: none;
   background: transparent;

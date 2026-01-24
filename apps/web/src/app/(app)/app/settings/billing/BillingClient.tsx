@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const formatDate = (value?: string | null) => {
-  if (!value) return "-";
+  if (!value) return "No disponible";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString();
+  return Number.isNaN(date.getTime())
+    ? "No disponible"
+    : date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
 type BillingProfile = {

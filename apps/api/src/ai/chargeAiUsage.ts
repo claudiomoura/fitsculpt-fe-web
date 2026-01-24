@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { calculateCostCents, type AiPricingMap } from "./pricing.js";
 
 type AiUsageUser = {
@@ -83,7 +83,7 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
         costCents: pricingResult.costCents,
         currency: "usd",
         requestId: result.requestId ?? undefined,
-        meta: Object.keys(meta).length > 0 ? (meta as Record<string, unknown>) : undefined,
+        meta: Object.keys(meta).length > 0 ? (meta as Prisma.InputJsonValue) : undefined,
       },
     }),
   ]);

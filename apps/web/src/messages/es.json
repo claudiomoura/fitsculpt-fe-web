@@ -871,7 +871,19 @@
     "paginationPrev": "Anterior",
     "paginationNext": "Siguiente",
     "paginationLabel": "Página",
-    "newPassword": "Nueva contraseña"
+    "newPassword": "Nueva contraseña",
+    "subscriptionPlanLabel": "Plan de suscripción",
+    "subscriptionStatusLabel": "Estado de suscripción",
+    "planFree": "FREE",
+    "planPro": "PRO",
+    "updatePlan": "Actualizar plan",
+    "tokensBalanceLabel": "Balance de tokens",
+    "tokensAllowanceLabel": "Asignación mensual",
+    "tokensCurrent": "Balance actual",
+    "tokensAdd": "+ Sumar",
+    "tokensSub": "- Restar",
+    "tokensSet": "Setear",
+    "updateAllowance": "Actualizar asignación"
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",
