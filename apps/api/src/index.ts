@@ -36,8 +36,19 @@ type StripeSubscription = {
   current_period_end: number | null;
 };
 
+const corsOrigins = new Set(
+  [env.CORS_ORIGIN, env.APP_BASE_URL]
+    .flatMap((origin) => origin.split(","))
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+
 await app.register(cors, {
-  origin: env.CORS_ORIGIN,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (corsOrigins.has(origin)) return callback(null, true);
+    return callback(new Error("CORS_NOT_ALLOWED"), false);
+  },
   credentials: true,
 });
 
@@ -203,6 +214,43 @@ async function updateUserSubscriptionFromStripe(subscription: StripeSubscription
   }
 }
 
+async function syncUserSubscriptionFromStripe(user: {
+  id: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+}) {
+  if (!env.STRIPE_SECRET_KEY) return;
+  if (user.stripeSubscriptionId) {
+    const subscription = await stripeRequest<StripeSubscription>(
+      `subscriptions/${user.stripeSubscriptionId}`,
+      {},
+      { method: "GET" }
+    );
+    await updateUserSubscriptionFromStripe(subscription);
+    return;
+  }
+  if (user.stripeCustomerId) {
+    const list = await stripeRequest<{ data?: StripeSubscription[] }>(
+      "subscriptions",
+      { customer: user.stripeCustomerId, status: "all", limit: 1 },
+      { method: "GET" }
+    );
+    const subscription = list.data?.[0];
+    if (subscription) {
+      await updateUserSubscriptionFromStripe(subscription);
+      return;
+    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        subscriptionPlan: "FREE",
+        subscriptionStatus: null,
+        currentPeriodEnd: null,
+      },
+    });
+  }
+}
+
 function logAuthCookieDebug(request: FastifyRequest, route: string) {
   if (process.env.NODE_ENV === "production") return;
   const cookieHeader = request.headers.cookie;
@@ -226,6 +274,12 @@ function buildCookieOptions() {
     sameSite: "lax" as const,
     secure,
   };
+}
+
+function getGooglePromoFromState(state: string) {
+  const parts = state.split(".");
+  if (parts.length < 2) return null;
+  return parts.slice(1).join(".") || null;
 }
 
 function parseBearerToken(header?: string) {
@@ -388,6 +442,12 @@ async function requireUser(
     app.log.info({ route, userId: user.id, role: user.role }, "ai auth ok");
   }
   return user;
+}
+
+function requireProSubscription(user: { subscriptionPlan: string }) {
+  if (user.subscriptionPlan !== "PRO") {
+    throw createHttpError(403, "PRO_REQUIRED");
+  }
 }
 
 async function requireAdmin(request: FastifyRequest) {
@@ -1916,6 +1976,27 @@ app.post("/billing/portal", async (request, reply) => {
   }
 });
 
+app.get("/billing/status", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const querySchema = z.object({
+      sync: z.preprocess((value) => value === "1" || value === "true", z.boolean().optional()),
+    });
+    const { sync } = querySchema.parse(request.query);
+    if (sync) {
+      await syncUserSubscriptionFromStripe(user);
+    }
+    const refreshed = sync ? await prisma.user.findUnique({ where: { id: user.id } }) : user;
+    return {
+      subscriptionPlan: refreshed?.subscriptionPlan ?? "FREE",
+      subscriptionStatus: refreshed?.subscriptionStatus ?? null,
+      currentPeriodEnd: refreshed?.currentPeriodEnd ?? null,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.post("/billing/webhook", async (request, reply) => {
   try {
     const signature = request.headers["stripe-signature"];
@@ -1996,12 +2077,22 @@ app.post("/auth/change-password", async (request, reply) => {
   }
 });
 
-app.get("/auth/google/start", async (_request, reply) => {
+app.get("/auth/google/start", async (request, reply) => {
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) {
     return reply.status(501).send({ error: "GOOGLE_OAUTH_NOT_CONFIGURED" });
   }
 
-  const state = crypto.randomBytes(32).toString("base64url");
+  const querySchema = z.object({
+    promoCode: z.string().optional(),
+  });
+  const { promoCode } = querySchema.parse(request.query);
+  const trimmedPromo = promoCode?.trim();
+  if (trimmedPromo && !isPromoCodeValid(trimmedPromo)) {
+    return reply.status(400).send({ error: "INVALID_PROMO_CODE" });
+  }
+
+  const stateToken = crypto.randomBytes(32).toString("base64url");
+  const state = trimmedPromo ? `${stateToken}.${trimmedPromo}` : stateToken;
   await prisma.oAuthState.create({
     data: {
       provider: "google",
@@ -2023,112 +2114,127 @@ app.get("/auth/google/start", async (_request, reply) => {
 });
 
 app.get("/auth/google/callback", async (request, reply) => {
-  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI) {
-    return reply.status(501).send({ error: "GOOGLE_OAUTH_NOT_CONFIGURED" });
-  }
+  const appBaseUrl = env.APP_BASE_URL.replace(/\/$/, "");
+  const redirectToLogin = (error?: string) =>
+    reply.redirect(`${appBaseUrl}/login${error ? `?error=${error}` : ""}`);
 
-  const querySchema = z.object({ code: z.string().min(1), state: z.string().min(1) });
-  const { code, state } = querySchema.parse(request.query);
-
-  const stateHash = hashToken(state);
-  const storedState = await prisma.oAuthState.findUnique({ where: { stateHash } });
-  if (!storedState || storedState.expiresAt.getTime() < Date.now()) {
-    if (storedState) {
-      await prisma.oAuthState.delete({ where: { id: storedState.id } });
+  try {
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI) {
+      return redirectToLogin("oauth");
     }
-    return reply.status(400).send({ error: "INVALID_OAUTH_STATE" });
-  }
-  await prisma.oAuthState.delete({ where: { id: storedState.id } });
 
-  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code,
-      client_id: env.GOOGLE_CLIENT_ID,
-      client_secret: env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: env.GOOGLE_REDIRECT_URI,
-      grant_type: "authorization_code",
-    }).toString(),
-  });
+    const querySchema = z.object({ code: z.string().min(1), state: z.string().min(1) });
+    const { code, state } = querySchema.parse(request.query);
+    const promoCode = getGooglePromoFromState(state);
 
-  if (!tokenResponse.ok) {
-    return reply.status(400).send({ error: "GOOGLE_TOKEN_EXCHANGE_FAILED" });
-  }
+    const stateHash = hashToken(state);
+    const storedState = await prisma.oAuthState.findUnique({ where: { stateHash } });
+    if (!storedState || storedState.expiresAt.getTime() < Date.now()) {
+      if (storedState) {
+        await prisma.oAuthState.delete({ where: { id: storedState.id } });
+      }
+      return redirectToLogin("oauth");
+    }
+    await prisma.oAuthState.delete({ where: { id: storedState.id } });
 
-  const tokenJson = (await tokenResponse.json()) as { id_token?: string; access_token?: string };
-  const idToken = tokenJson.id_token;
-  if (!idToken) {
-    return reply.status(400).send({ error: "GOOGLE_ID_TOKEN_MISSING" });
-  }
-
-  const infoResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
-  if (!infoResponse.ok) {
-    return reply.status(400).send({ error: "GOOGLE_PROFILE_FETCH_FAILED" });
-  }
-
-  const info = (await infoResponse.json()) as {
-    sub: string;
-    email?: string;
-    email_verified?: string;
-    name?: string;
-  };
-
-  if (!info.email || info.email_verified !== "true") {
-    return reply.status(403).send({ error: "GOOGLE_EMAIL_NOT_VERIFIED" });
-  }
-
-  let user = await prisma.user.findUnique({ where: { email: info.email } });
-  if (user?.deletedAt) {
-    return reply.status(403).send({ error: "ACCOUNT_DELETED" });
-  }
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email: info.email,
-        name: info.name,
-        provider: "google",
-        emailVerifiedAt: new Date(),
-      },
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: env.GOOGLE_CLIENT_ID,
+        client_secret: env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: env.GOOGLE_REDIRECT_URI,
+        grant_type: "authorization_code",
+      }).toString(),
     });
-  } else if (user.passwordHash && !user.emailVerifiedAt) {
-    return reply.status(403).send({ error: "EMAIL_NOT_VERIFIED" });
-  }
 
-  if (user.isBlocked) {
-    return reply.status(403).send({ error: "USER_BLOCKED" });
-  }
+    if (!tokenResponse.ok) {
+      return redirectToLogin("oauth");
+    }
 
-  const providerMatch = await prisma.authProvider.findFirst({
-    where: { provider: "google", providerUserId: info.sub },
-  });
+    const tokenJson = (await tokenResponse.json()) as { id_token?: string; access_token?: string };
+    const idToken = tokenJson.id_token;
+    if (!idToken) {
+      return redirectToLogin("oauth");
+    }
 
-  if (providerMatch && providerMatch.userId !== user.id) {
-    return reply.status(403).send({ error: "GOOGLE_ACCOUNT_LINKED" });
-  }
+    const infoResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+    if (!infoResponse.ok) {
+      return redirectToLogin("oauth");
+    }
 
-  const existingProvider = providerMatch;
+    const info = (await infoResponse.json()) as {
+      sub: string;
+      email?: string;
+      email_verified?: string;
+      name?: string;
+    };
 
-  if (!existingProvider) {
-    await prisma.authProvider.create({
-      data: {
-        userId: user.id,
-        provider: "google",
-        providerUserId: info.sub,
-      },
+    if (!info.email || info.email_verified !== "true") {
+      return redirectToLogin("oauth");
+    }
+
+    let user = await prisma.user.findUnique({ where: { email: info.email } });
+    if (user?.deletedAt) {
+      return redirectToLogin("blocked");
+    }
+
+    if (!user) {
+      if (!promoCode || !isPromoCodeValid(promoCode)) {
+        return redirectToLogin("promo");
+      }
+      user = await prisma.user.create({
+        data: {
+          email: info.email,
+          name: info.name,
+          provider: "google",
+          emailVerifiedAt: new Date(),
+        },
+      });
+    } else if (user.passwordHash && !user.emailVerifiedAt) {
+      return redirectToLogin("unverified");
+    }
+
+    if (user.isBlocked) {
+      return redirectToLogin("blocked");
+    }
+
+    const providerMatch = await prisma.authProvider.findFirst({
+      where: { provider: "google", providerUserId: info.sub },
     });
+
+    if (providerMatch && providerMatch.userId !== user.id) {
+      return redirectToLogin("oauth");
+    }
+
+    const existingProvider = providerMatch;
+
+    if (!existingProvider) {
+      await prisma.authProvider.create({
+        data: {
+          userId: user.id,
+          provider: "google",
+          providerUserId: info.sub,
+        },
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
+    reply.setCookie("fs_token", token, buildCookieOptions());
+
+    return reply.redirect(`${appBaseUrl}/app`);
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      app.log.warn({ err: error }, "google oauth callback failed");
+    }
+    return redirectToLogin("oauth");
   }
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date() },
-  });
-
-  const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
-  reply.setCookie("fs_token", token, buildCookieOptions());
-
-  return reply.status(200).send({ ok: true });
 });
 
 app.get("/profile", async (request, reply) => {
@@ -2360,6 +2466,7 @@ app.post("/ai/training-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
     const user = await requireUser(request, { logContext: "/ai/training-plan" });
+    requireProSubscription(user);
     const data = aiTrainingSchema.parse(request.body);
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
@@ -2401,6 +2508,7 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
     const user = await requireUser(request, { logContext: "/ai/nutrition-plan" });
+    requireProSubscription(user);
     const data = aiNutritionSchema.parse(request.body);
     await prisma.aiPromptCache.deleteMany({
       where: {
@@ -2446,6 +2554,7 @@ app.post("/ai/daily-tip", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/daily-tip");
     const user = await requireUser(request, { logContext: "/ai/daily-tip" });
+    requireProSubscription(user);
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();

@@ -34,6 +34,8 @@ export default function FeedClient() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [tipLoading, setTipLoading] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadFeed = async () => {
@@ -57,6 +59,43 @@ export default function FeedClient() {
     void loadFeed();
   }, []);
 
+  useEffect(() => {
+    const loadSubscription = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!response.ok) {
+          setSubscriptionPlan("FREE");
+          return;
+        }
+        const data = (await response.json()) as { subscriptionPlan?: "FREE" | "PRO" };
+        setSubscriptionPlan(data.subscriptionPlan ?? "FREE");
+      } catch {
+        setSubscriptionPlan("FREE");
+      }
+    };
+    void loadSubscription();
+  }, []);
+
+  const isPro = subscriptionPlan === "PRO";
+
+  const handleUpgrade = async () => {
+    setUpgradeLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/billing/checkout", { method: "POST" });
+      const data = (await response.json()) as { url?: string };
+      if (!response.ok || !data.url) {
+        setError(t("pro.checkoutError"));
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setError(t("pro.checkoutError"));
+    } finally {
+      setUpgradeLoading(false);
+    }
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     setError(null);
@@ -77,6 +116,11 @@ export default function FeedClient() {
   const handleTip = async () => {
     setTipLoading(true);
     setError(null);
+    if (!isPro) {
+      setTipLoading(false);
+      setError(t("pro.aiLockedHint"));
+      return;
+    }
     try {
       const response = await fetch("/api/ai/daily-tip", {
         method: "POST",
@@ -107,11 +151,36 @@ export default function FeedClient() {
           <button className="btn" type="button" onClick={handleGenerate} disabled={generating}>
             {generating ? t("feed.generating") : t("feed.generate")}
           </button>
-          <button className="btn secondary" type="button" onClick={handleTip} disabled={tipLoading}>
+          <button
+            className="btn secondary"
+            type="button"
+            onClick={handleTip}
+            disabled={tipLoading || !isPro}
+            title={!isPro ? t("pro.aiLockedHint") : undefined}
+          >
             {tipLoading ? t("feed.tipGenerating") : t("feed.tipGenerate")}
           </button>
         </div>
       </div>
+
+      {subscriptionPlan === "FREE" ? (
+        <div className="card ai-card" style={{ marginTop: 16 }}>
+          <div className="ai-card-content">
+            <div>
+              <p className="ai-card-eyebrow">PRO</p>
+              <h3 style={{ margin: 0 }}>{t("pro.aiLockedTitle")}</h3>
+              <p className="muted" style={{ marginTop: 6 }}>
+                {t("pro.aiLockedSubtitle")}
+              </p>
+            </div>
+            <div className="ai-card-actions">
+              <button type="button" className="btn" onClick={handleUpgrade} disabled={upgradeLoading}>
+                {upgradeLoading ? "..." : t("pro.aiLockedCta")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {error ? <p className="muted">{error}</p> : null}
       {loading ? <p className="muted">{t("feed.loading")}</p> : null}

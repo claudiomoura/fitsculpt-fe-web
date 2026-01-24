@@ -105,6 +105,15 @@
     "noAccount": "Don't have an account?",
     "createAccount": "Create one now",
     "google": "Continue with Google",
+    "googlePromoTitle": "Promo code for Google",
+    "googlePromoSubtitle": "For your first Google login we need a promo code.",
+    "googlePromoPlaceholder": "Enter FitSculpt-100%",
+    "googlePromoHint": "If you already have an account, you can continue without a code.",
+    "googlePromoConfirm": "Continue with Google",
+    "googlePromoSkip": "I already have an account",
+    "googlePromoCancel": "Cancel",
+    "googlePromoError": "The Google promo code is required and must be FitSculpt-100%.",
+    "oauthError": "We couldn't sign you in with Google. Please try again.",
     "resendVerification": "Resend verification",
     "resendSent": "If the email exists, we sent a new link.",
     "resendError": "We couldn't resend it. Try again later.",
@@ -117,6 +126,13 @@
     "registerLoading": "Creating account...",
     "showPassword": "Show password",
     "hidePassword": "Hide password"
+  },
+  "pro": {
+    "aiLockedTitle": "AI available only on PRO",
+    "aiLockedSubtitle": "Upgrade to generate plans and tips with AI.",
+    "aiLockedCta": "Upgrade to PRO",
+    "aiLockedHint": "Upgrade to PRO to unlock this feature.",
+    "checkoutError": "We couldn't start the PRO checkout."
   },
   "app": {
     "privateAreaTitle": "Private area",

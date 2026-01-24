@@ -22,6 +22,7 @@ Configure `BACKEND_URL` apontando para a API (Render ou local), por exemplo:
 
 ```bash
 BACKEND_URL=http://localhost:4000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
 ```
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
