@@ -96,8 +96,8 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
       reply.header("Retry-After", retryAfterSec.toString());
     }
     return reply.status(429).send({
-      error: "RATE_LIMIT",
-      message: "Has alcanzado el límite diario de solicitudes de IA. Intenta nuevamente más tarde.",
+      error: "AI_LIMIT_REACHED",
+      message: "Has alcanzado el límite diario de IA. Suscríbete a PRO para más usos o intenta mañana.",
       ...(retryAfterSec ? { retryAfterSec } : {}),
     });
   }
@@ -695,7 +695,7 @@ const aiTrainingDaySchema = z
     label: z.string().min(1),
     focus: z.string().min(1),
     duration: z.number().int().min(20).max(120),
-    exercises: z.array(aiTrainingExerciseSchema).min(3).max(8),
+    exercises: z.array(aiTrainingExerciseSchema).min(3).max(5),
   })
   .passthrough();
 
@@ -711,7 +711,7 @@ const aiNutritionMealSchema = z
   .object({
     type: z.enum(["breakfast", "lunch", "dinner", "snack"]),
     title: z.string().min(1),
-    description: z.string().min(1),
+    description: z.string().min(1).optional(),
     macros: z.object({
       calories: z.coerce.number().min(50).max(1500),
       protein: z.coerce.number().min(0).max(200),
@@ -725,15 +725,16 @@ const aiNutritionMealSchema = z
           grams: z.coerce.number().min(5).max(1000),
         })
       )
-      .min(2)
-      .max(12),
+      .min(0)
+      .max(6)
+      .optional(),
   })
   .passthrough();
 
 const aiNutritionDaySchema = z
   .object({
     dayLabel: z.string().min(1),
-    meals: z.array(aiNutritionMealSchema).min(1).max(6),
+    meals: z.array(aiNutritionMealSchema).min(2).max(4),
   })
   .passthrough();
 
@@ -744,7 +745,7 @@ const aiNutritionPlanResponseSchema = z
     proteinG: z.coerce.number().min(50).max(300),
     fatG: z.coerce.number().min(30).max(200),
     carbsG: z.coerce.number().min(50).max(600),
-    days: z.array(aiNutritionDaySchema).min(3).max(7),
+    days: z.array(aiNutritionDaySchema).min(3).max(5),
     shoppingList: z
       .array(
         z.object({
@@ -1016,15 +1017,16 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
   const timerSound = data.timerSound ?? "no especificado";
   const injuries = data.injuries?.trim() || "ninguna";
   return [
-    "Eres un entrenador personal senior. Genera un plan semanal realista en JSON válido.",
+    "Eres un entrenador personal senior. Genera un plan compacto y reutilizable en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
     "El JSON debe respetar exactamente este esquema:",
     '{"title":string,"notes"?:string,"days":[{"label":string,"focus":string,"duration":number,"exercises":[{"name":string,"sets":string|number,"reps":string|number,"tempo"?:string,"rest"?:string|number,"notes"?:string}]}]}',
     "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
+    "Mantén el plan compacto: máximo 5 días, máximo 5 ejercicios por día, texto corto.",
+    "Si el usuario pide menos días, respeta ese número.",
     "Respeta el nivel del usuario:",
-    "- principiante: ejercicios básicos y seguros, 3-5 ejercicios por sesión, 45-60 minutos.",
-    "- intermedio/avanzado: 4-6 ejercicios por sesión, básicos multiarticulares, 50-75 minutos.",
-    "Para avanzados, incluye ejercicios exigentes y coherentes con el objetivo.",
+    "- principiante: ejercicios básicos y seguros, 3-4 ejercicios por sesión, 30-50 minutos.",
+    "- intermedio/avanzado: 4-5 ejercicios por sesión, básicos multiarticulares, 40-60 minutos.",
     "Evita volúmenes absurdos y mantén descansos coherentes.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, nivel ${data.level}, objetivo ${data.goal}.`,
     `Objetivos secundarios: ${secondaryGoals}. Cardio incluido: ${cardio}. Movilidad/warm-ups: ${mobility}.`,
@@ -1037,11 +1039,11 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
     "- full: cuerpo completo cada día.",
     "- upperLower: alterna upper/lower empezando por upper.",
     "- ppl: rota push, pull, legs en orden.",
-    "Usa days.length = días por semana. label en español consistente (ej: \"Día Lunes 1\", \"Día 2\"...).",
+    "Usa days.length = días por semana (límite 5). label en español consistente (ej: \"Día 1\", \"Día 2\").",
     "En cada día incluye duration en minutos (number).",
-    "En cada ejercicio incluye name (español), sets, reps, tempo, rest y notes.",
+    "En cada ejercicio incluye name (español), sets, reps. tempo/rest/notes solo si son cortos.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
-    '{"title":"Plan de fuerza semanal","notes":"Enfocado en técnica y progreso gradual.","days":[{"label":"Día 1","focus":"Full body","duration":60,"exercises":[{"name":"Sentadilla con barra","sets":"4","reps":"8-10","tempo":"2-0-2","rest":"90","notes":"Calentamiento previo y técnica controlada."},{"name":"Press banca","sets":"4","reps":"8-10","tempo":"2-0-2","rest":"90","notes":"Escápulas retraídas."},{"name":"Remo con barra","sets":"3","reps":"8-10","tempo":"2-1-2","rest":"90","notes":"Espalda neutra."}]}]}',
+    '{"title":"Plan semanal compacto","notes":"Enfoque simple.","days":[{"label":"Día 1","focus":"Full body","duration":45,"exercises":[{"name":"Sentadilla","sets":"3","reps":"8-10"},{"name":"Press banca","sets":"3","reps":"8-10"},{"name":"Remo con barra","sets":"3","reps":"8-10"}]}]}',
   ].join(" ");
 }
 
@@ -1055,32 +1057,12 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
       ? `(${data.mealDistribution.percentages.join("%, ")}%)`
       : "";
   return [
-    "Eres un nutricionista deportivo senior. Genera un plan semanal en JSON válido.",
+    "Eres un nutricionista deportivo senior. Genera un plan semanal compacto en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
     "El JSON debe respetar exactamente este esquema:",
-    "Esquema exacto:",
-    "{",
-    '  "title": string,',
-    '  "dailyCalories": number,',
-    '  "proteinG": number,',
-    '  "fatG": number,',
-    '  "carbsG": number,',
-    '  "days": [',
-    "    {",
-    '      "dayLabel": string,',
-    '      "meals": [',
-    "        {",
-    '          "type": "breakfast" | "lunch" | "dinner" | "snack",',
-    '          "title": string,',
-    '          "description": string,',
-    '          "macros": { "calories": number, "protein": number, "carbs": number, "fats": number },',
-    '          "ingredients": [{ "name": string, "grams": number }]',
-    "        }",
-    "      ]",
-    "    }",
-    "  ],",
-    '  "shoppingList"?: [{ "name": string, "grams": number }]',
-    "}",
+    '{"title":string,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"dayLabel":string,"meals":[{"type":"breakfast"|"lunch"|"dinner"|"snack","title":string,"description"?:string,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients"?:[{"name":string,"grams":number}]}]}],"shoppingList"?:[{"name":string,"grams":number}]}',
+    "Plan compacto: máximo 5 días, 2-3 comidas por día (breakfast/lunch/dinner). Evita snacks largos.",
+    "Descripción e ingredientes opcionales; si incluyes ingredientes, usa 1-2 por comida.",
     "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, carne magra y frutos secos.",
     "Evita cantidades absurdas. Porciones realistas y fáciles de cocinar.",
     "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
@@ -1092,13 +1074,13 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
     `Preferencias (favoritos): ${data.preferredFoods ?? "ninguna"}.`,
     `Alimentos a evitar: ${data.dislikedFoods ?? "ninguno"}.`,
     `Distribución de comidas: ${distribution} ${distributionPercentages}.`,
-    "Genera exactamente 7 días con dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
-    "Cada día incluye desayuno, comida, cena y 1-2 snacks.",
+    "Genera 3 a 5 días con dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
+    "Cada día incluye desayuno, comida y cena.",
     "Usa siempre type y macros en cada comida.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
-    '{"title":"Plan mediterráneo semanal","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"dayLabel":"Lunes","meals":[{"type":"breakfast","title":"Tostadas integrales con aguacate y huevo","description":"Desayuno con grasas saludables y proteína.","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Pan integral","grams":80},{"name":"Aguacate","grams":70},{"name":"Huevo","grams":120}]},{"type":"lunch","title":"Salmón a la plancha con arroz integral y brócoli","description":"Plato principal rico en omega 3.","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Salmón","grams":160},{"name":"Arroz integral cocido","grams":180},{"name":"Brócoli","grams":200},{"name":"Aceite de oliva","grams":10}]},{"type":"snack","title":"Yogur griego con frutos rojos","description":"Snack ligero y alto en proteína.","macros":{"calories":250,"protein":20,"carbs":25,"fats":8},"ingredients":[{"name":"Yogur griego","grams":200},{"name":"Frutos rojos","grams":120},{"name":"Nueces","grams":15}]},{"type":"dinner","title":"Pechuga de pollo con verduras salteadas","description":"Cena ligera y saciante.","macros":{"calories":800,"protein":50,"carbs":110,"fats":19},"ingredients":[{"name":"Pechuga de pollo","grams":170},{"name":"Verduras mixtas","grams":250},{"name":"Patata cocida","grams":200},{"name":"Aceite de oliva","grams":10}]}]},{"dayLabel":"Martes","meals":[{"type":"breakfast","title":"Avena con yogur y fruta","description":"Desayuno completo y saciante.","macros":{"calories":430,"protein":22,"carbs":55,"fats":12},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180},{"name":"Plátano","grams":120}]},{"type":"lunch","title":"Ensalada de garbanzos con atún","description":"Legumbre + proteína magra.","macros":{"calories":650,"protein":40,"carbs":65,"fats":18},"ingredients":[{"name":"Garbanzos cocidos","grams":200},{"name":"Atún al natural","grams":120},{"name":"Tomate","grams":150},{"name":"Aceite de oliva","grams":10}]},{"type":"snack","title":"Fruta y frutos secos","description":"Snack energético controlado.","macros":{"calories":220,"protein":6,"carbs":25,"fats":10},"ingredients":[{"name":"Manzana","grams":160},{"name":"Almendras","grams":20}]},{"type":"dinner","title":"Pavo con quinoa y verduras","description":"Cena completa y ligera.","macros":{"calories":900,"protein":72,"carbs":105,"fats":30},"ingredients":[{"name":"Pavo","grams":180},{"name":"Quinoa cocida","grams":180},{"name":"Calabacín","grams":200},{"name":"Aceite de oliva","grams":10}]}]}],"shoppingList":[{"name":"Aceite de oliva","grams":200},{"name":"Verduras mixtas","grams":800}]}',
+    '{"title":"Plan mediterráneo compacto","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"dayLabel":"Lunes","meals":[{"type":"breakfast","title":"Avena con yogur","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180}]},{"type":"lunch","title":"Pollo con arroz","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Pollo","grams":160},{"name":"Arroz integral","grams":180}]},{"type":"dinner","title":"Salmón con verduras","macros":{"calories":800,"protein":50,"carbs":60,"fats":28},"ingredients":[{"name":"Salmón","grams":160},{"name":"Verduras mixtas","grams":200}]}]}]}',
   ].join(" ");
 }
 
@@ -1134,23 +1116,10 @@ function parseTrainingPlanPayload(payload: Record<string, unknown>) {
   }
 }
 
-const NUTRITION_DAY_LABELS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-
 function normalizeNutritionPlanDays(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
-  if (plan.days.length >= NUTRITION_DAY_LABELS.length) return plan;
-  const nextDays = [...plan.days];
-  let index = 0;
-  while (nextDays.length < NUTRITION_DAY_LABELS.length) {
-    const source = plan.days[index % plan.days.length];
-    nextDays.push({
-      ...source,
-      dayLabel: NUTRITION_DAY_LABELS[nextDays.length] ?? source.dayLabel,
-    });
-    index += 1;
-  }
-  return { ...plan, days: nextDays };
+  return plan;
 }
 
 function parseNutritionPlanPayload(payload: Record<string, unknown>) {
@@ -1557,7 +1526,20 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
   );
 }
 
-async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, unknown>> {
+type OpenAiUsage = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+};
+
+type OpenAiResponse = {
+  payload: Record<string, unknown>;
+  usage: OpenAiUsage | null;
+  model: string | null;
+  requestId: string | null;
+};
+
+async function callOpenAi(prompt: string, attempt = 0): Promise<OpenAiResponse> {
   if (!env.OPENAI_API_KEY) {
     throw createHttpError(503, "AI_UNAVAILABLE");
   }
@@ -1572,19 +1554,23 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, u
       Authorization: `Bearer ${env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-3.5-turbo",
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: prompt },
       ],
-      max_tokens: 1600,
-      temperature: attempt === 0 ? 0.6 : 0.2,
+      max_tokens: 250,
+      temperature: attempt === 0 ? 0.4 : 0.2,
     }),
   });
   if (!response.ok) {
     throw createHttpError(502, "AI_REQUEST_FAILED");
   }
+  const requestId =
+    response.headers.get("x-request-id") ??
+    response.headers.get("openai-request-id") ??
+    response.headers.get("x-openai-request-id");
   const data = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
@@ -1594,7 +1580,12 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, u
   }
   try {
     app.log.info({ attempt, rawResponse: content }, "ai raw response");
-    return extractJson(content);
+    return {
+      payload: extractJson(content),
+      usage: data.usage ?? null,
+      model: data.model ?? null,
+      requestId,
+    };
   } catch (error) {
     const typed = error as { code?: string };
     if (typed.code === "AI_PARSE_ERROR" && attempt === 0) {
@@ -2358,6 +2349,30 @@ app.delete("/user-foods/:id", async (request, reply) => {
   }
 });
 
+app.get("/ai/quota", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const dateKey = toDateKey();
+    const limit = user.subscriptionPlan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+    const usage = await prisma.aiUsage.findUnique({
+      where: { userId_date: { userId: user.id, date: dateKey } },
+    });
+    const usedToday = usage?.count ?? 0;
+    const remainingToday = limit > 0 ? Math.max(0, limit - usedToday) : 0;
+    return reply.status(200).send({
+      subscriptionPlan: user.subscriptionPlan,
+      dailyLimit: limit,
+      usedToday,
+      remainingToday,
+      retryAfterSec: getSecondsUntilNextUtcDay(),
+      aiTokenBalance: user.subscriptionPlan === "PRO" ? user.aiTokenBalance : null,
+      aiTokenRenewalAt: user.subscriptionPlan === "PRO" ? user.aiTokenRenewalAt : null,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.post("/ai/training-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
@@ -2365,12 +2380,19 @@ app.post("/ai/training-plan", async (request, reply) => {
     const data = aiTrainingSchema.parse(request.body);
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
+    const aiMeta =
+      user.subscriptionPlan === "PRO"
+        ? { aiTokenBalance: user.aiTokenBalance, aiTokenRenewalAt: user.aiTokenRenewalAt }
+        : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name });
       await upsertExercisesFromPlan(personalized);
       await storeAiContent(user.id, "training", "template", personalized);
-      return reply.status(200).send(personalized);
+      return reply.status(200).send({
+        plan: personalized,
+        ...aiMeta,
+      });
     }
 
     const cached = await getCachedAiPayload(cacheKey);
@@ -2380,7 +2402,10 @@ app.post("/ai/training-plan", async (request, reply) => {
         const personalized = applyPersonalization(validated, { name: data.name });
         await upsertExercisesFromPlan(personalized);
         await storeAiContent(user.id, "training", "cache", personalized);
-        return reply.status(200).send(personalized);
+        return reply.status(200).send({
+          plan: personalized,
+          ...aiMeta,
+        });
       } catch (error) {
         app.log.warn({ err: error, cacheKey }, "cached training plan invalid, regenerating");
       }
@@ -2388,12 +2413,83 @@ app.post("/ai/training-plan", async (request, reply) => {
 
     await enforceAiQuota(user);
     const prompt = buildTrainingPrompt(data);
-    const payload = parseTrainingPlanPayload(await callOpenAi(prompt));
-    await upsertExercisesFromPlan(payload);
-    await saveCachedAiPayload(cacheKey, "training", payload);
-    const personalized = applyPersonalization(payload, { name: data.name });
+    let payload: Record<string, unknown>;
+    let aiTokenBalance: number | null = null;
+    let debit:
+      | {
+          costCents: number;
+          balanceBefore: number;
+          balanceAfter: number;
+          totalTokens: number;
+          model: string;
+          usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+        }
+      | undefined;
+    if (user.subscriptionPlan === "PRO") {
+      const balanceBefore = user.aiTokenBalance;
+      app.log.info(
+        { userId: user.id, feature: "training", plan: user.subscriptionPlan, balanceBefore },
+        "ai charge start"
+      );
+      const charged = await chargeAiUsage({
+        prisma,
+        pricing: aiPricing,
+        user: { id: user.id, subscriptionPlan: user.subscriptionPlan, aiTokenBalance: user.aiTokenBalance },
+        feature: "training",
+        execute: () => callOpenAi(prompt),
+        createHttpError,
+      });
+      app.log.info(
+        {
+          userId: user.id,
+          feature: "training",
+          costCents: charged.costCents,
+          totalTokens: charged.totalTokens,
+          balanceAfter: charged.balance,
+        },
+        "ai charge complete"
+      );
+      app.log.debug(
+        {
+          userId: user.id,
+          feature: "training",
+          costCents: charged.costCents,
+          balanceBefore,
+          balanceAfter: charged.balance,
+          model: charged.model,
+          totalTokens: charged.totalTokens,
+        },
+        "ai charge details"
+      );
+      payload = charged.payload;
+      aiTokenBalance = charged.balance;
+      debit =
+        process.env.NODE_ENV === "production"
+          ? undefined
+          : {
+              costCents: charged.costCents,
+              balanceBefore,
+              balanceAfter: charged.balance,
+              totalTokens: charged.totalTokens,
+              model: charged.model,
+              usage: charged.usage,
+            };
+    } else {
+      const result = await callOpenAi(prompt);
+      payload = result.payload;
+    }
+    const parsedPayload = parseTrainingPlanPayload(payload);
+    await upsertExercisesFromPlan(parsedPayload);
+    await saveCachedAiPayload(cacheKey, "training", parsedPayload);
+    const personalized = applyPersonalization(parsedPayload, { name: data.name });
     await storeAiContent(user.id, "training", "ai", personalized);
-    return reply.status(200).send(personalized);
+    return reply.status(200).send({
+      plan: personalized,
+      aiTokenBalance: user.subscriptionPlan === "PRO" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.subscriptionPlan === "PRO" ? user.aiTokenRenewalAt : null,
+      ...(user.subscriptionPlan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      ...(debit ? { debit } : {}),
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -2413,11 +2509,18 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
     });
     const cacheKey = buildCacheKey("nutrition:v2", data);
     const template = buildNutritionTemplate(data);
+    const aiMeta =
+      user.subscriptionPlan === "PRO"
+        ? { aiTokenBalance: user.aiTokenBalance, aiTokenRenewalAt: user.aiTokenRenewalAt }
+        : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name });
       await storeAiContent(user.id, "nutrition", "template", personalized);
-      return reply.status(200).send(personalized);
+      return reply.status(200).send({
+        plan: personalized,
+        ...aiMeta,
+      });
     }
 
     const cached = await getCachedAiPayload(cacheKey);
@@ -2426,7 +2529,10 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
         const validated = parseNutritionPlanPayload(cached);
         const personalized = applyPersonalization(validated, { name: data.name });
         await storeAiContent(user.id, "nutrition", "cache", personalized);
-        return reply.status(200).send(personalized);
+        return reply.status(200).send({
+          plan: personalized,
+          ...aiMeta,
+        });
       } catch (error) {
         app.log.warn({ err: error, cacheKey }, "cached nutrition plan invalid, regenerating");
       }
@@ -2434,11 +2540,82 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
 
     await enforceAiQuota(user);
     const prompt = buildNutritionPrompt(data);
-    const payload = parseNutritionPlanPayload(await callOpenAi(prompt));
-    await saveCachedAiPayload(cacheKey, "nutrition", payload);
-    const personalized = applyPersonalization(payload, { name: data.name });
+    let payload: Record<string, unknown>;
+    let aiTokenBalance: number | null = null;
+    let debit:
+      | {
+          costCents: number;
+          balanceBefore: number;
+          balanceAfter: number;
+          totalTokens: number;
+          model: string;
+          usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+        }
+      | undefined;
+    if (user.subscriptionPlan === "PRO") {
+      const balanceBefore = user.aiTokenBalance;
+      app.log.info(
+        { userId: user.id, feature: "nutrition", plan: user.subscriptionPlan, balanceBefore },
+        "ai charge start"
+      );
+      const charged = await chargeAiUsage({
+        prisma,
+        pricing: aiPricing,
+        user: { id: user.id, subscriptionPlan: user.subscriptionPlan, aiTokenBalance: user.aiTokenBalance },
+        feature: "nutrition",
+        execute: () => callOpenAi(prompt),
+        createHttpError,
+      });
+      app.log.info(
+        {
+          userId: user.id,
+          feature: "nutrition",
+          costCents: charged.costCents,
+          totalTokens: charged.totalTokens,
+          balanceAfter: charged.balance,
+        },
+        "ai charge complete"
+      );
+      app.log.debug(
+        {
+          userId: user.id,
+          feature: "nutrition",
+          costCents: charged.costCents,
+          balanceBefore,
+          balanceAfter: charged.balance,
+          model: charged.model,
+          totalTokens: charged.totalTokens,
+        },
+        "ai charge details"
+      );
+      payload = charged.payload;
+      aiTokenBalance = charged.balance;
+      debit =
+        process.env.NODE_ENV === "production"
+          ? undefined
+          : {
+              costCents: charged.costCents,
+              balanceBefore,
+              balanceAfter: charged.balance,
+              totalTokens: charged.totalTokens,
+              model: charged.model,
+              usage: charged.usage,
+            };
+    } else {
+      const result = await callOpenAi(prompt);
+      payload = result.payload;
+    }
+    const parsedPayload = parseNutritionPlanPayload(payload);
+    await saveCachedAiPayload(cacheKey, "nutrition", parsedPayload);
+    const personalized = applyPersonalization(parsedPayload, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
-    return reply.status(200).send(personalized);
+    return reply.status(200).send({
+      plan: personalized,
+      aiTokenBalance: user.subscriptionPlan === "PRO" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.subscriptionPlan === "PRO" ? user.aiTokenRenewalAt : null,
+      ...(user.subscriptionPlan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      ...(debit ? { debit } : {}),
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -2451,27 +2628,107 @@ app.post("/ai/daily-tip", async (request, reply) => {
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();
+    const aiMeta =
+      user.subscriptionPlan === "PRO"
+        ? { aiTokenBalance: user.aiTokenBalance, aiTokenRenewalAt: user.aiTokenRenewalAt }
+        : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
       await safeStoreAiContent(user.id, "tip", "template", personalized);
-      return reply.status(200).send(personalized);
+      return reply.status(200).send({
+        tip: personalized,
+        ...aiMeta,
+      });
     }
 
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
       const personalized = applyPersonalization(cached, { name: data.name ?? "amigo" });
       await safeStoreAiContent(user.id, "tip", "cache", personalized);
-      return reply.status(200).send(personalized);
+      return reply.status(200).send({
+        tip: personalized,
+        ...aiMeta,
+      });
     }
 
     await enforceAiQuota(user);
     const prompt = buildTipPrompt(data);
-    const payload = await callOpenAi(prompt);
+    let payload: Record<string, unknown>;
+    let aiTokenBalance: number | null = null;
+    let debit:
+      | {
+          costCents: number;
+          balanceBefore: number;
+          balanceAfter: number;
+          totalTokens: number;
+          model: string;
+          usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+        }
+      | undefined;
+    if (user.subscriptionPlan === "PRO") {
+      const balanceBefore = user.aiTokenBalance;
+      app.log.info(
+        { userId: user.id, feature: "tip", plan: user.subscriptionPlan, balanceBefore },
+        "ai charge start"
+      );
+      const charged = await chargeAiUsage({
+        prisma,
+        pricing: aiPricing,
+        user: { id: user.id, subscriptionPlan: user.subscriptionPlan, aiTokenBalance: user.aiTokenBalance },
+        feature: "tip",
+        execute: () => callOpenAi(prompt),
+        createHttpError,
+      });
+      app.log.info(
+        {
+          userId: user.id,
+          feature: "tip",
+          costCents: charged.costCents,
+          totalTokens: charged.totalTokens,
+          balanceAfter: charged.balance,
+        },
+        "ai charge complete"
+      );
+      app.log.debug(
+        {
+          userId: user.id,
+          feature: "tip",
+          costCents: charged.costCents,
+          balanceBefore,
+          balanceAfter: charged.balance,
+          model: charged.model,
+          totalTokens: charged.totalTokens,
+        },
+        "ai charge details"
+      );
+      payload = charged.payload;
+      aiTokenBalance = charged.balance;
+      debit =
+        process.env.NODE_ENV === "production"
+          ? undefined
+          : {
+              costCents: charged.costCents,
+              balanceBefore,
+              balanceAfter: charged.balance,
+              totalTokens: charged.totalTokens,
+              model: charged.model,
+              usage: charged.usage,
+            };
+    } else {
+      const result = await callOpenAi(prompt);
+      payload = result.payload;
+    }
     await saveCachedAiPayload(cacheKey, "tip", payload);
     const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
-    return reply.status(200).send(personalized);
+    return reply.status(200).send({
+      tip: personalized,
+      aiTokenBalance: user.subscriptionPlan === "PRO" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.subscriptionPlan === "PRO" ? user.aiTokenRenewalAt : null,
+      ...(user.subscriptionPlan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      ...(debit ? { debit } : {}),
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
