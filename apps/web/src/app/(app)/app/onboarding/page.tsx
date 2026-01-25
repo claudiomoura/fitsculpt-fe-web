@@ -1,5 +1,12 @@
 import OnboardingClient from "./OnboardingClient";
 
-export default function OnboardingPage() {
-  return <OnboardingClient />;
+type Props = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+export default function OnboardingPage({ searchParams }: Props) {
+  const nextUrl = typeof searchParams?.next === "string" ? searchParams.next : undefined;
+  const ai = typeof searchParams?.ai === "string" ? searchParams.ai : undefined;
+
+  return <OnboardingClient nextUrl={nextUrl} ai={ai} />;
 }
