@@ -39,6 +39,13 @@ type StripeSubscription = {
   customer: string;
   status: string;
   current_period_end: number | null;
+  items?: { data?: StripeSubscriptionItem[] };
+};
+
+type StripeSubscriptionItem = {
+  price?: {
+    id?: string | null;
+  } | null;
 };
 
 type StripeInvoiceLineItem = {
@@ -56,6 +63,16 @@ type StripeInvoice = {
 
 type StripeSubscriptionList = {
   data: StripeSubscription[];
+};
+
+type StripeCustomer = {
+  id: string;
+  email?: string | null;
+  created?: number | null;
+};
+
+type StripeCustomerList = {
+  data: StripeCustomer[];
 };
 
 await app.register(cors, {
@@ -215,6 +232,21 @@ function getTokenExpiry(days = 30) {
   return next;
 }
 
+function getUserTokensExpireAt(user: {
+  aiTokenResetAt?: Date | null;
+  aiTokenRenewalAt?: Date | null;
+  tokensExpireAt?: Date | null;
+}) {
+  return user.aiTokenResetAt ?? user.aiTokenRenewalAt ?? user.tokensExpireAt ?? null;
+}
+
+function getUserTokenBalance(user: { aiTokenBalance?: number | null; tokenBalance?: number | null }) {
+  if (typeof user.aiTokenBalance === "number") {
+    return user.aiTokenBalance;
+  }
+  return typeof user.tokenBalance === "number" ? user.tokenBalance : 0;
+}
+
 async function applyBillingStateForCustomer(
   stripeCustomerId: string,
   data: {
@@ -237,6 +269,7 @@ async function applyBillingStateForCustomer(
       stripeSubscriptionId: data.stripeSubscriptionId === undefined ? undefined : data.stripeSubscriptionId,
       currentPeriodEnd: data.currentPeriodEnd === undefined ? undefined : data.currentPeriodEnd,
       aiTokenBalance: data.tokenBalance,
+      aiTokenResetAt: data.tokensExpireAt,
       aiTokenRenewalAt: data.tokensExpireAt,
     },
   });
@@ -273,13 +306,22 @@ function isActiveSubscriptionStatus(status?: string | null) {
   return status === "active" || status === "trialing";
 }
 
-async function getLatestActiveSubscription(customerId: string) {
+function subscriptionHasPrice(subscription: StripeSubscription, priceId: string) {
+  const items = subscription.items?.data ?? [];
+  return items.some((item) => item.price?.id === priceId);
+}
+
+async function getLatestActiveSubscription(customerId: string, priceId?: string) {
   const subscriptions = await stripeRequest<StripeSubscriptionList>(
     "subscriptions",
-    { customer: customerId, status: "all", limit: 100 },
+    { customer: customerId, status: "all", limit: 100, "expand[0]": "data.items.data.price" },
     { method: "GET" }
   );
-  const activeSubscriptions = subscriptions.data.filter((subscription) => isActiveSubscriptionStatus(subscription.status));
+  const activeSubscriptions = subscriptions.data.filter((subscription) => {
+    if (!isActiveSubscriptionStatus(subscription.status)) return false;
+    if (!priceId) return true;
+    return subscriptionHasPrice(subscription, priceId);
+  });
   if (activeSubscriptions.length === 0) {
     return null;
   }
@@ -294,6 +336,101 @@ function getSubscriptionPeriodEnd(subscription?: StripeSubscription | null) {
 function invoiceHasPrice(invoice: StripeInvoice, priceId: string) {
   const lines = invoice.lines?.data ?? [];
   return lines.some((line) => line.price?.id === priceId);
+}
+
+async function findLatestCustomerByEmail(email: string) {
+  const customers = await stripeRequest<StripeCustomerList>(
+    "customers",
+    { email, limit: 10 },
+    { method: "GET" }
+  );
+  if (!customers.data.length) {
+    return null;
+  }
+  return (
+    customers.data.sort((a, b) => (b.created ?? 0) - (a.created ?? 0))[0] ?? null
+  );
+}
+
+async function syncUserBillingFromStripe(user: User) {
+  const priceId = requireStripePriceId();
+  let stripeCustomerId = user.stripeCustomerId ?? null;
+  if (!stripeCustomerId && user.email) {
+    const latestCustomer = await findLatestCustomerByEmail(user.email);
+    if (latestCustomer?.id) {
+      stripeCustomerId = latestCustomer.id;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId },
+      });
+    }
+  }
+
+  if (!stripeCustomerId) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        plan: "FREE",
+        subscriptionPlan: "FREE",
+        subscriptionStatus: null,
+        stripeSubscriptionId: null,
+        currentPeriodEnd: null,
+        aiTokenBalance: 0,
+        aiTokenResetAt: null,
+        aiTokenRenewalAt: null,
+        tokenBalance: 0,
+        tokensExpireAt: null,
+      },
+    });
+    return;
+  }
+
+  const activeSubscription = await getLatestActiveSubscription(stripeCustomerId, priceId);
+  if (!activeSubscription) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        plan: "FREE",
+        subscriptionPlan: "FREE",
+        subscriptionStatus: null,
+        stripeSubscriptionId: null,
+        currentPeriodEnd: null,
+        aiTokenBalance: 0,
+        aiTokenResetAt: null,
+        aiTokenRenewalAt: null,
+        tokenBalance: 0,
+        tokensExpireAt: null,
+      },
+    });
+    return;
+  }
+
+  const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
+  const tokensExpireAt = getTokenExpiry(30);
+  const currentTokensExpireAt = getUserTokensExpireAt(user);
+  const tokensExpired = currentTokensExpireAt ? currentTokensExpireAt.getTime() < Date.now() : true;
+  const currentTokenBalance = getUserTokenBalance(user);
+  const shouldTopUpTokens = tokensExpired || currentTokenBalance <= 0;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      plan: "PRO",
+      subscriptionPlan: "PRO",
+      subscriptionStatus: activeSubscription.status,
+      stripeSubscriptionId: activeSubscription.id,
+      currentPeriodEnd,
+      ...(shouldTopUpTokens
+        ? {
+            aiTokenBalance: 5000,
+            aiTokenResetAt: tokensExpireAt,
+            aiTokenRenewalAt: tokensExpireAt,
+            tokenBalance: 5000,
+            tokensExpireAt,
+          }
+        : {}),
+    },
+  });
 }
 
 function logAuthCookieDebug(request: FastifyRequest, route: string) {
@@ -890,14 +1027,21 @@ function getSecondsUntilNextUtcDay(date = new Date()) {
   return Math.max(1, Math.ceil(diffMs / 1000));
 }
 
-function getEffectiveTokenBalance(user: { tokenBalance: number; tokensExpireAt: Date | null }) {
-  if (!user.tokensExpireAt) {
+function getEffectiveTokenBalance(user: {
+  aiTokenBalance?: number | null;
+  tokenBalance?: number | null;
+  aiTokenResetAt?: Date | null;
+  aiTokenRenewalAt?: Date | null;
+  tokensExpireAt?: Date | null;
+}) {
+  const tokensExpireAt = getUserTokensExpireAt(user);
+  if (!tokensExpireAt) {
     return 0;
   }
-  if (user.tokensExpireAt.getTime() < Date.now()) {
+  if (tokensExpireAt.getTime() < Date.now()) {
     return 0;
   }
-  return Math.max(0, user.tokenBalance);
+  return Math.max(0, getUserTokenBalance(user));
 }
 
 function stableStringify(value: unknown): string {
@@ -2050,6 +2194,7 @@ app.post("/billing/checkout", async (request, reply) => {
       {
         mode: "subscription",
         customer: customerId,
+        customer_email: user.email ?? undefined,
         client_reference_id: user.id,
         "metadata[userId]": user.id,
         "line_items[0][price]": priceId,
@@ -2107,8 +2252,13 @@ app.post(
       }
 
       verifyStripeSignature(rawBody, signature, requireStripeWebhookSecret());
-      const event = JSON.parse(rawBody.toString("utf8")) as { type: string; data?: { object?: unknown } };
+      const event = JSON.parse(rawBody.toString("utf8")) as {
+        id?: string;
+        type: string;
+        data?: { object?: unknown };
+      };
       const eventType = event.type;
+      const eventId = event.id ?? "unknown";
       const payload = event.data?.object;
       let resolvedUserId: string | null = null;
 
@@ -2121,7 +2271,7 @@ app.post(
       }
 
       app.log.info(
-        resolvedUserId ? { eventType, userId: resolvedUserId } : { eventType },
+        resolvedUserId ? { eventType, eventId, userId: resolvedUserId } : { eventType, eventId },
         "stripe webhook received"
       );
 
@@ -2156,7 +2306,8 @@ app.post(
         const subscription = payload as StripeSubscription;
         const customerId = subscription?.customer ?? null;
         if (customerId) {
-          const activeSubscription = await getLatestActiveSubscription(customerId);
+          const priceId = requireStripePriceId();
+          const activeSubscription = await getLatestActiveSubscription(customerId, priceId);
           const cancellationStatuses = new Set(["canceled", "unpaid", "incomplete_expired"]);
           if (activeSubscription) {
             const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
@@ -2219,7 +2370,7 @@ app.post(
           if (subscriptionId) {
             subscription = await stripeRequest<StripeSubscription>(`subscriptions/${subscriptionId}`, {}, { method: "GET" });
           }
-          const tokensExpireAt = getSubscriptionPeriodEnd(subscription) ?? getTokenExpiry(30);
+          const tokensExpireAt = getTokenExpiry(30);
           if (customerId) {
             await applyBillingStateForCustomer(customerId, {
               plan: "PRO",
@@ -2259,20 +2410,23 @@ app.post(
         if (invoiceHasPrice(fullInvoice, priceId)) {
           const customerId = fullInvoice.customer ?? null;
           if (customerId) {
-            await applyBillingStateForCustomer(customerId, {
-              plan: "FREE",
-              tokenBalance: 0,
-              tokensExpireAt: null,
-            });
-            app.log.info(
-              {
-                stripeCustomerId: customerId,
+            const activeSubscription = await getLatestActiveSubscription(customerId, priceId);
+            if (!activeSubscription) {
+              await applyBillingStateForCustomer(customerId, {
                 plan: "FREE",
                 tokenBalance: 0,
                 tokensExpireAt: null,
-              },
-              "invoice payment failed"
-            );
+              });
+              app.log.info(
+                {
+                  stripeCustomerId: customerId,
+                  plan: "FREE",
+                  tokenBalance: 0,
+                  tokensExpireAt: null,
+                },
+                "invoice payment failed"
+              );
+            }
           }
         }
       }
@@ -2299,9 +2453,9 @@ app.get("/auth/me", async (request, reply) => {
       subscriptionStatus: user.subscriptionStatus,
       currentPeriodEnd: user.currentPeriodEnd,
       aiTokenBalance: getEffectiveTokenBalance(user),
-      aiTokenRenewalAt: user.tokensExpireAt,
+      aiTokenRenewalAt: getUserTokensExpireAt(user),
       tokenBalance: getEffectiveTokenBalance(user),
-      tokensExpireAt: user.tokensExpireAt,
+      tokensExpireAt: getUserTokensExpireAt(user),
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2578,12 +2732,20 @@ app.put("/profile", async (request, reply) => {
 app.get("/billing/status", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const rawPlan = user.subscriptionPlan ?? user.plan ?? "FREE";
-    const subscriptionStatus = user.subscriptionStatus ?? null;
+    const query = request.query as { sync?: string };
+    if (query?.sync === "1") {
+      await syncUserBillingFromStripe(user);
+    }
+    const refreshedUser = query?.sync === "1" ? await prisma.user.findUnique({ where: { id: user.id } }) : user;
+    if (!refreshedUser) {
+      return reply.status(404).send({ error: "USER_NOT_FOUND" });
+    }
+    const rawPlan = refreshedUser.plan ?? "FREE";
+    const subscriptionStatus = refreshedUser.subscriptionStatus ?? null;
     const isActive = isActiveSubscriptionStatus(subscriptionStatus);
-    const tokensExpireAt = user.tokensExpireAt;
+    const tokensExpireAt = getUserTokensExpireAt(refreshedUser);
     const tokensExpired = tokensExpireAt ? tokensExpireAt.getTime() < Date.now() : false;
-    const tokens = tokensExpired ? 0 : getEffectiveTokenBalance(user);
+    const tokens = tokensExpired ? 0 : getEffectiveTokenBalance(refreshedUser);
     const plan = rawPlan === "PRO" && isActive ? "PRO" : "FREE";
     const response = {
       plan,
@@ -2592,7 +2754,7 @@ app.get("/billing/status", async (request, reply) => {
       tokensExpiresAt: tokensExpireAt ? tokensExpireAt.toISOString() : null,
       subscriptionStatus,
     };
-    app.log.info({ userId: user.id, plan: response.plan, tokens: response.tokens }, "billing status");
+    app.log.info({ userId: refreshedUser.id, plan: response.plan, tokens: response.tokens }, "billing status");
     return reply.status(200).send(response);
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2760,7 +2922,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
       user.plan === "PRO"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: user.tokensExpireAt }
+        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokensExpireAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
@@ -2893,7 +3055,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
       user.plan === "PRO"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: user.tokensExpireAt }
+        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokensExpireAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
@@ -3034,7 +3196,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
       user.plan === "PRO"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: user.tokensExpireAt }
+        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokensExpireAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
