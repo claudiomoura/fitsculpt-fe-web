@@ -93,6 +93,29 @@ export function parseJsonFromText(text: string) {
   throw new AiParseError("No valid JSON found", text);
 }
 
+export function parseTopLevelJsonFromText(text: string) {
+  const cleaned = stripCodeFences(text).trim();
+  if (!cleaned) {
+    throw new AiParseError("Empty response", text);
+  }
+
+  const firstIndex = cleaned.search(/[{\[]/);
+  if (firstIndex === -1) {
+    throw new AiParseError("No JSON start found", text);
+  }
+
+  const candidate = findBalancedJson(cleaned, firstIndex);
+  if (!candidate) {
+    throw new AiParseError("Truncated JSON block", text);
+  }
+
+  try {
+    return JSON.parse(candidate) as unknown;
+  } catch {
+    throw new AiParseError("Invalid JSON block", text);
+  }
+}
+
 export function parseLargestJsonFromText(text: string) {
   const cleaned = stripCodeFences(text).trim();
   if (!cleaned) {

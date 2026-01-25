@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import type { Workout } from "@/lib/types";
+import type { Workout, WorkoutExercise } from "@/lib/types";
 
 type WorkoutListItem = {
   id: string;
@@ -13,17 +13,19 @@ type WorkoutListItem = {
   notes: string | null;
 };
 
-type SessionLog = {
+type ExerciseOption = {
   id: string;
-  date: string;
-  exercise: string;
-  sets: number;
-  reps: number;
-  loadKg: number;
-  rpe: number;
+  name: string;
 };
 
-const SESSION_STORAGE_KEY = "fs_session_logs_v1";
+type WorkoutExerciseForm = {
+  exerciseId?: string;
+  name: string;
+  sets?: string;
+  reps?: string;
+  restSeconds?: number;
+  notes?: string;
+};
 
 export default function WorkoutsClient() {
   const { t, locale } = useLanguage();
@@ -44,13 +46,8 @@ export default function WorkoutsClient() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
-  const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [sessionExercise, setSessionExercise] = useState("");
-  const [sessionSets, setSessionSets] = useState(3);
-  const [sessionReps, setSessionReps] = useState(10);
-  const [sessionLoad, setSessionLoad] = useState(20);
-  const [sessionRpe, setSessionRpe] = useState(7);
+  const [exerciseOptions, setExerciseOptions] = useState<ExerciseOption[]>([]);
+  const [exerciseDrafts, setExerciseDrafts] = useState<WorkoutExerciseForm[]>([]);
 
   const loadWorkouts = useCallback(async () => {
     setLoading(true);
@@ -81,19 +78,24 @@ export default function WorkoutsClient() {
   }, [loadWorkouts]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored) as SessionLog[];
-      setSessionLogs(parsed ?? []);
-    } catch {
-      setSessionLogs([]);
-    }
+    const controller = new AbortController();
+    const loadExercises = async () => {
+      try {
+        const params = new URLSearchParams({ limit: "200" });
+        const response = await fetch(`/api/exercises?${params.toString()}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { items?: ExerciseOption[] };
+        setExerciseOptions(data.items ?? []);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    };
+    void loadExercises();
+    return () => controller.abort();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionLogs));
-  }, [sessionLogs]);
 
   const editingWorkout = useMemo(
     () => workouts.find((w) => w.id === editingId) || null,
@@ -154,40 +156,27 @@ export default function WorkoutsClient() {
     return { calendarWorkouts, undatedWorkouts };
   }, [visibleWorkouts]);
 
-  const sessionsByDate = useMemo(() => {
-    return sessionLogs.reduce<Record<string, SessionLog[]>>((acc, entry) => {
-      acc[entry.date] = acc[entry.date] ? [...acc[entry.date], entry] : [entry];
-      return acc;
-    }, {});
-  }, [sessionLogs]);
-
-  const progressionByExercise = useMemo(() => {
-    const byExercise: Record<string, SessionLog[]> = {};
-    sessionLogs.forEach((entry) => {
-      if (!byExercise[entry.exercise]) byExercise[entry.exercise] = [];
-      byExercise[entry.exercise].push(entry);
-    });
-
-    return Object.entries(byExercise).map(([exercise, logs]) => {
-      const sorted = [...logs].sort((a, b) => a.date.localeCompare(b.date));
-      const latest = sorted[sorted.length - 1];
-      const prev = sorted[sorted.length - 2];
-      const delta = prev ? latest.loadKg - prev.loadKg : 0;
-      return {
-        exercise,
-        latest,
-        delta,
-      };
-    });
-  }, [sessionLogs]);
-
   function resetForm() {
     setName("");
     setDate(new Date().toISOString().slice(0, 10));
     setDurationMin(45);
     setNotes("");
     setEditingId(null);
+    setExerciseDrafts([]);
   }
+
+  const buildExercisePayload = () =>
+    exerciseDrafts
+      .filter((exercise) => exercise.name.trim())
+      .map((exercise, index) => ({
+        exerciseId: exercise.exerciseId,
+        name: exercise.name.trim(),
+        sets: exercise.sets?.trim() || undefined,
+        reps: exercise.reps?.trim() || undefined,
+        restSeconds: exercise.restSeconds,
+        notes: exercise.notes?.trim() || undefined,
+        order: index,
+      }));
 
   async function submitNew(e: React.FormEvent) {
     e.preventDefault();
@@ -204,6 +193,7 @@ export default function WorkoutsClient() {
         notes: notesValue ? notesValue : undefined,
         scheduledAt: date ? new Date(date).toISOString() : undefined,
         durationMin: Number(durationMin) || 0,
+        exercises: buildExercisePayload(),
       }),
     });
 
@@ -216,12 +206,34 @@ export default function WorkoutsClient() {
     resetForm();
   }
 
-  function startEdit(w: WorkoutListItem) {
+  async function startEdit(w: WorkoutListItem) {
     setEditingId(w.id);
     setName(w.name);
     setDate(w.date || new Date().toISOString().slice(0, 10));
     setDurationMin(w.durationMin ?? 0);
     setNotes(w.notes ?? "");
+    try {
+      const response = await fetch(`/api/workouts/${w.id}`, { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as Workout;
+      const exercises = Array.isArray(data.exercises)
+        ? data.exercises.map((exercise) => ({
+            exerciseId: exercise.exerciseId ?? undefined,
+            name: exercise.name ?? "",
+            sets: typeof exercise.sets === "string" ? exercise.sets : exercise.sets?.toString(),
+            reps: typeof exercise.reps === "string" ? exercise.reps : exercise.reps?.toString(),
+            restSeconds:
+              typeof exercise.restSeconds === "number"
+                ? exercise.restSeconds
+                : exercise.restSeconds
+                  ? Number(exercise.restSeconds)
+                  : undefined,
+            notes: exercise.notes ?? undefined,
+          }))
+        : [];
+      setExerciseDrafts(exercises);
+    } catch {
+    }
   }
 
   async function submitEdit(e: React.FormEvent) {
@@ -240,6 +252,7 @@ export default function WorkoutsClient() {
         notes: notesValue ? notesValue : undefined,
         scheduledAt: date ? new Date(date).toISOString() : undefined,
         durationMin: Number(durationMin) || 0,
+        exercises: buildExercisePayload(),
       }),
     });
 
@@ -267,22 +280,31 @@ export default function WorkoutsClient() {
     }
   }
 
-  function addSessionEntry(e: React.FormEvent) {
-    e.preventDefault();
-    if (!sessionExercise.trim()) return;
+  const addExerciseDraft = () => {
+    setExerciseDrafts((prev) => [...prev, { name: "", sets: "", reps: "" }]);
+  };
 
-    const entry: SessionLog = {
-      id: `${sessionDate}-${Date.now()}`,
-      date: sessionDate,
-      exercise: sessionExercise.trim(),
-      sets: Number(sessionSets),
-      reps: Number(sessionReps),
-      loadKg: Number(sessionLoad),
-      rpe: Number(sessionRpe),
-    };
-    setSessionLogs((prev) => [entry, ...prev]);
-    setSessionExercise("");
-  }
+  const updateExerciseDraft = (
+    index: number,
+    field: keyof WorkoutExerciseForm,
+    value: string | number
+  ) => {
+    setExerciseDrafts((prev) => {
+      const next = [...prev];
+      const current = { ...next[index] };
+      if (field === "restSeconds") {
+        current.restSeconds = value ? Number(value) : undefined;
+      } else {
+        current[field] = value as string;
+      }
+      next[index] = current;
+      return next;
+    });
+  };
+
+  const removeExerciseDraft = (index: number) => {
+    setExerciseDrafts((prev) => prev.filter((_, idx) => idx !== index));
+  };
 
   const isEditing = Boolean(editingId);
 
@@ -340,6 +362,94 @@ export default function WorkoutsClient() {
               rows={3}
             />
           </label>
+
+          <div className="form-stack">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <strong>{t("workouts.exercisesTitle")}</strong>
+              <button type="button" className="btn secondary" onClick={addExerciseDraft}>
+                {t("workouts.addExercise")}
+              </button>
+            </div>
+            {exerciseDrafts.length === 0 ? (
+              <p className="muted">{t("workouts.exercisesEmpty")}</p>
+            ) : (
+              <div className="form-stack">
+                {exerciseDrafts.map((exercise, index) => (
+                  <div key={`${exercise.name}-${index}`} className="card" style={{ padding: 12 }}>
+                    <div className="form-stack">
+                      <label className="form-stack">
+                        {t("workouts.exerciseLabel")}
+                        <select
+                          value={exercise.exerciseId ?? ""}
+                          onChange={(event) => {
+                            const selectedId = event.target.value;
+                            const selected = exerciseOptions.find((item) => item.id === selectedId);
+                            updateExerciseDraft(index, "exerciseId", selectedId);
+                            updateExerciseDraft(index, "name", selected?.name ?? "");
+                          }}
+                        >
+                          <option value="">{t("workouts.exerciseSelect")}</option>
+                          {exerciseOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="form-stack">
+                        {t("workouts.exerciseName")}
+                        <input
+                          value={exercise.name}
+                          onChange={(event) => updateExerciseDraft(index, "name", event.target.value)}
+                          placeholder={t("workouts.exerciseNamePlaceholder")}
+                        />
+                      </label>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+                        <label className="form-stack">
+                          {t("workouts.exerciseSets")}
+                          <input
+                            value={exercise.sets ?? ""}
+                            onChange={(event) => updateExerciseDraft(index, "sets", event.target.value)}
+                            placeholder="3"
+                          />
+                        </label>
+                        <label className="form-stack">
+                          {t("workouts.exerciseReps")}
+                          <input
+                            value={exercise.reps ?? ""}
+                            onChange={(event) => updateExerciseDraft(index, "reps", event.target.value)}
+                            placeholder="8-12"
+                          />
+                        </label>
+                        <label className="form-stack">
+                          {t("workouts.exerciseRest")}
+                          <input
+                            type="number"
+                            min={0}
+                            value={exercise.restSeconds ?? ""}
+                            onChange={(event) => updateExerciseDraft(index, "restSeconds", event.target.value)}
+                            placeholder="60"
+                          />
+                        </label>
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => removeExerciseDraft(index)}
+                        >
+                          {t("workouts.removeExercise")}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <button type="submit" className="btn">{isEditing ? t("workouts.save") : t("workouts.add")}</button>
@@ -473,7 +583,7 @@ export default function WorkoutsClient() {
                 {w.notes ? <p style={{ margin: 0 }} className="muted">{w.notes}</p> : null}
 
                 <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
-                  <Link className="btn secondary" href={`/app/entrenamiento/${w.id}`}>
+                  <Link className="btn secondary" href={`/app/entrenamientos/${w.id}`}>
                     {t("workouts.viewDetail")}
                   </Link>
                   <button type="button" className="btn secondary" onClick={() => startEdit(w)}>
@@ -504,7 +614,7 @@ export default function WorkoutsClient() {
                         <strong>{workout.name}</strong>
                         <span className="muted">{workout.durationMin ?? 0} min</span>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <Link className="btn secondary" href={`/app/entrenamiento/${workout.id}`}>
+                          <Link className="btn secondary" href={`/app/entrenamientos/${workout.id}`}>
                             {t("workouts.viewDetail")}
                           </Link>
                           <button type="button" className="btn secondary" onClick={() => startEdit(workout)}>
@@ -532,86 +642,6 @@ export default function WorkoutsClient() {
             )}
           </>
         )}
-      </section>
-
-      <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("workouts.sessionTitle")}</h2>
-            <p className="section-subtitle">{t("workouts.sessionSubtitle")}</p>
-          </div>
-        </div>
-        <form onSubmit={addSessionEntry} className="form-stack">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("workouts.sessionDate")}
-              <input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
-            </label>
-            <label className="form-stack">
-              {t("workouts.sessionExercise")}
-              <input
-                value={sessionExercise}
-                onChange={(e) => setSessionExercise(e.target.value)}
-                placeholder={t("workouts.sessionExercisePlaceholder")}
-              />
-            </label>
-            <label className="form-stack">
-              {t("workouts.sessionSets")}
-              <input type="number" min={1} value={sessionSets} onChange={(e) => setSessionSets(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("workouts.sessionReps")}
-              <input type="number" min={1} value={sessionReps} onChange={(e) => setSessionReps(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("workouts.sessionLoad")}
-              <input type="number" min={0} value={sessionLoad} onChange={(e) => setSessionLoad(Number(e.target.value))} />
-            </label>
-            <label className="form-stack">
-              {t("workouts.sessionRpe")}
-              <input type="number" min={1} max={10} value={sessionRpe} onChange={(e) => setSessionRpe(Number(e.target.value))} />
-            </label>
-          </div>
-          <button type="submit" className="btn" style={{ width: "fit-content" }}>{t("workouts.sessionAdd")}</button>
-        </form>
-
-        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-          {Object.keys(sessionsByDate).length === 0 ? (
-            <p className="muted">{t("workouts.sessionEmpty")}</p>
-          ) : (
-            Object.entries(sessionsByDate).map(([day, entries]) => (
-              <div key={day} className="feature-card">
-                <strong>{day}</strong>
-                <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                  {entries.map((entry) => (
-                    <li key={entry.id}>
-                      {entry.exercise}: {entry.sets}x{entry.reps} · {entry.loadKg}kg · RPE {entry.rpe}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("workouts.progressTitle")}</h2>
-        <div className="list-grid" style={{ marginTop: 16 }}>
-          {progressionByExercise.length === 0 ? (
-            <p className="muted">{t("workouts.progressEmpty")}</p>
-          ) : (
-            progressionByExercise.map(({ exercise, latest, delta }) => (
-              <div key={exercise} className="feature-card">
-                <strong>{exercise}</strong>
-                <div className="muted">{t("workouts.progressLatest")}: {latest.sets}x{latest.reps} · {latest.loadKg}kg</div>
-                <div style={{ marginTop: 6 }}>
-                  {(delta === 0 ? t("workouts.progressDeltaSame") : delta > 0 ? `+${delta} kg` : `${delta} kg`)} {t("workouts.progressDeltaSuffix")}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       </section>
     </div>
   );

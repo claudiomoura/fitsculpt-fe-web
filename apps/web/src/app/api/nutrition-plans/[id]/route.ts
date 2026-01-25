@@ -17,7 +17,7 @@ export async function GET(
   }
 
   const { id } = await context.params;
-  const response = await fetch(`${getBackendUrl()}/exercises/${id}`, {
+  const response = await fetch(`${getBackendUrl()}/nutrition-plans/${id}`, {
     headers: { cookie: authCookie },
     cache: "no-store",
   });
