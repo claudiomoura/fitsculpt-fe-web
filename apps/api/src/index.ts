@@ -412,25 +412,23 @@ async function syncUserBillingFromStripe(user: User) {
   const currentTokenBalance = getUserTokenBalance(user);
   const shouldTopUpTokens = tokensExpired || currentTokenBalance <= 0;
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      plan: "PRO",
-      subscriptionPlan: "PRO",
-      subscriptionStatus: activeSubscription.status,
-      stripeSubscriptionId: activeSubscription.id,
-      currentPeriodEnd,
-      ...(shouldTopUpTokens
-        ? {
-            aiTokenBalance: 5000,
-            aiTokenResetAt: tokensExpireAt,
-            aiTokenRenewalAt: tokensExpireAt,
-            tokenBalance: 5000,
-            tokensExpireAt,
-          }
-        : {}),
-    },
-  });
+ await prisma.user.update({
+  where: { id: user.id },
+  data: {
+    plan: "PRO",
+    subscriptionStatus: "active",
+    stripeSubscriptionId: stripeSubId,
+    currentPeriodEnd: periodEnd ?? null,
+
+    aiTokenBalance: 5000,
+    aiTokenResetAt: nextResetAt,
+    aiTokenRenewalAt: nextRenewalAt,
+
+    // opcional si lo usas como “límite mensual”
+    aiTokenMonthlyAllowance: 5000,
+  },
+});
+
 }
 
 function logAuthCookieDebug(request: FastifyRequest, route: string) {
@@ -2189,29 +2187,44 @@ app.post("/billing/checkout", async (request, reply) => {
       customerId = customer.id;
       await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
     }
-    const session = await stripeRequest<StripeCheckoutSession>(
-      "checkout/sessions",
-      {
-        mode: "subscription",
-        customer: customerId,
-        customer_email: user.email ?? undefined,
-        client_reference_id: user.id,
-        "metadata[userId]": user.id,
-        "line_items[0][price]": priceId,
-        "line_items[0][quantity]": 1,
-        "subscription_data[metadata][userId]": user.id,
-        success_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=success`,
-        cancel_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=cancel`,
-      },
-      { idempotencyKey }
-    );
+const session = await stripeRequest<StripeCheckoutSession>(
+  "checkout/sessions",
+  {
+    mode: "subscription",
+    customer: customerId,
+    client_reference_id: user.id,
+    "metadata[userId]": user.id,
+    "line_items[0][price]": priceId,
+    "line_items[0][quantity]": 1,
+    "subscription_data[metadata][userId]": user.id,
+    success_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=success`,
+    cancel_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=cancel`,
+  },
+  { idempotencyKey }
+);
+
     if (!session.url) {
       throw createHttpError(502, "STRIPE_CHECKOUT_URL_MISSING");
     }
     return { url: session.url };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
+    
+} catch (err: any) {
+  request.log.error(
+    {
+      message: err?.message,
+      code: err?.code,
+      statusCode: err?.statusCode,
+      debug: err?.debug,                 // aquí está { status, body } porque lo lanzas en createHttpError
+      stripeStatus: err?.debug?.status,
+      stripeBody: err?.debug?.body,      // esto es lo importante
+    },
+    "billing checkout failed"
+  );
+
+  return reply.code(502).send({ error: "checkout_failed" });
+}
+
+
 });
 
 app.post("/billing/portal", async (request, reply) => {
