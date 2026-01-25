@@ -1585,7 +1585,6 @@ async function saveNutritionPlan(
         fatG: plan.fatG,
         carbsG: plan.carbsG,
       },
-      
     });
 
     await tx.nutritionDay.deleteMany({ where: { planId: planRecord.id } });
@@ -1619,11 +1618,6 @@ async function saveNutritionPlan(
     }
 
     return planRecord;
-  }
-,
-  {
-    timeout: 20000,
-    maxWait: 10000,
   });
 }
 
@@ -1686,10 +1680,6 @@ async function saveTrainingPlan(
     }
 
     return planRecord;
-  },
-  {
-    timeout: 20000,
-    maxWait: 10000,
   });
 }
 
@@ -4864,14 +4854,37 @@ app.post("/feed/generate", async (request, reply) => {
   }
 });
 
+const workoutExerciseSchema = z.object({
+  exerciseId: z.string().min(1).optional(),
+  name: z.string().min(1),
+  sets: z.string().min(1).optional(),
+  reps: z.string().min(1).optional(),
+  restSeconds: z.coerce.number().int().min(0).optional(),
+  notes: z.string().min(1).optional(),
+  order: z.coerce.number().int().min(0).optional(),
+});
+
 const workoutCreateSchema = z.object({
   name: z.string().min(2),
   notes: z.string().min(1).optional(),
   scheduledAt: z.string().datetime().optional(),
   durationMin: z.coerce.number().int().min(0).optional(),
+  exercises: z.array(workoutExerciseSchema).optional(),
 });
 
 const workoutUpdateSchema = workoutCreateSchema.partial();
+
+const workoutSessionEntrySchema = z.object({
+  exercise: z.string().min(1),
+  sets: z.coerce.number().int().min(1),
+  reps: z.coerce.number().int().min(1),
+  loadKg: z.coerce.number().min(0).optional(),
+  rpe: z.coerce.number().int().min(1).max(10).optional(),
+});
+
+const workoutSessionUpdateSchema = z.object({
+  entries: z.array(workoutSessionEntrySchema).min(1),
+});
 
 const exerciseListSchema = z.object({
   query: z.string().min(1).optional(),
@@ -4920,6 +4933,21 @@ const trainingPlanListSchema = z.object({
 });
 
 const trainingPlanParamsSchema = z.object({ id: z.string().min(1) });
+const nutritionPlanListSchema = z.object({
+  query: z.string().min(1).optional(),
+  limit: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(1).max(200).default(50)),
+  offset: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(0).default(0)),
+});
+
+const nutritionPlanParamsSchema = z.object({ id: z.string().min(1) });
 
 app.get("/exercises", async (request, reply) => {
   try {
@@ -5046,6 +5074,66 @@ app.get("/training-plans/:id", async (request, reply) => {
   }
 });
 
+app.get("/nutrition-plans", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { query, limit, offset } = nutritionPlanListSchema.parse(request.query);
+    const where: Prisma.NutritionPlanWhereInput = {
+      userId: user.id,
+      ...(query ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } } : {}),
+    };
+    const [items, total] = await prisma.$transaction([
+      prisma.nutritionPlan.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          dailyCalories: true,
+          proteinG: true,
+          fatG: true,
+          carbsG: true,
+          startDate: true,
+          daysCount: true,
+          createdAt: true,
+        },
+      }),
+      prisma.nutritionPlan.count({ where }),
+    ]);
+    return { items, total, limit, offset };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/nutrition-plans/:id", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { id } = nutritionPlanParamsSchema.parse(request.params);
+    const plan = await prisma.nutritionPlan.findFirst({
+      where: { id, userId: user.id },
+      include: {
+        days: {
+          orderBy: { order: "asc" },
+          include: {
+            meals: {
+              include: { ingredients: true },
+            },
+          },
+        },
+      },
+    });
+    if (!plan) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+    return plan;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.get("/workouts", async (request, reply) => {
   try {
     const user = await requireUser(request);
@@ -5070,7 +5158,21 @@ app.post("/workouts", async (request, reply) => {
         scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
         durationMin: data.durationMin ?? null,
         userId: user.id,
+        exercises: data.exercises
+          ? {
+              create: data.exercises.map((exercise, index) => ({
+                exerciseId: exercise.exerciseId,
+                name: exercise.name,
+                sets: exercise.sets ?? null,
+                reps: exercise.reps ?? null,
+                restSeconds: exercise.restSeconds ?? null,
+                notes: exercise.notes,
+                order: exercise.order ?? index,
+              })),
+            }
+          : undefined,
       },
+      include: { exercises: true },
     });
     return reply.status(201).send(workout);
   } catch (error) {
@@ -5085,6 +5187,7 @@ app.get("/workouts/:id", async (request, reply) => {
     const { id } = paramsSchema.parse(request.params);
     const workout = await prisma.workout.findFirst({
       where: { id, userId: user.id },
+      include: { exercises: { orderBy: { order: "asc" } } },
     });
     if (!workout) {
       return reply.status(404).send({ error: "NOT_FOUND" });
@@ -5101,19 +5204,42 @@ app.patch("/workouts/:id", async (request, reply) => {
     const paramsSchema = z.object({ id: z.string().min(1) });
     const { id } = paramsSchema.parse(request.params);
     const data = workoutUpdateSchema.parse(request.body);
-    const workout = await prisma.workout.updateMany({
-      where: { id, userId: user.id },
-      data: {
-        name: data.name,
-        notes: data.notes,
-        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
-        durationMin: data.durationMin,
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const workout = await tx.workout.updateMany({
+        where: { id, userId: user.id },
+        data: {
+          name: data.name,
+          notes: data.notes,
+          scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
+          durationMin: data.durationMin,
+        },
+      });
+      if (workout.count === 0) {
+        return null;
+      }
+      if (data.exercises) {
+        await tx.workoutExercise.deleteMany({ where: { workoutId: id } });
+        await tx.workoutExercise.createMany({
+          data: data.exercises.map((exercise, index) => ({
+            workoutId: id,
+            exerciseId: exercise.exerciseId ?? null,
+            name: exercise.name,
+            sets: exercise.sets ?? null,
+            reps: exercise.reps ?? null,
+            restSeconds: exercise.restSeconds ?? null,
+            notes: exercise.notes ?? null,
+            order: exercise.order ?? index,
+          })),
+        });
+      }
+      return tx.workout.findUnique({
+        where: { id },
+        include: { exercises: { orderBy: { order: "asc" } } },
+      });
     });
-    if (workout.count === 0) {
+    if (!updated) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
-    const updated = await prisma.workout.findUnique({ where: { id } });
     return updated;
   } catch (error) {
     return handleRequestError(reply, error);
@@ -5131,7 +5257,82 @@ app.delete("/workouts/:id", async (request, reply) => {
     if (workout.count === 0) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
-    return { ok: true };
+    return reply.status(204).send();
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/workouts/:id/start", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const paramsSchema = z.object({ id: z.string().min(1) });
+    const { id } = paramsSchema.parse(request.params);
+    const workout = await prisma.workout.findFirst({ where: { id, userId: user.id } });
+    if (!workout) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+    const session = await prisma.workoutSession.create({
+      data: {
+        workoutId: workout.id,
+        userId: user.id,
+        startedAt: new Date(),
+      },
+    });
+    return reply.status(201).send(session);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/workout-sessions/:id", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const paramsSchema = z.object({ id: z.string().min(1) });
+    const { id } = paramsSchema.parse(request.params);
+    const data = workoutSessionUpdateSchema.parse(request.body);
+    const session = await prisma.workoutSession.findFirst({
+      where: { id, userId: user.id },
+    });
+    if (!session) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+    await prisma.workoutSessionEntry.createMany({
+      data: data.entries.map((entry) => ({
+        sessionId: session.id,
+        exercise: entry.exercise,
+        sets: entry.sets,
+        reps: entry.reps,
+        loadKg: entry.loadKg ?? null,
+        rpe: entry.rpe ?? null,
+      })),
+    });
+    const updated = await prisma.workoutSession.findUnique({
+      where: { id: session.id },
+      include: { entries: true },
+    });
+    return updated;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/workout-sessions/:id/finish", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const paramsSchema = z.object({ id: z.string().min(1) });
+    const { id } = paramsSchema.parse(request.params);
+    const session = await prisma.workoutSession.findFirst({
+      where: { id, userId: user.id },
+    });
+    if (!session) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+    const updated = await prisma.workoutSession.update({
+      where: { id: session.id },
+      data: { finishedAt: new Date() },
+    });
+    return updated;
   } catch (error) {
     return handleRequestError(reply, error);
   }

@@ -35,6 +35,24 @@ export type WorkoutExercise = {
   } | null;
 };
 
+export type WorkoutSessionEntry = {
+  id: string;
+  exercise: string;
+  sets: number;
+  reps: number;
+  loadKg?: number | null;
+  rpe?: number | null;
+  createdAt: string;
+};
+
+export type WorkoutSession = {
+  id: string;
+  workoutId: string;
+  startedAt: string;
+  finishedAt?: string | null;
+  entries?: WorkoutSessionEntry[] | null;
+};
+
 export type Workout = {
   id: string;
   name: string;
@@ -50,6 +68,7 @@ export type Workout = {
   totalSets?: number | null;
   estimatedDurationMin?: number | null;
   exercises?: WorkoutExercise[] | null;
+  sessions?: WorkoutSession[] | null;
 };
 
 export type RecipeIngredient = {
@@ -117,4 +136,54 @@ export type TrainingPlanDetail = {
   startDate: string;
   daysCount: number;
   days: TrainingPlanDay[];
+};
+
+export type NutritionPlanListItem = {
+  id: string;
+  title: string;
+  dailyCalories: number;
+  proteinG: number;
+  fatG: number;
+  carbsG: number;
+  startDate: string;
+  daysCount: number;
+  createdAt: string;
+};
+
+export type NutritionPlanDetailMealIngredient = {
+  id: string;
+  name: string;
+  grams: number;
+};
+
+export type NutritionPlanDetailMeal = {
+  id: string;
+  type: string;
+  title: string;
+  description?: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  ingredients: NutritionPlanDetailMealIngredient[];
+};
+
+export type NutritionPlanDetailDay = {
+  id: string;
+  date: string;
+  dayLabel: string;
+  order: number;
+  meals: NutritionPlanDetailMeal[];
+};
+
+export type NutritionPlanDetail = {
+  id: string;
+  title: string;
+  dailyCalories: number;
+  proteinG: number;
+  fatG: number;
+  carbsG: number;
+  startDate: string;
+  daysCount: number;
+  days: NutritionPlanDetailDay[];
 };
