@@ -50,11 +50,12 @@ export default function ExerciseDetailClient({
   const levelLabel = t("library.levelGeneral");
   const primaryLabel = primary[0] ?? t("library.levelGeneral");
   const equipmentLabel = exercise.equipment ?? t("library.equipmentFallback");
-  const descriptionText =
-    exercise.description ?? t("library.descriptionFallback");
-  const techniqueText = exercise.technique ?? t("library.descriptionFallback");
-  const tipsText = exercise.tips ?? t("library.descriptionFallback");
+  const hasDescription = Boolean(exercise.description);
+  const hasTechnique = Boolean(exercise.technique);
+  const hasTips = Boolean(exercise.tips);
+  const hasExecutionDetails = hasDescription || hasTechnique || hasTips;
   const demoMedia = getExerciseDemoUrl(exercise);
+  const hasMedia = Boolean(exercise.mediaUrl || exercise.videoUrl || exercise.posterUrl || exercise.imageUrl);
   const demoImageUrl = forceImageFallback ? "/placeholders/exercise-demo.svg" : demoMedia.url;
 
   return (
@@ -115,14 +116,17 @@ export default function ExerciseDetailClient({
               }}
             />
           )}
+          {!hasMedia ? <p className="muted">{t("library.mediaPlaceholder")}</p> : null}
         </div>
 
-        <div className="feature-card">
-          <h3>{t("ui.description")}</h3>
-          <p className="muted" style={{ marginTop: 8 }}>
-            {descriptionText}
-          </p>
-        </div>
+        {hasDescription ? (
+          <div className="feature-card">
+            <h3>{t("ui.description")}</h3>
+            <p className="muted" style={{ marginTop: 8 }}>
+              {exercise.description}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="tab-list" style={{ marginTop: 20 }}>
@@ -143,26 +147,38 @@ export default function ExerciseDetailClient({
       </div>
 
       {activeTab === "execution" ? (
-        <div className="tab-panel">
-          <div className="feature-card">
-            <h3>{t("exerciseDetail.executionPrep")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
-              {descriptionText}
-            </p>
+        hasExecutionDetails ? (
+          <div className="tab-panel">
+            {hasDescription ? (
+              <div className="feature-card">
+                <h3>{t("exerciseDetail.executionPrep")}</h3>
+                <p className="muted" style={{ marginTop: 8 }}>
+                  {exercise.description}
+                </p>
+              </div>
+            ) : null}
+            {hasTechnique ? (
+              <div className="feature-card">
+                <h3>{t("exerciseDetail.executionMove")}</h3>
+                <p className="muted" style={{ marginTop: 8 }}>
+                  {exercise.technique}
+                </p>
+              </div>
+            ) : null}
+            {hasTips ? (
+              <div className="feature-card">
+                <h3>{t("exerciseDetail.executionTips")}</h3>
+                <p className="muted" style={{ marginTop: 8 }}>
+                  {exercise.tips}
+                </p>
+              </div>
+            ) : null}
           </div>
-          <div className="feature-card">
-            <h3>{t("exerciseDetail.executionMove")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
-              {techniqueText}
-            </p>
-          </div>
-          <div className="feature-card">
-            <h3>{t("exerciseDetail.executionTips")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
-              {tipsText}
-            </p>
-          </div>
-        </div>
+        ) : (
+          <p className="muted" style={{ marginTop: 16 }}>
+            {t("library.noExecutionDetails")}
+          </p>
+        )
       ) : (
         <div className="tab-panel">
           <div className="feature-card muscle-map">

@@ -1,0 +1,8 @@
+<svg width="640" height="420" viewBox="0 0 640 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="640" height="420" rx="32" fill="#F8FAFC"/>
+  <rect x="40" y="40" width="560" height="340" rx="24" fill="#FFF7ED" stroke="#E5E7EB" stroke-width="2"/>
+  <circle cx="320" cy="190" r="72" fill="#FDBA74"/>
+  <rect x="220" y="270" width="200" height="18" rx="9" fill="#FED7AA"/>
+  <rect x="250" y="300" width="140" height="14" rx="7" fill="#F97316" opacity="0.5"/>
+  <text x="320" y="200" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" text-anchor="middle" fill="#9A3412">Receta</text>
+</svg>

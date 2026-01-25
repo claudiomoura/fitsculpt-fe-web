@@ -181,8 +181,8 @@
     "tipGenerating": "Generating tip...",
     "tipSubtitle": "AI-generated tip",
     "tipError": "We couldn't generate the daily tip.",
-    "libraryTitle": "Exercise library",
-    "librarySubtitle": "Explore exercises, muscles, and available variants.",
+    "libraryTitle": "Library",
+    "librarySubtitle": "Exercises and recipes to train and eat better.",
     "adminTitle": "Admin panel",
     "adminSubtitle": "Manage users and access.",
     "adminUsersTitle": "Users",
@@ -945,6 +945,10 @@
     "loadError": "We couldn't load the exercise.",
     "loadErrorList": "We couldn't load the exercises.",
     "searchPlaceholder": "Search by exercise or muscle",
+    "tabs": {
+      "exercises": "Exercises",
+      "recipes": "Recipes"
+    },
     "equipmentFilterLabel": "Equipment",
     "muscleFilterLabel": "Muscle group",
     "allOption": "All",
@@ -960,7 +964,29 @@
     "secondaryLabel": "Secondary",
     "secondaryFallback": "Not defined",
     "mediaAlt": "Exercise demo",
-    "mediaFallback": "The 3D model / GIF will go here, like in FitnessAI."
+    "mediaFallback": "The 3D model / GIF will go here, like in FitnessAI.",
+    "mediaPlaceholder": "No media available yet.",
+    "noExecutionDetails": "No execution details available."
+  },
+  "recipes": {
+    "loading": "Loading recipes...",
+    "empty": "No recipes available yet.",
+    "loadError": "We couldn't load the recipe.",
+    "loadErrorList": "We couldn't load the recipes.",
+    "searchPlaceholder": "Search recipes by title",
+    "detailSubtitle": "Quick guide to cook this recipe.",
+    "ingredientsLabel": "Ingredients",
+    "ingredientsTitle": "Ingredients",
+    "stepsTitle": "Steps",
+    "stepLabel": "Step",
+    "descriptionTitle": "Description",
+    "caloriesLabel": "Calories",
+    "proteinLabel": "Protein",
+    "carbsLabel": "Carbs",
+    "fatLabel": "Fats",
+    "mediaPlaceholder": "No photo available.",
+    "noDetails": "This recipe doesn't have extra details yet.",
+    "backToRecipes": "Back to recipes"
   },
   "workoutDetail": {
     "notFound": "This workout was not found.",

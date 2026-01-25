@@ -15,12 +15,11 @@ type LanguageContextValue = {
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
-
-  useEffect(() => {
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === "undefined") return DEFAULT_LOCALE;
     const stored = window.localStorage.getItem(STORAGE_KEY) as Locale | null;
-    setLocaleState(resolveLocale(stored));
-  }, []);
+    return resolveLocale(stored);
+  });
 
   useEffect(() => {
     document.documentElement.lang = locale;

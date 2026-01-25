@@ -51,3 +51,23 @@ export type Workout = {
   estimatedDurationMin?: number | null;
   exercises?: WorkoutExercise[] | null;
 };
+
+export type RecipeIngredient = {
+  id: string;
+  recipeId?: string;
+  name: string;
+  grams: number;
+};
+
+export type Recipe = {
+  id: string;
+  name: string;
+  description?: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  photoUrl?: string | null;
+  steps: string[];
+  ingredients: RecipeIngredient[];
+};
