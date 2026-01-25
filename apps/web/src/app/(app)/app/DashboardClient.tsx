@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
+import { differenceInDays, parseDate } from "@/lib/calendar";
+import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
+import { isProfileComplete } from "@/lib/profileCompletion";
 
 type CheckinEntry = {
   date: string;
@@ -12,6 +15,11 @@ type CheckinEntry = {
 
 type TrackingPayload = {
   checkins?: CheckinEntry[];
+};
+
+type TodaySummary = {
+  training?: { label: string; focus: string; duration: number } | null;
+  nutrition?: { label: string; meals: number } | null;
 };
 
 type ChartPoint = {
@@ -75,6 +83,8 @@ export default function DashboardClient() {
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [summary, setSummary] = useState<TodaySummary | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -99,11 +109,128 @@ export default function DashboardClient() {
     };
   }, [t]);
 
+  useEffect(() => {
+    let active = true;
+    const loadProfile = async () => {
+      try {
+        const response = await fetch("/api/profile", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as ProfileData;
+        if (!active) return;
+        setProfile(data);
+      } catch {
+        if (active) setProfile(null);
+      }
+    };
+    void loadProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const profileReady = profile ? isProfileComplete(profile) : false;
+
+  useEffect(() => {
+    if (!profile || !profileReady) {
+      setSummary(null);
+      return;
+    }
+    const buildTrainingSummary = (plan?: TrainingPlanData | null) => {
+      if (!plan?.days?.length) return null;
+      const start = parseDate(plan.startDate);
+      if (!start) return null;
+      const index = differenceInDays(new Date(), start);
+      if (index < 0 || index >= plan.days.length) return null;
+      const day = plan.days[index];
+      return { label: day.label, focus: day.focus, duration: day.duration };
+    };
+    const buildNutritionSummary = (plan?: NutritionPlanData | null) => {
+      if (!plan?.days?.length) return null;
+      const start = parseDate(plan.startDate);
+      if (!start) return null;
+      const index = differenceInDays(new Date(), start);
+      if (index < 0 || index >= plan.days.length) return null;
+      const day = plan.days[index];
+      return { label: day.dayLabel, meals: day.meals.length };
+    };
+
+    const training = buildTrainingSummary(profile.trainingPlan);
+    const nutrition = buildNutritionSummary(profile.nutritionPlan);
+    setSummary({ training, nutrition });
+  }, [profile]);
+
   const weightSeries = useMemo(() => buildSeries(checkins, "weightKg"), [checkins]);
   const bodyFatSeries = useMemo(() => buildSeries(checkins, "bodyFatPercent"), [checkins]);
 
   return (
     <div className="page">
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("dashboard.todayTitle")}</h2>
+            <p className="section-subtitle">{t("dashboard.todaySubtitle")}</p>
+          </div>
+        </div>
+        {!profileReady ? (
+          <div className="empty-state" style={{ marginTop: 16 }}>
+            <h3 style={{ marginTop: 0 }}>{t("dashboard.profileIncompleteTitle")}</h3>
+            <p className="muted">{t("dashboard.profileIncompleteSubtitle")}</p>
+            <Link className="btn" href="/app/onboarding?next=/app">
+              {t("profile.openOnboarding")}
+            </Link>
+          </div>
+        ) : (
+          <div className="list-grid" style={{ marginTop: 16 }}>
+            <div className="feature-card">
+              <strong>{t("dashboard.todayTrainingTitle")}</strong>
+              {summary?.training ? (
+                <>
+                  <p className="muted" style={{ marginTop: 6 }}>
+                    {summary.training.focus} · {summary.training.duration} {t("training.minutesLabel")}
+                  </p>
+                  <span className="badge">{summary.training.label}</span>
+                </>
+              ) : (
+                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayTrainingEmpty")}</p>
+              )}
+              <Link className="btn secondary" href="/app/entrenamiento">
+                {t("dashboard.todayTrainingCta")}
+              </Link>
+            </div>
+            <div className="feature-card">
+              <strong>{t("dashboard.todayNutritionTitle")}</strong>
+              {summary?.nutrition ? (
+                <>
+                  <p className="muted" style={{ marginTop: 6 }}>
+                    {summary.nutrition.meals} {t("dashboard.todayMealsLabel")}
+                  </p>
+                  <span className="badge">{summary.nutrition.label}</span>
+                </>
+              ) : (
+                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayNutritionEmpty")}</p>
+              )}
+              <Link className="btn secondary" href="/app/nutricion">
+                {t("dashboard.todayNutritionCta")}
+              </Link>
+            </div>
+            <div className="feature-card" style={{ display: "grid", gap: 12 }}>
+              <div>
+                <strong>{t("dashboard.quickActionsTitle")}</strong>
+                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.quickActionsSubtitle")}</p>
+              </div>
+              <div className="list-grid">
+                <Link className="btn" href="/app/entrenamiento?ai=1">
+                  {t("dashboard.aiTrainingCta")}
+                </Link>
+                <Link className="btn" href="/app/nutricion?ai=1">
+                  {t("dashboard.aiNutritionCta")}
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
       <section className="card">
         <div className="section-head">
           <div>

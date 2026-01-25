@@ -22,7 +22,7 @@ function applyThemeClass(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>("dark");
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
@@ -30,8 +30,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setThemeState(stored);
       return;
     }
-    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
-    setThemeState(prefersDark ? "dark" : "light");
+    setThemeState("dark");
   }, []);
 
   useEffect(() => {

@@ -3,8 +3,9 @@ import { computeCostCents, getModelPricing, normalizeModelName, type AiPricingMa
 
 type AiUsageUser = {
   id: string;
-  subscriptionPlan: string;
-  aiTokenBalance: number;
+  plan: string;
+  tokenBalance: number;
+  tokensExpireAt: Date | null;
 };
 
 type OpenAiUsage = {
@@ -37,6 +38,12 @@ type UsageTotals = {
   totalTokens: number;
 };
 
+function getEffectiveTokens(user: { tokenBalance: number; tokensExpireAt: Date | null }) {
+  if (!user.tokensExpireAt) return 0;
+  if (user.tokensExpireAt.getTime() < Date.now()) return 0;
+  return Math.max(0, user.tokenBalance);
+}
+
 function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
   const promptTokens = Math.max(0, usage?.prompt_tokens ?? usage?.input_tokens ?? 0);
   const completionTokens = Math.max(0, usage?.completion_tokens ?? usage?.output_tokens ?? 0);
@@ -67,13 +74,14 @@ async function debitAiTokensTx(
     if (!user) {
       throw createHttpError(404, "USER_NOT_FOUND");
     }
-    if (user.aiTokenBalance <= 0) {
+    const effectiveTokens = getEffectiveTokens(user);
+    if (effectiveTokens <= 0) {
       throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
     }
 
-    const nextBalance = Math.max(0, user.aiTokenBalance - costCents);
+    const nextBalance = Math.max(0, effectiveTokens - costCents);
     const mergedMeta = { ...(meta ?? {}) };
-    if (costCents > user.aiTokenBalance) {
+    if (costCents > effectiveTokens) {
       mergedMeta.overdraw = true;
     }
     const logMeta = Object.keys(mergedMeta).length > 0 ? (mergedMeta as Prisma.InputJsonValue) : undefined;
@@ -81,7 +89,7 @@ async function debitAiTokensTx(
     const [updatedUser] = await Promise.all([
       tx.user.update({
         where: { id: userId },
-        data: { aiTokenBalance: nextBalance },
+        data: { tokenBalance: nextBalance, aiTokenBalance: nextBalance },
       }),
       tx.aiUsageLog.create({
         data: {
@@ -100,7 +108,7 @@ async function debitAiTokensTx(
     ]);
 
     return {
-      balance: updatedUser.aiTokenBalance,
+      balance: updatedUser.tokenBalance,
     };
   });
 }
@@ -108,11 +116,11 @@ async function debitAiTokensTx(
 export async function chargeAiUsage(params: ChargeAiUsageParams) {
   const { prisma, pricing, user, feature, execute, createHttpError } = params;
 
-  if (user.subscriptionPlan !== "PRO") {
+  if (user.plan !== "PRO") {
     throw createHttpError(403, "NOT_PRO");
   }
 
-  if (user.aiTokenBalance <= 0) {
+  if (getEffectiveTokens(user) <= 0) {
     throw createHttpError(402, "INSUFFICIENT_TOKENS");
   }
 
@@ -180,6 +188,6 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
     totalTokens: totals.totalTokens,
     model: normalizedModel,
     usage: totals,
-    balanceBefore: user.aiTokenBalance,
+    balanceBefore: getEffectiveTokens(user),
   };
 }

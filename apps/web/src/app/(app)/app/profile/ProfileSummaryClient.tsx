@@ -83,7 +83,9 @@ export default function ProfileSummaryClient() {
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.sex")}</div>
-            <div className="info-value">{t(profile.sex === "female" ? "profile.sexFemale" : "profile.sexMale")}</div>
+            <div className="info-value">
+              {profile.sex ? t(profile.sex === "female" ? "profile.sexFemale" : "profile.sexMale") : t("profile.noData")}
+            </div>
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.age")}</div>
@@ -100,17 +102,19 @@ export default function ProfileSummaryClient() {
           <div className="info-item">
             <div className="info-label">{t("profile.activity")}</div>
             <div className="info-value">
-              {t(
-                profile.activity === "sedentary"
-                  ? "profile.activitySedentary"
-                  : profile.activity === "light"
-                    ? "profile.activityLight"
-                    : profile.activity === "very"
-                      ? "profile.activityVery"
-                      : profile.activity === "extra"
-                        ? "profile.activityExtra"
-                        : "profile.activityModerate"
-              )}
+              {profile.activity
+                ? t(
+                    profile.activity === "sedentary"
+                      ? "profile.activitySedentary"
+                      : profile.activity === "light"
+                        ? "profile.activityLight"
+                        : profile.activity === "very"
+                          ? "profile.activityVery"
+                          : profile.activity === "extra"
+                            ? "profile.activityExtra"
+                            : "profile.activityModerate"
+                  )
+                : t("profile.noData")}
             </div>
           </div>
         </div>
@@ -122,7 +126,9 @@ export default function ProfileSummaryClient() {
           <div className="info-item">
             <div className="info-label">{t("profile.goal")}</div>
             <div className="info-value">
-              {t(profile.goal === "cut" ? "profile.goalCut" : profile.goal === "bulk" ? "profile.goalBulk" : "profile.goalMaintain")}
+              {profile.goal
+                ? t(profile.goal === "cut" ? "profile.goalCut" : profile.goal === "bulk" ? "profile.goalBulk" : "profile.goalMaintain")
+                : t("profile.noData")}
             </div>
           </div>
           <div className="info-item">
@@ -142,13 +148,15 @@ export default function ProfileSummaryClient() {
           <div className="info-item">
             <div className="info-label">{t("profile.trainingLevel")}</div>
             <div className="info-value">
-              {t(
-                profile.trainingPreferences.level === "beginner"
-                  ? "profile.trainingLevelBeginner"
-                  : profile.trainingPreferences.level === "intermediate"
-                    ? "profile.trainingLevelIntermediate"
-                    : "profile.trainingLevelAdvanced"
-              )}
+              {profile.trainingPreferences.level
+                ? t(
+                    profile.trainingPreferences.level === "beginner"
+                      ? "profile.trainingLevelBeginner"
+                      : profile.trainingPreferences.level === "intermediate"
+                        ? "profile.trainingLevelIntermediate"
+                        : "profile.trainingLevelAdvanced"
+                  )
+                : t("profile.noData")}
             </div>
           </div>
           <div className="info-item">
@@ -158,31 +166,37 @@ export default function ProfileSummaryClient() {
           <div className="info-item">
             <div className="info-label">{t("profile.trainingSessionTime")}</div>
             <div className="info-value">
-              {t(
-                profile.trainingPreferences.sessionTime === "short"
-                  ? "profile.trainingSessionShort"
-                  : profile.trainingPreferences.sessionTime === "long"
-                    ? "profile.trainingSessionLong"
-                    : "profile.trainingSessionMedium"
-              )}
+              {profile.trainingPreferences.sessionTime
+                ? t(
+                    profile.trainingPreferences.sessionTime === "short"
+                      ? "profile.trainingSessionShort"
+                      : profile.trainingPreferences.sessionTime === "long"
+                        ? "profile.trainingSessionLong"
+                        : "profile.trainingSessionMedium"
+                  )
+                : t("profile.noData")}
             </div>
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.trainingFocus")}</div>
             <div className="info-value">
-              {t(
-                profile.trainingPreferences.focus === "ppl"
-                  ? "profile.trainingFocusPpl"
-                  : profile.trainingPreferences.focus === "upperLower"
-                    ? "profile.trainingFocusUpperLower"
-                    : "profile.trainingFocusFull"
-              )}
+              {profile.trainingPreferences.focus
+                ? t(
+                    profile.trainingPreferences.focus === "ppl"
+                      ? "profile.trainingFocusPpl"
+                      : profile.trainingPreferences.focus === "upperLower"
+                        ? "profile.trainingFocusUpperLower"
+                        : "profile.trainingFocusFull"
+                  )
+                : t("profile.noData")}
             </div>
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.trainingEquipment")}</div>
             <div className="info-value">
-              {t(profile.trainingPreferences.equipment === "home" ? "profile.trainingEquipmentHome" : "profile.trainingEquipmentGym")}
+              {profile.trainingPreferences.equipment
+                ? t(profile.trainingPreferences.equipment === "home" ? "profile.trainingEquipmentHome" : "profile.trainingEquipmentGym")
+                : t("profile.noData")}
             </div>
           </div>
           <div className="info-item">
@@ -196,19 +210,23 @@ export default function ProfileSummaryClient() {
           <div className="info-item">
             <div className="info-label">{t("profile.workoutLength")}</div>
             <div className="info-value">
-              {profile.trainingPreferences.workoutLength === "30m"
-                ? "30 min"
-                : profile.trainingPreferences.workoutLength === "60m"
-                  ? "60 min"
-                  : profile.trainingPreferences.workoutLength === "flexible"
-                    ? t("profile.workoutLengthFlexible")
-                    : "45 min"}
+              {profile.trainingPreferences.workoutLength
+                ? profile.trainingPreferences.workoutLength === "30m"
+                  ? "30 min"
+                  : profile.trainingPreferences.workoutLength === "60m"
+                    ? "60 min"
+                    : profile.trainingPreferences.workoutLength === "flexible"
+                      ? t("profile.workoutLengthFlexible")
+                      : "45 min"
+                : t("profile.noData")}
             </div>
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.timerSound")}</div>
             <div className="info-value">
-              {t(profile.trainingPreferences.timerSound === "repsToDo" ? "profile.timerSoundReps" : "profile.timerSoundDing")}
+              {profile.trainingPreferences.timerSound
+                ? t(profile.trainingPreferences.timerSound === "repsToDo" ? "profile.timerSoundReps" : "profile.timerSoundDing")
+                : t("profile.noData")}
             </div>
           </div>
         </div>
@@ -223,26 +241,34 @@ export default function ProfileSummaryClient() {
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.dietTypeLabel")}</div>
-            <div className="info-value">{t(`profile.dietType.${profile.nutritionPreferences.dietType}`)}</div>
+            <div className="info-value">
+              {profile.nutritionPreferences.dietType
+                ? t(`profile.dietType.${profile.nutritionPreferences.dietType}`)
+                : t("profile.noData")}
+            </div>
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.cookingTime")}</div>
             <div className="info-value">
-              {t(
-                profile.nutritionPreferences.cookingTime === "quick"
-                  ? "profile.cookingTimeOptionQuick"
-                  : profile.nutritionPreferences.cookingTime === "long"
-                    ? "profile.cookingTimeOptionLong"
-                    : "profile.cookingTimeOptionMedium"
-              )}
+              {profile.nutritionPreferences.cookingTime
+                ? t(
+                    profile.nutritionPreferences.cookingTime === "quick"
+                      ? "profile.cookingTimeOptionQuick"
+                      : profile.nutritionPreferences.cookingTime === "long"
+                        ? "profile.cookingTimeOptionLong"
+                        : "profile.cookingTimeOptionMedium"
+                  )
+                : t("profile.noData")}
             </div>
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.mealDistributionLabel")}</div>
             <div className="info-value">
-              {profile.nutritionPreferences.mealDistribution.preset === "custom"
-                ? t("profile.mealDistributionCustom")
-                : t(`profile.mealDistribution.${profile.nutritionPreferences.mealDistribution.preset}`)}
+              {profile.nutritionPreferences.mealDistribution.preset
+                ? profile.nutritionPreferences.mealDistribution.preset === "custom"
+                  ? t("profile.mealDistributionCustom")
+                  : t(`profile.mealDistribution.${profile.nutritionPreferences.mealDistribution.preset}`)
+                : t("profile.noData")}
             </div>
           </div>
         </div>
@@ -291,7 +317,11 @@ export default function ProfileSummaryClient() {
         <div className="info-grid">
           <div className="info-item">
             <div className="info-label">{t("profile.macroFormula")}</div>
-            <div className="info-value">{t(profile.macroPreferences.formula === "katch" ? "profile.macroFormulaKatch" : "profile.macroFormulaMifflin")}</div>
+            <div className="info-value">
+              {profile.macroPreferences.formula
+                ? t(profile.macroPreferences.formula === "katch" ? "profile.macroFormulaKatch" : "profile.macroFormulaMifflin")
+                : t("profile.noData")}
+            </div>
           </div>
           <div className="info-item">
             <div className="info-label">{t("profile.macroProtein")}</div>

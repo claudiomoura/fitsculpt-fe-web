@@ -39,6 +39,7 @@ export default function ProfileClient() {
     if (value === null || value === undefined) return t("profile.noData");
     return `${value} ${suffix}`;
   };
+  const parseNumberInput = (value: string) => (value.trim() === "" ? null : Number(value));
 
   const goalOptions: Array<{ value: GoalTag; label: string }> = [
     { value: "buildStrength", label: t("profile.goalTagStrength") },
@@ -183,7 +184,7 @@ export default function ProfileClient() {
     }));
   }
 
-  function updateMealDistributionPreset(preset: MealDistributionPreset) {
+  function updateMealDistributionPreset(preset: MealDistributionPreset | "") {
     setProfile((prev) => ({
       ...prev,
       nutritionPreferences: {
@@ -336,6 +337,7 @@ export default function ProfileClient() {
                 <label className="form-stack">
                   {t("profile.sex")}
                   <select value={profile.sex} onChange={(e) => update("sex", e.target.value as Sex)}>
+                    <option value="">{t("profile.selectPlaceholder")}</option>
                     <option value="male">{t("profile.sexMale")}</option>
                     <option value="female">{t("profile.sexFemale")}</option>
                   </select>
@@ -347,8 +349,8 @@ export default function ProfileClient() {
                     type="number"
                     min={10}
                     max={100}
-                    value={profile.age}
-                    onChange={(e) => update("age", Number(e.target.value))}
+                    value={profile.age ?? ""}
+                    onChange={(e) => update("age", parseNumberInput(e.target.value))}
                   />
                 </label>
 
@@ -358,8 +360,8 @@ export default function ProfileClient() {
                     type="number"
                     min={120}
                     max={230}
-                    value={profile.heightCm}
-                    onChange={(e) => update("heightCm", Number(e.target.value))}
+                    value={profile.heightCm ?? ""}
+                    onChange={(e) => update("heightCm", parseNumberInput(e.target.value))}
                   />
                 </label>
               </div>
@@ -371,8 +373,8 @@ export default function ProfileClient() {
                     type="number"
                     min={35}
                     max={250}
-                    value={profile.weightKg}
-                    onChange={(e) => update("weightKg", Number(e.target.value))}
+                    value={profile.weightKg ?? ""}
+                    onChange={(e) => update("weightKg", parseNumberInput(e.target.value))}
                   />
                 </label>
 
@@ -382,6 +384,7 @@ export default function ProfileClient() {
                     value={profile.activity}
                     onChange={(e) => update("activity", e.target.value as Activity)}
                   >
+                    <option value="">{t("profile.selectPlaceholder")}</option>
                     <option value="sedentary">{t("profile.activitySedentary")}</option>
                     <option value="light">{t("profile.activityLight")}</option>
                     <option value="moderate">{t("profile.activityModerate")}</option>
@@ -394,7 +397,7 @@ export default function ProfileClient() {
               <div className="form-stack" style={{ marginTop: 12 }}>
                 <div style={{ fontWeight: 600 }}>{t("profile.bodyFat")}</div>
                 <BodyFatSelector
-                  value={profile.measurements.bodyFatPercent || null}
+                  value={profile.measurements.bodyFatPercent ?? null}
                   onChange={(value) => updateMeasurements("bodyFatPercent", value)}
                 />
               </div>
@@ -411,14 +414,15 @@ export default function ProfileClient() {
                     type="number"
                     min={35}
                     max={250}
-                    value={profile.goalWeightKg}
-                    onChange={(e) => update("goalWeightKg", Number(e.target.value))}
+                    value={profile.goalWeightKg ?? ""}
+                    onChange={(e) => update("goalWeightKg", parseNumberInput(e.target.value))}
                   />
                 </label>
 
                 <label className="form-stack">
                   {t("profile.goal")}
                   <select value={profile.goal} onChange={(e) => update("goal", e.target.value as Goal)}>
+                    <option value="">{t("profile.selectPlaceholder")}</option>
                     <option value="cut">{t("profile.goalCut")}</option>
                     <option value="maintain">{t("profile.goalMaintain")}</option>
                     <option value="bulk">{t("profile.goalBulk")}</option>
@@ -454,6 +458,7 @@ export default function ProfileClient() {
                   value={profile.trainingPreferences.level}
                   onChange={(e) => updateTraining("level", e.target.value as TrainingLevel)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="beginner">{t("profile.trainingLevelBeginner")}</option>
                   <option value="intermediate">{t("profile.trainingLevelIntermediate")}</option>
                   <option value="advanced">{t("profile.trainingLevelAdvanced")}</option>
@@ -463,11 +468,12 @@ export default function ProfileClient() {
               <label className="form-stack">
                 {t("profile.trainingDays")}
                 <select
-                  value={profile.trainingPreferences.daysPerWeek}
+                  value={profile.trainingPreferences.daysPerWeek ?? ""}
                   onChange={(e) =>
-                    updateTraining("daysPerWeek", Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 7)
+                    updateTraining("daysPerWeek", parseNumberInput(e.target.value))
                   }
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value={1}>1</option>
                   <option value={2}>2</option>
                   <option value={3}>3</option>
@@ -484,6 +490,7 @@ export default function ProfileClient() {
                   value={profile.trainingPreferences.sessionTime}
                   onChange={(e) => updateTraining("sessionTime", e.target.value as SessionTime)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="short">{t("profile.trainingSessionShort")}</option>
                   <option value="medium">{t("profile.trainingSessionMedium")}</option>
                   <option value="long">{t("profile.trainingSessionLong")}</option>
@@ -496,6 +503,7 @@ export default function ProfileClient() {
                   value={profile.trainingPreferences.focus}
                   onChange={(e) => updateTraining("focus", e.target.value as TrainingFocus)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="full">{t("profile.trainingFocusFull")}</option>
                   <option value="upperLower">{t("profile.trainingFocusUpperLower")}</option>
                   <option value="ppl">{t("profile.trainingFocusPpl")}</option>
@@ -508,6 +516,7 @@ export default function ProfileClient() {
                   value={profile.trainingPreferences.equipment}
                   onChange={(e) => updateTraining("equipment", e.target.value as TrainingEquipment)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="gym">{t("profile.trainingEquipmentGym")}</option>
                   <option value="home">{t("profile.trainingEquipmentHome")}</option>
                 </select>
@@ -519,6 +528,7 @@ export default function ProfileClient() {
                   value={profile.trainingPreferences.workoutLength}
                   onChange={(e) => updateTraining("workoutLength", e.target.value as WorkoutLength)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="30m">30 min</option>
                   <option value="45m">45 min</option>
                   <option value="60m">60 min</option>
@@ -532,6 +542,7 @@ export default function ProfileClient() {
                   value={profile.trainingPreferences.timerSound}
                   onChange={(e) => updateTraining("timerSound", e.target.value as TimerSound)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="ding">{t("profile.timerSoundDing")}</option>
                   <option value="repsToDo">{t("profile.timerSoundReps")}</option>
                 </select>
@@ -564,11 +575,12 @@ export default function ProfileClient() {
               <label className="form-stack">
                 {t("profile.mealsPerDay")}
                 <select
-                  value={profile.nutritionPreferences.mealsPerDay}
+                  value={profile.nutritionPreferences.mealsPerDay ?? ""}
                   onChange={(e) =>
-                    updateNutrition("mealsPerDay", Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6)
+                    updateNutrition("mealsPerDay", parseNumberInput(e.target.value))
                   }
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value={1}>1</option>
                   <option value={2}>2</option>
                   <option value={3}>3</option>
@@ -584,6 +596,7 @@ export default function ProfileClient() {
                   value={profile.nutritionPreferences.dietType}
                   onChange={(e) => updateNutrition("dietType", e.target.value as NutritionDietType)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="balanced">{t("profile.dietType.balanced")}</option>
                   <option value="mediterranean">{t("profile.dietType.mediterranean")}</option>
                   <option value="keto">{t("profile.dietType.keto")}</option>
@@ -601,6 +614,7 @@ export default function ProfileClient() {
                   value={profile.nutritionPreferences.cookingTime}
                   onChange={(e) => updateNutrition("cookingTime", e.target.value as NutritionCookingTime)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="quick">{t("profile.cookingTimeOptionQuick")}</option>
                   <option value="medium">{t("profile.cookingTimeOptionMedium")}</option>
                   <option value="long">{t("profile.cookingTimeOptionLong")}</option>
@@ -613,6 +627,7 @@ export default function ProfileClient() {
                   value={profile.nutritionPreferences.mealDistribution.preset}
                   onChange={(e) => updateMealDistributionPreset(e.target.value as MealDistributionPreset)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   {mealDistributionOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
@@ -738,6 +753,7 @@ export default function ProfileClient() {
                   value={profile.macroPreferences.formula}
                   onChange={(e) => updateMacros("formula", e.target.value as MacroFormula)}
                 >
+                  <option value="">{t("profile.selectPlaceholder")}</option>
                   <option value="mifflin">{t("profile.macroFormulaMifflin")}</option>
                   <option value="katch">{t("profile.macroFormulaKatch")}</option>
                 </select>
@@ -749,8 +765,8 @@ export default function ProfileClient() {
                   type="number"
                   min={0}
                   step="0.1"
-                  value={profile.macroPreferences.proteinGPerKg}
-                  onChange={(e) => updateMacros("proteinGPerKg", Number(e.target.value))}
+                  value={profile.macroPreferences.proteinGPerKg ?? ""}
+                  onChange={(e) => updateMacros("proteinGPerKg", parseNumberInput(e.target.value))}
                 />
               </label>
 
@@ -760,8 +776,8 @@ export default function ProfileClient() {
                   type="number"
                   min={0}
                   step="0.1"
-                  value={profile.macroPreferences.fatGPerKg}
-                  onChange={(e) => updateMacros("fatGPerKg", Number(e.target.value))}
+                  value={profile.macroPreferences.fatGPerKg ?? ""}
+                  onChange={(e) => updateMacros("fatGPerKg", parseNumberInput(e.target.value))}
                 />
               </label>
 
@@ -771,8 +787,8 @@ export default function ProfileClient() {
                   type="number"
                   min={0}
                   max={40}
-                  value={profile.macroPreferences.cutPercent}
-                  onChange={(e) => updateMacros("cutPercent", Number(e.target.value))}
+                  value={profile.macroPreferences.cutPercent ?? ""}
+                  onChange={(e) => updateMacros("cutPercent", parseNumberInput(e.target.value))}
                 />
               </label>
 
@@ -782,8 +798,8 @@ export default function ProfileClient() {
                   type="number"
                   min={0}
                   max={40}
-                  value={profile.macroPreferences.bulkPercent}
-                  onChange={(e) => updateMacros("bulkPercent", Number(e.target.value))}
+                  value={profile.macroPreferences.bulkPercent ?? ""}
+                  onChange={(e) => updateMacros("bulkPercent", parseNumberInput(e.target.value))}
                 />
               </label>
             </div>

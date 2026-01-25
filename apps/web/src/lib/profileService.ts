@@ -76,10 +76,11 @@ export async function getUserProfile(): Promise<ProfileData> {
 }
 
 export async function updateUserProfilePreferences(profile: ProfileData): Promise<ProfileData> {
+  const sanitized = sanitizeProfilePayload(profile);
   const response = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(profile),
+    body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
     return profile;
@@ -89,16 +90,37 @@ export async function updateUserProfilePreferences(profile: ProfileData): Promis
 }
 
 export async function updateUserProfile(profile: Partial<ProfileData>): Promise<ProfileData> {
+  const sanitized = sanitizeProfilePayload(profile);
   const response = await fetch("/api/profile", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(profile),
+    body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
     return mergeProfileData(profile);
   }
   const data = (await response.json()) as Partial<ProfileData> | null;
   return mergeProfileData(data ?? profile);
+}
+
+function sanitizeProfilePayload<T>(data: T): T {
+  if (data === null || data === undefined) return data;
+  if (typeof data !== "object") return data;
+  if (Array.isArray(data)) return data as T;
+  const result: Record<string, unknown> = {};
+  Object.entries(data as Record<string, unknown>).forEach(([key, value]) => {
+    if (value === null || value === "") return;
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const nested = sanitizeProfilePayload(value);
+      if (nested && typeof nested === "object" && Object.keys(nested as Record<string, unknown>).length === 0) {
+        return;
+      }
+      result[key] = nested;
+      return;
+    }
+    result[key] = value;
+  });
+  return result as T;
 }
 
 export async function saveCheckinAndSyncProfileMetrics(

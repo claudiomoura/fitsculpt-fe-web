@@ -28,6 +28,12 @@ function parseNumber(value: number | string | null | undefined) {
   return null;
 }
 
+function parseRepsFromSets(value: WorkoutExercise["sets"]) {
+  if (typeof value !== "string") return null;
+  const match = value.match(/x\s*(.+)$/i);
+  return match ? match[1]?.trim() : null;
+}
+
 function normalizeWorkout(data: WorkoutApiResponse): Workout {
   const exercises = Array.isArray(data.exercises)
     ? data.exercises.map((exercise, index) => ({
@@ -210,8 +216,11 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
           <div className="list-grid" style={{ marginTop: 16 }}>
             {exercises.map((exercise, index) => {
               const exerciseKey = exercise.exerciseId ?? exercise.id ?? `${exercise.name}-${index}`;
-              const setsLabel = exercise.sets ?? "—";
-              const repsLabel = exercise.reps ?? "—";
+              const setsCount = parseNumber(exercise.sets) ?? 0;
+              const repsText =
+                exercise.reps ??
+                parseRepsFromSets(exercise.sets) ??
+                t("workoutDetail.repsFallback");
               const intensityLabel =
                 exercise.rir !== null && exercise.rir !== undefined
                   ? `RIR ${exercise.rir}`
@@ -219,24 +228,46 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
                     ? `RPE ${exercise.rpe}`
                     : null;
               const restLabel = exercise.restSeconds ? `${t("workoutDetail.restLabel")} ${exercise.restSeconds} s` : null;
+              const setLines = setsCount
+                ? Array.from({ length: setsCount }).map((_, idx) => ({
+                    label: `${t("workoutDetail.setLabel")} ${idx + 1}`,
+                    reps: repsText,
+                  }))
+                : [];
 
               return (
-                <div key={exerciseKey} className="feature-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <strong>{exercise.name ?? t("workoutDetail.exerciseFallback")}</strong>
-                    <span className="muted">{t("workoutDetail.exerciseIndex")}{index + 1}</span>
+                <div key={exerciseKey} className="feature-card workout-exercise-card">
+                  <div className="workout-exercise-media">
+                    <img src="/placeholders/exercise-demo.svg" alt={exercise.name ?? t("workoutDetail.exerciseFallback")} />
                   </div>
-                  <p className="muted" style={{ marginTop: 8 }}>
-                    {setsLabel} x {repsLabel}
-                  </p>
-                  <div className="badge-list" style={{ marginTop: 8 }}>
-                    <span className="badge">
-                      {exercise.primaryMuscle ? `${t("workoutDetail.exerciseGroup")}: ${exercise.primaryMuscle}` : t("workoutDetail.exerciseGroupFallback")}
-                    </span>
-                    {intensityLabel ? <span className="badge">{intensityLabel}</span> : null}
-                    {restLabel ? <span className="badge">{restLabel}</span> : null}
+                  <div className="workout-exercise-content">
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <strong>{exercise.name ?? t("workoutDetail.exerciseFallback")}</strong>
+                      <span className="muted">{t("workoutDetail.exerciseIndex")}{index + 1}</span>
+                    </div>
+                    {setLines.length ? (
+                      <ul className="workout-set-list">
+                        {setLines.map((setLine) => (
+                          <li key={setLine.label}>
+                            <span>{setLine.label}</span>
+                            <span className="muted">{setLine.reps} {t("workoutDetail.reps")}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        {t("workoutDetail.setsLabel")}: {exercise.sets ?? t("workoutDetail.setsFallback")}
+                      </p>
+                    )}
+                    <div className="badge-list" style={{ marginTop: 8 }}>
+                      <span className="badge">
+                        {exercise.primaryMuscle ? `${t("workoutDetail.exerciseGroup")}: ${exercise.primaryMuscle}` : t("workoutDetail.exerciseGroupFallback")}
+                      </span>
+                      {intensityLabel ? <span className="badge">{intensityLabel}</span> : null}
+                      {restLabel ? <span className="badge">{restLabel}</span> : null}
+                    </div>
+                    {exercise.notes ? <p className="muted">{exercise.notes}</p> : null}
                   </div>
-                  {exercise.notes ? <p className="muted">{exercise.notes}</p> : null}
                 </div>
               );
             })}
