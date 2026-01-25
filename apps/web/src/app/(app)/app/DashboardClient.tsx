@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { differenceInDays, parseDate } from "@/lib/calendar";
+import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
 
@@ -137,6 +137,14 @@ export default function DashboardClient() {
     }
     const buildTrainingSummary = (plan?: TrainingPlanData | null) => {
       if (!plan?.days?.length) return null;
+      const todayKey = toDateKey(new Date());
+      const dayFromDate = plan.days.find((day) => {
+        const parsed = parseDate(day.date);
+        return parsed ? toDateKey(parsed) === todayKey : false;
+      });
+      if (dayFromDate) {
+        return { label: dayFromDate.label, focus: dayFromDate.focus, duration: dayFromDate.duration };
+      }
       const start = parseDate(plan.startDate);
       if (!start) return null;
       const index = differenceInDays(new Date(), start);
@@ -146,6 +154,14 @@ export default function DashboardClient() {
     };
     const buildNutritionSummary = (plan?: NutritionPlanData | null) => {
       if (!plan?.days?.length) return null;
+      const todayKey = toDateKey(new Date());
+      const dayFromDate = plan.days.find((day) => {
+        const parsed = parseDate(day.date);
+        return parsed ? toDateKey(parsed) === todayKey : false;
+      });
+      if (dayFromDate) {
+        return { label: dayFromDate.dayLabel, meals: dayFromDate.meals.length };
+      }
       const start = parseDate(plan.startDate);
       if (!start) return null;
       const index = differenceInDays(new Date(), start);

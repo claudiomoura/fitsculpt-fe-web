@@ -950,7 +950,8 @@
     "searchPlaceholder": "Buscar por ejercicio o músculo",
     "tabs": {
       "exercises": "Ejercicios",
-      "recipes": "Recetas"
+      "recipes": "Recetas",
+      "training": "Entrenamientos"
     },
     "equipmentFilterLabel": "Equipamiento",
     "muscleFilterLabel": "Grupo muscular",
@@ -974,6 +975,7 @@
   "recipes": {
     "loading": "Cargando recetas...",
     "empty": "Aún no hay recetas disponibles.",
+    "emptyAdminCta": "Generar plan de nutrición",
     "loadError": "No se pudo cargar la receta.",
     "loadErrorList": "No se pudieron cargar las recetas.",
     "searchPlaceholder": "Buscar recetas por título",
@@ -990,6 +992,16 @@
     "mediaPlaceholder": "Sin foto disponible.",
     "noDetails": "Esta receta aún no tiene detalles adicionales.",
     "backToRecipes": "Volver a recetas"
+  },
+  "trainingPlans": {
+    "loading": "Cargando planes de entrenamiento...",
+    "empty": "Aún no hay planes de entrenamiento disponibles.",
+    "emptyAdminCta": "Generar plan de entrenamiento",
+    "loadError": "No se pudo cargar el plan de entrenamiento.",
+    "loadErrorList": "No se pudieron cargar los planes de entrenamiento.",
+    "searchPlaceholder": "Buscar planes por título",
+    "detailSubtitle": "Resumen del plan y detalles de las sesiones.",
+    "backToTrainingPlans": "Volver a entrenamientos"
   },
   "workoutDetail": {
     "notFound": "No se encontró este entreno.",

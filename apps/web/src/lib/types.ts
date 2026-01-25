@@ -71,3 +71,50 @@ export type Recipe = {
   steps: string[];
   ingredients: RecipeIngredient[];
 };
+
+export type TrainingPlanListItem = {
+  id: string;
+  title: string;
+  notes?: string | null;
+  goal: string;
+  level: string;
+  daysPerWeek: number;
+  focus: string;
+  equipment: string;
+  startDate: string;
+  daysCount: number;
+  createdAt: string;
+};
+
+export type TrainingPlanExercise = {
+  id: string;
+  name: string;
+  sets: number;
+  reps?: string | null;
+  tempo?: string | null;
+  rest?: number | null;
+  notes?: string | null;
+};
+
+export type TrainingPlanDay = {
+  id: string;
+  date: string;
+  label: string;
+  focus: string;
+  duration: number;
+  exercises: TrainingPlanExercise[];
+};
+
+export type TrainingPlanDetail = {
+  id: string;
+  title: string;
+  notes?: string | null;
+  goal: string;
+  level: string;
+  daysPerWeek: number;
+  focus: string;
+  equipment: string;
+  startDate: string;
+  daysCount: number;
+  days: TrainingPlanDay[];
+};

@@ -339,20 +339,30 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const plan = useMemo(() => (form ? generatePlan(form, locale, t) : null), [form, locale, t]);
   const visiblePlan = isManualView ? savedPlan ?? plan : savedPlan;
-  const planStartDate = useMemo(() => parseDate(visiblePlan?.startDate), [visiblePlan?.startDate]);
+  const planStartDate = useMemo(
+    () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
+    [visiblePlan?.startDate, visiblePlan?.days]
+  );
   const planDays = visiblePlan?.days ?? [];
   const planDayMap = useMemo(() => {
-    if (!planStartDate) return new Map<string, { day: TrainingDay; index: number; date: Date }>();
+    if (!planStartDate && planDays.length === 0) return new Map<string, { day: TrainingDay; index: number; date: Date }>();
     const next = new Map<string, { day: TrainingDay; index: number; date: Date }>();
     planDays.forEach((day, index) => {
-      const date = addDays(planStartDate, index);
+      const date = day.date ? parseDate(day.date) : planStartDate ? addDays(planStartDate, index) : null;
+      if (!date) return;
       next.set(toDateKey(date), { day, index, date });
     });
     return next;
   }, [planStartDate, planDays]);
   const selectedPlanDay = planStartDate ? planDayMap.get(toDateKey(selectedDate)) ?? null : null;
   const planEntries = useMemo(
-    () => (planStartDate ? planDays.map((day, index) => ({ day, index, date: addDays(planStartDate, index) })) : []),
+    () =>
+      planDays
+        .map((day, index) => {
+          const date = day.date ? parseDate(day.date) : planStartDate ? addDays(planStartDate, index) : null;
+          return date ? { day, index, date } : null;
+        })
+        .filter((entry): entry is { day: TrainingDay; index: number; date: Date } => Boolean(entry)),
     [planDays, planStartDate]
   );
   const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
@@ -392,8 +402,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setSelectedDate(new Date());
   }, [planStartDate]);
 
-  const ensurePlanStartDate = (planData: TrainingPlan, date = new Date()) =>
-    planData.startDate ? planData : { ...planData, startDate: date.toISOString() };
+  const ensurePlanStartDate = (planData: TrainingPlan, date = new Date()) => {
+    const baseDate = parseDate(planData.startDate) ?? date;
+    const days = planData.days.map((day, index) => ({
+      ...day,
+      date: day.date ?? toDateKey(addDays(baseDate, index)),
+    }));
+    return { ...planData, startDate: baseDate.toISOString(), days };
+  };
 
   const handleSavePlan = async () => {
     if (!plan) return;
@@ -431,7 +447,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const handleSetStartDate = async () => {
     if (!visiblePlan) return;
-    const nextPlan = { ...visiblePlan, startDate: new Date().toISOString() };
+    const nextPlan = ensurePlanStartDate({ ...visiblePlan, startDate: new Date().toISOString() });
     const updated = await updateUserProfile({ trainingPlan: nextPlan });
     setSavedPlan(updated.trainingPlan ?? nextPlan);
     setManualPlan(updated.trainingPlan ?? nextPlan);
@@ -493,6 +509,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setAiLoading(true);
     setError(null);
     try {
+      const startDate = toDateKey(startOfWeek(new Date()));
       const response = await fetch("/api/ai/training-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -506,6 +523,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           goals: profile.goals,
           equipment: form.equipment,
           daysPerWeek: form.daysPerWeek,
+          startDate,
+          daysCount: 7,
           sessionTime: form.sessionTime,
           focus: form.focus,
           timeAvailableMinutes: form.sessionTime === "short" ? 35 : form.sessionTime === "medium" ? 50 : 65,

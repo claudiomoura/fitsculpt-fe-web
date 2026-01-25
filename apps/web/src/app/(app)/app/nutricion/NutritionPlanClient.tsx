@@ -643,20 +643,30 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     () => normalizeNutritionPlan(isManualView ? savedPlan ?? plan : savedPlan, dayLabels),
     [isManualView, savedPlan, plan, dayLabels]
   );
-  const planStartDate = useMemo(() => parseDate(visiblePlan?.startDate), [visiblePlan?.startDate]);
+  const planStartDate = useMemo(
+    () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
+    [visiblePlan?.startDate, visiblePlan?.days]
+  );
   const planDays = visiblePlan?.days ?? [];
   const planDayMap = useMemo(() => {
-    if (!planStartDate) return new Map<string, { day: DayPlan; index: number; date: Date }>();
+    if (!planStartDate && planDays.length === 0) return new Map<string, { day: DayPlan; index: number; date: Date }>();
     const next = new Map<string, { day: DayPlan; index: number; date: Date }>();
     planDays.forEach((day, index) => {
-      const date = addDays(planStartDate, index);
+      const date = day.date ? parseDate(day.date) : planStartDate ? addDays(planStartDate, index) : null;
+      if (!date) return;
       next.set(toDateKey(date), { day, index, date });
     });
     return next;
   }, [planStartDate, planDays]);
   const selectedPlanDay = planStartDate ? planDayMap.get(toDateKey(selectedDate)) ?? null : null;
   const planEntries = useMemo(
-    () => (planStartDate ? planDays.map((day, index) => ({ day, index, date: addDays(planStartDate, index) })) : []),
+    () =>
+      planDays
+        .map((day, index) => {
+          const date = day.date ? parseDate(day.date) : planStartDate ? addDays(planStartDate, index) : null;
+          return date ? { day, index, date } : null;
+        })
+        .filter((entry): entry is { day: DayPlan; index: number; date: Date } => Boolean(entry)),
     [planDays, planStartDate]
   );
   const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
@@ -718,8 +728,14 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     }));
   }
 
-  const ensurePlanStartDate = (planData: NutritionPlan, date = new Date()) =>
-    planData.startDate ? planData : { ...planData, startDate: date.toISOString() };
+  const ensurePlanStartDate = (planData: NutritionPlan, date = new Date()) => {
+    const baseDate = parseDate(planData.startDate) ?? date;
+    const days = planData.days.map((day, index) => ({
+      ...day,
+      date: day.date ?? toDateKey(addDays(baseDate, index)),
+    }));
+    return { ...planData, startDate: baseDate.toISOString(), days };
+  };
 
   const handleSavePlan = async () => {
     if (!plan) return;
@@ -760,7 +776,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
 
   const handleSetStartDate = async () => {
     if (!visiblePlan) return;
-    const nextPlan = { ...visiblePlan, startDate: new Date().toISOString() };
+    const nextPlan = ensurePlanStartDate({ ...visiblePlan, startDate: new Date().toISOString() });
     const updated = await updateUserProfile({ nutritionPlan: nextPlan });
     setSavedPlan(updated.nutritionPlan ?? nextPlan);
     setManualPlan(updated.nutritionPlan ?? nextPlan);
@@ -888,10 +904,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     setAiLoading(true);
     setError(null);
     try {
-const mealsPerDay = Math.min(
-  6,
-  Math.max(3, Number(profile.nutritionPreferences.mealsPerDay ?? 3))
-);
+      const startDate = toDateKey(startOfWeek(new Date()));
+      const mealsPerDay = Math.min(6, Math.max(3, Number(profile.nutritionPreferences.mealsPerDay ?? 3)));
       const calories = plan?.dailyCalories ?? 2000;
       const response = await fetch("/api/ai/nutrition-plan", {
         method: "POST",
@@ -904,6 +918,8 @@ const mealsPerDay = Math.min(
           goal: profile.goal,
           mealsPerDay,
           calories,
+          startDate,
+          daysCount: 7,
           dietType: profile.nutritionPreferences.dietType,
           allergies: profile.nutritionPreferences.allergies,
           preferredFoods: profile.nutritionPreferences.preferredFoods,
