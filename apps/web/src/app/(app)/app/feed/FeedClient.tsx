@@ -35,6 +35,9 @@ export default function FeedClient() {
   const [generating, setGenerating] = useState(false);
   const [tipLoading, setTipLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const loadFeed = async () => {
     setLoading(true);
@@ -55,6 +58,24 @@ export default function FeedClient() {
 
   useEffect(() => {
     void loadFeed();
+  }, []);
+
+  const refreshSubscription = async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        subscriptionPlan?: "FREE" | "PRO";
+        aiTokenBalance?: number;
+      };
+      setSubscriptionPlan(data.subscriptionPlan ?? null);
+      setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
+    } catch {
+    }
+  };
+
+  useEffect(() => {
+    void refreshSubscription();
   }, []);
 
   const handleGenerate = async () => {
@@ -104,6 +125,28 @@ export default function FeedClient() {
     }
   };
 
+  const handleUpgrade = async () => {
+    setCheckoutLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/billing/checkout", { method: "POST" });
+      if (!response.ok) {
+        throw new Error(t("checkoutError"));
+      }
+      const payload = (await response.json()) as { url?: string };
+      if (!payload.url) {
+        throw new Error(t("checkoutError"));
+      }
+      window.location.href = payload.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("checkoutError"));
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const isAiLocked = subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0;
+
   return (
     <section className="card">
       <div className="section-header">
@@ -119,12 +162,28 @@ export default function FeedClient() {
             className="btn secondary"
             type="button"
             onClick={handleTip}
-            disabled={tipLoading}
+            disabled={tipLoading || isAiLocked}
           >
             {tipLoading ? t("feed.tipGenerating") : t("feed.tipGenerate")}
           </button>
         </div>
       </div>
+
+      {isAiLocked ? (
+        <div className="feature-card" style={{ marginTop: 12 }}>
+          <strong>{t("aiLockedTitle")}</strong>
+          <p className="muted" style={{ marginTop: 6 }}>{t("aiLockedSubtitle")}</p>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleUpgrade}
+            disabled={checkoutLoading}
+            style={{ marginTop: 8 }}
+          >
+            {checkoutLoading ? t("ui.loading") : t("aiLockedCta")}
+          </button>
+        </div>
+      ) : null}
 
       {error ? <p className="muted">{error}</p> : null}
       {loading ? <p className="muted">{t("feed.loading")}</p> : null}

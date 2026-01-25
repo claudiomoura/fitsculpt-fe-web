@@ -37,6 +37,7 @@ type MeResponse = {
 export default function AdminUsersClient() {
   const { t, locale } = useLanguage();
   const localeCode = getLocaleCode(locale);
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<UsersResponse | null>(null);
@@ -68,9 +69,13 @@ export default function AdminUsersClient() {
 
   async function loadUsers() {
     setLoading(true);
-    const response = await fetch(`/api/admin/users?query=${encodeURIComponent(query)}&page=${page}`, {
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `${backendUrl}/admin/users?query=${encodeURIComponent(query)}&page=${page}`,
+      {
+        cache: "no-store",
+        credentials: "include",
+      }
+    );
     if (!response.ok) {
       setUnauthorized(true);
       setLoading(false);
@@ -105,12 +110,18 @@ export default function AdminUsersClient() {
 
   async function updateBlock(userId: string, block: boolean) {
     const endpoint = block ? "block" : "unblock";
-    await fetch(`/api/admin/users/${userId}/${endpoint}`, { method: "PATCH" });
+    await fetch(`${backendUrl}/admin/users/${userId}/${endpoint}`, {
+      method: "PATCH",
+      credentials: "include",
+    });
     await loadUsers();
   }
 
   async function verifyEmail(userId: string) {
-    await fetch(`/api/admin/users/${userId}/verify-email`, { method: "POST" });
+    await fetch(`${backendUrl}/admin/users/${userId}/verify-email`, {
+      method: "POST",
+      credentials: "include",
+    });
     await loadUsers();
   }
 
@@ -121,9 +132,10 @@ export default function AdminUsersClient() {
     const allowance = Number(createAllowance);
     const aiTokenBalance = Number.isFinite(tokenBalance) && tokenBalance >= 0 ? tokenBalance : 0;
     const aiTokenMonthlyAllowance = Number.isFinite(allowance) && allowance >= 0 ? allowance : 0;
-    const response = await fetch("/api/admin/users", {
+    const response = await fetch(`${backendUrl}/admin/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         email: createEmail,
         password: createPassword,
@@ -151,9 +163,10 @@ export default function AdminUsersClient() {
     event.preventDefault();
     if (!resetUser) return;
     setResetMessage(null);
-    const response = await fetch(`/api/admin/users/${resetUser.id}/reset-password`, {
+    const response = await fetch(`${backendUrl}/admin/users/${resetUser.id}/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ newPassword: resetPassword }),
     });
     if (!response.ok) {
@@ -169,15 +182,16 @@ export default function AdminUsersClient() {
   async function removeUser(userId: string) {
     const ok = window.confirm(t("admin.confirmDelete"));
     if (!ok) return;
-    await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+    await fetch(`${backendUrl}/admin/users/${userId}`, { method: "DELETE", credentials: "include" });
     await loadUsers();
   }
 
   async function updatePlan(userId: string, subscriptionPlan: "FREE" | "PRO") {
     setActionUserId(userId);
-    await fetch(`/api/admin/users/${userId}/plan`, {
+    await fetch(`${backendUrl}/admin/users/${userId}/plan`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ subscriptionPlan, topUpNow: planTopUpNow[userId] ?? false }),
     });
     await loadUsers();
@@ -190,9 +204,10 @@ export default function AdminUsersClient() {
     const amount = Number(value);
     if (!Number.isFinite(amount) || amount < 0) return;
     setActionUserId(userId);
-    await fetch(`/api/admin/users/${userId}/tokens-allowance`, {
+    await fetch(`${backendUrl}/admin/users/${userId}/tokens-allowance`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         aiTokenMonthlyAllowance: amount,
         topUpNow: allowanceTopUpNow[userId] ?? false,
@@ -206,9 +221,10 @@ export default function AdminUsersClient() {
   async function addTokens(userId: string, amount: number) {
     if (!Number.isFinite(amount) || amount < 0) return;
     setActionUserId(userId);
-    await fetch(`/api/admin/users/${userId}/tokens/add`, {
+    await fetch(`${backendUrl}/admin/users/${userId}/tokens/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ amount }),
     });
     await loadUsers();
@@ -221,9 +237,10 @@ export default function AdminUsersClient() {
     const amount = Number(value);
     if (!Number.isFinite(amount) || amount < 0) return;
     setActionUserId(userId);
-    await fetch(`/api/admin/users/${userId}/tokens/balance`, {
+    await fetch(`${backendUrl}/admin/users/${userId}/tokens/balance`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ aiTokenBalance: amount }),
     });
     await loadUsers();

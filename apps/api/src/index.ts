@@ -5,7 +5,7 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient, Prisma, type User } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -100,6 +100,12 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
       message: "Has alcanzado el límite diario de IA. Suscríbete a PRO para más usos o intenta mañana.",
       ...(retryAfterSec ? { retryAfterSec } : {}),
     });
+  }
+  if (typed.statusCode === 402 && typed.code === "UPGRADE_REQUIRED") {
+    return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
+  }
+  if (typed.statusCode === 409 && typed.code === "PROFILE_INCOMPLETE") {
+    return reply.status(409).send({ code: "PROFILE_INCOMPLETE" });
   }
   if (typed.statusCode) {
     return reply.status(typed.statusCode).send({
@@ -401,16 +407,15 @@ async function requireAdmin(request: FastifyRequest) {
 }
 
 async function getOrCreateProfile(userId: string) {
-  const existing = await prisma.userProfile.findUnique({ where: { userId } });
-  if (existing) return existing;
-return prisma.userProfile.create({
-  data: {
-    userId,
-    profile: Prisma.DbNull,
-    tracking: defaultTracking,
-  },
-});
-
+  return prisma.userProfile.upsert({
+    where: { userId },
+    update: {},
+    create: {
+      userId,
+      profile: Prisma.DbNull,
+      tracking: Prisma.DbNull,
+    },
+  });
 }
 
 const registerSchema = z.object({
@@ -517,6 +522,30 @@ const profileUpdateSchema = profileSchema.partial().extend({
   macroPreferences: macroPreferencesSchema.partial().optional(),
   measurements: profileSchema.shape.measurements.partial().optional(),
 });
+
+function isProfileComplete(profile: Record<string, unknown> | null) {
+  if (!profile) return false;
+  return profileSchema.safeParse(profile).success;
+}
+
+async function requireCompleteProfile(userId: string) {
+  const profile = await getOrCreateProfile(userId);
+  const data =
+    typeof profile.profile === "object" && profile.profile ? (profile.profile as Record<string, unknown>) : null;
+  if (!isProfileComplete(data)) {
+    throw createHttpError(409, "PROFILE_INCOMPLETE");
+  }
+}
+
+type AuthenticatedRequest = FastifyRequest & { currentUser?: User };
+
+async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
+  const user = await requireUser(request, { logContext: request.routeOptions?.url ?? "ai" });
+  if (user.subscriptionPlan !== "PRO" && user.aiTokenBalance <= 0) {
+    return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
+  }
+  (request as AuthenticatedRequest).currentUser = user;
+}
 
 const checkinSchema = z.object({
   id: z.string(),
@@ -1961,6 +1990,8 @@ app.get("/auth/me", async (request, reply) => {
       subscriptionPlan: user.subscriptionPlan,
       subscriptionStatus: user.subscriptionStatus,
       currentPeriodEnd: user.currentPeriodEnd,
+      aiTokenBalance: user.aiTokenBalance,
+      aiTokenRenewalAt: user.aiTokenRenewalAt,
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2349,9 +2380,9 @@ app.delete("/user-foods/:id", async (request, reply) => {
   }
 });
 
-app.get("/ai/quota", async (request, reply) => {
+app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
-    const user = await requireUser(request);
+    const user = (request as AuthenticatedRequest).currentUser ?? (await requireUser(request));
     const dateKey = toDateKey();
     const limit = user.subscriptionPlan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
     const usage = await prisma.aiUsage.findUnique({
@@ -2373,10 +2404,12 @@ app.get("/ai/quota", async (request, reply) => {
   }
 });
 
-app.post("/ai/training-plan", async (request, reply) => {
+app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
-    const user = await requireUser(request, { logContext: "/ai/training-plan" });
+    const user =
+      (request as AuthenticatedRequest).currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
+    await requireCompleteProfile(user.id);
     const data = aiTrainingSchema.parse(request.body);
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
@@ -2495,10 +2528,13 @@ app.post("/ai/training-plan", async (request, reply) => {
   }
 });
 
-app.post("/ai/nutrition-plan", async (request, reply) => {
+app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
-    const user = await requireUser(request, { logContext: "/ai/nutrition-plan" });
+    const user =
+      (request as AuthenticatedRequest).currentUser ??
+      (await requireUser(request, { logContext: "/ai/nutrition-plan" }));
+    await requireCompleteProfile(user.id);
     const data = aiNutritionSchema.parse(request.body);
     await prisma.aiPromptCache.deleteMany({
       where: {
@@ -2621,10 +2657,11 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
   }
 });
 
-app.post("/ai/daily-tip", async (request, reply) => {
+app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/daily-tip");
-    const user = await requireUser(request, { logContext: "/ai/daily-tip" });
+    const user =
+      (request as AuthenticatedRequest).currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();
@@ -2922,6 +2959,9 @@ const adminCreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(["USER", "ADMIN"]).optional(),
+  subscriptionPlan: z.enum(["FREE", "PRO"]).optional(),
+  aiTokenBalance: z.number().int().min(0).optional(),
+  aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
 });
 
 app.get("/admin/users", async (request, reply) => {
@@ -2990,6 +3030,37 @@ app.get("/admin/users", async (request, reply) => {
     });
 
     return { total, page, pageSize, users: payload };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/admin/users", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const data = adminCreateUserSchema.parse(request.body);
+    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existing) {
+      return reply.status(409).send({ error: "EMAIL_IN_USE" });
+    }
+    const passwordHash = await bcrypt.hash(data.password, 10);
+    const user = await prisma.user.create({
+      data: {
+        email: data.email,
+        passwordHash,
+        role: data.role ?? "USER",
+        subscriptionPlan: data.subscriptionPlan ?? "FREE",
+        aiTokenBalance: data.aiTokenBalance ?? 0,
+        aiTokenMonthlyAllowance: data.aiTokenMonthlyAllowance ?? 0,
+        provider: "email",
+      },
+    });
+    return reply.status(201).send({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      subscriptionPlan: user.subscriptionPlan,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
