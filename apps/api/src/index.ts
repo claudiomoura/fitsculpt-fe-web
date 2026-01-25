@@ -10,12 +10,15 @@ import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText } from "./aiParsing.js";
+import { chargeAiUsage } from "./ai/chargeAiUsage.js";
+import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
 
 
 
 const env = getEnv();
 const prisma = new PrismaClient();
+const aiPricing = loadAiPricing(env);
 
 const app = Fastify({ logger: true });
 
@@ -407,15 +410,23 @@ async function requireAdmin(request: FastifyRequest) {
 }
 
 async function getOrCreateProfile(userId: string) {
-  return prisma.userProfile.upsert({
-    where: { userId },
-    update: {},
-    create: {
-      userId,
-      profile: Prisma.DbNull,
-      tracking: Prisma.DbNull,
-    },
-  });
+  try {
+    return await prisma.userProfile.upsert({
+      where: { userId },
+      update: {},
+      create: {
+        userId,
+        profile: Prisma.DbNull,
+        tracking: Prisma.DbNull,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const existing = await prisma.userProfile.findUnique({ where: { userId } });
+      if (existing) return existing;
+    }
+    throw error;
+  }
 }
 
 const registerSchema = z.object({
