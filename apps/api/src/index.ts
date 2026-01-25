@@ -2306,6 +2306,7 @@ app.get("/auth/google/callback", async (request, reply) => {
   return reply.redirect(302, `${env.APP_BASE_URL}/app`);
 });
 
+
 app.get("/profile", async (request, reply) => {
   try {
     const user = await requireUser(request);
