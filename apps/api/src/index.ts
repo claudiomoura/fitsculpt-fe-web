@@ -1878,9 +1878,16 @@ async function callOpenAi(
     response.headers.get("x-request-id") ??
     response.headers.get("openai-request-id") ??
     response.headers.get("x-openai-request-id");
-  const data = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
+const data = (await response.json()) as {
+  model?: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
   };
+  choices?: Array<{ message?: { content?: string } }>;
+};
+
   const content = data.choices?.[0]?.message?.content;
   if (!content) {
     throw createHttpError(502, "AI_EMPTY_RESPONSE");
@@ -2645,7 +2652,7 @@ app.get("/auth/google/callback", async (request, reply) => {
   const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
   reply.setCookie("fs_token", token, buildCookieOptions());
 
-  return reply.redirect(302, `${env.APP_BASE_URL}/app`);
+return reply.redirect(`${env.APP_BASE_URL}/app`, 302);
 });
 
 

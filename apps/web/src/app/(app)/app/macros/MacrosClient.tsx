@@ -39,6 +39,12 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
+function normalizeSex(value: unknown): Sex {
+  return value === "female" ? "female" : "male";
+}
+
+
+
 function bmrMifflin(sex: Sex, weightKg: number, heightCm: number, age: number) {
   const s = sex === "male" ? 5 : -161;
   return 10 * weightKg + 6.25 * heightCm - 5 * age + s;
@@ -50,23 +56,52 @@ function bmrKatchMcArdle(weightKg: number, bodyFatPercent: number) {
   return 370 + 21.6 * lbm;
 }
 
+type Goal = "maintain" | "cut" | "bulk";
+
+function normalizeActivity(value: unknown): Activity {
+  return value === "light" || value === "moderate" || value === "very" || value === "extra"
+    ? value
+    : "sedentary";
+}
+
+function normalizeGoal(value: unknown): Goal {
+  return value === "cut" || value === "bulk" ? value : "maintain";
+}
+
+function normalizeMealsPerDay(value: unknown): MacroState["mealsPerDay"] {
+  const n = Math.round(Number(value));
+  return (n === 1 || n === 2 || n === 3 || n === 4 || n === 5 || n === 6 ? n : 3) as MacroState["mealsPerDay"];
+}
+
+function normalizeFormula(value: unknown): MacroFormula {
+  return value === "katch" ? "katch" : "mifflin";
+}
+
 function buildState(profile: ProfileData): MacroState {
   return {
-    sex: profile.sex,
-    age: profile.age,
-    heightCm: profile.heightCm,
-    weightKg: profile.weightKg,
-    activity: profile.activity,
-    goal: profile.goal,
-    mealsPerDay: profile.nutritionPreferences.mealsPerDay,
-    formula: profile.macroPreferences.formula,
-    bodyFatPercent: profile.measurements.bodyFatPercent,
-    cutPercent: profile.macroPreferences.cutPercent,
-    bulkPercent: profile.macroPreferences.bulkPercent,
-    proteinGPerKg: profile.macroPreferences.proteinGPerKg,
-    fatGPerKg: profile.macroPreferences.fatGPerKg,
+    sex: normalizeSex(profile.sex),
+
+    // OptionalNumber -> number (fallback)
+    age: profile.age ?? 0,
+    heightCm: profile.heightCm ?? 0,
+    weightKg: profile.weightKg ?? 0,
+
+    // unions normalizados
+    activity: normalizeActivity(profile.activity),
+    goal: normalizeGoal(profile.goal),
+
+    // anidados, pueden venir null/undefined
+    mealsPerDay: normalizeMealsPerDay(profile.nutritionPreferences?.mealsPerDay),
+    formula: normalizeFormula(profile.macroPreferences?.formula),
+    bodyFatPercent: profile.measurements?.bodyFatPercent ?? 0,
+
+    cutPercent: profile.macroPreferences?.cutPercent ?? 0,
+    bulkPercent: profile.macroPreferences?.bulkPercent ?? 0,
+    proteinGPerKg: profile.macroPreferences?.proteinGPerKg ?? 0,
+    fatGPerKg: profile.macroPreferences?.fatGPerKg ?? 0,
   };
 }
+
 
 export default function MacrosClient() {
   const { t } = useLanguage();

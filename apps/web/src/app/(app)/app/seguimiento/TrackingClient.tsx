@@ -90,7 +90,12 @@ export default function TrackingClient() {
   const [checkinNotes, setCheckinNotes] = useState("");
   const [checkinFrontPhoto, setCheckinFrontPhoto] = useState<string | null>(null);
   const [checkinSidePhoto, setCheckinSidePhoto] = useState<string | null>(null);
-  const [checkinMode, setCheckinMode] = useState<"quick" | "full">("quick");
+const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
+  if (typeof window === "undefined") return "quick";
+  const storedMode = window.localStorage.getItem(CHECKIN_MODE_KEY);
+  return storedMode === "quick" || storedMode === "full" ? storedMode : "quick";
+});
+
 
   const [foodDate, setFoodDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [foodKey, setFoodKey] = useState("salmon");
@@ -118,12 +123,7 @@ export default function TrackingClient() {
   });
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const storedMode = localStorage.getItem(CHECKIN_MODE_KEY);
-    if (storedMode === "quick" || storedMode === "full") {
-      setCheckinMode(storedMode);
-    }
-  }, []);
+ 
 
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
@@ -164,16 +164,18 @@ export default function TrackingClient() {
       try {
         const data = await getUserProfile();
         if (active) {
-          setProfile(data);
-          setCheckinWeight(data.weightKg);
-          setCheckinChest(data.measurements.chestCm);
-          setCheckinWaist(data.measurements.waistCm);
-          setCheckinHips(data.measurements.hipsCm);
-          setCheckinBiceps(data.measurements.bicepsCm);
-          setCheckinThigh(data.measurements.thighCm);
-          setCheckinCalf(data.measurements.calfCm);
-          setCheckinNeck(data.measurements.neckCm);
-          setCheckinBodyFat(data.measurements.bodyFatPercent);
+setProfile(data);
+
+setCheckinWeight(Number(data.weightKg ?? 0));
+setCheckinChest(Number(data.measurements.chestCm ?? 0));
+setCheckinWaist(Number(data.measurements.waistCm ?? 0));
+setCheckinHips(Number(data.measurements.hipsCm ?? 0));
+setCheckinBiceps(Number(data.measurements.bicepsCm ?? 0));
+setCheckinThigh(Number(data.measurements.thighCm ?? 0));
+setCheckinCalf(Number(data.measurements.calfCm ?? 0));
+setCheckinNeck(Number(data.measurements.neckCm ?? 0));
+setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
+
         }
       } catch {
         // Ignore load errors.

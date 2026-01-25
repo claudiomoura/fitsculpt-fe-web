@@ -296,6 +296,13 @@ function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
 
+function clampInt(value: unknown, min: number, max: number, fallback: number) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+
 function activityMultiplier(activity: Activity) {
   switch (activity) {
     case "sedentary":
@@ -881,7 +888,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     setAiLoading(true);
     setError(null);
     try {
-      const mealsPerDay = Math.min(6, Math.max(3, profile.nutritionPreferences.mealsPerDay));
+const mealsPerDay = Math.min(
+  6,
+  Math.max(3, Number(profile.nutritionPreferences.mealsPerDay ?? 3))
+);
       const calories = plan?.dailyCalories ?? 2000;
       const response = await fetch("/api/ai/nutrition-plan", {
         method: "POST",
