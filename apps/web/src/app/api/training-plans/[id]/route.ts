@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 
@@ -7,17 +7,14 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET(
-  _request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   const { id } = await context.params;
-  const response = await fetch(`${getBackendUrl()}/exercises/${id}`, {
+  const response = await fetch(`${getBackendUrl()}/training-plans/${id}`, {
     headers: { cookie: authCookie },
     cache: "no-store",
   });

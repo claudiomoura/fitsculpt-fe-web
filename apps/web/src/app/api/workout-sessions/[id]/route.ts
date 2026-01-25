@@ -7,8 +7,8 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET(
-  _request: NextRequest,
+export async function PATCH(
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   const authCookie = await getAuthCookie();
@@ -16,10 +16,15 @@ export async function GET(
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
+  const body = await request.json();
   const { id } = await context.params;
-  const response = await fetch(`${getBackendUrl()}/exercises/${id}`, {
-    headers: { cookie: authCookie },
-    cache: "no-store",
+  const response = await fetch(`${getBackendUrl()}/workout-sessions/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      cookie: authCookie,
+    },
+    body: JSON.stringify(body),
   });
 
   const data = await response.json();

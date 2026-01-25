@@ -7,7 +7,7 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-export async function GET(
+export async function POST(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -17,9 +17,9 @@ export async function GET(
   }
 
   const { id } = await context.params;
-  const response = await fetch(`${getBackendUrl()}/exercises/${id}`, {
+  const response = await fetch(`${getBackendUrl()}/workout-sessions/${id}/finish`, {
+    method: "POST",
     headers: { cookie: authCookie },
-    cache: "no-store",
   });
 
   const data = await response.json();

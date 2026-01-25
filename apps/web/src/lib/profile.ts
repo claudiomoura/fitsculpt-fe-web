@@ -34,11 +34,12 @@ export type MacroFormula = "mifflin" | "katch";
 
 export type TrainingExercise = {
   name: string;
-  sets: string;
+  sets: string | number;
   reps?: string;
 };
 
 export type TrainingDay = {
+  date?: string;
   label: string;
   focus: string;
   duration: number;
@@ -71,6 +72,7 @@ export type NutritionMeal = {
 };
 
 export type NutritionDayPlan = {
+  date?: string;
   dayLabel: string;
   meals: NutritionMeal[];
 };

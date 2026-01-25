@@ -52,6 +52,12 @@ export const NAV_ITEMS: NavItem[] = [
     showInTopNav: true,
   },
   {
+    id: "diet-plans",
+    href: "/app/dietas",
+    labelKey: "nav.dietPlans",
+    section: "nutrition",
+  },
+  {
     id: "library",
     href: "/app/biblioteca",
     labelKey: "nav.library",

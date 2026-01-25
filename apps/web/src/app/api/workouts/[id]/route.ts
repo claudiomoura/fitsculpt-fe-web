@@ -65,6 +65,9 @@ export async function DELETE(
     headers: { cookie: authCookie },
   });
 
+  if (response.status === 204) {
+    return new NextResponse(null, { status: response.status });
+  }
   const data = await response.json();
   return NextResponse.json(data, { status: response.status });
 }
