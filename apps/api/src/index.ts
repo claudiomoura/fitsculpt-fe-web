@@ -1585,6 +1585,7 @@ async function saveNutritionPlan(
         fatG: plan.fatG,
         carbsG: plan.carbsG,
       },
+      
     });
 
     await tx.nutritionDay.deleteMany({ where: { planId: planRecord.id } });
@@ -1618,6 +1619,11 @@ async function saveNutritionPlan(
     }
 
     return planRecord;
+  }
+,
+  {
+    timeout: 20000,
+    maxWait: 10000,
   });
 }
 
@@ -1680,6 +1686,10 @@ async function saveTrainingPlan(
     }
 
     return planRecord;
+  },
+  {
+    timeout: 20000,
+    maxWait: 10000,
   });
 }
 
