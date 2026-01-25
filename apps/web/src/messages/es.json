@@ -50,6 +50,16 @@
     "viewMonth": "Mes",
     "viewAgenda": "Agenda"
   },
+  "exerciseDetail": {
+    "tabExecution": "Ejecución",
+    "tabMuscles": "Músculos",
+    "executionPrep": "Preparación",
+    "executionMove": "Ejecución",
+    "executionTips": "Consejos",
+    "primaryMuscles": "Músculos principales",
+    "secondaryMuscles": "Músculos secundarios",
+    "muscleMapPlaceholder": "Mapa muscular próximamente."
+  },
   "landing": {
     "title": "FitSculpt",
     "subtitle": "Landing simple (evolucionaremos luego).",
@@ -135,10 +145,10 @@
     "hidePassword": "Ocultar contraseña"
   },
   "pro": {
-    "aiLockedTitle": "IA disponible solo en PRO",
-    "aiLockedSubtitle": "Haz upgrade para generar planes y consejos con IA.",
-    "aiLockedCta": "Hacer upgrade a PRO",
-    "aiLockedHint": "Actualiza a PRO para desbloquear esta función.",
+    "aiLockedTitle": "Mejora tu plan con FitSculpt AI (Pro)",
+    "aiLockedSubtitle": "Desbloquea planes personalizados, ajustes rápidos y sugerencias inteligentes para tu objetivo.",
+    "aiLockedCta": "Hazte Pro",
+    "aiLockedHint": "Hazte Pro para desbloquear la IA.",
     "checkoutError": "No pudimos iniciar el checkout de PRO."
   },
   "app": {
@@ -192,6 +202,8 @@
     "todayMealsLabel": "comidas",
     "quickActionsTitle": "Acciones rápidas",
     "quickActionsSubtitle": "Genera un plan nuevo en un clic.",
+    "profileIncompleteTitle": "Completa tu onboarding",
+    "profileIncompleteSubtitle": "Añade algunos datos para desbloquear tu panel.",
     "aiEyebrow": "Asistente IA",
     "aiTitle": "Genera tu plan en minutos",
     "aiSubtitle": "Acelera tu rutina o tu plan de comidas con recomendaciones guiadas.",
@@ -392,6 +404,8 @@
     "exportIngredients": "Ingredientes",
     "comingSoon": "Próximamente",
     "weeklyPlanTitle": "Plan semanal sugerido",
+    "profileIncompleteTitle": "Completa tu onboarding",
+    "profileIncompleteSubtitle": "Necesitamos algunos datos para crear tu plan de entrenamiento.",
     "calendarTitle": "Calendario de nutrición",
     "calendarSubtitle": "Visualiza comidas por día, semana o mes.",
     "calendarStartDateTitle": "Define la fecha de inicio",
@@ -513,6 +527,8 @@
     "savePlanError": "No pudimos guardar el plan.",
     "resetPlan": "Reiniciar plan",
     "weeklyPlanTitle": "Plan semanal sugerido",
+    "profileIncompleteTitle": "Completa tu onboarding",
+    "profileIncompleteSubtitle": "Necesitamos algunos datos para crear tu plan de nutrición.",
     "calendarTitle": "Calendario de entrenamiento",
     "calendarSubtitle": "Visualiza el plan en vista día, semana o mes.",
     "calendarStartDateTitle": "Define la fecha de inicio",
@@ -594,6 +610,7 @@
     "avatarUpload": "Subir foto",
     "avatarRemove": "Eliminar foto",
     "avatarHint": "Formato recomendado: JPG o PNG.",
+    "selectPlaceholder": "Selecciona...",
     "historyTitle": "Historial de peso",
     "historySubtitle": "Registra tu peso por fecha para ver la evolución.",
     "historyDate": "Fecha",
@@ -962,6 +979,7 @@
     "exercisesLabel": "Ejercicios",
     "setsTotal": "Series totales",
     "setsLabel": "Series",
+    "setLabel": "Serie",
     "setsFallback": "Sin calcular",
     "volumeEstimated": "Volumen estimado",
     "volumeMissing": "Sin estimar",

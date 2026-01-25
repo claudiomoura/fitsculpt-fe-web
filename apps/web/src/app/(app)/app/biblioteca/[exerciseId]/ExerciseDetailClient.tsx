@@ -34,6 +34,7 @@ export default function ExerciseDetailClient({
 }: ExerciseDetailClientProps) {
   const { t } = useLanguage();
   const [forceImageFallback, setForceImageFallback] = useState(false);
+  const [activeTab, setActiveTab] = useState<"execution" | "muscles">("execution");
   if (error || !exercise) {
     return (
       <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
@@ -47,6 +48,7 @@ export default function ExerciseDetailClient({
 
   const { primary, secondary } = getMuscleGroups(exercise);
   const levelLabel = t("library.levelGeneral");
+  const primaryLabel = primary[0] ?? t("library.levelGeneral");
   const equipmentLabel = exercise.equipment ?? t("library.equipmentFallback");
   const descriptionText =
     exercise.description ?? t("library.descriptionFallback");
@@ -123,20 +125,69 @@ export default function ExerciseDetailClient({
         </div>
       </div>
 
-      <div className="list-grid" style={{ marginTop: 16 }}>
-        <div className="feature-card">
-          <h3>{t("ui.technique")}</h3>
-          <p className="muted" style={{ marginTop: 8 }}>
-            {techniqueText}
-          </p>
-        </div>
-        <div className="feature-card">
-          <h3>{t("ui.tips")}</h3>
-          <p className="muted" style={{ marginTop: 8 }}>
-            {tipsText}
-          </p>
-        </div>
+      <div className="tab-list" style={{ marginTop: 20 }}>
+        <button
+          type="button"
+          className={`tab-btn ${activeTab === "execution" ? "active" : ""}`}
+          onClick={() => setActiveTab("execution")}
+        >
+          {t("exerciseDetail.tabExecution")}
+        </button>
+        <button
+          type="button"
+          className={`tab-btn ${activeTab === "muscles" ? "active" : ""}`}
+          onClick={() => setActiveTab("muscles")}
+        >
+          {t("exerciseDetail.tabMuscles")}
+        </button>
       </div>
+
+      {activeTab === "execution" ? (
+        <div className="tab-panel">
+          <div className="feature-card">
+            <h3>{t("exerciseDetail.executionPrep")}</h3>
+            <p className="muted" style={{ marginTop: 8 }}>
+              {descriptionText}
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>{t("exerciseDetail.executionMove")}</h3>
+            <p className="muted" style={{ marginTop: 8 }}>
+              {techniqueText}
+            </p>
+          </div>
+          <div className="feature-card">
+            <h3>{t("exerciseDetail.executionTips")}</h3>
+            <p className="muted" style={{ marginTop: 8 }}>
+              {tipsText}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="tab-panel">
+          <div className="feature-card muscle-map">
+            <span className="muted">{t("exerciseDetail.muscleMapPlaceholder")}</span>
+          </div>
+          <div className="list-grid">
+            <div className="feature-card">
+              <h3>{t("exerciseDetail.primaryMuscles")}</h3>
+              <p className="muted" style={{ marginTop: 8 }}>{primaryLabel}</p>
+            </div>
+            <div className="feature-card">
+              <h3>{t("exerciseDetail.secondaryMuscles")}</h3>
+              {secondary.length > 0 ? (
+                <ul className="muted" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                  {secondary.map((muscle, index) => (
+                    <li key={`${muscle}-${index}`}>{muscle}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted" style={{ marginTop: 8 }}>{t("library.secondaryFallback")}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <Link className="btn" style={{ width: "fit-content", marginTop: 20 }} href="/app/biblioteca">
         {t("ui.backToLibrary")}

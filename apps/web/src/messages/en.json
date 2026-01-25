@@ -50,6 +50,16 @@
     "viewMonth": "Month",
     "viewAgenda": "Agenda"
   },
+  "exerciseDetail": {
+    "tabExecution": "Execution",
+    "tabMuscles": "Muscles",
+    "executionPrep": "Setup",
+    "executionMove": "Execution",
+    "executionTips": "Tips",
+    "primaryMuscles": "Primary muscles",
+    "secondaryMuscles": "Secondary muscles",
+    "muscleMapPlaceholder": "Muscle map coming soon."
+  },
   "landing": {
     "title": "FitSculpt",
     "subtitle": "Simple landing (we'll evolve later).",
@@ -135,10 +145,10 @@
     "hidePassword": "Hide password"
   },
   "pro": {
-    "aiLockedTitle": "AI available only on PRO",
-    "aiLockedSubtitle": "Upgrade to generate plans and tips with AI.",
-    "aiLockedCta": "Upgrade to PRO",
-    "aiLockedHint": "Upgrade to PRO to unlock this feature.",
+    "aiLockedTitle": "Upgrade with FitSculpt AI (Pro)",
+    "aiLockedSubtitle": "Unlock personalized plans, faster updates, and smart suggestions tailored to your goals.",
+    "aiLockedCta": "Go Pro",
+    "aiLockedHint": "Go Pro to unlock AI features.",
     "checkoutError": "We couldn't start the PRO checkout."
   },
   "app": {
@@ -192,6 +202,8 @@
     "todayMealsLabel": "meals",
     "quickActionsTitle": "Quick actions",
     "quickActionsSubtitle": "Generate a fresh plan with one tap.",
+    "profileIncompleteTitle": "Complete your onboarding",
+    "profileIncompleteSubtitle": "Add a few details to unlock your training and nutrition dashboard.",
     "aiEyebrow": "AI Assistant",
     "aiTitle": "Generate your plan in minutes",
     "aiSubtitle": "Speed up training or nutrition with guided recommendations.",
@@ -392,6 +404,8 @@
     "exportIngredients": "Ingredients",
     "comingSoon": "Coming soon",
     "weeklyPlanTitle": "Suggested weekly plan",
+    "profileIncompleteTitle": "Complete your onboarding",
+    "profileIncompleteSubtitle": "We need a few details to build your training plan.",
     "calendarTitle": "Nutrition calendar",
     "calendarSubtitle": "Visualize meals by day, week, or month.",
     "calendarStartDateTitle": "Set a plan start date",
@@ -509,6 +523,8 @@
     "savePlanError": "We couldn't save the plan.",
     "resetPlan": "Reset plan",
     "weeklyPlanTitle": "Suggested weekly plan",
+    "profileIncompleteTitle": "Complete your onboarding",
+    "profileIncompleteSubtitle": "We need a few details to build your nutrition plan.",
     "calendarTitle": "Training calendar",
     "calendarSubtitle": "Track the plan in a day, week, or month view.",
     "calendarStartDateTitle": "Set a plan start date",
@@ -591,6 +607,7 @@
     "avatarUpload": "Upload photo",
     "avatarRemove": "Remove photo",
     "avatarHint": "Recommended format: JPG or PNG.",
+    "selectPlaceholder": "Select...",
     "historyTitle": "Weight history",
     "historySubtitle": "Log your weight by date to see progress.",
     "historyDate": "Date",
@@ -959,6 +976,7 @@
     "exercisesLabel": "Exercises",
     "setsTotal": "Total sets",
     "setsLabel": "Sets",
+    "setLabel": "Set",
     "setsFallback": "Not calculated",
     "volumeEstimated": "Estimated volume",
     "volumeMissing": "Not estimated",

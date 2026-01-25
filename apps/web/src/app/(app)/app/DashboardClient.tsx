@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
+import { isProfileComplete } from "@/lib/profileCompletion";
 
 type CheckinEntry = {
   date: string;
@@ -127,8 +128,10 @@ export default function DashboardClient() {
     };
   }, []);
 
+  const profileReady = profile ? isProfileComplete(profile) : false;
+
   useEffect(() => {
-    if (!profile) {
+    if (!profile || !profileReady) {
       setSummary(null);
       return;
     }
@@ -168,54 +171,64 @@ export default function DashboardClient() {
             <p className="section-subtitle">{t("dashboard.todaySubtitle")}</p>
           </div>
         </div>
-        <div className="list-grid" style={{ marginTop: 16 }}>
-          <div className="feature-card">
-            <strong>{t("dashboard.todayTrainingTitle")}</strong>
-            {summary?.training ? (
-              <>
-                <p className="muted" style={{ marginTop: 6 }}>
-                  {summary.training.focus} · {summary.training.duration} {t("training.minutesLabel")}
-                </p>
-                <span className="badge">{summary.training.label}</span>
-              </>
-            ) : (
-              <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayTrainingEmpty")}</p>
-            )}
-            <Link className="btn secondary" href="/app/entrenamiento">
-              {t("dashboard.todayTrainingCta")}
+        {!profileReady ? (
+          <div className="empty-state" style={{ marginTop: 16 }}>
+            <h3 style={{ marginTop: 0 }}>{t("dashboard.profileIncompleteTitle")}</h3>
+            <p className="muted">{t("dashboard.profileIncompleteSubtitle")}</p>
+            <Link className="btn" href="/app/onboarding?next=/app">
+              {t("profile.openOnboarding")}
             </Link>
           </div>
-          <div className="feature-card">
-            <strong>{t("dashboard.todayNutritionTitle")}</strong>
-            {summary?.nutrition ? (
-              <>
-                <p className="muted" style={{ marginTop: 6 }}>
-                  {summary.nutrition.meals} {t("dashboard.todayMealsLabel")}
-                </p>
-                <span className="badge">{summary.nutrition.label}</span>
-              </>
-            ) : (
-              <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayNutritionEmpty")}</p>
-            )}
-            <Link className="btn secondary" href="/app/nutricion">
-              {t("dashboard.todayNutritionCta")}
-            </Link>
-          </div>
-          <div className="feature-card" style={{ display: "grid", gap: 12 }}>
-            <div>
-              <strong>{t("dashboard.quickActionsTitle")}</strong>
-              <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.quickActionsSubtitle")}</p>
-            </div>
-            <div className="list-grid">
-              <Link className="btn" href="/app/entrenamiento?ai=1">
-                {t("dashboard.aiTrainingCta")}
-              </Link>
-              <Link className="btn" href="/app/nutricion?ai=1">
-                {t("dashboard.aiNutritionCta")}
+        ) : (
+          <div className="list-grid" style={{ marginTop: 16 }}>
+            <div className="feature-card">
+              <strong>{t("dashboard.todayTrainingTitle")}</strong>
+              {summary?.training ? (
+                <>
+                  <p className="muted" style={{ marginTop: 6 }}>
+                    {summary.training.focus} · {summary.training.duration} {t("training.minutesLabel")}
+                  </p>
+                  <span className="badge">{summary.training.label}</span>
+                </>
+              ) : (
+                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayTrainingEmpty")}</p>
+              )}
+              <Link className="btn secondary" href="/app/entrenamiento">
+                {t("dashboard.todayTrainingCta")}
               </Link>
             </div>
+            <div className="feature-card">
+              <strong>{t("dashboard.todayNutritionTitle")}</strong>
+              {summary?.nutrition ? (
+                <>
+                  <p className="muted" style={{ marginTop: 6 }}>
+                    {summary.nutrition.meals} {t("dashboard.todayMealsLabel")}
+                  </p>
+                  <span className="badge">{summary.nutrition.label}</span>
+                </>
+              ) : (
+                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayNutritionEmpty")}</p>
+              )}
+              <Link className="btn secondary" href="/app/nutricion">
+                {t("dashboard.todayNutritionCta")}
+              </Link>
+            </div>
+            <div className="feature-card" style={{ display: "grid", gap: 12 }}>
+              <div>
+                <strong>{t("dashboard.quickActionsTitle")}</strong>
+                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.quickActionsSubtitle")}</p>
+              </div>
+              <div className="list-grid">
+                <Link className="btn" href="/app/entrenamiento?ai=1">
+                  {t("dashboard.aiTrainingCta")}
+                </Link>
+                <Link className="btn" href="/app/nutricion?ai=1">
+                  {t("dashboard.aiNutritionCta")}
+                </Link>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       <section className="card">

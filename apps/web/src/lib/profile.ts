@@ -11,6 +11,9 @@ export type TimerSound = "ding" | "repsToDo";
 
 export type GoalTag = "buildStrength" | "loseFat" | "betterHealth" | "moreEnergy" | "tonedMuscles";
 
+type OptionalEnum<T extends string> = T | "";
+type OptionalNumber = number | null;
+
 export type NutritionCookingTime = "quick" | "medium" | "long";
 export type NutritionDietType =
   | "balanced"
@@ -23,7 +26,7 @@ export type NutritionDietType =
   | "flexible";
 export type MealDistributionPreset = "balanced" | "lightDinner" | "bigBreakfast" | "bigLunch" | "custom";
 export type MealDistribution = {
-  preset: MealDistributionPreset;
+  preset: MealDistributionPreset | "";
   percentages?: number[];
 };
 
@@ -85,55 +88,55 @@ export type NutritionPlanData = {
 
 export type ProfileData = {
   name: string;
-  sex: Sex;
-  age: number;
-  heightCm: number;
-  weightKg: number;
-  goalWeightKg: number;
-  goal: Goal;
+  sex: OptionalEnum<Sex>;
+  age: OptionalNumber;
+  heightCm: OptionalNumber;
+  weightKg: OptionalNumber;
+  goalWeightKg: OptionalNumber;
+  goal: OptionalEnum<Goal>;
   goals: GoalTag[];
-  activity: Activity;
+  activity: OptionalEnum<Activity>;
   profilePhotoUrl: string | null;
   avatarDataUrl?: string | null;
   injuries: string;
   trainingPreferences: {
-    level: TrainingLevel;
-    daysPerWeek: 1 | 2 | 3 | 4 | 5 | 6 | 7;
-    sessionTime: SessionTime;
-    focus: TrainingFocus;
-    equipment: TrainingEquipment;
+    level: OptionalEnum<TrainingLevel>;
+    daysPerWeek: OptionalNumber;
+    sessionTime: OptionalEnum<SessionTime>;
+    focus: OptionalEnum<TrainingFocus>;
+    equipment: OptionalEnum<TrainingEquipment>;
     includeCardio: boolean;
     includeMobilityWarmups: boolean;
-    workoutLength: WorkoutLength;
-    timerSound: TimerSound;
+    workoutLength: OptionalEnum<WorkoutLength>;
+    timerSound: OptionalEnum<TimerSound>;
   };
   nutritionPreferences: {
-    mealsPerDay: 1 | 2 | 3 | 4 | 5 | 6;
-    dietType: NutritionDietType;
+    mealsPerDay: OptionalNumber;
+    dietType: OptionalEnum<NutritionDietType>;
     allergies: string[];
     preferredFoods: string;
     dislikedFoods: string;
     dietaryPrefs: string;
-    cookingTime: NutritionCookingTime;
+    cookingTime: OptionalEnum<NutritionCookingTime>;
     mealDistribution: MealDistribution;
   };
   macroPreferences: {
-    formula: MacroFormula;
-    proteinGPerKg: number;
-    fatGPerKg: number;
-    cutPercent: number;
-    bulkPercent: number;
+    formula: OptionalEnum<MacroFormula>;
+    proteinGPerKg: OptionalNumber;
+    fatGPerKg: OptionalNumber;
+    cutPercent: OptionalNumber;
+    bulkPercent: OptionalNumber;
   };
   notes: string;
   measurements: {
-    chestCm: number;
-    waistCm: number;
-    hipsCm: number;
-    bicepsCm: number;
-    thighCm: number;
-    calfCm: number;
-    neckCm: number;
-    bodyFatPercent: number;
+    chestCm: OptionalNumber;
+    waistCm: OptionalNumber;
+    hipsCm: OptionalNumber;
+    bicepsCm: OptionalNumber;
+    thighCm: OptionalNumber;
+    calfCm: OptionalNumber;
+    neckCm: OptionalNumber;
+    bodyFatPercent: OptionalNumber;
   };
   trainingPlan?: TrainingPlanData | null;
   nutritionPlan?: NutritionPlanData | null;
@@ -141,55 +144,55 @@ export type ProfileData = {
 
 export const defaultProfile: ProfileData = {
   name: "",
-  sex: "male",
-  age: 30,
-  heightCm: 175,
-  weightKg: 75,
-  goalWeightKg: 70,
-  goal: "maintain",
-  goals: ["betterHealth"],
-  activity: "moderate",
+  sex: "",
+  age: null,
+  heightCm: null,
+  weightKg: null,
+  goalWeightKg: null,
+  goal: "",
+  goals: [],
+  activity: "",
   profilePhotoUrl: null,
   avatarDataUrl: null,
   injuries: "",
   trainingPreferences: {
-    level: "beginner",
-    daysPerWeek: 3,
-    sessionTime: "medium",
-    focus: "full",
-    equipment: "gym",
+    level: "",
+    daysPerWeek: null,
+    sessionTime: "",
+    focus: "",
+    equipment: "",
     includeCardio: true,
     includeMobilityWarmups: true,
-    workoutLength: "45m",
-    timerSound: "ding",
+    workoutLength: "",
+    timerSound: "",
   },
   nutritionPreferences: {
-    mealsPerDay: 4,
-    dietType: "balanced",
+    mealsPerDay: null,
+    dietType: "",
     allergies: [],
     preferredFoods: "",
     dislikedFoods: "",
     dietaryPrefs: "",
-    cookingTime: "medium",
-    mealDistribution: { preset: "balanced" },
+    cookingTime: "",
+    mealDistribution: { preset: "" },
   },
   macroPreferences: {
-    formula: "mifflin",
-    proteinGPerKg: 1.8,
-    fatGPerKg: 0.8,
-    cutPercent: 15,
-    bulkPercent: 10,
+    formula: "",
+    proteinGPerKg: null,
+    fatGPerKg: null,
+    cutPercent: null,
+    bulkPercent: null,
   },
   notes: "",
   measurements: {
-    chestCm: 0,
-    waistCm: 0,
-    hipsCm: 0,
-    bicepsCm: 0,
-    thighCm: 0,
-    calfCm: 0,
-    neckCm: 0,
-    bodyFatPercent: 0,
+    chestCm: null,
+    waistCm: null,
+    hipsCm: null,
+    bicepsCm: null,
+    thighCm: null,
+    calfCm: null,
+    neckCm: null,
+    bodyFatPercent: null,
   },
   trainingPlan: null,
   nutritionPlan: null,

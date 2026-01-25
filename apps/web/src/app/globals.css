@@ -353,10 +353,90 @@ main {
   gap: 8px;
 }
 
+.workout-exercise-card {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.workout-exercise-media {
+  border-radius: 14px;
+  background: var(--bg-muted);
+  padding: 8px;
+}
+
+.workout-exercise-media img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 10px;
+}
+
+.workout-exercise-content {
+  display: grid;
+  gap: 8px;
+}
+
+.workout-set-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 6px;
+}
+
+.workout-set-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.tab-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tab-btn.active {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-soft);
+}
+
+.tab-panel {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.muscle-map {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+}
+
 @media (max-width: 900px) {
   .calendar-week-grid,
   .calendar-month-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .workout-exercise-card {
+    grid-template-columns: 1fr;
   }
 }
 

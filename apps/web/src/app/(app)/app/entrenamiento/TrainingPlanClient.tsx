@@ -270,14 +270,18 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const profile = await getUserProfile();
       if (!activeRef.current) return;
       setProfile(profile);
-      setForm({
-        goal: profile.goal,
-        level: profile.trainingPreferences.level,
-        daysPerWeek: profile.trainingPreferences.daysPerWeek,
-        equipment: profile.trainingPreferences.equipment,
-        focus: profile.trainingPreferences.focus,
-        sessionTime: profile.trainingPreferences.sessionTime,
-      });
+      if (isProfileComplete(profile)) {
+        setForm({
+          goal: profile.goal as Goal,
+          level: profile.trainingPreferences.level as TrainingLevel,
+          daysPerWeek: profile.trainingPreferences.daysPerWeek as TrainingForm["daysPerWeek"],
+          equipment: profile.trainingPreferences.equipment as TrainingEquipment,
+          focus: profile.trainingPreferences.focus as TrainingFocus,
+          sessionTime: profile.trainingPreferences.sessionTime as SessionTime,
+        });
+      } else {
+        setForm(null);
+      }
       setSavedPlan(profile.trainingPlan ?? null);
     } catch {
       if (activeRef.current) setError(t("training.profileError"));
@@ -703,7 +707,17 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </p>
           </section>
 
-          {!loading && !error && !hasPlan ? (
+          {!loading && !error && profile && !isProfileComplete(profile) ? (
+            <section className="card">
+              <div className="empty-state">
+                <h3 style={{ marginTop: 0 }}>{t("training.profileIncompleteTitle")}</h3>
+                <p className="muted">{t("training.profileIncompleteSubtitle")}</p>
+                <Link href="/app/onboarding?next=/app/entrenamiento" className="btn">
+                  {t("profile.openOnboarding")}
+                </Link>
+              </div>
+            </section>
+          ) : !loading && !error && !hasPlan ? (
             <section className="card">
               <div className="empty-state">
                 <h3 style={{ marginTop: 0 }}>{t("training.emptyTitle")}</h3>

@@ -611,21 +611,21 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   }, []);
 
   const plan = useMemo(() => {
-    if (!profile) return null;
+    if (!profile || !isProfileComplete(profile)) return null;
     return calculatePlan(
       {
-        age: profile.age,
-        heightCm: profile.heightCm,
-        weightKg: profile.weightKg,
-        activity: profile.activity,
-        goal: profile.goal,
-        mealsPerDay: profile.nutritionPreferences.mealsPerDay,
-        dietType: profile.nutritionPreferences.dietType,
+        age: profile.age as number,
+        heightCm: profile.heightCm as number,
+        weightKg: profile.weightKg as number,
+        activity: profile.activity as Activity,
+        goal: profile.goal as Goal,
+        mealsPerDay: profile.nutritionPreferences.mealsPerDay as NutritionForm["mealsPerDay"],
+        dietType: profile.nutritionPreferences.dietType as NutritionDietType,
         allergies: profile.nutritionPreferences.allergies,
         preferredFoods: profile.nutritionPreferences.preferredFoods,
         dislikedFoods: profile.nutritionPreferences.dislikedFoods,
         dietaryPrefs: profile.nutritionPreferences.dietaryPrefs,
-        cookingTime: profile.nutritionPreferences.cookingTime,
+        cookingTime: profile.nutritionPreferences.cookingTime as NutritionCookingTime,
         mealDistribution: profile.nutritionPreferences.mealDistribution,
       },
       mealTemplates,
@@ -1183,11 +1183,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                 <div className="info-grid" style={{ marginTop: 16 }}>
                   <div className="info-item">
                     <div className="info-label">{t("macros.weight")}</div>
-                    <div className="info-value">{profile.weightKg} kg</div>
+                    <div className="info-value">{profile.weightKg ?? "-"} kg</div>
                   </div>
                   <div className="info-item">
                     <div className="info-label">{t("macros.height")}</div>
-                    <div className="info-value">{profile.heightCm} cm</div>
+                    <div className="info-value">{profile.heightCm ?? "-"} cm</div>
                   </div>
                   <div className="info-item">
                     <div className="info-label">{t("macros.activity")}</div>
@@ -1234,7 +1234,17 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             </p>
           </section>
 
-          {!loading && !error && !hasPlan ? (
+          {!loading && !error && profile && !isProfileComplete(profile) ? (
+            <section className="card">
+              <div className="empty-state">
+                <h3 style={{ marginTop: 0 }}>{t("nutrition.profileIncompleteTitle")}</h3>
+                <p className="muted">{t("nutrition.profileIncompleteSubtitle")}</p>
+                <Link href="/app/onboarding?next=/app/nutricion" className="btn">
+                  {t("profile.openOnboarding")}
+                </Link>
+              </div>
+            </section>
+          ) : !loading && !error && !hasPlan ? (
             <section className="card">
               <div className="empty-state">
                 <h3 style={{ marginTop: 0 }}>{t("nutrition.emptyTitle")}</h3>
