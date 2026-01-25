@@ -894,7 +894,7 @@ const aiNutritionSchema = z.object({
   age: z.number().int().min(10).max(100),
   sex: z.enum(["male", "female"]),
   goal: z.enum(["cut", "maintain", "bulk"]),
-  mealsPerDay: z.number().int().min(3).max(6),
+  mealsPerDay: z.number().int().min(2).max(6),
   calories: z.number().int().min(1200).max(4000),
   dietaryRestrictions: z.string().optional(),
   dietType: z
@@ -977,7 +977,7 @@ const aiNutritionMealSchema = z
 const aiNutritionDaySchema = z
   .object({
     dayLabel: z.string().min(1),
-    meals: z.array(aiNutritionMealSchema).min(2).max(4),
+    meals: z.array(aiNutritionMealSchema).min(2).max(6),
   })
   .passthrough();
 
@@ -1144,47 +1144,122 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
   if (params.focus !== "ppl" || params.level !== "intermediate" || params.daysPerWeek < 3) {
     return null;
   }
+  const daysPerWeek = Math.min(params.daysPerWeek, 7);
+  const pushDay = {
+    label: "Día 1",
+    focus: "Push",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      { name: "Press banca", sets: "4", reps: "6-10" },
+      { name: "Press militar", sets: "3", reps: "8-10" },
+      { name: "Fondos", sets: "3", reps: "8-12" },
+      { name: "Elevaciones laterales", sets: "3", reps: "12-15" },
+      { name: "Extensión tríceps", sets: "3", reps: "10-12" },
+    ],
+  };
+  const pullDay = {
+    label: "Día 2",
+    focus: "Pull",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      { name: "Remo con barra", sets: "4", reps: "6-10" },
+      { name: "Dominadas", sets: "3", reps: "6-10" },
+      { name: "Remo en polea", sets: "3", reps: "10-12" },
+      { name: "Curl bíceps", sets: "3", reps: "10-12" },
+      { name: "Face pull", sets: "3", reps: "12-15" },
+    ],
+  };
+  const legsDay = {
+    label: "Día 3",
+    focus: "Legs",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      { name: "Sentadilla", sets: "4", reps: "6-10" },
+      { name: "Peso muerto rumano", sets: "3", reps: "8-10" },
+      { name: "Hip thrust", sets: "3", reps: "10-12" },
+      { name: "Prensa", sets: "3", reps: "10-12" },
+      { name: "Elevaciones de gemelo", sets: "3", reps: "12-15" },
+    ],
+  };
+  const pushDayVariation = {
+    label: "Día 4",
+    focus: "Push (variación)",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      { name: "Press inclinado con mancuernas", sets: "4", reps: "8-10" },
+      { name: "Press Arnold", sets: "3", reps: "8-10" },
+      { name: "Aperturas con mancuernas", sets: "3", reps: "12-15" },
+      { name: "Elevaciones frontales", sets: "3", reps: "12-15" },
+      { name: "Jalón de tríceps con cuerda", sets: "3", reps: "10-12" },
+    ],
+  };
+  const pullDayVariation = {
+    label: "Día 5",
+    focus: "Pull (variación)",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      { name: "Remo con mancuerna a una mano", sets: "4", reps: "8-10" },
+      { name: "Jalón al pecho en polea", sets: "3", reps: "8-12" },
+      { name: "Remo en máquina", sets: "3", reps: "10-12" },
+      { name: "Curl martillo", sets: "3", reps: "10-12" },
+      { name: "Encogimientos de trapecio", sets: "3", reps: "12-15" },
+    ],
+  };
+  const legsDayVariation = {
+    label: "Día 6",
+    focus: "Legs (variación)",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      { name: "Sentadilla frontal", sets: "4", reps: "6-10" },
+      { name: "Peso muerto sumo", sets: "3", reps: "6-10" },
+      { name: "Zancada búlgara", sets: "3", reps: "10-12" },
+      { name: "Curl femoral", sets: "3", reps: "10-12" },
+      { name: "Elevaciones de gemelo sentado", sets: "3", reps: "12-15" },
+    ],
+  };
+  const recoveryDay = {
+    label: "Día 7",
+    focus: "Cardio + movilidad",
+    duration: Math.min(params.timeAvailableMinutes, 40),
+    exercises: [
+      { name: "Caminata inclinada en cinta", sets: "1", reps: "20 min" },
+      { name: "Plancha frontal", sets: "3", reps: "30-45s" },
+      { name: "Movilidad de cadera y hombro", sets: "1", reps: "10 min" },
+    ],
+  };
+  const baseDays = [pushDay, pullDay, legsDay];
+  if (daysPerWeek === 3) {
+    return {
+      title: "Rutina Push/Pull/Legs intermedio",
+      days: baseDays,
+      notes: "Plan base PPL. Ajusta cargas y descanso según progreso.",
+    };
+  }
+  if (daysPerWeek === 4) {
+    return {
+      title: "Rutina Push/Pull/Legs intermedio",
+      days: [...baseDays, pushDayVariation],
+      notes: "Plan PPL con variación extra de empuje.",
+    };
+  }
+  if (daysPerWeek === 5) {
+    return {
+      title: "Rutina Push/Pull/Legs intermedio",
+      days: [...baseDays, pushDayVariation, pullDayVariation],
+      notes: "Plan PPL con variaciones extra de push y pull.",
+    };
+  }
+  if (daysPerWeek === 6) {
+    return {
+      title: "Rutina Push/Pull/Legs intermedio",
+      days: [...baseDays, pushDayVariation, pullDayVariation, legsDayVariation],
+      notes: "Plan PPL completo con dobles estímulos semanales.",
+    };
+  }
   return {
     title: "Rutina Push/Pull/Legs intermedio",
-    days: [
-      {
-        label: "Día 1",
-        focus: "Push",
-        duration: params.timeAvailableMinutes,
-        exercises: [
-          { name: "Press banca", sets: "4", reps: "8-10" },
-          { name: "Press militar", sets: "3", reps: "8-10" },
-          { name: "Fondos", sets: "3", reps: "10-12" },
-          { name: "Elevaciones laterales", sets: "3", reps: "12-15" },
-          { name: "Extensión tríceps", sets: "3", reps: "12" },
-        ],
-      },
-      {
-        label: "Día 2",
-        focus: "Pull",
-        duration: params.timeAvailableMinutes,
-        exercises: [
-          { name: "Remo con barra", sets: "4", reps: "8-10" },
-          { name: "Dominadas", sets: "3", reps: "6-10" },
-          { name: "Remo en polea", sets: "3", reps: "10-12" },
-          { name: "Curl bíceps", sets: "3", reps: "12" },
-          { name: "Face pull", sets: "3", reps: "12-15" },
-        ],
-      },
-      {
-        label: "Día 3",
-        focus: "Legs",
-        duration: params.timeAvailableMinutes,
-        exercises: [
-          { name: "Sentadilla", sets: "4", reps: "8-10" },
-          { name: "Peso muerto rumano", sets: "3", reps: "8-10" },
-          { name: "Hip thrust", sets: "3", reps: "12" },
-          { name: "Prensa", sets: "3", reps: "10-12" },
-          { name: "Elevaciones de gemelo", sets: "3", reps: "12-15" },
-        ],
-      },
-    ],
-    notes: "Plan base PPL. Ajusta cargas y descanso según progreso.",
+    days: [...baseDays, pushDayVariation, pullDayVariation, legsDayVariation, recoveryDay],
+    notes: "Plan PPL completo con día extra de recuperación activa.",
   };
 }
 
@@ -1266,7 +1341,7 @@ function buildTipTemplate() {
   };
 }
 
-function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
+function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = false) {
   const secondaryGoals = data.goals?.length ? data.goals.join(", ") : "no especificados";
   const cardio = typeof data.includeCardio === "boolean" ? (data.includeCardio ? "sí" : "no") : "no especificado";
   const mobility =
@@ -1275,13 +1350,14 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
   const timerSound = data.timerSound ?? "no especificado";
   const injuries = data.injuries?.trim() || "ninguna";
   return [
-    "Eres un entrenador personal senior. Genera un plan compacto y reutilizable en JSON válido.",
+    "Eres un entrenador personal senior. Genera un plan reutilizable en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
     "El JSON debe respetar exactamente este esquema:",
     '{"title":string,"notes"?:string,"days":[{"label":string,"focus":string,"duration":number,"exercises":[{"name":string,"sets":string|number,"reps":string|number,"tempo"?:string,"rest"?:string|number,"notes"?:string}]}]}',
     "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
-    "Mantén el plan compacto: máximo 5 días, máximo 5 ejercicios por día, texto corto.",
-    "Si el usuario pide menos días, respeta ese número.",
+    "OBLIGATORIO: days.length debe ser EXACTAMENTE el número solicitado (si >7 usa 7).",
+    "Máximo 7 días, máximo 5 ejercicios por día, mínimo 3 ejercicios por día.",
+    strict ? "REINTENTO: si devuelves menos o más días, la respuesta será rechazada." : "",
     "Respeta el nivel del usuario:",
     "- principiante: ejercicios básicos y seguros, 3-4 ejercicios por sesión, 30-50 minutos.",
     "- intermedio/avanzado: 4-5 ejercicios por sesión, básicos multiarticulares, 40-60 minutos.",
@@ -1297,12 +1373,14 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
     "- full: cuerpo completo cada día.",
     "- upperLower: alterna upper/lower empezando por upper.",
     "- ppl: rota push, pull, legs en orden.",
-    "Usa days.length = días por semana (límite 5). label en español consistente (ej: \"Día 1\", \"Día 2\").",
+    "Usa days.length = días por semana (límite 7). label en español consistente (ej: \"Día 1\", \"Día 2\").",
     "En cada día incluye duration en minutos (number).",
     "En cada ejercicio incluye name (español), sets, reps. tempo/rest/notes solo si son cortos.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
     '{"title":"Plan semanal compacto","notes":"Enfoque simple.","days":[{"label":"Día 1","focus":"Full body","duration":45,"exercises":[{"name":"Sentadilla","sets":"3","reps":"8-10"},{"name":"Press banca","sets":"3","reps":"8-10"},{"name":"Remo con barra","sets":"3","reps":"8-10"}]}]}',
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 type RecipePromptItem = {
@@ -1319,18 +1397,74 @@ type RecipePromptItem = {
 function formatRecipeLibrary(recipes: RecipePromptItem[]) {
   if (!recipes.length) return "";
   const lines = recipes.map((recipe) => {
-    const ingredients = recipe.ingredients.map((ing) => `${ing.name} (${Math.round(ing.grams)}g)`).join(", ");
-    const steps = recipe.steps.join(" | ");
-    return `- ${recipe.name}: ${recipe.description ?? "Sin descripción"}. Macros ${Math.round(
+    return `- ${recipe.name}: ${recipe.description ?? "Sin descripción"}. Macros base ${Math.round(
       recipe.calories
-    )} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(
-      recipe.fat
-    )}. Ingredientes base: ${ingredients}. Pasos: ${steps}.`;
+    )} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(recipe.fat)}.`;
   });
   return lines.join(" ");
 }
 
-function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>, recipes: RecipePromptItem[] = []) {
+function roundToNearest5(value: number) {
+  return Math.round(value / 5) * 5;
+}
+
+type RecipeSeedItem = {
+  name: string;
+  description: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  steps: string[];
+  ingredients: Array<{ name: string; grams: number }>;
+};
+
+type RecipeDbItem = {
+  name: string;
+  description: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  steps: string[];
+  ingredients: Array<{ name: string; grams: number }>;
+};
+
+function applyRecipeScalingToPlan(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  recipes: RecipeDbItem[]
+) {
+  if (!recipes.length) return plan;
+  const recipeMap = new Map(recipes.map((recipe) => [recipe.name.toLowerCase(), recipe]));
+  plan.days.forEach((day) => {
+    day.meals.forEach((meal) => {
+      const recipe = recipeMap.get(meal.title.toLowerCase());
+      if (!recipe) return;
+      const baseCalories = recipe.calories;
+      const targetCalories = meal.macros?.calories ?? baseCalories;
+      if (!baseCalories || !targetCalories || !Number.isFinite(targetCalories)) return;
+      const scale = targetCalories / baseCalories;
+      const scaledIngredients = recipe.ingredients.map((ingredient) => ({
+        name: ingredient.name,
+        grams: roundToNearest5(ingredient.grams * scale),
+      }));
+      meal.ingredients = scaledIngredients;
+      meal.macros = {
+        calories: Math.round(recipe.calories * scale),
+        protein: Math.round(recipe.protein * scale),
+        carbs: Math.round(recipe.carbs * scale),
+        fats: Math.round(recipe.fat * scale),
+      };
+    });
+  });
+  return plan;
+}
+
+function buildNutritionPrompt(
+  data: z.infer<typeof aiNutritionSchema>,
+  recipes: RecipePromptItem[] = [],
+  strict = false
+) {
   const distribution =
     typeof data.mealDistribution === "string"
       ? data.mealDistribution
@@ -1340,18 +1474,32 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>, recipes: 
       ? `(${data.mealDistribution.percentages.join("%, ")}%)`
       : "";
   const recipeLibrary = formatRecipeLibrary(recipes);
+  const mealsPerDay = Math.min(data.mealsPerDay, 6);
+  const mealStructure =
+    mealsPerDay === 2
+      ? "2 meals: lunch + dinner (o breakfast + dinner)."
+      : mealsPerDay === 3
+        ? "3 meals: breakfast + lunch + dinner."
+        : mealsPerDay === 4
+          ? "4 meals: breakfast + lunch + snack + dinner."
+          : mealsPerDay === 5
+            ? "5 meals: breakfast + snack + lunch + snack + dinner."
+            : "6 meals: breakfast + snack + lunch + snack + dinner + snack.";
   return [
     "Eres un nutricionista deportivo senior. Genera un plan semanal compacto en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
     "El JSON debe respetar exactamente este esquema:",
     '{"title":string,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"dayLabel":string,"meals":[{"type":"breakfast"|"lunch"|"dinner"|"snack","title":string,"description"?:string,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients"?:[{"name":string,"grams":number}]}]}],"shoppingList"?:[{"name":string,"grams":number}]}',
-    "Plan compacto: máximo 5 días, 2-3 comidas por día (breakfast/lunch/dinner). Evita snacks largos.",
-    "Descripción e ingredientes opcionales; si incluyes ingredientes, usa 1-2 por comida.",
+    "OBLIGATORIO: cada día debe tener EXACTAMENTE el número de meals solicitado (si >6 usa 6).",
+    `Estructura de meals: ${mealStructure}`,
+    "Mantén máximo 5 días.",
+    "Descripción opcional. Ingredients opcional; si hay receta base, omite ingredients o déjalo vacío.",
     "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, carne magra y frutos secos.",
     "Evita cantidades absurdas. Porciones realistas y fáciles de cocinar.",
     "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
+    strict ? "REINTENTO: si los meals por día no coinciden exactamente, la respuesta será rechazada." : "",
     recipeLibrary
-      ? `Usa estas recetas base y ajusta gramos según el perfil. No inventes platos fuera de este listado: ${recipeLibrary}`
+      ? `OBLIGATORIO: No inventes platos fuera del listado. Usa titles exactamente como en la biblioteca. Lista: ${recipeLibrary}`
       : "Si no hay recetas base disponibles, crea platos sencillos y coherentes.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
@@ -1362,13 +1510,14 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>, recipes: 
     `Alimentos a evitar: ${data.dislikedFoods ?? "ninguno"}.`,
     `Distribución de comidas: ${distribution} ${distributionPercentages}.`,
     "Genera 3 a 5 días con dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
-    "Cada día incluye desayuno, comida y cena.",
     "Usa siempre type y macros en cada comida.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
     '{"title":"Plan mediterráneo compacto","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"dayLabel":"Lunes","meals":[{"type":"breakfast","title":"Avena con yogur","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180}]},{"type":"lunch","title":"Pollo con arroz","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Pollo","grams":160},{"name":"Arroz integral","grams":180}]},{"type":"dinner","title":"Salmón con verduras","macros":{"calories":800,"protein":50,"carbs":60,"fats":28},"ingredients":[{"name":"Salmón","grams":160},{"name":"Verduras mixtas","grams":200}]}]}]}',
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function buildTipPrompt(data: z.infer<typeof aiTipSchema>) {
@@ -1419,6 +1568,18 @@ function parseTrainingPlanPayload(payload: Record<string, unknown>) {
   }
 }
 
+function assertTrainingMatchesRequest(plan: z.infer<typeof aiTrainingPlanResponseSchema>, expectedDays: number) {
+  if (plan.days.length !== expectedDays) {
+    if (process.env.NODE_ENV !== "production") {
+      app.log.warn(
+        { expectedDays, actualDays: plan.days.length, title: plan.title },
+        "training plan days mismatch"
+      );
+    }
+    throw createHttpError(502, "AI_PARSE_ERROR", { expectedDays, actualDays: plan.days.length });
+  }
+}
+
 function normalizeNutritionPlanDays(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
@@ -1431,6 +1592,30 @@ function parseNutritionPlanPayload(payload: Record<string, unknown>) {
   } catch (error) {
     app.log.warn({ err: error, payload }, "ai nutrition response invalid");
     throw createHttpError(502, "AI_PARSE_ERROR");
+  }
+}
+
+function assertNutritionMatchesRequest(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  expectedMealsPerDay: number
+) {
+  const invalid = plan.days.find((day) => day.meals.length !== expectedMealsPerDay);
+  if (invalid) {
+    if (process.env.NODE_ENV !== "production") {
+      app.log.warn(
+        {
+          expectedMealsPerDay,
+          actualMealsPerDay: invalid.meals.length,
+          dayLabel: invalid.dayLabel,
+        },
+        "nutrition plan meals mismatch"
+      );
+    }
+    throw createHttpError(502, "AI_PARSE_ERROR", {
+      expectedMealsPerDay,
+      actualMealsPerDay: invalid.meals.length,
+      dayLabel: invalid.dayLabel,
+    });
   }
 }
 
@@ -1827,6 +2012,542 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
       }
     })
   );
+}
+
+const EXERCISES_100 = [
+  "Sentadilla trasera con barra",
+  "Sentadilla frontal con barra",
+  "Sentadilla goblet",
+  "Zancadas caminando",
+  "Zancada búlgara",
+  "Prensa de piernas",
+  "Extensión de cuádriceps",
+  "Curl femoral tumbado",
+  "Curl femoral sentado",
+  "Peso muerto rumano con barra",
+  "Peso muerto rumano con mancuernas",
+  "Peso muerto convencional",
+  "Peso muerto sumo",
+  "Hip thrust con barra",
+  "Puente de glúteos",
+  "Abducción de cadera en máquina",
+  "Aducción de cadera en máquina",
+  "Elevación de gemelos de pie",
+  "Elevación de gemelos sentado",
+  "Step-up al banco",
+  "Saltos al cajón",
+  "Sprint en cinta",
+  "Caminata inclinada en cinta",
+  "Bicicleta estática",
+  "Remo ergómetro",
+  "Elíptica",
+  "Burpees",
+  "Jumping jacks",
+  "Plancha frontal",
+  "Plancha lateral",
+  "Dead bug",
+  "Bird dog",
+  "Crunch en polea",
+  "Elevaciones de piernas colgado",
+  "Rueda abdominal",
+  "Hollow hold",
+  "Press banca con barra",
+  "Press banca con mancuernas",
+  "Press inclinado con mancuernas",
+  "Press declinado",
+  "Fondos en paralelas",
+  "Flexiones",
+  "Flexiones con pies elevados",
+  "Aperturas con mancuernas",
+  "Cruce de poleas",
+  "Pullover con mancuerna",
+  "Press militar con barra",
+  "Press militar con mancuernas",
+  "Press Arnold",
+  "Elevaciones laterales",
+  "Elevaciones frontales",
+  "Pájaros (rear delt fly)",
+  "Face pull",
+  "Remo al mentón con barra EZ",
+  "Encogimientos de trapecio",
+  "Dominadas pronas",
+  "Dominadas supinas",
+  "Jalón al pecho en polea",
+  "Jalón con agarre neutro",
+  "Remo con barra",
+  "Remo con mancuerna a una mano",
+  "Remo en polea baja",
+  "Remo en máquina",
+  "Pull-over en polea",
+  "Rack pull",
+  "Hiperextensiones lumbares",
+  "Buenos días con barra",
+  "Curl bíceps con barra",
+  "Curl bíceps con barra EZ",
+  "Curl alterno con mancuernas",
+  "Curl martillo",
+  "Curl concentrado",
+  "Curl en banco inclinado",
+  "Curl en polea",
+  "Extensión de tríceps en polea",
+  "Jalón de tríceps con cuerda",
+  "Press francés con barra EZ",
+  "Extensión de tríceps por encima de la cabeza",
+  "Fondos en banco",
+  "Patada de tríceps",
+  "Farmer walk",
+  "Kettlebell swing",
+  "Sentadilla con salto",
+  "Peso muerto con kettlebell",
+  "Clean and press con kettlebell",
+  "Remo invertido",
+  "Press de hombro en máquina",
+  "Peck deck",
+  "Press de pecho en máquina",
+  "Jalón de dorsales en máquina",
+  "Remo T-bar",
+  "Curl femoral con fitball",
+  "Sentadilla hack",
+  "Extensión de espalda en banco romano",
+  "Elevación de talones unilateral",
+  "Ab wheel desde rodillas",
+  "Pallof press",
+  "Rotación de tronco en polea",
+  "Estiramiento de flexor de cadera",
+];
+
+function inferExerciseMetadataFromName(name: string): ExerciseMetadata {
+  const lower = name.toLowerCase();
+  const pick = (value: string) => value;
+  const equipment = (() => {
+    if (lower.includes("barra ez")) return pick("Barra EZ");
+    if (lower.includes("barra")) return pick("Barra");
+    if (lower.includes("mancuerna")) return pick("Mancuernas");
+    if (lower.includes("máquina") || lower.includes("maquina")) return pick("Máquina");
+    if (lower.includes("polea")) return pick("Polea");
+    if (lower.includes("kettlebell")) return pick("Kettlebell");
+    if (lower.includes("cinta")) return pick("Cinta");
+    if (lower.includes("bicicleta")) return pick("Bicicleta");
+    if (lower.includes("ergómetro") || lower.includes("ergometro")) return pick("Remo ergómetro");
+    if (lower.includes("elíptica") || lower.includes("eliptica")) return pick("Elíptica");
+    if (lower.includes("fitball")) return pick("Fitball");
+    if (lower.includes("banco")) return pick("Banco");
+    if (lower.includes("paralelas")) return pick("Paralelas");
+    if (lower.includes("cajón") || lower.includes("cajon")) return pick("Cajón");
+    return pick("Peso corporal");
+  })();
+
+  const mainMuscleGroup = (() => {
+    if (
+      lower.includes("sentadilla") ||
+      lower.includes("prensa") ||
+      lower.includes("zancada") ||
+      lower.includes("peso muerto") ||
+      lower.includes("hip thrust") ||
+      lower.includes("glúteos") ||
+      lower.includes("gluteos") ||
+      lower.includes("gemelos") ||
+      lower.includes("hack")
+    ) {
+      return "Piernas";
+    }
+    if (lower.includes("press banca") || lower.includes("peck deck") || lower.includes("pecho") || lower.includes("fondos") || lower.includes("flexiones")) {
+      return "Pecho";
+    }
+    if (lower.includes("press militar") || lower.includes("hombro") || lower.includes("arnold") || lower.includes("elevaciones") || lower.includes("rear delt") || lower.includes("pájaros") || lower.includes("face pull")) {
+      return "Hombros";
+    }
+    if (lower.includes("remo") || lower.includes("jalón") || lower.includes("dominadas") || lower.includes("pull-over") || lower.includes("rack pull")) {
+      return "Espalda";
+    }
+    if (lower.includes("bíceps") || lower.includes("biceps") || lower.includes("curl")) {
+      return "Bíceps";
+    }
+    if (lower.includes("tríceps") || lower.includes("triceps") || lower.includes("press francés") || lower.includes("jalón de tríceps") || lower.includes("patada")) {
+      return "Tríceps";
+    }
+    if (
+      lower.includes("plancha") ||
+      lower.includes("dead bug") ||
+      lower.includes("bird dog") ||
+      lower.includes("crunch") ||
+      lower.includes("ab wheel") ||
+      lower.includes("rueda abdominal") ||
+      lower.includes("hollow") ||
+      lower.includes("pallof") ||
+      lower.includes("rotación") ||
+      lower.includes("rotacion")
+    ) {
+      return "Core";
+    }
+    if (
+      lower.includes("sprint") ||
+      lower.includes("caminata") ||
+      lower.includes("bicicleta") ||
+      lower.includes("ergómetro") ||
+      lower.includes("elíptica") ||
+      lower.includes("burpees") ||
+      lower.includes("jumping jacks")
+    ) {
+      return "Cardio";
+    }
+    return "General";
+  })();
+
+  const secondaryMuscleGroups = (() => {
+    if (mainMuscleGroup === "Piernas") {
+      return ["Glúteos", "Core"];
+    }
+    if (mainMuscleGroup === "Pecho") {
+      return ["Tríceps", "Hombros"];
+    }
+    if (mainMuscleGroup === "Espalda") {
+      return ["Bíceps", "Core"];
+    }
+    if (mainMuscleGroup === "Hombros") {
+      return ["Trapecio", "Tríceps"];
+    }
+    if (mainMuscleGroup === "Bíceps") {
+      return ["Antebrazos"];
+    }
+    if (mainMuscleGroup === "Tríceps") {
+      return ["Hombros"];
+    }
+    if (mainMuscleGroup === "Cardio") {
+      return ["Resistencia"];
+    }
+    if (mainMuscleGroup === "Core") {
+      return ["Espalda baja"];
+    }
+    return [];
+  })();
+
+  return {
+    equipment,
+    mainMuscleGroup,
+    secondaryMuscleGroups,
+    description: "Mantén técnica controlada y rango de movimiento completo.",
+  };
+}
+
+const RECIPES_100 = [
+  "Salmón con patata y verduras al horno",
+  "Pollo a la plancha con arroz integral y ensalada",
+  "Ternera magra salteada con pimientos y quinoa",
+  "Merluza en papillote con calabacín y limón",
+  "Atún a la plancha con boniato y brócoli",
+  "Pechuga de pavo al curry con arroz basmati integral",
+  "Albóndigas de pavo en salsa de tomate casera con espagueti de calabacín",
+  "Tortilla de claras con espinacas y queso fresco",
+  "Yogur griego con avena, frutos rojos y nueces",
+  "Overnight oats de cacao y plátano",
+  "Tostadas integrales con aguacate y huevo poché",
+  "Shakshuka ligera con huevos y verduras",
+  "Ensalada mediterránea de garbanzos con atún",
+  "Bowl de lentejas con verduras asadas y feta",
+  "Chili de pavo con alubias y arroz",
+  "Burrito bowl de pollo con frijoles y pico de gallo",
+  "Tacos de pescado con col y salsa de yogur",
+  "Wrap integral de pollo, hummus y verduras",
+  "Sandwich proteico de pavo y queso cottage",
+  "Crema de calabaza con jengibre y topping de semillas",
+  "Sopa miso con tofu, setas y espinacas",
+  "Salteado asiático de pollo con verduras y noodles de konjac",
+  "Wok de gambas con verduras y arroz jazmín integral",
+  "Paella fitness de marisco con arroz",
+  "Arroz al horno con pollo y verduras (light)",
+  "Poke bowl de salmón, arroz y edamame",
+  "Poke bowl de atún, quinoa y mango",
+  "Ensalada César ligera con pollo y yogur",
+  "Ensalada de quinoa con pepino, tomate y pollo",
+  "Ensalada templada de espárragos y huevo",
+  "Pasta integral con boloñesa de pavo",
+  "Pasta de lentejas con pesto de albahaca y pollo",
+  "Pizza de base de coliflor con pollo y verduras",
+  "Hamburguesa de ternera magra con ensalada y patata al aire",
+  "Hamburguesa de salmón con ensalada de col",
+  "Nuggets de pollo al horno con salsa de yogur",
+  "Pechuga de pollo rellena de espinacas y ricotta",
+  "Bacalao a la vizcaína ligero con patata cocida",
+  "Lubina al horno con verduras y aceite de oliva",
+  "Pollo tikka masala light con arroz integral",
+  "Curry rojo de gambas con coco light y verduras",
+  "Tofu crujiente al horno con teriyaki light y arroz",
+  "Tempeh salteado con brócoli y sésamo",
+  "Ensalada caprese con pollo y pesto ligero",
+  "Omelette de champiñones y jamón serrano magro",
+  "Revuelto de huevo con salmón ahumado y espárragos",
+  "Porridge de avena con canela y manzana",
+  "Pudín de chía con yogur y frutas",
+  "Batido proteico de café y cacao",
+  "Smoothie bowl de frutos rojos y proteína",
+  "Edamame con sal y limón",
+  "Hummus casero con palitos de zanahoria",
+  "Guacamole con crudités y tortilla integral",
+  "Queso cottage con piña y canela",
+  "Skyr con miel y almendras (controlado)",
+  "Barritas caseras de avena y proteína",
+  "Tortitas de avena y claras con arándanos",
+  "Tortitas de plátano y huevo",
+  "Pan de plátano proteico (sin azúcar añadido)",
+  "Yogur helado de skyr con frutos rojos",
+  "Ensalada de pasta integral con atún y maíz",
+  "Ensalada de arroz integral con pollo y verduras",
+  "Salpicón de marisco con aguacate",
+  "Ceviche de pescado blanco con boniato",
+  "Gazpacho con topping de huevo duro",
+  "Salmorejo ligero con jamón y huevo",
+  "Crema de verduras verde con topping proteico",
+  "Estofado de ternera magra con verduras",
+  "Estofado de garbanzos con espinacas y bacalao",
+  "Lentejas estofadas con verduras y pavo",
+  "Potaje de alubias con verduras y atún",
+  "Arroz integral con pollo al limón",
+  "Pollo al ajillo con patata y judías verdes",
+  "Pavo al horno con especias y verduras",
+  "Conejo al horno con romero y patata",
+  "Fajitas de pollo con pimientos y tortillas integrales",
+  "Fajitas de ternera con verduras y guacamole",
+  "Sándwich de atún con yogur y pepinillos",
+  "Ensalada de espinacas con fresas, pollo y nueces",
+  "Ensalada de rúcula con pera, jamón magro y parmesano",
+  "Bowl de yogur con granola proteica casera",
+  "Bowl de quinoa con huevo, aguacate y verduras",
+  "Quinoa con salmón y salsa de yogur al eneldo",
+  "Bacalao al horno con garbanzos y espinacas",
+  "Tortilla española ligera",
+  "Calamares a la plancha con ensalada",
+  "Pulpo a la gallega light con patata y pimentón",
+  "Sushi bowl de pollo teriyaki light",
+  "Sushi bowl de salmón y pepino",
+  "Pez espada a la plancha con ensalada griega",
+  "Pollo estilo shawarma con ensalada y tzatziki",
+  "Kebab bowl de pavo con arroz y verduras",
+  "Crepes integrales rellenos de pollo y espinacas",
+  "Crepes de avena rellenos de queso fresco y frutos rojos",
+  "Arroz con leche proteico (skyr y canela)",
+  "Macedonia de frutas con yogur y proteína",
+  "Patata asada rellena de atún y yogur",
+  "Boniato asado relleno de pollo y verduras",
+  "Sopa de pollo con verduras y fideos integrales",
+  "Bowl de pollo, verduras y salsa de cacahuete light",
+];
+
+const recipeMacroTemplates: Record<string, { calories: number; protein: number; carbs: number; fat: number }> = {
+  breakfast: { calories: 420, protein: 25, carbs: 48, fat: 12 },
+  snack: { calories: 260, protein: 16, carbs: 28, fat: 8 },
+  fish: { calories: 560, protein: 40, carbs: 45, fat: 18 },
+  seafood: { calories: 580, protein: 38, carbs: 55, fat: 16 },
+  poultry: { calories: 600, protein: 45, carbs: 55, fat: 16 },
+  beef: { calories: 650, protein: 45, carbs: 50, fat: 20 },
+  vegetarian: { calories: 520, protein: 26, carbs: 68, fat: 14 },
+  salad: { calories: 450, protein: 30, carbs: 40, fat: 18 },
+  soup: { calories: 360, protein: 20, carbs: 40, fat: 10 },
+  pasta: { calories: 620, protein: 35, carbs: 80, fat: 14 },
+  rice: { calories: 620, protein: 38, carbs: 78, fat: 14 },
+  wrap: { calories: 520, protein: 34, carbs: 55, fat: 16 },
+  dessert: { calories: 320, protein: 18, carbs: 40, fat: 8 },
+  other: { calories: 500, protein: 30, carbs: 55, fat: 15 },
+};
+
+const recipeIngredientTemplates: Record<string, Array<{ name: string; grams: number }>> = {
+  breakfast: [
+    { name: "Avena", grams: 60 },
+    { name: "Yogur griego", grams: 180 },
+    { name: "Fruta fresca", grams: 120 },
+    { name: "Frutos secos", grams: 20 },
+  ],
+  snack: [
+    { name: "Yogur skyr", grams: 170 },
+    { name: "Fruta fresca", grams: 120 },
+    { name: "Miel", grams: 10 },
+    { name: "Almendras", grams: 15 },
+  ],
+  fish: [
+    { name: "Pescado", grams: 160 },
+    { name: "Patata o boniato", grams: 200 },
+    { name: "Verduras mixtas", grams: 200 },
+    { name: "Aceite de oliva", grams: 10 },
+  ],
+  seafood: [
+    { name: "Marisco", grams: 170 },
+    { name: "Arroz integral", grams: 180 },
+    { name: "Verduras mixtas", grams: 180 },
+    { name: "Aceite de oliva", grams: 10 },
+  ],
+  poultry: [
+    { name: "Pechuga de pollo/pavo", grams: 170 },
+    { name: "Arroz integral", grams: 180 },
+    { name: "Verduras mixtas", grams: 200 },
+    { name: "Aceite de oliva", grams: 10 },
+  ],
+  beef: [
+    { name: "Ternera magra", grams: 170 },
+    { name: "Quinoa o arroz", grams: 180 },
+    { name: "Verduras", grams: 180 },
+    { name: "Aceite de oliva", grams: 10 },
+  ],
+  vegetarian: [
+    { name: "Legumbres cocidas", grams: 180 },
+    { name: "Verduras variadas", grams: 200 },
+    { name: "Queso fresco o tofu", grams: 120 },
+    { name: "Aceite de oliva", grams: 10 },
+  ],
+  salad: [
+    { name: "Hojas verdes", grams: 120 },
+    { name: "Proteína magra", grams: 140 },
+    { name: "Verduras", grams: 150 },
+    { name: "Aceite de oliva", grams: 10 },
+  ],
+  soup: [
+    { name: "Verduras", grams: 250 },
+    { name: "Proteína magra", grams: 120 },
+    { name: "Caldo", grams: 300 },
+    { name: "Aceite de oliva", grams: 8 },
+  ],
+  pasta: [
+    { name: "Pasta integral", grams: 90 },
+    { name: "Proteína magra", grams: 140 },
+    { name: "Tomate o pesto", grams: 80 },
+    { name: "Verduras", grams: 150 },
+  ],
+  rice: [
+    { name: "Arroz integral", grams: 180 },
+    { name: "Proteína magra", grams: 160 },
+    { name: "Verduras", grams: 180 },
+    { name: "Aceite de oliva", grams: 10 },
+  ],
+  wrap: [
+    { name: "Tortilla integral", grams: 70 },
+    { name: "Proteína magra", grams: 140 },
+    { name: "Verduras", grams: 150 },
+    { name: "Salsa ligera", grams: 30 },
+  ],
+  dessert: [
+    { name: "Skyr o yogur", grams: 180 },
+    { name: "Fruta", grams: 120 },
+    { name: "Canela o cacao", grams: 5 },
+    { name: "Frutos secos", grams: 15 },
+  ],
+  other: [
+    { name: "Proteína magra", grams: 150 },
+    { name: "Carbohidrato complejo", grams: 180 },
+    { name: "Verduras", grams: 180 },
+    { name: "Aceite de oliva", grams: 10 },
+  ],
+};
+
+function categorizeRecipe(name: string) {
+  const lower = name.toLowerCase();
+  if (
+    lower.includes("yogur") ||
+    lower.includes("skyr") ||
+    lower.includes("avena") ||
+    lower.includes("overnight") ||
+    lower.includes("tostadas") ||
+    lower.includes("tortitas") ||
+    lower.includes("omelette") ||
+    lower.includes("tortilla de claras") ||
+    lower.includes("porridge") ||
+    lower.includes("pudín") ||
+    lower.includes("pan de plátano") ||
+    lower.includes("crepes") ||
+    lower.includes("arroz con leche")
+  ) {
+    return "breakfast";
+  }
+  if (
+    lower.includes("barritas") ||
+    lower.includes("edamame") ||
+    lower.includes("hummus") ||
+    lower.includes("guacamole") ||
+    lower.includes("fruta") ||
+    lower.includes("snack") ||
+    lower.includes("batido") ||
+    lower.includes("smoothie") ||
+    lower.includes("yogur helado") ||
+    lower.includes("macedonia")
+  ) {
+    return "snack";
+  }
+  if (
+    lower.includes("salmón") ||
+    lower.includes("merluza") ||
+    lower.includes("atún") ||
+    lower.includes("bacalao") ||
+    lower.includes("lubina") ||
+    lower.includes("pescado") ||
+    lower.includes("ceviche") ||
+    lower.includes("pulpo") ||
+    lower.includes("calamares") ||
+    lower.includes("pez espada")
+  ) {
+    return "fish";
+  }
+  if (lower.includes("gambas") || lower.includes("marisco") || lower.includes("paella")) {
+    return "seafood";
+  }
+  if (lower.includes("pollo") || lower.includes("pavo") || lower.includes("shawarma") || lower.includes("kebab")) {
+    return "poultry";
+  }
+  if (lower.includes("ternera") || lower.includes("conejo")) {
+    return "beef";
+  }
+  if (
+    lower.includes("tofu") ||
+    lower.includes("tempeh") ||
+    lower.includes("lentejas") ||
+    lower.includes("garbanzos") ||
+    lower.includes("alubias") ||
+    lower.includes("quinoa")
+  ) {
+    return "vegetarian";
+  }
+  if (lower.includes("ensalada")) {
+    return "salad";
+  }
+  if (lower.includes("sopa") || lower.includes("crema") || lower.includes("gazpacho") || lower.includes("salmorejo")) {
+    return "soup";
+  }
+  if (lower.includes("pasta") || lower.includes("noodles") || lower.includes("espagueti")) {
+    return "pasta";
+  }
+  if (lower.includes("arroz") || lower.includes("poke") || lower.includes("bowl")) {
+    return "rice";
+  }
+  if (lower.includes("wrap") || lower.includes("tacos") || lower.includes("fajitas") || lower.includes("sandwich") || lower.includes("sándwich")) {
+    return "wrap";
+  }
+  return "other";
+}
+
+function buildRecipeSeedItem(name: string, index: number): RecipeSeedItem {
+  const category = categorizeRecipe(name);
+  const base = recipeMacroTemplates[category] ?? recipeMacroTemplates.other;
+  const variant = index % 4;
+  const calories = base.calories + variant * 20;
+  const protein = base.protein + variant * 2;
+  const carbs = base.carbs + variant * 3;
+  const fat = base.fat + variant;
+  const ingredientsBase = recipeIngredientTemplates[category] ?? recipeIngredientTemplates.other;
+  const ingredientCount = 3 + (index % 3);
+  const ingredients = ingredientsBase.slice(0, ingredientCount);
+  const steps = [
+    "Preparar y pesar los ingredientes.",
+    "Cocinar la proteína con especias suaves.",
+    "Preparar el acompañamiento o verduras.",
+    "Emplatar y ajustar sal y aceite de oliva.",
+  ];
+  return {
+    name,
+    description: `Receta ${category} fácil y equilibrada.`,
+    calories,
+    protein,
+    carbs,
+    fat,
+    steps: steps.slice(0, 3 + (index % 2)),
+    ingredients,
+  };
 }
 
 type OpenAiUsage = {
@@ -2957,6 +3678,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       (request as AuthenticatedRequest).currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
     await requireCompleteProfile(user.id);
     const data = aiTrainingSchema.parse(request.body);
+    const expectedDays = Math.min(data.daysPerWeek, 7);
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
@@ -2967,6 +3689,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name });
+      assertTrainingMatchesRequest(personalized, expectedDays);
       await upsertExercisesFromPlan(personalized);
       await storeAiContent(user.id, "training", "template", personalized);
       return reply.status(200).send({
@@ -2979,6 +3702,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     if (cached) {
       try {
         const validated = parseTrainingPlanPayload(cached);
+        assertTrainingMatchesRequest(validated, expectedDays);
         const personalized = applyPersonalization(validated, { name: data.name });
         await upsertExercisesFromPlan(personalized);
         await storeAiContent(user.id, "training", "cache", personalized);
@@ -2992,7 +3716,6 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     }
 
     await enforceAiQuota({ id: user.id, plan: user.plan });
-    const prompt = buildTrainingPrompt(data);
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
     let debit:
@@ -3005,66 +3728,84 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.plan === "PRO") {
-      const balanceBefore = effectiveTokens;
-      app.log.info(
-        { userId: user.id, feature: "training", plan: user.plan, balanceBefore },
-        "ai charge start"
-      );
-      const charged = await chargeAiUsage({
-        prisma,
-        pricing: aiPricing,
-        user: {
-          id: user.id,
-          plan: user.plan,
-          aiTokenBalance: user.aiTokenBalance ?? 0,
-          aiTokenResetAt: user.aiTokenResetAt,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        },
-        feature: "training",
-        execute: () => callOpenAi(prompt),
-        createHttpError,
-      });
-      app.log.info(
-        {
-          userId: user.id,
+    const fetchTrainingPayload = async (attempt: number) => {
+      const prompt = buildTrainingPrompt(data, attempt > 0);
+      if (user.plan === "PRO") {
+        const balanceBefore = effectiveTokens;
+        app.log.info(
+          { userId: user.id, feature: "training", plan: user.plan, balanceBefore },
+          "ai charge start"
+        );
+        const charged = await chargeAiUsage({
+          prisma,
+          pricing: aiPricing,
+          user: {
+            id: user.id,
+            plan: user.plan,
+            aiTokenBalance: user.aiTokenBalance ?? 0,
+            aiTokenResetAt: user.aiTokenResetAt,
+            aiTokenRenewalAt: user.aiTokenRenewalAt,
+          },
           feature: "training",
-          costCents: charged.costCents,
-          totalTokens: charged.totalTokens,
-          balanceAfter: charged.balance,
-        },
-        "ai charge complete"
-      );
-      app.log.debug(
-        {
-          userId: user.id,
-          feature: "training",
-          costCents: charged.costCents,
-          balanceBefore,
-          balanceAfter: charged.balance,
-          model: charged.model,
-          totalTokens: charged.totalTokens,
-        },
-        "ai charge details"
-      );
-      payload = charged.payload;
-      aiTokenBalance = charged.balance;
-      debit =
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : {
-              costCents: charged.costCents,
-              balanceBefore,
-              balanceAfter: charged.balance,
-              totalTokens: charged.totalTokens,
-              model: charged.model,
-              usage: charged.usage,
-            };
-    } else {
-      const result = await callOpenAi(prompt);
-      payload = result.payload;
+          execute: () => callOpenAi(prompt, attempt),
+          createHttpError,
+        });
+        app.log.info(
+          {
+            userId: user.id,
+            feature: "training",
+            costCents: charged.costCents,
+            totalTokens: charged.totalTokens,
+            balanceAfter: charged.balance,
+          },
+          "ai charge complete"
+        );
+        app.log.debug(
+          {
+            userId: user.id,
+            feature: "training",
+            costCents: charged.costCents,
+            balanceBefore,
+            balanceAfter: charged.balance,
+            model: charged.model,
+            totalTokens: charged.totalTokens,
+          },
+          "ai charge details"
+        );
+        payload = charged.payload;
+        aiTokenBalance = charged.balance;
+        debit =
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : {
+                costCents: charged.costCents,
+                balanceBefore,
+                balanceAfter: charged.balance,
+                totalTokens: charged.totalTokens,
+                model: charged.model,
+                usage: charged.usage,
+              };
+      } else {
+        const result = await callOpenAi(prompt, attempt);
+        payload = result.payload;
+      }
+      return parseTrainingPlanPayload(payload);
+    };
+
+    let parsedPayload: z.infer<typeof aiTrainingPlanResponseSchema>;
+    try {
+      parsedPayload = await fetchTrainingPayload(0);
+      assertTrainingMatchesRequest(parsedPayload, expectedDays);
+    } catch (error) {
+      const typed = error as { code?: string };
+      if (typed.code === "AI_PARSE_ERROR") {
+        app.log.warn({ err: error }, "training plan invalid, retrying with strict prompt");
+        parsedPayload = await fetchTrainingPayload(1);
+        assertTrainingMatchesRequest(parsedPayload, expectedDays);
+      } else {
+        throw error;
+      }
     }
-    const parsedPayload = parseTrainingPlanPayload(payload);
     await upsertExercisesFromPlan(parsedPayload);
     await saveCachedAiPayload(cacheKey, "training", parsedPayload);
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
@@ -3089,6 +3830,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       (await requireUser(request, { logContext: "/ai/nutrition-plan" }));
     await requireCompleteProfile(user.id);
     const data = aiNutritionSchema.parse(request.body);
+    const expectedMealsPerDay = Math.min(data.mealsPerDay, 6);
     await prisma.aiPromptCache.deleteMany({
       where: {
         type: "nutrition",
@@ -3106,6 +3848,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name });
+      assertNutritionMatchesRequest(personalized, expectedMealsPerDay);
       await storeAiContent(user.id, "nutrition", "template", personalized);
       return reply.status(200).send({
         plan: personalized,
@@ -3113,11 +3856,41 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       });
     }
 
+    const recipeQuery = data.preferredFoods?.split(",")[0]?.trim();
+    const recipeWhere = recipeQuery
+      ? {
+          name: { contains: recipeQuery, mode: Prisma.QueryMode.insensitive },
+        }
+      : undefined;
+    const recipes = await prisma.recipe.findMany({
+      ...(recipeWhere ? { where: recipeWhere } : {}),
+      take: 100,
+      orderBy: { name: "asc" },
+      include: { ingredients: true },
+    });
+
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
       try {
         const validated = parseNutritionPlanPayload(cached);
-        const personalized = applyPersonalization(validated, { name: data.name });
+        assertNutritionMatchesRequest(validated, expectedMealsPerDay);
+        const scaled = applyRecipeScalingToPlan(
+          validated,
+          recipes.map((recipe) => ({
+            name: recipe.name,
+            description: recipe.description,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
+            steps: recipe.steps,
+            ingredients: recipe.ingredients.map((ingredient) => ({
+              name: ingredient.name,
+              grams: ingredient.grams,
+            })),
+          }))
+        );
+        const personalized = applyPersonalization(scaled, { name: data.name });
         await storeAiContent(user.id, "nutrition", "cache", personalized);
         return reply.status(200).send({
           plan: personalized,
@@ -3129,27 +3902,6 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     }
 
     await enforceAiQuota({ id: user.id, plan: user.plan });
-    const recipes = await prisma.recipe.findMany({
-      take: 20,
-      orderBy: { name: "asc" },
-      include: { ingredients: true },
-    });
-    const prompt = buildNutritionPrompt(
-      data,
-      recipes.map((recipe) => ({
-        name: recipe.name,
-        description: recipe.description,
-        calories: recipe.calories,
-        protein: recipe.protein,
-        carbs: recipe.carbs,
-        fat: recipe.fat,
-        ingredients: recipe.ingredients.map((ingredient) => ({
-          name: ingredient.name,
-          grams: ingredient.grams,
-        })),
-        steps: recipe.steps,
-      }))
-    );
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
     let debit:
@@ -3162,68 +3914,119 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.plan === "PRO") {
-      const balanceBefore = effectiveTokens;
-      app.log.info(
-        { userId: user.id, feature: "nutrition", plan: user.plan, balanceBefore },
-        "ai charge start"
+    const fetchNutritionPayload = async (attempt: number) => {
+      const promptAttempt = buildNutritionPrompt(
+        data,
+        recipes.map((recipe) => ({
+          name: recipe.name,
+          description: recipe.description,
+          calories: recipe.calories,
+          protein: recipe.protein,
+          carbs: recipe.carbs,
+          fat: recipe.fat,
+          ingredients: recipe.ingredients.map((ingredient) => ({
+            name: ingredient.name,
+            grams: ingredient.grams,
+          })),
+          steps: recipe.steps,
+        })),
+        attempt > 0
       );
-      const charged = await chargeAiUsage({
-        prisma,
-        pricing: aiPricing,
-        user: {
-          id: user.id,
-          plan: user.plan,
-          aiTokenBalance: user.aiTokenBalance ?? 0,
-          aiTokenResetAt: user.aiTokenResetAt,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        },
-        feature: "nutrition",
-        execute: () => callOpenAi(prompt, 0, extractLargestJson),
-        createHttpError,
-      });
-      app.log.info(
-        {
-          userId: user.id,
+      if (user.plan === "PRO") {
+        const balanceBefore = effectiveTokens;
+        app.log.info(
+          { userId: user.id, feature: "nutrition", plan: user.plan, balanceBefore },
+          "ai charge start"
+        );
+        const charged = await chargeAiUsage({
+          prisma,
+          pricing: aiPricing,
+          user: {
+            id: user.id,
+            plan: user.plan,
+            aiTokenBalance: user.aiTokenBalance ?? 0,
+            aiTokenResetAt: user.aiTokenResetAt,
+            aiTokenRenewalAt: user.aiTokenRenewalAt,
+          },
           feature: "nutrition",
-          costCents: charged.costCents,
-          totalTokens: charged.totalTokens,
-          balanceAfter: charged.balance,
-        },
-        "ai charge complete"
-      );
-      app.log.debug(
-        {
-          userId: user.id,
-          feature: "nutrition",
-          costCents: charged.costCents,
-          balanceBefore,
-          balanceAfter: charged.balance,
-          model: charged.model,
-          totalTokens: charged.totalTokens,
-        },
-        "ai charge details"
-      );
-      payload = charged.payload;
-      aiTokenBalance = charged.balance;
-      debit =
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : {
-              costCents: charged.costCents,
-              balanceBefore,
-              balanceAfter: charged.balance,
-              totalTokens: charged.totalTokens,
-              model: charged.model,
-              usage: charged.usage,
-            };
-    } else {
-      const result = await callOpenAi(prompt, 0, extractLargestJson);
-      payload = result.payload;
+          execute: () => callOpenAi(promptAttempt, attempt, extractLargestJson),
+          createHttpError,
+        });
+        app.log.info(
+          {
+            userId: user.id,
+            feature: "nutrition",
+            costCents: charged.costCents,
+            totalTokens: charged.totalTokens,
+            balanceAfter: charged.balance,
+          },
+          "ai charge complete"
+        );
+        app.log.debug(
+          {
+            userId: user.id,
+            feature: "nutrition",
+            costCents: charged.costCents,
+            balanceBefore,
+            balanceAfter: charged.balance,
+            model: charged.model,
+            totalTokens: charged.totalTokens,
+          },
+          "ai charge details"
+        );
+        payload = charged.payload;
+        aiTokenBalance = charged.balance;
+        debit =
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : {
+                costCents: charged.costCents,
+                balanceBefore,
+                balanceAfter: charged.balance,
+                totalTokens: charged.totalTokens,
+                model: charged.model,
+                usage: charged.usage,
+              };
+      } else {
+        const result = await callOpenAi(promptAttempt, attempt, extractLargestJson);
+        payload = result.payload;
+      }
+      return parseNutritionPlanPayload(payload);
+    };
+
+    let parsedPayload: z.infer<typeof aiNutritionPlanResponseSchema>;
+    try {
+      parsedPayload = await fetchNutritionPayload(0);
+      assertNutritionMatchesRequest(parsedPayload, expectedMealsPerDay);
+    } catch (error) {
+      const typed = error as { code?: string };
+      if (typed.code === "AI_PARSE_ERROR") {
+        app.log.warn({ err: error }, "nutrition plan invalid, retrying with strict prompt");
+        parsedPayload = await fetchNutritionPayload(1);
+        assertNutritionMatchesRequest(parsedPayload, expectedMealsPerDay);
+      } else {
+        throw error;
+      }
     }
-    const parsedPayload = parseNutritionPlanPayload(payload);
-    await saveCachedAiPayload(cacheKey, "nutrition", parsedPayload);
-    const personalized = applyPersonalization(parsedPayload, { name: data.name });
+    const scaledPayload = applyRecipeScalingToPlan(
+      parsedPayload,
+      recipes.map((recipe) => ({
+        name: recipe.name,
+        description: recipe.description,
+        calories: recipe.calories,
+        protein: recipe.protein,
+        carbs: recipe.carbs,
+        fat: recipe.fat,
+        steps: recipe.steps,
+        ingredients: recipe.ingredients.map((ingredient) => ({
+          name: ingredient.name,
+          grams: ingredient.grams,
+        })),
+      }))
+    );
+    assertNutritionMatchesRequest(scaledPayload, expectedMealsPerDay);
+    await saveCachedAiPayload(cacheKey, "nutrition", scaledPayload);
+    const personalized = applyPersonalization(scaledPayload, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
     return reply.status(200).send({
       plan: personalized,
@@ -3425,6 +4228,21 @@ const exerciseListSchema = z.object({
 });
 
 const exerciseParamsSchema = z.object({ id: z.string().min(1) });
+const recipeListSchema = z.object({
+  query: z.string().min(1).optional(),
+  limit: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(1).max(200).default(50)),
+  offset: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(0).default(0)),
+});
+
+const recipeParamsSchema = z.object({ id: z.string().min(1) });
 
 app.get("/exercises", async (request, reply) => {
   try {
@@ -3446,6 +4264,46 @@ app.get("/exercises/:id", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
     return exercise;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/recipes", async (request, reply) => {
+  try {
+    await requireUser(request);
+    const { query, limit, offset } = recipeListSchema.parse(request.query);
+    const where: Prisma.RecipeWhereInput = query
+      ? { name: { contains: query, mode: Prisma.QueryMode.insensitive } }
+      : {};
+    const [items, total] = await prisma.$transaction([
+      prisma.recipe.findMany({
+        where,
+        include: { ingredients: true },
+        orderBy: { name: "asc" },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.recipe.count({ where }),
+    ]);
+    return { items, total, limit, offset };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/recipes/:id", async (request, reply) => {
+  try {
+    await requireUser(request);
+    const { id } = recipeParamsSchema.parse(request.params);
+    const recipe = await prisma.recipe.findUnique({
+      where: { id },
+      include: { ingredients: true },
+    });
+    if (!recipe) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+    return recipe;
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -3763,59 +4621,68 @@ app.post("/dev/seed-exercises", async (_request, reply) => {
       return reply.status(403).send({ error: "FORBIDDEN" });
     }
 
-    const baseExercises = [
-      {
-        name: "Sentadilla con barra",
-        equipment: "Barra",
-        mainMuscleGroup: "Piernas",
-        secondaryMuscleGroups: ["Glúteos"],
-        description: "Mantén la espalda neutra y baja con control.",
-      },
-      {
-        name: "Press banca",
-        equipment: "Barra",
-        mainMuscleGroup: "Pecho",
-        secondaryMuscleGroups: ["Tríceps"],
-        description: "Apoya bien los pies y retrae escápulas.",
-      },
-      {
-        name: "Peso muerto rumano",
-        equipment: "Barra",
-        mainMuscleGroup: "Isquios",
-        secondaryMuscleGroups: ["Glúteos"],
-        description: "Cadera atrás, rodillas levemente flexionadas.",
-      },
-      {
-        name: "Remo con barra",
-        equipment: "Barra",
-        mainMuscleGroup: "Espalda",
-        secondaryMuscleGroups: ["Bíceps"],
-        description: "Tronco inclinado, abdomen activo.",
-      },
-      {
-        name: "Press militar",
-        equipment: "Barra o mancuernas",
-        mainMuscleGroup: "Hombros",
-        secondaryMuscleGroups: ["Tríceps"],
-        description: "Aprieta el core para no arquear la espalda.",
-      },
-    ];
-
     let seeded = 0;
-
-    for (const ex of baseExercises) {
-      await upsertExerciseRecord(ex.name, {
-        equipment: ex.equipment,
-        mainMuscleGroup: ex.mainMuscleGroup,
-        secondaryMuscleGroups: ex.secondaryMuscleGroups,
-        description: ex.description,
-      });
+    for (const name of EXERCISES_100) {
+      await upsertExerciseRecord(name, inferExerciseMetadataFromName(name));
       seeded += 1;
     }
 
     return reply.status(200).send({ ok: true, seeded });
   } catch (err) {
     app.log.error({ err }, "seed exercises failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR" });
+  }
+});
+
+app.post("/dev/seed-recipes", async (_request, reply) => {
+  try {
+    if (process.env.NODE_ENV === "production") {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    let seeded = 0;
+
+    for (const [index, name] of RECIPES_100.entries()) {
+      const seed = buildRecipeSeedItem(name, index);
+      await prisma.recipe.upsert({
+        where: { name: seed.name },
+        create: {
+          name: seed.name,
+          description: seed.description,
+          calories: seed.calories,
+          protein: seed.protein,
+          carbs: seed.carbs,
+          fat: seed.fat,
+          steps: seed.steps,
+          ingredients: {
+            create: seed.ingredients.map((ingredient) => ({
+              name: ingredient.name,
+              grams: ingredient.grams,
+            })),
+          },
+        },
+        update: {
+          description: seed.description,
+          calories: seed.calories,
+          protein: seed.protein,
+          carbs: seed.carbs,
+          fat: seed.fat,
+          steps: seed.steps,
+          ingredients: {
+            deleteMany: {},
+            create: seed.ingredients.map((ingredient) => ({
+              name: ingredient.name,
+              grams: ingredient.grams,
+            })),
+          },
+        },
+      });
+      seeded += 1;
+    }
+
+    return reply.status(200).send({ ok: true, seeded });
+  } catch (err) {
+    app.log.error({ err }, "seed recipes failed");
     return reply.status(500).send({ error: "INTERNAL_ERROR" });
   }
 });
