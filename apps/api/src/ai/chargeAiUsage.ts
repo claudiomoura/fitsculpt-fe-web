@@ -4,8 +4,9 @@ import { computeCostCents, getModelPricing, normalizeModelName, type AiPricingMa
 type AiUsageUser = {
   id: string;
   plan: string;
-  tokenBalance: number;
-  tokensExpireAt: Date | null;
+  aiTokenBalance: number;
+  aiTokenResetAt: Date | null;
+  aiTokenRenewalAt: Date | null;
 };
 
 type OpenAiUsage = {
@@ -38,10 +39,11 @@ type UsageTotals = {
   totalTokens: number;
 };
 
-function getEffectiveTokens(user: { tokenBalance: number; tokensExpireAt: Date | null }) {
-  if (!user.tokensExpireAt) return 0;
-  if (user.tokensExpireAt.getTime() < Date.now()) return 0;
-  return Math.max(0, user.tokenBalance);
+function getEffectiveTokens(user: { aiTokenBalance: number; aiTokenResetAt: Date | null; aiTokenRenewalAt: Date | null }) {
+  const expiresAt = user.aiTokenResetAt ?? user.aiTokenRenewalAt;
+  if (!expiresAt) return 0;
+  if (expiresAt.getTime() < Date.now()) return 0;
+  return Math.max(0, user.aiTokenBalance);
 }
 
 function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
@@ -74,7 +76,11 @@ async function debitAiTokensTx(
     if (!user) {
       throw createHttpError(404, "USER_NOT_FOUND");
     }
-    const effectiveTokens = getEffectiveTokens(user);
+    const effectiveTokens = getEffectiveTokens({
+      aiTokenBalance: user.aiTokenBalance ?? 0,
+      aiTokenResetAt: user.aiTokenResetAt,
+      aiTokenRenewalAt: user.aiTokenRenewalAt,
+    });
     if (effectiveTokens <= 0) {
       throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
     }
@@ -89,7 +95,7 @@ async function debitAiTokensTx(
     const [updatedUser] = await Promise.all([
       tx.user.update({
         where: { id: userId },
-        data: { tokenBalance: nextBalance, aiTokenBalance: nextBalance },
+        data: { aiTokenBalance: nextBalance },
       }),
       tx.aiUsageLog.create({
         data: {
@@ -108,7 +114,7 @@ async function debitAiTokensTx(
     ]);
 
     return {
-      balance: updatedUser.tokenBalance,
+      balance: updatedUser.aiTokenBalance,
     };
   });
 }
