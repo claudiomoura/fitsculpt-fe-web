@@ -45,6 +45,7 @@ export type TrainingDay = {
 export type TrainingPlanData = {
   title?: string;
   notes?: string;
+  startDate?: string | null;
   days: TrainingDay[];
 };
 
@@ -73,6 +74,7 @@ export type NutritionDayPlan = {
 
 export type NutritionPlanData = {
   title?: string;
+  startDate?: string | null;
   dailyCalories: number;
   proteinG: number;
   fatG: number;

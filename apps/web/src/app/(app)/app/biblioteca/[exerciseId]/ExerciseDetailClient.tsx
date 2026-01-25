@@ -69,8 +69,8 @@ export default function ExerciseDetailClient({
           {t("library.primaryLabel")}: {primary[0] ?? t("library.levelGeneral")}
         </span>
         {secondary.length > 0 ? (
-          secondary.map((muscle) => (
-            <span key={muscle} className="badge">
+          secondary.map((muscle, index) => (
+            <span key={`${muscle}-${index}`} className="badge">
               {t("library.secondaryLabel")}: {muscle}
             </span>
           ))
