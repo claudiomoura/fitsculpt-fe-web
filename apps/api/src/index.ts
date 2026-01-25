@@ -10,13 +10,12 @@ import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText } from "./aiParsing.js";
-import { chargeAiUsage } from "./ai/chargeAiUsage.js";
-import { loadAiPricing } from "./ai/pricing.js";
+import "dotenv/config";
+
 
 
 const env = getEnv();
 const prisma = new PrismaClient();
-const aiPricing = loadAiPricing(env);
 
 const app = Fastify({ logger: true });
 
@@ -39,19 +38,8 @@ type StripeSubscription = {
   current_period_end: number | null;
 };
 
-const corsOrigins = new Set(
-  [env.CORS_ORIGIN, env.APP_BASE_URL]
-    .flatMap((origin) => origin.split(","))
-    .map((origin) => origin.trim())
-    .filter(Boolean)
-);
-
 await app.register(cors, {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (corsOrigins.has(origin)) return callback(null, true);
-    return callback(new Error("CORS_NOT_ALLOWED"), false);
-  },
+  origin: env.CORS_ORIGIN,
   credentials: true,
 });
 
@@ -111,18 +99,6 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
       error: "RATE_LIMIT",
       message: "Has alcanzado el límite diario de solicitudes de IA. Intenta nuevamente más tarde.",
       ...(retryAfterSec ? { retryAfterSec } : {}),
-    });
-  }
-  if (typed.statusCode === 403 && typed.code === "NOT_PRO") {
-    return reply.status(403).send({
-      error: "NOT_PRO",
-      message: "Necesitas PRO para usar la IA.",
-    });
-  }
-  if (typed.statusCode === 402 && typed.code === "INSUFFICIENT_TOKENS") {
-    return reply.status(402).send({
-      error: "INSUFFICIENT_TOKENS",
-      message: "Sin tokens.",
     });
   }
   if (typed.statusCode) {
@@ -212,17 +188,10 @@ async function updateUserSubscriptionFromStripe(subscription: StripeSubscription
   const currentPeriodEnd = subscription.current_period_end
     ? new Date(subscription.current_period_end * 1000)
     : null;
-  const user = await prisma.user.findFirst({
+  const result = await prisma.user.updateMany({
     where: {
       OR: [{ stripeCustomerId: subscription.customer }, { stripeSubscriptionId: subscription.id }],
     },
-  });
-  if (!user) {
-    app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
-    return null;
-  }
-  return prisma.user.update({
-    where: { id: user.id },
     data: {
       stripeCustomerId: subscription.customer,
       stripeSubscriptionId: subscription.id,
@@ -231,112 +200,9 @@ async function updateUserSubscriptionFromStripe(subscription: StripeSubscription
       subscriptionPlan: isActive ? "PRO" : "FREE",
     },
   });
-}
-
-function selectPrimarySubscription(subscriptions: StripeSubscription[]) {
-  if (subscriptions.length === 0) {
-    return { selected: null, count: 0 };
-  }
-  const active = subscriptions.filter((sub) => sub.status === "active" || sub.status === "trialing");
-  const pool = active.length > 0 ? active : subscriptions;
-  const sorted = [...pool].sort((a, b) => {
-    const aEnd = a.current_period_end ?? 0;
-    const bEnd = b.current_period_end ?? 0;
-    return bEnd - aEnd;
-  });
-  return { selected: sorted[0] ?? null, count: subscriptions.length };
-}
-
-async function syncUserSubscriptionFromStripe(user: {
-  id: string;
-  stripeCustomerId: string | null;
-  stripeSubscriptionId: string | null;
-}) {
-  if (!env.STRIPE_SECRET_KEY) return;
-  if (user.stripeSubscriptionId) {
-    const subscription = await stripeRequest<StripeSubscription>(
-      `subscriptions/${user.stripeSubscriptionId}`,
-      {},
-      { method: "GET" }
-    );
-    await updateUserSubscriptionFromStripe(subscription);
-    return;
-  }
-  if (user.stripeCustomerId) {
-    const list = await stripeRequest<{ data?: StripeSubscription[] }>(
-      "subscriptions",
-      { customer: user.stripeCustomerId, status: "all", limit: 20 },
-      { method: "GET" }
-    );
-    const { selected } = selectPrimarySubscription(list.data ?? []);
-    if (selected) {
-      await updateUserSubscriptionFromStripe(selected);
-      return;
-    }
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        subscriptionPlan: "FREE",
-        subscriptionStatus: null,
-        currentPeriodEnd: null,
-      },
-    });
-  }
-}
-
-async function findUserByStripeIdentifiers(customerId?: string | null, subscriptionId?: string | null) {
-  if (!customerId && !subscriptionId) return null;
-  return prisma.user.findFirst({
-    where: {
-      OR: [
-        ...(customerId ? [{ stripeCustomerId: customerId }] : []),
-        ...(subscriptionId ? [{ stripeSubscriptionId: subscriptionId }] : []),
-      ],
-    },
-  });
-}
-
-function resolveMonthlyAllowance(user: { aiTokenMonthlyAllowance: number }) {
-  if (user.aiTokenMonthlyAllowance > 0) return user.aiTokenMonthlyAllowance;
-  return env.PRO_MONTHLY_TOKENS > 0 ? env.PRO_MONTHLY_TOKENS : 2000;
-}
-
-async function resetAiTokensForUser(args: {
-  userId: string;
-  currentPeriodEnd: Date | null;
-  monthlyAllowance: number;
-}) {
-  const { userId, currentPeriodEnd, monthlyAllowance } = args;
-  const data: Prisma.UserUpdateInput = {
-    aiTokenRenewalAt: currentPeriodEnd ?? null,
-  };
-  if (monthlyAllowance > 0) {
-    data.aiTokenMonthlyAllowance = monthlyAllowance;
-    data.aiTokenBalance = monthlyAllowance;
-  }
-  await prisma.user.update({
-    where: { id: userId },
-    data,
-  });
-}
-
-async function applyAiTokenRenewalFromSubscription(subscription: StripeSubscription) {
-  const currentPeriodEnd = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
-    : null;
-  const isActive = subscription.status === "active" || subscription.status === "trialing";
-  if (!isActive) return;
-  const user = await findUserByStripeIdentifiers(subscription.customer, subscription.id);
-  if (!user) {
+  if (result.count === 0) {
     app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
-    return;
   }
-  const allowance = resolveMonthlyAllowance(user);
-  await resetAiTokensForUser({
-    userId: user.id,
-    currentPeriodEnd,
-    monthlyAllowance: allowance,
-  });
 }
 
 function logAuthCookieDebug(request: FastifyRequest, route: string) {
@@ -362,12 +228,6 @@ function buildCookieOptions() {
     sameSite: "lax" as const,
     secure,
   };
-}
-
-function getGooglePromoFromState(state: string) {
-  const parts = state.split(".");
-  if (parts.length < 2) return null;
-  return parts.slice(1).join(".") || null;
 }
 
 function parseBearerToken(header?: string) {
@@ -530,21 +390,6 @@ async function requireUser(
     app.log.info({ route, userId: user.id, role: user.role }, "ai auth ok");
   }
   return user;
-}
-
-function requireProSubscription(user: { subscriptionPlan: string }) {
-  if (user.subscriptionPlan !== "PRO") {
-    throw createHttpError(403, "PRO_REQUIRED");
-  }
-}
-
-function assertAiAccess(user: { subscriptionPlan: string; aiTokenBalance: number }) {
-  if (user.subscriptionPlan !== "PRO") {
-    throw createHttpError(403, "NOT_PRO");
-  }
-  if (user.aiTokenBalance <= 0) {
-    throw createHttpError(402, "INSUFFICIENT_TOKENS");
-  }
 }
 
 async function requireAdmin(request: FastifyRequest) {
@@ -1712,20 +1557,7 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
   );
 }
 
-type OpenAiUsage = {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-};
-
-type OpenAiResponse = {
-  payload: Record<string, unknown>;
-  usage?: OpenAiUsage;
-  model?: string;
-  requestId?: string;
-};
-
-async function callOpenAi(prompt: string, attempt = 0): Promise<OpenAiResponse> {
+async function callOpenAi(prompt: string, attempt = 0): Promise<Record<string, unknown>> {
   if (!env.OPENAI_API_KEY) {
     throw createHttpError(503, "AI_UNAVAILABLE");
   }
@@ -1754,10 +1586,7 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<OpenAiResponse> 
     throw createHttpError(502, "AI_REQUEST_FAILED");
   }
   const data = (await response.json()) as {
-    id?: string;
-    model?: string;
     choices?: Array<{ message?: { content?: string } }>;
-    usage?: OpenAiUsage;
   };
   const content = data.choices?.[0]?.message?.content;
   if (!content) {
@@ -1765,12 +1594,7 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<OpenAiResponse> 
   }
   try {
     app.log.info({ attempt, rawResponse: content }, "ai raw response");
-    return {
-      payload: extractJson(content),
-      usage: data.usage,
-      model: data.model,
-      requestId: data.id,
-    };
+    return extractJson(content);
   } catch (error) {
     const typed = error as { code?: string };
     if (typed.code === "AI_PARSE_ERROR" && attempt === 0) {
@@ -1795,12 +1619,6 @@ function toDate(value?: string) {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function addMonths(date: Date, months: number) {
-  const next = new Date(date);
-  next.setMonth(next.getMonth() + months);
-  return next;
 }
 
 function getRecentEntries<T extends { date?: string }>(entries: T[], days: number) {
@@ -2100,147 +1918,6 @@ app.post("/billing/portal", async (request, reply) => {
   }
 });
 
-app.get("/billing/status", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const querySchema = z.object({
-      sync: z.preprocess((value) => value === "1" || value === "true", z.boolean().optional()),
-    });
-    const { sync } = querySchema.parse(request.query);
-    if (sync) {
-      await syncUserSubscriptionFromStripe(user);
-    }
-    let refreshed = await prisma.user.findUnique({ where: { id: user.id } });
-    if (!refreshed) {
-      refreshed = user;
-    }
-    let stripePeriodEnd: Date | null = refreshed?.currentPeriodEnd ?? null;
-    let aiTokenRenewalAt = refreshed?.aiTokenRenewalAt ?? null;
-    let subscriptionStatus = refreshed?.subscriptionStatus ?? null;
-    let subscriptionPlan = refreshed?.subscriptionPlan ?? "FREE";
-    let stripeSubscriptionId = refreshed?.stripeSubscriptionId ?? null;
-    let stripeCustomerId = refreshed?.stripeCustomerId ?? null;
-    let subscriptionsCount = 0;
-    let selectedSubscriptionId: string | null = null;
-    let stripeFetchError: Record<string, unknown> | null = null;
-
-    if (env.STRIPE_SECRET_KEY && (stripeSubscriptionId || stripeCustomerId)) {
-      let subscription: StripeSubscription | null = null;
-      if (stripeSubscriptionId) {
-        try {
-          subscription = await stripeRequest<StripeSubscription>(
-            `subscriptions/${stripeSubscriptionId}`,
-            {},
-            { method: "GET" }
-          );
-        } catch (error) {
-          const typedError = error as { code?: string; statusCode?: number; debug?: Record<string, unknown> };
-          app.log.error(
-            { err: error, userId: refreshed?.id, stripeSubscriptionId },
-            "stripe subscription retrieve failed"
-          );
-          stripeFetchError = {
-            message: error instanceof Error ? error.message : "stripe subscription retrieve failed",
-            code: typedError.code,
-            statusCode: typedError.statusCode,
-            debug: typedError.debug,
-          };
-        }
-      }
-      if (!subscription && stripeCustomerId) {
-        try {
-          const list = await stripeRequest<{ data?: StripeSubscription[] }>(
-            "subscriptions",
-            { customer: stripeCustomerId, status: "all", limit: 10 },
-            { method: "GET" }
-          );
-          const selection = selectPrimarySubscription(list.data ?? []);
-          subscription = selection.selected;
-          subscriptionsCount = selection.count;
-          selectedSubscriptionId = selection.selected?.id ?? null;
-          stripeSubscriptionId = selection.selected?.id ?? stripeSubscriptionId;
-        } catch (error) {
-          const typedError = error as { code?: string; statusCode?: number; debug?: Record<string, unknown> };
-          app.log.error(
-            { err: error, userId: refreshed?.id, stripeCustomerId },
-            "stripe subscription list failed"
-          );
-          stripeFetchError = {
-            message: error instanceof Error ? error.message : "stripe subscription list failed",
-            code: typedError.code,
-            statusCode: typedError.statusCode,
-            debug: typedError.debug,
-          };
-        }
-      }
-
-      if (subscription) {
-        const isActive = subscription.status === "active" || subscription.status === "trialing";
-        subscriptionStatus = subscription.status;
-        subscriptionPlan = isActive ? "PRO" : "FREE";
-        stripePeriodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000) : null;
-        aiTokenRenewalAt = stripePeriodEnd;
-        const renewalAtTime = aiTokenRenewalAt?.getTime() ?? null;
-        const existingRenewalAtTime = refreshed?.aiTokenRenewalAt?.getTime() ?? null;
-        const needsUpdate =
-          refreshed?.subscriptionStatus !== subscriptionStatus ||
-          refreshed?.subscriptionPlan !== subscriptionPlan ||
-          refreshed?.stripeSubscriptionId !== subscription.id ||
-          (stripePeriodEnd &&
-            (!refreshed?.currentPeriodEnd ||
-              refreshed.currentPeriodEnd.getTime() !== stripePeriodEnd.getTime())) ||
-          renewalAtTime !== existingRenewalAtTime;
-        if (needsUpdate && refreshed) {
-          refreshed = await prisma.user.update({
-            where: { id: refreshed.id },
-            data: {
-              stripeSubscriptionId: subscription.id,
-              stripeCustomerId: subscription.customer,
-              subscriptionStatus,
-              subscriptionPlan,
-              currentPeriodEnd: stripePeriodEnd,
-              aiTokenRenewalAt,
-            },
-          });
-        }
-      }
-    }
-
-    if (refreshed) {
-      const expectedRenewalAt = refreshed.currentPeriodEnd ?? stripePeriodEnd ?? null;
-      const renewalAtTime = refreshed.aiTokenRenewalAt?.getTime() ?? null;
-      const expectedTime = expectedRenewalAt?.getTime() ?? null;
-      if (renewalAtTime !== expectedTime) {
-        aiTokenRenewalAt = expectedRenewalAt;
-        refreshed = await prisma.user.update({
-          where: { id: refreshed.id },
-          data: { aiTokenRenewalAt },
-        });
-      }
-    }
-
-    return {
-      subscriptionPlan: refreshed?.subscriptionPlan ?? subscriptionPlan,
-      subscriptionStatus: refreshed?.subscriptionStatus ?? subscriptionStatus,
-      currentPeriodEnd: refreshed?.currentPeriodEnd ?? stripePeriodEnd ?? null,
-      aiTokenBalance: refreshed?.aiTokenBalance ?? 0,
-      aiTokenMonthlyAllowance: refreshed?.aiTokenMonthlyAllowance ?? 0,
-      aiTokenRenewalAt: refreshed?.aiTokenRenewalAt ?? aiTokenRenewalAt ?? null,
-      ...(process.env.NODE_ENV === "production"
-        ? {}
-        : {
-            stripeCustomerId: refreshed?.stripeCustomerId ?? stripeCustomerId ?? null,
-            stripeSubscriptionId: refreshed?.stripeSubscriptionId ?? stripeSubscriptionId ?? null,
-            subscriptionsCount,
-            selectedSubscriptionId,
-            stripeFetchError,
-          }),
-    };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
 app.post("/billing/webhook", async (request, reply) => {
   try {
     const signature = request.headers["stripe-signature"];
@@ -2256,79 +1933,21 @@ app.post("/billing/webhook", async (request, reply) => {
     const payload = event.data?.object;
 
     if (event.type === "checkout.session.completed") {
-      const session = payload as {
-        customer?: string | null;
-        subscription?: string | null;
-        customer_details?: { email?: string | null };
-        metadata?: { userId?: string | null };
-      };
-      const userId = session.metadata?.userId ?? null;
-      const email = session.customer_details?.email ?? null;
-      const customerId = session.customer ?? null;
-      const subscriptionId = session.subscription ?? null;
-      let matchedUser = null;
-      if (userId) {
-        matchedUser = await prisma.user.findUnique({ where: { id: userId } });
-      }
-      if (!matchedUser && email) {
-        matchedUser = await prisma.user.findUnique({ where: { email } });
-      }
-      if (matchedUser && (customerId || subscriptionId)) {
-        await prisma.user.update({
-          where: { id: matchedUser.id },
-          data: {
-            stripeCustomerId: customerId ?? matchedUser.stripeCustomerId,
-            stripeSubscriptionId: subscriptionId ?? matchedUser.stripeSubscriptionId,
-          },
-        });
-      } else if (!matchedUser) {
-        app.log.warn({ userId, email }, "checkout session completed: user not found");
-      }
-      if (subscriptionId && customerId) {
+      const session = payload as { customer?: string | null; subscription?: string | null };
+      if (session?.subscription && session?.customer) {
         const subscription = await stripeRequest<StripeSubscription>(
-          `subscriptions/${subscriptionId}`,
+          `subscriptions/${session.subscription}`,
           {},
           { method: "GET" }
         );
         await updateUserSubscriptionFromStripe(subscription);
-        await applyAiTokenRenewalFromSubscription(subscription);
       }
     }
 
-    if (
-      event.type === "customer.subscription.created" ||
-      event.type === "customer.subscription.updated" ||
-      event.type === "customer.subscription.deleted"
-    ) {
+    if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
       const subscription = payload as StripeSubscription;
       if (subscription?.id && subscription?.customer) {
         await updateUserSubscriptionFromStripe(subscription);
-        if (event.type === "customer.subscription.deleted") {
-          await prisma.user.updateMany({
-            where: { stripeSubscriptionId: subscription.id },
-            data: {
-              subscriptionPlan: "FREE",
-              subscriptionStatus: "canceled",
-              aiTokenRenewalAt: null,
-              // Mantiene el balance actual, pero no habrá recargas automáticas.
-            },
-          });
-        } else {
-          await applyAiTokenRenewalFromSubscription(subscription);
-        }
-      }
-    }
-
-    if (event.type === "invoice.payment_succeeded" || event.type === "invoice.paid") {
-      const invoice = payload as { customer?: string | null; subscription?: string | null };
-      if (invoice?.subscription && invoice?.customer) {
-        const subscription = await stripeRequest<StripeSubscription>(
-          `subscriptions/${invoice.subscription}`,
-          {},
-          { method: "GET" }
-        );
-        await updateUserSubscriptionFromStripe(subscription);
-        await applyAiTokenRenewalFromSubscription(subscription);
       }
     }
 
@@ -2351,9 +1970,6 @@ app.get("/auth/me", async (request, reply) => {
       subscriptionPlan: user.subscriptionPlan,
       subscriptionStatus: user.subscriptionStatus,
       currentPeriodEnd: user.currentPeriodEnd,
-      aiTokenBalance: user.aiTokenBalance,
-      aiTokenMonthlyAllowance: user.aiTokenMonthlyAllowance,
-      aiTokenRenewalAt: user.aiTokenRenewalAt,
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2382,22 +1998,12 @@ app.post("/auth/change-password", async (request, reply) => {
   }
 });
 
-app.get("/auth/google/start", async (request, reply) => {
+app.get("/auth/google/start", async (_request, reply) => {
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) {
     return reply.status(501).send({ error: "GOOGLE_OAUTH_NOT_CONFIGURED" });
   }
 
-  const querySchema = z.object({
-    promoCode: z.string().optional(),
-  });
-  const { promoCode } = querySchema.parse(request.query);
-  const trimmedPromo = promoCode?.trim();
-  if (trimmedPromo && !isPromoCodeValid(trimmedPromo)) {
-    return reply.status(400).send({ error: "INVALID_PROMO_CODE" });
-  }
-
-  const stateToken = crypto.randomBytes(32).toString("base64url");
-  const state = trimmedPromo ? `${stateToken}.${trimmedPromo}` : stateToken;
+  const state = crypto.randomBytes(32).toString("base64url");
   await prisma.oAuthState.create({
     data: {
       provider: "google",
@@ -2419,127 +2025,112 @@ app.get("/auth/google/start", async (request, reply) => {
 });
 
 app.get("/auth/google/callback", async (request, reply) => {
-  const appBaseUrl = env.APP_BASE_URL.replace(/\/$/, "");
-  const redirectToLogin = (error?: string) =>
-    reply.redirect(`${appBaseUrl}/login${error ? `?error=${error}` : ""}`);
-
-  try {
-    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI) {
-      return redirectToLogin("oauth");
-    }
-
-    const querySchema = z.object({ code: z.string().min(1), state: z.string().min(1) });
-    const { code, state } = querySchema.parse(request.query);
-    const promoCode = getGooglePromoFromState(state);
-
-    const stateHash = hashToken(state);
-    const storedState = await prisma.oAuthState.findUnique({ where: { stateHash } });
-    if (!storedState || storedState.expiresAt.getTime() < Date.now()) {
-      if (storedState) {
-        await prisma.oAuthState.delete({ where: { id: storedState.id } });
-      }
-      return redirectToLogin("oauth");
-    }
-    await prisma.oAuthState.delete({ where: { id: storedState.id } });
-
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code,
-        client_id: env.GOOGLE_CLIENT_ID,
-        client_secret: env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: env.GOOGLE_REDIRECT_URI,
-        grant_type: "authorization_code",
-      }).toString(),
-    });
-
-    if (!tokenResponse.ok) {
-      return redirectToLogin("oauth");
-    }
-
-    const tokenJson = (await tokenResponse.json()) as { id_token?: string; access_token?: string };
-    const idToken = tokenJson.id_token;
-    if (!idToken) {
-      return redirectToLogin("oauth");
-    }
-
-    const infoResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
-    if (!infoResponse.ok) {
-      return redirectToLogin("oauth");
-    }
-
-    const info = (await infoResponse.json()) as {
-      sub: string;
-      email?: string;
-      email_verified?: string;
-      name?: string;
-    };
-
-    if (!info.email || info.email_verified !== "true") {
-      return redirectToLogin("oauth");
-    }
-
-    let user = await prisma.user.findUnique({ where: { email: info.email } });
-    if (user?.deletedAt) {
-      return redirectToLogin("blocked");
-    }
-
-    if (!user) {
-      if (!promoCode || !isPromoCodeValid(promoCode)) {
-        return redirectToLogin("promo");
-      }
-      user = await prisma.user.create({
-        data: {
-          email: info.email,
-          name: info.name,
-          provider: "google",
-          emailVerifiedAt: new Date(),
-        },
-      });
-    } else if (user.passwordHash && !user.emailVerifiedAt) {
-      return redirectToLogin("unverified");
-    }
-
-    if (user.isBlocked) {
-      return redirectToLogin("blocked");
-    }
-
-    const providerMatch = await prisma.authProvider.findFirst({
-      where: { provider: "google", providerUserId: info.sub },
-    });
-
-    if (providerMatch && providerMatch.userId !== user.id) {
-      return redirectToLogin("oauth");
-    }
-
-    const existingProvider = providerMatch;
-
-    if (!existingProvider) {
-      await prisma.authProvider.create({
-        data: {
-          userId: user.id,
-          provider: "google",
-          providerUserId: info.sub,
-        },
-      });
-    }
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-    const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
-    reply.setCookie("fs_token", token, buildCookieOptions());
-
-    return reply.redirect(`${appBaseUrl}/app`);
-  } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      app.log.warn({ err: error }, "google oauth callback failed");
-    }
-    return redirectToLogin("oauth");
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI) {
+    return reply.status(501).send({ error: "GOOGLE_OAUTH_NOT_CONFIGURED" });
   }
+
+  const querySchema = z.object({ code: z.string().min(1), state: z.string().min(1) });
+  const { code, state } = querySchema.parse(request.query);
+
+  const stateHash = hashToken(state);
+  const storedState = await prisma.oAuthState.findUnique({ where: { stateHash } });
+  if (!storedState || storedState.expiresAt.getTime() < Date.now()) {
+    if (storedState) {
+      await prisma.oAuthState.delete({ where: { id: storedState.id } });
+    }
+    return reply.status(400).send({ error: "INVALID_OAUTH_STATE" });
+  }
+  await prisma.oAuthState.delete({ where: { id: storedState.id } });
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: env.GOOGLE_REDIRECT_URI,
+      grant_type: "authorization_code",
+    }).toString(),
+  });
+
+  if (!tokenResponse.ok) {
+    return reply.status(400).send({ error: "GOOGLE_TOKEN_EXCHANGE_FAILED" });
+  }
+
+  const tokenJson = (await tokenResponse.json()) as { id_token?: string; access_token?: string };
+  const idToken = tokenJson.id_token;
+  if (!idToken) {
+    return reply.status(400).send({ error: "GOOGLE_ID_TOKEN_MISSING" });
+  }
+
+  const infoResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+  if (!infoResponse.ok) {
+    return reply.status(400).send({ error: "GOOGLE_PROFILE_FETCH_FAILED" });
+  }
+
+  const info = (await infoResponse.json()) as {
+    sub: string;
+    email?: string;
+    email_verified?: string;
+    name?: string;
+  };
+
+  if (!info.email || info.email_verified !== "true") {
+    return reply.status(403).send({ error: "GOOGLE_EMAIL_NOT_VERIFIED" });
+  }
+
+  let user = await prisma.user.findUnique({ where: { email: info.email } });
+  if (user?.deletedAt) {
+    return reply.status(403).send({ error: "ACCOUNT_DELETED" });
+  }
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email: info.email,
+        name: info.name,
+        provider: "google",
+        emailVerifiedAt: new Date(),
+      },
+    });
+  } else if (user.passwordHash && !user.emailVerifiedAt) {
+    return reply.status(403).send({ error: "EMAIL_NOT_VERIFIED" });
+  }
+
+  if (user.isBlocked) {
+    return reply.status(403).send({ error: "USER_BLOCKED" });
+  }
+
+  const providerMatch = await prisma.authProvider.findFirst({
+    where: { provider: "google", providerUserId: info.sub },
+  });
+
+  if (providerMatch && providerMatch.userId !== user.id) {
+    return reply.status(403).send({ error: "GOOGLE_ACCOUNT_LINKED" });
+  }
+
+  const existingProvider = providerMatch;
+
+  if (!existingProvider) {
+    await prisma.authProvider.create({
+      data: {
+        userId: user.id,
+        provider: "google",
+        providerUserId: info.sub,
+      },
+    });
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
+
+  const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
+  reply.setCookie("fs_token", token, buildCookieOptions());
+
+  return reply.status(200).send({ ok: true });
 });
 
 app.get("/profile", async (request, reply) => {
@@ -2771,7 +2362,6 @@ app.post("/ai/training-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
     const user = await requireUser(request, { logContext: "/ai/training-plan" });
-    requireProSubscription(user);
     const data = aiTrainingSchema.parse(request.body);
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
@@ -2780,11 +2370,7 @@ app.post("/ai/training-plan", async (request, reply) => {
       const personalized = applyPersonalization(template, { name: data.name });
       await upsertExercisesFromPlan(personalized);
       await storeAiContent(user.id, "training", "template", personalized);
-      return reply.status(200).send({
-        plan: personalized,
-        aiTokenBalance: user.aiTokenBalance,
-        aiTokenRenewalAt: user.aiTokenRenewalAt,
-      });
+      return reply.status(200).send(personalized);
     }
 
     const cached = await getCachedAiPayload(cacheKey);
@@ -2794,77 +2380,20 @@ app.post("/ai/training-plan", async (request, reply) => {
         const personalized = applyPersonalization(validated, { name: data.name });
         await upsertExercisesFromPlan(personalized);
         await storeAiContent(user.id, "training", "cache", personalized);
-        return reply.status(200).send({
-          plan: personalized,
-          aiTokenBalance: user.aiTokenBalance,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        });
+        return reply.status(200).send(personalized);
       } catch (error) {
         app.log.warn({ err: error, cacheKey }, "cached training plan invalid, regenerating");
       }
     }
 
-    assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildTrainingPrompt(data);
-    const balanceBefore = user.aiTokenBalance;
-    app.log.info(
-      { userId: user.id, feature: "training_plan", plan: user.subscriptionPlan, balanceBefore },
-      "ai charge start"
-    );
-    const charged = await chargeAiUsage({
-      prisma,
-      pricing: aiPricing,
-      user,
-      feature: "training_plan",
-      execute: () => callOpenAi(prompt),
-      createHttpError,
-    });
-    app.log.info(
-      {
-        userId: user.id,
-        feature: "training_plan",
-        costCents: charged.costCents,
-        totalTokens: charged.totalTokens,
-        balanceAfter: charged.balance,
-      },
-      "ai charge complete"
-    );
-    app.log.debug(
-      {
-        userId: user.id,
-        feature: "training_plan",
-        costCents: charged.costCents,
-        balanceBefore,
-        balanceAfter: charged.balance,
-        model: charged.model,
-        totalTokens: charged.totalTokens,
-      },
-      "ai charge details"
-    );
-    const payload = parseTrainingPlanPayload(charged.payload);
+    const payload = parseTrainingPlanPayload(await callOpenAi(prompt));
     await upsertExercisesFromPlan(payload);
     await saveCachedAiPayload(cacheKey, "training", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "training", "ai", personalized);
-    const debit =
-      process.env.NODE_ENV === "production"
-        ? undefined
-        : {
-            costCents: charged.costCents,
-            balanceBefore,
-            balanceAfter: charged.balance,
-            totalTokens: charged.totalTokens,
-            model: charged.model,
-            usage: charged.usage,
-          };
-    return reply.status(200).send({
-      plan: personalized,
-      aiTokenBalance: charged.balance,
-      aiTokenRenewalAt: user.aiTokenRenewalAt,
-      nextBalance: charged.balance,
-      ...(debit ? { debit } : {}),
-    });
+    return reply.status(200).send(personalized);
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -2874,7 +2403,6 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
     const user = await requireUser(request, { logContext: "/ai/nutrition-plan" });
-    requireProSubscription(user);
     const data = aiNutritionSchema.parse(request.body);
     await prisma.aiPromptCache.deleteMany({
       where: {
@@ -2889,11 +2417,7 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name });
       await storeAiContent(user.id, "nutrition", "template", personalized);
-      return reply.status(200).send({
-        plan: personalized,
-        aiTokenBalance: user.aiTokenBalance,
-        aiTokenRenewalAt: user.aiTokenRenewalAt,
-      });
+      return reply.status(200).send(personalized);
     }
 
     const cached = await getCachedAiPayload(cacheKey);
@@ -2902,76 +2426,19 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
         const validated = parseNutritionPlanPayload(cached);
         const personalized = applyPersonalization(validated, { name: data.name });
         await storeAiContent(user.id, "nutrition", "cache", personalized);
-        return reply.status(200).send({
-          plan: personalized,
-          aiTokenBalance: user.aiTokenBalance,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        });
+        return reply.status(200).send(personalized);
       } catch (error) {
         app.log.warn({ err: error, cacheKey }, "cached nutrition plan invalid, regenerating");
       }
     }
 
-    assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildNutritionPrompt(data);
-    const balanceBefore = user.aiTokenBalance;
-    app.log.info(
-      { userId: user.id, feature: "nutrition_plan", plan: user.subscriptionPlan, balanceBefore },
-      "ai charge start"
-    );
-    const charged = await chargeAiUsage({
-      prisma,
-      pricing: aiPricing,
-      user,
-      feature: "nutrition_plan",
-      execute: () => callOpenAi(prompt),
-      createHttpError,
-    });
-    app.log.info(
-      {
-        userId: user.id,
-        feature: "nutrition_plan",
-        costCents: charged.costCents,
-        totalTokens: charged.totalTokens,
-        balanceAfter: charged.balance,
-      },
-      "ai charge complete"
-    );
-    app.log.debug(
-      {
-        userId: user.id,
-        feature: "nutrition_plan",
-        costCents: charged.costCents,
-        balanceBefore,
-        balanceAfter: charged.balance,
-        model: charged.model,
-        totalTokens: charged.totalTokens,
-      },
-      "ai charge details"
-    );
-    const payload = parseNutritionPlanPayload(charged.payload);
+    const payload = parseNutritionPlanPayload(await callOpenAi(prompt));
     await saveCachedAiPayload(cacheKey, "nutrition", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
-    const debit =
-      process.env.NODE_ENV === "production"
-        ? undefined
-        : {
-            costCents: charged.costCents,
-            balanceBefore,
-            balanceAfter: charged.balance,
-            totalTokens: charged.totalTokens,
-            model: charged.model,
-            usage: charged.usage,
-          };
-    return reply.status(200).send({
-      plan: personalized,
-      aiTokenBalance: charged.balance,
-      aiTokenRenewalAt: user.aiTokenRenewalAt,
-      nextBalance: charged.balance,
-      ...(debit ? { debit } : {}),
-    });
+    return reply.status(200).send(personalized);
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -2981,7 +2448,6 @@ app.post("/ai/daily-tip", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/daily-tip");
     const user = await requireUser(request, { logContext: "/ai/daily-tip" });
-    requireProSubscription(user);
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();
@@ -2989,84 +2455,23 @@ app.post("/ai/daily-tip", async (request, reply) => {
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
       await safeStoreAiContent(user.id, "tip", "template", personalized);
-      return reply.status(200).send({
-        tip: personalized,
-        aiTokenBalance: user.aiTokenBalance,
-        aiTokenRenewalAt: user.aiTokenRenewalAt,
-      });
+      return reply.status(200).send(personalized);
     }
 
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
       const personalized = applyPersonalization(cached, { name: data.name ?? "amigo" });
       await safeStoreAiContent(user.id, "tip", "cache", personalized);
-      return reply.status(200).send({
-        tip: personalized,
-        aiTokenBalance: user.aiTokenBalance,
-        aiTokenRenewalAt: user.aiTokenRenewalAt,
-      });
+      return reply.status(200).send(personalized);
     }
 
-    assertAiAccess(user);
     await enforceAiQuota(user);
     const prompt = buildTipPrompt(data);
-    const balanceBefore = user.aiTokenBalance;
-    app.log.info(
-      { userId: user.id, feature: "daily_tip", plan: user.subscriptionPlan, balanceBefore },
-      "ai charge start"
-    );
-    const charged = await chargeAiUsage({
-      prisma,
-      pricing: aiPricing,
-      user,
-      feature: "daily_tip",
-      execute: () => callOpenAi(prompt),
-      createHttpError,
-    });
-    app.log.info(
-      {
-        userId: user.id,
-        feature: "daily_tip",
-        costCents: charged.costCents,
-        totalTokens: charged.totalTokens,
-        balanceAfter: charged.balance,
-      },
-      "ai charge complete"
-    );
-    app.log.debug(
-      {
-        userId: user.id,
-        feature: "daily_tip",
-        costCents: charged.costCents,
-        balanceBefore,
-        balanceAfter: charged.balance,
-        model: charged.model,
-        totalTokens: charged.totalTokens,
-      },
-      "ai charge details"
-    );
-    const payload = charged.payload;
+    const payload = await callOpenAi(prompt);
     await saveCachedAiPayload(cacheKey, "tip", payload);
     const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
-    const debit =
-      process.env.NODE_ENV === "production"
-        ? undefined
-        : {
-            costCents: charged.costCents,
-            balanceBefore,
-            balanceAfter: charged.balance,
-            totalTokens: charged.totalTokens,
-            model: charged.model,
-            usage: charged.usage,
-          };
-    return reply.status(200).send({
-      tip: personalized,
-      aiTokenBalance: charged.balance,
-      aiTokenRenewalAt: user.aiTokenRenewalAt,
-      nextBalance: charged.balance,
-      ...(debit ? { debit } : {}),
-    });
+    return reply.status(200).send(personalized);
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -3260,50 +2665,6 @@ const adminCreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(["USER", "ADMIN"]).optional(),
-  subscriptionPlan: z.enum(["FREE", "PRO"]).optional(),
-  aiTokenBalance: z.coerce.number().int().min(0).optional(),
-  aiTokenMonthlyAllowance: z.coerce.number().int().min(0).optional(),
-});
-
-app.post("/admin/users", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const data = adminCreateUserSchema.parse(request.body ?? {});
-    const subscriptionPlan = data.subscriptionPlan ?? "FREE";
-    const aiTokenMonthlyAllowance = data.aiTokenMonthlyAllowance ?? 0;
-    const fallbackBalance = subscriptionPlan === "PRO" ? aiTokenMonthlyAllowance : 0;
-    const aiTokenBalance = Math.max(0, data.aiTokenBalance ?? fallbackBalance);
-    const currentPeriodEnd = subscriptionPlan === "PRO" ? addMonths(new Date(), 1) : null;
-    const aiTokenRenewalAt = subscriptionPlan === "PRO" ? currentPeriodEnd : null;
-    const passwordHash = await bcrypt.hash(data.password, 10);
-
-    const created = await prisma.user.create({
-      data: {
-        email: data.email,
-        passwordHash,
-        role: data.role ?? "USER",
-        subscriptionPlan,
-        subscriptionStatus: subscriptionPlan === "PRO" ? "manual_admin" : null,
-        currentPeriodEnd,
-        aiTokenBalance,
-        aiTokenMonthlyAllowance,
-        aiTokenRenewalAt,
-      },
-    });
-
-    return reply.status(201).send({
-      id: created.id,
-      email: created.email,
-      role: created.role,
-      subscriptionPlan: created.subscriptionPlan,
-      currentPeriodEnd: created.currentPeriodEnd,
-      aiTokenBalance: created.aiTokenBalance,
-      aiTokenMonthlyAllowance: created.aiTokenMonthlyAllowance,
-      aiTokenRenewalAt: created.aiTokenRenewalAt,
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
 });
 
 app.get("/admin/users", async (request, reply) => {
@@ -3366,328 +2727,12 @@ app.get("/admin/users", async (request, reply) => {
         isBlocked: user.isBlocked,
         emailVerified: Boolean(user.emailVerifiedAt),
         method,
-        provider: user.provider,
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt,
-        subscriptionPlan: user.subscriptionPlan,
-        subscriptionStatus: user.subscriptionStatus,
-        aiTokenBalance: user.aiTokenBalance,
-        aiTokenMonthlyAllowance: user.aiTokenMonthlyAllowance,
-        aiTokenRenewalAt: user.aiTokenRenewalAt,
-        currentPeriodEnd: user.currentPeriodEnd,
       };
     });
 
     return { total, page, pageSize, users: payload };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/admin/users/:id/grant-pro", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const bodySchema = z.object({
-      monthlyAllowance: z.coerce.number().int().min(1).optional(),
-      initialTokens: z.coerce.number().int().min(0).optional(),
-    });
-    const { id } = paramsSchema.parse(request.params);
-    const { monthlyAllowance, initialTokens } = bodySchema.parse(request.body ?? {});
-
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    const allowance = monthlyAllowance ?? resolveMonthlyAllowance(user);
-    const startingTokens = initialTokens ?? allowance;
-    const resetAt = addMonths(new Date(), 1);
-
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
-        subscriptionPlan: "PRO",
-        subscriptionStatus: "manual_admin",
-        aiTokenMonthlyAllowance: allowance,
-        aiTokenBalance: startingTokens,
-        currentPeriodEnd: resetAt,
-        aiTokenRenewalAt: resetAt,
-      },
-    });
-
-    return {
-      id: updated.id,
-      subscriptionPlan: updated.subscriptionPlan,
-      subscriptionStatus: updated.subscriptionStatus,
-      currentPeriodEnd: updated.currentPeriodEnd,
-      aiTokenBalance: updated.aiTokenBalance,
-      aiTokenMonthlyAllowance: updated.aiTokenMonthlyAllowance,
-      aiTokenRenewalAt: updated.aiTokenRenewalAt,
-    };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.patch("/admin/users/:id/plan", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const bodySchema = z.object({
-      subscriptionPlan: z.enum(["FREE", "PRO"]),
-      topUpNow: z.boolean().optional(),
-    });
-    const { id } = paramsSchema.parse(request.params);
-    const { subscriptionPlan, topUpNow } = bodySchema.parse(request.body ?? {});
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-
-    const nextAllowance = subscriptionPlan === "PRO" ? resolveMonthlyAllowance(user) : 0;
-    const nextBalance =
-      subscriptionPlan === "PRO"
-        ? topUpNow
-          ? nextAllowance
-          : Math.max(user.aiTokenBalance, nextAllowance)
-        : 0;
-    const nextPeriodEnd = subscriptionPlan === "PRO" ? user.currentPeriodEnd ?? addMonths(new Date(), 1) : null;
-
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
-        subscriptionPlan,
-        subscriptionStatus: "manual_admin",
-        aiTokenMonthlyAllowance: nextAllowance,
-        aiTokenBalance: nextBalance,
-        currentPeriodEnd: nextPeriodEnd,
-        aiTokenRenewalAt: subscriptionPlan === "PRO" ? nextPeriodEnd : null,
-      },
-    });
-
-    return {
-      id: updated.id,
-      subscriptionPlan: updated.subscriptionPlan,
-      subscriptionStatus: updated.subscriptionStatus,
-      currentPeriodEnd: updated.currentPeriodEnd,
-      aiTokenBalance: updated.aiTokenBalance,
-      aiTokenMonthlyAllowance: updated.aiTokenMonthlyAllowance,
-      aiTokenRenewalAt: updated.aiTokenRenewalAt,
-    };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.patch("/admin/users/:id/tokens", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const bodySchema = z.object({
-      op: z.enum(["set", "add", "sub"]),
-      amount: z.coerce.number().int().min(0),
-    });
-    const { id } = paramsSchema.parse(request.params);
-    const { op, amount } = bodySchema.parse(request.body ?? {});
-
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-
-    let nextBalance = user.aiTokenBalance;
-    if (op === "set") {
-      nextBalance = amount;
-    }
-    if (op === "add") {
-      nextBalance = user.aiTokenBalance + amount;
-    }
-    if (op === "sub") {
-      nextBalance = Math.max(0, user.aiTokenBalance - amount);
-    }
-
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { aiTokenBalance: nextBalance },
-    });
-
-    return {
-      id: updated.id,
-      aiTokenBalance: updated.aiTokenBalance,
-    };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.patch("/admin/users/:id/tokens-allowance", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const bodySchema = z.object({
-      aiTokenMonthlyAllowance: z.coerce.number().int().min(0),
-      topUpNow: z.boolean().optional(),
-    });
-    const { id } = paramsSchema.parse(request.params);
-    const { aiTokenMonthlyAllowance, topUpNow } = bodySchema.parse(request.body ?? {});
-
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-
-    const data: Prisma.UserUpdateInput = { aiTokenMonthlyAllowance };
-    if (topUpNow) {
-      data.aiTokenBalance = aiTokenMonthlyAllowance;
-      const periodEnd = user.currentPeriodEnd ?? addMonths(new Date(), 1);
-      data.currentPeriodEnd = periodEnd;
-      data.aiTokenRenewalAt = periodEnd;
-    }
-
-    const updated = await prisma.user.update({
-      where: { id },
-      data,
-    });
-
-    return {
-      id: updated.id,
-      aiTokenMonthlyAllowance: updated.aiTokenMonthlyAllowance,
-      aiTokenBalance: updated.aiTokenBalance,
-      aiTokenRenewalAt: updated.aiTokenRenewalAt,
-    };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/admin/users/:id/tokens/add", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const bodySchema = z.object({
-      amount: z.coerce.number().int().min(0),
-    });
-    const { id } = paramsSchema.parse(request.params);
-    const { amount } = bodySchema.parse(request.body ?? {});
-
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { aiTokenBalance: { increment: amount } },
-    });
-
-    return { id: updated.id, aiTokenBalance: updated.aiTokenBalance };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.patch("/admin/users/:id/tokens/balance", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const bodySchema = z.object({
-      aiTokenBalance: z.coerce.number().int().min(0),
-    });
-    const { id } = paramsSchema.parse(request.params);
-    const { aiTokenBalance } = bodySchema.parse(request.body ?? {});
-
-    const updated = await prisma.user.update({
-      where: { id },
-      data: { aiTokenBalance },
-    });
-
-    return { id: updated.id, aiTokenBalance: updated.aiTokenBalance };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/admin/users/:id/credit-tokens", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const bodySchema = z.object({
-      amount: z.coerce.number().int().positive(),
-      reason: z.string().min(1).max(200).optional(),
-    });
-    const { id } = paramsSchema.parse(request.params);
-    const { amount, reason } = bodySchema.parse(request.body ?? {});
-
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-
-    const [updated] = await prisma.$transaction([
-      prisma.user.update({
-        where: { id },
-        data: { aiTokenBalance: { increment: amount } },
-      }),
-      prisma.aiUsageLog.create({
-        data: {
-          userId: id,
-          feature: "admin_credit",
-          model: "manual",
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: -amount,
-          costCents: 0,
-          currency: "usd",
-          meta: reason ? ({ reason } as Prisma.InputJsonValue) : undefined,
-        },
-      }),
-    ]);
-
-    return {
-      id: updated.id,
-      aiTokenBalance: updated.aiTokenBalance,
-    };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/admin/ai-usage", async (request, reply) => {
-  try {
-    await requireAdmin(request);
-    const querySchema = z.object({
-      userId: z.string().min(1).optional(),
-      from: z.string().optional(),
-      to: z.string().optional(),
-      limit: z.coerce.number().int().min(1).max(200).default(50),
-    });
-    const { userId, from, to, limit } = querySchema.parse(request.query);
-    const fromDate = toDate(from ?? undefined);
-    const toDateValue = toDate(to ?? undefined);
-
-    const createdAt: Prisma.DateTimeFilter = {};
-    if (fromDate) createdAt.gte = fromDate;
-    if (toDateValue) createdAt.lte = toDateValue;
-
-    const where: Prisma.AiUsageLogWhereInput = {
-      ...(userId ? { userId } : {}),
-      ...(Object.keys(createdAt).length > 0 ? { createdAt } : {}),
-    };
-
-    const [items, summary] = await prisma.$transaction([
-      prisma.aiUsageLog.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        take: limit,
-      }),
-      prisma.aiUsageLog.aggregate({
-        where,
-        _sum: { totalTokens: true, costCents: true },
-      }),
-    ]);
-
-    return {
-      items,
-      summary: {
-        totalTokens: summary._sum.totalTokens ?? 0,
-        costCents: summary._sum.costCents ?? 0,
-      },
-    };
   } catch (error) {
     return handleRequestError(reply, error);
   }

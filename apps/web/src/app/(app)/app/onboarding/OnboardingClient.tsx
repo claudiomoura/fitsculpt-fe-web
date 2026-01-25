@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import {
   defaultProfile,
@@ -24,14 +24,19 @@ import {
 import { getUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
 import BodyFatSelector from "@/components/profile/BodyFatSelector";
 
+
 type CheckinEntry = {
   date?: string;
 };
+type Props = {
+  nextUrl?: string;
+  ai?: string;
+};
 
-export default function OnboardingClient() {
+export default function OnboardingClient({ nextUrl, ai }: Props) {
+
   const { t } = useLanguage();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -212,20 +217,21 @@ export default function OnboardingClient() {
     setProfile(updated);
     setSaving(false);
     setMessage(t("onboarding.saved"));
-    const next = searchParams.get("next");
-    const ai = searchParams.get("ai");
-    if (ai === "training") {
-      router.push("/app/entrenamiento?ai=1");
-      return;
-    }
-    if (ai === "nutrition") {
-      router.push("/app/nutricion?ai=1");
-      return;
-    }
-    if (next) {
-      router.push(next);
-      return;
-    }
+const next = nextUrl;
+
+if (ai === "training") {
+  router.push("/app/entrenamiento?ai=1");
+  return;
+}
+if (ai === "nutrition") {
+  router.push("/app/nutricion?ai=1");
+  return;
+}
+if (next) {
+  router.push(next);
+  return;
+}
+
     window.setTimeout(() => setMessage(null), 2000);
   }
 
