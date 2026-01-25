@@ -223,6 +223,7 @@ export default function ProfileClient() {
     setProfile(nextProfile);
     setSaved(true);
     window.setTimeout(() => setSaved(false), 2000);
+    window.dispatchEvent(new Event("auth:refresh"));
   }
 
   async function resetProfile() {

@@ -219,7 +219,7 @@ export default function DashboardClient() {
                 <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.quickActionsSubtitle")}</p>
               </div>
               <div className="list-grid">
-                <Link className="btn" href="/app/entrenamiento?ai=1">
+                <Link className="btn" href="/app/workouts">
                   {t("dashboard.aiTrainingCta")}
                 </Link>
                 <Link className="btn" href="/app/nutricion?ai=1">

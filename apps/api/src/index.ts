@@ -41,6 +41,23 @@ type StripeSubscription = {
   current_period_end: number | null;
 };
 
+type StripeInvoiceLineItem = {
+  price?: {
+    id?: string | null;
+  } | null;
+};
+
+type StripeInvoice = {
+  id: string;
+  customer?: string | null;
+  subscription?: string | null;
+  lines?: { data?: StripeInvoiceLineItem[] };
+};
+
+type StripeSubscriptionList = {
+  data: StripeSubscription[];
+};
+
 await app.register(cors, {
   origin: env.CORS_ORIGIN,
   credentials: true,
@@ -59,7 +76,7 @@ await app.register(jwt, {
 });
 
 app.addContentTypeParser("application/json", { parseAs: "buffer" }, (request, body, done) => {
-  if (request.url?.startsWith("/billing/webhook")) {
+  if (request.url?.startsWith("/billing/stripe/webhook")) {
     done(null, body);
     return;
   }
@@ -192,29 +209,6 @@ function verifyStripeSignature(rawBody: Buffer, signatureHeader: string, webhook
   }
 }
 
-async function updateUserSubscriptionFromStripe(subscription: StripeSubscription) {
-  const isActive = subscription.status === "active" || subscription.status === "trialing";
-  const currentPeriodEnd = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
-    : null;
-  const result = await prisma.user.updateMany({
-    where: {
-      OR: [{ stripeCustomerId: subscription.customer }, { stripeSubscriptionId: subscription.id }],
-    },
-    data: {
-      stripeCustomerId: subscription.customer,
-      stripeSubscriptionId: subscription.id,
-      subscriptionStatus: subscription.status,
-      currentPeriodEnd,
-      subscriptionPlan: isActive ? "PRO" : "FREE",
-      plan: isActive ? "PRO" : "FREE",
-    },
-  });
-  if (result.count === 0) {
-    app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
-  }
-}
-
 function getTokenExpiry(days = 30) {
   const next = new Date();
   next.setDate(next.getDate() + days);
@@ -223,7 +217,14 @@ function getTokenExpiry(days = 30) {
 
 async function applyBillingStateForCustomer(
   stripeCustomerId: string,
-  data: { plan: "FREE" | "PRO"; tokenBalance: number; tokensExpireAt: Date | null }
+  data: {
+    plan: "FREE" | "PRO";
+    tokenBalance: number;
+    tokensExpireAt: Date | null;
+    subscriptionStatus?: string | null;
+    stripeSubscriptionId?: string | null;
+    currentPeriodEnd?: Date | null;
+  }
 ) {
   const result = await prisma.user.updateMany({
     where: { stripeCustomerId },
@@ -232,6 +233,9 @@ async function applyBillingStateForCustomer(
       tokenBalance: data.tokenBalance,
       tokensExpireAt: data.tokensExpireAt,
       subscriptionPlan: data.plan,
+      subscriptionStatus: data.subscriptionStatus === undefined ? undefined : data.subscriptionStatus,
+      stripeSubscriptionId: data.stripeSubscriptionId === undefined ? undefined : data.stripeSubscriptionId,
+      currentPeriodEnd: data.currentPeriodEnd === undefined ? undefined : data.currentPeriodEnd,
       aiTokenBalance: data.tokenBalance,
       aiTokenRenewalAt: data.tokensExpireAt,
     },
@@ -239,6 +243,57 @@ async function applyBillingStateForCustomer(
   if (result.count === 0) {
     app.log.warn({ stripeCustomerId }, "user not found for billing update");
   }
+}
+
+async function updateUserSubscriptionForCustomer(
+  stripeCustomerId: string,
+  data: {
+    plan: "FREE" | "PRO";
+    subscriptionStatus?: string | null;
+    stripeSubscriptionId?: string | null;
+    currentPeriodEnd?: Date | null;
+  }
+) {
+  const result = await prisma.user.updateMany({
+    where: { stripeCustomerId },
+    data: {
+      plan: data.plan,
+      subscriptionPlan: data.plan,
+      subscriptionStatus: data.subscriptionStatus === undefined ? undefined : data.subscriptionStatus,
+      stripeSubscriptionId: data.stripeSubscriptionId === undefined ? undefined : data.stripeSubscriptionId,
+      currentPeriodEnd: data.currentPeriodEnd === undefined ? undefined : data.currentPeriodEnd,
+    },
+  });
+  if (result.count === 0) {
+    app.log.warn({ stripeCustomerId }, "user not found for subscription update");
+  }
+}
+
+function isActiveSubscriptionStatus(status?: string | null) {
+  return status === "active" || status === "trialing";
+}
+
+async function getLatestActiveSubscription(customerId: string) {
+  const subscriptions = await stripeRequest<StripeSubscriptionList>(
+    "subscriptions",
+    { customer: customerId, status: "all", limit: 100 },
+    { method: "GET" }
+  );
+  const activeSubscriptions = subscriptions.data.filter((subscription) => isActiveSubscriptionStatus(subscription.status));
+  if (activeSubscriptions.length === 0) {
+    return null;
+  }
+  return activeSubscriptions.sort((a, b) => (b.current_period_end ?? 0) - (a.current_period_end ?? 0))[0] ?? null;
+}
+
+function getSubscriptionPeriodEnd(subscription?: StripeSubscription | null) {
+  if (!subscription?.current_period_end) return null;
+  return new Date(subscription.current_period_end * 1000);
+}
+
+function invoiceHasPrice(invoice: StripeInvoice, priceId: string) {
+  const lines = invoice.lines?.data ?? [];
+  return lines.some((line) => line.price?.id === priceId);
 }
 
 function logAuthCookieDebug(request: FastifyRequest, route: string) {
@@ -1996,6 +2051,7 @@ app.post("/billing/checkout", async (request, reply) => {
         mode: "subscription",
         customer: customerId,
         client_reference_id: user.id,
+        "metadata[userId]": user.id,
         "line_items[0][price]": priceId,
         "line_items[0][quantity]": 1,
         "subscription_data[metadata][userId]": user.id,
@@ -2036,94 +2092,197 @@ app.post("/billing/portal", async (request, reply) => {
   }
 });
 
-app.get("/billing/status", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const tokens = getEffectiveTokenBalance(user);
-    return reply.status(200).send({
-      plan: user.plan,
-      isPro: user.plan === "PRO",
-      tokens,
-      tokensExpireAt: user.tokensExpireAt,
-      role: user.role,
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/billing/webhook", async (request, reply) => {
-  try {
-    const signature = request.headers["stripe-signature"];
-    if (typeof signature !== "string") {
-      return reply.status(400).send({ error: "MISSING_SIGNATURE" });
-    }
-    const rawBody = request.body;
-    if (!Buffer.isBuffer(rawBody)) {
-      return reply.status(400).send({ error: "INVALID_BODY" });
-    }
-    verifyStripeSignature(rawBody, signature, requireStripeWebhookSecret());
-    const event = JSON.parse(rawBody.toString("utf8")) as { type: string; data?: { object?: unknown } };
-    const payload = event.data?.object;
-
-    if (event.type === "checkout.session.completed") {
-      const session = payload as { customer?: string | null; subscription?: string | null };
-      if (session?.subscription && session?.customer) {
-        const subscription = await stripeRequest<StripeSubscription>(
-          `subscriptions/${session.subscription}`,
-          {},
-          { method: "GET" }
-        );
-        await updateUserSubscriptionFromStripe(subscription);
-        await applyBillingStateForCustomer(session.customer, {
-          plan: "PRO",
-          tokenBalance: 500,
-          tokensExpireAt: getTokenExpiry(30),
-        });
+app.post(
+  "/billing/stripe/webhook",
+  { config: { rawBody: true } },
+  async (request, reply) => {
+    try {
+      const signature = request.headers["stripe-signature"];
+      if (typeof signature !== "string") {
+        return reply.status(400).send({ error: "MISSING_SIGNATURE" });
       }
-    }
+      const rawBody = request.body;
+      if (!Buffer.isBuffer(rawBody)) {
+        return reply.status(400).send({ error: "INVALID_BODY" });
+      }
 
-    if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
-      const subscription = payload as StripeSubscription;
-      if (subscription?.id && subscription?.customer) {
-        await updateUserSubscriptionFromStripe(subscription);
-        if (event.type === "customer.subscription.deleted") {
-          await applyBillingStateForCustomer(subscription.customer, {
-            plan: "FREE",
-            tokenBalance: 0,
-            tokensExpireAt: new Date(),
-          });
+      verifyStripeSignature(rawBody, signature, requireStripeWebhookSecret());
+      const event = JSON.parse(rawBody.toString("utf8")) as { type: string; data?: { object?: unknown } };
+      const eventType = event.type;
+      const payload = event.data?.object;
+      let resolvedUserId: string | null = null;
+
+      if (eventType === "checkout.session.completed") {
+        const session = payload as {
+          metadata?: Record<string, string> | null;
+          client_reference_id?: string | null;
+        };
+        resolvedUserId = session?.metadata?.userId ?? session?.client_reference_id ?? null;
+      }
+
+      app.log.info(
+        resolvedUserId ? { eventType, userId: resolvedUserId } : { eventType },
+        "stripe webhook received"
+      );
+
+      if (eventType === "checkout.session.completed") {
+        const session = payload as {
+          customer?: string | null;
+          subscription?: string | null;
+          metadata?: Record<string, string> | null;
+          client_reference_id?: string | null;
+        };
+        const userId = session?.metadata?.userId ?? session?.client_reference_id ?? null;
+        const customerId = session?.customer ?? null;
+        const subscriptionId = session?.subscription ?? null;
+        if (!userId) {
+          app.log.warn({ eventType }, "stripe checkout missing userId");
+          return reply.status(200).send({ received: true });
+        }
+        const updateData: Prisma.UserUpdateInput = {};
+        if (customerId) updateData.stripeCustomerId = customerId;
+        if (subscriptionId) updateData.stripeSubscriptionId = subscriptionId;
+        if (Object.keys(updateData).length > 0) {
+          await prisma.user.update({ where: { id: userId }, data: updateData });
+          app.log.info({ userId, stripeCustomerId: customerId, stripeSubscriptionId: subscriptionId }, "checkout linked");
         }
       }
-    }
 
-    if (event.type === "invoice.payment_succeeded") {
-      const invoice = payload as { customer?: string | null };
-      if (invoice?.customer) {
-        await applyBillingStateForCustomer(invoice.customer, {
-          plan: "PRO",
-          tokenBalance: 500,
-          tokensExpireAt: getTokenExpiry(30),
-        });
+      if (
+        eventType === "customer.subscription.created" ||
+        eventType === "customer.subscription.updated" ||
+        eventType === "customer.subscription.deleted"
+      ) {
+        const subscription = payload as StripeSubscription;
+        const customerId = subscription?.customer ?? null;
+        if (customerId) {
+          const activeSubscription = await getLatestActiveSubscription(customerId);
+          const cancellationStatuses = new Set(["canceled", "unpaid", "incomplete_expired"]);
+          if (activeSubscription) {
+            const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
+            await updateUserSubscriptionForCustomer(customerId, {
+              plan: "PRO",
+              subscriptionStatus: activeSubscription.status,
+              stripeSubscriptionId: activeSubscription.id,
+              currentPeriodEnd,
+            });
+            app.log.info(
+              {
+                stripeCustomerId: customerId,
+                plan: "PRO",
+                subscriptionStatus: activeSubscription.status,
+                currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
+              },
+              "subscription updated"
+            );
+          } else if (eventType === "customer.subscription.deleted" || cancellationStatuses.has(subscription.status)) {
+            const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
+            await applyBillingStateForCustomer(customerId, {
+              plan: "FREE",
+              tokenBalance: 0,
+              tokensExpireAt: null,
+              subscriptionStatus: subscription.status,
+              stripeSubscriptionId: subscription.id,
+              currentPeriodEnd,
+            });
+            app.log.info(
+              {
+                stripeCustomerId: customerId,
+                plan: "FREE",
+                tokenBalance: 0,
+                tokensExpireAt: null,
+              },
+              "subscription canceled"
+            );
+          }
+        }
       }
-    }
 
-    if (event.type === "invoice.payment_failed") {
-      const invoice = payload as { customer?: string | null };
-      if (invoice?.customer) {
-        await applyBillingStateForCustomer(invoice.customer, {
-          plan: "FREE",
-          tokenBalance: 0,
-          tokensExpireAt: new Date(),
-        });
+      if (eventType === "invoice.paid") {
+        const invoice = payload as StripeInvoice;
+        const priceId = requireStripePriceId();
+        let fullInvoice = invoice;
+        if (!invoice?.lines?.data?.length) {
+          fullInvoice = await stripeRequest<StripeInvoice>(
+            `invoices/${invoice.id}`,
+            {
+              "expand[0]": "lines.data.price",
+              "expand[1]": "subscription",
+            },
+            { method: "GET" }
+          );
+        }
+        if (invoiceHasPrice(fullInvoice, priceId)) {
+          const customerId = fullInvoice.customer ?? null;
+          const subscriptionId = fullInvoice.subscription ?? null;
+          let subscription: StripeSubscription | null = null;
+          if (subscriptionId) {
+            subscription = await stripeRequest<StripeSubscription>(`subscriptions/${subscriptionId}`, {}, { method: "GET" });
+          }
+          const tokensExpireAt = getSubscriptionPeriodEnd(subscription) ?? getTokenExpiry(30);
+          if (customerId) {
+            await applyBillingStateForCustomer(customerId, {
+              plan: "PRO",
+              tokenBalance: 5000,
+              tokensExpireAt,
+              subscriptionStatus: subscription?.status ?? null,
+              stripeSubscriptionId: subscriptionId,
+              currentPeriodEnd: getSubscriptionPeriodEnd(subscription),
+            });
+            app.log.info(
+              {
+                stripeCustomerId: customerId,
+                plan: "PRO",
+                tokenBalance: 5000,
+                tokensExpireAt: tokensExpireAt?.toISOString() ?? null,
+              },
+              "invoice paid"
+            );
+          }
+        }
       }
-    }
 
-    return reply.status(200).send({ received: true });
-  } catch (error) {
-    return handleRequestError(reply, error);
+      if (eventType === "invoice.payment_failed") {
+        const invoice = payload as StripeInvoice;
+        const priceId = requireStripePriceId();
+        let fullInvoice = invoice;
+        if (!invoice?.lines?.data?.length) {
+          fullInvoice = await stripeRequest<StripeInvoice>(
+            `invoices/${invoice.id}`,
+            {
+              "expand[0]": "lines.data.price",
+              "expand[1]": "subscription",
+            },
+            { method: "GET" }
+          );
+        }
+        if (invoiceHasPrice(fullInvoice, priceId)) {
+          const customerId = fullInvoice.customer ?? null;
+          if (customerId) {
+            await applyBillingStateForCustomer(customerId, {
+              plan: "FREE",
+              tokenBalance: 0,
+              tokensExpireAt: null,
+            });
+            app.log.info(
+              {
+                stripeCustomerId: customerId,
+                plan: "FREE",
+                tokenBalance: 0,
+                tokensExpireAt: null,
+              },
+              "invoice payment failed"
+            );
+          }
+        }
+      }
+
+      return reply.status(200).send({ received: true });
+    } catch (error) {
+      return handleRequestError(reply, error);
+    }
   }
-});
+);
 
 app.get("/auth/me", async (request, reply) => {
   try {
@@ -2321,6 +2480,12 @@ app.put("/profile", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const data = profileUpdateSchema.parse(request.body);
+    if (typeof data.name === "string") {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { name: data.name.trim() ? data.name : null },
+      });
+    }
     const current = await getOrCreateProfile(user.id);
     const existingProfile = (current.profile as Record<string, unknown> | null) ?? {};
     const existingMeasurements =
@@ -2405,6 +2570,30 @@ app.put("/profile", async (request, reply) => {
       data: { profile: nextProfile },
     });
     return updated.profile ?? null;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/billing/status", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const rawPlan = user.subscriptionPlan ?? user.plan ?? "FREE";
+    const subscriptionStatus = user.subscriptionStatus ?? null;
+    const isActive = isActiveSubscriptionStatus(subscriptionStatus);
+    const tokensExpireAt = user.tokensExpireAt;
+    const tokensExpired = tokensExpireAt ? tokensExpireAt.getTime() < Date.now() : false;
+    const tokens = tokensExpired ? 0 : getEffectiveTokenBalance(user);
+    const plan = rawPlan === "PRO" && isActive ? "PRO" : "FREE";
+    const response = {
+      plan,
+      isPro: plan === "PRO",
+      tokens,
+      tokensExpiresAt: tokensExpireAt ? tokensExpireAt.toISOString() : null,
+      subscriptionStatus,
+    };
+    app.log.info({ userId: user.id, plan: response.plan, tokens: response.tokens }, "billing status");
+    return reply.status(200).send(response);
   } catch (error) {
     return handleRequestError(reply, error);
   }
