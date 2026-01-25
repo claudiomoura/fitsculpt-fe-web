@@ -56,14 +56,14 @@ export type NutritionIngredient = {
 export type NutritionMeal = {
   type: "breakfast" | "lunch" | "dinner" | "snack";
   title: string;
-  description: string;
+  description?: string;
   macros: {
     calories: number;
     protein: number;
     carbs: number;
     fats: number;
   };
-  ingredients: NutritionIngredient[];
+  ingredients?: NutritionIngredient[];
 };
 
 export type NutritionDayPlan = {

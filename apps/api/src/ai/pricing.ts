@@ -33,6 +33,7 @@ export function loadAiPricing(source: PricingSource): AiPricingMap {
 }
 
 const DEFAULT_MODEL_PRICING: AiPricingMap = {
+  "gpt-3.5-turbo": { inputPer1M: 0.5, outputPer1M: 1.5 },
   "gpt-4o-mini": { inputPer1M: 0.15, outputPer1M: 0.6 },
   "gpt-4o": { inputPer1M: 5, outputPer1M: 15 },
 };
