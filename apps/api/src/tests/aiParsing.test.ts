@@ -1,4 +1,4 @@
-import { AiParseError, parseJsonFromText } from "../aiParsing.js";
+import { AiParseError, parseJsonFromText, parseLargestJsonFromText } from "../aiParsing.js";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -25,6 +25,22 @@ assertEqual(fencedResult, { ok: true, items: [1, 2, 3] }, "Fenced JSON should pa
 const withText = "Aquí tienes el plan:\n{\"value\":42,\"list\":[\"a\",\"b\"]}\nGracias.";
 const withTextResult = parseJsonFromText(withText);
 assertEqual(withTextResult, { value: 42, list: ["a", "b"] }, "JSON with extra text should parse");
+
+const nested = '{"meal":{"title":"A"},"plan":{"title":"Plan","days":[1,2,3],"dailyCalories":2000}}';
+const largestResult = parseLargestJsonFromText(nested);
+assertEqual(
+  largestResult,
+  { meal: { title: "A" }, plan: { title: "Plan", days: [1, 2, 3], dailyCalories: 2000 } },
+  "Largest JSON should parse full object"
+);
+
+const mixed = 'texto {"meal":{"title":"A"}} otro {"title":"Plan","days":[1,2,3],"dailyCalories":2000}';
+const mixedResult = parseLargestJsonFromText(mixed);
+assertEqual(
+  mixedResult,
+  { title: "Plan", days: [1, 2, 3], dailyCalories: 2000 },
+  "Largest JSON block should parse"
+);
 
 let invalidThrown = false;
 try {

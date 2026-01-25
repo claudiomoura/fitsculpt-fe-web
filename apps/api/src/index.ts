@@ -9,7 +9,7 @@ import { PrismaClient, Prisma, type User } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
-import { AiParseError, parseJsonFromText } from "./aiParsing.js";
+import { AiParseError, parseJsonFromText, parseLargestJsonFromText } from "./aiParsing.js";
 import { chargeAiUsage } from "./ai/chargeAiUsage.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
@@ -207,10 +207,37 @@ async function updateUserSubscriptionFromStripe(subscription: StripeSubscription
       subscriptionStatus: subscription.status,
       currentPeriodEnd,
       subscriptionPlan: isActive ? "PRO" : "FREE",
+      plan: isActive ? "PRO" : "FREE",
     },
   });
   if (result.count === 0) {
     app.log.warn({ stripeCustomerId: subscription.customer, stripeSubscriptionId: subscription.id }, "user not found");
+  }
+}
+
+function getTokenExpiry(days = 30) {
+  const next = new Date();
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+async function applyBillingStateForCustomer(
+  stripeCustomerId: string,
+  data: { plan: "FREE" | "PRO"; tokenBalance: number; tokensExpireAt: Date | null }
+) {
+  const result = await prisma.user.updateMany({
+    where: { stripeCustomerId },
+    data: {
+      plan: data.plan,
+      tokenBalance: data.tokenBalance,
+      tokensExpireAt: data.tokensExpireAt,
+      subscriptionPlan: data.plan,
+      aiTokenBalance: data.tokenBalance,
+      aiTokenRenewalAt: data.tokensExpireAt,
+    },
+  });
+  if (result.count === 0) {
+    app.log.warn({ stripeCustomerId }, "user not found for billing update");
   }
 }
 
@@ -552,7 +579,8 @@ type AuthenticatedRequest = FastifyRequest & { currentUser?: User };
 
 async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
   const user = await requireUser(request, { logContext: request.routeOptions?.url ?? "ai" });
-  if (user.subscriptionPlan !== "PRO" && user.aiTokenBalance <= 0) {
+  const effectiveTokens = getEffectiveTokenBalance(user);
+  if (effectiveTokens <= 0) {
     return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
   }
   (request as AuthenticatedRequest).currentUser = user;
@@ -807,6 +835,16 @@ function getSecondsUntilNextUtcDay(date = new Date()) {
   return Math.max(1, Math.ceil(diffMs / 1000));
 }
 
+function getEffectiveTokenBalance(user: { tokenBalance: number; tokensExpireAt: Date | null }) {
+  if (!user.tokensExpireAt) {
+    return 0;
+  }
+  if (user.tokensExpireAt.getTime() < Date.now()) {
+    return 0;
+  }
+  return Math.max(0, user.tokenBalance);
+}
+
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value);
@@ -861,9 +899,9 @@ function applyPersonalization<T>(payload: T, vars: Record<string, string | undef
   return clone;
 }
 
-async function enforceAiQuota(user: { id: string; subscriptionPlan: string }) {
+async function enforceAiQuota(user: { id: string; plan: string }) {
   const dateKey = toDateKey();
-  const limit = user.subscriptionPlan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+  const limit = user.plan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
   const usage = await prisma.aiUsage.findUnique({
     where: { userId_date: { userId: user.id, date: dateKey } },
   });
@@ -1087,7 +1125,32 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>) {
   ].join(" ");
 }
 
-function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
+type RecipePromptItem = {
+  name: string;
+  description?: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  ingredients: Array<{ name: string; grams: number }>;
+  steps: string[];
+};
+
+function formatRecipeLibrary(recipes: RecipePromptItem[]) {
+  if (!recipes.length) return "";
+  const lines = recipes.map((recipe) => {
+    const ingredients = recipe.ingredients.map((ing) => `${ing.name} (${Math.round(ing.grams)}g)`).join(", ");
+    const steps = recipe.steps.join(" | ");
+    return `- ${recipe.name}: ${recipe.description ?? "Sin descripción"}. Macros ${Math.round(
+      recipe.calories
+    )} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(
+      recipe.fat
+    )}. Ingredientes base: ${ingredients}. Pasos: ${steps}.`;
+  });
+  return lines.join(" ");
+}
+
+function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>, recipes: RecipePromptItem[] = []) {
   const distribution =
     typeof data.mealDistribution === "string"
       ? data.mealDistribution
@@ -1096,6 +1159,7 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
     typeof data.mealDistribution === "object" && data.mealDistribution?.percentages?.length
       ? `(${data.mealDistribution.percentages.join("%, ")}%)`
       : "";
+  const recipeLibrary = formatRecipeLibrary(recipes);
   return [
     "Eres un nutricionista deportivo senior. Genera un plan semanal compacto en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
@@ -1106,6 +1170,9 @@ function buildNutritionPrompt(data: z.infer<typeof aiNutritionSchema>) {
     "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, carne magra y frutos secos.",
     "Evita cantidades absurdas. Porciones realistas y fáciles de cocinar.",
     "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
+    recipeLibrary
+      ? `Usa estas recetas base y ajusta gramos según el perfil. No inventes platos fuera de este listado: ${recipeLibrary}`
+      : "Si no hay recetas base disponibles, crea platos sencillos y coherentes.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
     `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
@@ -1140,6 +1207,22 @@ function extractJson(text: string) {
       app.log.warn({ raw: error.raw, reason: error.message }, "ai response parse failed");
     } else {
       app.log.warn({ err: error }, "ai response parse failed");
+    }
+    throw createHttpError(502, "AI_PARSE_ERROR", {
+      message: "La respuesta de IA no es un JSON válido. Intenta nuevamente.",
+    });
+  }
+}
+
+function extractLargestJson(text: string) {
+  try {
+    return parseLargestJsonFromText(text) as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof AiParseError) {
+      const rawPreview = error.raw.slice(0, 500);
+      app.log.warn({ rawPreview, reason: error.message }, "ai response parse failed (largest json)");
+    } else {
+      app.log.warn({ err: error }, "ai response parse failed (largest json)");
     }
     throw createHttpError(502, "AI_PARSE_ERROR", {
       message: "La respuesta de IA no es un JSON válido. Intenta nuevamente.",
@@ -1579,7 +1662,11 @@ type OpenAiResponse = {
   requestId: string | null;
 };
 
-async function callOpenAi(prompt: string, attempt = 0): Promise<OpenAiResponse> {
+async function callOpenAi(
+  prompt: string,
+  attempt = 0,
+  parser: (content: string) => Record<string, unknown> = extractJson
+): Promise<OpenAiResponse> {
   if (!env.OPENAI_API_KEY) {
     throw createHttpError(503, "AI_UNAVAILABLE");
   }
@@ -1621,7 +1708,7 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<OpenAiResponse> 
   try {
     app.log.info({ attempt, rawResponse: content }, "ai raw response");
     return {
-      payload: extractJson(content),
+      payload: parser(content),
       usage: data.usage ?? null,
       model: data.model ?? null,
       requestId,
@@ -1630,7 +1717,7 @@ async function callOpenAi(prompt: string, attempt = 0): Promise<OpenAiResponse> 
     const typed = error as { code?: string };
     if (typed.code === "AI_PARSE_ERROR" && attempt === 0) {
       app.log.warn({ err: error }, "ai response parse failed, retrying with strict json request");
-      return callOpenAi(prompt, 1);
+      return callOpenAi(prompt, 1, parser);
     }
     throw error;
   }
@@ -1949,6 +2036,22 @@ app.post("/billing/portal", async (request, reply) => {
   }
 });
 
+app.get("/billing/status", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const tokens = getEffectiveTokenBalance(user);
+    return reply.status(200).send({
+      plan: user.plan,
+      isPro: user.plan === "PRO",
+      tokens,
+      tokensExpireAt: user.tokensExpireAt,
+      role: user.role,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.post("/billing/webhook", async (request, reply) => {
   try {
     const signature = request.headers["stripe-signature"];
@@ -1972,6 +2075,11 @@ app.post("/billing/webhook", async (request, reply) => {
           { method: "GET" }
         );
         await updateUserSubscriptionFromStripe(subscription);
+        await applyBillingStateForCustomer(session.customer, {
+          plan: "PRO",
+          tokenBalance: 500,
+          tokensExpireAt: getTokenExpiry(30),
+        });
       }
     }
 
@@ -1979,6 +2087,35 @@ app.post("/billing/webhook", async (request, reply) => {
       const subscription = payload as StripeSubscription;
       if (subscription?.id && subscription?.customer) {
         await updateUserSubscriptionFromStripe(subscription);
+        if (event.type === "customer.subscription.deleted") {
+          await applyBillingStateForCustomer(subscription.customer, {
+            plan: "FREE",
+            tokenBalance: 0,
+            tokensExpireAt: new Date(),
+          });
+        }
+      }
+    }
+
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = payload as { customer?: string | null };
+      if (invoice?.customer) {
+        await applyBillingStateForCustomer(invoice.customer, {
+          plan: "PRO",
+          tokenBalance: 500,
+          tokensExpireAt: getTokenExpiry(30),
+        });
+      }
+    }
+
+    if (event.type === "invoice.payment_failed") {
+      const invoice = payload as { customer?: string | null };
+      if (invoice?.customer) {
+        await applyBillingStateForCustomer(invoice.customer, {
+          plan: "FREE",
+          tokenBalance: 0,
+          tokensExpireAt: new Date(),
+        });
       }
     }
 
@@ -1998,11 +2135,14 @@ app.get("/auth/me", async (request, reply) => {
       role: user.role,
       emailVerifiedAt: user.emailVerifiedAt,
       lastLoginAt: user.lastLoginAt,
-      subscriptionPlan: user.subscriptionPlan,
+      subscriptionPlan: user.plan,
+      plan: user.plan,
       subscriptionStatus: user.subscriptionStatus,
       currentPeriodEnd: user.currentPeriodEnd,
-      aiTokenBalance: user.aiTokenBalance,
-      aiTokenRenewalAt: user.aiTokenRenewalAt,
+      aiTokenBalance: getEffectiveTokenBalance(user),
+      aiTokenRenewalAt: user.tokensExpireAt,
+      tokenBalance: getEffectiveTokenBalance(user),
+      tokensExpireAt: user.tokensExpireAt,
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2163,10 +2303,7 @@ app.get("/auth/google/callback", async (request, reply) => {
   const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
   reply.setCookie("fs_token", token, buildCookieOptions());
 
-  app.log.info({ APP_BASE_URL: env.APP_BASE_URL }, "google callback redirect target");
-
-  return reply.redirect(`${env.APP_BASE_URL}/app`);
-
+  return reply.redirect(302, `${env.APP_BASE_URL}/app`);
 });
 
 
@@ -2399,20 +2536,23 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     const user = (request as AuthenticatedRequest).currentUser ?? (await requireUser(request));
     const dateKey = toDateKey();
-    const limit = user.subscriptionPlan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+    const limit = user.plan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
     const usage = await prisma.aiUsage.findUnique({
       where: { userId_date: { userId: user.id, date: dateKey } },
     });
     const usedToday = usage?.count ?? 0;
     const remainingToday = limit > 0 ? Math.max(0, limit - usedToday) : 0;
     return reply.status(200).send({
-      subscriptionPlan: user.subscriptionPlan,
+      subscriptionPlan: user.plan,
+      plan: user.plan,
       dailyLimit: limit,
       usedToday,
       remainingToday,
       retryAfterSec: getSecondsUntilNextUtcDay(),
-      aiTokenBalance: user.subscriptionPlan === "PRO" ? user.aiTokenBalance : null,
-      aiTokenRenewalAt: user.subscriptionPlan === "PRO" ? user.aiTokenRenewalAt : null,
+      aiTokenBalance: user.plan === "PRO" ? getEffectiveTokenBalance(user) : null,
+      aiTokenRenewalAt: user.plan === "PRO" ? user.tokensExpireAt : null,
+      tokenBalance: user.plan === "PRO" ? getEffectiveTokenBalance(user) : null,
+      tokensExpireAt: user.plan === "PRO" ? user.tokensExpireAt : null,
     });
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2428,9 +2568,10 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const data = aiTrainingSchema.parse(request.body);
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
+    const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.subscriptionPlan === "PRO"
-        ? { aiTokenBalance: user.aiTokenBalance, aiTokenRenewalAt: user.aiTokenRenewalAt }
+      user.plan === "PRO"
+        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: user.tokensExpireAt }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
@@ -2459,7 +2600,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       }
     }
 
-    await enforceAiQuota(user);
+    await enforceAiQuota({ id: user.id, plan: user.plan });
     const prompt = buildTrainingPrompt(data);
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
@@ -2473,16 +2614,16 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.subscriptionPlan === "PRO") {
-      const balanceBefore = user.aiTokenBalance;
+    if (user.plan === "PRO") {
+      const balanceBefore = effectiveTokens;
       app.log.info(
-        { userId: user.id, feature: "training", plan: user.subscriptionPlan, balanceBefore },
+        { userId: user.id, feature: "training", plan: user.plan, balanceBefore },
         "ai charge start"
       );
       const charged = await chargeAiUsage({
         prisma,
         pricing: aiPricing,
-        user: { id: user.id, subscriptionPlan: user.subscriptionPlan, aiTokenBalance: user.aiTokenBalance },
+        user: { id: user.id, plan: user.plan, tokenBalance: user.tokenBalance, tokensExpireAt: user.tokensExpireAt },
         feature: "training",
         execute: () => callOpenAi(prompt),
         createHttpError,
@@ -2533,9 +2674,9 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     await storeAiContent(user.id, "training", "ai", personalized);
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.subscriptionPlan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.subscriptionPlan === "PRO" ? user.aiTokenRenewalAt : null,
-      ...(user.subscriptionPlan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan === "PRO" ? user.tokensExpireAt : null,
+      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -2560,9 +2701,10 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     });
     const cacheKey = buildCacheKey("nutrition:v2", data);
     const template = buildNutritionTemplate(data);
+    const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.subscriptionPlan === "PRO"
-        ? { aiTokenBalance: user.aiTokenBalance, aiTokenRenewalAt: user.aiTokenRenewalAt }
+      user.plan === "PRO"
+        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: user.tokensExpireAt }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
@@ -2589,8 +2731,28 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       }
     }
 
-    await enforceAiQuota(user);
-    const prompt = buildNutritionPrompt(data);
+    await enforceAiQuota({ id: user.id, plan: user.plan });
+    const recipes = await prisma.recipe.findMany({
+      take: 20,
+      orderBy: { name: "asc" },
+      include: { ingredients: true },
+    });
+    const prompt = buildNutritionPrompt(
+      data,
+      recipes.map((recipe) => ({
+        name: recipe.name,
+        description: recipe.description,
+        calories: recipe.calories,
+        protein: recipe.protein,
+        carbs: recipe.carbs,
+        fat: recipe.fat,
+        ingredients: recipe.ingredients.map((ingredient) => ({
+          name: ingredient.name,
+          grams: ingredient.grams,
+        })),
+        steps: recipe.steps,
+      }))
+    );
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
     let debit:
@@ -2603,18 +2765,18 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.subscriptionPlan === "PRO") {
-      const balanceBefore = user.aiTokenBalance;
+    if (user.plan === "PRO") {
+      const balanceBefore = effectiveTokens;
       app.log.info(
-        { userId: user.id, feature: "nutrition", plan: user.subscriptionPlan, balanceBefore },
+        { userId: user.id, feature: "nutrition", plan: user.plan, balanceBefore },
         "ai charge start"
       );
       const charged = await chargeAiUsage({
         prisma,
         pricing: aiPricing,
-        user: { id: user.id, subscriptionPlan: user.subscriptionPlan, aiTokenBalance: user.aiTokenBalance },
+        user: { id: user.id, plan: user.plan, tokenBalance: user.tokenBalance, tokensExpireAt: user.tokensExpireAt },
         feature: "nutrition",
-        execute: () => callOpenAi(prompt),
+        execute: () => callOpenAi(prompt, 0, extractLargestJson),
         createHttpError,
       });
       app.log.info(
@@ -2653,7 +2815,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
               usage: charged.usage,
             };
     } else {
-      const result = await callOpenAi(prompt);
+      const result = await callOpenAi(prompt, 0, extractLargestJson);
       payload = result.payload;
     }
     const parsedPayload = parseNutritionPlanPayload(payload);
@@ -2662,9 +2824,9 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     await storeAiContent(user.id, "nutrition", "ai", personalized);
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.subscriptionPlan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.subscriptionPlan === "PRO" ? user.aiTokenRenewalAt : null,
-      ...(user.subscriptionPlan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan === "PRO" ? user.tokensExpireAt : null,
+      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -2680,9 +2842,10 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();
+    const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.subscriptionPlan === "PRO"
-        ? { aiTokenBalance: user.aiTokenBalance, aiTokenRenewalAt: user.aiTokenRenewalAt }
+      user.plan === "PRO"
+        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: user.tokensExpireAt }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
     if (template) {
@@ -2704,7 +2867,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
       });
     }
 
-    await enforceAiQuota(user);
+    await enforceAiQuota({ id: user.id, plan: user.plan });
     const prompt = buildTipPrompt(data);
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
@@ -2718,16 +2881,16 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.subscriptionPlan === "PRO") {
-      const balanceBefore = user.aiTokenBalance;
+    if (user.plan === "PRO") {
+      const balanceBefore = effectiveTokens;
       app.log.info(
-        { userId: user.id, feature: "tip", plan: user.subscriptionPlan, balanceBefore },
+        { userId: user.id, feature: "tip", plan: user.plan, balanceBefore },
         "ai charge start"
       );
       const charged = await chargeAiUsage({
         prisma,
         pricing: aiPricing,
-        user: { id: user.id, subscriptionPlan: user.subscriptionPlan, aiTokenBalance: user.aiTokenBalance },
+        user: { id: user.id, plan: user.plan, tokenBalance: user.tokenBalance, tokensExpireAt: user.tokensExpireAt },
         feature: "tip",
         execute: () => callOpenAi(prompt),
         createHttpError,
@@ -2776,9 +2939,9 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
     return reply.status(200).send({
       tip: personalized,
-      aiTokenBalance: user.subscriptionPlan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.subscriptionPlan === "PRO" ? user.aiTokenRenewalAt : null,
-      ...(user.subscriptionPlan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan === "PRO" ? user.tokensExpireAt : null,
+      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -3065,7 +3228,13 @@ app.post("/admin/users", async (request, reply) => {
         passwordHash,
         role: data.role ?? "USER",
         subscriptionPlan: data.subscriptionPlan ?? "FREE",
+        plan: data.subscriptionPlan ?? "FREE",
+        tokenBalance: data.aiTokenBalance ?? 0,
+        tokensExpireAt:
+          data.subscriptionPlan === "PRO" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
         aiTokenBalance: data.aiTokenBalance ?? 0,
+        aiTokenRenewalAt:
+          data.subscriptionPlan === "PRO" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
         aiTokenMonthlyAllowance: data.aiTokenMonthlyAllowance ?? 0,
         provider: "email",
       },
@@ -3074,7 +3243,7 @@ app.post("/admin/users", async (request, reply) => {
       id: user.id,
       email: user.email,
       role: user.role,
-      subscriptionPlan: user.subscriptionPlan,
+      subscriptionPlan: user.plan,
     });
   } catch (error) {
     return handleRequestError(reply, error);

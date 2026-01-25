@@ -92,3 +92,42 @@ export function parseJsonFromText(text: string) {
 
   throw new AiParseError("No valid JSON found", text);
 }
+
+export function parseLargestJsonFromText(text: string) {
+  const cleaned = stripCodeFences(text).trim();
+  if (!cleaned) {
+    throw new AiParseError("Empty response", text);
+  }
+
+  const candidates: string[] = [];
+
+  for (let i = 0; i < cleaned.length; i += 1) {
+    const char = cleaned[i];
+    if (char !== "{" && char !== "[") continue;
+    const candidate = findBalancedJson(cleaned, i);
+    if (!candidate) continue;
+    candidates.push(candidate);
+  }
+
+  const sorted = candidates.sort((a, b) => b.length - a.length);
+  for (const candidate of sorted) {
+    try {
+      return JSON.parse(candidate) as unknown;
+    } catch {
+      continue;
+    }
+  }
+
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const sliced = cleaned.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(sliced) as unknown;
+    } catch {
+      throw new AiParseError("Invalid JSON block", text);
+    }
+  }
+
+  throw new AiParseError("No valid JSON found", text);
+}
