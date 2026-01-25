@@ -10,12 +10,15 @@ import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText } from "./aiParsing.js";
+import { chargeAiUsage } from "./ai/chargeAiUsage.js";
+import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
 
 
 
 const env = getEnv();
 const prisma = new PrismaClient();
+const aiPricing = loadAiPricing(env);
 
 const app = Fastify({ logger: true });
 
@@ -407,15 +410,23 @@ async function requireAdmin(request: FastifyRequest) {
 }
 
 async function getOrCreateProfile(userId: string) {
-  return prisma.userProfile.upsert({
-    where: { userId },
-    update: {},
-    create: {
-      userId,
-      profile: Prisma.DbNull,
-      tracking: Prisma.DbNull,
-    },
-  });
+  try {
+    return await prisma.userProfile.upsert({
+      where: { userId },
+      update: {},
+      create: {
+        userId,
+        profile: Prisma.DbNull,
+        tracking: Prisma.DbNull,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const existing = await prisma.userProfile.findUnique({ where: { userId } });
+      if (existing) return existing;
+    }
+    throw error;
+  }
 }
 
 const registerSchema = z.object({
@@ -2152,7 +2163,7 @@ app.get("/auth/google/callback", async (request, reply) => {
   const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
   reply.setCookie("fs_token", token, buildCookieOptions());
 
-  return reply.status(200).send({ ok: true });
+  return reply.redirect(302, `${env.APP_BASE_URL}/app`);
 });
 
 app.get("/profile", async (request, reply) => {

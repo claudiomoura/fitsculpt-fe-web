@@ -27,6 +27,21 @@ function formatLoad(value: WorkoutExercise["loadKg"]) {
   return typeof value === "number" ? `${value} kg` : `${value} kg`;
 }
 
+function parseSetCount(value: WorkoutExercise["sets"]) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const match = value.match(/\d+/);
+    return match ? Number(match[0]) : null;
+  }
+  return null;
+}
+
+function parseRepsFromSets(value: WorkoutExercise["sets"]) {
+  if (typeof value !== "string") return null;
+  const match = value.match(/x\s*(.+)$/i);
+  return match ? match[1]?.trim() : null;
+}
+
 async function fetchWorkout(workoutId: string) {
   try {
     const token = (await cookies()).get("fs_token")?.value;
@@ -100,34 +115,21 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
     <div className="page">
       <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
         <div className="form-stack">
+          <span className="badge">{dayLabel ?? t("workoutDetail.dayFallback")}</span>
           <h1 className="section-title">{workout.name}</h1>
           <p className="section-subtitle">{summaryParts.join(", ")}.</p>
         </div>
 
-        <div className="list-grid" style={{ marginTop: 16 }}>
-          <div className="feature-card">
-            <h3>{t("workoutDetail.goalTitle")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
-              {t("workoutDetail.goalLabel")}: {workout.goal ?? workout.focus ?? t("workoutDetail.goalMissing")}
-            </p>
-            <p className="muted">
-              {t("workoutDetail.dayLabel")}: {dayLabel ?? t("workoutDetail.dayFallback")}
-            </p>
-          </div>
-          <div className="feature-card">
-            <h3>{t("workoutDetail.volumeTitle")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
-              {t("workoutDetail.exercisesLabel")}: {totalExercises || "0"}
-            </p>
-            <p className="muted">{t("workoutDetail.setsLabel")}: {totalSets || t("workoutDetail.setsFallback")}</p>
-          </div>
-          <div className="feature-card">
-            <h3>{t("workoutDetail.durationTitle")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
-              {t("workoutDetail.durationEstimate")}: {workout.estimatedDurationMin ?? workout.durationMin ?? t("workoutDetail.volumeMissing")} {t("training.minutesLabel")}
-            </p>
-            <p className="muted">{t("workoutDetail.notesLabel")}: {workout.notes ?? t("workoutDetail.notesEmpty")}</p>
-          </div>
+        <div className="badge-list" style={{ marginTop: 12 }}>
+          <span className="badge">
+            {t("workoutDetail.exercisesLabel")}: {totalExercises || 0}
+          </span>
+          <span className="badge">
+            {t("workoutDetail.durationEstimate")}: {workout.estimatedDurationMin ?? workout.durationMin ?? t("workoutDetail.volumeMissing")} {t("training.minutesLabel")}
+          </span>
+          <span className="badge">
+            {t("workoutDetail.goalLabel")}: {workout.goal ?? workout.focus ?? t("workoutDetail.goalMissing")}
+          </span>
         </div>
       </section>
 
@@ -149,35 +151,61 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
           <div className="list-grid" style={{ marginTop: 16 }}>
             {exercises.map((exercise, index) => {
               const exerciseId = exercise.exerciseId ?? exercise.id ?? null;
-              const reps = exercise.reps ?? t("workoutDetail.repsFallback");
-              const sets = exercise.sets ?? t("workoutDetail.setsFallback");
+              const repsText =
+                exercise.reps ??
+                parseRepsFromSets(exercise.sets) ??
+                t("workoutDetail.repsFallback");
+              const setsCount = parseSetCount(exercise.sets) ?? 0;
               const load = formatLoad(exercise.loadKg);
+              const setLines = setsCount
+                ? Array.from({ length: setsCount }).map((_, idx) => ({
+                    label: `${t("workoutDetail.setLabel")} ${idx + 1}`,
+                    reps: repsText,
+                  }))
+                : [];
               return (
-                <div key={`${exercise.name}-${index}`} className="feature-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <strong>{exercise.name ?? t("workoutDetail.exerciseFallback")}</strong>
-                    <span className="muted">{t("workoutDetail.exerciseIndex")}{index + 1}</span>
+                <div key={`${exercise.name}-${index}`} className="feature-card workout-exercise-card">
+                  <div className="workout-exercise-media">
+                    <img src="/placeholders/exercise-demo.svg" alt={exercise.name ?? t("workoutDetail.exerciseFallback")} />
                   </div>
-                  <p className="muted" style={{ marginTop: 8 }}>
-                    {sets} x {reps}
-                    {load ? ` · ${load}` : ""}
-                  </p>
-                  <p className="muted">
-                    {t("workoutDetail.rpeTarget")}: {exercise.rpe ?? t("workoutDetail.metricFallback")} · {t("workoutDetail.restLabel")}:{" "}
-                    {exercise.restSeconds ? `${exercise.restSeconds} s` : t("workoutDetail.metricFallback")}
-                  </p>
+                  <div className="workout-exercise-content">
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <div>
+                        <strong>{exercise.name ?? t("workoutDetail.exerciseFallback")}</strong>
+                        <p className="muted" style={{ margin: "4px 0 0" }}>
+                          {load ? `${load} · ` : ""}{t("workoutDetail.exerciseIndex")}{index + 1}
+                        </p>
+                      </div>
+                      {exerciseId ? (
+                        <Link className="btn secondary" href={`/app/biblioteca/${exerciseId}`}>
+                          {t("workoutDetail.exerciseLink")}
+                        </Link>
+                      ) : null}
+                    </div>
+                    {setLines.length > 0 ? (
+                      <ul className="workout-set-list">
+                        {setLines.map((setLine) => (
+                          <li key={setLine.label}>
+                            <span>{setLine.label}</span>
+                            <span className="muted">{setLine.reps} {t("workoutDetail.reps")}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="muted">{t("workoutDetail.setsLabel")}: {exercise.sets ?? t("workoutDetail.setsFallback")}</p>
+                    )}
+                    <p className="muted">
+                      {t("workoutDetail.rpeTarget")}: {exercise.rpe ?? t("workoutDetail.metricFallback")} · {t("workoutDetail.restLabel")}:{" "}
+                      {exercise.restSeconds ? `${exercise.restSeconds} s` : t("workoutDetail.metricFallback")}
+                    </p>
                   {exercise.lastLog ? (
                     <p className="muted">
                       {t("workoutDetail.lastLog")}: {exercise.lastLog.loadKg ?? "—"} kg ·{" "}
                       {exercise.lastLog.reps ?? "—"} {t("workoutDetail.reps")}
                     </p>
                   ) : null}
-                  {exercise.notes ? <p className="muted">{exercise.notes}</p> : null}
-                  {exerciseId ? (
-                    <Link className="btn secondary" style={{ marginTop: 10 }} href={`/app/biblioteca/${exerciseId}`}>
-                      {t("workoutDetail.exerciseLink")}
-                    </Link>
-                  ) : null}
+                    {exercise.notes ? <p className="muted">{exercise.notes}</p> : null}
+                  </div>
                 </div>
               );
             })}
