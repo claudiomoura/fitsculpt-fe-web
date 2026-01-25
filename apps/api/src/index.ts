@@ -2163,8 +2163,12 @@ app.get("/auth/google/callback", async (request, reply) => {
   const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
   reply.setCookie("fs_token", token, buildCookieOptions());
 
-  return reply.redirect(302, `${env.APP_BASE_URL}/app`);
+  app.log.info({ APP_BASE_URL: env.APP_BASE_URL }, "google callback redirect target");
+
+  return reply.redirect(`${env.APP_BASE_URL}/app`);
+
 });
+
 
 app.get("/profile", async (request, reply) => {
   try {
