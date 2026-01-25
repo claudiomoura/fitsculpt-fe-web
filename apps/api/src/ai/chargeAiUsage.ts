@@ -33,6 +33,16 @@ type ChargeAiUsageParams = {
   createHttpError: (statusCode: number, code: string, debug?: Record<string, unknown>) => Error;
 };
 
+type ChargeAiUsageForResultParams = {
+  prisma: PrismaClient;
+  pricing: AiPricingMap;
+  user: AiUsageUser;
+  feature: string;
+  result: AiExecutionResult;
+  meta?: Record<string, unknown>;
+  createHttpError: (statusCode: number, code: string, debug?: Record<string, unknown>) => Error;
+};
+
 type UsageTotals = {
   promptTokens: number;
   completionTokens: number;
@@ -54,6 +64,70 @@ function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
     promptTokens,
     completionTokens,
     totalTokens,
+  };
+}
+
+function buildChargeDetails({
+  pricing,
+  model,
+  usage,
+  meta,
+  feature,
+  userId,
+}: {
+  pricing: AiPricingMap;
+  model?: string | null;
+  usage?: OpenAiUsage | null;
+  meta?: Record<string, unknown>;
+  feature: string;
+  userId: string;
+}) {
+  const usageProvided = Boolean(usage);
+  if (!usageProvided) {
+    console.warn("AI usage missing from provider response", { feature, userId });
+  }
+  const totals = buildUsageTotals(usage);
+  const normalizedModel = normalizeModelName(model, pricing) ?? model ?? "unknown";
+  const pricingEntry = getModelPricing(normalizedModel, pricing);
+  const pricingFound = Boolean(pricingEntry);
+  if (!pricingFound) {
+    console.warn("AI pricing missing for model", { feature, userId, model: normalizedModel });
+  }
+  let costCents = computeCostCents({
+    pricing,
+    model: normalizedModel,
+    promptTokens: totals.promptTokens,
+    completionTokens: totals.completionTokens,
+  });
+  const nextMeta: Record<string, unknown> = { ...(meta ?? {}) };
+
+  if (!usageProvided) {
+    nextMeta.usageMissing = true;
+  }
+  if (!pricingFound) {
+    nextMeta.pricingMissing = true;
+  }
+  if (costCents <= 0 && totals.totalTokens > 0) {
+    console.warn("AI costCents=0", {
+      feature,
+      userId,
+      model: normalizedModel,
+      usageProvided,
+      pricingFound,
+      totals,
+    });
+    nextMeta.zeroCost = true;
+    costCents = 1;
+  }
+  if (!usageProvided || !pricingFound) {
+    costCents = Math.max(1, costCents);
+  }
+
+  return {
+    costCents,
+    totals,
+    normalizedModel,
+    meta: nextMeta,
   };
 }
 
@@ -131,46 +205,14 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
   }
 
   const result = await execute();
-  const usageProvided = Boolean(result.usage);
-  if (!usageProvided) {
-    console.warn("AI usage missing from provider response", { feature, userId: user.id });
-  }
-  const totals = buildUsageTotals(result.usage);
-  const normalizedModel = normalizeModelName(result.model, pricing) ?? result.model ?? "unknown";
-  const pricingEntry = getModelPricing(normalizedModel, pricing);
-  const pricingFound = Boolean(pricingEntry);
-  if (!pricingFound) {
-    console.warn("AI pricing missing for model", { feature, userId: user.id, model: normalizedModel });
-  }
-  let costCents = computeCostCents({
+  const { costCents, totals, normalizedModel, meta } = buildChargeDetails({
     pricing,
-    model: normalizedModel,
-    promptTokens: totals.promptTokens,
-    completionTokens: totals.completionTokens,
+    model: result.model,
+    usage: result.usage,
+    meta: undefined,
+    feature,
+    userId: user.id,
   });
-  const meta: Record<string, unknown> = {};
-
-  if (!usageProvided) {
-    meta.usageMissing = true;
-  }
-  if (!pricingFound) {
-    meta.pricingMissing = true;
-  }
-  if (costCents <= 0 && totals.totalTokens > 0) {
-    console.warn("AI costCents=0", {
-      feature,
-      userId: user.id,
-      model: normalizedModel,
-      usageProvided,
-      pricingFound,
-      totals,
-    });
-    meta.zeroCost = true;
-    costCents = 1;
-  }
-  if (!usageProvided || !pricingFound) {
-    costCents = Math.max(1, costCents);
-  }
 
   const charging = await debitAiTokensTx(
     prisma,
@@ -181,6 +223,52 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
       usage: totals,
       costCents,
       meta,
+      requestId: result.requestId ?? undefined,
+    },
+    createHttpError
+  );
+
+  return {
+    payload: result.payload,
+    tokensSpent: costCents,
+    costCents,
+    balance: charging.balance,
+    totalTokens: totals.totalTokens,
+    model: normalizedModel,
+    usage: totals,
+    balanceBefore: getEffectiveTokens(user),
+  };
+}
+
+export async function chargeAiUsageForResult(params: ChargeAiUsageForResultParams) {
+  const { prisma, pricing, user, feature, result, meta, createHttpError } = params;
+
+  if (user.plan !== "PRO") {
+    throw createHttpError(403, "NOT_PRO");
+  }
+
+  if (getEffectiveTokens(user) <= 0) {
+    throw createHttpError(402, "INSUFFICIENT_TOKENS");
+  }
+
+  const { costCents, totals, normalizedModel, meta: mergedMeta } = buildChargeDetails({
+    pricing,
+    model: result.model,
+    usage: result.usage,
+    meta,
+    feature,
+    userId: user.id,
+  });
+
+  const charging = await debitAiTokensTx(
+    prisma,
+    user.id,
+    {
+      feature,
+      model: normalizedModel,
+      usage: totals,
+      costCents,
+      meta: mergedMeta,
       requestId: result.requestId ?? undefined,
     },
     createHttpError

@@ -17,6 +17,22 @@ export default function RecipeLibraryClient() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadRole = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store", signal: controller.signal });
+        if (!response.ok) return;
+        const data = (await response.json()) as { role?: "ADMIN" | "USER" };
+        setIsAdmin(data.role === "ADMIN");
+      } catch {
+      }
+    };
+    void loadRole();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -71,9 +87,14 @@ export default function RecipeLibraryClient() {
           {error}
         </p>
       ) : recipes.length === 0 ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {t("recipes.empty")}
-        </p>
+        <div style={{ marginTop: 16 }}>
+          <p className="muted">{t("recipes.empty")}</p>
+          {isAdmin ? (
+            <Link className="btn secondary" href="/app/nutricion" style={{ marginTop: 12 }}>
+              {t("recipes.emptyAdminCta")}
+            </Link>
+          ) : null}
+        </div>
       ) : (
         <div className="list-grid" style={{ marginTop: 16 }}>
           {recipes.map((recipe) => {
