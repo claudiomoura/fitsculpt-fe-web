@@ -1263,11 +1263,13 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
   };
 }
 
-function buildNutritionTemplate(params: z.infer<typeof aiNutritionSchema>) {
+function buildNutritionTemplate(
+  params: z.infer<typeof aiNutritionSchema>
+): z.infer<typeof aiNutritionPlanResponseSchema> | null {
   if (params.mealsPerDay !== 3 || params.goal !== "cut") {
     return null;
   }
-  return {
+  const template = {
     title: "Plan semanal de nutrición",
     dailyCalories: params.calories,
     proteinG: Math.round(params.calories * 0.3 / 4),
@@ -1331,7 +1333,8 @@ function buildNutritionTemplate(params: z.infer<typeof aiNutritionSchema>) {
         ],
       },
     ],
-  };
+  } satisfies z.infer<typeof aiNutritionPlanResponseSchema>;
+  return template;
 }
 
 function buildTipTemplate() {

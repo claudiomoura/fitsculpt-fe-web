@@ -144,8 +144,10 @@ export default function ExerciseLibraryClient() {
                     <span className="badge">{t("library.noMuscleData")}</span>
                   )}
                 </div>
-                <p className="muted">{t("library.equipmentLabel")}: {exercise.equipment ?? t("library.equipmentFallback")}</p>
-                <p className="muted">{exercise.description ? exercise.description : t("library.descriptionFallback")}</p>
+                <p className="muted">
+                  {t("library.equipmentLabel")}: {exercise.equipment ?? t("library.equipmentFallback")}
+                </p>
+                {exercise.description ? <p className="muted">{exercise.description}</p> : null}
               </>
             );
 

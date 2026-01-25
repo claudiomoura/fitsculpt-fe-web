@@ -181,8 +181,8 @@
     "tipGenerating": "Generando tip...",
     "tipSubtitle": "Consejo generado por IA",
     "tipError": "No pudimos generar el tip diario.",
-    "libraryTitle": "Biblioteca de ejercicios",
-    "librarySubtitle": "Explora ejercicios, músculos y variantes disponibles.",
+    "libraryTitle": "Biblioteca",
+    "librarySubtitle": "Ejercicios y recetas para entrenar y comer mejor.",
     "adminTitle": "Panel de admin",
     "adminSubtitle": "Gestiona usuarios y accesos.",
     "adminUsersTitle": "Usuarios",
@@ -948,6 +948,10 @@
     "loadError": "No se pudo cargar el ejercicio.",
     "loadErrorList": "No se pudieron cargar los ejercicios.",
     "searchPlaceholder": "Buscar por ejercicio o músculo",
+    "tabs": {
+      "exercises": "Ejercicios",
+      "recipes": "Recetas"
+    },
     "equipmentFilterLabel": "Equipamiento",
     "muscleFilterLabel": "Grupo muscular",
     "allOption": "Todos",
@@ -963,7 +967,29 @@
     "secondaryLabel": "Secundario",
     "secondaryFallback": "Sin definir",
     "mediaAlt": "Demostración del ejercicio",
-    "mediaFallback": "Aquí irá el modelo 3D / GIF del ejercicio, como en FitnessAI."
+    "mediaFallback": "Aquí irá el modelo 3D / GIF del ejercicio, como en FitnessAI.",
+    "mediaPlaceholder": "Sin medios disponibles por ahora.",
+    "noExecutionDetails": "No hay detalles de ejecución disponibles."
+  },
+  "recipes": {
+    "loading": "Cargando recetas...",
+    "empty": "Aún no hay recetas disponibles.",
+    "loadError": "No se pudo cargar la receta.",
+    "loadErrorList": "No se pudieron cargar las recetas.",
+    "searchPlaceholder": "Buscar recetas por título",
+    "detailSubtitle": "Guía rápida para cocinar esta receta.",
+    "ingredientsLabel": "Ingredientes",
+    "ingredientsTitle": "Ingredientes",
+    "stepsTitle": "Pasos",
+    "stepLabel": "Paso",
+    "descriptionTitle": "Descripción",
+    "caloriesLabel": "Calorías",
+    "proteinLabel": "Proteína",
+    "carbsLabel": "Carbohidratos",
+    "fatLabel": "Grasas",
+    "mediaPlaceholder": "Sin foto disponible.",
+    "noDetails": "Esta receta aún no tiene detalles adicionales.",
+    "backToRecipes": "Volver a recetas"
   },
   "workoutDetail": {
     "notFound": "No se encontró este entreno.",

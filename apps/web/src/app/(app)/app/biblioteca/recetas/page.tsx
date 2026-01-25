@@ -1,8 +1,8 @@
 import { getServerT } from "@/lib/serverI18n";
-import ExerciseLibraryClient from "./ExerciseLibraryClient";
-import LibraryTabs from "./LibraryTabs";
+import LibraryTabs from "../LibraryTabs";
+import RecipeLibraryClient from "./RecipeLibraryClient";
 
-export default async function ExerciseLibraryPage() {
+export default async function RecipeLibraryPage() {
   const { t } = await getServerT();
   return (
     <div className="page">
@@ -10,10 +10,10 @@ export default async function ExerciseLibraryPage() {
         <div className="form-stack">
           <h1 className="section-title">{t("app.libraryTitle")}</h1>
           <p className="section-subtitle">{t("app.librarySubtitle")}</p>
-          <LibraryTabs active="exercises" />
+          <LibraryTabs active="recipes" />
         </div>
       </section>
-      <ExerciseLibraryClient />
+      <RecipeLibraryClient />
     </div>
   );
 }

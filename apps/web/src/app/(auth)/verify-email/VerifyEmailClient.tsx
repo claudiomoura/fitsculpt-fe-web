@@ -5,13 +5,12 @@ import { useLanguage } from "@/context/LanguageProvider";
 
 export default function VerifyEmailClient({ token }: { token: string | null }) {
   const { t } = useLanguage();
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error">(() =>
+    token ? "loading" : "error"
+  );
 
   useEffect(() => {
-    if (!token) {
-      setStatus("error");
-      return;
-    }
+    if (!token) return;
 
     const verify = async () => {
       const response = await fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
