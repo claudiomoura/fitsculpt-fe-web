@@ -534,6 +534,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
   const [saving, setSaving] = useState(false);
@@ -580,6 +582,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
+      setSubscriptionPlan(data.subscriptionPlan ?? null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       window.dispatchEvent(new Event("auth:refresh"));
@@ -896,6 +899,29 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     void handleAiPlan();
   };
 
+  const handleUpgrade = async () => {
+    setCheckoutLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/billing/checkout", { method: "POST" });
+      if (!response.ok) {
+        throw new Error(t("checkoutError"));
+      }
+      const payload = (await response.json()) as { url?: string };
+      if (!payload.url) {
+        throw new Error(t("checkoutError"));
+      }
+      window.location.href = payload.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("checkoutError"));
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
+  const isAiLocked = subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0;
+  const isAiDisabled = aiLoading || isAiLocked || !plan;
+
   const handlePrevDay = () => {
     if (!visiblePlan?.days.length) return;
     setActiveDayIndex((prev) => (prev - 1 + visiblePlan.days.length) % visiblePlan.days.length);
@@ -1024,7 +1050,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                 <button
                   type="button"
                   className="btn"
-                  disabled={!plan || aiLoading}
+                  disabled={isAiDisabled}
                   onClick={handleGenerateClick}
                 >
                   {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
@@ -1043,6 +1069,22 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                 {t("ai.tokensRemaining")} {aiTokenBalance}
                 {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
               </p>
+            ) : null}
+
+            {isAiLocked ? (
+              <div className="feature-card" style={{ marginTop: 12 }}>
+                <strong>{t("aiLockedTitle")}</strong>
+                <p className="muted" style={{ marginTop: 6 }}>{t("aiLockedSubtitle")}</p>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleUpgrade}
+                  disabled={checkoutLoading}
+                  style={{ marginTop: 8 }}
+                >
+                  {checkoutLoading ? t("ui.loading") : t("aiLockedCta")}
+                </button>
+              </div>
             ) : null}
 
             {exportMessage && (
@@ -1142,7 +1184,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                       <button
                         type="button"
                         className="btn"
-                      disabled={aiLoading}
+                        disabled={isAiDisabled}
                         onClick={handleGenerateClick}
                       >
                         {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
