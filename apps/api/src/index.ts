@@ -119,10 +119,10 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
       message: "Necesitas PRO para usar la IA.",
     });
   }
-  if (typed.statusCode === 403 && typed.code === "INSUFFICIENT_TOKENS") {
-    return reply.status(403).send({
+  if (typed.statusCode === 402 && typed.code === "INSUFFICIENT_TOKENS") {
+    return reply.status(402).send({
       error: "INSUFFICIENT_TOKENS",
-      message: "No tienes tokens suficientes para completar esta acción.",
+      message: "Sin tokens.",
     });
   }
   if (typed.statusCode) {
@@ -2122,20 +2122,36 @@ app.get("/billing/status", async (request, reply) => {
     let stripeCustomerId = refreshed?.stripeCustomerId ?? null;
     let subscriptionsCount = 0;
     let selectedSubscriptionId: string | null = null;
+    let stripeFetchError: Record<string, unknown> | null = null;
 
     if (env.STRIPE_SECRET_KEY && (stripeSubscriptionId || stripeCustomerId)) {
-      try {
-        let subscription: StripeSubscription | null = null;
-        if (stripeSubscriptionId) {
+      let subscription: StripeSubscription | null = null;
+      if (stripeSubscriptionId) {
+        try {
           subscription = await stripeRequest<StripeSubscription>(
             `subscriptions/${stripeSubscriptionId}`,
             {},
             { method: "GET" }
           );
-        } else if (stripeCustomerId) {
+        } catch (error) {
+          const typedError = error as { code?: string; statusCode?: number; debug?: Record<string, unknown> };
+          app.log.error(
+            { err: error, userId: refreshed?.id, stripeSubscriptionId },
+            "stripe subscription retrieve failed"
+          );
+          stripeFetchError = {
+            message: error instanceof Error ? error.message : "stripe subscription retrieve failed",
+            code: typedError.code,
+            statusCode: typedError.statusCode,
+            debug: typedError.debug,
+          };
+        }
+      }
+      if (!subscription && stripeCustomerId) {
+        try {
           const list = await stripeRequest<{ data?: StripeSubscription[] }>(
             "subscriptions",
-            { customer: stripeCustomerId, status: "all", limit: 20 },
+            { customer: stripeCustomerId, status: "all", limit: 10 },
             { method: "GET" }
           );
           const selection = selectPrimarySubscription(list.data ?? []);
@@ -2143,52 +2159,64 @@ app.get("/billing/status", async (request, reply) => {
           subscriptionsCount = selection.count;
           selectedSubscriptionId = selection.selected?.id ?? null;
           stripeSubscriptionId = selection.selected?.id ?? stripeSubscriptionId;
+        } catch (error) {
+          const typedError = error as { code?: string; statusCode?: number; debug?: Record<string, unknown> };
+          app.log.error(
+            { err: error, userId: refreshed?.id, stripeCustomerId },
+            "stripe subscription list failed"
+          );
+          stripeFetchError = {
+            message: error instanceof Error ? error.message : "stripe subscription list failed",
+            code: typedError.code,
+            statusCode: typedError.statusCode,
+            debug: typedError.debug,
+          };
         }
+      }
 
-        if (subscription) {
-          const isActive = subscription.status === "active" || subscription.status === "trialing";
-          subscriptionStatus = subscription.status;
-          subscriptionPlan = isActive ? "PRO" : "FREE";
-          stripePeriodEnd = subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000)
-            : null;
-          if (!aiTokenRenewalAt && stripePeriodEnd) {
-            aiTokenRenewalAt = stripePeriodEnd;
-          }
-          const needsUpdate =
-            refreshed?.subscriptionStatus !== subscriptionStatus ||
-            refreshed?.subscriptionPlan !== subscriptionPlan ||
-            refreshed?.stripeSubscriptionId !== subscription.id ||
-            (stripePeriodEnd &&
-              (!refreshed?.currentPeriodEnd ||
-                refreshed.currentPeriodEnd.getTime() !== stripePeriodEnd.getTime())) ||
-            (aiTokenRenewalAt &&
-              (!refreshed?.aiTokenRenewalAt || refreshed.aiTokenRenewalAt.getTime() !== aiTokenRenewalAt.getTime()));
-          if (needsUpdate && refreshed) {
-            refreshed = await prisma.user.update({
-              where: { id: refreshed.id },
-              data: {
-                stripeSubscriptionId: subscription.id,
-                stripeCustomerId: subscription.customer,
-                subscriptionStatus,
-                subscriptionPlan,
-                currentPeriodEnd: stripePeriodEnd,
-                aiTokenRenewalAt,
-              },
-            });
-          }
+      if (subscription) {
+        const isActive = subscription.status === "active" || subscription.status === "trialing";
+        subscriptionStatus = subscription.status;
+        subscriptionPlan = isActive ? "PRO" : "FREE";
+        stripePeriodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000) : null;
+        aiTokenRenewalAt = stripePeriodEnd;
+        const renewalAtTime = aiTokenRenewalAt?.getTime() ?? null;
+        const existingRenewalAtTime = refreshed?.aiTokenRenewalAt?.getTime() ?? null;
+        const needsUpdate =
+          refreshed?.subscriptionStatus !== subscriptionStatus ||
+          refreshed?.subscriptionPlan !== subscriptionPlan ||
+          refreshed?.stripeSubscriptionId !== subscription.id ||
+          (stripePeriodEnd &&
+            (!refreshed?.currentPeriodEnd ||
+              refreshed.currentPeriodEnd.getTime() !== stripePeriodEnd.getTime())) ||
+          renewalAtTime !== existingRenewalAtTime;
+        if (needsUpdate && refreshed) {
+          refreshed = await prisma.user.update({
+            where: { id: refreshed.id },
+            data: {
+              stripeSubscriptionId: subscription.id,
+              stripeCustomerId: subscription.customer,
+              subscriptionStatus,
+              subscriptionPlan,
+              currentPeriodEnd: stripePeriodEnd,
+              aiTokenRenewalAt,
+            },
+          });
         }
-      } catch (error) {
-        app.log.warn({ err: error, userId: refreshed?.id }, "stripe subscription fetch failed");
       }
     }
 
-    if (!aiTokenRenewalAt && stripePeriodEnd && refreshed) {
-      aiTokenRenewalAt = stripePeriodEnd;
-      refreshed = await prisma.user.update({
-        where: { id: refreshed.id },
-        data: { aiTokenRenewalAt },
-      });
+    if (refreshed) {
+      const expectedRenewalAt = refreshed.currentPeriodEnd ?? stripePeriodEnd ?? null;
+      const renewalAtTime = refreshed.aiTokenRenewalAt?.getTime() ?? null;
+      const expectedTime = expectedRenewalAt?.getTime() ?? null;
+      if (renewalAtTime !== expectedTime) {
+        aiTokenRenewalAt = expectedRenewalAt;
+        refreshed = await prisma.user.update({
+          where: { id: refreshed.id },
+          data: { aiTokenRenewalAt },
+        });
+      }
     }
 
     return {
@@ -2198,11 +2226,15 @@ app.get("/billing/status", async (request, reply) => {
       aiTokenBalance: refreshed?.aiTokenBalance ?? 0,
       aiTokenMonthlyAllowance: refreshed?.aiTokenMonthlyAllowance ?? 0,
       aiTokenRenewalAt: refreshed?.aiTokenRenewalAt ?? aiTokenRenewalAt ?? null,
-      stripeCustomerId: refreshed?.stripeCustomerId ?? stripeCustomerId ?? null,
-      stripeSubscriptionId: refreshed?.stripeSubscriptionId ?? stripeSubscriptionId ?? null,
       ...(process.env.NODE_ENV === "production"
         ? {}
-        : { subscriptionsCount, selectedSubscriptionId }),
+        : {
+            stripeCustomerId: refreshed?.stripeCustomerId ?? stripeCustomerId ?? null,
+            stripeSubscriptionId: refreshed?.stripeSubscriptionId ?? stripeSubscriptionId ?? null,
+            subscriptionsCount,
+            selectedSubscriptionId,
+            stripeFetchError,
+          }),
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -2798,6 +2830,18 @@ app.post("/ai/training-plan", async (request, reply) => {
       },
       "ai charge complete"
     );
+    app.log.debug(
+      {
+        userId: user.id,
+        feature: "training_plan",
+        costCents: charged.costCents,
+        balanceBefore,
+        balanceAfter: charged.balance,
+        model: charged.model,
+        totalTokens: charged.totalTokens,
+      },
+      "ai charge details"
+    );
     const payload = parseTrainingPlanPayload(charged.payload);
     await upsertExercisesFromPlan(payload);
     await saveCachedAiPayload(cacheKey, "training", payload);
@@ -2811,11 +2855,14 @@ app.post("/ai/training-plan", async (request, reply) => {
             balanceBefore,
             balanceAfter: charged.balance,
             totalTokens: charged.totalTokens,
+            model: charged.model,
+            usage: charged.usage,
           };
     return reply.status(200).send({
       plan: personalized,
       aiTokenBalance: charged.balance,
       aiTokenRenewalAt: user.aiTokenRenewalAt,
+      nextBalance: charged.balance,
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -2891,6 +2938,18 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
       },
       "ai charge complete"
     );
+    app.log.debug(
+      {
+        userId: user.id,
+        feature: "nutrition_plan",
+        costCents: charged.costCents,
+        balanceBefore,
+        balanceAfter: charged.balance,
+        model: charged.model,
+        totalTokens: charged.totalTokens,
+      },
+      "ai charge details"
+    );
     const payload = parseNutritionPlanPayload(charged.payload);
     await saveCachedAiPayload(cacheKey, "nutrition", payload);
     const personalized = applyPersonalization(payload, { name: data.name });
@@ -2903,11 +2962,14 @@ app.post("/ai/nutrition-plan", async (request, reply) => {
             balanceBefore,
             balanceAfter: charged.balance,
             totalTokens: charged.totalTokens,
+            model: charged.model,
+            usage: charged.usage,
           };
     return reply.status(200).send({
       plan: personalized,
       aiTokenBalance: charged.balance,
       aiTokenRenewalAt: user.aiTokenRenewalAt,
+      nextBalance: charged.balance,
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -2971,6 +3033,18 @@ app.post("/ai/daily-tip", async (request, reply) => {
       },
       "ai charge complete"
     );
+    app.log.debug(
+      {
+        userId: user.id,
+        feature: "daily_tip",
+        costCents: charged.costCents,
+        balanceBefore,
+        balanceAfter: charged.balance,
+        model: charged.model,
+        totalTokens: charged.totalTokens,
+      },
+      "ai charge details"
+    );
     const payload = charged.payload;
     await saveCachedAiPayload(cacheKey, "tip", payload);
     const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
@@ -2983,11 +3057,14 @@ app.post("/ai/daily-tip", async (request, reply) => {
             balanceBefore,
             balanceAfter: charged.balance,
             totalTokens: charged.totalTokens,
+            model: charged.model,
+            usage: charged.usage,
           };
     return reply.status(200).send({
       tip: personalized,
       aiTokenBalance: charged.balance,
       aiTokenRenewalAt: user.aiTokenRenewalAt,
+      nextBalance: charged.balance,
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
