@@ -1565,60 +1565,113 @@ async function saveNutritionPlan(
   startDate: Date,
   daysCount: number
 ) {
-  return prisma.$transaction(async (tx) => {
-    const planRecord = await tx.nutritionPlan.upsert({
-      where: { userId_startDate_daysCount: { userId, startDate, daysCount } },
-      create: {
-        userId,
-        title: plan.title,
-        dailyCalories: plan.dailyCalories,
-        proteinG: plan.proteinG,
-        fatG: plan.fatG,
-        carbsG: plan.carbsG,
-        startDate,
-        daysCount,
-      },
-      update: {
-        title: plan.title,
-        dailyCalories: plan.dailyCalories,
-        proteinG: plan.proteinG,
-        fatG: plan.fatG,
-        carbsG: plan.carbsG,
-      },
-    });
+  return prisma.$transaction(
+    async (tx) => {
+      const planRecord = await tx.nutritionPlan.upsert({
+        where: { userId_startDate_daysCount: { userId, startDate, daysCount } },
+        create: {
+          userId,
+          title: plan.title,
+          dailyCalories: plan.dailyCalories,
+          proteinG: plan.proteinG,
+          fatG: plan.fatG,
+          carbsG: plan.carbsG,
+          startDate,
+          daysCount,
+        },
+        update: {
+          title: plan.title,
+          dailyCalories: plan.dailyCalories,
+          proteinG: plan.proteinG,
+          fatG: plan.fatG,
+          carbsG: plan.carbsG,
+        },
+      });
 
-    await tx.nutritionDay.deleteMany({ where: { planId: planRecord.id } });
+      await tx.nutritionDay.deleteMany({ where: { planId: planRecord.id } });
 
-    for (const [index, day] of plan.days.entries()) {
-      await tx.nutritionDay.create({
-        data: {
+      const dayPayloads = plan.days.map((day, index) => {
+        const dayId = crypto.randomUUID();
+        const meals = day.meals.map((meal) => {
+          const mealId = crypto.randomUUID();
+          return {
+            id: mealId,
+            dayId,
+            type: meal.type,
+            title: meal.title,
+            description: meal.description ?? null,
+            calories: meal.macros.calories,
+            protein: meal.macros.protein,
+            carbs: meal.macros.carbs,
+            fats: meal.macros.fats,
+            ingredients: (meal.ingredients ?? []).map((ingredient) => ({
+              id: crypto.randomUUID(),
+              mealId,
+              name: ingredient.name,
+              grams: ingredient.grams,
+            })),
+          };
+        });
+
+        return {
+          id: dayId,
           planId: planRecord.id,
           date: parseDateInput(day.date) ?? startDate,
           dayLabel: day.dayLabel,
           order: index,
-          meals: {
-            create: day.meals.map((meal) => ({
-              type: meal.type,
-              title: meal.title,
-              description: meal.description,
-              calories: meal.macros.calories,
-              protein: meal.macros.protein,
-              carbs: meal.macros.carbs,
-              fats: meal.macros.fats,
-              ingredients: {
-                create: (meal.ingredients ?? []).map((ingredient) => ({
-                  name: ingredient.name,
-                  grams: ingredient.grams,
-                })),
-              },
-            })),
-          },
-        },
+          meals,
+        };
       });
-    }
 
-    return planRecord;
-  });
+      if (dayPayloads.length > 0) {
+        await tx.nutritionDay.createMany({
+          data: dayPayloads.map(({ id, planId, date, dayLabel, order }) => ({
+            id,
+            planId,
+            date,
+            dayLabel,
+            order,
+          })),
+        });
+      }
+
+      const mealPayloads = dayPayloads.flatMap((day) =>
+        day.meals.map(({ ingredients, ...meal }) => meal)
+      );
+      if (mealPayloads.length > 0) {
+        await tx.nutritionMeal.createMany({
+          data: mealPayloads.map((meal) => ({
+            id: meal.id,
+            dayId: meal.dayId,
+            type: meal.type,
+            title: meal.title,
+            description: meal.description,
+            calories: meal.calories,
+            protein: meal.protein,
+            carbs: meal.carbs,
+            fats: meal.fats,
+          })),
+        });
+      }
+
+      const ingredientPayloads = dayPayloads.flatMap((day) =>
+        day.meals.flatMap((meal) => meal.ingredients)
+      );
+      if (ingredientPayloads.length > 0) {
+        await tx.nutritionIngredient.createMany({
+          data: ingredientPayloads.map((ingredient) => ({
+            id: ingredient.id,
+            mealId: ingredient.mealId,
+            name: ingredient.name,
+            grams: ingredient.grams,
+          })),
+        });
+      }
+
+      return planRecord;
+    },
+    { maxWait: 30000, timeout: 30000 }
+  );
 }
 
 async function saveTrainingPlan(
