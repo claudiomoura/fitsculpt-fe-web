@@ -11,12 +11,11 @@ const formatDate = (value?: string | null) => {
 };
 
 type BillingProfile = {
-  subscriptionPlan?: "FREE" | "PRO";
+  plan?: "FREE" | "PRO";
+  isPro?: boolean;
+  tokens?: number;
+  tokensExpiresAt?: string | null;
   subscriptionStatus?: string | null;
-  currentPeriodEnd?: string | null;
-  aiTokenBalance?: number;
-  aiTokenMonthlyAllowance?: number;
-  aiTokenRenewalAt?: string | null;
 };
 
 type BillingAction = "checkout" | "portal" | null;
@@ -28,11 +27,14 @@ export default function BillingClient() {
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<BillingAction>(null);
   const [error, setError] = useState<string | null>(null);
-  const tokenRenewalDate = profile?.aiTokenRenewalAt ?? profile?.currentPeriodEnd ?? null;
+  const tokenRenewalDate = profile?.tokensExpiresAt ?? null;
+  const planLabel = profile?.plan ?? (error ? "-" : "FREE");
+  const tokenLabel = typeof profile?.tokens === "number" ? profile.tokens : error ? null : 0;
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
+        setError(null);
         const shouldSync = searchParams.get("checkout") === "success";
         const response = await fetch(`/api/billing/status${shouldSync ? "?sync=1" : ""}`, { cache: "no-store" });
         if (!response.ok) {
@@ -104,7 +106,7 @@ export default function BillingClient() {
                 <div className="muted" style={{ fontSize: 12 }}>
                   Plan actual
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 600 }}>{profile?.subscriptionPlan ?? "FREE"}</div>
+                <div style={{ fontSize: 18, fontWeight: 600 }}>{planLabel}</div>
               </div>
               <div>
                 <div className="muted" style={{ fontSize: 12 }}>
@@ -114,9 +116,9 @@ export default function BillingClient() {
               </div>
               <div>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  Próxima renovación
+                  Renovación de tokens
                 </div>
-                <div>{formatDate(profile?.currentPeriodEnd)}</div>
+                <div>{formatDate(tokenRenewalDate)}</div>
               </div>
             </div>
           </div>
@@ -126,19 +128,7 @@ export default function BillingClient() {
                 <div className="muted" style={{ fontSize: 12 }}>
                   Tokens IA disponibles
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 600 }}>{profile?.aiTokenBalance ?? 0}</div>
-              </div>
-              <div>
-                <div className="muted" style={{ fontSize: 12 }}>
-                  Tokens mensuales
-                </div>
-                <div>{profile?.aiTokenMonthlyAllowance ?? 0}</div>
-              </div>
-              <div>
-                <div className="muted" style={{ fontSize: 12 }}>
-                  Renovación de tokens
-                </div>
-                <div>{formatDate(tokenRenewalDate)}</div>
+                <div style={{ fontSize: 18, fontWeight: 600 }}>{tokenLabel ?? "-"}</div>
               </div>
             </div>
           </div>

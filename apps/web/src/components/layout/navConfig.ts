@@ -38,13 +38,6 @@ export const NAV_ITEMS: NavItem[] = [
     section: "summary",
   },
   {
-    id: "workouts",
-    href: "/app/workouts",
-    labelKey: "nav.workouts",
-    section: "training",
-    showInTopNav: true,
-  },
-  {
     id: "training-plan",
     href: "/app/entrenamiento",
     labelKey: "nav.trainingPlan",

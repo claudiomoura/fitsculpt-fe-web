@@ -18,20 +18,35 @@ type AuthUser = {
   aiTokenBalance?: number;
 };
 
+type BillingStatus = {
+  plan?: "FREE" | "PRO";
+  isPro?: boolean;
+  tokens?: number;
+};
+
 export default function AppNavBar() {
   const { t } = useLanguage();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
 
   useEffect(() => {
     let active = true;
     const load = async () => {
       try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as AuthUser;
-        if (active) setUser(data);
+        const [authResponse, billingResponse] = await Promise.all([
+          fetch("/api/auth/me", { cache: "no-store" }),
+          fetch("/api/billing/status", { cache: "no-store" }),
+        ]);
+        if (authResponse.ok) {
+          const data = (await authResponse.json()) as AuthUser;
+          if (active) setUser(data);
+        }
+        if (billingResponse.ok) {
+          const data = (await billingResponse.json()) as BillingStatus;
+          if (active) setBilling(data);
+        }
       } catch {
         // Ignore.
       }
@@ -50,8 +65,9 @@ export default function AppNavBar() {
 
   const isAdmin = user?.role === "ADMIN";
   const userMeta = user?.email || user?.role || "";
-  const isPro = user?.subscriptionPlan === "PRO";
-  const planLabel = user?.subscriptionPlan ?? "FREE";
+  const planLabel = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
+  const isPro = planLabel === "PRO";
+  const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
 
   const visibleItems = useMemo(
     () => NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin),
@@ -80,7 +96,7 @@ export default function AppNavBar() {
           </div>
           <div className={`account-pill ${isPro ? "is-pro" : "is-free"}`}>
             <span className="account-pill-label">{planLabel}</span>
-            {isPro ? <span className="account-pill-meta">Tokens: {user?.aiTokenBalance ?? 0}</span> : null}
+            {isPro ? <span className="account-pill-meta">Tokens: {tokenBalance}</span> : null}
           </div>
           <AppUserBadge />
           <button
