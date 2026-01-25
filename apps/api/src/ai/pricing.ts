@@ -37,10 +37,38 @@ const DEFAULT_MODEL_PRICING: AiPricingMap = {
   "gpt-4o": { inputPer1M: 5, outputPer1M: 15 },
 };
 
-export function getModelPricing(model?: string | null, pricing?: AiPricingMap) {
+function buildModelCandidates(model: string): string[] {
+  const trimmed = model.trim();
+  const candidates = new Set<string>([trimmed]);
+  if (trimmed.includes(":")) {
+    candidates.add(trimmed.split(":")[0] ?? trimmed);
+  }
+  if (trimmed.includes("/")) {
+    candidates.add(trimmed.split("/")[0] ?? trimmed);
+  }
+  candidates.add(trimmed.replace(/-preview$/i, ""));
+  candidates.add(trimmed.replace(/-latest$/i, ""));
+  candidates.add(trimmed.replace(/-\d{4}(-\d{2}){0,2}-.+$/, ""));
+  candidates.add(trimmed.replace(/-\d{4}(-\d{2}){0,2}$/, ""));
+  return [...candidates].filter((value) => value.length > 0);
+}
+
+export function normalizeModelName(model?: string | null, pricing?: AiPricingMap) {
   const trimmed = model?.trim();
   if (!trimmed) return null;
-  return pricing?.[trimmed] ?? DEFAULT_MODEL_PRICING[trimmed] ?? null;
+  const candidates = buildModelCandidates(trimmed);
+  for (const candidate of candidates) {
+    if (pricing?.[candidate] || DEFAULT_MODEL_PRICING[candidate]) {
+      return candidate;
+    }
+  }
+  return trimmed;
+}
+
+export function getModelPricing(model?: string | null, pricing?: AiPricingMap) {
+  const normalized = normalizeModelName(model, pricing);
+  if (!normalized) return null;
+  return pricing?.[normalized] ?? DEFAULT_MODEL_PRICING[normalized] ?? null;
 }
 
 export function computeCostCents(args: {

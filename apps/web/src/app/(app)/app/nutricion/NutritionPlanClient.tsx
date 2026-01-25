@@ -882,15 +882,15 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
-      const plan = data.plan ?? (data as unknown as NutritionPlan);
+      const generatedPlan = data.plan ?? (data as unknown as NutritionPlan);
       if (typeof data.aiTokenBalance === "number") {
         setAiTokenBalance(data.aiTokenBalance);
       }
       if (typeof data.aiTokenRenewalAt === "string" || data.aiTokenRenewalAt === null) {
         setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       }
-      const updated = await updateUserProfile({ nutritionPlan: plan });
-      setSavedPlan(updated.nutritionPlan ?? plan);
+      const updated = await updateUserProfile({ nutritionPlan: generatedPlan });
+      setSavedPlan(updated.nutritionPlan ?? generatedPlan);
       setSaveMessage(t("nutrition.aiSuccess"));
       void refreshSubscription();
     } catch (err) {

@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { computeCostCents, getModelPricing, type AiPricingMap } from "./pricing.js";
+import { computeCostCents, getModelPricing, normalizeModelName, type AiPricingMap } from "./pricing.js";
 
 type AiUsageUser = {
   id: string;
@@ -11,6 +11,8 @@ type OpenAiUsage = {
   prompt_tokens?: number;
   completion_tokens?: number;
   total_tokens?: number;
+  input_tokens?: number;
+  output_tokens?: number;
 };
 
 type AiExecutionResult = {
@@ -36,10 +38,13 @@ type UsageTotals = {
 };
 
 function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
+  const promptTokens = Math.max(0, usage?.prompt_tokens ?? usage?.input_tokens ?? 0);
+  const completionTokens = Math.max(0, usage?.completion_tokens ?? usage?.output_tokens ?? 0);
+  const totalTokens = Math.max(0, usage?.total_tokens ?? promptTokens + completionTokens);
   return {
-    promptTokens: Math.max(0, usage?.prompt_tokens ?? 0),
-    completionTokens: Math.max(0, usage?.completion_tokens ?? 0),
-    totalTokens: Math.max(0, usage?.total_tokens ?? 0),
+    promptTokens,
+    completionTokens,
+    totalTokens,
   };
 }
 
@@ -117,14 +122,15 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
     console.warn("AI usage missing from provider response", { feature, userId: user.id });
   }
   const totals = buildUsageTotals(result.usage);
-  const pricingEntry = getModelPricing(result.model, pricing);
+  const normalizedModel = normalizeModelName(result.model, pricing) ?? result.model ?? "unknown";
+  const pricingEntry = getModelPricing(normalizedModel, pricing);
   const pricingFound = Boolean(pricingEntry);
   if (!pricingFound) {
-    console.warn("AI pricing missing for model", { feature, userId: user.id, model: result.model });
+    console.warn("AI pricing missing for model", { feature, userId: user.id, model: normalizedModel });
   }
   let costCents = computeCostCents({
     pricing,
-    model: result.model,
+    model: normalizedModel,
     promptTokens: totals.promptTokens,
     completionTokens: totals.completionTokens,
   });
@@ -136,11 +142,11 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
   if (!pricingFound) {
     meta.pricingMissing = true;
   }
-  if (costCents <= 0) {
+  if (costCents <= 0 && totals.totalTokens > 0) {
     console.warn("AI costCents=0", {
       feature,
       userId: user.id,
-      model: result.model,
+      model: normalizedModel,
       usageProvided,
       pricingFound,
       totals,
@@ -157,7 +163,7 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
     user.id,
     {
       feature,
-      model: result.model ?? "unknown",
+      model: normalizedModel,
       usage: totals,
       costCents,
       meta,
@@ -172,5 +178,8 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
     costCents,
     balance: charging.balance,
     totalTokens: totals.totalTokens,
+    model: normalizedModel,
+    usage: totals,
+    balanceBefore: user.aiTokenBalance,
   };
 }
