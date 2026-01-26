@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
-import { getUserProfile } from "@/lib/profileService";
+import { getUserProfile, mergeProfileData } from "@/lib/profileService";
 
 type CheckinEntry = {
   date?: string;
@@ -14,6 +14,8 @@ export default function ProfileSummaryClient() {
   const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [latestCheckinDate, setLatestCheckinDate] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -48,6 +50,75 @@ export default function ProfileSummaryClient() {
     };
   }, []);
 
+  const avatarUrl = profile.profilePhotoUrl ?? profile.avatarDataUrl ?? null;
+
+  const resizeImage = (file: File, maxSize = 256) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+          const width = Math.round(img.width * scale);
+          const height = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("canvas"));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
+          resolve(canvas.toDataURL(outputType, 0.9));
+        };
+        img.onerror = () => reject(new Error("image"));
+        img.src = String(reader.result || "");
+      };
+      reader.onerror = () => reject(new Error("read"));
+      reader.readAsDataURL(file);
+    });
+
+  const saveAvatar = async (nextUrl: string | null) => {
+    const response = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profilePhotoUrl: nextUrl, avatarDataUrl: nextUrl }),
+    });
+    if (!response.ok) throw new Error("avatar");
+    const data = (await response.json()) as Partial<ProfileData> | null;
+    const merged = mergeProfileData(data ?? { ...profile, profilePhotoUrl: nextUrl, avatarDataUrl: nextUrl });
+    setProfile(merged);
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setAvatarSaving(true);
+    setAvatarError(null);
+    try {
+      const dataUrl = await resizeImage(file);
+      await saveAvatar(dataUrl);
+    } catch {
+      setAvatarError(t("profile.avatarUploadError"));
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    setAvatarSaving(true);
+    setAvatarError(null);
+    try {
+      await saveAvatar(null);
+    } catch {
+      setAvatarError(t("profile.avatarRemoveError"));
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
+
   const formatValue = (value: string | number | null | undefined, suffix?: string) => {
     if (value === null || value === undefined) return t("profile.noData");
     if (typeof value === "string" && value.trim().length === 0) return t("profile.noData");
@@ -71,6 +142,28 @@ export default function ProfileSummaryClient() {
           <Link className="btn" href="/app/onboarding">
             {t("profile.editProfile")}
           </Link>
+        </div>
+        <div className="profile-avatar-card">
+          <div className="profile-avatar-preview">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={t("profile.avatarTitle")} />
+            ) : (
+              <div className="profile-avatar-fallback">{t("profile.avatarTitle")}</div>
+            )}
+          </div>
+          <div className="profile-avatar-actions">
+            <label className="form-stack">
+              {t("profile.avatarUpload")}
+              <input type="file" accept="image/*" onChange={handleAvatarUpload} disabled={avatarSaving} />
+            </label>
+            {avatarUrl ? (
+              <button type="button" className="btn secondary" onClick={handleAvatarRemove} disabled={avatarSaving}>
+                {t("profile.avatarRemove")}
+              </button>
+            ) : null}
+            <span className="muted">{t("profile.avatarHint")}</span>
+            {avatarError ? <span className="muted">{avatarError}</span> : null}
+          </div>
         </div>
       </section>
 
