@@ -5,8 +5,8 @@ import { getServerT } from "@/lib/serverI18n";
 
 async function getAppUrl() {
   const headerList = headers();
-  const host = (await headerList).get("x-forwarded-host") ?? (await headerList).get("host");
-  const protocol = (await headerList).get("x-forwarded-proto") ?? "http";
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
+  const protocol = headerList.get("x-forwarded-proto") ?? "http";
   if (!host) {
     return "http://localhost:3000";
   }
@@ -46,7 +46,8 @@ async function fetchWorkout(workoutId: string) {
   try {
     const token = (await cookies()).get("fs_token")?.value;
     const authCookie = token ? `fs_token=${token}` : "";
-    const response = await fetch(`${getAppUrl()}/api/workouts/${workoutId}`, {
+    const appUrl = await getAppUrl();
+    const response = await fetch(`${appUrl}/api/workouts/${workoutId}`, {
       headers: authCookie ? { cookie: authCookie } : undefined,
       cache: "no-store",
     });
@@ -130,6 +131,11 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
           <span className="badge">
             {t("workoutDetail.goalLabel")}: {workout.goal ?? workout.focus ?? t("workoutDetail.goalMissing")}
           </span>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <Link className="btn" href={`/app/entrenamientos/${workout.id}/start`}>
+            {t("workoutDetail.startWorkout")}
+          </Link>
         </div>
       </section>
 

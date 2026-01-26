@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerT } from "@/lib/serverI18n";
 
 type LibraryTabsProps = {
-  active: "exercises" | "recipes";
+  active: "exercises" | "recipes" | "training";
 };
 
 export default async function LibraryTabs({ active }: LibraryTabsProps) {
@@ -24,6 +24,14 @@ export default async function LibraryTabs({ active }: LibraryTabsProps) {
         role="tab"
       >
         {t("library.tabs.recipes")}
+      </Link>
+      <Link
+        href="/app/biblioteca/entrenamientos"
+        className={`segmented-control-btn ${active === "training" ? "active" : ""}`}
+        aria-current={active === "training" ? "page" : undefined}
+        role="tab"
+      >
+        {t("library.tabs.training")}
       </Link>
     </div>
   );

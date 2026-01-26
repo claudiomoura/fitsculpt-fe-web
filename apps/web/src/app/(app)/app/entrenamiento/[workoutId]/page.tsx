@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { Workout, WorkoutExercise } from "@/lib/types";
 import { getServerT } from "@/lib/serverI18n";
 
@@ -8,16 +8,20 @@ type WorkoutExerciseApi = WorkoutExercise & {
   primaryMuscleGroup?: string | null;
 };
 
-
 type WorkoutApiResponse = Workout & {
   focus?: string | null;
   exercises?: WorkoutExerciseApi[] | null;
 };
 
-const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-
+async function getAppUrl() {
+  const headerList = headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
+  const protocol = headerList.get("x-forwarded-proto") ?? "http";
+  if (!host) {
+    return "http://localhost:3000";
+  }
+  return `${protocol}://${host}`;
+}
 
 function parseNumber(value: number | string | null | undefined) {
   if (typeof value === "number") return value;
@@ -47,17 +51,15 @@ function normalizeWorkout(data: WorkoutApiResponse): Workout {
         rir: exercise.rir ?? null,
         restSeconds: exercise.restSeconds ?? null,
         notes: exercise.notes ?? null,
-       primaryMuscle: exercise.primaryMuscle ?? null,
-
+        primaryMuscle: exercise.primaryMuscle ?? null,
         lastLog: exercise.lastLog ?? null,
       }))
     : [];
 
-
   return {
     ...data,
     goal: data.goal ?? data.focus ?? null,
-  
+    exercises,
   };
 }
 
@@ -65,13 +67,12 @@ async function fetchWorkout(workoutId: string) {
   try {
     const token = (await cookies()).get("fs_token")?.value;
     const authCookie = token ? `fs_token=${token}` : "";
-    const url = new URL(`/api/exercises/${workoutId}`, APP_URL)
-
-    
-const response = await fetch(url, {
-  headers: authCookie ? { cookie: authCookie } : undefined,
-  cache: "no-store",
-});
+    const appUrl = await getAppUrl();
+    const url = new URL(`/api/workouts/${workoutId}`, appUrl);
+    const response = await fetch(url, {
+      headers: authCookie ? { cookie: authCookie } : undefined,
+      cache: "no-store",
+    });
 
     if (!response.ok) {
       return { workout: null, error: "LOAD_ERROR" };
