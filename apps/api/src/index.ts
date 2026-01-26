@@ -13,6 +13,8 @@ import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLeve
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
+import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema";
+import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema";
 
 
 
@@ -205,26 +207,60 @@ async function stripeRequest<T>(
   return (await response.json()) as T;
 }
 
-function verifyStripeSignature(rawBody: Buffer, signatureHeader: string, webhookSecret: string) {
-  const elements = signatureHeader.split(",").map((part) => part.trim());
-  const timestampPart = elements.find((part) => part.startsWith("t="));
-  const signaturePart = elements.find((part) => part.startsWith("v1="));
-  if (!timestampPart || !signaturePart) {
-    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE");
+function verifyStripeSignature(
+  rawBody: Buffer,
+  signatureHeader: string,
+  webhookSecret: string,
+  toleranceSec = 300
+) {
+  const parts = signatureHeader.split(",").map((p) => p.trim());
+
+  const tPart = parts.find((p) => p.startsWith("t="));
+  const tValue = tPart?.slice(2);
+  if (!tValue) throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", { reason: "missing_t" });
+
+  const timestamp = Number(tValue);
+  if (!Number.isFinite(timestamp)) {
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", { reason: "invalid_t" });
   }
-  const timestamp = timestampPart.split("=")[1];
-  const signature = signaturePart.split("=")[1];
-  if (!timestamp || !signature) {
-    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE");
+
+  // Stripe puede mandar VARIOS v1=...
+  const v1Signatures = parts
+    .filter((p) => p.startsWith("v1="))
+    .map((p) => p.slice(3))
+    .filter(Boolean);
+
+  if (v1Signatures.length === 0) {
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", { reason: "missing_v1" });
   }
-  const signedPayload = `${timestamp}.${rawBody.toString("utf8")}`;
-  const expected = crypto.createHmac("sha256", webhookSecret).update(signedPayload).digest("hex");
-  const expectedBuffer = Buffer.from(expected);
-  const signatureBuffer = Buffer.from(signature);
-  if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
+
+  // (Opcional pero recomendado) tolerancia de tiempo
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (Math.abs(nowSec - timestamp) > toleranceSec) {
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", {
+      reason: "timestamp_out_of_tolerance",
+      nowSec,
+      timestamp,
+      toleranceSec,
+    });
+  }
+
+  const signedPayload = `${tValue}.${rawBody.toString("utf8")}`;
+  const expectedHex = crypto.createHmac("sha256", webhookSecret).update(signedPayload, "utf8").digest("hex");
+  const expectedBuf = Buffer.from(expectedHex, "hex");
+
+  const matchesAny = v1Signatures.some((sig) => {
+    // si viene algo raro, evita crash
+    if (!/^[0-9a-f]+$/i.test(sig)) return false;
+    const sigBuf = Buffer.from(sig, "hex");
+    return sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf);
+  });
+
+  if (!matchesAny) {
     throw createHttpError(400, "INVALID_STRIPE_SIGNATURE");
   }
 }
+
 
 function getTokenExpiry(days = 30) {
   const next = new Date();
@@ -940,16 +976,17 @@ const aiTrainingExerciseSchema = z
   .object({
     name: z.string().min(1),
     sets: aiTrainingSeriesSchema,
-    reps: aiTrainingRepsSchema.optional(),
-    tempo: z.string().min(1).optional(),
-    rest: aiTrainingSeriesSchema.optional(),
-    notes: z.string().min(1).optional(),
+    reps: aiTrainingRepsSchema.nullable(),
+tempo: z.string().nullable().transform(v => v ?? ""),
+notes: z.string().nullable().transform(v => v ?? ""),
+rest: z.number().nullable().transform(v => v ?? 60),
+
   })
   .passthrough();
 
 const aiTrainingDaySchema = z
   .object({
-    date: isoDateSchema.optional(),
+    date: isoDateSchema.nullable(),
     label: z.string().min(1),
     focus: z.string().min(1),
     duration: z.number().int().min(20).max(120),
@@ -960,8 +997,8 @@ const aiTrainingDaySchema = z
 const aiTrainingPlanResponseSchema = z
   .object({
     title: z.string().min(1),
-    notes: z.string().min(1).optional(),
-    startDate: isoDateSchema.optional(),
+    notes: z.string().min(1).nullable(),
+    startDate: isoDateSchema.nullable(),
     days: z.array(aiTrainingDaySchema).min(1).max(7),
   })
   .passthrough();
@@ -970,7 +1007,7 @@ const aiNutritionMealSchema = z
   .object({
     type: z.enum(["breakfast", "lunch", "dinner", "snack"]),
     title: z.string().min(1),
-    description: z.string().min(1).optional(),
+    description: z.string().min(1).nullable(),
     macros: z.object({
       calories: z.coerce.number().min(50).max(1500),
       protein: z.coerce.number().min(0).max(200),
@@ -986,7 +1023,7 @@ const aiNutritionMealSchema = z
       )
       .min(0)
       .max(6)
-      .optional(),
+      .nullable(),
   })
   .passthrough();
 
@@ -1001,7 +1038,7 @@ const aiNutritionDaySchema = z
 const aiNutritionPlanResponseSchema = z
   .object({
     title: z.string().min(1),
-    startDate: isoDateSchema.optional(),
+    startDate: isoDateSchema.nullable(),
     dailyCalories: z.coerce.number().min(1200).max(4000),
     proteinG: z.coerce.number().min(50).max(300),
     fatG: z.coerce.number().min(30).max(200),
@@ -1014,7 +1051,7 @@ const aiNutritionPlanResponseSchema = z
           grams: z.coerce.number().min(0).max(5000),
         })
       )
-      .optional(),
+      .nullable(),
   })
   .passthrough();
 
@@ -1398,8 +1435,7 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = fa
   return [
     "Eres un entrenador personal senior. Devuelve SOLO un objeto JSON válido, sin markdown ni texto extra.",
     "Esquema exacto:",
-    '{"title":string,"startDate"?:string,"notes"?:string,"days":[{"date":string,"label":string,"focus":string,"duration":number,"exercises":[{"name":string,"sets":number,"reps":string,"tempo"?:string,"rest"?:number,"notes"?:string}]}]}',
-    "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
+'{"title":string,"startDate":string|null,"notes":string|null,"days":[{"date":string|null,"label":string,"focus":string,"duration":number,"exercises":[{"name":string,"sets":number,"reps":string|null,"tempo":string|null,"rest":number|null,"notes":string|null}]}]}',    "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
     "OBLIGATORIO: days.length debe ser EXACTAMENTE el número solicitado (si >7 usa 7).",
     "Máximo 7 días, máximo 5 ejercicios por día, mínimo 3 ejercicios por día.",
     strict ? "REINTENTO: si devuelves menos o más días, la respuesta será rechazada." : "",
@@ -1766,7 +1802,7 @@ function buildNutritionPrompt(
     "Eres un nutricionista deportivo senior. Genera un plan semanal compacto en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
     "El JSON debe respetar exactamente este esquema:",
-    '{"title":string,"startDate"?:string,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"date":string,"dayLabel":string,"meals":[{"type":"breakfast"|"lunch"|"dinner"|"snack","title":string,"description"?:string,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients"?:[{"name":string,"grams":number}]}]}],"shoppingList"?:[{"name":string,"grams":number}]}',
+'{"title":string,"startDate":string|null,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"date":string,"dayLabel":string,"meals":[{"type":string,"title":string,"description":string|null,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients":array|null}]}],"shoppingList":array|null}',
     "OBLIGATORIO: cada día debe tener EXACTAMENTE el número de meals solicitado (si >6 usa 6).",
     `Estructura de meals: ${mealStructure}`,
     `Genera EXACTAMENTE ${daysCount} días con date (YYYY-MM-DD) desde ${data.startDate ?? "la fecha indicada"}.`,
@@ -1893,12 +1929,21 @@ function parseTrainingPlanPayload(
   daysPerWeek: number
 ) {
   try {
-    return normalizeTrainingPlanDays(aiTrainingPlanResponseSchema.parse(payload), startDate, daysCount, daysPerWeek);
+    const maybeSchema = payload["schema"];
+    const unwrapped =
+      maybeSchema && typeof maybeSchema === "object"
+        ? (maybeSchema as Record<string, unknown>)
+        : payload;
+
+    const parsed = aiTrainingPlanResponseSchema.parse(unwrapped);
+
+    return normalizeTrainingPlanDays(parsed, startDate, daysCount, daysPerWeek);
   } catch (error) {
     app.log.warn({ err: error, payload }, "ai training response invalid");
     throw createHttpError(502, "AI_PARSE_ERROR");
   }
 }
+
 
 function assertTrainingMatchesRequest(plan: z.infer<typeof aiTrainingPlanResponseSchema>, expectedDays: number) {
   if (plan.days.length !== expectedDays) {
@@ -3039,9 +3084,21 @@ async function callOpenAi(
       temperature: attempt === 0 ? 0.4 : 0.2,
     }),
   });
-  if (!response.ok) {
-    throw createHttpError(502, "AI_REQUEST_FAILED");
-  }
+if (!response.ok) {
+  const errText = await response.text().catch(() => "");
+  const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
+  app.log.error(
+    { status: response.status, requestId, errText: errText.slice(0, 2000) },
+    "openai request failed"
+  );
+  throw createHttpError(502, "AI_REQUEST_FAILED", {
+    status: response.status,
+    requestId,
+    ...(process.env.NODE_ENV === "production" ? {} : { errText: errText.slice(0, 2000) }),
+  });
+}
+
+
   const requestId =
     response.headers.get("x-request-id") ??
     response.headers.get("openai-request-id") ??
@@ -4184,123 +4241,41 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
+
     const fetchTrainingPayload = async (attempt: number) => {
       const prompt = buildTrainingPrompt(data, attempt > 0);
       if (user.plan === "PRO") {
         const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-          model: "gpt-4o-mini",
-          maxTokens: 900,
+
           responseFormat: {
-            type: "json_schema",
-            json_schema: {
-              name: "training_plan",
-              strict: true,
-              schema: {
-                type: "object",
-                additionalProperties: true,
-                required: ["title", "days"],
-                properties: {
-                  title: { type: "string" },
-                  notes: { type: "string" },
-                  startDate: { type: "string" },
-                  days: {
-                    type: "array",
-                    minItems: 1,
-                    maxItems: 7,
-                    items: {
-                      type: "object",
-                      additionalProperties: true,
-                      required: ["date", "label", "focus", "duration", "exercises"],
-                      properties: {
-                        date: { type: "string" },
-                        label: { type: "string" },
-                        focus: { type: "string" },
-                        duration: { type: "number" },
-                        exercises: {
-                          type: "array",
-                          minItems: 3,
-                          maxItems: 5,
-                          items: {
-                            type: "object",
-                            additionalProperties: true,
-                            required: ["name", "sets", "reps"],
-                            properties: {
-                              name: { type: "string" },
-                              sets: { type: "number" },
-                              reps: { type: "string" },
-                              tempo: { type: "string" },
-                              rest: { type: "number" },
-                              notes: { type: "string" },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
+          type: "json_schema",
+          json_schema: {
+            name: "training_plan",
+            schema: trainingPlanJsonSchema as any,
+            strict: true,
               },
             },
-          },
-          retryOnParseError: false,
-        });
-        payload = result.payload;
-        aiResult = result;
-        aiAttemptUsed = attempt;
-      } else {
-        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-          model: "gpt-4o-mini",
-          maxTokens: 900,
-          responseFormat: {
-            type: "json_schema",
-            json_schema: {
+            model: "gpt-4o-mini",
+              maxTokens: 9000,
+              retryOnParseError: false,
+            });
+
+            payload = result.payload;
+            aiResult = result;
+            aiAttemptUsed = attempt;
+          } else {
+            const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+            
+              responseFormat: {
+              type: "json_schema",
+              json_schema: {
               name: "training_plan",
+              schema: trainingPlanJsonSchema as any,
               strict: true,
-              schema: {
-                type: "object",
-                additionalProperties: true,
-                required: ["title", "days"],
-                properties: {
-                  title: { type: "string" },
-                  notes: { type: "string" },
-                  startDate: { type: "string" },
-                  days: {
-                    type: "array",
-                    minItems: 1,
-                    maxItems: 7,
-                    items: {
-                      type: "object",
-                      additionalProperties: true,
-                      required: ["date", "label", "focus", "duration", "exercises"],
-                      properties: {
-                        date: { type: "string" },
-                        label: { type: "string" },
-                        focus: { type: "string" },
-                        duration: { type: "number" },
-                        exercises: {
-                          type: "array",
-                          minItems: 3,
-                          maxItems: 5,
-                          items: {
-                            type: "object",
-                            additionalProperties: true,
-                            required: ["name", "sets", "reps"],
-                            properties: {
-                              name: { type: "string" },
-                              sets: { type: "number" },
-                              reps: { type: "string" },
-                              tempo: { type: "string" },
-                              rest: { type: "number" },
-                              notes: { type: "string" },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
             },
           },
+          model: "gpt-4o-mini",
+          maxTokens: 9000,
           retryOnParseError: false,
         });
         payload = result.payload;
@@ -4521,92 +4496,17 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       );
       if (user.plan === "PRO") {
         const result = await callOpenAi(promptAttempt, attempt, extractTopLevelJson, {
-          model: "gpt-4o-mini",
-          maxTokens: 1200,
+       
           responseFormat: {
-            type: "json_schema",
-            json_schema: {
-              name: "nutrition_plan",
-              strict: true,
-              schema: {
-                type: "object",
-                additionalProperties: true,
-                required: ["title", "dailyCalories", "proteinG", "fatG", "carbsG", "days"],
-                properties: {
-                  title: { type: "string" },
-                  startDate: { type: "string" },
-                  dailyCalories: { type: "number" },
-                  proteinG: { type: "number" },
-                  fatG: { type: "number" },
-                  carbsG: { type: "number" },
-                  days: {
-                    type: "array",
-                    minItems: 1,
-                    maxItems: 14,
-                    items: {
-                      type: "object",
-                      additionalProperties: true,
-                      required: ["date", "dayLabel", "meals"],
-                      properties: {
-                        date: { type: "string" },
-                        dayLabel: { type: "string" },
-                        meals: {
-                          type: "array",
-                          minItems: 2,
-                          maxItems: 6,
-                          items: {
-                            type: "object",
-                            additionalProperties: true,
-                            required: ["type", "title", "macros"],
-                            properties: {
-                              type: { type: "string" },
-                              title: { type: "string" },
-                              description: { type: "string" },
-                              macros: {
-                                type: "object",
-                                additionalProperties: true,
-                                required: ["calories", "protein", "carbs", "fats"],
-                                properties: {
-                                  calories: { type: "number" },
-                                  protein: { type: "number" },
-                                  carbs: { type: "number" },
-                                  fats: { type: "number" },
-                                },
-                              },
-                              ingredients: {
-                                type: "array",
-                                items: {
-                                  type: "object",
-                                  additionalProperties: true,
-                                  required: ["name", "grams"],
-                                  properties: {
-                                    name: { type: "string" },
-                                    grams: { type: "number" },
-                                  },
-                                },
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                  shoppingList: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      additionalProperties: true,
-                      required: ["name", "grams"],
-                      properties: {
-                        name: { type: "string" },
-                        grams: { type: "number" },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+  type: "json_schema",
+  json_schema: {
+    name: "nutrition_plan",
+    schema: nutritionPlanJsonSchema as any,
+    strict: true,
+  },
+},
+   model: "gpt-4o-mini",
+          maxTokens: 1200,
           retryOnParseError: false,
         });
         payload = result.payload;
@@ -4614,92 +4514,17 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         aiAttemptUsed = attempt;
       } else {
         const result = await callOpenAi(promptAttempt, attempt, extractTopLevelJson, {
-          model: "gpt-4o-mini",
-          maxTokens: 1200,
+      
           responseFormat: {
-            type: "json_schema",
-            json_schema: {
-              name: "nutrition_plan",
-              strict: true,
-              schema: {
-                type: "object",
-                additionalProperties: true,
-                required: ["title", "dailyCalories", "proteinG", "fatG", "carbsG", "days"],
-                properties: {
-                  title: { type: "string" },
-                  startDate: { type: "string" },
-                  dailyCalories: { type: "number" },
-                  proteinG: { type: "number" },
-                  fatG: { type: "number" },
-                  carbsG: { type: "number" },
-                  days: {
-                    type: "array",
-                    minItems: 1,
-                    maxItems: 14,
-                    items: {
-                      type: "object",
-                      additionalProperties: true,
-                      required: ["date", "dayLabel", "meals"],
-                      properties: {
-                        date: { type: "string" },
-                        dayLabel: { type: "string" },
-                        meals: {
-                          type: "array",
-                          minItems: 2,
-                          maxItems: 6,
-                          items: {
-                            type: "object",
-                            additionalProperties: true,
-                            required: ["type", "title", "macros"],
-                            properties: {
-                              type: { type: "string" },
-                              title: { type: "string" },
-                              description: { type: "string" },
-                              macros: {
-                                type: "object",
-                                additionalProperties: true,
-                                required: ["calories", "protein", "carbs", "fats"],
-                                properties: {
-                                  calories: { type: "number" },
-                                  protein: { type: "number" },
-                                  carbs: { type: "number" },
-                                  fats: { type: "number" },
-                                },
-                              },
-                              ingredients: {
-                                type: "array",
-                                items: {
-                                  type: "object",
-                                  additionalProperties: true,
-                                  required: ["name", "grams"],
-                                  properties: {
-                                    name: { type: "string" },
-                                    grams: { type: "number" },
-                                  },
-                                },
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                  shoppingList: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      additionalProperties: true,
-                      required: ["name", "grams"],
-                      properties: {
-                        name: { type: "string" },
-                        grams: { type: "number" },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
+  type: "json_schema",
+  json_schema: {
+    name: "nutrition_plan",
+    schema: nutritionPlanJsonSchema as any,
+    strict: true,
+  },
+},
+   model: "gpt-4o-mini",
+          maxTokens: 1200,
           retryOnParseError: false,
         });
         payload = result.payload;
