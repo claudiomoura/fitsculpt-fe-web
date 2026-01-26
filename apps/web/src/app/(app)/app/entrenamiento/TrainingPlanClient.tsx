@@ -20,7 +20,7 @@ import { isProfileComplete } from "@/lib/profileCompletion";
 
 type Exercise = {
   name: string;
-  sets: string;
+  sets: string | number;
   reps?: string;
 };
 
@@ -634,6 +634,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const hasPlan = Boolean(visiblePlan?.days.length);
   const isAiLocked = subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0;
   const isAiDisabled = aiLoading || isAiLocked || !form;
+  const buildSetLines = (exercise: Exercise) => {
+    const setsValue = String(exercise.sets);
+    const match = setsValue.match(/\d+/);
+    const count = match ? Number(match[0]) : 1;
+    const detail = exercise.reps ? `${exercise.reps} ${t("training.repsLabel")}` : setsValue;
+    return Array.from({ length: Math.max(1, count) }, (_, index) => ({
+      id: `${exercise.name}-${index}`,
+      label: `${index + 1}. ${t("training.setLabel")} ${detail}`,
+    }));
+  };
 
   return (
     <div className="page">
@@ -855,20 +865,33 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             </span>
                           </div>
                           {selectedPlanDay.day.exercises.length ? (
-                            <div className="list-grid">
+                            <div className="exercise-list">
                               {selectedPlanDay.day.exercises.map((exercise, exerciseIdx) => (
-                                <div key={`${exercise.name}-${exerciseIdx}`} className="exercise-mini-card">
-                                  <strong>{exercise.name}</strong>
-                                  <span className="muted">
-                                    {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="btn secondary"
-                                    onClick={() => setTechniqueModal({ dayLabel: selectedPlanDay.day.label, exercise })}
-                                  >
-                                    {t("training.viewTechnique")}
-                                  </button>
+                                <div key={`${exercise.name}-${exerciseIdx}`} className="exercise-row">
+                                  <img
+                                    src="/placeholders/exercise-cover.svg"
+                                    alt={t("library.mediaAlt")}
+                                    className="exercise-thumb"
+                                  />
+                                  <div className="exercise-row-main">
+                                    <div className="exercise-row-head">
+                                      <strong>{exercise.name}</strong>
+                                      <button
+                                        type="button"
+                                        className="btn secondary"
+                                        onClick={() => setTechniqueModal({ dayLabel: selectedPlanDay.day.label, exercise })}
+                                      >
+                                        {t("training.viewTechnique")}
+                                      </button>
+                                    </div>
+                                    <div className="exercise-set-lines">
+                                      {buildSetLines(exercise).map((line) => (
+                                        <span key={line.id} className="muted">
+                                          {line.label}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
                                 </div>
                               ))}
                             </div>

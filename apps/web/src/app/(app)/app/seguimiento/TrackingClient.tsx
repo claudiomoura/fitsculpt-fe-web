@@ -74,6 +74,7 @@ type TrackingPayload = {
 export default function TrackingClient() {
   const { t } = useLanguage();
   const CHECKIN_MODE_KEY = "fs_checkin_mode_v1";
+  const SHOW_WORKOUT_LOG = false;
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [checkinWeight, setCheckinWeight] = useState(75);
@@ -90,11 +91,11 @@ export default function TrackingClient() {
   const [checkinNotes, setCheckinNotes] = useState("");
   const [checkinFrontPhoto, setCheckinFrontPhoto] = useState<string | null>(null);
   const [checkinSidePhoto, setCheckinSidePhoto] = useState<string | null>(null);
-const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
-  if (typeof window === "undefined") return "quick";
-  const storedMode = window.localStorage.getItem(CHECKIN_MODE_KEY);
-  return storedMode === "quick" || storedMode === "full" ? storedMode : "quick";
-});
+  const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
+    if (typeof window === "undefined") return "quick";
+    const storedMode = window.localStorage.getItem(CHECKIN_MODE_KEY);
+    return storedMode === "quick" || storedMode === "full" ? storedMode : "quick";
+  });
 
 
   const [foodDate, setFoodDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -316,11 +317,18 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       const id = key.replace("user:", "");
       const food = userFoodMap.get(id);
       if (!food) return null;
-      return { label: food.name, protein: food.protein, carbs: food.carbs, fat: food.fat };
+      return {
+        label: food.name,
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+        calories: food.calories,
+      };
     }
     const profile = defaultFoodProfiles[key];
     if (!profile) return null;
-    return { label: t(profile.labelKey), protein: profile.protein, carbs: profile.carbs, fat: profile.fat };
+    const calories = profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
+    return { label: t(profile.labelKey), protein: profile.protein, carbs: profile.carbs, fat: profile.fat, calories };
   }
 
   function showMessage(message: string) {
@@ -404,18 +412,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     showMessage(isEditing ? t("tracking.foodUpdated") : t("tracking.foodCreated"));
   }
 
-  async function handleDeleteFood(foodId: string) {
-    const confirmed = window.confirm(t("tracking.foodDeleteConfirm"));
-    if (!confirmed) return;
-    const response = await fetch(`/api/user-foods/${foodId}`, { method: "DELETE" });
-    if (!response.ok) {
-      showMessage(t("tracking.foodDeleteError"));
-      return;
-    }
-    setUserFoods((prev) => prev.filter((food) => food.id !== foodId));
-    showMessage(t("tracking.foodDeleteSuccess"));
-  }
-
   const mealsByDate = useMemo(() => {
     return foodLog.reduce<Record<string, FoodEntry[]>>((acc, entry) => {
       acc[entry.date] = acc[entry.date] ? [...acc[entry.date], entry] : [entry];
@@ -432,9 +428,41 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         totals.protein += profile.protein * factor;
         totals.carbs += profile.carbs * factor;
         totals.fat += profile.fat * factor;
+        totals.calories += profile.calories * factor;
         return totals;
       },
-      { protein: 0, carbs: 0, fat: 0 }
+      { protein: 0, carbs: 0, fat: 0, calories: 0 }
+    );
+  }
+
+  const nutritionTargets = profile.nutritionPlan
+    ? {
+        calories: profile.nutritionPlan.dailyCalories,
+        protein: profile.nutritionPlan.proteinG,
+        carbs: profile.nutritionPlan.carbsG,
+        fat: profile.nutritionPlan.fatG,
+      }
+    : null;
+
+  function getStatusClass(value: number, target: number) {
+    const delta = value - target;
+    if (Math.abs(delta) <= 0.5) return "status-exact";
+    return delta < 0 ? "status-under" : "status-over";
+  }
+
+  function getStatusLabel(value: number, target: number) {
+    const delta = value - target;
+    if (Math.abs(delta) <= 0.5) return t("tracking.statusExact");
+    return delta < 0 ? t("tracking.statusUnder") : t("tracking.statusOver");
+  }
+
+  function getMacroBadge(label: string, value: number, target?: number | null) {
+    if (!target) return null;
+    const statusClass = getStatusClass(value, target);
+    return (
+      <span className={`status-pill is-compact ${statusClass}`} key={label}>
+        {label} {value.toFixed(0)}g
+      </span>
     );
   }
 
@@ -713,8 +741,37 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               return (
                 <div key={date} className="feature-card">
                   <strong>{date}</strong>
-                  <div style={{ marginTop: 6 }}>
-                    {t("tracking.mealTotals")}: {totals.protein.toFixed(1)}g P · {totals.carbs.toFixed(1)}g C · {totals.fat.toFixed(1)}g G
+                  <div className="meal-totals">
+                    <div className="meal-totals-header">
+                      <span className="muted">{t("tracking.mealTotals")}</span>
+                      <div className="meal-totals-calories">
+                        <strong>{totals.calories.toFixed(0)} kcal</strong>
+                        {nutritionTargets ? (
+                          <span
+                            className={`status-pill ${getStatusClass(totals.calories, nutritionTargets.calories)}`}
+                          >
+                            {getStatusLabel(totals.calories, nutritionTargets.calories)}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="meal-totals-macros">
+                      <span>{totals.protein.toFixed(1)}g P</span>
+                      <span>{totals.carbs.toFixed(1)}g C</span>
+                      <span>{totals.fat.toFixed(1)}g G</span>
+                    </div>
+                    {nutritionTargets ? (
+                      <div className="meal-targets">
+                        {getMacroBadge("P", totals.protein, nutritionTargets.protein)}
+                        {getMacroBadge("C", totals.carbs, nutritionTargets.carbs)}
+                        {getMacroBadge("G", totals.fat, nutritionTargets.fat)}
+                        <span className="muted">
+                          {t("tracking.targetLabel")}: {nutritionTargets.calories} kcal
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="muted">{t("tracking.targetsMissing")}</span>
+                    )}
                   </div>
                   <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
                     {entries.map((entry) => {
@@ -747,94 +804,63 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         </div>
       </section>
 
-      <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.customFoodsTitle")}</h2>
-            <p className="section-subtitle">{t("tracking.customFoodsSubtitle")}</p>
-          </div>
-          <button type="button" className="btn secondary" onClick={() => openFoodModal()}>
-            {t("tracking.foodCreate")}
-          </button>
-        </div>
-        {userFoods.length === 0 ? (
-          <p className="muted">{t("tracking.customFoodsEmpty")}</p>
-        ) : (
-          <div style={{ display: "grid", gap: 10 }}>
-            {userFoods.map((food) => (
-              <div key={food.id} className="feature-card" style={{ display: "grid", gap: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                  <strong>{food.name}</strong>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button type="button" className="btn secondary" onClick={() => openFoodModal(food)}>
-                      {t("tracking.edit")}
-                    </button>
-                    <button type="button" className="btn secondary" onClick={() => handleDeleteFood(food.id)}>
+      {SHOW_WORKOUT_LOG ? (
+        <section className="card">
+          <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.sectionWorkouts")}</h2>
+          <form onSubmit={addWorkoutEntry} className="form-stack">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <label className="form-stack">
+                {t("tracking.workoutDate")}
+                <input type="date" value={workoutDate} onChange={(e) => setWorkoutDate(e.target.value)} />
+              </label>
+              <label className="form-stack">
+                {t("tracking.workoutName")}
+                <input value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} />
+              </label>
+              <label className="form-stack">
+                {t("tracking.workoutDuration")}
+                <input
+                  type="number"
+                  min={0}
+                  value={workoutDuration}
+                  onChange={(e) => setWorkoutDuration(Number(e.target.value))}
+                />
+              </label>
+            </div>
+            <label className="form-stack">
+              {t("tracking.workoutNotes")}
+              <textarea value={workoutNotes} onChange={(e) => setWorkoutNotes(e.target.value)} rows={2} />
+            </label>
+            <button type="submit" className="btn" style={{ width: "fit-content" }}>
+              {t("tracking.workoutAdd")}
+            </button>
+          </form>
+
+          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+            {workoutLog.length === 0 ? (
+              <p className="muted">{t("tracking.workoutEmpty")}</p>
+            ) : (
+              workoutLog.map((entry) => (
+                <div key={entry.id} className="feature-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                    <span>
+                      <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
+                    </span>
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      onClick={() => handleDeleteEntry("workoutLog", entry.id)}
+                    >
                       {t("tracking.delete")}
                     </button>
                   </div>
+                  {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
                 </div>
-                <span className="muted">
-                  {food.calories} kcal · {food.protein}P / {food.carbs}C / {food.fat}F · {t("tracking.unitLabel")}{" "}
-                  {food.unit}
-                </span>
-                {food.brand ? <span className="muted">{t("tracking.brandLabel")}: {food.brand}</span> : null}
-              </div>
-            ))}
+              ))
+            )}
           </div>
-        )}
-      </section>
-
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.sectionWorkouts")}</h2>
-        <form onSubmit={addWorkoutEntry} className="form-stack">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("tracking.workoutDate")}
-              <input type="date" value={workoutDate} onChange={(e) => setWorkoutDate(e.target.value)} />
-            </label>
-            <label className="form-stack">
-              {t("tracking.workoutName")}
-              <input value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} />
-            </label>
-            <label className="form-stack">
-              {t("tracking.workoutDuration")}
-              <input type="number" min={0} value={workoutDuration} onChange={(e) => setWorkoutDuration(Number(e.target.value))} />
-            </label>
-          </div>
-          <label className="form-stack">
-            {t("tracking.workoutNotes")}
-            <textarea value={workoutNotes} onChange={(e) => setWorkoutNotes(e.target.value)} rows={2} />
-          </label>
-          <button type="submit" className="btn" style={{ width: "fit-content" }}>
-            {t("tracking.workoutAdd")}
-          </button>
-        </form>
-
-        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-          {workoutLog.length === 0 ? (
-            <p className="muted">{t("tracking.workoutEmpty")}</p>
-          ) : (
-            workoutLog.map((entry) => (
-              <div key={entry.id} className="feature-card">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                  <span>
-                    <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
-                  </span>
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    onClick={() => handleDeleteEntry("workoutLog", entry.id)}
-                  >
-                    {t("tracking.delete")}
-                  </button>
-                </div>
-                {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {foodModalOpen && (
         <div className="modal-backdrop" role="presentation" onClick={() => setFoodModalOpen(false)}>
