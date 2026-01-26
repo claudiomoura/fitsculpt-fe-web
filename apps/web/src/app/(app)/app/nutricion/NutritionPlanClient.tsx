@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
-import { addDays, buildMonthGrid, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
+import { addDays, buildMonthGrid, differenceInDays, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
 import {
   type Activity,
   type Goal,
@@ -524,6 +524,13 @@ export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: st
   return { ...plan, days: nextDays };
 }
 
+function getDayIndex(startDate: Date | null, selectedDate: Date, totalDays: number): number | null {
+  if (!startDate || totalDays === 0) return null;
+  const diff = differenceInDays(selectedDate, startDate);
+  const normalized = ((diff % totalDays) + totalDays) % totalDays;
+  return normalized;
+}
+
 export default function NutritionPlanClient({ mode = "suggested" }: NutritionPlanClientProps) {
   const { t, locale } = useLanguage();
   const router = useRouter();
@@ -658,7 +665,18 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     });
     return next;
   }, [planStartDate, planDays]);
-  const selectedPlanDay = planStartDate ? planDayMap.get(toDateKey(selectedDate)) ?? null : null;
+  const selectedDayIndex = useMemo(
+    () => getDayIndex(planStartDate, selectedDate, planDays.length),
+    [planStartDate, selectedDate, planDays.length]
+  );
+  const selectedPlanDay = useMemo(() => {
+    if (selectedDayIndex === null || !planStartDate || !planDays[selectedDayIndex]) {
+      return null;
+    }
+    const day = planDays[selectedDayIndex];
+    const date = day.date ? parseDate(day.date) : addDays(planStartDate, selectedDayIndex);
+    return date ? { day, index: selectedDayIndex, date } : null;
+  }, [planDays, planStartDate, selectedDayIndex]);
   const planEntries = useMemo(
     () =>
       planDays
@@ -694,8 +712,18 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   useEffect(() => {
     if (!planStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
-    setSelectedDate(new Date());
+    setSelectedDate(planStartDate);
   }, [planStartDate]);
+
+  useEffect(() => {
+    if (!planStartDate || selectedDayIndex === null) return;
+    console.debug("nutrition:selected-day", {
+      selectedDate: toDateKey(selectedDate),
+      planStartDate: toDateKey(planStartDate),
+      index: selectedDayIndex,
+      dayLabel: selectedPlanDay?.day.dayLabel ?? null,
+    });
+  }, [planStartDate, selectedDate, selectedDayIndex, selectedPlanDay?.day.dayLabel]);
 
   function buildShoppingList(activePlan: NutritionPlan) {
     const totals: Record<string, number> = {};
@@ -905,7 +933,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     setError(null);
     try {
       const startDate = toDateKey(startOfWeek(new Date()));
-      const mealsPerDay = Math.min(6, Math.max(3, Number(profile.nutritionPreferences.mealsPerDay ?? 3)));
+      const mealsPerDay = Math.min(6, Math.max(2, Number(profile.nutritionPreferences.mealsPerDay ?? 3)));
       const calories = plan?.dailyCalories ?? 2000;
       const response = await fetch("/api/ai/nutrition-plan", {
         method: "POST",
@@ -957,6 +985,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       }
       const planToSave = ensurePlanStartDate(generatedPlan);
+      setSavedPlan(planToSave);
+      setSelectedDate(parseDate(planToSave.startDate) ?? selectedDate);
       const updated = await updateUserProfile({ nutritionPlan: planToSave });
       setSavedPlan(updated.nutritionPlan ?? planToSave);
       setSaveMessage(t("nutrition.aiSuccess"));

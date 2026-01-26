@@ -1951,6 +1951,55 @@ function normalizeNutritionPlanDays(
   };
 }
 
+function normalizeNutritionMealsPerDay(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  expectedMealsPerDay: number
+): z.infer<typeof aiNutritionPlanResponseSchema> {
+  if (expectedMealsPerDay <= 0) return plan;
+  const days = plan.days.map((day) => {
+    const baseMeals = day.meals.map((meal) => ({
+      ...meal,
+      macros: { ...meal.macros },
+      ingredients: meal.ingredients?.map((ingredient) => ({ ...ingredient })),
+    }));
+    if (baseMeals.length === expectedMealsPerDay) {
+      return { ...day, meals: baseMeals };
+    }
+    if (baseMeals.length > expectedMealsPerDay) {
+      return { ...day, meals: baseMeals.slice(0, expectedMealsPerDay) };
+    }
+    const meals = [...baseMeals];
+    let index = 0;
+    while (meals.length < expectedMealsPerDay && baseMeals.length > 0) {
+      const source = baseMeals[index % baseMeals.length];
+      meals.push({
+        ...source,
+        macros: { ...source.macros },
+        ingredients: source.ingredients?.map((ingredient) => ({ ...ingredient })),
+      });
+      index += 1;
+    }
+    return { ...day, meals };
+  });
+  return { ...plan, days };
+}
+
+function logNutritionMealsPerDay(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  expectedMealsPerDay: number,
+  stage: "before_normalize" | "after_normalize"
+) {
+  app.log.info(
+    {
+      expectedMealsPerDay,
+      mealsPerDay: plan.days.map((day) => day.meals.length),
+      title: plan.title,
+      stage,
+    },
+    "nutrition plan meals per day"
+  );
+}
+
 function parseNutritionPlanPayload(payload: Record<string, unknown>, startDate: Date, daysCount: number) {
   try {
     return normalizeNutritionPlanDays(aiNutritionPlanResponseSchema.parse(payload), startDate, daysCount);
@@ -4351,6 +4400,10 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const expectedMealsPerDay = Math.min(data.mealsPerDay, 6);
     const daysCount = Math.min(data.daysCount ?? 7, 14);
     const startDate = parseDateInput(data.startDate) ?? new Date();
+    app.log.info(
+      { userId: user.id, mealsPerDay: expectedMealsPerDay, daysCount },
+      "nutrition plan request mealsPerDay"
+    );
     await prisma.aiPromptCache.deleteMany({
       where: {
         type: "nutrition",
@@ -4368,7 +4421,10 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
 
     if (template) {
       const normalized = normalizeNutritionPlanDays(template, startDate, daysCount);
-      const personalized = applyPersonalization(normalized, { name: data.name });
+      logNutritionMealsPerDay(normalized, expectedMealsPerDay, "before_normalize");
+      const normalizedMeals = normalizeNutritionMealsPerDay(normalized, expectedMealsPerDay);
+      logNutritionMealsPerDay(normalizedMeals, expectedMealsPerDay, "after_normalize");
+      const personalized = applyPersonalization(normalizedMeals, { name: data.name });
       assertNutritionMatchesRequest(personalized, expectedMealsPerDay, daysCount);
       await saveNutritionPlan(user.id, personalized, startDate, daysCount);
       await upsertRecipesFromPlan(personalized);
@@ -4413,7 +4469,11 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
             })),
           }))
         );
-        const personalized = applyPersonalization(scaled, { name: data.name });
+        logNutritionMealsPerDay(scaled, expectedMealsPerDay, "before_normalize");
+        const normalizedMeals = normalizeNutritionMealsPerDay(scaled, expectedMealsPerDay);
+        logNutritionMealsPerDay(normalizedMeals, expectedMealsPerDay, "after_normalize");
+        assertNutritionMatchesRequest(normalizedMeals, expectedMealsPerDay, daysCount);
+        const personalized = applyPersonalization(normalizedMeals, { name: data.name });
         await saveNutritionPlan(user.id, personalized, startDate, daysCount);
         await upsertRecipesFromPlan(personalized);
         await storeAiContent(user.id, "nutrition", "cache", personalized);
@@ -4681,11 +4741,14 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         })),
       }))
     );
-    assertNutritionMatchesRequest(scaledPayload, expectedMealsPerDay, daysCount);
-    await saveNutritionPlan(user.id, scaledPayload, startDate, daysCount);
-    await upsertRecipesFromPlan(scaledPayload);
-    await saveCachedAiPayload(cacheKey, "nutrition", scaledPayload);
-    const personalized = applyPersonalization(scaledPayload, { name: data.name });
+    logNutritionMealsPerDay(scaledPayload, expectedMealsPerDay, "before_normalize");
+    const normalizedMeals = normalizeNutritionMealsPerDay(scaledPayload, expectedMealsPerDay);
+    logNutritionMealsPerDay(normalizedMeals, expectedMealsPerDay, "after_normalize");
+    assertNutritionMatchesRequest(normalizedMeals, expectedMealsPerDay, daysCount);
+    await saveNutritionPlan(user.id, normalizedMeals, startDate, daysCount);
+    await upsertRecipesFromPlan(normalizedMeals);
+    await saveCachedAiPayload(cacheKey, "nutrition", normalizedMeals);
+    const personalized = applyPersonalization(normalizedMeals, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
     if (user.plan === "PRO" && aiResult) {
       const balanceBefore = effectiveTokens;

@@ -4,7 +4,7 @@ import type { NutritionPlanDetail } from "@/lib/types";
 import { getServerT } from "@/lib/serverI18n";
 
 async function getAppUrl() {
-  const headerList = headers();
+  const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   const protocol = headerList.get("x-forwarded-proto") ?? "http";
   if (!host) {
