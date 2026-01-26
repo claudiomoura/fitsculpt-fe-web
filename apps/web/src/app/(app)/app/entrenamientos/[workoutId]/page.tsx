@@ -5,8 +5,8 @@ import { getServerT } from "@/lib/serverI18n";
 
 async function getAppUrl() {
   const headerList = headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const protocol = headerList.get("x-forwarded-proto") ?? "http";
+  const host = (await headerList).get("x-forwarded-host") ?? (await headerList).get("host");
+  const protocol = (await headerList).get("x-forwarded-proto") ?? "http";
   if (!host) {
     return "http://localhost:3000";
   }

@@ -14,8 +14,9 @@ type WorkoutApiResponse = Workout & {
 };
 
 async function getAppUrl() {
-  const headerList = headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
+const headerList = await headers();
+const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
+
   const protocol = headerList.get("x-forwarded-proto") ?? "http";
   if (!host) {
     return "http://localhost:3000";
@@ -39,22 +40,27 @@ function parseRepsFromSets(value: WorkoutExercise["sets"]) {
 }
 
 function normalizeWorkout(data: WorkoutApiResponse): Workout {
-  const exercises = Array.isArray(data.exercises)
-    ? data.exercises.map((exercise, index) => ({
-        id: exercise.id ?? `${data.id}-${index}`,
-        exerciseId: exercise.exerciseId ?? exercise.id ?? null,
-        name: exercise.name ?? null,
-        sets: exercise.sets ?? null,
-        reps: exercise.reps ?? null,
-        loadKg: exercise.loadKg ?? null,
-        rpe: exercise.rpe ?? null,
-        rir: exercise.rir ?? null,
-        restSeconds: exercise.restSeconds ?? null,
-        notes: exercise.notes ?? null,
-        primaryMuscle: exercise.primaryMuscle ?? null,
-        lastLog: exercise.lastLog ?? null,
-      }))
-    : [];
+const exercises = Array.isArray(data.exercises)
+  ? data.exercises.map((exercise, index) => ({
+      id: exercise.id ?? `${data.id}-${index}`,
+      exerciseId: exercise.exerciseId ?? exercise.id ?? null,
+      name: exercise.name ?? null,
+      sets: exercise.sets ?? null,
+      reps: exercise.reps ?? null,
+      loadKg: exercise.loadKg ?? null,
+      rpe: exercise.rpe ?? null,
+      rir: exercise.rir ?? null,
+      restSeconds: exercise.restSeconds ?? null,
+      notes: exercise.notes ?? null,
+
+      // 👇 Esto es lo que te falta para que TypeScript deje de quejarse
+      muscleGroup: exercise.muscleGroup ?? exercise.primaryMuscle ?? exercise.primaryMuscle ?? null,
+
+      primaryMuscle: exercise.primaryMuscle ?? null,
+      lastLog: exercise.lastLog ?? null,
+    }))
+  : [];
+
 
   return {
     ...data,

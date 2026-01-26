@@ -13,8 +13,9 @@ import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLeve
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
-import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema";
-import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema";
+import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
+import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
+
 
 
 
@@ -1223,95 +1224,120 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
   if (params.focus !== "ppl" || params.level !== "intermediate" || params.daysPerWeek < 3) {
     return null;
   }
+  
   const daysPerWeek = Math.min(params.daysPerWeek, 7);
+  const ex = (
+  name: string,
+  sets: number,
+  reps: string,
+  tempo = "2-0-1",
+  rest = 90,
+  notes = "Técnica limpia, controla la bajada."
+) => ({ name, sets, reps, tempo, rest, notes });
+
   const pushDay = {
+    date: null,
     label: "Día 1",
     focus: "Push",
     duration: params.timeAvailableMinutes,
-    exercises: [
-      { name: "Press banca", sets: "4", reps: "6-10" },
-      { name: "Press militar", sets: "3", reps: "8-10" },
-      { name: "Fondos", sets: "3", reps: "8-12" },
-      { name: "Elevaciones laterales", sets: "3", reps: "12-15" },
-      { name: "Extensión tríceps", sets: "3", reps: "10-12" },
-    ],
+exercises: [
+  ex("Press banca", 4, "6-10", "2-0-1", 120, "Escápulas atrás, pausa suave abajo."),
+  ex("Press militar", 3, "8-10", "2-0-1", 90, "Glúteos y core firmes, no hiperextender."),
+  ex("Fondos", 3, "8-12", "2-0-1", 90, "Rango controlado, sin balanceo."),
+  ex("Elevaciones laterales", 3, "12-15", "2-0-2", 60, "Codos suaves, sin impulso."),
+  ex("Extensión tríceps", 3, "10-12", "2-0-2", 60, "Bloquea sin dolor de codo."),
+],
+
   };
   const pullDay = {
-    label: "Día 2",
-    focus: "Pull",
-    duration: params.timeAvailableMinutes,
-    exercises: [
-      { name: "Remo con barra", sets: "4", reps: "6-10" },
-      { name: "Dominadas", sets: "3", reps: "6-10" },
-      { name: "Remo en polea", sets: "3", reps: "10-12" },
-      { name: "Curl bíceps", sets: "3", reps: "10-12" },
-      { name: "Face pull", sets: "3", reps: "12-15" },
-    ],
-  };
-  const legsDay = {
-    label: "Día 3",
-    focus: "Legs",
-    duration: params.timeAvailableMinutes,
-    exercises: [
-      { name: "Sentadilla", sets: "4", reps: "6-10" },
-      { name: "Peso muerto rumano", sets: "3", reps: "8-10" },
-      { name: "Hip thrust", sets: "3", reps: "10-12" },
-      { name: "Prensa", sets: "3", reps: "10-12" },
-      { name: "Elevaciones de gemelo", sets: "3", reps: "12-15" },
-    ],
-  };
-  const pushDayVariation = {
-    label: "Día 4",
-    focus: "Push (variación)",
-    duration: params.timeAvailableMinutes,
-    exercises: [
-      { name: "Press inclinado con mancuernas", sets: "4", reps: "8-10" },
-      { name: "Press Arnold", sets: "3", reps: "8-10" },
-      { name: "Aperturas con mancuernas", sets: "3", reps: "12-15" },
-      { name: "Elevaciones frontales", sets: "3", reps: "12-15" },
-      { name: "Jalón de tríceps con cuerda", sets: "3", reps: "10-12" },
-    ],
-  };
-  const pullDayVariation = {
-    label: "Día 5",
-    focus: "Pull (variación)",
-    duration: params.timeAvailableMinutes,
-    exercises: [
-      { name: "Remo con mancuerna a una mano", sets: "4", reps: "8-10" },
-      { name: "Jalón al pecho en polea", sets: "3", reps: "8-12" },
-      { name: "Remo en máquina", sets: "3", reps: "10-12" },
-      { name: "Curl martillo", sets: "3", reps: "10-12" },
-      { name: "Encogimientos de trapecio", sets: "3", reps: "12-15" },
-    ],
-  };
-  const legsDayVariation = {
-    label: "Día 6",
-    focus: "Legs (variación)",
-    duration: params.timeAvailableMinutes,
-    exercises: [
-      { name: "Sentadilla frontal", sets: "4", reps: "6-10" },
-      { name: "Peso muerto sumo", sets: "3", reps: "6-10" },
-      { name: "Zancada búlgara", sets: "3", reps: "10-12" },
-      { name: "Curl femoral", sets: "3", reps: "10-12" },
-      { name: "Elevaciones de gemelo sentado", sets: "3", reps: "12-15" },
-    ],
-  };
-  const recoveryDay = {
-    label: "Día 7",
-    focus: "Cardio + movilidad",
-    duration: Math.min(params.timeAvailableMinutes, 40),
-    exercises: [
-      { name: "Caminata inclinada en cinta", sets: "1", reps: "20 min" },
-      { name: "Plancha frontal", sets: "3", reps: "30-45s" },
-      { name: "Movilidad de cadera y hombro", sets: "1", reps: "10 min" },
-    ],
-  };
+  date: null,
+  label: "Día 2",
+  focus: "Pull",
+  duration: params.timeAvailableMinutes,
+  exercises: [
+    ex("Remo con barra", 4, "6-10", "2-0-1", 120, "Espalda neutra, tira con codos."),
+    ex("Dominadas", 3, "6-10", "2-1-1", 120, "Controla la bajada, no balancees."),
+    ex("Remo en polea", 3, "10-12", "2-1-1", 90, "Pecho arriba, pausa al final."),
+    ex("Curl bíceps", 3, "10-12", "2-0-2", 75, "Sin balanceo, codos fijos."),
+    ex("Face pull", 3, "12-15", "2-1-2", 60, "Tira a la cara, hombros atrás."),
+  ],
+};
+
+const legsDay = {
+  date: null,
+  label: "Día 3",
+  focus: "Legs",
+  duration: params.timeAvailableMinutes,
+  exercises: [
+    ex("Sentadilla", 4, "6-10", "3-0-1", 150, "Profundidad segura, core firme."),
+    ex("Peso muerto rumano", 3, "8-10", "3-1-1", 120, "Cadera atrás, barra pegada."),
+    ex("Hip thrust", 3, "10-12", "2-1-1", 120, "Pausa arriba, evita hiperextender."),
+    ex("Prensa", 3, "10-12", "2-0-2", 120, "Controla recorrido, no bloquees rodillas."),
+    ex("Elevaciones de gemelo", 3, "12-15", "2-1-2", 60, "Pausa arriba y estira abajo."),
+  ],
+};
+
+const pushDayVariation = {
+  date: null,
+  label: "Día 4",
+  focus: "Push (variación)",
+  duration: params.timeAvailableMinutes,
+  exercises: [
+    ex("Press inclinado con mancuernas", 4, "8-10", "2-0-1", 120, "Recorrido completo, control."),
+    ex("Press Arnold", 3, "8-10", "2-0-1", 90, "No arquees la espalda, core firme."),
+    ex("Aperturas con mancuernas", 3, "12-15", "2-1-2", 75, "Estira sin dolor, codos suaves."),
+    ex("Elevaciones frontales", 3, "12-15", "2-0-2", 60, "Sin impulso, sube hasta ojos."),
+    ex("Jalón de tríceps con cuerda", 3, "10-12", "2-0-2", 60, "Separa cuerda al final, control."),
+  ],
+};
+
+const pullDayVariation = {
+  date: null,
+  label: "Día 5",
+  focus: "Pull (variación)",
+  duration: params.timeAvailableMinutes,
+  exercises: [
+    ex("Remo con mancuerna a una mano", 4, "8-10", "2-1-1", 120, "Cadera estable, tira con codo."),
+    ex("Jalón al pecho en polea", 3, "8-12", "2-1-1", 90, "Pecho arriba, baja al pecho."),
+    ex("Remo en máquina", 3, "10-12", "2-1-1", 90, "Pausa al final, sin encoger hombros."),
+    ex("Curl martillo", 3, "10-12", "2-0-2", 75, "Control, muñeca neutra."),
+    ex("Encogimientos de trapecio", 3, "12-15", "2-1-2", 60, "Sube recto, pausa arriba."),
+  ],
+};
+
+const legsDayVariation = {
+  date: null,
+  label: "Día 6",
+  focus: "Legs (variación)",
+  duration: params.timeAvailableMinutes,
+  exercises: [
+    ex("Sentadilla frontal", 4, "6-10", "3-0-1", 150, "Codos altos, torso erguido."),
+    ex("Peso muerto sumo", 3, "6-10", "2-0-1", 150, "Rodillas afuera, espalda neutra."),
+    ex("Zancada búlgara", 3, "10-12", "2-0-2", 120, "Rodilla estable, baja controlado."),
+    ex("Curl femoral", 3, "10-12", "2-1-2", 90, "Pausa contracción, controla bajada."),
+    ex("Elevaciones de gemelo sentado", 3, "12-15", "2-1-2", 60, "Rango completo, pausa arriba."),
+  ],
+};
+
+const recoveryDay = {
+  date: null,
+  label: "Día 7",
+  focus: "Cardio + movilidad",
+  duration: Math.min(params.timeAvailableMinutes, 40),
+  exercises: [
+    ex("Caminata inclinada en cinta", 1, "20 min", "1-0-1", 0, "Ritmo moderado, respiración controlada."),
+    ex("Plancha frontal", 3, "30-45s", "1-0-1", 45, "Cuerpo alineado, abdomen activo."),
+    ex("Movilidad de cadera y hombro", 1, "10 min", "1-0-1", 0, "Movimientos suaves, sin dolor."),
+  ],
+};
+
   const baseDays = [pushDay, pullDay, legsDay];
   if (daysPerWeek === 3) {
     return {
       title: "Rutina Push/Pull/Legs intermedio",
       days: baseDays,
       notes: "Plan base PPL. Ajusta cargas y descanso según progreso.",
+      startDate: null,
     };
   }
   if (daysPerWeek === 4) {
@@ -1319,6 +1345,7 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
       title: "Rutina Push/Pull/Legs intermedio",
       days: [...baseDays, pushDayVariation],
       notes: "Plan PPL con variación extra de empuje.",
+      startDate: null,
     };
   }
   if (daysPerWeek === 5) {
@@ -1326,6 +1353,7 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
       title: "Rutina Push/Pull/Legs intermedio",
       days: [...baseDays, pushDayVariation, pullDayVariation],
       notes: "Plan PPL con variaciones extra de push y pull.",
+      startDate: null,
     };
   }
   if (daysPerWeek === 6) {
@@ -1333,12 +1361,14 @@ function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
       title: "Rutina Push/Pull/Legs intermedio",
       days: [...baseDays, pushDayVariation, pullDayVariation, legsDayVariation],
       notes: "Plan PPL completo con dobles estímulos semanales.",
+      startDate: null,
     };
   }
   return {
     title: "Rutina Push/Pull/Legs intermedio",
     days: [...baseDays, pushDayVariation, pullDayVariation, legsDayVariation, recoveryDay],
     notes: "Plan PPL completo con día extra de recuperación activa.",
+    startDate: null,
   };
 }
 
@@ -1348,33 +1378,29 @@ function buildNutritionTemplate(
   if (params.mealsPerDay !== 3 || params.goal !== "cut") {
     return null;
   }
-  const template = {
-    title: "Plan semanal de nutrición",
-    dailyCalories: params.calories,
-    proteinG: Math.round(params.calories * 0.3 / 4),
-    fatG: Math.round(params.calories * 0.25 / 9),
-    carbsG: Math.round(params.calories * 0.45 / 4),
-    days: [
-      {
-        dayLabel: "Lunes",
-        meals: [
-          {
-            type: "breakfast",
-            title: "Yogur griego con avena y fruta",
-            description: "Desayuno mediterráneo sencillo con proteína moderada.",
-            macros: {
-              calories: 420,
-              protein: 25,
-              carbs: 45,
-              fats: 12,
-            },
-            ingredients: [
-              { name: "Yogur griego", grams: 200 },
-              { name: "Avena", grams: 50 },
-              { name: "Fruta fresca", grams: 150 },
-              { name: "Nueces", grams: 20 },
-            ],
-          },
+const template = {
+  title: "Plan semanal de nutrición",
+  startDate: null,
+  dailyCalories: params.calories,
+  proteinG: Math.round((params.calories * 0.3) / 4),
+  fatG: Math.round((params.calories * 0.25) / 9),
+  carbsG: Math.round((params.calories * 0.45) / 4),
+  days: [
+    {
+      dayLabel: "Lunes",
+      meals: [
+        {
+          type: "breakfast",
+          title: "Yogur griego con avena y fruta",
+          description: "Desayuno mediterráneo sencillo con proteína moderada.",
+          macros: { calories: 420, protein: 25, carbs: 45, fats: 12 },
+          ingredients: [
+            { name: "Yogur griego", grams: 200 },
+            { name: "Avena", grams: 50 },
+            { name: "Fruta fresca", grams: 150 },
+            { name: "Nueces", grams: 20 },
+          ],
+        },
           {
             type: "lunch",
             title: "Pollo a la plancha con arroz y ensalada",
@@ -1412,7 +1438,8 @@ function buildNutritionTemplate(
         ],
       },
     ],
-  } satisfies z.infer<typeof aiNutritionPlanResponseSchema>;
+  shoppingList: null,
+} satisfies z.infer<typeof aiNutritionPlanResponseSchema>;
   return template;
 }
 
@@ -1545,6 +1572,7 @@ function applyRecipeScalingToPlan(
 async function upsertRecipesFromPlan(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
   const meals = plan.days.flatMap((day) => day.meals);
   if (meals.length === 0) return;
+
   const recipeSeeds = meals.map((meal) => ({
     name: meal.title.trim(),
     description: meal.description ?? null,
@@ -1553,12 +1581,17 @@ async function upsertRecipesFromPlan(plan: z.infer<typeof aiNutritionPlanRespons
     carbs: meal.macros.carbs,
     fat: meal.macros.fats,
     steps: ["Preparar los ingredientes.", "Cocinar según preferencia.", "Servir."],
-    ingredients: meal.ingredients ?? [],
+    ingredients: meal.ingredients ?? null,
   }));
 
   await prisma.$transaction(
-    recipeSeeds.map((recipe) =>
-      prisma.recipe.upsert({
+    recipeSeeds.map((recipe) => {
+      const ingredientCreates = (recipe.ingredients ?? []).map((ingredient) => ({
+        name: ingredient.name,
+        grams: ingredient.grams,
+      }));
+
+      return prisma.recipe.upsert({
         where: { name: recipe.name },
         create: {
           name: recipe.name,
@@ -1568,12 +1601,7 @@ async function upsertRecipesFromPlan(plan: z.infer<typeof aiNutritionPlanRespons
           carbs: recipe.carbs,
           fat: recipe.fat,
           steps: recipe.steps,
-          ingredients: {
-            create: recipe.ingredients.map((ingredient) => ({
-              name: ingredient.name,
-              grams: ingredient.grams,
-            })),
-          },
+          ingredients: ingredientCreates.length ? { create: ingredientCreates } : undefined,
         },
         update: {
           description: recipe.description,
@@ -1584,16 +1612,14 @@ async function upsertRecipesFromPlan(plan: z.infer<typeof aiNutritionPlanRespons
           steps: recipe.steps,
           ingredients: {
             deleteMany: {},
-            create: recipe.ingredients.map((ingredient) => ({
-              name: ingredient.name,
-              grams: ingredient.grams,
-            })),
+            ...(ingredientCreates.length ? { create: ingredientCreates } : {}),
           },
         },
-      })
-    )
+      });
+    })
   );
 }
+
 
 async function saveNutritionPlan(
   userId: string,
@@ -1971,7 +1997,8 @@ function ensureNutritionDayCount(
       meals: source.meals.map((meal) => ({
         ...meal,
         macros: { ...meal.macros },
-        ingredients: meal.ingredients?.map((ingredient) => ({ ...ingredient })),
+     ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+
       })),
     });
   }
@@ -2005,7 +2032,8 @@ function normalizeNutritionMealsPerDay(
     const baseMeals = day.meals.map((meal) => ({
       ...meal,
       macros: { ...meal.macros },
-      ingredients: meal.ingredients?.map((ingredient) => ({ ...ingredient })),
+    ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+
     }));
     if (baseMeals.length === expectedMealsPerDay) {
       return { ...day, meals: baseMeals };
@@ -2020,7 +2048,8 @@ function normalizeNutritionMealsPerDay(
       meals.push({
         ...source,
         macros: { ...source.macros },
-        ingredients: source.ingredients?.map((ingredient) => ({ ...ingredient })),
+  ingredients: source.ingredients ? source.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+
       });
       index += 1;
     }
