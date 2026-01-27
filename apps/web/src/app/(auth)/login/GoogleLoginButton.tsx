@@ -29,39 +29,14 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const startGoogleAuth = async (promo: string | null) => {
+  const startGoogleAuth = (promo: string | null) => {
     setLoading(true);
     setError(null);
-    try {
-      const startGoogleAuth = (promo: string | null) => {
-  setLoading(true);
-  setError(null);
 
-  const url = new URL("/api/auth/google/start", window.location.origin);
-  if (promo) url.searchParams.set("promoCode", promo);
+    const url = new URL("/api/auth/google/start", window.location.origin);
+    if (promo) url.searchParams.set("promoCode", promo);
 
-  window.location.href = url.toString();
-};
-
-    } catch {
-      setError(labels.oauthError);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleButtonClick = () => {
-    if (!promoCode) {
-      setShowPromo(true);
-      return;
-    }
-    if (promoCode.trim() !== PROMO_CODE) {
-      setError(labels.promoError);
-      setShowPromo(true);
-      return;
-    }
-    startGoogleAuth(promoCode.trim());
-
+    window.location.href = url.toString();
   };
 
   const handleConfirmPromo = () => {
@@ -69,12 +44,15 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
       setError(labels.promoError);
       return;
     }
-   startGoogleAuth(promoCode.trim());
-
+    startGoogleAuth(promoCode.trim());
   };
 
   const handleSkipPromo = () => {
-    void startGoogleAuth(null);
+    startGoogleAuth(null);
+  };
+
+  const handleButtonClick = () => {
+    setShowPromo(true);
   };
 
   return (
@@ -87,7 +65,12 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
         disabled={loading}
       >
         <span className="google-logo" aria-hidden="true">
-          <svg viewBox="0 0 48 48" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+          <svg
+            viewBox="0 0 48 48"
+            width="18"
+            height="18"
+            xmlns="http://www.w3.org/2000/svg"
+          >
             <path
               fill="#EA4335"
               d="M24 9.5c3.54 0 6.72 1.22 9.23 3.62l6.9-6.9C35.9 2.36 30.28 0 24 0 14.62 0 6.51 5.38 2.56 13.22l8.22 6.38C12.8 13.14 17.9 9.5 24 9.5z"
@@ -113,7 +96,12 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
       {error ? <p className="muted">{error}</p> : null}
 
       {showPromo ? (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="google-promo-title">
+        <div
+          className="modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="google-promo-title"
+        >
           <div className="modal-card">
             <div style={{ display: "grid", gap: 6 }}>
               <h3 id="google-promo-title" style={{ margin: 0 }}>
@@ -140,13 +128,29 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
             </div>
 
             <div className="modal-actions" style={{ marginTop: 20 }}>
-              <button type="button" className="btn" onClick={handleConfirmPromo} disabled={loading}>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleConfirmPromo}
+                disabled={loading}
+              >
                 {labels.confirm}
               </button>
-              <button type="button" className="btn secondary" onClick={handleSkipPromo} disabled={loading}>
+
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={handleSkipPromo}
+                disabled={loading}
+              >
                 {labels.skip}
               </button>
-              <button type="button" className="btn secondary" onClick={() => setShowPromo(false)}>
+
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setShowPromo(false)}
+              >
                 {labels.cancel}
               </button>
             </div>

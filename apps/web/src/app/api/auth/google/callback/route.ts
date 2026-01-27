@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBackendUrl } from "@/lib/getBackendUrl";
+import { getBackendUrl } from "@/lib/backend";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -11,24 +11,26 @@ export async function GET(req: Request) {
   }
 
   const backendUrl = getBackendUrl();
-  const res = await fetch(`${backendUrl}/auth/google/exchange`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code, state }),
-    cache: "no-store",
-  });
+  const cbUrl = new URL(`${backendUrl}/auth/google/callback`);
+  cbUrl.searchParams.set("code", code);
+  cbUrl.searchParams.set("state", state);
+  cbUrl.searchParams.set("mode", "bff");
 
+  const res = await fetch(cbUrl.toString(), { cache: "no-store" });
   if (!res.ok) {
-    return NextResponse.redirect(new URL("/login?error=google_exchange", url.origin));
+    return NextResponse.redirect(new URL("/login?error=google_callback", url.origin));
   }
 
-  const data = (await res.json()) as { token: string };
+  const data = (await res.json()) as { token?: string };
+  if (!data.token) {
+    return NextResponse.redirect(new URL("/login?error=google_callback", url.origin));
+  }
 
   const response = NextResponse.redirect(new URL("/app", url.origin));
   response.cookies.set("fs_token", data.token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
     path: "/",
   });
 
