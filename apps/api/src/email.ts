@@ -10,6 +10,9 @@ type EmailPayload = {
 const env = getEnv();
 
 export async function sendEmail(payload: EmailPayload) {
+    console.log("[email] provider =", env.EMAIL_PROVIDER);
+  console.log("[email] from =", env.EMAIL_FROM);
+  console.log("[email] hasKey =", Boolean(env.RESEND_API_KEY));
   if (env.EMAIL_PROVIDER === "resend") {
     if (!env.RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is required");
@@ -22,10 +25,11 @@ export async function sendEmail(payload: EmailPayload) {
       },
       body: JSON.stringify({
         from: env.EMAIL_FROM,
-        to: payload.to,
+        to: [payload.to],
         subject: payload.subject,
         html: payload.html,
         text: payload.text,
+        reply_to: "info@fitsculpt.pl",
       }),
     });
     if (!response.ok) {

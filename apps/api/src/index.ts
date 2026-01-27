@@ -3251,17 +3251,96 @@ async function createVerificationToken(userId: string) {
 }
 
 async function sendVerificationEmail(email: string, token: string) {
-  const verifyUrl = `${env.APP_BASE_URL}/verify-email?token=${token}`;
-  const subject = "Verifica tu email en FitSculpt";
-  const text = `Hola! Verifica tu email aquí: ${verifyUrl}`;
-  const html = `<p>Hola!</p><p>Verifica tu email aquí: <a href="${verifyUrl}">${verifyUrl}</a></p>`;
-  await sendEmail({
-    to: email,
-    subject,
-    text,
-    html,
-  });
+  const verifyUrl = new URL("/verify-email", env.APP_BASE_URL);
+  verifyUrl.searchParams.set("token", token);
+
+  const subject = "Confirma tu email en FitSculpt";
+
+  const text = [
+    "Hola,",
+    "",
+    "Gracias por registrarte en FitSculpt.",
+    "Para activar tu cuenta, confirma tu email en este enlace:",
+    "",
+    verifyUrl.toString(),
+    "",
+    "Si no has solicitado esta cuenta, puedes ignorar este mensaje.",
+  ].join("\n");
+
+  const html = `
+  <div style="margin:0;padding:0;background:#0b0f19">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">
+      Confirma tu email para activar tu cuenta de FitSculpt.
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b0f19;padding:28px 12px">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#111827;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
+            <tr>
+              <td style="padding:22px 22px 10px 22px">
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#fff;font-size:18px;font-weight:700">
+                  FitSculpt
+                </div>
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#9ca3af;font-size:13px;margin-top:6px">
+                  Confirma tu email para activar tu cuenta
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:8px 22px 22px 22px">
+                <h1 style="margin:0 0 10px 0;font-family:Arial,Helvetica,sans-serif;color:#fff;font-size:22px;line-height:1.25">
+                  Confirma tu email
+                </h1>
+
+                <p style="margin:0 0 14px 0;font-family:Arial,Helvetica,sans-serif;color:#e5e7eb;font-size:14px;line-height:1.6">
+                  Hola, gracias por registrarte en FitSculpt. Pulsa el botón para verificar tu email y empezar.
+                </p>
+
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin:16px 0 14px 0">
+                  <tr>
+                    <td style="border-radius:10px;background:#f59e0b">
+                      <a href="${verifyUrl.toString()}"
+                         style="display:inline-block;padding:12px 16px;font-family:Arial,Helvetica,sans-serif;color:#111827;font-size:14px;font-weight:700;text-decoration:none">
+                        Verificar email
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="margin:0 0 10px 0;font-family:Arial,Helvetica,sans-serif;color:#9ca3af;font-size:12px;line-height:1.6">
+                  Si el botón no funciona, copia y pega este enlace en tu navegador:
+                </p>
+
+                <p style="margin:0 0 18px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.6">
+                  <a href="${verifyUrl.toString()}" style="color:#93c5fd;text-decoration:underline;word-break:break-all">
+                    ${verifyUrl.toString()}
+                  </a>
+                </p>
+
+                <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:18px 0" />
+
+                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;color:#9ca3af;font-size:12px;line-height:1.6">
+                  Si no has solicitado esta cuenta, ignora este mensaje.
+                </p>
+              </td>
+            </tr>
+
+          </table>
+
+          <div style="font-family:Arial,Helvetica,sans-serif;color:#6b7280;font-size:11px;margin-top:14px">
+            © ${new Date().getFullYear()} FitSculpt
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  await sendEmail({ to: email, subject, text, html });
 }
+
 
 async function logSignupAttempt(data: { email?: string; ipAddress?: string; success: boolean }) {
   await prisma.signupAttempt.create({
@@ -3909,6 +3988,89 @@ app.get("/auth/google/callback", async (request, reply) => {
   reply.setCookie("fs_token", token, buildCookieOptions());
 
 return reply.redirect(`${env.APP_BASE_URL}/app`, 302);
+});
+
+app.post("/auth/google/exchange", async (request, reply) => {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI) {
+    return reply.status(501).send({ error: "GOOGLE_OAUTH_NOT_CONFIGURED" });
+  }
+
+  const bodySchema = z.object({ code: z.string().min(1), state: z.string().min(1) });
+  const { code, state } = bodySchema.parse(request.body);
+
+  const stateHash = hashToken(state);
+  const storedState = await prisma.oAuthState.findUnique({ where: { stateHash } });
+  if (!storedState || storedState.expiresAt.getTime() < Date.now()) {
+    if (storedState) await prisma.oAuthState.delete({ where: { id: storedState.id } });
+    return reply.status(400).send({ error: "INVALID_OAUTH_STATE" });
+  }
+  await prisma.oAuthState.delete({ where: { id: storedState.id } });
+
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code,
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: env.GOOGLE_REDIRECT_URI,
+      grant_type: "authorization_code",
+    }).toString(),
+  });
+
+  if (!tokenResponse.ok) {
+    return reply.status(400).send({ error: "GOOGLE_TOKEN_EXCHANGE_FAILED" });
+  }
+
+  const tokenJson = (await tokenResponse.json()) as { id_token?: string };
+  const idToken = tokenJson.id_token;
+  if (!idToken) return reply.status(400).send({ error: "GOOGLE_ID_TOKEN_MISSING" });
+
+  const infoResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+  if (!infoResponse.ok) return reply.status(400).send({ error: "GOOGLE_PROFILE_FETCH_FAILED" });
+
+  const info = (await infoResponse.json()) as {
+    sub: string;
+    email?: string;
+    email_verified?: string;
+    name?: string;
+  };
+
+  if (!info.email || info.email_verified !== "true") {
+    return reply.status(403).send({ error: "GOOGLE_EMAIL_NOT_VERIFIED" });
+  }
+
+  let user = await prisma.user.findUnique({ where: { email: info.email } });
+  if (user?.deletedAt) return reply.status(403).send({ error: "ACCOUNT_DELETED" });
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: { email: info.email, name: info.name, provider: "google", emailVerifiedAt: new Date() },
+    });
+  } else if (user.passwordHash && !user.emailVerifiedAt) {
+    return reply.status(403).send({ error: "EMAIL_NOT_VERIFIED" });
+  }
+
+  if (user.isBlocked) return reply.status(403).send({ error: "USER_BLOCKED" });
+
+  const providerMatch = await prisma.authProvider.findFirst({
+    where: { provider: "google", providerUserId: info.sub },
+  });
+
+  if (providerMatch && providerMatch.userId !== user.id) {
+    return reply.status(403).send({ error: "GOOGLE_ACCOUNT_LINKED" });
+  }
+
+  if (!providerMatch) {
+    await prisma.authProvider.create({
+      data: { userId: user.id, provider: "google", providerUserId: info.sub },
+    });
+  }
+
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+
+  const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
+  return reply.status(200).send({ token });
 });
 
 

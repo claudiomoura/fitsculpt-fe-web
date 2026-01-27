@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getBackendUrl } from "@/lib/backend";
+//import { getBackendUrl } from "@/lib/backend";
 
 const PROMO_CODE = "FitSculpt-100%";
 
@@ -33,27 +33,16 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
     setLoading(true);
     setError(null);
     try {
-      const url = new URL(`${getBackendUrl()}/auth/google/start`);
-      if (promo) {
-        url.searchParams.set("promoCode", promo);
-      }
-      const response = await fetch(url.toString(), { credentials: "include" });
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as { error?: string } | null;
-        if (data?.error === "INVALID_PROMO_CODE") {
-          setError(labels.promoError);
-          setShowPromo(true);
-          return;
-        }
-        setError(labels.oauthError);
-        return;
-      }
-      const data = (await response.json()) as { url?: string };
-      if (!data.url) {
-        setError(labels.oauthError);
-        return;
-      }
-      window.location.href = data.url;
+      const startGoogleAuth = (promo: string | null) => {
+  setLoading(true);
+  setError(null);
+
+  const url = new URL("/api/auth/google/start", window.location.origin);
+  if (promo) url.searchParams.set("promoCode", promo);
+
+  window.location.href = url.toString();
+};
+
     } catch {
       setError(labels.oauthError);
     } finally {
@@ -71,7 +60,8 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
       setShowPromo(true);
       return;
     }
-    void startGoogleAuth(promoCode.trim());
+    startGoogleAuth(promoCode.trim());
+
   };
 
   const handleConfirmPromo = () => {
@@ -79,7 +69,8 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
       setError(labels.promoError);
       return;
     }
-    void startGoogleAuth(promoCode.trim());
+   startGoogleAuth(promoCode.trim());
+
   };
 
   const handleSkipPromo = () => {
