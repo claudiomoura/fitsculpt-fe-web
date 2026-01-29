@@ -5,6 +5,9 @@
     "login": "Iniciar sesión",
     "register": "Crear cuenta",
     "goToApp": "Ir a la app",
+    "today": "Hoy",
+    "plan": "Plan",
+    "log": "Registrar",
     "dashboard": "Panel",
     "workouts": "Entrenamientos",
     "profile": "Perfil",
@@ -16,6 +19,7 @@
     "tracking": "Seguimiento",
     "feed": "Feed",
     "library": "Biblioteca",
+    "billing": "Pro y pagos",
     "admin": "Admin",
     "adminUsers": "Usuarios",
     "logout": "Cerrar sesión"
@@ -50,6 +54,30 @@
     "viewWeek": "Semana",
     "viewMonth": "Mes",
     "viewAgenda": "Agenda"
+  },
+  "quickActions": {
+    "title": "Acciones rápidas",
+    "subtitle": "Registra algo en segundos y sigue el ritmo.",
+    "addFood": "Añadir comida",
+    "addFoodDescription": "Registra comidas y macros (próximamente).",
+    "addSet": "Añadir set",
+    "addSetDescription": "Registra un set de entrenamiento (próximamente).",
+    "recordWeight": "Registrar peso",
+    "recordWeightDescription": "Actualiza tu último check-in en Seguimiento.",
+    "comingSoon": "Próximamente",
+    "open": "Abrir"
+  },
+  "today": {
+    "title": "Hoy",
+    "subtitle": "Tu centro móvil para lo más importante de ahora.",
+    "focusTitle": "Resumen rápido",
+    "focusSubtitle": "Una vista rápida para mantenerte en ruta.",
+    "focusPlan": "Entrenamiento",
+    "focusPlanValue": "Plan listo para hoy",
+    "focusNutrition": "Nutrición",
+    "focusNutritionValue": "Macros alineadas con tu objetivo",
+    "focusRecovery": "Recuperación",
+    "focusRecoveryValue": "Hidratación + descanso"
   },
   "exerciseDetail": {
     "tabExecution": "Ejecución",
