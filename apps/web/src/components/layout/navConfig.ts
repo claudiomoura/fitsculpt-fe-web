@@ -4,96 +4,102 @@ export type NavItem = {
   id: string;
   href: string;
   labelKey: string;
-  section: NavSection;
-  showInTopNav?: boolean;
-  adminOnly?: boolean;
 };
 
-export const NAV_SECTIONS: Array<{ id: NavSection; labelKey: string }> = [
-  { id: "summary", labelKey: "navSections.summary" },
-  { id: "training", labelKey: "navSections.training" },
-  { id: "nutrition", labelKey: "navSections.nutrition" },
-  { id: "account", labelKey: "navSections.account" },
-  { id: "admin", labelKey: "navSections.admin" },
-];
+export type NavSectionGroup = {
+  id: NavSection;
+  labelKey: string;
+  items: NavItem[];
+};
 
-export const NAV_ITEMS: NavItem[] = [
+export type MobileTabAction = "quickActions";
+
+export type MobileTab = {
+  id: string;
+  href?: string;
+  labelKey: string;
+  icon: "sparkles" | "dumbbell" | "book" | "info" | "check";
+  action?: MobileTabAction;
+  badgeCount?: number;
+};
+
+export const mainTabsMobile: MobileTab[] = [
   {
-    id: "dashboard",
-    href: "/app",
-    labelKey: "nav.dashboard",
-    section: "summary",
-    showInTopNav: true,
+    id: "today",
+    href: "/app/hoy",
+    labelKey: "nav.today",
+    icon: "sparkles",
   },
   {
-    id: "tracking",
-    href: "/app/seguimiento",
-    labelKey: "nav.tracking",
-    section: "summary",
-  },
-  {
-    id: "feed",
-    href: "/app/feed",
-    labelKey: "nav.feed",
-    section: "summary",
-  },
-  {
-    id: "training-plan",
+    id: "plan",
     href: "/app/entrenamiento",
-    labelKey: "nav.trainingPlan",
-    section: "training",
-    showInTopNav: true,
+    labelKey: "nav.plan",
+    icon: "dumbbell",
   },
   {
-    id: "nutrition",
-    href: "/app/nutricion",
-    labelKey: "nav.nutrition",
-    section: "nutrition",
-    showInTopNav: true,
-  },
-  {
-    id: "diet-plans",
-    href: "/app/dietas",
-    labelKey: "nav.dietPlans",
-    section: "nutrition",
+    id: "log",
+    labelKey: "nav.log",
+    icon: "check",
+    action: "quickActions",
   },
   {
     id: "library",
     href: "/app/biblioteca",
     labelKey: "nav.library",
-    section: "training",
-    showInTopNav: true,
-  },
-  {
-    id: "macros",
-    href: "/app/macros",
-    labelKey: "nav.macros",
-    section: "nutrition",
+    icon: "book",
   },
   {
     id: "profile",
     href: "/app/profile",
     labelKey: "nav.profile",
-    section: "account",
+    icon: "info",
+  },
+];
+
+export const sidebarUser: NavSectionGroup[] = [
+  {
+    id: "summary",
+    labelKey: "navSections.summary",
+    items: [
+      { id: "dashboard", href: "/app", labelKey: "nav.dashboard" },
+      { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
+      { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
+    ],
   },
   {
-    id: "settings",
-    href: "/app/settings",
-    labelKey: "nav.settings",
-    section: "account",
+    id: "training",
+    labelKey: "navSections.training",
+    items: [
+      { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingPlan" },
+      { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
+    ],
   },
   {
-    id: "admin-dashboard",
-    href: "/app/admin",
-    labelKey: "nav.admin",
-    section: "admin",
-    adminOnly: true,
+    id: "nutrition",
+    labelKey: "navSections.nutrition",
+    items: [
+      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutrition" },
+      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.dietPlans" },
+      { id: "macros", href: "/app/macros", labelKey: "nav.macros" },
+    ],
   },
   {
-    id: "admin-users",
-    href: "/app/admin/users",
-    labelKey: "nav.adminUsers",
-    section: "admin",
-    adminOnly: true,
+    id: "account",
+    labelKey: "navSections.account",
+    items: [
+      { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
+      { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
+    ],
+  },
+];
+
+export const sidebarAdmin: NavSectionGroup[] = [
+  {
+    id: "admin",
+    labelKey: "navSections.admin",
+    items: [
+      { id: "admin-dashboard", href: "/app/admin", labelKey: "nav.admin" },
+      { id: "admin-users", href: "/app/admin/users", labelKey: "nav.adminUsers" },
+    ],
   },
 ];

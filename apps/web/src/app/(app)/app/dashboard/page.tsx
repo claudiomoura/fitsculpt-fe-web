@@ -6,8 +6,12 @@ export default async function DashboardPage() {
   return (
     <div className="page">
       <section className="card">
-        <h1 className="section-title">{t("dashboard.title")}</h1>
-        <p className="section-subtitle">{t("dashboard.subtitle")}</p>
+        <div className="page-header">
+          <div className="page-header-body">
+            <h1 className="section-title">{t("dashboard.title")}</h1>
+            <p className="section-subtitle">{t("dashboard.subtitle")}</p>
+          </div>
+        </div>
       </section>
       <DashboardClient />
     </div>

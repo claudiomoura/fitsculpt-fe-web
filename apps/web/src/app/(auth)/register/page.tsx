@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerT } from "@/lib/serverI18n";
 import RegisterForm from "./RegisterForm";
+import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 
 type SearchParams =
   | { error?: string }
@@ -23,24 +25,33 @@ export default async function RegisterPage({
 
   return (
     <main className="auth-card card">
-      <div>
+      <div className="auth-header">
+        <Badge variant="muted">{t("auth.registerBadge")}</Badge>
         <h1 className="section-title">{t("auth.registerTitle")}</h1>
         <p className="section-subtitle">{t("auth.registerSubtitle")}</p>
       </div>
 
       {(error || promoError) && (
-        <p className="muted" style={{ marginTop: 4 }}>
-          {promoError ? t("auth.promoError") : t("auth.registerError")}
-        </p>
+        <div className="status-card status-card--warning">
+          <div className="inline-actions-sm">
+            <Icon name="warning" />
+            <strong>{t("auth.registerIssueTitle")}</strong>
+          </div>
+          <p className="muted">{promoError ? t("auth.promoError") : t("auth.registerError")}</p>
+        </div>
       )}
 
       <RegisterForm
         action={registerAction}
         labels={{
           name: t("auth.name"),
+          nameHelper: t("auth.nameHelper"),
           email: t("auth.email"),
+          emailHelper: t("auth.emailHelper"),
           password: t("auth.password"),
+          passwordHelper: t("auth.passwordHelper"),
           promoCode: t("auth.promoCode"),
+          promoHelper: t("auth.promoHelper"),
           submit: t("auth.registerSubmit"),
           loading: t("auth.registerLoading"),
           showPassword: t("auth.showPassword"),
@@ -48,9 +59,9 @@ export default async function RegisterPage({
         }}
       />
 
-      <p className="muted" style={{ margin: 0 }}>
-        {t("auth.verifyHint")}
-      </p>
+      <div className="auth-footer">
+        <p className="muted m-0">{t("auth.verifyHint")}</p>
+      </div>
     </main>
   );
 }

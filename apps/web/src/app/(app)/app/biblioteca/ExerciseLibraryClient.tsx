@@ -5,6 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import type { Exercise } from "@/lib/types";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { Input } from "@/components/ui/Input";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 type ExerciseResponse = {
   items: Exercise[];
@@ -26,6 +31,14 @@ export default function ExerciseLibraryClient() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+
+  const handleResetFilters = () => {
+    setQuery("");
+    setEquipmentFilter("all");
+    setMuscleFilter("all");
+    setError(null);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -61,7 +74,7 @@ export default function ExerciseLibraryClient() {
 
     void loadExercises();
     return () => controller.abort();
-  }, [equipmentFilter, muscleFilter, query, t]);
+  }, [equipmentFilter, muscleFilter, query, retryKey, t]);
 
   const equipmentOptions = useMemo(() => {
     const options = Array.from(new Set(exercises.map((ex) => ex.equipment).filter(Boolean)));
@@ -76,48 +89,88 @@ export default function ExerciseLibraryClient() {
 
   return (
     <section className="card">
-      <div className="form-stack">
-        <input
+      <div className="library-search">
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("library.searchPlaceholder")}
+          label={t("library.searchLabel")}
+          helperText={t("library.searchHelper")}
         />
-        <label className="form-stack">
-          {t("library.equipmentFilterLabel")}
-          <select value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)}>
-            {equipmentOptions.map((option) => (
-              <option key={option ?? "all"} value={option ?? "all"}>
-                {option === "all" ? t("library.allOption") : option}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="form-stack">
-          {t("library.muscleFilterLabel")}
-          <select value={muscleFilter} onChange={(e) => setMuscleFilter(e.target.value)}>
-            {muscleOptions.map((option) => (
-              <option key={option} value={option}>
-                {option === "all" ? t("library.allOption") : option}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="filter-grid">
+          <label className="ui-input-field">
+            <span className="ui-input-label">{t("library.equipmentFilterLabel")}</span>
+            <select value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)} className="ui-input">
+              {equipmentOptions.map((option) => (
+                <option key={option ?? "all"} value={option ?? "all"}>
+                  {option === "all" ? t("library.allOption") : option}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="ui-input-field">
+            <span className="ui-input-label">{t("library.muscleFilterLabel")}</span>
+            <select value={muscleFilter} onChange={(e) => setMuscleFilter(e.target.value)} className="ui-input">
+              {muscleOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option === "all" ? t("library.allOption") : option}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="library-filter-actions">
+          <Badge variant="muted">{t("library.filtersActive")}</Badge>
+          <Badge>
+            {t("library.filterEquipmentLabel")}{" "}
+            {equipmentFilter === "all" ? t("library.allOption") : equipmentFilter}
+          </Badge>
+          <Badge>
+            {t("library.filterMuscleLabel")}{" "}
+            {muscleFilter === "all" ? t("library.allOption") : muscleFilter}
+          </Badge>
+        </div>
       </div>
 
       {loading ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {t("library.loading")}
-        </p>
+        <div className="list-grid mt-16">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <SkeletonCard key={idx} />
+          ))}
+        </div>
       ) : error ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {error}
-        </p>
+        <div className="empty-state mt-16">
+          <div className="empty-state-icon">
+            <Icon name="warning" />
+          </div>
+          <div>
+            <h3 className="m-0">{t("library.errorTitle")}</h3>
+            <p className="muted">{error}</p>
+          </div>
+          <Button variant="secondary" onClick={() => setRetryKey((prev) => prev + 1)}>
+            {t("ui.retry")}
+          </Button>
+        </div>
       ) : exercises.length === 0 ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {t("library.empty")}
-        </p>
+        <div className="empty-state mt-16">
+          <div className="empty-state-icon">
+            <Icon name="book" />
+          </div>
+          <div>
+            <h3 className="m-0">{t("library.emptyTitle")}</h3>
+            <p className="muted">{t("library.empty")}</p>
+          </div>
+          <div className="empty-state-actions">
+            <Button variant="secondary" onClick={handleResetFilters}>
+              {t("library.resetFilters")}
+            </Button>
+            <Button onClick={() => setRetryKey((prev) => prev + 1)}>
+              {t("library.retrySearch")}
+            </Button>
+          </div>
+        </div>
       ) : (
-        <div className="list-grid" style={{ marginTop: 16 }}>
+        <div className="list-grid mt-16">
           {exercises.map((exercise) => {
             const muscles = getExerciseMuscles(exercise);
             const exerciseId = exercise.id;
@@ -136,12 +189,10 @@ export default function ExerciseLibraryClient() {
                 <div className="badge-list">
                   {muscles.length > 0 ? (
                     muscles.map((muscle) => (
-                      <span key={muscle} className="badge">
-                        {muscle}
-                      </span>
+                      <Badge key={muscle}>{muscle}</Badge>
                     ))
                   ) : (
-                    <span className="badge">{t("library.noMuscleData")}</span>
+                    <Badge variant="muted">{t("library.noMuscleData")}</Badge>
                   )}
                 </div>
                 <p className="muted">
@@ -163,8 +214,7 @@ export default function ExerciseLibraryClient() {
               <Link
                 key={exerciseId}
                 href={`/app/biblioteca/${exerciseId}`}
-                className="feature-card"
-                style={{ textDecoration: "none" }}
+                className="feature-card library-card"
               >
                 {content}
               </Link>
