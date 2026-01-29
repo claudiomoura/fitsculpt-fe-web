@@ -1138,5 +1138,22 @@
     "tokensReset": "Renueva",
     "insufficientTokens": "No tienes tokens suficientes para usar la IA.",
     "notPro": "Necesitas PRO para usar la IA."
+  },
+  "billing": {
+    "title": "Facturación",
+    "subtitle": "Gestiona tu suscripción y acceso a PRO.",
+    "loadingBilling": "Cargando facturación...",
+    "loadingStatus": "Cargando estado de suscripción...",
+    "loadError": "No pudimos cargar tu estado de suscripción.",
+    "checkoutError": "No pudimos iniciar el checkout.",
+    "portalError": "No pudimos abrir el portal de facturación.",
+    "currentPlanLabel": "Plan actual",
+    "stripeStatusLabel": "Estado de Stripe",
+    "tokenRenewalLabel": "Renovación de tokens",
+    "aiTokensLabel": "Tokens IA disponibles",
+    "upgradePro": "Mejorar a PRO",
+    "manageSubscription": "Gestionar suscripción",
+    "redirecting": "Redirigiendo...",
+    "opening": "Abriendo..."
   }
 }

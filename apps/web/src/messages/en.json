@@ -1135,5 +1135,22 @@
     "tokensReset": "Resets",
     "insufficientTokens": "You don't have enough tokens to use AI.",
     "notPro": "You need PRO to use AI."
+  },
+  "billing": {
+    "title": "Billing",
+    "subtitle": "Manage your subscription and PRO access.",
+    "loadingBilling": "Loading billing...",
+    "loadingStatus": "Loading subscription status...",
+    "loadError": "We couldn't load your subscription status.",
+    "checkoutError": "We couldn't start checkout.",
+    "portalError": "We couldn't open the billing portal.",
+    "currentPlanLabel": "Current plan",
+    "stripeStatusLabel": "Stripe status",
+    "tokenRenewalLabel": "Token renewal",
+    "aiTokensLabel": "AI tokens available",
+    "upgradePro": "Upgrade to PRO",
+    "manageSubscription": "Manage subscription",
+    "redirecting": "Redirecting...",
+    "opening": "Opening..."
   }
 }
