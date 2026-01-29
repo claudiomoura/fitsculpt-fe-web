@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import type { Exercise } from "@/lib/types";
 import { getBackendUrl } from "@/lib/backend";
 import ExerciseDetailClient from "./ExerciseDetailClient";
+import { getServerT } from "@/lib/serverI18n";
 
 
 type ExerciseApiResponse = Exercise & {
@@ -30,12 +31,12 @@ async function fetchExercise(exerciseId: string) {
     });
 
     if (!response.ok) {
-      return { exercise: null, error: "No se pudo cargar el ejercicio." };
+      return { exercise: null, ok: false };
     }
     const data = (await response.json()) as ExerciseApiResponse;
-    return { exercise: normalizeExercise(data), error: null };
+    return { exercise: normalizeExercise(data), ok: true };
   } catch {
-    return { exercise: null, error: "No se pudo cargar el ejercicio." };
+    return { exercise: null, ok: false };
   }
 }
 
@@ -43,19 +44,21 @@ async function fetchExercise(exerciseId: string) {
 export default async function ExerciseDetailPage(props: {
   params: Promise<{ exerciseId: string }>;
 }) {
+  const { t } = await getServerT();
   const { exerciseId } = await props.params;
 
   if (!exerciseId) {
     return (
       <div className="page">
-        <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">No se pudo cargar el ejercicio.</p>
+        <section className="card centered-card">
+          <p className="muted">{t("library.loadError")}</p>
         </section>
       </div>
     );
   }
 
-  const { exercise, error } = await fetchExercise(exerciseId);
+  const { exercise, ok } = await fetchExercise(exerciseId);
+  const error = ok ? null : t("library.loadError");
 
   return (
     <div className="page">

@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 type LoginFormProps = {
   action: (formData: FormData) => void;
   next: string;
   labels: {
     email: string;
+    emailHelper: string;
     password: string;
+    passwordHelper: string;
     submit: string;
     loading: string;
     showPassword: string;
@@ -19,16 +23,9 @@ type LoginFormProps = {
 function SubmitButton({ label, loadingLabel }: { label: string; loadingLabel: string }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className={`btn ${pending ? "is-loading" : ""}`} disabled={pending}>
-      {pending ? (
-        <>
-          <span className="spinner" aria-hidden="true" />
-          {loadingLabel}
-        </>
-      ) : (
-        label
-      )}
-    </button>
+    <Button type="submit" loading={pending} className="fit-content">
+      {pending ? loadingLabel : label}
+    </Button>
   );
 }
 
@@ -39,15 +36,28 @@ export default function LoginForm({ action, next, labels }: LoginFormProps) {
     <form action={action} className="form-stack">
       <input type="hidden" name="next" value={next} />
 
-      <label className="form-stack">
-        {labels.email}
-        <input name="email" type="email" required />
-      </label>
+      <Input
+        name="email"
+        type="email"
+        label={labels.email}
+        helperText={labels.emailHelper}
+        required
+        autoComplete="email"
+      />
 
-      <label className="form-stack">
-        {labels.password}
+      <div className="ui-input-field">
+        <label className="ui-input-label" htmlFor="login-password">
+          {labels.password}
+        </label>
         <div className="input-with-action">
-          <input name="password" type={showPassword ? "text" : "password"} required />
+          <input
+            id="login-password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            className="ui-input"
+            required
+            autoComplete="current-password"
+          />
           <button
             type="button"
             className="input-action"
@@ -57,7 +67,8 @@ export default function LoginForm({ action, next, labels }: LoginFormProps) {
             {showPassword ? "🙈" : "👁️"}
           </button>
         </div>
-      </label>
+        <span className="ui-input-helper">{labels.passwordHelper}</span>
+      </div>
 
       <SubmitButton label={labels.submit} loadingLabel={labels.loading} />
     </form>

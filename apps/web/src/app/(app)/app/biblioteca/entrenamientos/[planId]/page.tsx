@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 import type { TrainingPlanDetail } from "@/lib/types";
 import TrainingPlanDetailClient from "./TrainingPlanDetailClient";
+import { getServerT } from "@/lib/serverI18n";
 
 async function fetchTrainingPlan(planId: string) {
   try {
@@ -12,31 +13,33 @@ async function fetchTrainingPlan(planId: string) {
       cache: "no-store",
     });
     if (!response.ok) {
-      return { plan: null, error: "No se pudo cargar el plan." };
+      return { plan: null, ok: false };
     }
     const data = (await response.json()) as TrainingPlanDetail;
-    return { plan: data, error: null };
+    return { plan: data, ok: true };
   } catch {
-    return { plan: null, error: "No se pudo cargar el plan." };
+    return { plan: null, ok: false };
   }
 }
 
 export default async function TrainingPlanDetailPage(props: {
   params: Promise<{ planId: string }>;
 }) {
+  const { t } = await getServerT();
   const { planId } = await props.params;
 
   if (!planId) {
     return (
       <div className="page">
-        <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">No se pudo cargar el plan.</p>
+        <section className="card centered-card">
+          <p className="muted">{t("trainingPlans.loadError")}</p>
         </section>
       </div>
     );
   }
 
-  const { plan, error } = await fetchTrainingPlan(planId);
+  const { plan, ok } = await fetchTrainingPlan(planId);
+  const error = ok ? null : t("trainingPlans.loadError");
 
   return (
     <div className="page">

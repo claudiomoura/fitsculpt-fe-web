@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 import type { Recipe } from "@/lib/types";
 import RecipeDetailClient from "./RecipeDetailClient";
+import { getServerT } from "@/lib/serverI18n";
 
 async function fetchRecipe(recipeId: string) {
   try {
@@ -12,31 +13,33 @@ async function fetchRecipe(recipeId: string) {
       cache: "no-store",
     });
     if (!response.ok) {
-      return { recipe: null, error: "No se pudo cargar la receta." };
+      return { recipe: null, ok: false };
     }
     const data = (await response.json()) as Recipe;
-    return { recipe: data, error: null };
+    return { recipe: data, ok: true };
   } catch {
-    return { recipe: null, error: "No se pudo cargar la receta." };
+    return { recipe: null, ok: false };
   }
 }
 
 export default async function RecipeDetailPage(props: {
   params: Promise<{ recipeId: string }>;
 }) {
+  const { t } = await getServerT();
   const { recipeId } = await props.params;
 
   if (!recipeId) {
     return (
       <div className="page">
-        <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">No se pudo cargar la receta.</p>
+        <section className="card centered-card">
+          <p className="muted">{t("recipes.loadError")}</p>
         </section>
       </div>
     );
   }
 
-  const { recipe, error } = await fetchRecipe(recipeId);
+  const { recipe, ok } = await fetchRecipe(recipeId);
+  const error = ok ? null : t("recipes.loadError");
 
   return (
     <div className="page">

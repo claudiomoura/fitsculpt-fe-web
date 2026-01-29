@@ -92,7 +92,7 @@ export default function AppNavBar() {
           </div>
           <div className={`account-pill ${isPro ? "is-pro" : "is-free"}`}>
             <span className="account-pill-label">{planLabel}</span>
-            {isPro ? <span className="account-pill-meta">Tokens: {tokenBalance}</span> : null}
+            {isPro ? <span className="account-pill-meta">{t("ui.tokensLabel")} {tokenBalance}</span> : null}
           </div>
           <AppUserBadge />
           <button

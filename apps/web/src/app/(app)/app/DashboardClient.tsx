@@ -6,7 +6,7 @@ import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { Badge } from "@/components/ui/Badge";
-import { ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
 
@@ -333,23 +333,24 @@ export default function DashboardClient() {
 
   const weightSeries = useMemo(() => buildSeries(checkins, "weightKg"), [checkins]);
   const bodyFatSeries = useMemo(() => buildSeries(checkins, "bodyFatPercent"), [checkins]);
+  const handleRetry = () => window.location.reload();
 
   return (
     <div className="page">
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("dashboard.todayTitle")}</h2>
+            <h2 className="section-title section-title-sm">{t("dashboard.todayTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.todaySubtitle")}</p>
           </div>
         </div>
         {!profileReady ? (
-          <div className="empty-state" style={{ marginTop: 16 }}>
+          <div className="empty-state mt-16">
             <div className="empty-state-icon">
               <Icon name="sparkles" />
             </div>
             <div>
-              <h3 style={{ marginTop: 0 }}>{t("dashboard.profileIncompleteTitle")}</h3>
+              <h3 className="m-0">{t("dashboard.profileIncompleteTitle")}</h3>
               <p className="muted">{t("dashboard.profileIncompleteSubtitle")}</p>
             </div>
             <ButtonLink href="/app/onboarding?next=/app">
@@ -357,27 +358,27 @@ export default function DashboardClient() {
             </ButtonLink>
           </div>
         ) : (
-          <div className="list-grid" style={{ marginTop: 16 }}>
-            <div className="feature-card">
+          <div className="list-grid dashboard-summary-grid">
+            <div className="feature-card dashboard-summary-card">
               <strong>{t("dashboard.todayTrainingTitle")}</strong>
               {summary?.training ? (
                 <>
-                  <p className="muted" style={{ marginTop: 6 }}>
+                  <p className="muted mt-6">
                     {summary.training.focus} · {summary.training.duration} {t("training.minutesLabel")}
                   </p>
                   <Badge>{summary.training.label}</Badge>
                 </>
               ) : (
-                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayTrainingEmpty")}</p>
+                <p className="muted mt-6">{t("dashboard.todayTrainingEmpty")}</p>
               )}
               <ButtonLink variant="secondary" href="/app/entrenamiento">
                 {t("dashboard.todayTrainingCta")}
               </ButtonLink>
             </div>
-            <div className="feature-card today-calories-card">
+            <div className="feature-card today-calories-card dashboard-summary-card">
               <div>
                 <strong>{t("dashboard.todayCaloriesTitle")}</strong>
-                <p className="muted" style={{ marginTop: 6 }}>
+                <p className="muted mt-6">
                   {t("dashboard.todayCaloriesSubtitle")}
                 </p>
               </div>
@@ -421,26 +422,26 @@ export default function DashboardClient() {
                 </div>
               </div>
             </div>
-            <div className="feature-card">
+            <div className="feature-card dashboard-summary-card">
               <strong>{t("dashboard.todayNutritionTitle")}</strong>
               {summary?.nutrition ? (
                 <>
-                  <p className="muted" style={{ marginTop: 6 }}>
+                  <p className="muted mt-6">
                     {summary.nutrition.meals} {t("dashboard.todayMealsLabel")}
                   </p>
                   <Badge>{summary.nutrition.label}</Badge>
                 </>
               ) : (
-                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayNutritionEmpty")}</p>
+                <p className="muted mt-6">{t("dashboard.todayNutritionEmpty")}</p>
               )}
               <ButtonLink variant="secondary" href="/app/nutricion">
                 {t("dashboard.todayNutritionCta")}
               </ButtonLink>
             </div>
-            <div className="feature-card" style={{ display: "grid", gap: 12 }}>
+            <div className="feature-card dashboard-summary-card stack-md">
               <div>
                 <strong>{t("dashboard.quickActionsTitle")}</strong>
-                <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.quickActionsSubtitle")}</p>
+                <p className="muted mt-6">{t("dashboard.quickActionsSubtitle")}</p>
               </div>
               <div className="list-grid">
                 <ButtonLink href="/app/workouts">
@@ -458,24 +459,24 @@ export default function DashboardClient() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("dashboard.aiSectionTitle")}</h2>
+            <h2 className="section-title section-title-sm">{t("dashboard.aiSectionTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.aiSectionSubtitle")}</p>
           </div>
         </div>
-        <div className="list-grid" style={{ marginTop: 16 }}>
-          <div className="feature-card" style={{ display: "grid", gap: 12 }}>
+        <div className="list-grid dashboard-ai-grid">
+          <div className="feature-card stack-md">
             <div>
               <strong>{t("dashboard.aiTrainingTitle")}</strong>
-              <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.aiTrainingSubtitle")}</p>
+              <p className="muted mt-6">{t("dashboard.aiTrainingSubtitle")}</p>
             </div>
             <ButtonLink href="/app/entrenamiento?ai=1">
               {t("dashboard.aiTrainingCta")}
             </ButtonLink>
           </div>
-          <div className="feature-card" style={{ display: "grid", gap: 12 }}>
+          <div className="feature-card stack-md">
             <div>
               <strong>{t("dashboard.aiNutritionTitle")}</strong>
-              <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.aiNutritionSubtitle")}</p>
+              <p className="muted mt-6">{t("dashboard.aiNutritionSubtitle")}</p>
             </div>
             <ButtonLink href="/app/nutricion?ai=1">
               {t("dashboard.aiNutritionCta")}
@@ -487,7 +488,7 @@ export default function DashboardClient() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("dashboard.progressTitle")}</h2>
+            <h2 className="section-title section-title-sm">{t("dashboard.progressTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.progressSubtitle")}</p>
           </div>
           <ButtonLink variant="secondary" href="/app/seguimiento">
@@ -496,22 +497,36 @@ export default function DashboardClient() {
         </div>
 
         {loading ? (
-          <div className="dashboard-loading" style={{ marginTop: 12 }}>
-            <Skeleton variant="line" style={{ width: "40%" }} />
+          <div className="dashboard-loading mt-12">
+            <Skeleton variant="line" className="w-40" />
             <div className="dashboard-charts">
               <SkeletonCard />
               <SkeletonCard />
             </div>
           </div>
         ) : error ? (
-          <p className="muted" style={{ marginTop: 12 }}>{error}</p>
+          <div className="dashboard-error">
+            <div className="status-card status-card--warning">
+              <div className="inline-actions-sm">
+                <Icon name="warning" />
+                <strong>{t("dashboard.errorTitle")}</strong>
+              </div>
+              <p className="muted">{error}</p>
+            </div>
+            <Button variant="secondary" onClick={handleRetry}>
+              {t("ui.retry")}
+            </Button>
+          </div>
         ) : checkins.length === 0 ? (
-          <div className="empty-state" style={{ marginTop: 12 }}>
+          <div className="empty-state dashboard-empty">
             <div className="empty-state-icon">
               <Icon name="info" />
             </div>
-            <p className="muted" style={{ margin: 0 }}>{t("dashboard.progressEmpty")}</p>
-            <ButtonLink href="/app/seguimiento" style={{ width: "fit-content", marginTop: 12 }}>
+            <div>
+              <p className="muted m-0">{t("dashboard.progressEmpty")}</p>
+              <p className="muted m-0">{t("dashboard.progressEmptyHint")}</p>
+            </div>
+            <ButtonLink href="/app/seguimiento" className="fit-content">
               {t("dashboard.progressEmptyCta")}
             </ButtonLink>
           </div>

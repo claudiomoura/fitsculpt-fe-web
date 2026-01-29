@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { Input } from "@/components/ui/Input";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 type TrainingPlanResponse = {
   items: TrainingPlanListItem[];
@@ -20,6 +25,7 @@ export default function TrainingLibraryClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -68,7 +74,7 @@ export default function TrainingLibraryClient() {
 
     void loadPlans();
     return () => controller.abort();
-  }, [query, t]);
+  }, [query, retryKey, t]);
 
   const goalLabel = (goal: string) =>
     goal === "cut" ? t("training.goalCut") : goal === "bulk" ? t("training.goalBulk") : t("training.goalMaintain");
@@ -87,39 +93,66 @@ export default function TrainingLibraryClient() {
 
   return (
     <section className="card">
-      <div className="form-stack">
-        <input
+      <div className="library-search">
+        <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={t("trainingPlans.searchPlaceholder")}
+          label={t("trainingPlans.searchLabel")}
+          helperText={t("trainingPlans.searchHelper")}
         />
+        <div className="library-filter-actions">
+          <Badge variant="muted">{t("trainingPlans.filtersActive")}</Badge>
+          {query.trim().length > 0 ? <Badge>{t("trainingPlans.filterQueryLabel")} {query.trim()}</Badge> : null}
+        </div>
       </div>
 
       {loading ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {t("trainingPlans.loading")}
-        </p>
+        <div className="list-grid mt-16">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <SkeletonCard key={idx} />
+          ))}
+        </div>
       ) : error ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {error}
-        </p>
+        <div className="empty-state mt-16">
+          <div className="empty-state-icon">
+            <Icon name="warning" />
+          </div>
+          <div>
+            <h3 className="m-0">{t("trainingPlans.errorTitle")}</h3>
+            <p className="muted">{error}</p>
+          </div>
+          <Button variant="secondary" onClick={() => setRetryKey((prev) => prev + 1)}>
+            {t("ui.retry")}
+          </Button>
+        </div>
       ) : plans.length === 0 ? (
-        <div style={{ marginTop: 16 }}>
-          <p className="muted">{t("trainingPlans.empty")}</p>
-          {isAdmin ? (
-            <Link className="btn secondary" href="/app/entrenamiento" style={{ marginTop: 12 }}>
-              {t("trainingPlans.emptyAdminCta")}
-            </Link>
-          ) : null}
+        <div className="empty-state mt-16">
+          <div className="empty-state-icon">
+            <Icon name="info" />
+          </div>
+          <div>
+            <h3 className="m-0">{t("trainingPlans.emptyTitle")}</h3>
+            <p className="muted">{t("trainingPlans.empty")}</p>
+          </div>
+          <div className="empty-state-actions">
+            {isAdmin ? (
+              <Link className="btn secondary" href="/app/entrenamiento">
+                {t("trainingPlans.emptyAdminCta")}
+              </Link>
+            ) : null}
+            <Button onClick={() => setRetryKey((prev) => prev + 1)}>
+              {t("trainingPlans.retrySearch")}
+            </Button>
+          </div>
         </div>
       ) : (
-        <div className="list-grid" style={{ marginTop: 16 }}>
+        <div className="list-grid mt-16">
           {plans.map((plan) => (
             <Link
               key={plan.id}
               href={`/app/biblioteca/entrenamientos/${plan.id}`}
-              className="feature-card"
-              style={{ textDecoration: "none" }}
+              className="feature-card library-card"
             >
               <h3>{plan.title}</h3>
               {plan.notes ? <p className="muted">{plan.notes}</p> : null}

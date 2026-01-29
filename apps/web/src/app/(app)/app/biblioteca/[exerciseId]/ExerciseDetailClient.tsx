@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseDemoUrl } from "@/lib/exerciseMedia";
 import type { Exercise } from "@/lib/types";
+import { ButtonLink } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 
 type ExerciseDetailClientProps = {
   exercise: Exercise | null;
@@ -37,11 +38,19 @@ export default function ExerciseDetailClient({
   const [activeTab, setActiveTab] = useState<"execution" | "muscles">("execution");
   if (error || !exercise) {
     return (
-      <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-        <p className="muted">{error ?? t("library.loadError")}</p>
-        <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/biblioteca">
-          {t("ui.backToLibrary")}
-        </Link>
+      <section className="card centered-card">
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <Icon name="warning" />
+          </div>
+          <div>
+            <h3 className="m-0">{t("library.errorTitle")}</h3>
+            <p className="muted">{error ?? t("library.loadError")}</p>
+          </div>
+          <ButtonLink href="/app/biblioteca" className="fit-content">
+            {t("ui.backToLibrary")}
+          </ButtonLink>
+        </div>
       </section>
     );
   }
@@ -59,15 +68,20 @@ export default function ExerciseDetailClient({
   const demoImageUrl = forceImageFallback ? "/placeholders/exercise-demo.svg" : demoMedia.url;
 
   return (
-    <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-      <div className="form-stack">
-        <h1 className="section-title" style={{ fontSize: 28 }}>
-          {exercise.name}
-        </h1>
-        <p className="section-subtitle">{t("ui.exerciseGuide")}</p>
+    <section className="card centered-card">
+      <div className="page-header">
+        <div className="page-header-body">
+          <h1 className="section-title">{exercise.name}</h1>
+          <p className="section-subtitle">{t("ui.exerciseGuide")}</p>
+        </div>
+        <div className="page-header-actions">
+          <ButtonLink variant="secondary" href="/app/biblioteca">
+            {t("ui.backToLibrary")}
+          </ButtonLink>
+        </div>
       </div>
 
-      <div className="badge-list" style={{ marginTop: 12 }}>
+      <div className="badge-list mt-12">
         <span className="badge">
           {t("library.primaryLabel")}: {primary[0] ?? t("library.levelGeneral")}
         </span>
@@ -84,15 +98,7 @@ export default function ExerciseDetailClient({
         <span className="badge">{t("library.equipmentLabel")}: {equipmentLabel}</span>
       </div>
 
-      <div
-        style={{
-          marginTop: 20,
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          gap: 16,
-          alignItems: "start",
-        }}
-      >
+      <div className="exercise-detail-grid">
         <div className="feature-card exercise-media">
           {demoMedia.kind === "video" && !forceImageFallback ? (
             <video
@@ -122,14 +128,14 @@ export default function ExerciseDetailClient({
         {hasDescription ? (
           <div className="feature-card">
             <h3>{t("ui.description")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
+            <p className="muted mt-8">
               {exercise.description}
             </p>
           </div>
         ) : null}
       </div>
 
-      <div className="tab-list" style={{ marginTop: 20 }}>
+      <div className="tab-list mt-20">
         <button
           type="button"
           className={`tab-btn ${activeTab === "execution" ? "active" : ""}`}
@@ -152,7 +158,7 @@ export default function ExerciseDetailClient({
             {hasDescription ? (
               <div className="feature-card">
                 <h3>{t("exerciseDetail.executionPrep")}</h3>
-                <p className="muted" style={{ marginTop: 8 }}>
+                <p className="muted mt-8">
                   {exercise.description}
                 </p>
               </div>
@@ -160,7 +166,7 @@ export default function ExerciseDetailClient({
             {hasTechnique ? (
               <div className="feature-card">
                 <h3>{t("exerciseDetail.executionMove")}</h3>
-                <p className="muted" style={{ marginTop: 8 }}>
+                <p className="muted mt-8">
                   {exercise.technique}
                 </p>
               </div>
@@ -168,14 +174,14 @@ export default function ExerciseDetailClient({
             {hasTips ? (
               <div className="feature-card">
                 <h3>{t("exerciseDetail.executionTips")}</h3>
-                <p className="muted" style={{ marginTop: 8 }}>
+                <p className="muted mt-8">
                   {exercise.tips}
                 </p>
               </div>
             ) : null}
           </div>
         ) : (
-          <p className="muted" style={{ marginTop: 16 }}>
+          <p className="muted mt-16">
             {t("library.noExecutionDetails")}
           </p>
         )
@@ -187,27 +193,23 @@ export default function ExerciseDetailClient({
           <div className="list-grid">
             <div className="feature-card">
               <h3>{t("exerciseDetail.primaryMuscles")}</h3>
-              <p className="muted" style={{ marginTop: 8 }}>{primaryLabel}</p>
+              <p className="muted mt-8">{primaryLabel}</p>
             </div>
             <div className="feature-card">
               <h3>{t("exerciseDetail.secondaryMuscles")}</h3>
               {secondary.length > 0 ? (
-                <ul className="muted" style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                <ul className="muted list-muted">
                   {secondary.map((muscle, index) => (
                     <li key={`${muscle}-${index}`}>{muscle}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="muted" style={{ marginTop: 8 }}>{t("library.secondaryFallback")}</p>
+                <p className="muted mt-8">{t("library.secondaryFallback")}</p>
               )}
             </div>
           </div>
         </div>
       )}
-
-      <Link className="btn" style={{ width: "fit-content", marginTop: 20 }} href="/app/biblioteca">
-        {t("ui.backToLibrary")}
-      </Link>
     </section>
   );
 }

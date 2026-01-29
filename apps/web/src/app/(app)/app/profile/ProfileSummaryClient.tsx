@@ -19,6 +19,7 @@ export default function ProfileSummaryClient() {
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -27,7 +28,7 @@ export default function ProfileSummaryClient() {
         const data = await getUserProfile();
         if (active) setProfile(data);
       } catch {
-        // ignore
+        if (active) setError(t("profile.loadError"));
       } finally {
         if (active) setLoading(false);
       }
@@ -141,20 +142,32 @@ export default function ProfileSummaryClient() {
       <section className="card">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("profile.summaryTitle")}</h2>
+            <h2 className="section-title section-title-sm">{t("profile.summaryTitle")}</h2>
             <p className="section-subtitle">{t("profile.summarySubtitle")}</p>
           </div>
           <ButtonLink href="/app/onboarding">
             {t("profile.editProfile")}
           </ButtonLink>
         </div>
+        {error ? (
+          <div className="status-card status-card--warning">
+            <div className="inline-actions-sm">
+              <Icon name="warning" />
+              <strong>{t("profile.errorTitle")}</strong>
+            </div>
+            <p className="muted">{error}</p>
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              {t("ui.retry")}
+            </Button>
+          </div>
+        ) : null}
         {loading ? (
           <div className="profile-avatar-card">
-            <Skeleton style={{ width: 120, height: 120, borderRadius: 24 }} />
-            <div className="form-stack" style={{ flex: 1 }}>
-              <Skeleton variant="line" style={{ width: "45%" }} />
-              <Skeleton variant="line" style={{ width: "70%" }} />
-              <Skeleton variant="line" style={{ width: "55%" }} />
+            <Skeleton className="profile-avatar-skeleton" />
+            <div className="form-stack">
+              <Skeleton variant="line" className="w-45" />
+              <Skeleton variant="line" className="w-70" />
+              <Skeleton variant="line" className="w-55" />
             </div>
           </div>
         ) : (
@@ -186,13 +199,13 @@ export default function ProfileSummaryClient() {
       </section>
 
       <section className="card">
-        <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.summaryBasics")}</h3>
+        <h3 className="section-title section-title-xs">{t("profile.summaryBasics")}</h3>
         {loading ? (
           <div className="info-grid">
             {Array.from({ length: 6 }).map((_, idx) => (
               <div key={idx} className="info-item">
-                <Skeleton variant="line" style={{ width: "60%" }} />
-                <Skeleton variant="line" style={{ width: "80%" }} />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-80" />
               </div>
             ))}
           </div>
@@ -243,13 +256,13 @@ export default function ProfileSummaryClient() {
       </section>
 
       <section className="card">
-        <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.summaryGoals")}</h3>
+        <h3 className="section-title section-title-xs">{t("profile.summaryGoals")}</h3>
         {loading ? (
           <div className="info-grid">
             {Array.from({ length: 3 }).map((_, idx) => (
               <div key={idx} className="info-item">
-                <Skeleton variant="line" style={{ width: "60%" }} />
-                <Skeleton variant="line" style={{ width: "85%" }} />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-80" />
               </div>
             ))}
           </div>
@@ -276,13 +289,13 @@ export default function ProfileSummaryClient() {
       </section>
 
       <section className="card">
-        <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.summaryTraining")}</h3>
+        <h3 className="section-title section-title-xs">{t("profile.summaryTraining")}</h3>
         {loading ? (
           <div className="info-grid">
             {Array.from({ length: 6 }).map((_, idx) => (
               <div key={idx} className="info-item">
-                <Skeleton variant="line" style={{ width: "60%" }} />
-                <Skeleton variant="line" style={{ width: "85%" }} />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-80" />
               </div>
             ))}
           </div>
@@ -355,12 +368,12 @@ export default function ProfileSummaryClient() {
               <div className="info-value">
                 {profile.trainingPreferences.workoutLength
                   ? profile.trainingPreferences.workoutLength === "30m"
-                    ? "30 min"
+                    ? t("profile.workoutLength30")
                     : profile.trainingPreferences.workoutLength === "60m"
-                      ? "60 min"
+                      ? t("profile.workoutLength60")
                       : profile.trainingPreferences.workoutLength === "flexible"
                         ? t("profile.workoutLengthFlexible")
-                        : "45 min"
+                        : t("profile.workoutLength45")
                   : t("profile.noData")}
               </div>
             </div>
@@ -377,13 +390,13 @@ export default function ProfileSummaryClient() {
       </section>
 
       <section className="card">
-        <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.summaryNutrition")}</h3>
+        <h3 className="section-title section-title-xs">{t("profile.summaryNutrition")}</h3>
         {loading ? (
           <div className="info-grid">
             {Array.from({ length: 4 }).map((_, idx) => (
               <div key={idx} className="info-item">
-                <Skeleton variant="line" style={{ width: "60%" }} />
-                <Skeleton variant="line" style={{ width: "85%" }} />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-80" />
               </div>
             ))}
           </div>
@@ -430,13 +443,13 @@ export default function ProfileSummaryClient() {
       </section>
 
       <section className="card">
-        <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.summaryAllergies")}</h3>
+        <h3 className="section-title section-title-xs">{t("profile.summaryAllergies")}</h3>
         {loading ? (
           <div className="info-grid">
             {Array.from({ length: 4 }).map((_, idx) => (
               <div key={idx} className="info-item">
-                <Skeleton variant="line" style={{ width: "60%" }} />
-                <Skeleton variant="line" style={{ width: "85%" }} />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-80" />
               </div>
             ))}
           </div>
@@ -465,13 +478,13 @@ export default function ProfileSummaryClient() {
       </section>
 
       <section className="card">
-        <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.summaryInjuries")}</h3>
+        <h3 className="section-title section-title-xs">{t("profile.summaryInjuries")}</h3>
         {loading ? (
           <div className="info-grid">
             {Array.from({ length: 2 }).map((_, idx) => (
               <div key={idx} className="info-item">
-                <Skeleton variant="line" style={{ width: "60%" }} />
-                <Skeleton variant="line" style={{ width: "85%" }} />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-80" />
               </div>
             ))}
           </div>
@@ -490,13 +503,13 @@ export default function ProfileSummaryClient() {
       </section>
 
       <section className="card">
-        <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.summaryMacros")}</h3>
+        <h3 className="section-title section-title-xs">{t("profile.summaryMacros")}</h3>
         {loading ? (
           <div className="info-grid">
             {Array.from({ length: 5 }).map((_, idx) => (
               <div key={idx} className="info-item">
-                <Skeleton variant="line" style={{ width: "60%" }} />
-                <Skeleton variant="line" style={{ width: "85%" }} />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-80" />
               </div>
             ))}
           </div>
@@ -531,13 +544,13 @@ export default function ProfileSummaryClient() {
       </section>
 
       <section className="card">
-        <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.latestMetricsTitle")}</h3>
+        <h3 className="section-title section-title-xs">{t("profile.latestMetricsTitle")}</h3>
         {loading ? (
           <div className="info-grid">
             {Array.from({ length: 6 }).map((_, idx) => (
               <div key={idx} className="info-item">
-                <Skeleton variant="line" style={{ width: "60%" }} />
-                <Skeleton variant="line" style={{ width: "85%" }} />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-80" />
               </div>
             ))}
           </div>
