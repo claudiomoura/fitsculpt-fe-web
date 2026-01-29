@@ -17,6 +17,10 @@ import {
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
+import { Badge } from "@/components/ui/Badge";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type Exercise = {
   name: string;
@@ -705,29 +709,32 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
 
             {loading ? (
-              <p className="muted">{t("training.profileLoading")}</p>
+              <div className="form-stack">
+                <Skeleton variant="line" style={{ width: "40%" }} />
+                <Skeleton variant="line" style={{ width: "60%" }} />
+              </div>
             ) : error ? (
               <p className="muted">{error}</p>
             ) : saveMessage ? (
               <p className="muted">{saveMessage}</p>
             ) : form ? (
               <div className="badge-list">
-                <span className="badge">
+                <Badge>
                   {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
-                </span>
-                <span className="badge">
+                </Badge>
+                <Badge>
                   {t("training.level")}: {t(form.level === "beginner" ? "training.levelBeginner" : form.level === "intermediate" ? "training.levelIntermediate" : "training.levelAdvanced")}
-                </span>
-                <span className="badge">{t("training.daysPerWeek")}: {form.daysPerWeek}</span>
-                <span className="badge">
+                </Badge>
+                <Badge>{t("training.daysPerWeek")}: {form.daysPerWeek}</Badge>
+                <Badge>
                   {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
-                </span>
-                <span className="badge">
+                </Badge>
+                <Badge>
                   {t("training.sessionTime")}: {t(form.sessionTime === "short" ? "training.sessionTimeShort" : form.sessionTime === "long" ? "training.sessionTimeLong" : "training.sessionTimeMedium")}
-                </span>
-                <span className="badge">
+                </Badge>
+                <Badge>
                   {t("training.focus")}: {t(form.focus === "ppl" ? "training.focusPushPullLegs" : form.focus === "upperLower" ? "training.focusUpperLower" : "training.focusFullBody")}
-                </span>
+                </Badge>
               </div>
             ) : null}
 
@@ -739,30 +746,39 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           {!loading && !error && profile && !isProfileComplete(profile) ? (
             <section className="card">
               <div className="empty-state">
-                <h3 style={{ marginTop: 0 }}>{t("training.profileIncompleteTitle")}</h3>
-                <p className="muted">{t("training.profileIncompleteSubtitle")}</p>
-                <Link href="/app/onboarding?next=/app/entrenamiento" className="btn">
+                <div className="empty-state-icon">
+                  <Icon name="info" />
+                </div>
+                <div>
+                  <h3 style={{ marginTop: 0 }}>{t("training.profileIncompleteTitle")}</h3>
+                  <p className="muted">{t("training.profileIncompleteSubtitle")}</p>
+                </div>
+                <ButtonLink href="/app/onboarding?next=/app/entrenamiento">
                   {t("profile.openOnboarding")}
-                </Link>
+                </ButtonLink>
               </div>
             </section>
           ) : !loading && !error && !hasPlan ? (
             <section className="card">
               <div className="empty-state">
-                <h3 style={{ marginTop: 0 }}>{t("training.emptyTitle")}</h3>
-                <p className="muted">{t("training.emptySubtitle")}</p>
+                <div className="empty-state-icon">
+                  <Icon name="dumbbell" />
+                </div>
+                <div>
+                  <h3 style={{ marginTop: 0 }}>{t("training.emptyTitle")}</h3>
+                  <p className="muted">{t("training.emptySubtitle")}</p>
+                </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="btn"
+                  <Button
                     disabled={isAiDisabled}
+                    loading={aiLoading}
                     onClick={handleGenerateClick}
                   >
                     {aiLoading ? t("training.aiGenerating") : t("training.aiGenerate")}
-                  </button>
-                  <Link href="/app/entrenamiento/editar" className="btn secondary">
+                  </Button>
+                  <ButtonLink variant="secondary" href="/app/entrenamiento/editar">
                     {t("training.manualCreate")}
-                  </Link>
+                  </ButtonLink>
                 </div>
               </div>
             </section>
@@ -774,9 +790,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <p className="section-subtitle">{t("training.calendarSubtitle")}</p>
                 </div>
                 <div className="section-actions calendar-actions">
-                  <button type="button" className="btn secondary" onClick={() => setSelectedDate(new Date())}>
+                  <Button variant="secondary" size="sm" onClick={() => setSelectedDate(new Date())}>
                     {t("calendar.today")}
-                  </button>
+                  </Button>
                   <div className="segmented-control">
                     {calendarOptions.map((option) => (
                       <button
@@ -797,9 +813,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <div className="empty-state" style={{ marginTop: 0 }}>
                     <h3 style={{ marginTop: 0 }}>{t("training.calendarStartDateTitle")}</h3>
                     <p className="muted">{t("training.calendarStartDateSubtitle")}</p>
-                    <button type="button" className="btn" onClick={handleSetStartDate}>
+                    <Button onClick={handleSetStartDate}>
                       {t("training.calendarStartDateCta")}
-                    </button>
+                    </Button>
                   </div>
                   <div className="list-grid">
                     {visiblePlan?.days.map((day, dayIdx) => (
