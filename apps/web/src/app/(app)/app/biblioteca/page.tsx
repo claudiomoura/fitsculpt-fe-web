@@ -7,10 +7,14 @@ export default async function ExerciseLibraryPage() {
   return (
     <div className="page">
       <section className="card">
-        <div className="form-stack">
-          <h1 className="section-title">{t("app.libraryTitle")}</h1>
-          <p className="section-subtitle">{t("app.librarySubtitle")}</p>
-          <LibraryTabs active="exercises" />
+        <div className="page-header">
+          <div className="page-header-body">
+            <h1 className="section-title">{t("app.libraryTitle")}</h1>
+            <p className="section-subtitle">{t("app.librarySubtitle")}</p>
+          </div>
+          <div className="page-header-actions">
+            <LibraryTabs active="exercises" />
+          </div>
         </div>
       </section>
       <ExerciseLibraryClient />

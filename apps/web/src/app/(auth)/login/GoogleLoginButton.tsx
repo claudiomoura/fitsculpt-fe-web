@@ -56,7 +56,7 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
   };
 
   return (
-    <div style={{ display: "grid", gap: 8 }}>
+    <div className="stack-sm">
       <button
         type="button"
         className="btn google"
@@ -103,16 +103,16 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
           aria-labelledby="google-promo-title"
         >
           <div className="modal-card">
-            <div style={{ display: "grid", gap: 6 }}>
-              <h3 id="google-promo-title" style={{ margin: 0 }}>
+            <div className="stack-sm">
+              <h3 id="google-promo-title" className="m-0">
                 {labels.modalTitle}
               </h3>
-              <p className="muted" style={{ margin: 0 }}>
+              <p className="muted m-0">
                 {labels.modalSubtitle}
               </p>
             </div>
 
-            <div style={{ display: "grid", gap: 8, marginTop: 16 }}>
+            <div className="stack-sm mt-16">
               <label htmlFor="googlePromoInput">{labels.promoLabel}</label>
               <input
                 id="googlePromoInput"
@@ -121,13 +121,13 @@ export default function GoogleLoginButton({ labels }: GoogleLoginButtonProps) {
                 value={promoCode}
                 onChange={(event) => setPromoCode(event.target.value)}
               />
-              <p className="muted" style={{ margin: 0 }}>
+              <p className="muted m-0">
                 {labels.promoHint}
               </p>
               {error ? <p className="muted">{error}</p> : null}
             </div>
 
-            <div className="modal-actions" style={{ marginTop: 20 }}>
+            <div className="modal-actions mt-20">
               <button
                 type="button"
                 className="btn"

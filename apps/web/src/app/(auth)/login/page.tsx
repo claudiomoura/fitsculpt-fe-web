@@ -6,6 +6,8 @@ import Link from "next/link";
 import ResendVerificationButton from "./ResendVerificationButton";
 import LoginForm from "./LoginForm";
 import GoogleLoginButton from "./GoogleLoginButton";
+import { Badge } from "@/components/ui/Badge";
+import { Icon } from "@/components/ui/Icon";
 
 type SearchParams =
   | { next?: string; error?: string; registered?: string }
@@ -31,25 +33,34 @@ export default async function LoginPage({
 
   return (
     <main className="auth-card card">
-      <div>
+      <div className="auth-header">
+        <Badge variant="muted">{t("auth.loginBadge")}</Badge>
         <h1 className="section-title">{t("auth.loginTitle")}</h1>
-        <p className="section-subtitle">{t("landing.subtitle")}</p>
+        <p className="section-subtitle">{t("auth.loginSubtitle")}</p>
       </div>
 
       {(error || unverified || blocked || promoError || oauthError || registered) && (
-        <p className="muted" style={{ marginTop: 4 }}>
-          {registered
-            ? t("auth.registerSuccess")
-            : blocked
-              ? t("auth.blockedAccount")
-              : promoError
-                ? t("auth.googlePromoError")
-                : oauthError
-                  ? t("auth.oauthError")
-              : unverified
-                ? t("auth.emailNotVerified")
-                : t("auth.invalidCredentials")}
-        </p>
+        <div className={`status-card ${registered ? "status-card--success" : "status-card--warning"}`}>
+          <div className="inline-actions-sm">
+            <Icon name={registered ? "check" : "warning"} />
+            <strong>
+              {registered ? t("auth.registerSuccessTitle") : t("auth.loginIssueTitle")}
+            </strong>
+          </div>
+          <p className="muted">
+            {registered
+              ? t("auth.registerSuccess")
+              : blocked
+                ? t("auth.blockedAccount")
+                : promoError
+                  ? t("auth.googlePromoError")
+                  : oauthError
+                    ? t("auth.oauthError")
+                : unverified
+                  ? t("auth.emailNotVerified")
+                  : t("auth.invalidCredentials")}
+          </p>
+        </div>
       )}
 
       <LoginForm
@@ -57,7 +68,9 @@ export default async function LoginPage({
         next={next}
         labels={{
           email: t("auth.email"),
+          emailHelper: t("auth.emailHelper"),
           password: t("auth.password"),
+          passwordHelper: t("auth.passwordHelper"),
           submit: t("auth.submit"),
           loading: t("auth.loginLoading"),
           showPassword: t("auth.showPassword"),
@@ -65,34 +78,32 @@ export default async function LoginPage({
         }}
       />
 
-      <GoogleLoginButton
-        labels={{
-          button: t("auth.google"),
-          modalTitle: t("auth.googlePromoTitle"),
-          modalSubtitle: t("auth.googlePromoSubtitle"),
-          promoLabel: t("auth.promoCode"),
-          promoPlaceholder: t("auth.googlePromoPlaceholder"),
-          promoHint: t("auth.googlePromoHint"),
-          confirm: t("auth.googlePromoConfirm"),
-          skip: t("auth.googlePromoSkip"),
-          cancel: t("auth.googlePromoCancel"),
-          promoError: t("auth.googlePromoError"),
-          oauthError: t("auth.oauthError"),
-        }}
-      />
+      <div className="auth-footer">
+        <GoogleLoginButton
+          labels={{
+            button: t("auth.google"),
+            modalTitle: t("auth.googlePromoTitle"),
+            modalSubtitle: t("auth.googlePromoSubtitle"),
+            promoLabel: t("auth.promoCode"),
+            promoPlaceholder: t("auth.googlePromoPlaceholder"),
+            promoHint: t("auth.googlePromoHint"),
+            confirm: t("auth.googlePromoConfirm"),
+            skip: t("auth.googlePromoSkip"),
+            cancel: t("auth.googlePromoCancel"),
+            promoError: t("auth.googlePromoError"),
+            oauthError: t("auth.oauthError"),
+          }}
+        />
 
-      {unverified && (
-        <div style={{ marginTop: 12 }}>
-          <ResendVerificationButton />
-        </div>
-      )}
+        {unverified ? <ResendVerificationButton /> : null}
 
-      <p className="muted" style={{ marginTop: 12 }}>
-        {t("auth.noAccount")} {" "}
-        <Link href="/register" className="link">
-          {t("auth.createAccount")}
-        </Link>
-      </p>
+        <p className="muted">
+          {t("auth.noAccount")}{" "}
+          <Link href="/register" className="link">
+            {t("auth.createAccount")}
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

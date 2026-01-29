@@ -2,14 +2,20 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 type RegisterFormProps = {
   action: (formData: FormData) => void;
   labels: {
     name: string;
+    nameHelper: string;
     email: string;
+    emailHelper: string;
     password: string;
+    passwordHelper: string;
     promoCode: string;
+    promoHelper: string;
     submit: string;
     loading: string;
     showPassword: string;
@@ -20,16 +26,9 @@ type RegisterFormProps = {
 function SubmitButton({ label, loadingLabel }: { label: string; loadingLabel: string }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className={`btn ${pending ? "is-loading" : ""}`} disabled={pending}>
-      {pending ? (
-        <>
-          <span className="spinner" aria-hidden="true" />
-          {loadingLabel}
-        </>
-      ) : (
-        label
-      )}
-    </button>
+    <Button type="submit" loading={pending} className="fit-content">
+      {pending ? loadingLabel : label}
+    </Button>
   );
 }
 
@@ -38,20 +37,37 @@ export default function RegisterForm({ action, labels }: RegisterFormProps) {
 
   return (
     <form action={action} className="form-stack">
-      <label className="form-stack">
-        {labels.name}
-        <input name="name" type="text" />
-      </label>
+      <Input
+        name="name"
+        type="text"
+        label={labels.name}
+        helperText={labels.nameHelper}
+        autoComplete="name"
+      />
 
-      <label className="form-stack">
-        {labels.email}
-        <input name="email" type="email" required />
-      </label>
+      <Input
+        name="email"
+        type="email"
+        label={labels.email}
+        helperText={labels.emailHelper}
+        required
+        autoComplete="email"
+      />
 
-      <label className="form-stack">
-        {labels.password}
+      <div className="ui-input-field">
+        <label className="ui-input-label" htmlFor="register-password">
+          {labels.password}
+        </label>
         <div className="input-with-action">
-          <input name="password" type={showPassword ? "text" : "password"} required minLength={8} />
+          <input
+            id="register-password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            className="ui-input"
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
           <button
             type="button"
             className="input-action"
@@ -61,12 +77,16 @@ export default function RegisterForm({ action, labels }: RegisterFormProps) {
             {showPassword ? "🙈" : "👁️"}
           </button>
         </div>
-      </label>
+        <span className="ui-input-helper">{labels.passwordHelper}</span>
+      </div>
 
-      <label className="form-stack">
-        {labels.promoCode}
-        <input name="promoCode" type="text" required />
-      </label>
+      <Input
+        name="promoCode"
+        type="text"
+        label={labels.promoCode}
+        helperText={labels.promoHelper}
+        required
+      />
 
       <SubmitButton label={labels.submit} loadingLabel={labels.loading} />
     </form>

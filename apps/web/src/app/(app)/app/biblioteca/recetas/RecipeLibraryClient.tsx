@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Recipe } from "@/lib/types";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { Input } from "@/components/ui/Input";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 type RecipeResponse = {
   items: Recipe[];
@@ -18,6 +23,7 @@ export default function RecipeLibraryClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,37 +72,65 @@ export default function RecipeLibraryClient() {
 
     void loadRecipes();
     return () => controller.abort();
-  }, [query, t]);
+  }, [query, retryKey, t]);
 
   return (
     <section className="card">
-      <div className="form-stack">
-        <input
+      <div className="library-search">
+        <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={t("recipes.searchPlaceholder")}
+          label={t("recipes.searchLabel")}
+          helperText={t("recipes.searchHelper")}
         />
+        <div className="library-filter-actions">
+          <Badge variant="muted">{t("recipes.filtersActive")}</Badge>
+          {query.trim().length > 0 ? <Badge>{t("recipes.filterQueryLabel")} {query.trim()}</Badge> : null}
+        </div>
       </div>
 
       {loading ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {t("recipes.loading")}
-        </p>
+        <div className="list-grid mt-16">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <SkeletonCard key={idx} />
+          ))}
+        </div>
       ) : error ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {error}
-        </p>
+        <div className="empty-state mt-16">
+          <div className="empty-state-icon">
+            <Icon name="warning" />
+          </div>
+          <div>
+            <h3 className="m-0">{t("recipes.errorTitle")}</h3>
+            <p className="muted">{error}</p>
+          </div>
+          <Button variant="secondary" onClick={() => setRetryKey((prev) => prev + 1)}>
+            {t("ui.retry")}
+          </Button>
+        </div>
       ) : recipes.length === 0 ? (
-        <div style={{ marginTop: 16 }}>
-          <p className="muted">{t("recipes.empty")}</p>
-          {isAdmin ? (
-            <Link className="btn secondary" href="/app/nutricion" style={{ marginTop: 12 }}>
-              {t("recipes.emptyAdminCta")}
-            </Link>
-          ) : null}
+        <div className="empty-state mt-16">
+          <div className="empty-state-icon">
+            <Icon name="info" />
+          </div>
+          <div>
+            <h3 className="m-0">{t("recipes.emptyTitle")}</h3>
+            <p className="muted">{t("recipes.empty")}</p>
+          </div>
+          <div className="empty-state-actions">
+            {isAdmin ? (
+              <Link className="btn secondary" href="/app/nutricion">
+                {t("recipes.emptyAdminCta")}
+              </Link>
+            ) : null}
+            <Button onClick={() => setRetryKey((prev) => prev + 1)}>
+              {t("recipes.retrySearch")}
+            </Button>
+          </div>
         </div>
       ) : (
-        <div className="list-grid" style={{ marginTop: 16 }}>
+        <div className="list-grid mt-16">
           {recipes.map((recipe) => {
             const ingredients = recipe.ingredients ?? [];
             const photoUrl = recipe.photoUrl ?? RECIPE_PLACEHOLDER;
@@ -104,8 +138,7 @@ export default function RecipeLibraryClient() {
               <Link
                 key={recipe.id}
                 href={`/app/biblioteca/recetas/${recipe.id}`}
-                className="feature-card recipe-card"
-                style={{ textDecoration: "none" }}
+                className="feature-card recipe-card library-card"
               >
                 <img
                   src={photoUrl}

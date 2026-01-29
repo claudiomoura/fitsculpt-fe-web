@@ -46,7 +46,9 @@
     "loading": "Cargando...",
     "save": "Guardar",
     "cancel": "Cancelar",
-    "closeLabel": "Cerrar"
+    "closeLabel": "Cerrar",
+    "retry": "Reintentar",
+    "tokensLabel": "Tokens:"
   },
   "calendar": {
     "today": "Hoy",
@@ -91,43 +93,133 @@
   },
   "landing": {
     "title": "FitSculpt",
-    "subtitle": "Landing simple (evolucionaremos luego).",
-    "cta": "Ir al inicio de sesión →",
+    "subtitle": "Planes inteligentes de entrenamiento y nutrición para avanzar sin ruido.",
+    "cta": "Empieza gratis",
     "secondaryCta": "Explorar la app",
+    "heroBadge": "Demo premium",
+    "heroBullets": [
+      "Plan personalizado en minutos",
+      "Nutrición y biblioteca integradas",
+      "Seguimiento claro del progreso"
+    ],
+    "heroPreviewTitle": "Vista rápida de hoy",
+    "heroPreviewSubtitle": "Entrenamiento y macros, en una sola pantalla.",
+    "heroPreviewStats": [
+      {
+        "label": "Entrenamiento",
+        "value": "Push · 45 min"
+      },
+      {
+        "label": "Nutrición",
+        "value": "2.050 kcal · 135g proteína"
+      },
+      {
+        "label": "Racha",
+        "value": "4 días activos"
+      }
+    ],
+    "heroPreviewBadge": "Optimizado para móvil",
     "highlightsTitle": "Todo lo que necesitas para tu progreso",
-    "highlightsSubtitle": "Planifica entrenamientos, calcula macros y registra avances con herramientas claras y rápidas.",
+    "highlightsSubtitle": "Entrena, come y mide con una experiencia consistente.",
     "highlights": [
       {
         "title": "Rutinas guiadas",
-        "description": "Crea un plan semanal según objetivo, nivel y tiempo disponible."
+        "description": "Planes semanales ajustados a tu objetivo y tiempo.",
+        "icon": "dumbbell"
       },
       {
         "title": "Macros inteligentes",
-        "description": "Estima calorías y distribuye proteínas, grasas y carbs por comida."
+        "description": "Objetivos claros para comer sin adivinar.",
+        "icon": "sparkles"
       },
       {
-        "title": "Nutrición flexible",
-        "description": "Genera planes de comidas y listas de compras adaptadas a ti."
+        "title": "Biblioteca premium",
+        "description": "Ejercicios y recetas con filtros rápidos.",
+        "icon": "book"
       },
       {
         "title": "Seguimiento continuo",
-        "description": "Registra entrenos, check-ins y hábitos para medir tu avance."
+        "description": "Tendencias que te dicen qué hacer ahora.",
+        "icon": "info"
       }
     ],
     "stepsTitle": "Cómo funciona",
-    "stepsSubtitle": "En tres pasos simples, convierte tus metas en un plan realista y medible.",
+    "stepsSubtitle": "Tres pasos simples para convertir metas en acciones.",
     "steps": [
       {
-        "title": "Define tu objetivo",
-        "description": "Selecciona tu meta y el nivel de entrenamiento ideal."
+        "title": "Configura tu perfil",
+        "description": "Objetivo, nivel y tiempo disponible."
       },
       {
-        "title": "Ajusta tus macros",
-        "description": "Calcula calorías y distribuye nutrientes según tu rutina."
+        "title": "Genera tu plan",
+        "description": "Entrenamiento + nutrición con un clic."
       },
       {
-        "title": "Haz seguimiento",
-        "description": "Registra cada sesión y revisa tu progreso semana a semana."
+        "title": "Ejecuta y mide",
+        "description": "Registra sesiones y revisa tendencias."
+      }
+    ],
+    "valueTitle": "Qué obtienes",
+    "valueSubtitle": "Todo conectado para que avances más rápido.",
+    "valueProps": [
+      {
+        "title": "Entrenamiento inteligente",
+        "description": "Sesiones balanceadas con foco y progresión.",
+        "badges": [
+          "Plan semanal",
+          "Técnica guiada",
+          "Calendario"
+        ]
+      },
+      {
+        "title": "Nutrición práctica",
+        "description": "Macros, comidas y listas listas para usar.",
+        "badges": [
+          "Macros claros",
+          "Recetas",
+          "Lista de compras"
+        ]
+      },
+      {
+        "title": "Biblioteca premium",
+        "description": "Contenido curado para entrenar mejor.",
+        "badges": [
+          "Ejercicios",
+          "Recetas",
+          "Filtros rápidos"
+        ]
+      }
+    ],
+    "plansTitle": "Planes",
+    "plansSubtitle": "Empieza gratis y escala cuando quieras.",
+    "plans": [
+      {
+        "title": "FREE",
+        "badge": "Starter",
+        "description": "Lo esencial para comenzar con claridad.",
+        "price": "0 €",
+        "features": [
+          "Plan semanal básico",
+          "Biblioteca estándar",
+          "Seguimiento simple"
+        ],
+        "ctaLabel": "Crear cuenta",
+        "ctaHref": "/register",
+        "featured": false
+      },
+      {
+        "title": "PRO",
+        "badge": "Recomendado",
+        "description": "IA, ajustes rápidos y soporte premium.",
+        "price": "9,99 €",
+        "features": [
+          "Planes con IA",
+          "Ajustes en tiempo real",
+          "Prioridad de soporte"
+        ],
+        "ctaLabel": "Ver PRO",
+        "ctaHref": "/register",
+        "featured": true
       }
     ]
   },
@@ -171,7 +263,17 @@
     "loginLoading": "Iniciando sesión...",
     "registerLoading": "Creando cuenta...",
     "showPassword": "Mostrar contraseña",
-    "hidePassword": "Ocultar contraseña"
+    "hidePassword": "Ocultar contraseña",
+    "loginBadge": "Acceso",
+    "loginSubtitle": "Vuelve a tu plan personalizado en segundos.",
+    "loginIssueTitle": "Revisa tus datos",
+    "registerBadge": "Crear cuenta",
+    "registerIssueTitle": "No pudimos validar tu registro",
+    "registerSuccessTitle": "Cuenta creada",
+    "nameHelper": "Como quieres que aparezca tu nombre.",
+    "emailHelper": "Usa el email con el que te registraste.",
+    "passwordHelper": "Mínimo 8 caracteres.",
+    "promoHelper": "Código requerido para activación."
   },
   "pro": {
     "aiLockedTitle": "Mejora tu plan con FitSculpt AI (Pro)",
@@ -260,7 +362,9 @@
     "weightChartSubtitle": "Últimas mediciones",
     "bodyFatChartTitle": "% grasa corporal",
     "bodyFatChartSubtitle": "Tendencia reciente",
-    "chartError": "No pudimos cargar el progreso."
+    "chartError": "No pudimos cargar el progreso.",
+    "errorTitle": "No pudimos cargar tu progreso",
+    "progressEmptyHint": "Registra un check-in para ver tu tendencia."
   },
   "workouts": {
     "newWorkout": "Nuevo entrenamiento",
@@ -528,7 +632,8 @@
     "profileError": "No pudimos cargar tu perfil.",
     "preferencesHint": "Cambia estas preferencias desde Perfil.",
     "emptyPlan": "Completa el formulario para generar tu plan.",
-    "generateSuccess": "Plan generado correctamente."
+    "generateSuccess": "Plan generado correctamente.",
+    "errorTitle": "No pudimos cargar tu plan de nutrición"
   },
   "training": {
     "formTitle": "Datos del plan",
@@ -643,7 +748,8 @@
     "profileLoading": "Cargando preferencias...",
     "profileError": "No pudimos cargar tu perfil.",
     "emptyPlan": "Completa el formulario para generar tu plan.",
-    "generateSuccess": "Plan generado correctamente."
+    "generateSuccess": "Plan generado correctamente.",
+    "errorTitle": "No pudimos cargar tu plan"
   },
   "profile": {
     "formTitle": "Perfil y métricas",
@@ -842,7 +948,12 @@
     "bodyFatExample": "Ejemplo",
     "bodyFatSelection": "Selección actual",
     "bodyFatSelectionEmpty": "Sin seleccionar",
-    "bodyFatDisclaimer": "Estimación visual, no es un valor médico."
+    "bodyFatDisclaimer": "Estimación visual, no es un valor médico.",
+    "loadError": "No pudimos cargar tu perfil.",
+    "errorTitle": "Problema al cargar datos",
+    "workoutLength30": "30 min",
+    "workoutLength45": "45 min",
+    "workoutLength60": "60 min"
   },
   "tracking": {
     "sectionCheckins": "Check-ins semanales",
@@ -1023,7 +1134,16 @@
     "mediaAlt": "Demostración del ejercicio",
     "mediaFallback": "Aquí irá el modelo 3D / GIF del ejercicio, como en FitnessAI.",
     "mediaPlaceholder": "Sin medios disponibles por ahora.",
-    "noExecutionDetails": "No hay detalles de ejecución disponibles."
+    "noExecutionDetails": "No hay detalles de ejecución disponibles.",
+    "searchLabel": "Buscar ejercicios",
+    "searchHelper": "Filtra por nombre o grupo muscular.",
+    "filtersActive": "Filtros activos",
+    "filterEquipmentLabel": "Equipo:",
+    "filterMuscleLabel": "Músculo:",
+    "errorTitle": "No pudimos cargar la biblioteca",
+    "emptyTitle": "No encontramos ejercicios",
+    "resetFilters": "Limpiar filtros",
+    "retrySearch": "Volver a intentar"
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -1044,7 +1164,14 @@
     "fatLabel": "Grasas",
     "mediaPlaceholder": "Sin foto disponible.",
     "noDetails": "Esta receta aún no tiene detalles adicionales.",
-    "backToRecipes": "Volver a recetas"
+    "backToRecipes": "Volver a recetas",
+    "searchLabel": "Buscar recetas",
+    "searchHelper": "Busca por nombre o ingrediente.",
+    "filtersActive": "Filtros activos",
+    "filterQueryLabel": "Consulta:",
+    "errorTitle": "No pudimos cargar recetas",
+    "emptyTitle": "Sin resultados",
+    "retrySearch": "Reintentar búsqueda"
   },
   "trainingPlans": {
     "loading": "Cargando planes de entrenamiento...",
@@ -1054,7 +1181,14 @@
     "loadErrorList": "No se pudieron cargar los planes de entrenamiento.",
     "searchPlaceholder": "Buscar planes por título",
     "detailSubtitle": "Resumen del plan y detalles de las sesiones.",
-    "backToTrainingPlans": "Volver a entrenamientos"
+    "backToTrainingPlans": "Volver a entrenamientos",
+    "searchLabel": "Buscar planes",
+    "searchHelper": "Encuentra planes por nombre o enfoque.",
+    "filtersActive": "Filtros activos",
+    "filterQueryLabel": "Consulta:",
+    "errorTitle": "No pudimos cargar planes",
+    "emptyTitle": "Sin planes en la biblioteca",
+    "retrySearch": "Reintentar búsqueda"
   },
   "workoutDetail": {
     "notFound": "No se encontró este entreno.",
@@ -1116,7 +1250,9 @@
     "sessionFinish": "Finalizar sesión",
     "sessionStartError": "No pudimos iniciar la sesión.",
     "sessionSaveError": "No pudimos guardar esta serie.",
-    "sessionFinishError": "No pudimos finalizar la sesión."
+    "sessionFinishError": "No pudimos finalizar la sesión.",
+    "notFoundTitle": "Entrenamiento no disponible",
+    "loadErrorTitle": "No pudimos cargar el entrenamiento"
   },
   "dietPlans": {
     "title": "Dietas",

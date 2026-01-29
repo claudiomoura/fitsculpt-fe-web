@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import type { Workout, WorkoutExercise } from "@/lib/types";
 import { getServerT } from "@/lib/serverI18n";
+import { ButtonLink } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 
 type WorkoutExerciseApi = WorkoutExercise & {
   muscleGroup?: string | null;
@@ -96,11 +97,19 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
   if (!workoutId) {
     return (
       <div className="page">
-        <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">{t("workoutDetail.notFound")}</p>
-          <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/entrenamientos">
-            {t("workoutDetail.backToWorkouts")}
-          </Link>
+        <section className="card centered-card">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Icon name="warning" />
+            </div>
+            <div>
+              <h3 className="m-0">{t("workoutDetail.notFoundTitle")}</h3>
+              <p className="muted">{t("workoutDetail.notFound")}</p>
+            </div>
+            <ButtonLink href="/app/entrenamientos" className="fit-content">
+              {t("workoutDetail.backToWorkouts")}
+            </ButtonLink>
+          </div>
         </section>
       </div>
     );
@@ -111,11 +120,19 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
     const message = error ? t("workoutDetail.loadError") : t("workoutDetail.notFound");
     return (
       <div className="page">
-        <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">{message}</p>
-          <Link className="btn" style={{ width: "fit-content", marginTop: 12 }} href="/app/entrenamientos">
-            {t("workoutDetail.backToWorkouts")}
-          </Link>
+        <section className="card centered-card">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Icon name="warning" />
+            </div>
+            <div>
+              <h3 className="m-0">{t("workoutDetail.loadErrorTitle")}</h3>
+              <p className="muted">{message}</p>
+            </div>
+            <ButtonLink href="/app/entrenamientos" className="fit-content">
+              {t("workoutDetail.backToWorkouts")}
+            </ButtonLink>
+          </div>
         </section>
       </div>
     );
@@ -151,16 +168,23 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
 
   return (
     <div className="page">
-      <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-        <div className="form-stack">
-          <h1 className="section-title">{workout.name}</h1>
-          <p className="section-subtitle">
-            {workout.notes ?? t("workoutDetail.notesFallback")}
-          </p>
+      <section className="card centered-card">
+        <div className="page-header">
+          <div className="page-header-body">
+            <h1 className="section-title">{workout.name}</h1>
+            <p className="section-subtitle">
+              {workout.notes ?? t("workoutDetail.notesFallback")}
+            </p>
+          </div>
+          <div className="page-header-actions">
+            <ButtonLink variant="secondary" href="/app/entrenamientos">
+              {t("workoutDetail.backToWorkouts")}
+            </ButtonLink>
+          </div>
         </div>
 
         {badges.length > 0 ? (
-          <div className="badge-list" style={{ marginTop: 12 }}>
+          <div className="badge-list mt-12">
             {badges.map((badge) => (
               <span key={badge} className="badge">
                 {badge}
@@ -170,15 +194,15 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         ) : null}
 
         {workout.targetMuscles && workout.targetMuscles.length > 0 ? (
-          <p className="muted" style={{ marginTop: 8 }}>
+          <p className="muted mt-8">
             {t("workoutDetail.targetMuscles")}: {workout.targetMuscles.join(", ")}
           </p>
         ) : null}
 
-        <div className="list-grid" style={{ marginTop: 16 }}>
+        <div className="list-grid mt-16">
           <div className="feature-card">
             <h3>{t("workoutDetail.summaryTitle")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
+            <p className="muted mt-8">
               {t("workoutDetail.exercisesLabel")}: {totalExercises}
             </p>
             <p className="muted">{t("workoutDetail.setsTotal")}: {totalSets || t("workoutDetail.setsFallback")}</p>
@@ -188,14 +212,14 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
           </div>
           <div className="feature-card">
             <h3>{t("workoutDetail.goalTitle")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
+            <p className="muted mt-8">
               {workout.goal ?? t("workoutDetail.goalMissing")}
             </p>
             <p className="muted">{t("workoutDetail.splitLabel")}: {workout.split ?? t("workoutDetail.splitFallback")}</p>
           </div>
           <div className="feature-card">
             <h3>{t("workoutDetail.durationTitle")}</h3>
-            <p className="muted" style={{ marginTop: 8 }}>
+            <p className="muted mt-8">
               {t("workoutDetail.durationEstimate")}: {workout.estimatedDurationMin ?? workout.durationMin ?? t("workoutDetail.volumeMissing")} {t("training.minutesLabel")}
             </p>
             <p className="muted">{t("workoutDetail.durationPrep")}</p>
@@ -203,10 +227,10 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         </div>
       </section>
 
-      <section className="card" style={{ maxWidth: 960, margin: "16px auto 0" }}>
+      <section className="card centered-card mt-16">
         <div className="section-head">
           <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>
+            <h2 className="section-title section-title-sm">
               {t("workoutDetail.exerciseSectionTitle")}
             </h2>
             <p className="section-subtitle">
@@ -216,11 +240,11 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         </div>
 
         {exercises.length === 0 ? (
-          <p className="muted" style={{ marginTop: 12 }}>
+          <p className="muted mt-12">
             {t("workoutDetail.exerciseEmpty")}
           </p>
         ) : (
-          <div className="list-grid" style={{ marginTop: 16 }}>
+          <div className="list-grid mt-16">
             {exercises.map((exercise, index) => {
               const exerciseKey = exercise.exerciseId ?? exercise.id ?? `${exercise.name}-${index}`;
               const setsCount = parseNumber(exercise.sets) ?? 0;
@@ -248,7 +272,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
                     <img src="/placeholders/exercise-demo.svg" alt={exercise.name ?? t("workoutDetail.exerciseFallback")} />
                   </div>
                   <div className="workout-exercise-content">
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <div className="inline-actions-space">
                       <strong>{exercise.name ?? t("workoutDetail.exerciseFallback")}</strong>
                       <span className="muted">{t("workoutDetail.exerciseIndex")}{index + 1}</span>
                     </div>
@@ -262,11 +286,11 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
                         ))}
                       </ul>
                     ) : (
-                      <p className="muted" style={{ marginTop: 8 }}>
+                      <p className="muted mt-8">
                         {t("workoutDetail.setsLabel")}: {exercise.sets ?? t("workoutDetail.setsFallback")}
                       </p>
                     )}
-                    <div className="badge-list" style={{ marginTop: 8 }}>
+                    <div className="badge-list mt-8">
                       <span className="badge">
                         {exercise.primaryMuscle ? `${t("workoutDetail.exerciseGroup")}: ${exercise.primaryMuscle}` : t("workoutDetail.exerciseGroupFallback")}
                       </span>
@@ -282,10 +306,10 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         )}
       </section>
 
-      <div style={{ maxWidth: 960, margin: "16px auto 0" }}>
-        <Link className="btn" href="/app/entrenamientos">
+      <div className="centered-card mt-16">
+        <ButtonLink href="/app/entrenamientos">
           {t("workoutDetail.backToWorkouts")}
-        </Link>
+        </ButtonLink>
       </div>
     </div>
   );

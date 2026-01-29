@@ -638,6 +638,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const hasPlan = Boolean(visiblePlan?.days.length);
   const isAiLocked = subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0;
   const isAiDisabled = aiLoading || isAiLocked || !form;
+  const handleRetry = () => window.location.reload();
   const buildSetLines = (exercise: Exercise) => {
     const setsValue = String(exercise.sets);
     const match = setsValue.match(/\d+/);
@@ -655,8 +656,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         <>
           <section className="card">
 <div className="section-head section-head-actions">
-  <div style={{ minWidth: 0 }}>
-    <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.formTitle")}</h2>
+  <div className="min-w-0">
+    <h2 className="section-title section-title-sm">{t("training.formTitle")}</h2>
     <p className="section-subtitle">{t("training.tips")}</p>
   </div>
 
@@ -685,22 +686,21 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 </div>
 
             {aiTokenBalance !== null ? (
-              <p className="muted" style={{ marginTop: 8 }}>
+              <p className="muted mt-8">
                 {t("ai.tokensRemaining")} {aiTokenBalance}
                 {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
               </p>
             ) : null}
 
             {isAiLocked ? (
-              <div className="feature-card" style={{ marginTop: 12 }}>
+              <div className="feature-card mt-12">
                 <strong>{t("aiLockedTitle")}</strong>
-                <p className="muted" style={{ marginTop: 6 }}>{t("aiLockedSubtitle")}</p>
+                <p className="muted mt-6">{t("aiLockedSubtitle")}</p>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn mt-8"
                   onClick={handleUpgrade}
                   disabled={checkoutLoading}
-                  style={{ marginTop: 8 }}
                 >
                   {checkoutLoading ? t("ui.loading") : t("aiLockedCta")}
                 </button>
@@ -710,11 +710,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
             {loading ? (
               <div className="form-stack">
-                <Skeleton variant="line" style={{ width: "40%" }} />
-                <Skeleton variant="line" style={{ width: "60%" }} />
+                <Skeleton variant="line" className="w-40" />
+                <Skeleton variant="line" className="w-60" />
               </div>
             ) : error ? (
-              <p className="muted">{error}</p>
+              <div className="status-card status-card--warning">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("training.errorTitle")}</strong>
+                </div>
+                <p className="muted">{error}</p>
+                <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                  {t("ui.retry")}
+                </button>
+              </div>
             ) : saveMessage ? (
               <p className="muted">{saveMessage}</p>
             ) : form ? (
@@ -738,7 +747,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </div>
             ) : null}
 
-            <p className="muted" style={{ marginTop: 12 }}>
+            <p className="muted mt-12">
               {t("training.preferencesHint")}
             </p>
           </section>
@@ -750,7 +759,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <Icon name="info" />
                 </div>
                 <div>
-                  <h3 style={{ marginTop: 0 }}>{t("training.profileIncompleteTitle")}</h3>
+                  <h3 className="m-0">{t("training.profileIncompleteTitle")}</h3>
                   <p className="muted">{t("training.profileIncompleteSubtitle")}</p>
                 </div>
                 <ButtonLink href="/app/onboarding?next=/app/entrenamiento">
@@ -765,10 +774,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <Icon name="dumbbell" />
                 </div>
                 <div>
-                  <h3 style={{ marginTop: 0 }}>{t("training.emptyTitle")}</h3>
+                  <h3 className="m-0">{t("training.emptyTitle")}</h3>
                   <p className="muted">{t("training.emptySubtitle")}</p>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className="empty-state-actions">
                   <Button
                     disabled={isAiDisabled}
                     loading={aiLoading}
@@ -786,7 +795,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             <section className="card">
               <div className="section-head section-head-actions">
                 <div>
-                  <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.calendarTitle")}</h2>
+                  <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
                   <p className="section-subtitle">{t("training.calendarSubtitle")}</p>
                 </div>
                 <div className="section-actions calendar-actions">
@@ -810,8 +819,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
               {!planStartDate ? (
                 <div className="calendar-empty">
-                  <div className="empty-state" style={{ marginTop: 0 }}>
-                    <h3 style={{ marginTop: 0 }}>{t("training.calendarStartDateTitle")}</h3>
+                  <div className="empty-state">
+                    <h3 className="m-0">{t("training.calendarStartDateTitle")}</h3>
                     <p className="muted">{t("training.calendarStartDateSubtitle")}</p>
                     <Button onClick={handleSetStartDate}>
                       {t("training.calendarStartDateCta")}
@@ -826,7 +835,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             {day.focus} · {day.duration} {t("training.minutesLabel")}
                           </span>
                         </summary>
-                        <div className="list-grid" style={{ marginTop: 12 }}>
+                        <div className="list-grid mt-12">
                           {day.exercises.map((exercise, exerciseIdx) => (
                             <div key={`${exercise.name}-${exerciseIdx}`} className="exercise-mini-card">
                               <strong>{exercise.name}</strong>
@@ -859,11 +868,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       <div className="calendar-day-header">
                         <div>
                           <strong>{selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" })}</strong>
-                          <p className="muted" style={{ margin: "4px 0 0" }}>
+                          <p className="muted mt-4 mb-0">
                             {selectedPlanDay?.day.focus ?? safeT("training.calendarEmptyFocus", t("training.restDayTitle"))}
                           </p>
                         </div>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div className="calendar-day-actions">
                           <button type="button" className="btn secondary" onClick={handlePrevDay}>
                             {t("training.dayPrev")}
                           </button>
@@ -914,8 +923,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           ) : (
                             <div className="feature-card">
                               <strong>{t("training.restDayTitle")}</strong>
-                              <p className="muted" style={{ marginTop: 6 }}>{t("training.restDaySubtitle")}</p>
-                              <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                              <p className="muted mt-6">{t("training.restDaySubtitle")}</p>
+                              <ul className="list-muted">
                                 <li>{t("training.restDayTipOne")}</li>
                                 <li>{t("training.restDayTipTwo")}</li>
                                 <li>{t("training.restDayTipThree")}</li>
@@ -1028,7 +1037,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             <section className="card">
               <div className="section-head">
                 <div>
-                  <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.periodTitle")}</h2>
+                  <h2 className="section-title section-title-sm">{t("training.periodTitle")}</h2>
                   <p className="section-subtitle">{t("training.periodSubtitle")}</p>
                 </div>
               </div>
@@ -1050,10 +1059,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         <section className="card">
           <div className="section-head">
             <div>
-              <h2 className="section-title" style={{ fontSize: 20 }}>{t("training.manualPlanTitle")}</h2>
+              <h2 className="section-title section-title-sm">{t("training.manualPlanTitle")}</h2>
               <p className="section-subtitle">{t("training.manualPlanSubtitle")}</p>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className="inline-actions-sm">
               <button type="button" className="btn secondary" onClick={() => visiblePlan && setManualPlan(visiblePlan)}>
                 {t("training.manualPlanReset")}
               </button>
@@ -1074,8 +1083,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           {manualPlan ? (
             <div className="form-stack">
               {manualPlan.days.map((day, dayIndex) => (
-                <div key={`${day.label}-${dayIndex}`} className="feature-card" style={{ display: "grid", gap: 12 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                <div key={`${day.label}-${dayIndex}`} className="feature-card stack-md">
+                  <div className="inline-grid-2">
                     <label className="form-stack">
                       {t("training.manualDayLabel")}
                       <input
@@ -1108,12 +1117,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       day.exercises.map((exercise, exerciseIndex) => (
                         <div
                           key={`${exercise.name}-${exerciseIndex}`}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "2fr 1fr 1fr auto",
-                            gap: 8,
-                            alignItems: "center",
-                          }}
+                          className="training-manual-row"
                         >
                           <input
                             value={exercise.name}
@@ -1162,10 +1166,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             aria-labelledby="exercise-technique-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+            <div className="modal-header">
               <div>
-                <h3 id="exercise-technique-title" style={{ margin: 0 }}>{techniqueModal.exercise.name}</h3>
-                <p className="muted" style={{ margin: "4px 0 0" }}>
+                <h3 id="exercise-technique-title" className="modal-header-title">{techniqueModal.exercise.name}</h3>
+                <p className="muted modal-header-subtitle">
                   {t("training.techniqueSubtitle")} {techniqueModal.dayLabel}
                 </p>
               </div>
@@ -1173,29 +1177,29 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 {t("ui.closeLabel")}
               </button>
             </div>
-            <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
+            <div className="modal-content-stack">
               <img
                 src="/placeholders/exercise-demo.svg"
                 alt={t("training.techniquePlaceholderAlt")}
-                style={{ width: "100%", borderRadius: 12, border: "1px solid var(--border)" }}
+                className="modal-image"
               />
               <div className="feature-card">
                 <strong>{t("ui.technique")}</strong>
-                <p className="muted" style={{ marginTop: 6 }}>
+                <p className="muted modal-section-copy">
                   {t("training.techniquePlaceholder")}
                 </p>
-                <p style={{ marginTop: 6 }}>
+                <p className="modal-section-copy">
                   {t("training.techniqueSets")}: {techniqueModal.exercise.sets}
                 </p>
                 {techniqueModal.exercise.reps && (
-                  <p className="muted" style={{ marginTop: 4 }}>
+                  <p className="muted modal-section-copy-tight">
                     {t("training.techniqueReps")}: {techniqueModal.exercise.reps}
                   </p>
                 )}
               </div>
               <div className="feature-card">
                 <strong>{t("ui.tips")}</strong>
-                <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                <ul className="list-muted">
                   <li>{t("training.techniqueTipOne")}</li>
                   <li>{t("training.techniqueTipTwo")}</li>
                 </ul>

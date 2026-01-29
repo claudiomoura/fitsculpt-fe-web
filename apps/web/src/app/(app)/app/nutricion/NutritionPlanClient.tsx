@@ -1150,6 +1150,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   };
 
   const hasPlan = Boolean(visiblePlan?.days.length);
+  const handleRetry = () => window.location.reload();
 
   return (
     <div className="page">
@@ -1158,7 +1159,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
           <section className="card">
             <div className="section-head section-head-actions">
               <div>
-                <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.formTitle")}</h2>
+                <h2 className="section-title section-title-sm">{t("nutrition.formTitle")}</h2>
                 <p className="section-subtitle">{t("nutrition.tips")}</p>
               </div>
 
@@ -1184,22 +1185,21 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             </div>
 
             {aiTokenBalance !== null ? (
-              <p className="muted" style={{ marginTop: 8 }}>
+              <p className="muted mt-8">
                 {t("ai.tokensRemaining")} {aiTokenBalance}
                 {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
               </p>
             ) : null}
 
             {isAiLocked ? (
-              <div className="feature-card" style={{ marginTop: 12 }}>
+              <div className="feature-card mt-12">
                 <strong>{t("aiLockedTitle")}</strong>
-                <p className="muted" style={{ marginTop: 6 }}>{t("aiLockedSubtitle")}</p>
+                <p className="muted mt-6">{t("aiLockedSubtitle")}</p>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn mt-8"
                   onClick={handleUpgrade}
                   disabled={checkoutLoading}
-                  style={{ marginTop: 8 }}
                 >
                   {checkoutLoading ? t("ui.loading") : t("aiLockedCta")}
                 </button>
@@ -1207,10 +1207,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             ) : null}
 
             {exportMessage && (
-              <p className="muted" style={{ marginTop: 8 }}>{exportMessage}</p>
+              <p className="muted mt-8">{exportMessage}</p>
             )}
 
-            <div className="export-actions" style={{ marginTop: 12 }}>
+            <div className="export-actions mt-12">
               <button type="button" className="btn secondary" onClick={handleExportCsv}>
                 {t("nutrition.exportCsv")}
               </button>
@@ -1224,11 +1224,20 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
 
             {loading ? (
               <div className="form-stack">
-                <Skeleton variant="line" style={{ width: "40%" }} />
-                <Skeleton variant="line" style={{ width: "70%" }} />
+                <Skeleton variant="line" className="w-40" />
+                <Skeleton variant="line" className="w-70" />
               </div>
             ) : error ? (
-              <p className="muted">{error}</p>
+              <div className="status-card status-card--warning">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("nutrition.errorTitle")}</strong>
+                </div>
+                <p className="muted">{error}</p>
+                <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                  {t("ui.retry")}
+                </button>
+              </div>
             ) : saveMessage ? (
               <p className="muted">{saveMessage}</p>
             ) : profile ? (
@@ -1243,7 +1252,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                   </Badge>
                 </div>
 
-                <div className="info-grid" style={{ marginTop: 16 }}>
+                <div className="info-grid mt-16">
                   <div className="info-item">
                     <div className="info-label">{t("macros.weight")}</div>
                     <div className="info-value">{profile.weightKg ?? "-"} kg</div>
@@ -1292,7 +1301,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
               </>
             ) : null}
 
-            <p className="muted" style={{ marginTop: 12 }}>
+            <p className="muted mt-12">
               {t("nutrition.preferencesHint")}
             </p>
           </section>
@@ -1304,7 +1313,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                   <Icon name="info" />
                 </div>
                 <div>
-                  <h3 style={{ marginTop: 0 }}>{t("nutrition.profileIncompleteTitle")}</h3>
+                  <h3 className="m-0">{t("nutrition.profileIncompleteTitle")}</h3>
                   <p className="muted">{t("nutrition.profileIncompleteSubtitle")}</p>
                 </div>
                 <ButtonLink href="/app/onboarding?next=/app/nutricion">
@@ -1319,10 +1328,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                   <Icon name="info" />
                 </div>
                 <div>
-                  <h3 style={{ marginTop: 0 }}>{t("nutrition.emptyTitle")}</h3>
+                  <h3 className="m-0">{t("nutrition.emptyTitle")}</h3>
                   <p className="muted">{t("nutrition.emptySubtitle")}</p>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className="empty-state-actions">
                   <Button
                     disabled={isAiDisabled}
                     loading={aiLoading}
@@ -1341,7 +1350,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
               <section className="card">
                 <div className="section-head section-head-actions">
                   <div>
-                    <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.calendarTitle")}</h2>
+                    <h2 className="section-title section-title-sm">{t("nutrition.calendarTitle")}</h2>
                     <p className="section-subtitle">{t("nutrition.calendarSubtitle")}</p>
                   </div>
                   <div className="section-actions calendar-actions">
@@ -1365,8 +1374,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
 
                 {!planStartDate ? (
                   <div className="calendar-empty">
-                    <div className="empty-state" style={{ marginTop: 0 }}>
-                      <h3 style={{ marginTop: 0 }}>{t("nutrition.calendarStartDateTitle")}</h3>
+                    <div className="empty-state">
+                      <h3 className="m-0">{t("nutrition.calendarStartDateTitle")}</h3>
                       <p className="muted">{t("nutrition.calendarStartDateSubtitle")}</p>
                       <Button onClick={handleSetStartDate}>{t("nutrition.calendarStartDateCta")}</Button>
                     </div>
@@ -1374,15 +1383,15 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                       {visiblePlan?.days.map((day) => (
                         <div key={day.dayLabel} className="feature-card">
                           <strong>{day.dayLabel}</strong>
-                          <div className="table-grid" style={{ marginTop: 8 }}>
+                          <div className="table-grid-sm mt-8">
                             {day.meals.map((meal, mealIndex) => (
                               <div key={`${meal.title}-${mealIndex}`}>
-                                <div style={{ fontWeight: 600 }}>{meal.title}</div>
+                                <div className="text-semibold">{meal.title}</div>
                                 {meal.description ? <div className="muted">{meal.description}</div> : null}
-                                <div style={{ marginTop: 6 }} className="muted">
+                                <div className="muted mt-6">
                                   {t("nutrition.ingredients")}:
                                 </div>
-                                <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                                <ul className="list-muted-sm">
                                   {(meal.ingredients ?? []).map((ingredient, ingredientIndex) => (
                                     <li key={`${ingredient.name}-${ingredientIndex}`}>
                                       {ingredient.name}: {ingredient.grams} {t("nutrition.grams")}
@@ -1408,11 +1417,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                         <div className="calendar-day-header">
                           <div>
                             <strong>{selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" })}</strong>
-                            <p className="muted" style={{ margin: "4px 0 0" }}>
+                            <p className="muted mt-4 mb-0">
                               {selectedPlanDay?.day.dayLabel ?? safeT("nutrition.calendarEmptyFocus", t("nutrition.todayTitle"))}
                             </p>
                           </div>
-                          <div style={{ display: "flex", gap: 8 }}>
+                          <div className="calendar-day-actions">
                             <button type="button" className="btn secondary" onClick={handlePrevDay}>
                               {t("nutrition.dayPrev")}
                             </button>
@@ -1427,12 +1436,12 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                               <div key={`${meal.title}-${mealIndex}`} className="feature-card">
                                 <strong>{meal.title}</strong>
                                 {meal.description ? (
-                                  <p className="muted" style={{ marginTop: 6 }}>{meal.description}</p>
+                                  <p className="muted mt-6">{meal.description}</p>
                                 ) : null}
-                                <div style={{ marginTop: 8 }} className="muted">
+                                <div className="muted mt-8">
                                   {t("nutrition.ingredients")}:
                                 </div>
-                                <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+                                <ul className="list-muted-sm">
                                   {(meal.ingredients ?? []).map((ingredient, ingredientIndex) => (
                                     <li key={`${ingredient.name}-${ingredientIndex}`}>
                                       {ingredient.name}: {ingredient.grams} {t("nutrition.grams")}
@@ -1543,8 +1552,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
               </section>
 
               <section className="card">
-                <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.dailyTargetTitle")}</h2>
-                <div className="info-grid" style={{ marginTop: 16 }}>
+                <h2 className="section-title section-title-sm">{t("nutrition.dailyTargetTitle")}</h2>
+                <div className="info-grid mt-16">
                   <div className="info-item">
                     <div className="info-label">{t("nutrition.calories")}</div>
                     <div className="info-value">{visiblePlan?.dailyCalories ?? 0} kcal</div>
@@ -1565,20 +1574,19 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
               </section>
 
               <section className="card">
-                <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.shoppingTitle")}</h2>
+                <h2 className="section-title section-title-sm">{t("nutrition.shoppingTitle")}</h2>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn mt-8"
                   onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
-                  style={{ marginTop: 8 }}
                 >
                   {t("nutrition.shoppingGenerate")}
                 </button>
-                <div style={{ marginTop: 12 }}>
+                <div className="mt-12">
                   {shoppingList.length === 0 ? (
                     <p className="muted">{t("nutrition.shoppingEmpty")}</p>
                   ) : (
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    <ul className="list-reset">
                       {shoppingList.map((item) => (
                         <li key={item.name}>
                           {item.name}: {item.grams} g
@@ -1597,10 +1605,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         <section className="card">
           <div className="section-head">
             <div>
-              <h2 className="section-title" style={{ fontSize: 20 }}>{t("nutrition.manualPlanTitle")}</h2>
+              <h2 className="section-title section-title-sm">{t("nutrition.manualPlanTitle")}</h2>
               <p className="section-subtitle">{t("nutrition.manualPlanSubtitle")}</p>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div className="inline-actions-sm">
               <button type="button" className="btn secondary" onClick={() => visiblePlan && setManualPlan(visiblePlan)}>
                 {t("nutrition.manualPlanReset")}
               </button>
@@ -1612,11 +1620,20 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
 
           {loading ? (
             <div className="form-stack">
-              <Skeleton variant="line" style={{ width: "45%" }} />
-              <Skeleton variant="line" style={{ width: "70%" }} />
+              <Skeleton variant="line" className="w-45" />
+              <Skeleton variant="line" className="w-70" />
             </div>
           ) : error ? (
-            <p className="muted">{error}</p>
+            <div className="status-card status-card--warning">
+              <div className="inline-actions-sm">
+                <Icon name="warning" />
+                <strong>{t("nutrition.errorTitle")}</strong>
+              </div>
+              <p className="muted">{error}</p>
+              <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                {t("ui.retry")}
+              </button>
+            </div>
           ) : saveMessage ? (
             <p className="muted">{saveMessage}</p>
           ) : null}
@@ -1624,7 +1641,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
           {manualPlan ? (
             <div className="form-stack">
               {manualPlan.days.map((day, dayIndex) => (
-                <div key={`${day.dayLabel}-${dayIndex}`} className="feature-card" style={{ display: "grid", gap: 12 }}>
+                <div key={`${day.dayLabel}-${dayIndex}`} className="feature-card stack-md">
                   <label className="form-stack">
                     {t("nutrition.manualDayLabel")}
                     <input
@@ -1634,8 +1651,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                   </label>
                   <div className="form-stack">
                     {day.meals.map((meal, mealIndex) => (
-                      <div key={`${meal.title}-${mealIndex}`} className="info-item" style={{ display: "grid", gap: 10 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                      <div key={`${meal.title}-${mealIndex}`} className="info-item stack-sm">
+                        <div className="inline-actions-space">
                           <strong>{t("nutrition.manualMeal")}</strong>
                           <button
                             type="button"
@@ -1645,7 +1662,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                             {t("nutrition.manualMealRemove")}
                           </button>
                         </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+                        <div className="inline-grid-3">
                           <label className="form-stack">
                             {t("nutrition.manualMealType")}
                             <select
@@ -1676,7 +1693,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                             onChange={(e) => updateManualMeal(dayIndex, mealIndex, "description", e.target.value)}
                           />
                         </label>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
+                        <div className="inline-grid-compact">
                           <label className="form-stack">
                             {t("nutrition.manualMealCalories")}
                             <input
@@ -1715,14 +1732,14 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                           </label>
                         </div>
                         <div className="form-stack">
-                          <div style={{ fontWeight: 600 }}>{t("nutrition.manualIngredients")}</div>
+                          <div className="text-semibold">{t("nutrition.manualIngredients")}</div>
                           {(meal.ingredients ?? []).length === 0 ? (
                             <p className="muted">{t("nutrition.manualIngredientsEmpty")}</p>
                           ) : (
                             (meal.ingredients ?? []).map((ingredient, ingredientIndex) => (
                               <div
                                 key={`${ingredient.name}-${ingredientIndex}`}
-                                style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 8, alignItems: "center" }}
+                                className="nutrition-ingredient-row"
                               >
                                 <input
                                   value={ingredient.name}
