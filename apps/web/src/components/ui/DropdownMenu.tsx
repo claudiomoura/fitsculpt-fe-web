@@ -6,16 +6,16 @@ import { cn } from "@/lib/classNames";
 type DropdownContextValue = {
   open: boolean;
   setOpen: (value: boolean) => void;
-  triggerRef: RefObject<HTMLButtonElement>;
-  contentRef: RefObject<HTMLDivElement>;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  contentRef: RefObject<HTMLDivElement | null>;
 };
 
 const DropdownContext = createContext<DropdownContextValue | null>(null);
 
 export function DropdownMenu({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+const triggerRef = useRef<HTMLButtonElement | null>(null);
+const contentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) return;

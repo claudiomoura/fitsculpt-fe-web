@@ -1,7 +1,7 @@
-import type { SVGProps } from "react";
+import type { JSX, SVGProps } from "react";
 import { cn } from "@/lib/classNames";
 
-type IconName =
+export type IconName =
   | "sparkles"
   | "dumbbell"
   | "book"

@@ -86,27 +86,30 @@ export default function AppNavBar() {
         </Link>
 
         <div className="nav-actions">
-          <div className="nav-utility">
-            <ThemeToggle />
-            <LanguageSwitcher />
-          </div>
-          <div className={`account-pill ${isPro ? "is-pro" : "is-free"}`}>
-            <span className="account-pill-label">{planLabel}</span>
-            {isPro ? <span className="account-pill-meta">{t("ui.tokensLabel")} {tokenBalance}</span> : null}
-          </div>
-          <AppUserBadge />
-          <button
-            type="button"
-            className="nav-toggle"
-            aria-expanded={open}
-            aria-controls="app-nav-drawer"
-            aria-label={open ? t("ui.close") : t("ui.menu")}
-            onClick={() => setOpen((prev) => !prev)}
-          >
-            <span aria-hidden="true">{open ? "✕" : "☰"}</span>
-            <span className="nav-toggle-label">{open ? t("ui.close") : t("ui.menu")}</span>
-          </button>
-        </div>
+  <AppUserBadge />
+
+  <div className={`account-pill ${isPro ? "is-pro" : "is-free"}`}>
+    <span className="account-pill-label">{planLabel}</span>
+    {isPro ? <span className="account-pill-meta">Tokens: {tokenBalance}</span> : null}
+  </div>
+
+  <div className="nav-utility">
+    <ThemeToggle />
+    <LanguageSwitcher />
+  </div>
+
+  <button
+    type="button"
+    className="nav-toggle"
+    aria-expanded={open}
+    aria-controls="app-nav-drawer"
+    aria-label={open ? t("ui.close") : t("ui.menu")}
+    onClick={() => setOpen((prev) => !prev)}
+  >
+    <span aria-hidden="true">{open ? "✕" : "☰"}</span>
+    <span className="nav-toggle-label">{open ? t("ui.close") : t("ui.menu")}</span>
+  </button>
+</div>
       </div>
 
       <div

@@ -3,9 +3,19 @@ import { getServerT } from "@/lib/serverI18n";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 
 export default async function HomePage() {
+  const ICON_MAP: Record<string, IconName> = {
+  sparkles: "sparkles",
+  dumbbell: "dumbbell",
+  book: "book",
+  info: "info",
+  warning: "warning",
+  check: "check",
+  close: "close",
+  "chevron-down": "chevron-down",
+};
   const { locale } = await getServerT();
   const landing = messages[locale].landing;
   return (
@@ -84,7 +94,7 @@ export default async function HomePage() {
             <Card className="feature-card" key={item.title}>
               <CardHeader>
                 <div className="hero-bullet-icon">
-                  <Icon name={item.icon} />
+                  <Icon name={ICON_MAP[item.icon] ?? "info"} />
                 </div>
                 <CardTitle>{item.title}</CardTitle>
                 <CardDescription>{item.description}</CardDescription>
