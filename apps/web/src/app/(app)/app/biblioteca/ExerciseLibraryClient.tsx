@@ -5,6 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import type { Exercise } from "@/lib/types";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { Input } from "@/components/ui/Input";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 type ExerciseResponse = {
   items: Exercise[];
@@ -26,6 +31,13 @@ export default function ExerciseLibraryClient() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const handleResetFilters = () => {
+    setQuery("");
+    setEquipmentFilter("all");
+    setMuscleFilter("all");
+    setError(null);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -77,14 +89,15 @@ export default function ExerciseLibraryClient() {
   return (
     <section className="card">
       <div className="form-stack">
-        <input
+        <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("library.searchPlaceholder")}
+          label={t("library.searchPlaceholder")}
         />
         <label className="form-stack">
           {t("library.equipmentFilterLabel")}
-          <select value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)}>
+          <select value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)} className="ui-input">
             {equipmentOptions.map((option) => (
               <option key={option ?? "all"} value={option ?? "all"}>
                 {option === "all" ? t("library.allOption") : option}
@@ -94,7 +107,7 @@ export default function ExerciseLibraryClient() {
         </label>
         <label className="form-stack">
           {t("library.muscleFilterLabel")}
-          <select value={muscleFilter} onChange={(e) => setMuscleFilter(e.target.value)}>
+          <select value={muscleFilter} onChange={(e) => setMuscleFilter(e.target.value)} className="ui-input">
             {muscleOptions.map((option) => (
               <option key={option} value={option}>
                 {option === "all" ? t("library.allOption") : option}
@@ -105,17 +118,28 @@ export default function ExerciseLibraryClient() {
       </div>
 
       {loading ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {t("library.loading")}
-        </p>
+        <div className="list-grid" style={{ marginTop: 16 }}>
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <SkeletonCard key={idx} />
+          ))}
+        </div>
       ) : error ? (
         <p className="muted" style={{ marginTop: 16 }}>
           {error}
         </p>
       ) : exercises.length === 0 ? (
-        <p className="muted" style={{ marginTop: 16 }}>
-          {t("library.empty")}
-        </p>
+        <div className="empty-state" style={{ marginTop: 16 }}>
+          <div className="empty-state-icon">
+            <Icon name="book" />
+          </div>
+          <div>
+            <p className="muted" style={{ margin: 0 }}>{t("library.empty")}</p>
+            <p className="muted" style={{ margin: 0 }}>{t("library.searchPlaceholder")}</p>
+          </div>
+          <Button variant="secondary" onClick={handleResetFilters}>
+            {t("library.allOption")}
+          </Button>
+        </div>
       ) : (
         <div className="list-grid" style={{ marginTop: 16 }}>
           {exercises.map((exercise) => {
@@ -136,12 +160,10 @@ export default function ExerciseLibraryClient() {
                 <div className="badge-list">
                   {muscles.length > 0 ? (
                     muscles.map((muscle) => (
-                      <span key={muscle} className="badge">
-                        {muscle}
-                      </span>
+                      <Badge key={muscle}>{muscle}</Badge>
                     ))
                   ) : (
-                    <span className="badge">{t("library.noMuscleData")}</span>
+                    <Badge variant="muted">{t("library.noMuscleData")}</Badge>
                   )}
                 </div>
                 <p className="muted">

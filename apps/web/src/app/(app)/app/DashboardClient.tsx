@@ -1,11 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
+import { Badge } from "@/components/ui/Badge";
+import { ButtonLink } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
 
 type CheckinEntry = {
   date: string;
@@ -342,11 +345,16 @@ export default function DashboardClient() {
         </div>
         {!profileReady ? (
           <div className="empty-state" style={{ marginTop: 16 }}>
-            <h3 style={{ marginTop: 0 }}>{t("dashboard.profileIncompleteTitle")}</h3>
-            <p className="muted">{t("dashboard.profileIncompleteSubtitle")}</p>
-            <Link className="btn" href="/app/onboarding?next=/app">
+            <div className="empty-state-icon">
+              <Icon name="sparkles" />
+            </div>
+            <div>
+              <h3 style={{ marginTop: 0 }}>{t("dashboard.profileIncompleteTitle")}</h3>
+              <p className="muted">{t("dashboard.profileIncompleteSubtitle")}</p>
+            </div>
+            <ButtonLink href="/app/onboarding?next=/app">
               {t("profile.openOnboarding")}
-            </Link>
+            </ButtonLink>
           </div>
         ) : (
           <div className="list-grid" style={{ marginTop: 16 }}>
@@ -357,14 +365,14 @@ export default function DashboardClient() {
                   <p className="muted" style={{ marginTop: 6 }}>
                     {summary.training.focus} · {summary.training.duration} {t("training.minutesLabel")}
                   </p>
-                  <span className="badge">{summary.training.label}</span>
+                  <Badge>{summary.training.label}</Badge>
                 </>
               ) : (
                 <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayTrainingEmpty")}</p>
               )}
-              <Link className="btn secondary" href="/app/entrenamiento">
+              <ButtonLink variant="secondary" href="/app/entrenamiento">
                 {t("dashboard.todayTrainingCta")}
-              </Link>
+              </ButtonLink>
             </div>
             <div className="feature-card today-calories-card">
               <div>
@@ -420,14 +428,14 @@ export default function DashboardClient() {
                   <p className="muted" style={{ marginTop: 6 }}>
                     {summary.nutrition.meals} {t("dashboard.todayMealsLabel")}
                   </p>
-                  <span className="badge">{summary.nutrition.label}</span>
+                  <Badge>{summary.nutrition.label}</Badge>
                 </>
               ) : (
                 <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.todayNutritionEmpty")}</p>
               )}
-              <Link className="btn secondary" href="/app/nutricion">
+              <ButtonLink variant="secondary" href="/app/nutricion">
                 {t("dashboard.todayNutritionCta")}
-              </Link>
+              </ButtonLink>
             </div>
             <div className="feature-card" style={{ display: "grid", gap: 12 }}>
               <div>
@@ -435,12 +443,12 @@ export default function DashboardClient() {
                 <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.quickActionsSubtitle")}</p>
               </div>
               <div className="list-grid">
-                <Link className="btn" href="/app/workouts">
+                <ButtonLink href="/app/workouts">
                   {t("dashboard.aiTrainingCta")}
-                </Link>
-                <Link className="btn" href="/app/nutricion?ai=1">
+                </ButtonLink>
+                <ButtonLink href="/app/nutricion?ai=1">
                   {t("dashboard.aiNutritionCta")}
-                </Link>
+                </ButtonLink>
               </div>
             </div>
           </div>
@@ -460,18 +468,18 @@ export default function DashboardClient() {
               <strong>{t("dashboard.aiTrainingTitle")}</strong>
               <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.aiTrainingSubtitle")}</p>
             </div>
-            <Link className="btn" href="/app/entrenamiento?ai=1">
+            <ButtonLink href="/app/entrenamiento?ai=1">
               {t("dashboard.aiTrainingCta")}
-            </Link>
+            </ButtonLink>
           </div>
           <div className="feature-card" style={{ display: "grid", gap: 12 }}>
             <div>
               <strong>{t("dashboard.aiNutritionTitle")}</strong>
               <p className="muted" style={{ marginTop: 6 }}>{t("dashboard.aiNutritionSubtitle")}</p>
             </div>
-            <Link className="btn" href="/app/nutricion?ai=1">
+            <ButtonLink href="/app/nutricion?ai=1">
               {t("dashboard.aiNutritionCta")}
-            </Link>
+            </ButtonLink>
           </div>
         </div>
       </section>
@@ -482,21 +490,30 @@ export default function DashboardClient() {
             <h2 className="section-title" style={{ fontSize: 20 }}>{t("dashboard.progressTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.progressSubtitle")}</p>
           </div>
-          <Link className="btn secondary" href="/app/seguimiento">
+          <ButtonLink variant="secondary" href="/app/seguimiento">
             {t("dashboard.progressCta")}
-          </Link>
+          </ButtonLink>
         </div>
 
         {loading ? (
-          <p className="muted" style={{ marginTop: 12 }}>{t("dashboard.progressLoading")}</p>
+          <div className="dashboard-loading" style={{ marginTop: 12 }}>
+            <Skeleton variant="line" style={{ width: "40%" }} />
+            <div className="dashboard-charts">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          </div>
         ) : error ? (
           <p className="muted" style={{ marginTop: 12 }}>{error}</p>
         ) : checkins.length === 0 ? (
           <div className="empty-state" style={{ marginTop: 12 }}>
+            <div className="empty-state-icon">
+              <Icon name="info" />
+            </div>
             <p className="muted" style={{ margin: 0 }}>{t("dashboard.progressEmpty")}</p>
-            <Link className="btn" href="/app/seguimiento" style={{ width: "fit-content", marginTop: 12 }}>
+            <ButtonLink href="/app/seguimiento" style={{ width: "fit-content", marginTop: 12 }}>
               {t("dashboard.progressEmptyCta")}
-            </Link>
+            </ButtonLink>
           </div>
         ) : (
           <div className="dashboard-charts">
