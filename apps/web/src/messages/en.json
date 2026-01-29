@@ -5,6 +5,9 @@
     "login": "Log in",
     "register": "Create account",
     "goToApp": "Go to app",
+    "today": "Today",
+    "plan": "Plan",
+    "log": "Log",
     "dashboard": "Dashboard",
     "workouts": "Workouts",
     "profile": "Profile",
@@ -16,6 +19,7 @@
     "tracking": "Progress",
     "feed": "Feed",
     "library": "Library",
+    "billing": "Billing & Pro",
     "admin": "Admin",
     "adminUsers": "Users",
     "logout": "Log out"
@@ -50,6 +54,30 @@
     "viewWeek": "Week",
     "viewMonth": "Month",
     "viewAgenda": "Agenda"
+  },
+  "quickActions": {
+    "title": "Quick actions",
+    "subtitle": "Log something fast and keep momentum.",
+    "addFood": "Add meal",
+    "addFoodDescription": "Log food and macros (coming soon).",
+    "addSet": "Add set",
+    "addSetDescription": "Track a training set (coming soon).",
+    "recordWeight": "Record weight",
+    "recordWeightDescription": "Update your latest check-in in Progress.",
+    "comingSoon": "Coming soon",
+    "open": "Open"
+  },
+  "today": {
+    "title": "Today",
+    "subtitle": "Your mobile-first hub for what matters now.",
+    "focusTitle": "Focus snapshot",
+    "focusSubtitle": "A quick overview to keep you on track.",
+    "focusPlan": "Training",
+    "focusPlanValue": "Plan ready for today",
+    "focusNutrition": "Nutrition",
+    "focusNutritionValue": "Macros aligned with your goal",
+    "focusRecovery": "Recovery",
+    "focusRecoveryValue": "Hydrate + rest check"
   },
   "exerciseDetail": {
     "tabExecution": "Execution",

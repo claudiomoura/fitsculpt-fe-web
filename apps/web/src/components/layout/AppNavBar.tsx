@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import LogoutButton from "@/app/(app)/app/LogoutButton";
 import { useLanguage } from "@/context/LanguageProvider";
 import AppUserBadge from "./AppUserBadge";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
-import { NAV_ITEMS, NAV_SECTIONS } from "./navConfig";
+import { sidebarAdmin, sidebarUser } from "./navConfig";
 
 type AuthUser = {
   name?: string | null;
@@ -69,10 +68,7 @@ export default function AppNavBar() {
   const isPro = planLabel === "PRO";
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
 
-  const visibleItems = useMemo(
-    () => NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin),
-    [isAdmin]
-  );
+  const sections = useMemo(() => (isAdmin ? [...sidebarUser, ...sidebarAdmin] : sidebarUser), [isAdmin]);
 
   const closeMenu = () => setOpen(false);
 
@@ -135,15 +131,13 @@ export default function AppNavBar() {
         </div>
 
         <div className="nav-drawer-content">
-          {NAV_SECTIONS.map((section) => {
-            const sectionItems = visibleItems.filter((item) => item.section === section.id);
-            if (sectionItems.length === 0) return null;
+          {sections.map((section) => {
             if (section.id === "account") {
               return (
                 <div key={section.id} className="nav-drawer-section">
                   <p className="nav-drawer-section-title">{t(section.labelKey)}</p>
                   <div className="nav-drawer-links">
-                    {sectionItems.map((item) => {
+                    {section.items.map((item) => {
                       const active = isActive(item.href);
                       return (
                         <Link
@@ -162,9 +156,6 @@ export default function AppNavBar() {
                     <ThemeToggle showLabel />
                     <LanguageSwitcher showLabel />
                   </div>
-                  <div className="nav-drawer-actions">
-                    <LogoutButton />
-                  </div>
                 </div>
               );
             }
@@ -173,7 +164,7 @@ export default function AppNavBar() {
               <div key={section.id} className="nav-drawer-section">
                 <p className="nav-drawer-section-title">{t(section.labelKey)}</p>
                 <div className="nav-drawer-links">
-                  {sectionItems.map((item) => {
+                  {section.items.map((item) => {
                     const active = isActive(item.href);
                     return (
                       <Link
