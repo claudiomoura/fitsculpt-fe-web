@@ -359,22 +359,6 @@ export default function DashboardClient() {
           </div>
         ) : (
           <div className="list-grid dashboard-summary-grid">
-            <div className="feature-card dashboard-summary-card">
-              <strong>{t("dashboard.todayTrainingTitle")}</strong>
-              {summary?.training ? (
-                <>
-                  <p className="muted mt-6">
-                    {summary.training.focus} · {summary.training.duration} {t("training.minutesLabel")}
-                  </p>
-                  <Badge>{summary.training.label}</Badge>
-                </>
-              ) : (
-                <p className="muted mt-6">{t("dashboard.todayTrainingEmpty")}</p>
-              )}
-              <ButtonLink variant="secondary" href="/app/entrenamiento">
-                {t("dashboard.todayTrainingCta")}
-              </ButtonLink>
-            </div>
             <div className="feature-card today-calories-card dashboard-summary-card">
               <div>
                 <strong>{t("dashboard.todayCaloriesTitle")}</strong>
@@ -423,16 +407,46 @@ export default function DashboardClient() {
               </div>
             </div>
             <div className="feature-card dashboard-summary-card">
-              <strong>{t("dashboard.todayNutritionTitle")}</strong>
-              {summary?.nutrition ? (
+              <span className="muted">{t("dashboard.todayTrainingTitle")}</span>
+              {summary?.training ? (
                 <>
+                  <strong className="mt-6">{summary.training.focus}</strong>
                   <p className="muted mt-6">
-                    {summary.nutrition.meals} {t("dashboard.todayMealsLabel")}
+                    {summary.training.duration} {t("training.minutesLabel")}
                   </p>
-                  <Badge>{summary.nutrition.label}</Badge>
+                  {summary.training.label ? <Badge>{summary.training.label}</Badge> : null}
+                  <ButtonLink variant="secondary" href="/app/entrenamiento">
+                    {t("dashboard.todayTrainingCta")}
+                  </ButtonLink>
                 </>
               ) : (
-                <p className="muted mt-6">{t("dashboard.todayNutritionEmpty")}</p>
+                <>
+                  <strong className="mt-6">{t("dashboard.restDayTitle")}</strong>
+                  <p className="muted mt-6">{t("dashboard.restDaySubtitle")}</p>
+                  <ButtonLink variant="secondary" href="/app/entrenamiento">
+                    {t("dashboard.restDayCta")}
+                  </ButtonLink>
+                </>
+              )}
+            </div>
+            <div className="feature-card dashboard-summary-card">
+              <span className="muted">{t("dashboard.todayNutritionTitle")}</span>
+              {summary?.nutrition ? (
+                <>
+                  <strong className="mt-6">{t("dashboard.todayNutritionPrimaryLabel")}</strong>
+                  <p className="muted mt-6">
+                    {summary.nutrition.meals} {t("dashboard.todayMealsLabel")}
+                    {nutritionTargets?.calories
+                      ? ` · ${nutritionTargets.calories} kcal`
+                      : ""}
+                  </p>
+                  {summary.nutrition.label ? <Badge>{summary.nutrition.label}</Badge> : null}
+                </>
+              ) : (
+                <>
+                  <strong className="mt-6">{t("dashboard.todayNutritionPrimaryLabel")}</strong>
+                  <p className="muted mt-6">{t("dashboard.todayNutritionEmpty")}</p>
+                </>
               )}
               <ButtonLink variant="secondary" href="/app/nutricion">
                 {t("dashboard.todayNutritionCta")}
