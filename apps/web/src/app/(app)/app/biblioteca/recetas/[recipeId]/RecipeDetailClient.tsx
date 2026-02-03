@@ -70,19 +70,27 @@ export default function RecipeDetailClient({ recipe, error }: RecipeDetailClient
       <div className="info-grid mt-16">
         <div className="info-item">
           <p className="info-label">{t("recipes.caloriesLabel")}</p>
-          <p className="info-value">{Math.round(recipe.calories)} kcal</p>
+          <p className="info-value">
+            {Math.round(recipe.calories)} {t("recipes.caloriesUnit")}
+          </p>
         </div>
         <div className="info-item">
           <p className="info-label">{t("recipes.proteinLabel")}</p>
-          <p className="info-value">{Math.round(recipe.protein)} g</p>
+          <p className="info-value">
+            {Math.round(recipe.protein)} {t("recipes.gramsUnit")}
+          </p>
         </div>
         <div className="info-item">
           <p className="info-label">{t("recipes.carbsLabel")}</p>
-          <p className="info-value">{Math.round(recipe.carbs)} g</p>
+          <p className="info-value">
+            {Math.round(recipe.carbs)} {t("recipes.gramsUnit")}
+          </p>
         </div>
         <div className="info-item">
           <p className="info-label">{t("recipes.fatLabel")}</p>
-          <p className="info-value">{Math.round(recipe.fat)} g</p>
+          <p className="info-value">
+            {Math.round(recipe.fat)} {t("recipes.gramsUnit")}
+          </p>
         </div>
       </div>
 
@@ -101,7 +109,8 @@ export default function RecipeDetailClient({ recipe, error }: RecipeDetailClient
           <ul className="muted list-muted">
             {ingredients.map((ingredient) => (
               <li key={ingredient.id}>
-                {ingredient.name} {ingredient.grams ? `· ${ingredient.grams} g` : ""}
+                {ingredient.name}{" "}
+                {ingredient.grams ? `· ${ingredient.grams} ${t("recipes.gramsUnit")}` : ""}
               </li>
             ))}
           </ul>

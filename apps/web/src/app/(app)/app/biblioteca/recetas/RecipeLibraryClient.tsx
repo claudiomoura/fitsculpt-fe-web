@@ -151,10 +151,18 @@ export default function RecipeLibraryClient() {
                 <h3>{recipe.name}</h3>
                 {recipe.description ? <p className="muted">{recipe.description}</p> : null}
                 <div className="badge-list">
-                  <span className="badge">{Math.round(recipe.calories)} kcal</span>
-                  <span className="badge">P {Math.round(recipe.protein)}</span>
-                  <span className="badge">C {Math.round(recipe.carbs)}</span>
-                  <span className="badge">G {Math.round(recipe.fat)}</span>
+                  <span className="badge">
+                    {Math.round(recipe.calories)} {t("recipes.caloriesUnit")}
+                  </span>
+                  <span className="badge">
+                    {t("recipes.macroProteinShort")} {Math.round(recipe.protein)}
+                  </span>
+                  <span className="badge">
+                    {t("recipes.macroCarbsShort")} {Math.round(recipe.carbs)}
+                  </span>
+                  <span className="badge">
+                    {t("recipes.macroFatShort")} {Math.round(recipe.fat)}
+                  </span>
                 </div>
                 {ingredients.length > 0 ? (
                   <p className="muted">

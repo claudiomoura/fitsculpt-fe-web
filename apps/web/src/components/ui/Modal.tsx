@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/classNames";
+import { useLanguage } from "@/context/LanguageProvider";
 import { Button } from "./Button";
 
 type ModalProps = {
@@ -16,6 +17,7 @@ type ModalProps = {
 };
 
 export function Modal({ open, title, description, onClose, children, footer, className }: ModalProps) {
+  const { t } = useLanguage();
   useEffect(() => {
     if (!open) return;
     const handleKey = (event: KeyboardEvent) => {
@@ -41,7 +43,7 @@ export function Modal({ open, title, description, onClose, children, footer, cla
               {title ? <div className="ui-modal-title">{title}</div> : null}
               {description ? <p className="ui-modal-description">{description}</p> : null}
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label={t("ui.close")}>
               ×
             </Button>
           </div>
