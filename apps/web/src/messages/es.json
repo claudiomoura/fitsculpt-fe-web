@@ -1163,7 +1163,20 @@
     "favoriteAdd": "Agregar a favoritos",
     "favoriteRemove": "Quitar de favoritos",
     "recentsTitle": "Recientes",
-    "recentsClear": "Limpiar"
+    "recentsClear": "Limpiar",
+    "favoritesEmptyTitle": "Sin favoritos todavía",
+    "favoritesEmptyDescription": "Guarda ejercicios para tener tus movimientos clave en un solo lugar.",
+    "favoritesErrorTitle": "No pudimos cargar tus favoritos",
+    "favoritesErrorDescription": "Vuelve a intentar para ver tus ejercicios guardados.",
+    "recentsEmptyTitle": "Sin ejercicios recientes",
+    "recentsEmptyDescription": "Tus ejercicios vistos recientemente aparecerán aquí.",
+    "recentsErrorTitle": "No pudimos cargar tus recientes",
+    "recentsErrorDescription": "Actualiza para ver tus ejercicios recientes nuevamente.",
+    "favoriteAddedToastTitle": "Agregado a favoritos",
+    "favoriteRemovedToastTitle": "Quitado de favoritos",
+    "favoriteToastDescription": "Tu lista de favoritos está actualizada.",
+    "recentsClearedToastTitle": "Recientes eliminados",
+    "recentsClearedToastDescription": "Se eliminaron tus ejercicios recientes."
   },
   "recipes": {
     "loading": "Cargando recetas...",

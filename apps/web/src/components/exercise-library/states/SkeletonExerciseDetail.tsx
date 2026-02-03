@@ -5,9 +5,15 @@ export function SkeletonExerciseDetail() {
   return (
     <Card className="centered-card">
       <div className="stack-lg">
-        <div className="stack-sm">
-          <Skeleton variant="line" className="w-60" />
-          <Skeleton variant="line" className="w-80" />
+        <div className="page-header">
+          <div className="page-header-body">
+            <Skeleton variant="line" className="w-60" />
+            <Skeleton variant="line" className="w-80" />
+          </div>
+          <div className="page-header-actions">
+            <Skeleton variant="line" className="w-25" />
+            <Skeleton variant="line" className="w-30" />
+          </div>
         </div>
         <div className="badge-list">
           <Skeleton variant="line" className="w-40" />

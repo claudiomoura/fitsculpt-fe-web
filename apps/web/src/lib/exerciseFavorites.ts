@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export const EXERCISE_FAVORITES_STORAGE_KEY = "fs_exercise_favorites";
 export const EXERCISE_FAVORITES_LIMIT = 50;
@@ -43,24 +43,51 @@ export const toggleExerciseFavorite = (exerciseId: string) => {
 
 export const useExerciseFavorites = () => {
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  const loadFavorites = useCallback(() => {
+    if (!isBrowser()) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const stored = window.localStorage.getItem(EXERCISE_FAVORITES_STORAGE_KEY);
+      const parsed = stored ? normalizeFavorites(JSON.parse(stored)) : [];
+      setFavorites(parsed);
+      setHasError(false);
+    } catch {
+      setFavorites([]);
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isBrowser()) return;
-    const refresh = () => setFavorites(getExerciseFavorites());
-    refresh();
+    loadFavorites();
     const handleStorage = (event: StorageEvent) => {
       if (event.key === EXERCISE_FAVORITES_STORAGE_KEY) {
-        refresh();
+        loadFavorites();
       }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  }, [loadFavorites]);
 
   const toggleFavorite = (exerciseId: string) => {
     const next = toggleExerciseFavorite(exerciseId);
     setFavorites(next);
   };
 
-  return { favorites, toggleFavorite, setFavorites };
+  return {
+    favorites,
+    toggleFavorite,
+    setFavorites,
+    loading,
+    hasError,
+    refresh: loadFavorites,
+  };
 };
