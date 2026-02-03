@@ -120,7 +120,9 @@
     "kcal": "kcal",
     "grams": "g",
     "kilograms": "kg",
-    "percent": "%"
+    "percent": "%",
+    "centimeters": "cm",
+    "minutes": "min"
   },
   "exerciseDetail": {
     "tabsLabel": "Pestañas de detalle del ejercicio",
@@ -1101,6 +1103,8 @@
     "weightEntryError": "No pudimos guardar tu peso.",
     "weightEntryInvalid": "Introduce un peso válido.",
     "weightEntryUnavailable": "El seguimiento de peso no está disponible ahora.",
+    "checkinSuccess": "Check-in guardado.",
+    "checkinError": "No pudimos guardar tu check-in.",
     "latestWeightTitle": "Último peso",
     "latestWeightEmpty": "Aún no hay peso registrado.",
     "weightHistoryTitle": "Historial de peso",

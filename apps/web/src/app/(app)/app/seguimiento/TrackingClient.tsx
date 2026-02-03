@@ -301,17 +301,24 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     };
 
     const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
-    const saved = await persistCheckin(nextCheckins, {
-      weightKg: entry.weightKg,
-      chestCm: entry.chestCm,
-      waistCm: entry.waistCm,
-      hipsCm: entry.hipsCm,
-      bicepsCm: entry.bicepsCm,
-      thighCm: entry.thighCm,
-      calfCm: entry.calfCm,
-      neckCm: entry.neckCm,
-      bodyFatPercent: entry.bodyFatPercent,
-    });
+    const saved = await persistCheckin(
+      nextCheckins,
+      {
+        weightKg: entry.weightKg,
+        chestCm: entry.chestCm,
+        waistCm: entry.waistCm,
+        hipsCm: entry.hipsCm,
+        bicepsCm: entry.bicepsCm,
+        thighCm: entry.thighCm,
+        calfCm: entry.calfCm,
+        neckCm: entry.neckCm,
+        bodyFatPercent: entry.bodyFatPercent,
+      },
+      {
+        success: "tracking.checkinSuccess",
+        error: "tracking.checkinError",
+      }
+    );
     if (saved) {
       setCheckinNotes("");
       setCheckinFrontPhoto(null);
@@ -371,7 +378,14 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     window.setTimeout(() => setActionMessage(null), 2000);
   }
 
-  async function persistCheckin(nextCheckins: CheckinEntry[], metrics: CheckinMetrics) {
+  async function persistCheckin(
+    nextCheckins: CheckinEntry[],
+    metrics: CheckinMetrics,
+    feedback: { success: string; error: string } = {
+      success: "tracking.weightEntrySuccess",
+      error: "tracking.weightEntryError",
+    }
+  ) {
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -383,10 +397,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       setCheckins(nextCheckins);
       setProfile(nextProfile);
       void refreshTrackingData();
-      showMessage(t("tracking.weightEntrySuccess"));
+      showMessage(t(feedback.success));
       return true;
     } catch {
-      setSubmitError(t("tracking.weightEntryError"));
+      setSubmitError(t(feedback.error));
       return false;
     } finally {
       setIsSubmitting(false);
@@ -513,12 +527,20 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     return delta < 0 ? t("tracking.statusUnder") : t("tracking.statusOver");
   }
 
+  const gramsUnit = t("units.grams");
+  const kcalUnit = t("units.kcal");
+  const lengthUnit = t("units.centimeters");
+  const minutesUnit = t("units.minutes");
+  const percentUnit = t("units.percent");
+  const weightUnit = t("tracking.weightUnit");
+
   function getMacroBadge(label: string, value: number, target?: number | null) {
     if (!target) return null;
     const statusClass = getStatusClass(value, target);
     return (
       <span className={`status-pill is-compact ${statusClass}`} key={label}>
-        {label} {value.toFixed(0)}g
+        {label} {value.toFixed(0)}
+        {gramsUnit}
       </span>
     );
   }
@@ -581,6 +603,26 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     });
   }
 
+  const submitFeedback = (
+    <>
+      {!isWeightValid && isTrackingReady ? (
+        <p className="ui-input-error" role="status">
+          {t("tracking.weightEntryInvalid")}
+        </p>
+      ) : null}
+      {submitError ? (
+        <p className="ui-input-error" role="alert">
+          {submitError}
+        </p>
+      ) : null}
+      {trackingStatus === "error" ? (
+        <p className="ui-input-error" role="alert">
+          {t("tracking.weightEntryUnavailable")}
+        </p>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="page">
       {actionMessage && (
@@ -613,9 +655,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               />
             </label>
           </div>
-          {!isWeightValid && isTrackingReady ? <p className="muted">{t("tracking.weightEntryInvalid")}</p> : null}
-          {submitError ? <p className="muted">{submitError}</p> : null}
-          {trackingStatus === "error" ? <p className="muted">{t("tracking.weightEntryUnavailable")}</p> : null}
+          {submitFeedback}
           <button type="submit" className={`btn ${isSubmitting ? "is-loading" : ""}`} disabled={isSubmitDisabled}>
             {isSubmitting ? (
               <>
@@ -639,7 +679,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             ) : latestCheckin ? (
               <div style={{ display: "grid", gap: 4 }}>
                 <strong>
-                  {latestCheckin.weightKg} {t("tracking.weightUnit")}
+                  {latestCheckin.weightKg} {weightUnit}
                 </strong>
                 <span className="muted">{latestCheckin.date}</span>
               </div>
@@ -664,7 +704,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <span>{entry.date}</span>
                     <span className="muted">
-                      {entry.weightKg} {t("tracking.weightUnit")}
+                      {entry.weightKg} {weightUnit}
                     </span>
                   </div>
                 ))}
@@ -686,6 +726,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               type="button"
               className={`btn secondary ${checkinMode === "quick" ? "is-active" : ""}`}
               onClick={() => setCheckinMode("quick")}
+              aria-pressed={checkinMode === "quick"}
             >
               {t("tracking.checkinModeQuick")}
             </button>
@@ -693,6 +734,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               type="button"
               className={`btn secondary ${checkinMode === "full" ? "is-active" : ""}`}
               onClick={() => setCheckinMode("full")}
+              aria-pressed={checkinMode === "full"}
             >
               {t("tracking.checkinModeFull")}
             </button>
@@ -796,6 +838,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             </details>
           ) : null}
 
+          {submitFeedback}
           <button
             type="submit"
             className={`btn ${isSubmitting ? "is-loading" : ""}`}
@@ -822,7 +865,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   <strong>{entry.date}</strong>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span>
-                      {entry.weightKg} kg · {entry.waistCm} cm
+                      {entry.weightKg} {weightUnit} · {entry.waistCm} {lengthUnit}
                     </span>
                     <button
                       type="button"
@@ -874,7 +917,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               <div key={`${point.date}-${index}`} className="info-item">
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                   <strong>{point.date}</strong>
-                  <span className="muted">{point.weight} kg · {point.bodyFat}%</span>
+                  <span className="muted">
+                    {point.weight} {weightUnit} · {point.bodyFat}
+                    {percentUnit}
+                  </span>
                 </div>
                 <div style={{ marginTop: 8, background: "#fef3c7", borderRadius: 999, overflow: "hidden", height: 10 }}>
                   <div
@@ -945,7 +991,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     <div className="meal-totals-header">
                       <span className="muted">{t("tracking.mealTotals")}</span>
                       <div className="meal-totals-calories">
-                        <strong>{totals.calories.toFixed(0)} kcal</strong>
+                        <strong>
+                          {totals.calories.toFixed(0)} {kcalUnit}
+                        </strong>
                         {nutritionTargets ? (
                           <span
                             className={`status-pill ${getStatusClass(totals.calories, nutritionTargets.calories)}`}
@@ -956,17 +1004,26 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                       </div>
                     </div>
                     <div className="meal-totals-macros">
-                      <span>{totals.protein.toFixed(1)}g P</span>
-                      <span>{totals.carbs.toFixed(1)}g C</span>
-                      <span>{totals.fat.toFixed(1)}g G</span>
+                      <span>
+                        {t("macros.proteinShort")} {totals.protein.toFixed(1)}
+                        {gramsUnit}
+                      </span>
+                      <span>
+                        {t("macros.carbsShort")} {totals.carbs.toFixed(1)}
+                        {gramsUnit}
+                      </span>
+                      <span>
+                        {t("macros.fatShort")} {totals.fat.toFixed(1)}
+                        {gramsUnit}
+                      </span>
                     </div>
                     {nutritionTargets ? (
                       <div className="meal-targets">
-                        {getMacroBadge("P", totals.protein, nutritionTargets.protein)}
-                        {getMacroBadge("C", totals.carbs, nutritionTargets.carbs)}
-                        {getMacroBadge("G", totals.fat, nutritionTargets.fat)}
+                        {getMacroBadge(t("macros.proteinShort"), totals.protein, nutritionTargets.protein)}
+                        {getMacroBadge(t("macros.carbsShort"), totals.carbs, nutritionTargets.carbs)}
+                        {getMacroBadge(t("macros.fatShort"), totals.fat, nutritionTargets.fat)}
                         <span className="muted">
-                          {t("tracking.targetLabel")}: {nutritionTargets.calories} kcal
+                          {t("tracking.targetLabel")}: {nutritionTargets.calories} {kcalUnit}
                         </span>
                       </div>
                     ) : (
@@ -982,8 +1039,11 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                         <li key={entry.id}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             <span>
-                              {profile.label} {entry.grams}g → {(profile.protein * factor).toFixed(1)}P /{" "}
-                              {(profile.carbs * factor).toFixed(1)}C / {(profile.fat * factor).toFixed(1)}G
+                              {profile.label} {entry.grams}
+                              {gramsUnit} → {(profile.protein * factor).toFixed(1)}
+                              {t("macros.proteinShort")} / {(profile.carbs * factor).toFixed(1)}
+                              {t("macros.carbsShort")} / {(profile.fat * factor).toFixed(1)}
+                              {t("macros.fatShort")}
                             </span>
                             <button
                               type="button"
@@ -1044,7 +1104,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 <div key={entry.id} className="feature-card">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                     <span>
-                      <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
+                      <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} {minutesUnit})
                     </span>
                     <button
                       type="button"

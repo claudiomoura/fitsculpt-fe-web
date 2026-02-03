@@ -120,7 +120,9 @@
     "kcal": "kcal",
     "grams": "g",
     "kilograms": "kg",
-    "percent": "%"
+    "percent": "%",
+    "centimeters": "cm",
+    "minutes": "min"
   },
   "exerciseDetail": {
     "tabsLabel": "Exercise detail tabs",
@@ -1098,6 +1100,8 @@
     "weightEntryError": "We couldn't save your weight.",
     "weightEntryInvalid": "Enter a valid weight.",
     "weightEntryUnavailable": "Weight tracking is unavailable right now.",
+    "checkinSuccess": "Check-in saved.",
+    "checkinError": "We couldn't save your check-in.",
     "latestWeightTitle": "Latest weight",
     "latestWeightEmpty": "No weight recorded yet.",
     "weightHistoryTitle": "Weight history",
