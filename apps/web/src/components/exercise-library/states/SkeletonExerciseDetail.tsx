@@ -16,7 +16,6 @@ export function SkeletonExerciseDetail() {
         </div>
         <div className="exercise-detail-grid">
           <Skeleton className="exercise-media" />
-          <Skeleton className="feature-card" />
         </div>
         <div className="stack-sm">
           <Skeleton variant="line" className="w-55" />

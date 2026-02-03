@@ -14,9 +14,10 @@ type ModalProps = {
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
+  overlayClassName?: string;
 };
 
-export function Modal({ open, title, description, onClose, children, footer, className }: ModalProps) {
+export function Modal({ open, title, description, onClose, children, footer, className, overlayClassName }: ModalProps) {
   const { t } = useLanguage();
   useEffect(() => {
     if (!open) return;
@@ -35,7 +36,11 @@ export function Modal({ open, title, description, onClose, children, footer, cla
   if (!open) return null;
 
   return createPortal(
-    <div className="ui-modal-overlay" role="presentation" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
+    <div
+      className={cn("ui-modal-overlay", overlayClassName)}
+      role="presentation"
+      onMouseDown={(event) => event.currentTarget === event.target && onClose()}
+    >
       <div className={cn("ui-modal-card", className)} role="dialog" aria-modal="true">
         {(title || description) && (
           <div className="ui-modal-header">

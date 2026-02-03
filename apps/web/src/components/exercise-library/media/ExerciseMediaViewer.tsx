@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 
 export type ExerciseMedia = {
   kind: "image" | "video";
@@ -18,6 +19,8 @@ type ExerciseMediaViewerProps = {
   description?: string;
   closeLabel: string;
   mediaAlt: string;
+  fallbackTitle: string;
+  fallbackDescription: string;
 };
 
 export function ExerciseMediaViewer({
@@ -28,18 +31,39 @@ export function ExerciseMediaViewer({
   description,
   closeLabel,
   mediaAlt,
+  fallbackTitle,
+  fallbackDescription,
 }: ExerciseMediaViewerProps) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [open, media]);
+
   const content = useMemo(() => {
     if (!media) return null;
     if (media.kind === "video") {
       return (
-        <video className="exercise-media-viewer" controls playsInline poster={media.poster}>
+        <video
+          className="exercise-media-viewer"
+          controls
+          playsInline
+          poster={media.poster}
+          onError={() => setHasError(true)}
+        >
           <source src={media.url} />
         </video>
       );
     }
 
-    return <img className="exercise-media-viewer" src={media.url} alt={mediaAlt} />;
+    return (
+      <img
+        className="exercise-media-viewer"
+        src={media.url}
+        alt={mediaAlt}
+        onError={() => setHasError(true)}
+      />
+    );
   }, [media, mediaAlt]);
 
   return (
@@ -49,6 +73,7 @@ export function ExerciseMediaViewer({
       title={title}
       description={description}
       className="exercise-media-modal"
+      overlayClassName="exercise-media-overlay"
       footer={
         <div className="inline-actions">
           <Button variant="secondary" onClick={onClose}>
@@ -58,7 +83,17 @@ export function ExerciseMediaViewer({
       }
     >
       <div className="exercise-media-modal-body">
-        {content}
+        {hasError || !content ? (
+          <div className="exercise-media-fallback">
+            <Icon name="warning" />
+            <div>
+              <h3 className="m-0">{fallbackTitle}</h3>
+              <p className="muted">{fallbackDescription}</p>
+            </div>
+          </div>
+        ) : (
+          content
+        )}
       </div>
     </Modal>
   );
