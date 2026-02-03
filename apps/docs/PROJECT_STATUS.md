@@ -30,6 +30,10 @@ FitSculpt é uma **web app mobile-first de treino e nutrição**, focada em UX p
   - **Feedback de ação + estados disabled consistentes em Favoritos/Recentes**
   - **Skeletons mais consistentes e mais próximos do layout final (reduz “layout shifts”)**
   - **Detalhe: loading melhorado + secções condicionais (mostrar apenas conteúdo real)**
+  - **Detalhe: fallback de erro consistente quando o exercício não existe (ID em falta/inválido)**
+  - **Detalhe: acessibilidade melhorada nas tabs**
+  - **Skeletons e touch targets ajustados para reduzir “layout shifts” e melhorar estabilidade percebida**
+  
 - Design system próprio:
   - Button, Card, Badge, Skeleton, Modal, Toast, etc.
 - i18n (ES e EN)
