@@ -82,6 +82,9 @@
     "focusRecoveryValue": "Hidratación + descanso"
   },
   "exerciseDetail": {
+    "tabsLabel": "Pestañas de detalle del ejercicio",
+    "detailsEmptyTitle": "Sin detalles adicionales",
+    "detailsEmptyDescription": "Este ejercicio todavía no tiene información de ejecución o músculos.",
     "tabExecution": "Ejecución",
     "tabMuscles": "Músculos",
     "openMedia": "Ver media",
@@ -95,6 +98,8 @@
     "emptyTitle": "Ejercicio no disponible",
     "emptyDescription": "Este ejercicio aún no está disponible.",
     "errorTitle": "No pudimos cargar el ejercicio",
+    "notFoundTitle": "Ejercicio no encontrado",
+    "notFoundDescription": "No encontramos este ejercicio. Prueba con otro de la biblioteca.",
     "executionPrep": "Preparación",
     "executionMove": "Ejecución",
     "executionTips": "Consejos",
@@ -1136,7 +1141,7 @@
     "muscleFilterLabel": "Grupo muscular",
     "allOption": "Todos",
     "loading": "Cargando ejercicios...",
-    "empty": "Aún no hay ejercicios registrados. Genera un plan de entrenamiento con IA para poblar la biblioteca.",
+    "empty": "Todavía no hay ejercicios para mostrar.",
     "noMuscleData": "Sin datos musculares",
     "equipmentLabel": "Equipamiento",
     "equipmentFallback": "Sin especificar",

@@ -27,7 +27,7 @@ async function fetchExercise(exerciseId: string) {
     const host = requestHeaders.get("host");
     const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
     if (!host) {
-      return { exercise: null, ok: false };
+      return { exercise: null, ok: false, status: null };
     }
     const cookie = requestHeaders.get("cookie");
     const response = await fetch(`${protocol}://${host}/api/exercises/${exerciseId}`, {
@@ -36,12 +36,12 @@ async function fetchExercise(exerciseId: string) {
     });
 
     if (!response.ok) {
-      return { exercise: null, ok: false };
+      return { exercise: null, ok: false, status: response.status };
     }
     const data = (await response.json()) as ExerciseApiResponse;
-    return { exercise: normalizeExercise(data), ok: true };
+    return { exercise: normalizeExercise(data), ok: true, status: response.status };
   } catch {
-    return { exercise: null, ok: false };
+    return { exercise: null, ok: false, status: null };
   }
 }
 
@@ -65,12 +65,22 @@ export default async function ExerciseDetailPage(props: {
     );
   }
 
-  const { exercise, ok } = await fetchExercise(exerciseId);
-  const error = ok ? null : t("library.loadError");
+  const { exercise, ok, status } = await fetchExercise(exerciseId);
+  const isNotFound = status === 404;
+  const error = ok
+    ? null
+    : isNotFound
+      ? t("exerciseDetail.notFoundDescription")
+      : t("library.loadError");
+  const errorTitle = ok
+    ? null
+    : isNotFound
+      ? t("exerciseDetail.notFoundTitle")
+      : t("exerciseDetail.errorTitle");
 
   return (
     <div className="page">
-      <ExerciseDetailClient exercise={exercise} error={error} />
+      <ExerciseDetailClient exercise={exercise} error={error} errorTitle={errorTitle} />
     </div>
   );
 }

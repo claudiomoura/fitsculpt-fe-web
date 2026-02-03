@@ -18,6 +18,7 @@ import {
 type ExerciseDetailClientProps = {
   exercise: Exercise | null;
   error?: string | null;
+  errorTitle?: string | null;
 };
 
 type MuscleGroups = {
@@ -45,6 +46,7 @@ function getMuscleGroups(exercise: Exercise): MuscleGroups {
 export default function ExerciseDetailClient({
   exercise,
   error,
+  errorTitle,
 }: ExerciseDetailClientProps) {
   const { t } = useLanguage();
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
@@ -87,7 +89,7 @@ export default function ExerciseDetailClient({
   if (error) {
     return (
       <ExerciseDetailErrorState
-        title={t("exerciseDetail.errorTitle")}
+        title={errorTitle ?? t("exerciseDetail.errorTitle")}
         description={error ?? t("library.loadError")}
         actionLabel={t("ui.backToLibrary")}
         actionHref="/app/biblioteca"
@@ -264,6 +266,9 @@ export default function ExerciseDetailClient({
         primaryMuscles={primary}
         secondaryMuscles={secondary}
         labels={{
+          tabsLabel: t("exerciseDetail.tabsLabel"),
+          detailsEmptyTitle: t("exerciseDetail.detailsEmptyTitle"),
+          detailsEmptyDescription: t("exerciseDetail.detailsEmptyDescription"),
           executionTab: t("exerciseDetail.tabExecution"),
           musclesTab: t("exerciseDetail.tabMuscles"),
           executionPrepTitle: t("exerciseDetail.executionPrep"),
