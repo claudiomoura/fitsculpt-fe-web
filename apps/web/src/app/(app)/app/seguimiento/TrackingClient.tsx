@@ -416,9 +416,16 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         profile,
         metrics
       );
-      setCheckins(nextCheckins);
       setProfile(nextProfile);
-      void refreshTrackingData();
+      const refreshed = await refreshTrackingData({ showLoading: true, showError: true });
+      if (!refreshed) {
+        if (options?.onError) {
+          options.onError(errorMessage);
+        } else {
+          setSubmitError(errorMessage);
+        }
+        return false;
+      }
       showMessage(successMessage);
       return true;
     } catch {
@@ -787,7 +794,16 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             {trackingStatus === "loading" ? (
               <Skeleton variant="line" style={{ width: "40%" }} />
             ) : trackingStatus === "error" ? (
-              <p className="muted">{t("tracking.weightHistoryError")}</p>
+              <div className="form-stack">
+                <p className="muted">{t("tracking.weightHistoryError")}</p>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => refreshTrackingData({ showLoading: true, showError: true })}
+                >
+                  {t("ui.retry")}
+                </button>
+              </div>
             ) : latestCheckin ? (
               <div style={{ display: "grid", gap: 4 }}>
                 <strong>
@@ -807,7 +823,16 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             {trackingStatus === "loading" ? (
               <SkeletonCard />
             ) : trackingStatus === "error" ? (
-              <p className="muted">{t("tracking.weightHistoryError")}</p>
+              <div className="form-stack">
+                <p className="muted">{t("tracking.weightHistoryError")}</p>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => refreshTrackingData({ showLoading: true, showError: true })}
+                >
+                  {t("ui.retry")}
+                </button>
+              </div>
             ) : sortedCheckins.length === 0 ? (
               <p className="muted">{t("tracking.weightHistoryEmpty")}</p>
             ) : (
