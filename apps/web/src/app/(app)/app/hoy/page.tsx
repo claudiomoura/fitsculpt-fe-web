@@ -14,6 +14,7 @@ export default async function TodayPage() {
           </div>
         </div>
       </section>
+      <TodayWeightSummary />
       <section className="card">
         <div className="section-head">
           <div>
