@@ -13,13 +13,14 @@ type TodayNutritionSummaryProps = {
 
 export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
   const { t } = useLanguage();
+  const mealLabel = data.meals === 1 ? t("today.mealLabel") : t("today.mealsLabel");
 
   return (
     <div className="stack-md">
       <div className="stack-sm">
         <strong>{t("today.nutritionSummaryTitle")}</strong>
         <p className="muted m-0">
-          {data.meals} {t("today.mealsLabel")}
+          {data.meals} {mealLabel}
           {typeof data.calories === "number" ? ` · ${data.calories} ${t("units.kcal")}` : ""}
         </p>
       </div>
