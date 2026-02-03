@@ -15,7 +15,7 @@ import {
 import { TodayEnergySummary, type TodayEnergySummaryData } from "@/components/today/TodayEnergySummary";
 import { TodayNutritionSummary, type TodayNutritionSummaryData } from "@/components/today/TodayNutritionSummary";
 import { TodayNotesSummary, type TodayNotesSummaryData } from "@/components/today/TodayNotesSummary";
-import { TodaySectionCard } from "@/components/today/TodaySectionCard";
+import { TodaySection } from "@/components/today/TodaySection";
 import { TodayTrainingSummary, type TodayTrainingSummaryData } from "@/components/today/TodayTrainingSummary";
 import { TodayWeightSummary, type TodayWeightSummaryData } from "@/components/today/TodayWeightSummary";
 import { ButtonLink } from "@/components/ui/Button";
@@ -227,7 +227,7 @@ export default function TodaySummaryClient() {
   const weightAction = useMemo(
     () => (
       <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry" size="lg">
-        {t("quickActions.recordWeight")}
+        {t("today.weightCta")}
       </ButtonLink>
     ),
     [t]
@@ -336,110 +336,141 @@ export default function TodaySummaryClient() {
 
   return (
     <>
-      <TodaySectionCard title={t("today.trainingSectionTitle")} subtitle={t("today.trainingSectionSubtitle")} action={trainingAction}>
-        {trainingState.status === "loading" ? (
-          <TodayTrainingSkeleton />
-        ) : trainingState.status === "error" ? (
+      <div className="section-head">
+        <div>
+          <h2 className="section-title">{t("today.summarySectionTitle")}</h2>
+          <p className="section-subtitle">{t("today.summarySectionSubtitle")}</p>
+        </div>
+      </div>
+
+      <TodaySection
+        title={t("today.trainingSectionTitle")}
+        subtitle={t("today.trainingSectionSubtitle")}
+        action={trainingAction}
+        status={trainingState.status}
+        loading={<TodayTrainingSkeleton />}
+        error={
           <ErrorState
             title={t("today.trainingErrorTitle")}
             description={t("today.trainingErrorDescription")}
             actions={[{ label: t("ui.retry"), onClick: loadProfile, variant: "secondary" }]}
           />
-        ) : trainingState.status === "empty" ? (
+        }
+        empty={
           <EmptyState
             title={t("today.trainingEmptyTitle")}
             description={t("today.trainingEmptyDescription")}
           />
-        ) : (
-          trainingState.data && <TodayTrainingSummary data={trainingState.data} />
-        )}
-      </TodaySectionCard>
+        }
+      >
+        {trainingState.data && <TodayTrainingSummary data={trainingState.data} />}
+      </TodaySection>
 
-      <TodaySectionCard title={t("today.nutritionSectionTitle")} subtitle={t("today.nutritionSectionSubtitle")} action={nutritionAction}>
-        {nutritionState.status === "loading" ? (
-          <TodayNutritionSkeleton />
-        ) : nutritionState.status === "error" ? (
+      <TodaySection
+        title={t("today.nutritionSectionTitle")}
+        subtitle={t("today.nutritionSectionSubtitle")}
+        action={nutritionAction}
+        status={nutritionState.status}
+        loading={<TodayNutritionSkeleton />}
+        error={
           <ErrorState
             title={t("today.nutritionErrorTitle")}
             description={t("today.nutritionErrorDescription")}
             actions={[{ label: t("ui.retry"), onClick: loadProfile, variant: "secondary" }]}
           />
-        ) : nutritionState.status === "empty" ? (
+        }
+        empty={
           <EmptyState
             title={t("today.nutritionEmptyTitle")}
             description={t("today.nutritionEmptyDescription")}
           />
-        ) : (
-          nutritionState.data && <TodayNutritionSummary data={nutritionState.data} />
-        )}
-      </TodaySectionCard>
+        }
+      >
+        {nutritionState.data && <TodayNutritionSummary data={nutritionState.data} />}
+      </TodaySection>
 
-      <TodaySectionCard title={t("today.weightSectionTitle")} subtitle={t("today.weightSectionSubtitle")} action={weightAction}>
-        {weightState.status === "loading" ? (
-          <TodayWeightSkeleton />
-        ) : weightState.status === "error" ? (
+      <TodaySection
+        title={t("today.weightSectionTitle")}
+        subtitle={t("today.weightSectionSubtitle")}
+        action={weightAction}
+        status={weightState.status}
+        loading={<TodayWeightSkeleton />}
+        error={
           <ErrorState
             title={t("today.weightErrorTitle")}
             description={t("today.weightErrorDescription")}
             actions={[
-              { label: t("quickActions.recordWeight"), href: "/app/seguimiento#weight-entry" },
+              { label: t("today.weightCta"), href: "/app/seguimiento#weight-entry" },
               { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
             ]}
           />
-        ) : weightState.status === "empty" ? (
+        }
+        empty={
           <EmptyState
             title={t("today.weightEmptyTitle")}
             description={t("today.weightEmptyDescription")}
-            actions={[{ label: t("quickActions.recordWeight"), href: "/app/seguimiento#weight-entry", variant: "secondary" }]}
+            actions={[{ label: t("today.weightCta"), href: "/app/seguimiento#weight-entry", variant: "secondary" }]}
           />
-        ) : (
-          weightState.data && <TodayWeightSummary data={weightState.data} />
-        )}
-      </TodaySectionCard>
+        }
+      >
+        {weightState.data && <TodayWeightSummary data={weightState.data} />}
+      </TodaySection>
 
-      <TodaySectionCard title={t("today.energySectionTitle")} subtitle={t("today.energySectionSubtitle")} action={energyAction ?? undefined}>
-        {energyState.status === "loading" ? (
-          <TodayEnergySkeleton />
-        ) : energyState.status === "error" ? (
+      <TodaySection
+        title={t("today.energySectionTitle")}
+        subtitle={t("today.energySectionSubtitle")}
+        action={energyAction ?? undefined}
+        status={energyState.status}
+        loading={<TodayEnergySkeleton />}
+        error={
           <ErrorState
             title={t("today.energyErrorTitle")}
             description={t("today.energyErrorDescription")}
             actions={energyErrorActions}
           />
-        ) : energyState.status === "empty" ? (
+        }
+        empty={
           <EmptyState
             title={t("today.energyEmptyTitle")}
             description={t("today.energyEmptyDescription")}
             actions={energyEmptyActions}
           />
-        ) : (
-          energyState.data && <TodayEnergySummary data={energyState.data} />
-        )}
-      </TodaySectionCard>
+        }
+      >
+        {energyState.data && <TodayEnergySummary data={energyState.data} />}
+      </TodaySection>
 
-      <TodaySectionCard title={t("today.notesSectionTitle")} subtitle={t("today.notesSectionSubtitle")} action={notesAction ?? undefined}>
-        {notesState.status === "loading" ? (
-          <TodayNotesSkeleton />
-        ) : notesState.status === "error" ? (
+      <TodaySection
+        title={t("today.notesSectionTitle")}
+        subtitle={t("today.notesSectionSubtitle")}
+        action={notesAction ?? undefined}
+        status={notesState.status}
+        loading={<TodayNotesSkeleton />}
+        error={
           <ErrorState
             title={t("today.notesErrorTitle")}
             description={t("today.notesErrorDescription")}
             actions={notesErrorActions}
           />
-        ) : notesState.status === "empty" ? (
+        }
+        empty={
           <EmptyState
             title={t("today.notesEmptyTitle")}
             description={t("today.notesEmptyDescription")}
             actions={notesEmptyActions}
           />
-        ) : (
-          notesState.data && <TodayNotesSummary data={notesState.data} />
-        )}
-      </TodaySectionCard>
+        }
+      >
+        {notesState.data && <TodayNotesSummary data={notesState.data} />}
+      </TodaySection>
 
-      <TodaySectionCard
+      <TodaySection
         title={t("today.shortcutsSectionTitle")}
         subtitle={t("today.shortcutsSectionSubtitle")}
+        status="ready"
+        loading={<></>}
+        error={<></>}
+        empty={<></>}
       >
         <div className="stack-lg">
           <div>
@@ -495,7 +526,7 @@ export default function TodaySummaryClient() {
             )}
           </div>
         </div>
-      </TodaySectionCard>
+      </TodaySection>
     </>
   );
 }
