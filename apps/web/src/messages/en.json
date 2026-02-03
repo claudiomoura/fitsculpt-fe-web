@@ -477,6 +477,8 @@
     "weightProgressEmptyTitle": "No weight logs yet.",
     "weightProgressEmptySubtitle": "Log your weight to see a weekly summary.",
     "weightProgressEmptyCta": "Log weight",
+    "weightProgressInsufficientTitle": "Keep logging to see progress",
+    "weightProgressInsufficientSubtitle": "We need at least two weeks of check-ins to compare trends.",
     "weightProgressLast7Days": "Last 7 days",
     "weightProgressLatestLabel": "Latest entry",
     "weightProgressDeltaLabel": "vs previous 7 days",
