@@ -91,6 +91,7 @@
     "mediaPreviewFallback": "Media preview unavailable.",
     "mediaViewerFallbackTitle": "Media unavailable",
     "mediaViewerFallbackDescription": "We couldn't load this media. Try again later.",
+    "summaryTitle": "Quick overview",
     "emptyTitle": "Exercise not found",
     "emptyDescription": "This exercise isn't available yet.",
     "errorTitle": "We couldn't load the exercise",
