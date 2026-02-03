@@ -208,7 +208,7 @@ export default function TodaySummaryClient() {
 
   const trainingAction = useMemo(
     () => (
-      <ButtonLink variant="secondary" href="/app/entrenamiento">
+      <ButtonLink variant="secondary" href="/app/entrenamiento" size="lg">
         {t("today.trainingCta")}
       </ButtonLink>
     ),
@@ -217,7 +217,7 @@ export default function TodaySummaryClient() {
 
   const nutritionAction = useMemo(
     () => (
-      <ButtonLink variant="secondary" href="/app/nutricion">
+      <ButtonLink variant="secondary" href="/app/nutricion" size="lg">
         {t("today.nutritionCta")}
       </ButtonLink>
     ),
@@ -226,7 +226,7 @@ export default function TodaySummaryClient() {
 
   const weightAction = useMemo(
     () => (
-      <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry">
+      <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry" size="lg">
         {t("quickActions.recordWeight")}
       </ButtonLink>
     ),
@@ -236,7 +236,7 @@ export default function TodaySummaryClient() {
   const energyAction = useMemo(() => {
     if (!energySupported) return null;
     return (
-      <ButtonLink variant="secondary" href="/app/seguimiento#checkin-entry">
+      <ButtonLink variant="secondary" href="/app/seguimiento#checkin-entry" size="lg">
         {t("today.energyCta")}
       </ButtonLink>
     );
@@ -245,7 +245,7 @@ export default function TodaySummaryClient() {
   const notesAction = useMemo(() => {
     if (!notesSupported) return null;
     return (
-      <ButtonLink variant="secondary" href="/app/seguimiento#checkin-entry">
+      <ButtonLink variant="secondary" href="/app/seguimiento#checkin-entry" size="lg">
         {t("today.notesCta")}
       </ButtonLink>
     );

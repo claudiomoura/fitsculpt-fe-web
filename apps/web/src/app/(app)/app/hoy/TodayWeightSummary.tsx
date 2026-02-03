@@ -108,9 +108,13 @@ export default function TodayWeightSummary() {
           <div className="info-item">
             <div className="info-label">{t("today.lastWeightValueLabel")}</div>
             <div className="info-value">
-              {latest.weightKg} {t("today.lastWeightUnit")}
+              {latest.weightKg} {t("units.kilograms")}
             </div>
-            {formattedDate ? <div className="muted">{t("today.lastWeightDateLabel")} {formattedDate}</div> : null}
+            {formattedDate ? (
+              <div className="muted">
+                {t("today.lastWeightDateLabel")} {formattedDate}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : (

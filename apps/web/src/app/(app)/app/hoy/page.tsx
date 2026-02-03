@@ -13,7 +13,7 @@ export default async function TodayPage() {
         <p className="section-subtitle">{t("today.subtitle")}</p>
       </section>
       <section className="card">
-        <div className="section-head">
+        <div className="section-head section-head--card">
           <div>
             <h2 className="section-title section-title-sm">{t("quickActions.title")}</h2>
             <p className="section-subtitle">{t("quickActions.subtitle")}</p>
@@ -25,29 +25,29 @@ export default async function TodayPage() {
               <p className="quick-action-title">{t("quickActions.recordWeight")}</p>
               <p className="quick-action-description">{t("quickActions.recordWeightDescription")}</p>
             </div>
-            <ButtonLink as={Link} href="/app/seguimiento#weight-entry" className="quick-action-button">
+            <ButtonLink as={Link} href="/app/seguimiento#weight-entry" size="lg" className="quick-action-button">
               {t("quickActions.recordWeight")}
             </ButtonLink>
           </div>
         </div>
       </section>
       <section className="card">
-        <div className="section-head">
+        <div className="section-head section-head--card">
           <div>
             <h2 className="section-title section-title-sm">{t("today.focusTitle")}</h2>
             <p className="section-subtitle">{t("today.focusSubtitle")}</p>
           </div>
         </div>
         <div className="today-highlight">
-          <div>
+          <div className="today-highlight-item">
             <p className="today-highlight-label">{t("today.focusPlan")}</p>
             <p className="today-highlight-value">{t("today.focusPlanValue")}</p>
           </div>
-          <div>
+          <div className="today-highlight-item">
             <p className="today-highlight-label">{t("today.focusNutrition")}</p>
             <p className="today-highlight-value">{t("today.focusNutritionValue")}</p>
           </div>
-          <div>
+          <div className="today-highlight-item">
             <p className="today-highlight-label">{t("today.focusRecovery")}</p>
             <p className="today-highlight-value">{t("today.focusRecoveryValue")}</p>
           </div>

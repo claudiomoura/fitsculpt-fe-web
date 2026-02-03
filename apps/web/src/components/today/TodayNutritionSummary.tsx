@@ -20,7 +20,7 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
         <strong>{t("today.nutritionSummaryTitle")}</strong>
         <p className="muted m-0">
           {data.meals} {t("today.mealsLabel")}
-          {typeof data.calories === "number" ? ` · ${data.calories} kcal` : ""}
+          {typeof data.calories === "number" ? ` · ${data.calories} ${t("units.kcal")}` : ""}
         </p>
       </div>
       {data.label ? <Badge>{data.label}</Badge> : null}
