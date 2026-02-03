@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
+import {
+  EXERCISE_RECENTS_STORAGE_KEY,
+  clearExerciseRecents,
+  getExerciseRecents,
+  type ExerciseRecent,
+} from "@/lib/exerciseRecents";
 import type { Exercise } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
@@ -13,7 +19,7 @@ type ExerciseResponse = {
   items: Exercise[];
 };
 
-function getExerciseMuscles(exercise: Exercise) {
+function getExerciseMuscles(exercise: Exercise | ExerciseRecent) {
   const main = exercise.mainMuscleGroup ? [exercise.mainMuscleGroup] : [];
   const secondary = Array.isArray(exercise.secondaryMuscleGroups) ? exercise.secondaryMuscleGroups : [];
   const legacyPrimary = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
@@ -27,6 +33,7 @@ export default function ExerciseLibraryClient() {
   const [equipmentFilter, setEquipmentFilter] = useState("all");
   const [muscleFilter, setMuscleFilter] = useState("all");
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [recents, setRecents] = useState<ExerciseRecent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -74,6 +81,21 @@ export default function ExerciseLibraryClient() {
     return () => controller.abort();
   }, [equipmentFilter, muscleFilter, query, retryKey, t]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refreshRecents = () => {
+      setRecents(getExerciseRecents());
+    };
+    refreshRecents();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === EXERCISE_RECENTS_STORAGE_KEY) {
+        refreshRecents();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const equipmentOptions = useMemo(() => {
     const options = Array.from(new Set(exercises.map((ex) => ex.equipment).filter(Boolean)));
     return ["all", ...options];
@@ -84,6 +106,61 @@ export default function ExerciseLibraryClient() {
     const unique = Array.from(new Set(all)).filter(Boolean);
     return ["all", ...unique];
   }, [exercises]);
+
+  const handleClearRecents = () => {
+    clearExerciseRecents();
+    setRecents([]);
+  };
+
+  const renderExerciseCard = (exercise: Exercise | ExerciseRecent) => {
+    const muscles = getExerciseMuscles(exercise);
+    const exerciseId = exercise.id;
+    const coverUrl = getExerciseCoverUrl(exercise) || "/placeholders/exercise-cover.svg";
+    const content = (
+      <>
+        <img
+          src={coverUrl}
+          alt={`${t("library.mediaAlt")} ${exercise.name}`}
+          className="exercise-card-media"
+          onError={(event) => {
+            event.currentTarget.src = "/placeholders/exercise-cover.svg";
+          }}
+        />
+        <h3>{exercise.name}</h3>
+        <div className="badge-list">
+          {muscles.length > 0 ? (
+            muscles.map((muscle) => (
+              <Badge key={muscle}>{muscle}</Badge>
+            ))
+          ) : (
+            <Badge variant="muted">{t("library.noMuscleData")}</Badge>
+          )}
+        </div>
+        <p className="muted">
+          {t("library.equipmentLabel")}: {exercise.equipment ?? t("library.equipmentFallback")}
+        </p>
+        {exercise.description ? <p className="muted">{exercise.description}</p> : null}
+      </>
+    );
+
+    if (!exerciseId) {
+      return (
+        <div key={exercise.name} className="feature-card">
+          {content}
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={exerciseId}
+        href={`/app/biblioteca/${exerciseId}`}
+        className="feature-card library-card"
+      >
+        {content}
+      </Link>
+    );
+  };
 
   return (
     <section className="card">
@@ -130,6 +207,20 @@ export default function ExerciseLibraryClient() {
         </div>
       </div>
 
+      {recents.length > 0 ? (
+        <div className="mt-16">
+          <div className="flex items-center justify-between gap-8">
+            <h3 className="m-0">{t("library.recentsTitle")}</h3>
+            <Button variant="ghost" size="sm" onClick={handleClearRecents}>
+              {t("library.recentsClear")}
+            </Button>
+          </div>
+          <div className="list-grid mt-12">
+            {recents.map((exercise) => renderExerciseCard(exercise))}
+          </div>
+        </div>
+      ) : null}
+
       {loading ? (
         <SkeletonExerciseList className="mt-16" />
       ) : error ? (
@@ -165,55 +256,7 @@ export default function ExerciseLibraryClient() {
         />
       ) : (
         <div className="list-grid mt-16">
-          {exercises.map((exercise) => {
-            const muscles = getExerciseMuscles(exercise);
-            const exerciseId = exercise.id;
-            const coverUrl = getExerciseCoverUrl(exercise) || "/placeholders/exercise-cover.svg";
-            const content = (
-              <>
-                <img
-                  src={coverUrl}
-                  alt={`${t("library.mediaAlt")} ${exercise.name}`}
-                  className="exercise-card-media"
-                  onError={(event) => {
-                    event.currentTarget.src = "/placeholders/exercise-cover.svg";
-                  }}
-                />
-                <h3>{exercise.name}</h3>
-                <div className="badge-list">
-                  {muscles.length > 0 ? (
-                    muscles.map((muscle) => (
-                      <Badge key={muscle}>{muscle}</Badge>
-                    ))
-                  ) : (
-                    <Badge variant="muted">{t("library.noMuscleData")}</Badge>
-                  )}
-                </div>
-                <p className="muted">
-                  {t("library.equipmentLabel")}: {exercise.equipment ?? t("library.equipmentFallback")}
-                </p>
-                {exercise.description ? <p className="muted">{exercise.description}</p> : null}
-              </>
-            );
-
-            if (!exerciseId) {
-              return (
-                <div key={exercise.name} className="feature-card">
-                  {content}
-                </div>
-              );
-            }
-
-            return (
-              <Link
-                key={exerciseId}
-                href={`/app/biblioteca/${exerciseId}`}
-                className="feature-card library-card"
-              >
-                {content}
-              </Link>
-            );
-          })}
+          {exercises.map((exercise) => renderExerciseCard(exercise))}
         </div>
       )}
     </section>
