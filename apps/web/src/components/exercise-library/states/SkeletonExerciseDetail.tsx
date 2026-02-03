@@ -20,6 +20,9 @@ export function SkeletonExerciseDetail() {
           <Skeleton variant="line" className="w-45" />
           <Skeleton variant="line" className="w-45" />
         </div>
+        <div>
+          <Skeleton variant="line" className="w-40" />
+        </div>
         <div className="info-grid mt-16">
           <Skeleton className="info-item" />
           <Skeleton className="info-item" />
