@@ -2413,6 +2413,7 @@ label {
 .library-card {
   display: grid;
   gap: 10px;
+  position: relative;
 }
 
 .library-card:hover {
@@ -2423,6 +2424,29 @@ label {
   outline: 3px solid var(--color-ring);
   outline-offset: 3px;
   border-radius: var(--radius-lg);
+}
+
+.library-card-link:focus-visible {
+  outline: 3px solid var(--color-ring);
+  outline-offset: 3px;
+  border-radius: var(--radius-lg);
+}
+
+.library-card-link {
+  display: grid;
+  gap: 8px;
+  color: inherit;
+}
+
+.library-card-link:hover {
+  text-decoration: none;
+}
+
+.library-favorite-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
 }
 
 .inline-grid-2 {
@@ -2621,7 +2645,11 @@ label {
 
   .app-shell {
     grid-template-columns: 1fr;
-    padding: 16px 16px calc(96px + env(safe-area-inset-bottom));
+    padding: 16px;
+  }
+
+  .app-content {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 
   .app-sidebar {

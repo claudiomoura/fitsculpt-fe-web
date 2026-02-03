@@ -5,13 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import {
-  EXERCISE_RECENTS_STORAGE_KEY,
-  clearExerciseRecents,
-  getExerciseRecents,
   type ExerciseRecent,
+  useExerciseRecents,
 } from "@/lib/exerciseRecents";
+import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState, ErrorState, SkeletonExerciseList } from "@/components/exercise-library";
 
@@ -33,7 +33,8 @@ export default function ExerciseLibraryClient() {
   const [equipmentFilter, setEquipmentFilter] = useState("all");
   const [muscleFilter, setMuscleFilter] = useState("all");
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [recents, setRecents] = useState<ExerciseRecent[]>([]);
+  const { recents, clearRecents } = useExerciseRecents();
+  const { favorites, toggleFavorite } = useExerciseFavorites();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
@@ -81,21 +82,6 @@ export default function ExerciseLibraryClient() {
     return () => controller.abort();
   }, [equipmentFilter, muscleFilter, query, retryKey, t]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const refreshRecents = () => {
-      setRecents(getExerciseRecents());
-    };
-    refreshRecents();
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === EXERCISE_RECENTS_STORAGE_KEY) {
-        refreshRecents();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
   const equipmentOptions = useMemo(() => {
     const options = Array.from(new Set(exercises.map((ex) => ex.equipment).filter(Boolean)));
     return ["all", ...options];
@@ -107,15 +93,17 @@ export default function ExerciseLibraryClient() {
     return ["all", ...unique];
   }, [exercises]);
 
-  const handleClearRecents = () => {
-    clearExerciseRecents();
-    setRecents([]);
-  };
+  const favoriteExercises = useMemo(
+    () => exercises.filter((exercise) => Boolean(exercise.id && favorites.includes(exercise.id))),
+    [exercises, favorites]
+  );
 
   const renderExerciseCard = (exercise: Exercise | ExerciseRecent) => {
     const muscles = getExerciseMuscles(exercise);
     const exerciseId = exercise.id;
     const coverUrl = getExerciseCoverUrl(exercise) || "/placeholders/exercise-cover.svg";
+    const isFavorite = Boolean(exerciseId && favorites.includes(exerciseId));
+    const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
     const content = (
       <>
         <img
@@ -152,13 +140,25 @@ export default function ExerciseLibraryClient() {
     }
 
     return (
-      <Link
-        key={exerciseId}
-        href={`/app/biblioteca/${exerciseId}`}
-        className="feature-card library-card"
-      >
-        {content}
-      </Link>
+      <div key={exerciseId} className="feature-card library-card">
+        <Link href={`/app/biblioteca/${exerciseId}`} className="library-card-link">
+          {content}
+        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="library-favorite-button"
+          aria-pressed={isFavorite}
+          aria-label={favoriteLabel}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleFavorite(exerciseId);
+          }}
+        >
+          {favoriteLabel}
+        </Button>
+      </div>
     );
   };
 
@@ -207,11 +207,22 @@ export default function ExerciseLibraryClient() {
         </div>
       </div>
 
+      {favoriteExercises.length > 0 ? (
+        <div className="mt-16">
+          <div className="flex items-center justify-between gap-8">
+            <h3 className="m-0">{t("library.favoritesTitle")}</h3>
+          </div>
+          <div className="list-grid mt-12">
+            {favoriteExercises.map((exercise) => renderExerciseCard(exercise))}
+          </div>
+        </div>
+      ) : null}
+
       {recents.length > 0 ? (
         <div className="mt-16">
           <div className="flex items-center justify-between gap-8">
             <h3 className="m-0">{t("library.recentsTitle")}</h3>
-            <Button variant="ghost" size="sm" onClick={handleClearRecents}>
+            <Button variant="ghost" size="sm" onClick={clearRecents}>
               {t("library.recentsClear")}
             </Button>
           </div>

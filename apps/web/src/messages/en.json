@@ -1155,6 +1155,9 @@
     "emptyTitle": "No exercises found",
     "resetFilters": "Clear filters",
     "retrySearch": "Try again",
+    "favoritesTitle": "Favorites",
+    "favoriteAdd": "Add to favorites",
+    "favoriteRemove": "Remove favorite",
     "recentsTitle": "Recents",
     "recentsClear": "Clear"
   },
