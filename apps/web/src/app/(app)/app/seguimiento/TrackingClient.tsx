@@ -673,7 +673,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           </div>
         </div>
       </section>
-      <section className="card">
+      <section className="card" id="checkin-entry">
         <div className="section-head">
           <div>
             <h2 className="section-title" style={{ fontSize: 20 }}>{t("profile.checkinTitle")}</h2>
