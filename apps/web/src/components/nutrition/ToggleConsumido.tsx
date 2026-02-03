@@ -22,18 +22,17 @@ export default function ToggleConsumido({
 }: ToggleConsumidoProps) {
   const { t } = useLanguage();
   const { notify } = useToast();
-  const { data, isLoading, toggle } = useNutritionAdherence();
+  const { isLoading, error, isConsumed, toggle } = useNutritionAdherence();
 
   const normalizedItemKey = itemKey?.trim();
   const normalizedDateKey = dateKey?.trim();
-  const isConsumed = Boolean(
-    normalizedItemKey && normalizedDateKey && data[normalizedDateKey]?.[normalizedItemKey]
-  );
-  const isDisabled = disabled || isLoading || !normalizedItemKey || !normalizedDateKey;
+  const consumed = isConsumed(normalizedItemKey, normalizedDateKey);
+  const isDisabled =
+    disabled || isLoading || Boolean(error) || !normalizedItemKey || !normalizedDateKey;
 
   const handleToggle = () => {
     if (!normalizedItemKey || !normalizedDateKey) return;
-    const nextConsumed = !isConsumed;
+    const nextConsumed = !consumed;
     toggle(normalizedItemKey, normalizedDateKey);
     if (nextConsumed) {
       notify({
@@ -51,11 +50,11 @@ export default function ToggleConsumido({
       size={size}
       loading={isLoading}
       disabled={isDisabled}
-      aria-pressed={isConsumed}
+      aria-pressed={consumed}
       onClick={handleToggle}
       {...props}
     >
-      {isConsumed ? t("nutrition.adherenceConsumedLabel") : t("nutrition.adherenceMarkLabel")}
+      {consumed ? t("nutrition.adherenceConsumedLabel") : t("nutrition.adherenceMarkLabel")}
     </Button>
   );
 }

@@ -16,7 +16,10 @@ export function TodayNutritionSkeleton() {
   return (
     <div className="stack-md">
       <div className="stack-sm">
-        <Skeleton variant="line" style={{ width: "45%" }} />
+        <div className="today-nutrition-header">
+          <Skeleton variant="line" style={{ width: "40%" }} />
+          <Skeleton variant="line" style={{ width: "20%" }} />
+        </div>
         <Skeleton variant="line" style={{ width: "55%" }} />
       </div>
       <div className="today-nutrition-skeleton-list">

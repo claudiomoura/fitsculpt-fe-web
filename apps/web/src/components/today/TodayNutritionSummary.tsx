@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { slugifyExerciseName } from "@/lib/slugify";
@@ -56,7 +57,8 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
       <div className="today-nutrition-list">
         {data.meals.map((meal, index) => {
           const typeLabel = meal.type ? mealTypeLabels[meal.type] : null;
-          const fallbackKey = `${slugifyExerciseName(meal.title)}-${index}`;
+          const mealTitle = meal.title?.trim() || t("nutrition.mealTypeFallback");
+          const fallbackKey = `${slugifyExerciseName(mealTitle)}-${index}`;
           const itemKey = meal.key ?? fallbackKey;
           const isConsumed = meal.key ? consumedKeys.includes(meal.key) : false;
           const isDisabled = loading || hasError || !meal.key;
@@ -65,7 +67,7 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
           return (
             <div key={itemKey} className="today-nutrition-item">
               <div className="today-nutrition-item-body">
-                <div className="today-nutrition-item-title">{meal.title}</div>
+                <div className="today-nutrition-item-title">{mealTitle}</div>
                 {typeLabel ? <p className="muted m-0">{typeLabel}</p> : null}
                 {meal.description ? <p className="muted m-0">{meal.description}</p> : null}
               </div>
@@ -78,7 +80,15 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
                 aria-label={`${toggleLabel}: ${meal.title}`}
                 onClick={() => {
                   if (!meal.key) return;
+                  const nextConsumed = !isConsumed;
                   toggle(meal.key);
+                  if (nextConsumed) {
+                    notify({
+                      title: t("nutrition.adherenceToastTitle"),
+                      description: t("nutrition.adherenceToastDescription"),
+                      variant: "success",
+                    });
+                  }
                 }}
               >
                 {toggleLabel}
