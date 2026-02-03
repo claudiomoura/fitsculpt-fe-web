@@ -1553,7 +1553,9 @@ label {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
+  width: 100%;
   padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px);
+  min-height: var(--mobile-tab-bar-height, auto);
   background: color-mix(in srgb, var(--bg-card) 88%, transparent);
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   backdrop-filter: blur(16px);
@@ -2815,6 +2817,10 @@ label {
 }
 
 @media (max-width: 900px) {
+  :root {
+    --mobile-tab-bar-height: 88px;
+  }
+
   .nav-inner {
     flex-direction: row;
     align-items: center;
@@ -2870,11 +2876,11 @@ label {
   }
 
   .app-content {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom));
   }
 
   .page {
-    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom));
   }
 
   .app-sidebar {
