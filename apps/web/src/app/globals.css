@@ -610,6 +610,7 @@ main {
   justify-content: center;
   gap: 8px;
   padding: 10px 18px;
+  min-height: 44px;
   border-radius: 999px;
   border: 1px solid transparent;
   background: var(--accent);
@@ -1641,6 +1642,7 @@ label {
 
 .quick-action-button {
   justify-self: start;
+  min-height: 44px;
 }
 
 .today-highlight {

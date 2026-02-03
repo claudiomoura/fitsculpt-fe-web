@@ -105,6 +105,22 @@
     "weightErrorDescription": "No pudimos cargar tu último peso.",
     "weightLatestLabel": "Último peso registrado"
   },
+  "foods": {
+    "salmon": "Salmón",
+    "eggs": "Huevos",
+    "chicken": "Pollo",
+    "brownRice": "Arroz integral",
+    "quinoa": "Quinoa",
+    "greekYogurt": "Yogur griego",
+    "potato": "Patata",
+    "avocado": "Aguacate"
+  },
+  "units": {
+    "kcal": "kcal",
+    "grams": "g",
+    "kilograms": "kg",
+    "percent": "%"
+  },
   "exerciseDetail": {
     "tabsLabel": "Pestañas de detalle del ejercicio",
     "detailsEmptyTitle": "Sin detalles adicionales",
@@ -381,6 +397,9 @@
     "todayMealsLabel": "comidas",
     "quickActionsTitle": "Acciones rápidas",
     "quickActionsSubtitle": "Genera un plan nuevo en un clic.",
+    "calorieProgressLabel": "Anillo de progreso de calorías",
+    "weightChartAria": "Gráfico de peso",
+    "bodyFatChartAria": "Gráfico de grasa corporal",
     "profileIncompleteTitle": "Completa tu onboarding",
     "profileIncompleteSubtitle": "Añade algunos datos para desbloquear tu panel.",
     "aiEyebrow": "Asistente IA",
@@ -538,6 +557,9 @@
     "proteinLabel": "Proteína",
     "fatLabel": "Grasa",
     "carbsLabel": "Carbs",
+    "proteinShort": "P",
+    "carbsShort": "C",
+    "fatShort": "G",
     "noteZeroCarbs": "Nota: proteína + grasa ya consumieron las calorías objetivo. Baja g/kg o sube calorías.",
     "perMeal": "Por comida",
     "perMealEqual": "igual",
