@@ -1791,6 +1791,16 @@ label {
     width: 100%;
     justify-self: stretch;
   }
+
+  .today-nutrition-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .today-nutrition-toggle {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .nav-link {
