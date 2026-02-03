@@ -2651,6 +2651,24 @@ label {
   gap: 10px;
 }
 
+.dashboard-summary-loading {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.dashboard-summary-skeleton-ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+}
+
+.dashboard-summary-skeleton-meta {
+  display: grid;
+  gap: 10px;
+}
+
 .dashboard-summary-actions {
   display: flex;
   gap: 8px;
@@ -3128,6 +3146,26 @@ textarea:disabled {
 
 .ui-skeleton-card .ui-skeleton--line {
   height: 10px;
+}
+
+.tracking-history-skeleton {
+  display: grid;
+  gap: 10px;
+}
+
+.tracking-history-skeleton-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tracking-history-skeleton-date {
+  width: 45%;
+}
+
+.tracking-history-skeleton-value {
+  width: 25%;
 }
 
 @keyframes shimmer {
