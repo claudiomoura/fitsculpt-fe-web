@@ -53,17 +53,17 @@ Acessibilidade melhorada nas tabs (implementado/melhorado)
 
 Sistema de favoritos e recentes (implementado)
 
-Estados loading/empty/error consistentes + feedback de ação + disabled states (implementado; refinado em Hoje/Tracking/Dashboard)
+Estados loading/empty/error consistentes + feedback de ação + disabled states (implementado)
 
 Hooks de storage expõem loading/error/refresh para estados consistentes (implementado)
 
-Skeletons mais consistentes e mais próximos do layout final (melhorado; Tracking/Hoje/Dashboard com maior fidelidade)
+Skeletons mais consistentes e mais próximos do layout final (melhorado)
 
 Touch targets e sizing ajustados para estabilidade percebida (melhorado)
 
 Tracking básico (peso)
 
-Entrada de peso + último registo + histórico com estados completos e skeletons alinhados (parcial — frontend; dependente de backend/dados reais)
+Entrada de peso + último registo + histórico com estados completos (parcial — frontend; dependente de backend/dados reais)
 
 Ecrã Hoje
 
@@ -84,7 +84,7 @@ Layout mobile-first já implementado
 Não implementado ou incompleto
 UX premium da Biblioteca de Exercícios (em progresso — falta polish final e fechar edge cases restantes)
 
-Tracking (peso) end-to-end (em progresso — UI pronta; falta confirmar integração completa com dados reais e persistência observável)
+Tracking (peso) end-to-end (em progresso — UI pronta; falta confirmar integração completa com dados reais e persistência)
 
 Polimento consistente de estados:
 
@@ -94,9 +94,9 @@ error
 
 loading
 
-(em progresso — cobertura avançou em Hoje/Tracking/Dashboard; falta cobertura total e polish final em superfícies remanescentes)
+(em progresso — cobertura avançou na Biblioteca e também no Hoje/Tracking/Dashboard; falta cobertura total e polish final em superfícies remanescentes)
 
-Performance percebida (skeletons consistentes, feedback imediato) (em progresso — melhorias em Hoje/Tracking/Dashboard; falta consistência total)
+Performance percebida (skeletons consistentes, feedback imediato) (em progresso — melhorias em Biblioteca e Hoje; falta consistência total)
 
 3. Stack técnica (não alterar sem decisão explícita)
 Frontend
@@ -157,7 +157,7 @@ Zero risco técnico: sem alterações de backend
 
 Progresso (parcial):
 
-Tracking (peso): UI de entrada + último registo + histórico com estados completos e skeletons alinhados (parcial; dependente de dados reais)
+Tracking (peso): UI de entrada + último registo + histórico com estados completos (parcial; dependente de dados reais)
 
 Hoje: shell + “Resumo do dia” com loading/empty/error/skeleton (parcial; dependente de dados)
 
@@ -177,10 +177,3 @@ Pagamentos e billing
 App mobile nativa
 
 Growth, SEO ou marketing
-
-Comandos usados
-rg -n "Project Status|Estado atual|FitSculpt" -S /workspace/fitsculpt-fe-web
-
-cat /workspace/fitsculpt-fe-web/apps/docs/PROJECT_STATUS.md
-
-nl -ba /workspace/fitsculpt-fe-web/apps/docs/PROJECT_STATUS.md
