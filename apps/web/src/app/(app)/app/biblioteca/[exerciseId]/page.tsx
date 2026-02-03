@@ -1,8 +1,8 @@
-import { cookies } from "next/headers";
 import type { Exercise } from "@/lib/types";
-import { getBackendUrl } from "@/lib/backend";
 import ExerciseDetailClient from "./ExerciseDetailClient";
 import { getServerT } from "@/lib/serverI18n";
+import { ExerciseDetailErrorState } from "@/components/exercise-library";
+import { headers } from "next/headers";
 
 
 type ExerciseApiResponse = Exercise & {
@@ -23,10 +23,15 @@ function normalizeExercise(data: ExerciseApiResponse): Exercise {
 
 async function fetchExercise(exerciseId: string) {
   try {
-    const token = (await cookies()).get("fs_token")?.value;
-    const authCookie = token ? `fs_token=${token}` : "";
-    const response = await fetch(`${getBackendUrl()}/exercises/${exerciseId}`, {
-      headers: authCookie ? { cookie: authCookie } : undefined,
+    const requestHeaders = await headers();
+    const host = requestHeaders.get("host");
+    const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+    if (!host) {
+      return { exercise: null, ok: false };
+    }
+    const cookie = requestHeaders.get("cookie");
+    const response = await fetch(`${protocol}://${host}/api/exercises/${exerciseId}`, {
+      headers: cookie ? { cookie } : undefined,
       cache: "no-store",
     });
 
@@ -50,9 +55,12 @@ export default async function ExerciseDetailPage(props: {
   if (!exerciseId) {
     return (
       <div className="page">
-        <section className="card centered-card">
-          <p className="muted">{t("library.loadError")}</p>
-        </section>
+        <ExerciseDetailErrorState
+          title={t("exerciseDetail.errorTitle")}
+          description={t("library.loadError")}
+          actionLabel={t("ui.backToLibrary")}
+          actionHref="/app/biblioteca"
+        />
       </div>
     );
   }

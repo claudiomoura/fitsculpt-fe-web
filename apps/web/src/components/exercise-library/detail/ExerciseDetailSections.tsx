@@ -54,20 +54,39 @@ export function ExerciseDetailSections({
     }
     return availableTabs[0]?.id ?? "execution";
   });
+  const tabIds = useMemo(
+    () => ({
+      execution: {
+        tabId: "exercise-detail-tab-execution",
+        panelId: "exercise-detail-panel-execution",
+      },
+      muscles: {
+        tabId: "exercise-detail-tab-muscles",
+        panelId: "exercise-detail-panel-muscles",
+      },
+    }),
+    []
+  );
 
   if (availableTabs.length === 0) return null;
   const showTabs = availableTabs.length > 1;
+  const executionLabelledBy = showTabs ? tabIds.execution.tabId : undefined;
+  const musclesLabelledBy = showTabs ? tabIds.muscles.tabId : undefined;
 
   return (
     <div className="stack-lg">
       {showTabs ? (
-        <div className="tab-list mt-20">
+        <div className="tab-list mt-20" role="tablist" aria-label={labels.executionTab}>
           {availableTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
               onClick={() => setActiveTab(tab.id)}
+              role="tab"
+              id={tabIds[tab.id].tabId}
+              aria-controls={tabIds[tab.id].panelId}
+              aria-selected={activeTab === tab.id}
             >
               {tab.label}
             </button>
@@ -76,7 +95,14 @@ export function ExerciseDetailSections({
       ) : null}
 
       {activeTab === "execution" && hasExecutionDetails ? (
-        <div className="tab-panel">
+        <div
+          className="tab-panel"
+          role="tabpanel"
+          id={tabIds.execution.panelId}
+          aria-labelledby={executionLabelledBy}
+          aria-label={!showTabs ? labels.executionTab : undefined}
+          tabIndex={0}
+        >
           {description ? (
             <div className="feature-card">
               <h3>{labels.executionPrepTitle}</h3>
@@ -99,7 +125,14 @@ export function ExerciseDetailSections({
       ) : null}
 
       {activeTab === "muscles" && hasMuscleDetails ? (
-        <div className="tab-panel">
+        <div
+          className="tab-panel"
+          role="tabpanel"
+          id={tabIds.muscles.panelId}
+          aria-labelledby={musclesLabelledBy}
+          aria-label={!showTabs ? labels.musclesTab : undefined}
+          tabIndex={0}
+        >
           {labels.muscleMapPlaceholder ? (
             <div className="feature-card muscle-map">
               <span className="muted">{labels.muscleMapPlaceholder}</span>
