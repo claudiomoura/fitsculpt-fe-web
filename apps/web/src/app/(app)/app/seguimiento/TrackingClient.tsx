@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
@@ -139,6 +139,7 @@ export default function TrackingClient() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
 
   const isWeightValid = Number.isFinite(checkinWeight) && checkinWeight >= 30 && checkinWeight <= 250;
   const isDateValid = Boolean(checkinDate);
@@ -149,28 +150,42 @@ export default function TrackingClient() {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
   }, [checkinMode]);
 
+  async function refreshTrackingData(options?: { showLoading?: boolean; showError?: boolean }) {
+    const { showLoading = false, showError = false } = options ?? {};
+    if (showLoading) {
+      setTrackingStatus("loading");
+    }
+    try {
+      const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
+      if (!response.ok) {
+        console.warn("Tracking load failed", response.status);
+        if (showError && isMountedRef.current) {
+          setTrackingStatus("error");
+        }
+        return false;
+      }
+      const data = (await response.json()) as TrackingPayload;
+      if (!isMountedRef.current) return false;
+      setCheckins(data.checkins ?? []);
+      setFoodLog(data.foodLog ?? []);
+      setWorkoutLog(data.workoutLog ?? []);
+      setTrackingLoaded(true);
+      setTrackingStatus("ready");
+      return true;
+    } catch {
+      console.warn("Tracking load failed");
+      if (showError && isMountedRef.current) {
+        setTrackingStatus("error");
+      }
+      return false;
+    }
+  }
+
   useEffect(() => {
     let active = true;
     const loadTracking = async () => {
-      try {
-        setTrackingStatus("loading");
-        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
-        if (!response.ok) {
-          console.warn("Tracking load failed", response.status);
-          if (active) setTrackingStatus("error");
-          return;
-        }
-        const data = (await response.json()) as TrackingPayload;
-        if (!active) return;
-        setCheckins(data.checkins ?? []);
-        setFoodLog(data.foodLog ?? []);
-        setWorkoutLog(data.workoutLog ?? []);
-        setTrackingLoaded(true);
-        setTrackingStatus("ready");
-      } catch {
-        console.warn("Tracking load failed");
-        if (active) setTrackingStatus("error");
-      }
+      if (!active) return;
+      await refreshTrackingData({ showLoading: true, showError: true });
     };
 
     const loadUserFoods = async () => {
@@ -211,6 +226,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     void loadUserFoods();
     return () => {
       active = false;
+      isMountedRef.current = false;
     };
   }, []);
 
@@ -366,6 +382,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       );
       setCheckins(nextCheckins);
       setProfile(nextProfile);
+      void refreshTrackingData();
       showMessage(t("tracking.weightEntrySuccess"));
       return true;
     } catch {
@@ -566,7 +583,11 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
   return (
     <div className="page">
-      {actionMessage && <div className="toast">{actionMessage}</div>}
+      {actionMessage && (
+        <div className="toast" role="status" aria-live="polite">
+          {actionMessage}
+        </div>
+      )}
       <section className="card" id="weight-entry">
         <div className="section-head">
           <div>
