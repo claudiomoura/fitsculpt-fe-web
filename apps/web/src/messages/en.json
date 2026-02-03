@@ -82,6 +82,9 @@
     "focusRecoveryValue": "Hydrate + rest check"
   },
   "exerciseDetail": {
+    "tabsLabel": "Exercise detail tabs",
+    "detailsEmptyTitle": "No extra details",
+    "detailsEmptyDescription": "This exercise doesn't have extra execution or muscle info yet.",
     "tabExecution": "Execution",
     "tabMuscles": "Muscles",
     "openMedia": "View media",
@@ -95,6 +98,8 @@
     "emptyTitle": "Exercise not found",
     "emptyDescription": "This exercise isn't available yet.",
     "errorTitle": "We couldn't load the exercise",
+    "notFoundTitle": "Exercise not found",
+    "notFoundDescription": "We couldn't find this exercise. Try another from the library.",
     "executionPrep": "Setup",
     "executionMove": "Execution",
     "executionTips": "Tips",
@@ -1133,7 +1138,7 @@
     "muscleFilterLabel": "Muscle group",
     "allOption": "All",
     "loading": "Loading exercises...",
-    "empty": "There are no exercises yet. Generate a training plan with AI to populate the library.",
+    "empty": "There are no exercises to show yet.",
     "noMuscleData": "No muscle data",
     "equipmentLabel": "Equipment",
     "equipmentFallback": "Not specified",

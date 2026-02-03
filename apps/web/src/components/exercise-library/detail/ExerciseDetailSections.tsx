@@ -1,8 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EmptyState } from "../states/EmptyState";
 
 export type ExerciseDetailSectionsLabels = {
+  tabsLabel: string;
+  detailsEmptyTitle: string;
+  detailsEmptyDescription: string;
   executionTab: string;
   musclesTab: string;
   executionPrepTitle: string;
@@ -68,7 +72,15 @@ export function ExerciseDetailSections({
     []
   );
 
-  if (availableTabs.length === 0) return null;
+  if (availableTabs.length === 0) {
+    return (
+      <EmptyState
+        title={labels.detailsEmptyTitle}
+        description={labels.detailsEmptyDescription}
+        icon="info"
+      />
+    );
+  }
   const showTabs = availableTabs.length > 1;
   const executionLabelledBy = showTabs ? tabIds.execution.tabId : undefined;
   const musclesLabelledBy = showTabs ? tabIds.muscles.tabId : undefined;
@@ -76,7 +88,30 @@ export function ExerciseDetailSections({
   return (
     <div className="stack-lg">
       {showTabs ? (
-        <div className="tab-list mt-20" role="tablist" aria-label={labels.executionTab}>
+        <div
+          className="tab-list mt-20"
+          role="tablist"
+          aria-label={labels.tabsLabel}
+          onKeyDown={(event) => {
+            const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+            if (!keys.includes(event.key)) return;
+            const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='tab']"));
+            const currentIndex = tabs.findIndex((tab) => tab.dataset.tabId === activeTab);
+            if (currentIndex === -1 || tabs.length === 0) return;
+            event.preventDefault();
+            let nextIndex = currentIndex;
+            if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+            if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+            if (event.key === "Home") nextIndex = 0;
+            if (event.key === "End") nextIndex = tabs.length - 1;
+            const nextTab = tabs[nextIndex];
+            const nextTabId = nextTab?.dataset.tabId as "execution" | "muscles" | undefined;
+            if (nextTabId) {
+              setActiveTab(nextTabId);
+              nextTab.focus();
+            }
+          }}
+        >
           {availableTabs.map((tab) => (
             <button
               key={tab.id}
@@ -87,6 +122,8 @@ export function ExerciseDetailSections({
               id={tabIds[tab.id].tabId}
               aria-controls={tabIds[tab.id].panelId}
               aria-selected={activeTab === tab.id}
+              tabIndex={activeTab === tab.id ? 0 : -1}
+              data-tab-id={tab.id}
             >
               {tab.label}
             </button>
