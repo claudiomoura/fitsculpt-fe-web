@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getServerT } from "@/lib/serverI18n";
+import TodayWeightSummary from "./TodayWeightSummary";
 
 export default async function TodayPage() {
   const { t } = await getServerT();
@@ -10,6 +11,7 @@ export default async function TodayPage() {
         <h1 className="section-title">{t("today.title")}</h1>
         <p className="section-subtitle">{t("today.subtitle")}</p>
       </section>
+      <TodayWeightSummary />
       <section className="card">
         <h2 className="section-title" style={{ fontSize: 20 }}>
           {t("quickActions.title")}
