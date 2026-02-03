@@ -11,8 +11,8 @@ export function SkeletonExerciseDetail() {
             <Skeleton variant="line" className="w-80" />
           </div>
           <div className="page-header-actions">
-            <Skeleton variant="line" className="w-25" />
-            <Skeleton variant="line" className="w-30" />
+            <Skeleton variant="line" className="w-40" />
+            <Skeleton variant="line" className="w-45" />
           </div>
         </div>
         <div className="badge-list">
@@ -20,18 +20,40 @@ export function SkeletonExerciseDetail() {
           <Skeleton variant="line" className="w-45" />
           <Skeleton variant="line" className="w-45" />
         </div>
+        <div>
+          <Skeleton variant="line" className="w-40" />
+        </div>
         <div className="info-grid mt-16">
           <Skeleton className="info-item" />
           <Skeleton className="info-item" />
           <Skeleton className="info-item" />
         </div>
         <div className="exercise-detail-grid">
-          <Skeleton className="exercise-media" />
+          <div className="feature-card exercise-media">
+            <div className="exercise-media-header">
+              <Skeleton variant="line" className="w-40" />
+              <Skeleton variant="line" className="w-45" />
+            </div>
+            <div className="exercise-media-preview">
+              <Skeleton className="exercise-media-skeleton" />
+            </div>
+          </div>
         </div>
-        <div className="stack-sm">
-          <Skeleton variant="line" className="w-55" />
-          <Skeleton variant="line" className="w-70" />
+        <div className="tab-list mt-20">
+          <Skeleton variant="line" className="w-40" />
           <Skeleton variant="line" className="w-45" />
+        </div>
+        <div className="tab-panel">
+          <div className="feature-card">
+            <Skeleton variant="line" className="w-45" />
+            <Skeleton variant="line" className="w-80" />
+            <Skeleton variant="line" className="w-70" />
+          </div>
+          <div className="feature-card">
+            <Skeleton variant="line" className="w-55" />
+            <Skeleton variant="line" className="w-80" />
+            <Skeleton variant="line" className="w-60" />
+          </div>
         </div>
       </div>
     </Card>

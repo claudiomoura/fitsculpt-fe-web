@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
+import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
 
 type CheckinEntry = {
   id: string;
@@ -23,6 +24,18 @@ type CheckinEntry = {
   recommendation: string;
   frontPhotoUrl: string | null;
   sidePhotoUrl: string | null;
+};
+
+type CheckinMetrics = {
+  weightKg: number;
+  chestCm: number;
+  waistCm: number;
+  hipsCm: number;
+  bicepsCm: number;
+  thighCm: number;
+  calfCm: number;
+  neckCm: number;
+  bodyFatPercent: number;
 };
 
 type FoodEntry = {
@@ -89,6 +102,10 @@ export default function TrackingClient() {
   const [checkinEnergy, setCheckinEnergy] = useState(3);
   const [checkinHunger, setCheckinHunger] = useState(3);
   const [checkinNotes, setCheckinNotes] = useState("");
+  const [energyDate, setEnergyDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [energyValue, setEnergyValue] = useState(3);
+  const [notesDate, setNotesDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [notesValue, setNotesValue] = useState("");
   const [checkinFrontPhoto, setCheckinFrontPhoto] = useState<string | null>(null);
   const [checkinSidePhoto, setCheckinSidePhoto] = useState<string | null>(null);
   const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
@@ -110,6 +127,7 @@ export default function TrackingClient() {
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [trackingLoaded, setTrackingLoaded] = useState(false);
+  const [trackingStatus, setTrackingStatus] = useState<"loading" | "ready" | "error">("loading");
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
   const [foodModalOpen, setFoodModalOpen] = useState(false);
   const [foodForm, setFoodForm] = useState({
@@ -123,31 +141,73 @@ export default function TrackingClient() {
     brand: "",
   });
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isEnergySubmitting, setIsEnergySubmitting] = useState(false);
+  const [energySubmitError, setEnergySubmitError] = useState<string | null>(null);
+  const [isNotesSubmitting, setIsNotesSubmitting] = useState(false);
+  const [notesSubmitError, setNotesSubmitError] = useState<string | null>(null);
+  const [trackingSupports, setTrackingSupports] = useState<{ energy: boolean | null; notes: boolean | null }>({
+    energy: null,
+    notes: null,
+  });
+  const isMountedRef = useRef(true);
 
- 
+  const isWeightValid = Number.isFinite(checkinWeight) && checkinWeight >= 30 && checkinWeight <= 250;
+  const isDateValid = Boolean(checkinDate);
+  const isTrackingReady = trackingStatus === "ready";
+  const isSubmitDisabled = !isTrackingReady || !isWeightValid || !isDateValid || isSubmitting;
+  const isEnergyValid = Number.isFinite(energyValue) && energyValue >= 1 && energyValue <= 5;
+  const isNotesValid = notesValue.trim().length > 0;
 
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
   }, [checkinMode]);
 
+  function detectTrackingSupport(entries?: Array<Record<string, unknown>> | null) {
+    if (!entries || entries.length === 0) return { energy: false, notes: false };
+    const supportsEnergy = entries.some((entry) => Object.prototype.hasOwnProperty.call(entry, "energy"));
+    const supportsNotes = entries.some((entry) => Object.prototype.hasOwnProperty.call(entry, "notes"));
+    return { energy: supportsEnergy, notes: supportsNotes };
+  }
+
+  async function refreshTrackingData(options?: { showLoading?: boolean; showError?: boolean }) {
+    const { showLoading = false, showError = false } = options ?? {};
+    if (showLoading) {
+      setTrackingStatus("loading");
+    }
+    try {
+      const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
+      if (!response.ok) {
+        console.warn("Tracking load failed", response.status);
+        if (showError && isMountedRef.current) {
+          setTrackingStatus("error");
+        }
+        return false;
+      }
+      const data = (await response.json()) as TrackingPayload;
+      if (!isMountedRef.current) return false;
+      setCheckins(data.checkins ?? []);
+      setFoodLog(data.foodLog ?? []);
+      setWorkoutLog(data.workoutLog ?? []);
+      setTrackingSupports(detectTrackingSupport(data.checkins as Array<Record<string, unknown>>));
+      setTrackingLoaded(true);
+      setTrackingStatus("ready");
+      return true;
+    } catch {
+      console.warn("Tracking load failed");
+      if (showError && isMountedRef.current) {
+        setTrackingStatus("error");
+      }
+      return false;
+    }
+  }
+
   useEffect(() => {
     let active = true;
     const loadTracking = async () => {
-      try {
-        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
-        if (!response.ok) {
-          console.warn("Tracking load failed", response.status);
-          return;
-        }
-        const data = (await response.json()) as TrackingPayload;
-        if (!active) return;
-        setCheckins(data.checkins ?? []);
-        setFoodLog(data.foodLog ?? []);
-        setWorkoutLog(data.workoutLog ?? []);
-        setTrackingLoaded(true);
-      } catch {
-        console.warn("Tracking load failed");
-      }
+      if (!active) return;
+      await refreshTrackingData({ showLoading: true, showError: true });
     };
 
     const loadUserFoods = async () => {
@@ -188,6 +248,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     void loadUserFoods();
     return () => {
       active = false;
+      isMountedRef.current = false;
     };
   }, []);
 
@@ -239,6 +300,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
   async function addCheckin(e: React.FormEvent) {
     e.preventDefault();
+    if (isSubmitDisabled) return;
     const recommendation = buildRecommendation(checkinWeight);
     const entry: CheckinEntry = {
       id: `${checkinDate}-${Date.now()}`,
@@ -261,27 +323,22 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     };
 
     const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
-    setCheckins(nextCheckins);
-    setCheckinNotes("");
-    setCheckinFrontPhoto(null);
-    setCheckinSidePhoto(null);
-
-    const nextProfile = await saveCheckinAndSyncProfileMetrics(
-      { checkins: nextCheckins, foodLog, workoutLog },
-      profile,
-      {
-        weightKg: entry.weightKg,
-        chestCm: entry.chestCm,
-        waistCm: entry.waistCm,
-        hipsCm: entry.hipsCm,
-        bicepsCm: entry.bicepsCm,
-        thighCm: entry.thighCm,
-        calfCm: entry.calfCm,
-        neckCm: entry.neckCm,
-        bodyFatPercent: entry.bodyFatPercent,
-      }
-    );
-    setProfile(nextProfile);
+    const saved = await persistCheckin(nextCheckins, {
+      weightKg: entry.weightKg,
+      chestCm: entry.chestCm,
+      waistCm: entry.waistCm,
+      hipsCm: entry.hipsCm,
+      bicepsCm: entry.bicepsCm,
+      thighCm: entry.thighCm,
+      calfCm: entry.calfCm,
+      neckCm: entry.neckCm,
+      bodyFatPercent: entry.bodyFatPercent,
+    });
+    if (saved) {
+      setCheckinNotes("");
+      setCheckinFrontPhoto(null);
+      setCheckinSidePhoto(null);
+    }
   }
 
   function addFoodEntry(e: React.FormEvent) {
@@ -334,6 +391,46 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   function showMessage(message: string) {
     setActionMessage(message);
     window.setTimeout(() => setActionMessage(null), 2000);
+  }
+
+  async function persistCheckin(
+    nextCheckins: CheckinEntry[],
+    metrics: CheckinMetrics,
+    options?: {
+      successMessage?: string;
+      errorMessage?: string;
+      onError?: (message: string) => void;
+      setSubmitting?: (value: boolean) => void;
+    }
+  ) {
+    const successMessage = options?.successMessage ?? t("tracking.weightEntrySuccess");
+    const errorMessage = options?.errorMessage ?? t("tracking.weightEntryError");
+    const setSubmitting = options?.setSubmitting ?? setIsSubmitting;
+    setSubmitting(true);
+    if (!options?.onError) {
+      setSubmitError(null);
+    }
+    try {
+      const nextProfile = await saveCheckinAndSyncProfileMetrics(
+        { checkins: nextCheckins, foodLog, workoutLog },
+        profile,
+        metrics
+      );
+      setCheckins(nextCheckins);
+      setProfile(nextProfile);
+      void refreshTrackingData();
+      showMessage(successMessage);
+      return true;
+    } catch {
+      if (options?.onError) {
+        options.onError(errorMessage);
+      } else {
+        setSubmitError(errorMessage);
+      }
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleDeleteEntry(collection: "checkins" | "foodLog" | "workoutLog", id: string) {
@@ -481,10 +578,254 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     }));
   }, [checkins]);
 
+  const sortedCheckins = useMemo(
+    () => [...checkins].sort((a, b) => b.date.localeCompare(a.date)),
+    [checkins]
+  );
+  const latestCheckin = sortedCheckins[0];
+  const latestEnergyCheckin = sortedCheckins.find((entry) => Number.isFinite(entry.energy) && entry.energy > 0);
+  const latestNotesCheckin = sortedCheckins.find((entry) => entry.notes?.trim());
+  const supportsEnergy = trackingSupports.energy === true;
+  const supportsNotes = trackingSupports.notes === true;
+  const baseWeight = Number(latestCheckin?.weightKg ?? profile.weightKg ?? 0);
+  const hasBaseWeight = Number.isFinite(baseWeight) && baseWeight >= 30 && baseWeight <= 250;
+  const isEnergySubmitDisabled =
+    !supportsEnergy || !isTrackingReady || !isEnergyValid || !energyDate || !hasBaseWeight || isEnergySubmitting;
+  const isNotesSubmitDisabled =
+    !supportsNotes || !isTrackingReady || !isNotesValid || !notesDate || !hasBaseWeight || isNotesSubmitting;
+
+  async function addQuickWeightEntry(e: React.FormEvent) {
+    e.preventDefault();
+    if (isSubmitDisabled) return;
+    const recommendation = buildRecommendation(checkinWeight);
+    const entry: CheckinEntry = {
+      id: `${checkinDate}-${Date.now()}`,
+      date: checkinDate,
+      weightKg: Number(checkinWeight),
+      chestCm: Number(profile.measurements.chestCm ?? 0),
+      waistCm: Number(profile.measurements.waistCm ?? 0),
+      hipsCm: Number(profile.measurements.hipsCm ?? 0),
+      bicepsCm: Number(profile.measurements.bicepsCm ?? 0),
+      thighCm: Number(profile.measurements.thighCm ?? 0),
+      calfCm: Number(profile.measurements.calfCm ?? 0),
+      neckCm: Number(profile.measurements.neckCm ?? 0),
+      bodyFatPercent: Number(profile.measurements.bodyFatPercent ?? 0),
+      energy: Number(checkinEnergy),
+      hunger: Number(checkinHunger),
+      notes: "",
+      recommendation,
+      frontPhotoUrl: null,
+      sidePhotoUrl: null,
+    };
+    const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
+    await persistCheckin(nextCheckins, {
+      weightKg: entry.weightKg,
+      chestCm: entry.chestCm,
+      waistCm: entry.waistCm,
+      hipsCm: entry.hipsCm,
+      bicepsCm: entry.bicepsCm,
+      thighCm: entry.thighCm,
+      calfCm: entry.calfCm,
+      neckCm: entry.neckCm,
+      bodyFatPercent: entry.bodyFatPercent,
+    });
+  }
+
+  async function addEnergyEntry(e: React.FormEvent) {
+    e.preventDefault();
+    if (isEnergySubmitDisabled) return;
+    setEnergySubmitError(null);
+    const recommendation = buildRecommendation(baseWeight);
+    const entry: CheckinEntry = {
+      id: `${energyDate}-${Date.now()}`,
+      date: energyDate,
+      weightKg: baseWeight,
+      chestCm: Number(profile.measurements.chestCm ?? 0),
+      waistCm: Number(profile.measurements.waistCm ?? 0),
+      hipsCm: Number(profile.measurements.hipsCm ?? 0),
+      bicepsCm: Number(profile.measurements.bicepsCm ?? 0),
+      thighCm: Number(profile.measurements.thighCm ?? 0),
+      calfCm: Number(profile.measurements.calfCm ?? 0),
+      neckCm: Number(profile.measurements.neckCm ?? 0),
+      bodyFatPercent: Number(profile.measurements.bodyFatPercent ?? 0),
+      energy: Number(energyValue),
+      hunger: Number(checkinHunger),
+      notes: "",
+      recommendation,
+      frontPhotoUrl: null,
+      sidePhotoUrl: null,
+    };
+    const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
+    const saved = await persistCheckin(
+      nextCheckins,
+      {
+        weightKg: entry.weightKg,
+        chestCm: entry.chestCm,
+        waistCm: entry.waistCm,
+        hipsCm: entry.hipsCm,
+        bicepsCm: entry.bicepsCm,
+        thighCm: entry.thighCm,
+        calfCm: entry.calfCm,
+        neckCm: entry.neckCm,
+        bodyFatPercent: entry.bodyFatPercent,
+      },
+      {
+        successMessage: t("tracking.energyEntrySuccess"),
+        errorMessage: t("tracking.energyEntryError"),
+        onError: setEnergySubmitError,
+        setSubmitting: setIsEnergySubmitting,
+      }
+    );
+    if (saved) {
+      setEnergyValue(3);
+    }
+  }
+
+  async function addNotesEntry(e: React.FormEvent) {
+    e.preventDefault();
+    if (isNotesSubmitDisabled) return;
+    const trimmedNotes = notesValue.trim();
+    if (!trimmedNotes) return;
+    setNotesSubmitError(null);
+    const recommendation = buildRecommendation(baseWeight);
+    const entry: CheckinEntry = {
+      id: `${notesDate}-${Date.now()}`,
+      date: notesDate,
+      weightKg: baseWeight,
+      chestCm: Number(profile.measurements.chestCm ?? 0),
+      waistCm: Number(profile.measurements.waistCm ?? 0),
+      hipsCm: Number(profile.measurements.hipsCm ?? 0),
+      bicepsCm: Number(profile.measurements.bicepsCm ?? 0),
+      thighCm: Number(profile.measurements.thighCm ?? 0),
+      calfCm: Number(profile.measurements.calfCm ?? 0),
+      neckCm: Number(profile.measurements.neckCm ?? 0),
+      bodyFatPercent: Number(profile.measurements.bodyFatPercent ?? 0),
+      energy: Number(checkinEnergy),
+      hunger: Number(checkinHunger),
+      notes: trimmedNotes,
+      recommendation,
+      frontPhotoUrl: null,
+      sidePhotoUrl: null,
+    };
+    const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
+    const saved = await persistCheckin(
+      nextCheckins,
+      {
+        weightKg: entry.weightKg,
+        chestCm: entry.chestCm,
+        waistCm: entry.waistCm,
+        hipsCm: entry.hipsCm,
+        bicepsCm: entry.bicepsCm,
+        thighCm: entry.thighCm,
+        calfCm: entry.calfCm,
+        neckCm: entry.neckCm,
+        bodyFatPercent: entry.bodyFatPercent,
+      },
+      {
+        successMessage: t("tracking.notesEntrySuccess"),
+        errorMessage: t("tracking.notesEntryError"),
+        onError: setNotesSubmitError,
+        setSubmitting: setIsNotesSubmitting,
+      }
+    );
+    if (saved) {
+      setNotesValue("");
+    }
+  }
+
   return (
     <div className="page">
-      {actionMessage && <div className="toast">{actionMessage}</div>}
-      <section className="card">
+      {actionMessage && (
+        <div className="toast" role="status" aria-live="polite">
+          {actionMessage}
+        </div>
+      )}
+      <section className="card" id="weight-entry">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.weightEntryTitle")}</h2>
+            <p className="section-subtitle">{t("tracking.weightEntrySubtitle")}</p>
+          </div>
+        </div>
+        <form onSubmit={addQuickWeightEntry} className="form-stack">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <label className="form-stack">
+              {t("profile.checkinDate")}
+              <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
+            </label>
+            <label className="form-stack">
+              {t("profile.checkinWeight")}
+              <input
+                type="number"
+                min={30}
+                max={250}
+                step="0.1"
+                value={checkinWeight}
+                onChange={(e) => setCheckinWeight(Number(e.target.value))}
+              />
+            </label>
+          </div>
+          {!isWeightValid && isTrackingReady ? <p className="muted">{t("tracking.weightEntryInvalid")}</p> : null}
+          {submitError ? <p className="muted">{submitError}</p> : null}
+          {trackingStatus === "error" ? <p className="muted">{t("tracking.weightEntryUnavailable")}</p> : null}
+          <button type="submit" className={`btn ${isSubmitting ? "is-loading" : ""}`} disabled={isSubmitDisabled}>
+            {isSubmitting ? (
+              <>
+                <span className="spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
+              </>
+            ) : (
+              t("tracking.weightEntryCta")
+            )}
+          </button>
+        </form>
+
+        <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
+          <div className="feature-card">
+            <p className="muted" style={{ marginBottom: 8 }}>
+              {t("tracking.latestWeightTitle")}
+            </p>
+            {trackingStatus === "loading" ? (
+              <Skeleton variant="line" style={{ width: "40%" }} />
+            ) : trackingStatus === "error" ? (
+              <p className="muted">{t("tracking.weightHistoryError")}</p>
+            ) : latestCheckin ? (
+              <div style={{ display: "grid", gap: 4 }}>
+                <strong>
+                  {latestCheckin.weightKg} {t("tracking.weightUnit")}
+                </strong>
+                <span className="muted">{latestCheckin.date}</span>
+              </div>
+            ) : (
+              <p className="muted">{t("tracking.latestWeightEmpty")}</p>
+            )}
+          </div>
+
+          <div className="feature-card">
+            <p className="muted" style={{ marginBottom: 8 }}>
+              {t("tracking.weightHistoryTitle")}
+            </p>
+            {trackingStatus === "loading" ? (
+              <SkeletonCard />
+            ) : trackingStatus === "error" ? (
+              <p className="muted">{t("tracking.weightHistoryError")}</p>
+            ) : sortedCheckins.length === 0 ? (
+              <p className="muted">{t("tracking.weightHistoryEmpty")}</p>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {sortedCheckins.map((entry) => (
+                  <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                    <span>{entry.date}</span>
+                    <span className="muted">
+                      {entry.weightKg} {t("tracking.weightUnit")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+      <section className="card" id="checkin-entry">
         <div className="section-head">
           <div>
             <h2 className="section-title" style={{ fontSize: 20 }}>{t("profile.checkinTitle")}</h2>
@@ -607,8 +948,19 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             </details>
           ) : null}
 
-          <button type="submit" className="btn" style={{ width: "fit-content" }}>
-            {t("profile.checkinAdd")}
+          <button
+            type="submit"
+            className={`btn ${isSubmitting ? "is-loading" : ""}`}
+            style={{ width: "fit-content" }}
+            disabled={isSubmitDisabled}
+          >
+            {isSubmitting ? (
+              <>
+                <span className="spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
+              </>
+            ) : (
+              t("profile.checkinAdd")
+            )}
           </button>
         </form>
 
