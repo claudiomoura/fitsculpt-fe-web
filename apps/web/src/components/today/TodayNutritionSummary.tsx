@@ -25,16 +25,7 @@ type TodayNutritionSummaryProps = {
 
 export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
   const { t } = useLanguage();
-  const { consumedKeys, loading, hasError, toggle } = useNutritionAdherence(data.dayKey);
-  const totalMeals = data.meals.length;
-  const consumedCount = data.meals.filter((meal) => meal.key && consumedKeys.includes(meal.key)).length;
-
-  const mealTypeLabels: Partial<Record<NutritionMeal["type"], string>> = {
-    breakfast: t("nutrition.mealTypeBreakfast"),
-    lunch: t("nutrition.mealTypeLunch"),
-    dinner: t("nutrition.mealTypeDinner"),
-    snack: t("nutrition.mealTypeSnack"),
-  };
+  const mealLabel = data.meals === 1 ? t("today.mealLabel") : t("today.mealsLabel");
 
   return (
     <div className="stack-md">
@@ -48,7 +39,7 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
           ) : null}
         </div>
         <p className="muted m-0">
-          {totalMeals} {t("today.mealsLabel")}
+          {data.meals} {mealLabel}
           {typeof data.calories === "number" ? ` · ${data.calories} ${t("units.kcal")}` : ""}
         </p>
       </div>
