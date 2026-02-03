@@ -50,6 +50,8 @@ export default function ExerciseDetailClient({
         description={error ?? t("library.loadError")}
         actionLabel={t("ui.backToLibrary")}
         actionHref="/app/biblioteca"
+        onRetry={() => window.location.reload()}
+        retryLabel={t("ui.retry")}
       />
     );
   }
