@@ -123,7 +123,21 @@
     "notesErrorDescription": "No pudimos cargar tus últimas notas.",
     "notesLatestLabel": "Última nota",
     "notesLatestDateLabel": "Registrado el",
-    "notesCta": "Registrar nota"
+    "notesCta": "Registrar nota",
+    "shortcutsSectionTitle": "Atajos personales",
+    "shortcutsSectionSubtitle": "Tus favoritos y recientes, listos para volver.",
+    "shortcutsFavoritesTitle": "Favoritos",
+    "shortcutsFavoritesEmptyTitle": "Sin favoritos todavía",
+    "shortcutsFavoritesEmptyDescription": "Guarda ejercicios en la biblioteca para verlos aquí.",
+    "shortcutsFavoritesErrorTitle": "Favoritos no disponibles",
+    "shortcutsFavoritesErrorDescription": "No pudimos cargar tus favoritos ahora mismo.",
+    "shortcutsRecentsTitle": "Recientes",
+    "shortcutsRecentsEmptyTitle": "Sin ejercicios recientes",
+    "shortcutsRecentsEmptyDescription": "Los ejercicios que abras aparecerán aquí.",
+    "shortcutsRecentsErrorTitle": "Recientes no disponibles",
+    "shortcutsRecentsErrorDescription": "No pudimos cargar tus recientes ahora mismo.",
+    "shortcutsExerciseFallback": "Ejercicio",
+    "shortcutsExerciseIdLabel": "ID"
   },
   "foods": {
     "salmon": "Salmón",

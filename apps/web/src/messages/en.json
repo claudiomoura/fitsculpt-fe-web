@@ -123,7 +123,21 @@
     "notesErrorDescription": "We couldn't load your latest notes.",
     "notesLatestLabel": "Latest note",
     "notesLatestDateLabel": "Recorded on",
-    "notesCta": "Add note"
+    "notesCta": "Add note",
+    "shortcutsSectionTitle": "Personal shortcuts",
+    "shortcutsSectionSubtitle": "Your favorites and recents, ready to revisit.",
+    "shortcutsFavoritesTitle": "Favorites",
+    "shortcutsFavoritesEmptyTitle": "No favorites yet",
+    "shortcutsFavoritesEmptyDescription": "Save exercises in the library to see them here.",
+    "shortcutsFavoritesErrorTitle": "Favorites unavailable",
+    "shortcutsFavoritesErrorDescription": "We couldn't load your favorites right now.",
+    "shortcutsRecentsTitle": "Recents",
+    "shortcutsRecentsEmptyTitle": "No recent exercises",
+    "shortcutsRecentsEmptyDescription": "Exercises you open will show up here.",
+    "shortcutsRecentsErrorTitle": "Recents unavailable",
+    "shortcutsRecentsErrorDescription": "We couldn't load your recents right now.",
+    "shortcutsExerciseFallback": "Exercise",
+    "shortcutsExerciseIdLabel": "ID"
   },
   "foods": {
     "salmon": "Salmon",
