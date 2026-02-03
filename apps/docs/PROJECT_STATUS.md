@@ -26,6 +26,9 @@ FitSculpt é uma **web app mobile-first de treino e nutrição**, focada em UX p
   - Plano base
   - Integração no dashboard
 - Biblioteca de exercícios (funcional, UX ainda básica)
+  - **Estados (loading/empty/error) mais consistentes na lista e no detalhe (parcial)**
+  - **Skeletons mais consistentes para melhorar performance percebida (parcial)**
+  - **Detalhe: comportamento melhorado de loading + secções condicionais (parcial)**
 - Design system próprio:
   - Button, Card, Badge, Skeleton, Modal, Toast, etc.
 - i18n (ES e EN)
@@ -33,15 +36,16 @@ FitSculpt é uma **web app mobile-first de treino e nutrição**, focada em UX p
 - Layout mobile-first já implementado
 
 ### Não implementado ou incompleto
-- UX premium da Biblioteca de Exercícios
-- Página de detalhe de exercício com layout avançado
+- UX premium da Biblioteca de Exercícios (**em progresso**)
+- Página de detalhe de exercício com layout avançado (**parcial** — base e secções condicionais melhoradas, ainda falta “layout avançado” completo)
 - Media viewer (GIF e vídeo) em full screen
-- Sistema de favoritos e recentes
+- Sistema de favoritos e recentes (ainda não implementado como feature completa; “recents” só entra quando for feito explicitamente)
 - Polimento consistente de estados:
   - empty
   - error
   - loading
-- Performance percebida (skeletons consistentes, feedback imediato)
+  - (**parcial** — base padronizada em lista+detalhe, falta cobertura total e polish final)
+- Performance percebida (skeletons consistentes, feedback imediato) (**parcial**)
 
 ---
 
@@ -92,6 +96,11 @@ Prioridade máxima:
   - error
 - Zero risco técnico
 - Nenhuma alteração de backend
+
+Progresso (parcial):
+- **Estados (loading/empty/error) padronizados na lista e no detalhe**
+- **Skeletons mais consistentes para reduzir “layout jumps”**
+- **Detalhe: secções condicionais (mostrar apenas conteúdo real) e loading melhorado**
 
 Objetivo do sprint:
 > Tornar a Biblioteca de Exercícios uma secção “wow”, pronta para demo.
