@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { slugifyExerciseName } from "@/lib/slugify";
@@ -25,7 +26,18 @@ type TodayNutritionSummaryProps = {
 
 export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
   const { t } = useLanguage();
-  const mealLabel = data.meals === 1 ? t("today.mealLabel") : t("today.mealsLabel");
+  const { notify } = useToast();
+  const { consumedKeys, loading, hasError, toggle } = useNutritionAdherence(data.dayKey);
+  const mealLabel = data.meals.length === 1 ? t("today.mealLabel") : t("today.mealsLabel");
+  const mealTypeLabels: Record<NutritionMeal["type"], string> = {
+    breakfast: t("nutrition.mealTypeBreakfast"),
+    lunch: t("nutrition.mealTypeLunch"),
+    dinner: t("nutrition.mealTypeDinner"),
+    snack: t("nutrition.mealTypeSnack"),
+  };
+  const trackedMeals = data.meals.filter((meal) => Boolean(meal.key));
+  const totalMeals = trackedMeals.length;
+  const consumedCount = trackedMeals.filter((meal) => (meal.key ? consumedKeys.includes(meal.key) : false)).length;
 
   return (
     <div className="stack-md">
@@ -39,14 +51,15 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
           ) : null}
         </div>
         <p className="muted m-0">
-          {data.meals} {mealLabel}
+          {data.meals.length} {mealLabel}
           {typeof data.calories === "number" ? ` · ${data.calories} ${t("units.kcal")}` : ""}
         </p>
       </div>
       <div className="today-nutrition-list">
         {data.meals.map((meal, index) => {
           const typeLabel = meal.type ? mealTypeLabels[meal.type] : null;
-          const fallbackKey = `${slugifyExerciseName(meal.title)}-${index}`;
+          const mealTitle = meal.title?.trim() || t("nutrition.mealTypeFallback");
+          const fallbackKey = `${slugifyExerciseName(mealTitle)}-${index}`;
           const itemKey = meal.key ?? fallbackKey;
           const isConsumed = meal.key ? consumedKeys.includes(meal.key) : false;
           const isDisabled = loading || hasError || !meal.key;
@@ -54,7 +67,7 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
           return (
             <div key={itemKey} className="today-nutrition-item">
               <div className="today-nutrition-item-body">
-                <div className="today-nutrition-item-title">{meal.title}</div>
+                <div className="today-nutrition-item-title">{mealTitle}</div>
                 {typeLabel ? <p className="muted m-0">{typeLabel}</p> : null}
                 {meal.description ? <p className="muted m-0">{meal.description}</p> : null}
               </div>
@@ -63,9 +76,18 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
                 variant={isConsumed ? "primary" : "secondary"}
                 className="today-nutrition-toggle"
                 disabled={isDisabled}
+                aria-pressed={isConsumed}
                 onClick={() => {
                   if (!meal.key) return;
+                  const nextConsumed = !isConsumed;
                   toggle(meal.key);
+                  if (nextConsumed) {
+                    notify({
+                      title: t("nutrition.adherenceToastTitle"),
+                      description: t("nutrition.adherenceToastDescription"),
+                      variant: "success",
+                    });
+                  }
                 }}
               >
                 {isConsumed ? t("today.nutritionToggleConsumed") : t("today.nutritionToggleMark")}
