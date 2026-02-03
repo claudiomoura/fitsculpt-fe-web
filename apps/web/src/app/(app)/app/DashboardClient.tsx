@@ -5,6 +5,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
+import { buildWeightProgressSummary, normalizeWeightLogs } from "@/lib/weightProgress";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -151,7 +152,7 @@ function ProgressRing({
 }
 
 export default function DashboardClient() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
@@ -333,6 +334,28 @@ export default function DashboardClient() {
   const calorieDelta = nutritionTargets ? nutritionTargets.calories - todayTotals.calories : null;
   const calorieStatus = nutritionTargets ? getStatusClass(todayTotals.calories, nutritionTargets.calories) : "";
 
+  const weightLogs = useMemo(() => normalizeWeightLogs(checkins), [checkins]);
+  const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
+  const weightDelta = weightProgress.deltaKg;
+  const weightDeltaLabel =
+    weightDelta === null
+      ? null
+      : weightDelta > 0
+        ? t("dashboard.weightProgressTrendUp")
+        : weightDelta < 0
+          ? t("dashboard.weightProgressTrendDown")
+          : t("dashboard.weightProgressTrendStable");
+  const weightDeltaStatus =
+    weightDelta === null ? "" : weightDelta > 0 ? "status-over" : weightDelta < 0 ? "status-under" : "status-exact";
+  const weightDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
+        day: "2-digit",
+        month: "short",
+      }),
+    [locale]
+  );
+
   const weightSeries = useMemo(() => buildSeries(checkins, "weightKg"), [checkins]);
   const bodyFatSeries = useMemo(() => buildSeries(checkins, "bodyFatPercent"), [checkins]);
   const handleRetry = () => window.location.reload();
@@ -500,6 +523,80 @@ export default function DashboardClient() {
             </ButtonLink>
           </div>
         </div>
+      </section>
+
+      <section className="card">
+        <div className="section-head">
+          <div>
+            <h2 className="section-title section-title-sm">{t("dashboard.weightProgressTitle")}</h2>
+            <p className="section-subtitle">{t("dashboard.weightProgressSubtitle")}</p>
+          </div>
+          <ButtonLink variant="secondary" href="/app/seguimiento">
+            {t("dashboard.weightProgressCta")}
+          </ButtonLink>
+        </div>
+
+        {loading ? (
+          <div className="dashboard-loading mt-12">
+            <Skeleton variant="line" className="w-40" />
+            <div className="dashboard-charts">
+              <SkeletonCard />
+            </div>
+          </div>
+        ) : error ? (
+          <div className="dashboard-error">
+            <div className="status-card status-card--warning">
+              <div className="inline-actions-sm">
+                <Icon name="warning" />
+                <strong>{t("dashboard.weightProgressErrorTitle")}</strong>
+              </div>
+              <p className="muted">{error}</p>
+            </div>
+            <Button variant="secondary" onClick={handleRetry}>
+              {t("ui.retry")}
+            </Button>
+          </div>
+        ) : !weightProgress.current ? (
+          <div className="empty-state dashboard-empty">
+            <div className="empty-state-icon">
+              <Icon name="info" />
+            </div>
+            <div>
+              <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
+              <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
+            </div>
+            <ButtonLink href="/app/seguimiento" className="fit-content">
+              {t("dashboard.weightProgressEmptyCta")}
+            </ButtonLink>
+          </div>
+        ) : (
+          <div className="list-grid">
+            <div className="feature-card stack-md">
+              <div>
+                <span className="muted">{t("dashboard.weightProgressLast7Days")}</span>
+                <div className="mt-6">
+                  <strong>{weightProgress.current.latest.weightKg.toFixed(1)} kg</strong>
+                  <p className="muted mt-6">
+                    {t("dashboard.weightProgressLatestLabel")}{" "}
+                    {weightDateFormatter.format(weightProgress.current.latest.date)}
+                  </p>
+                </div>
+              </div>
+              <div className="stack-sm">
+                {weightDeltaLabel ? (
+                  <>
+                    <span className={`status-pill ${weightDeltaStatus}`}>
+                      {weightDeltaLabel} {Math.abs(weightDelta ?? 0).toFixed(1)} kg
+                    </span>
+                    <span className="muted">{t("dashboard.weightProgressDeltaLabel")}</span>
+                  </>
+                ) : (
+                  <span className="muted">{t("dashboard.weightProgressDeltaUnavailable")}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="card">

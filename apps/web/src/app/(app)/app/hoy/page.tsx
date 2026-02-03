@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
 import { getServerT } from "@/lib/serverI18n";
+import TodaySummaryClient from "./TodaySummaryClient";
 
 export default async function TodayPage() {
   const { t } = await getServerT();
@@ -52,6 +53,7 @@ export default async function TodayPage() {
           </div>
         </div>
       </section>
+      <TodaySummaryClient />
     </div>
   );
 }
