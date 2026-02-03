@@ -26,18 +26,17 @@ type TodayNutritionSummaryProps = {
 
 export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
   const { t } = useLanguage();
-  const { notify } = useToast();
   const { consumedKeys, loading, hasError, toggle } = useNutritionAdherence(data.dayKey);
-  const mealLabel = data.meals.length === 1 ? t("today.mealLabel") : t("today.mealsLabel");
-  const mealTypeLabels: Record<NutritionMeal["type"], string> = {
+  const totalMeals = data.meals.length;
+  const mealLabel = totalMeals === 1 ? t("today.mealLabel") : t("today.mealsLabel");
+  const consumedSet = new Set(consumedKeys);
+  const consumedCount = data.meals.filter((meal) => (meal.key ? consumedSet.has(meal.key) : false)).length;
+  const mealTypeLabels: Record<NonNullable<NutritionMeal["type"]>, string> = {
     breakfast: t("nutrition.mealTypeBreakfast"),
     lunch: t("nutrition.mealTypeLunch"),
     dinner: t("nutrition.mealTypeDinner"),
     snack: t("nutrition.mealTypeSnack"),
   };
-  const trackedMeals = data.meals.filter((meal) => Boolean(meal.key));
-  const totalMeals = trackedMeals.length;
-  const consumedCount = trackedMeals.filter((meal) => (meal.key ? consumedKeys.includes(meal.key) : false)).length;
 
   return (
     <div className="stack-md">
@@ -51,7 +50,7 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
           ) : null}
         </div>
         <p className="muted m-0">
-          {data.meals.length} {mealLabel}
+          {totalMeals} {mealLabel}
           {typeof data.calories === "number" ? ` · ${data.calories} ${t("units.kcal")}` : ""}
         </p>
       </div>
@@ -63,6 +62,7 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
           const itemKey = meal.key ?? fallbackKey;
           const isConsumed = meal.key ? consumedKeys.includes(meal.key) : false;
           const isDisabled = loading || hasError || !meal.key;
+          const toggleLabel = isConsumed ? t("today.nutritionToggleConsumed") : t("today.nutritionToggleMark");
 
           return (
             <div key={itemKey} className="today-nutrition-item">
@@ -77,6 +77,7 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
                 className="today-nutrition-toggle"
                 disabled={isDisabled}
                 aria-pressed={isConsumed}
+                aria-label={`${toggleLabel}: ${meal.title}`}
                 onClick={() => {
                   if (!meal.key) return;
                   const nextConsumed = !isConsumed;
@@ -90,7 +91,7 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
                   }
                 }}
               >
-                {isConsumed ? t("today.nutritionToggleConsumed") : t("today.nutritionToggleMark")}
+                {toggleLabel}
               </Button>
             </div>
           );
