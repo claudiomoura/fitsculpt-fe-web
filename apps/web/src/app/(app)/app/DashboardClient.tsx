@@ -337,16 +337,23 @@ export default function DashboardClient() {
   const weightLogs = useMemo(() => normalizeWeightLogs(checkins), [checkins]);
   const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
   const weightDelta = weightProgress.deltaKg;
+  const hasWeightTrend = Boolean(weightProgress.current?.entries.length && weightProgress.previous?.entries.length);
   const weightDeltaLabel =
-    weightDelta === null
-      ? null
-      : weightDelta > 0
+    hasWeightTrend && weightDelta !== null
+      ? weightDelta > 0
         ? t("dashboard.weightProgressTrendUp")
         : weightDelta < 0
           ? t("dashboard.weightProgressTrendDown")
-          : t("dashboard.weightProgressTrendStable");
+          : t("dashboard.weightProgressTrendStable")
+      : null;
   const weightDeltaStatus =
-    weightDelta === null ? "" : weightDelta > 0 ? "status-over" : weightDelta < 0 ? "status-under" : "status-exact";
+    weightDelta === null || !hasWeightTrend
+      ? ""
+      : weightDelta > 0
+        ? "status-over"
+        : weightDelta < 0
+          ? "status-under"
+          : "status-exact";
   const weightDateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
@@ -531,14 +538,14 @@ export default function DashboardClient() {
             <h2 className="section-title section-title-sm">{t("dashboard.weightProgressTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.weightProgressSubtitle")}</p>
           </div>
-          <ButtonLink variant="secondary" href="/app/seguimiento">
+          <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry">
             {t("dashboard.weightProgressCta")}
           </ButtonLink>
         </div>
 
         {loading ? (
           <div className="dashboard-loading mt-12">
-            <Skeleton variant="line" className="w-40" />
+            <Skeleton variant="line" className="w-32" />
             <div className="dashboard-charts">
               <SkeletonCard />
             </div>
@@ -552,9 +559,14 @@ export default function DashboardClient() {
               </div>
               <p className="muted">{error}</p>
             </div>
-            <Button variant="secondary" onClick={handleRetry}>
-              {t("ui.retry")}
-            </Button>
+            <div className="inline-actions">
+              <Button variant="secondary" onClick={handleRetry}>
+                {t("ui.retry")}
+              </Button>
+              <ButtonLink variant="ghost" href="/app/seguimiento">
+                {t("dashboard.weightProgressBackCta")}
+              </ButtonLink>
+            </div>
           </div>
         ) : !weightProgress.current ? (
           <div className="empty-state dashboard-empty">
@@ -565,7 +577,7 @@ export default function DashboardClient() {
               <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
               <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
             </div>
-            <ButtonLink href="/app/seguimiento" className="fit-content">
+            <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
               {t("dashboard.weightProgressEmptyCta")}
             </ButtonLink>
           </div>
