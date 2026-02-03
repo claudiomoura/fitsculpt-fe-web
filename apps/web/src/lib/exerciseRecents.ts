@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Exercise } from "@/lib/types";
 
 export type ExerciseRecent = Pick<
@@ -97,4 +98,28 @@ export const addExerciseRecent = (exercise: Exercise) => {
   const next = [recent, ...filtered].slice(0, EXERCISE_RECENTS_LIMIT);
   setExerciseRecents(next);
   return next;
+};
+
+export const useExerciseRecents = () => {
+  const [recents, setRecents] = useState<ExerciseRecent[]>([]);
+
+  useEffect(() => {
+    if (!isBrowser()) return;
+    const refresh = () => setRecents(getExerciseRecents());
+    refresh();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === EXERCISE_RECENTS_STORAGE_KEY) {
+        refresh();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const clearRecents = () => {
+    clearExerciseRecents();
+    setRecents([]);
+  };
+
+  return { recents, clearRecents, setRecents };
 };

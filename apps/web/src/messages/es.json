@@ -1158,6 +1158,9 @@
     "emptyTitle": "No encontramos ejercicios",
     "resetFilters": "Limpiar filtros",
     "retrySearch": "Volver a intentar",
+    "favoritesTitle": "Favoritos",
+    "favoriteAdd": "Agregar a favoritos",
+    "favoriteRemove": "Quitar de favoritos",
     "recentsTitle": "Recientes",
     "recentsClear": "Limpiar"
   },

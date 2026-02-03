@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { addExerciseRecent } from "@/lib/exerciseRecents";
+import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise } from "@/lib/types";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import {
@@ -42,6 +43,7 @@ export default function ExerciseDetailClient({
   const { t } = useLanguage();
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
   const [mediaPreviewError, setMediaPreviewError] = useState(false);
+  const { favorites, toggleFavorite } = useExerciseFavorites();
   const media = useMemo(() => {
     if (!exercise) return null;
     const videoUrl = exercise.mediaUrl ?? exercise.videoUrl;
@@ -127,6 +129,8 @@ export default function ExerciseDetailClient({
     ],
     [equipmentLabel, levelLabel, primary, secondary, t]
   );
+  const isFavorite = Boolean(exercise?.id && favorites.includes(exercise.id));
+  const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
 
   return (
     <section className="card centered-card">
@@ -135,9 +139,23 @@ export default function ExerciseDetailClient({
         subtitle={t("ui.exerciseGuide")}
         badges={badgeItems}
         actions={
-          <ButtonLink variant="secondary" href="/app/biblioteca">
-            {t("ui.backToLibrary")}
-          </ButtonLink>
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-pressed={isFavorite}
+              aria-label={favoriteLabel}
+              onClick={() => {
+                if (!exercise.id) return;
+                toggleFavorite(exercise.id);
+              }}
+            >
+              {favoriteLabel}
+            </Button>
+            <ButtonLink variant="secondary" href="/app/biblioteca">
+              {t("ui.backToLibrary")}
+            </ButtonLink>
+          </>
         }
       />
 
