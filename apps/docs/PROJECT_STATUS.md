@@ -18,6 +18,7 @@ FitSculpt é uma **web app mobile-first de treino e nutrição**, focada em UX p
 - Gestão de sessão estável via cookie (`fs_token`)
 - Perfil de utilizador e onboarding base
 - Dashboard com secções principais
+  - **Módulo de progresso de peso no Dashboard (parcial — depende de existirem registos de peso)**
 - Treino:
   - Planos
   - Calendário
@@ -25,34 +26,43 @@ FitSculpt é uma **web app mobile-first de treino e nutrição**, focada em UX p
 - Nutrição:
   - Plano base
   - Integração no dashboard
-- Biblioteca de exercícios (funcional, UX ainda básica)
-  - **Estados (loading/empty/error) consistentes na Biblioteca (lista, detalhe, favoritos e recentes)**
-  - **Feedback de ação + estados disabled consistentes em Favoritos/Recentes**
-  - **Skeletons mais consistentes e mais próximos do layout final (reduz “layout shifts”)**
-  - **Detalhe: loading melhorado + secções condicionais (mostrar apenas conteúdo real)**
-  - **Detalhe: fallback de erro consistente quando o exercício não existe (ID em falta/inválido)**
-  - **Detalhe: acessibilidade melhorada nas tabs**
-  - **Skeletons e touch targets ajustados para reduzir “layout shifts” e melhorar estabilidade percebida**
-  
+
+- Biblioteca de exercícios (funcional; UX premium **em progresso**)
+  - **Media viewer (GIF e vídeo) em full screen (implementado)**
+  - **Página de detalhe com layout avançado (implementado)**
+    - **Secção “overview” no detalhe (implementado)**
+    - **Entry points condicionais para abrir media em full screen (implementado)**
+    - **Fallback de erro consistente quando o exercício não existe (ID em falta/inválido) (implementado)**
+    - **Secções condicionais (mostrar apenas conteúdo real) (implementado/melhorado)**
+    - **Acessibilidade melhorada nas tabs (implementado/melhorado)**
+  - **Sistema de favoritos e recentes (implementado)**
+    - **Estados loading/empty/error consistentes + feedback de ação + disabled states (implementado)**
+    - **Hooks de storage expõem loading/error/refresh para estados consistentes (implementado)**
+  - **Skeletons mais consistentes e mais próximos do layout final (melhorado)**
+  - **Touch targets e sizing ajustados para estabilidade percebida (melhorado)**
+
+- Tracking básico (peso)
+  - **Entrada de peso + último registo + histórico com estados completos (parcial — frontend; dependente de backend/dados reais)**
+
+- Ecrã Hoje
+  - **Shell do Hoje com quick actions / CTA (parcial — frontend)**
+  - **“Resumo do dia” (treino/nutrição/peso) com loading/empty/error/skeleton (parcial — frontend; dependente de dados)**
+
 - Design system próprio:
   - Button, Card, Badge, Skeleton, Modal, Toast, etc.
 - i18n (ES e EN)
 - Dark mode
 - Layout mobile-first já implementado
-- the favorites/recents item is now implemented and should be reflected
-- the full-screen media viewer and advanced detail layout polish are now implemented and should be reflected in the status doc.
-- Media viewer (GIF e vídeo) em full screen (implementado)
-- Página de detalhe com layout avançado (implementado)
-- Sistema de favoritos e recentes (implementado)
 
 ### Não implementado ou incompleto
-- UX premium da Biblioteca de Exercícios (**em progresso**)
+- UX premium da Biblioteca de Exercícios (**em progresso** — falta polish final e fechar edge cases restantes)
+- Tracking (peso) end-to-end (**em progresso** — UI pronta; falta confirmar integração completa com dados reais e persistência)
 - Polimento consistente de estados:
   - empty
   - error
   - loading
-  - (**em progresso** — cobertura avançou na Biblioteca (incl. favoritos/recentes); falta polish final e cobertura de edge cases)
-- Performance percebida (skeletons consistentes, feedback imediato) (**em progresso** — skeletons/feedback melhorados na Biblioteca; falta garantir consistência total)
+  - (**em progresso** — cobertura avançou na Biblioteca e também no Hoje/Tracking/Dashboard; falta cobertura total e polish final em superfícies remanescentes)
+- Performance percebida (skeletons consistentes, feedback imediato) (**em progresso** — melhorias em Biblioteca e Hoje; falta consistência total)
 
 ---
 
@@ -92,25 +102,24 @@ Qualquer violação destas regras é considerada regressão.
 
 ## 5. Foco atual
 
-### Sprint 01: Biblioteca de Exercícios (UI e UX)
+### Sprint 02: Tracking (peso) + Hoje/Dashboard (MVP)
 
 Prioridade máxima:
-- UX premium e consistente
-- Mobile-first impecável
-- Estados bem resolvidos:
-  - loading
-  - empty
-  - error
-- Zero risco técnico
-- Nenhuma alteração de backend
+- Tracking de peso **end-to-end** (valor real demonstrável)
+- Ecrã Hoje com bloco de peso + CTA (uso diário)
+- Dashboard com progresso de peso (leitura semanal rápida)
+- Estados consistentes (loading/empty/error) e feedback claro
+- Mobile-first premium (dark mode, a11y, i18n)
+- Zero risco técnico: **sem alterações de backend**
 
 Progresso (parcial):
-- **Estados (loading/empty/error) padronizados na lista e no detalhe**
-- **Skeletons mais consistentes para reduzir “layout jumps”**
-- **Detalhe: secções condicionais (mostrar apenas conteúdo real) e loading melhorado**
+- **Tracking (peso): UI de entrada + último registo + histórico com estados completos (parcial; dependente de dados reais)**
+- **Hoje: shell + “Resumo do dia” com loading/empty/error/skeleton (parcial; dependente de dados)**
+- **Dashboard: módulo de progresso de peso (parcial; depende de existirem registos)**
+- **Estados/skeletons já avançaram na Biblioteca e começaram a expandir para outras superfícies**
 
 Objetivo do sprint:
-> Tornar a Biblioteca de Exercícios uma secção “wow”, pronta para demo.
+> Tornar o Tracking de peso utilizável de ponta a ponta e integrar no Hoje/Dashboard com estados consistentes, pronto para demo.
 
 ---
 
