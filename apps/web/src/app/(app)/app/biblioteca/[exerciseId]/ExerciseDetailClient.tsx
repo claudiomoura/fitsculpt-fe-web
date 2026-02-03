@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { getExerciseDemoUrl } from "@/lib/exerciseMedia";
 import { addExerciseRecent } from "@/lib/exerciseRecents";
 import type { Exercise } from "@/lib/types";
-import { ButtonLink } from "@/components/ui/Button";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import {
   ExerciseDetailErrorState,
   ExerciseDetailHeader,
@@ -42,14 +40,40 @@ export default function ExerciseDetailClient({
   error,
 }: ExerciseDetailClientProps) {
   const { t } = useLanguage();
-  const [forceImageFallback, setForceImageFallback] = useState(false);
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
+  const [mediaPreviewError, setMediaPreviewError] = useState(false);
+  const media = useMemo(() => {
+    if (!exercise) return null;
+    const videoUrl = exercise.mediaUrl ?? exercise.videoUrl;
+    if (videoUrl) {
+      return {
+        kind: "video" as const,
+        url: videoUrl,
+        poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined,
+      };
+    }
+
+    const imageUrl = exercise.imageUrl ?? exercise.posterUrl;
+    if (imageUrl) {
+      return {
+        kind: "image" as const,
+        url: imageUrl,
+      };
+    }
+
+    return null;
+  }, [exercise]);
 
   useEffect(() => {
     if (exercise) {
       addExerciseRecent(exercise);
     }
   }, [exercise]);
+
+  useEffect(() => {
+    if (!exercise) return;
+    setMediaPreviewError(false);
+  }, [exercise?.id, media?.url]);
   if (error) {
     return (
       <ExerciseDetailErrorState
@@ -80,9 +104,7 @@ export default function ExerciseDetailClient({
   const hasDescription = Boolean(exercise.description);
   const hasTechnique = Boolean(exercise.technique);
   const hasTips = Boolean(exercise.tips);
-  const demoMedia = getExerciseDemoUrl(exercise);
-  const hasMedia = Boolean(exercise.mediaUrl || exercise.videoUrl || exercise.posterUrl || exercise.imageUrl);
-  const demoImageUrl = forceImageFallback ? "/placeholders/exercise-demo.svg" : demoMedia.url;
+  const hasMedia = Boolean(media);
   const badgeItems = useMemo(
     () => [
       {
@@ -121,46 +143,52 @@ export default function ExerciseDetailClient({
 
       <div className="exercise-detail-grid">
         <div className="feature-card exercise-media">
-          {demoMedia.kind === "video" && !forceImageFallback ? (
-            <video
-              className="exercise-media-img"
-              autoPlay
-              loop
-              muted
-              playsInline
-              poster={demoMedia.poster}
-              onError={() => setForceImageFallback(true)}
-            >
-              <source src={demoMedia.url} />
-            </video>
-          ) : (
-            <img
-              src={demoImageUrl}
-              alt={`${t("library.mediaAlt")} ${exercise.name}`}
-              className="exercise-media-img"
-              onError={(event) => {
-                event.currentTarget.src = "/placeholders/exercise-demo.svg";
-              }}
-            />
-          )}
-          <div className="inline-actions-sm">
+          <div className="exercise-media-header">
+            <h3>{t("exerciseDetail.mediaSectionTitle")}</h3>
             {hasMedia ? (
-              <Button variant="secondary" size="sm" onClick={() => setIsMediaViewerOpen(true)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsMediaViewerOpen(true)}
+                aria-label={t("exerciseDetail.openMedia")}
+              >
                 {t("exerciseDetail.openMedia")}
               </Button>
             ) : null}
-            {!hasMedia ? <p className="muted">{t("library.mediaPlaceholder")}</p> : null}
+          </div>
+          <div className="exercise-media-preview">
+            {hasMedia ? (
+              media?.kind === "video" && !mediaPreviewError ? (
+                <video
+                  className="exercise-media-img"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  poster={media.poster}
+                  onError={() => setMediaPreviewError(true)}
+                >
+                  <source src={media.url} />
+                </video>
+              ) : media?.kind === "image" && !mediaPreviewError ? (
+                <img
+                  src={media.url}
+                  alt={`${t("library.mediaAlt")} ${exercise.name}`}
+                  className="exercise-media-img"
+                  onError={() => setMediaPreviewError(true)}
+                />
+              ) : (
+                <div className="exercise-media-fallback">
+                  <p className="muted">{t("exerciseDetail.mediaPreviewFallback")}</p>
+                </div>
+              )
+            ) : (
+              <div className="exercise-media-fallback">
+                <p className="muted">{t("library.mediaPlaceholder")}</p>
+              </div>
+            )}
           </div>
         </div>
-
-        {hasDescription ? (
-          <div className="feature-card">
-            <h3>{t("ui.description")}</h3>
-            <p className="muted mt-8">
-              {exercise.description}
-            </p>
-          </div>
-        ) : null}
       </div>
 
       <ExerciseDetailSections
@@ -187,11 +215,13 @@ export default function ExerciseDetailClient({
       <ExerciseMediaViewer
         open={isMediaViewerOpen}
         onClose={() => setIsMediaViewerOpen(false)}
-        media={hasMedia ? demoMedia : null}
+        media={media}
         title={t("exerciseDetail.mediaViewerTitle")}
         description={t("exerciseDetail.mediaViewerDescription")}
         closeLabel={t("ui.close")}
         mediaAlt={`${t("library.mediaAlt")} ${exercise.name}`}
+        fallbackTitle={t("exerciseDetail.mediaViewerFallbackTitle")}
+        fallbackDescription={t("exerciseDetail.mediaViewerFallbackDescription")}
       />
     </section>
   );
