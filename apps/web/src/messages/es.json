@@ -60,12 +60,18 @@
   "quickActions": {
     "title": "Acciones rápidas",
     "subtitle": "Registra algo en segundos y sigue el ritmo.",
+    "openTraining": "Abrir entrenamiento",
+    "openTrainingDescription": "Ve a tu plan de entrenamiento de hoy.",
+    "openNutrition": "Ver nutrición",
+    "openNutritionDescription": "Consulta tu plan de comidas y macros.",
     "addFood": "Añadir comida",
     "addFoodDescription": "Registra comidas y macros (próximamente).",
     "addSet": "Añadir set",
     "addSetDescription": "Registra un set de entrenamiento (próximamente).",
     "recordWeight": "Registrar peso",
     "recordWeightDescription": "Actualiza tu último check-in en Seguimiento.",
+    "openLibrary": "Abrir biblioteca",
+    "openLibraryDescription": "Explora ejercicios y recetas.",
     "comingSoon": "Próximamente",
     "open": "Abrir"
   },

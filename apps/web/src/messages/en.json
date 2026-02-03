@@ -60,12 +60,18 @@
   "quickActions": {
     "title": "Quick actions",
     "subtitle": "Log something fast and keep momentum.",
+    "openTraining": "Open training",
+    "openTrainingDescription": "Jump to your training plan for today.",
+    "openNutrition": "View nutrition",
+    "openNutritionDescription": "Check your meals and macros plan.",
     "addFood": "Add meal",
     "addFoodDescription": "Log food and macros (coming soon).",
     "addSet": "Add set",
     "addSetDescription": "Track a training set (coming soon).",
     "recordWeight": "Record weight",
     "recordWeightDescription": "Update your latest check-in in Progress.",
+    "openLibrary": "Open library",
+    "openLibraryDescription": "Browse exercises and recipes.",
     "comingSoon": "Coming soon",
     "open": "Open"
   },
