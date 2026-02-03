@@ -19,6 +19,17 @@ export function TodayNutritionSkeleton() {
         <Skeleton variant="line" style={{ width: "45%" }} />
         <Skeleton variant="line" style={{ width: "55%" }} />
       </div>
+      <div className="today-nutrition-skeleton-list">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={`nutrition-skeleton-${index}`} className="today-nutrition-skeleton-row">
+            <div className="today-nutrition-skeleton-body">
+              <Skeleton variant="line" style={{ width: "60%" }} />
+              <Skeleton variant="line" style={{ width: "40%" }} />
+            </div>
+            <Skeleton variant="line" className="today-nutrition-skeleton-toggle" />
+          </div>
+        ))}
+      </div>
       <Skeleton variant="line" className="today-summary-skeleton-badge" style={{ width: "32%" }} />
     </div>
   );
