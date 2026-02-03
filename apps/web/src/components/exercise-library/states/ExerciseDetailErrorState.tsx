@@ -1,6 +1,4 @@
-import { Card } from "@/components/ui/Card";
-import { Icon } from "@/components/ui/Icon";
-import { ButtonLink, Button } from "@/components/ui/Button";
+import { ErrorState } from "./ErrorState";
 
 type ExerciseDetailErrorStateProps = {
   title: string;
@@ -19,29 +17,26 @@ export function ExerciseDetailErrorState({
   onRetry,
   retryLabel,
 }: ExerciseDetailErrorStateProps) {
+  const actions = [
+    actionLabel && actionHref ? { label: actionLabel, href: actionHref, className: "fit-content" } : null,
+    onRetry && retryLabel
+      ? { label: retryLabel, onClick: onRetry, variant: "secondary" as const, className: "fit-content" }
+      : null,
+  ].filter(Boolean) as Array<{
+    label: string;
+    href?: string;
+    onClick?: () => void;
+    variant?: "primary" | "secondary" | "ghost" | "danger";
+    className?: string;
+  }>;
+
   return (
-    <Card className="centered-card">
-      <div className="empty-state">
-        <div className="empty-state-icon">
-          <Icon name="warning" />
-        </div>
-        <div>
-          <h3 className="m-0">{title}</h3>
-          {description ? <p className="muted">{description}</p> : null}
-        </div>
-        <div className="empty-state-actions">
-          {actionLabel && actionHref ? (
-            <ButtonLink href={actionHref} className="fit-content">
-              {actionLabel}
-            </ButtonLink>
-          ) : null}
-          {onRetry && retryLabel ? (
-            <Button variant="secondary" onClick={onRetry}>
-              {retryLabel}
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    </Card>
+    <ErrorState
+      title={title}
+      description={description}
+      actions={actions.length > 0 ? actions : undefined}
+      wrapInCard
+      cardClassName="centered-card"
+    />
   );
 }

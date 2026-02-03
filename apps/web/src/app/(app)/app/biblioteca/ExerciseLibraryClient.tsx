@@ -6,10 +6,8 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import type { Exercise } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
-import { SkeletonCard } from "@/components/ui/Skeleton";
+import { EmptyState, ErrorState, SkeletonExerciseList } from "@/components/exercise-library";
 
 type ExerciseResponse = {
   items: Exercise[];
@@ -133,42 +131,38 @@ export default function ExerciseLibraryClient() {
       </div>
 
       {loading ? (
-        <div className="list-grid mt-16">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <SkeletonCard key={idx} />
-          ))}
-        </div>
+        <SkeletonExerciseList className="mt-16" />
       ) : error ? (
-        <div className="empty-state mt-16">
-          <div className="empty-state-icon">
-            <Icon name="warning" />
-          </div>
-          <div>
-            <h3 className="m-0">{t("library.errorTitle")}</h3>
-            <p className="muted">{error}</p>
-          </div>
-          <Button variant="secondary" onClick={() => setRetryKey((prev) => prev + 1)}>
-            {t("ui.retry")}
-          </Button>
-        </div>
+        <ErrorState
+          title={t("library.errorTitle")}
+          description={error}
+          actions={[
+            {
+              label: t("ui.retry"),
+              onClick: () => setRetryKey((prev) => prev + 1),
+              variant: "secondary",
+            },
+          ]}
+          className="mt-16"
+        />
       ) : exercises.length === 0 ? (
-        <div className="empty-state mt-16">
-          <div className="empty-state-icon">
-            <Icon name="book" />
-          </div>
-          <div>
-            <h3 className="m-0">{t("library.emptyTitle")}</h3>
-            <p className="muted">{t("library.empty")}</p>
-          </div>
-          <div className="empty-state-actions">
-            <Button variant="secondary" onClick={handleResetFilters}>
-              {t("library.resetFilters")}
-            </Button>
-            <Button onClick={() => setRetryKey((prev) => prev + 1)}>
-              {t("library.retrySearch")}
-            </Button>
-          </div>
-        </div>
+        <EmptyState
+          title={t("library.emptyTitle")}
+          description={t("library.empty")}
+          icon="book"
+          actions={[
+            {
+              label: t("library.resetFilters"),
+              onClick: handleResetFilters,
+              variant: "secondary",
+            },
+            {
+              label: t("library.retrySearch"),
+              onClick: () => setRetryKey((prev) => prev + 1),
+            },
+          ]}
+          className="mt-16"
+        />
       ) : (
         <div className="list-grid mt-16">
           {exercises.map((exercise) => {
