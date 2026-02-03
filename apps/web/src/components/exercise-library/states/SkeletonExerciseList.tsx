@@ -16,8 +16,8 @@ export function SkeletonExerciseList({ count = 6, showAction = true, className }
           <Skeleton className="skeleton-media" />
           <Skeleton variant="line" className="w-70" />
           <div className="badge-list">
-            <Skeleton variant="line" className="w-30" />
-            <Skeleton variant="line" className="w-25" />
+            <Skeleton variant="line" className="w-40" />
+            <Skeleton variant="line" className="w-45" />
           </div>
           <Skeleton variant="line" className="w-55" />
           <Skeleton variant="line" className="w-80" />

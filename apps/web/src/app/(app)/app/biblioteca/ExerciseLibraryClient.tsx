@@ -258,7 +258,7 @@ export default function ExerciseLibraryClient() {
       <div className="library-section mt-16">
         <div className="library-section-header">
           {favoritesLoading ? (
-            <Skeleton variant="line" className="w-30" />
+            <Skeleton variant="line" className="w-40" />
           ) : (
             <h3 className="m-0">{t("library.favoritesTitle")}</h3>
           )}
@@ -299,12 +299,12 @@ export default function ExerciseLibraryClient() {
       <div className="library-section mt-16">
         <div className="library-section-header">
           {recentsLoading ? (
-            <Skeleton variant="line" className="w-25" />
+            <Skeleton variant="line" className="w-40" />
           ) : (
             <h3 className="m-0">{t("library.recentsTitle")}</h3>
           )}
           {recentsLoading ? (
-            <Skeleton variant="line" className="w-20" />
+            <Skeleton variant="line" className="w-45" />
           ) : recentsError ? null : (
             <Button
               variant="ghost"
