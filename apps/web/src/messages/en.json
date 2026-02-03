@@ -72,14 +72,27 @@
   "today": {
     "title": "Today",
     "subtitle": "Your mobile-first hub for what matters now.",
-    "focusTitle": "Focus snapshot",
-    "focusSubtitle": "A quick overview to keep you on track.",
-    "focusPlan": "Training",
-    "focusPlanValue": "Plan ready for today",
-    "focusNutrition": "Nutrition",
-    "focusNutritionValue": "Macros aligned with your goal",
-    "focusRecovery": "Recovery",
-    "focusRecoveryValue": "Hydrate + rest check"
+    "quickActionsTitle": "Quick actions",
+    "quickActionsSubtitle": "Jump into today's essentials in one tap.",
+    "summaryTitle": "Today summary",
+    "summarySubtitle": "Training, nutrition, and check-ins will appear here.",
+    "summaryTrainingTitle": "Training",
+    "summaryTrainingPlaceholder": "Today's workout details will show here.",
+    "summaryNutritionTitle": "Nutrition",
+    "summaryNutritionPlaceholder": "Today's nutrition snapshot will show here.",
+    "summaryWeightTitle": "Weight",
+    "summaryWeightPlaceholder": "Latest check-in details will show here.",
+    "actionUnavailable": "Unavailable right now.",
+    "actions": {
+      "openTraining": "Open today's workout",
+      "openTrainingDescription": "See your training plan and start moving.",
+      "openNutrition": "View today's nutrition",
+      "openNutritionDescription": "Check meals and macro targets for today.",
+      "recordWeight": "Record weight",
+      "recordWeightDescription": "Add a new check-in in Progress.",
+      "openLibrary": "Open library",
+      "openLibraryDescription": "Browse exercises and save favorites."
+    }
   },
   "exerciseDetail": {
     "tabsLabel": "Exercise detail tabs",

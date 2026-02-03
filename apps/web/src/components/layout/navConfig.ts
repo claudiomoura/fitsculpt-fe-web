@@ -61,6 +61,7 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "summary",
     labelKey: "navSections.summary",
     items: [
+      { id: "today", href: "/app/hoy", labelKey: "nav.today" },
       { id: "dashboard", href: "/app", labelKey: "nav.dashboard" },
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
