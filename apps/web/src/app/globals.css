@@ -1627,6 +1627,12 @@ label {
   border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--bg-muted);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.quick-action-card:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .quick-action-title {
