@@ -100,10 +100,11 @@
     "weightSectionTitle": "Peso",
     "weightSectionSubtitle": "Último registro y acceso rápido.",
     "weightEmptyTitle": "Aún no hay registros de peso",
-    "weightEmptyDescription": "Registra tu peso más reciente para seguir tu progreso.",
+    "weightEmptyDescription": "Empieza a registrar cuando estés listo.",
     "weightErrorTitle": "Peso no disponible",
     "weightErrorDescription": "No pudimos cargar tu último peso.",
-    "weightLatestLabel": "Último peso registrado"
+    "weightLatestLabel": "Último peso registrado",
+    "weightLatestDateLabel": "Registrado el"
   },
   "foods": {
     "salmon": "Salmón",

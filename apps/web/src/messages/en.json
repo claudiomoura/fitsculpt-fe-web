@@ -100,10 +100,11 @@
     "weightSectionTitle": "Weight",
     "weightSectionSubtitle": "Latest check-in and quick access.",
     "weightEmptyTitle": "No weight entries yet",
-    "weightEmptyDescription": "Log your latest weight to track progress.",
+    "weightEmptyDescription": "Start tracking whenever you're ready.",
     "weightErrorTitle": "Weight unavailable",
     "weightErrorDescription": "We couldn't load your latest weight.",
-    "weightLatestLabel": "Latest recorded weight"
+    "weightLatestLabel": "Latest recorded weight",
+    "weightLatestDateLabel": "Recorded on"
   },
   "foods": {
     "salmon": "Salmon",

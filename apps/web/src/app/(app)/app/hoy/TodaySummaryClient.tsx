@@ -14,8 +14,8 @@ import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 
 type CheckinEntry = {
-  date: string;
-  weightKg: number;
+  date?: string | null;
+  weightKg?: number | null;
 };
 
 type TrackingPayload = {
@@ -66,10 +66,13 @@ const buildNutritionSummary = (plan?: NutritionPlanData | null): TodayNutritionS
 };
 
 const getLatestWeight = (checkins: CheckinEntry[]): TodayWeightSummaryData | null => {
-  if (!checkins.length) return null;
-  const latest = [...checkins].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
-  if (!latest) return null;
-  return { weightKg: latest.weightKg, date: latest.date };
+  const validEntries = checkins
+    .map((entry) => ({ entry, parsed: parseDate(entry.date) }))
+    .filter(({ entry, parsed }) => parsed && Number.isFinite(entry.weightKg));
+  if (validEntries.length === 0) return null;
+  const latest = validEntries.sort((a, b) => a.parsed.getTime() - b.parsed.getTime()).at(-1)?.entry;
+  if (!latest?.date || !Number.isFinite(latest.weightKg)) return null;
+  return { weightKg: Number(latest.weightKg), date: latest.date };
 };
 
 export default function TodaySummaryClient() {
@@ -200,7 +203,10 @@ export default function TodaySummaryClient() {
           <ErrorState
             title={t("today.weightErrorTitle")}
             description={t("today.weightErrorDescription")}
-            actions={[{ label: t("ui.retry"), onClick: loadTracking, variant: "secondary" }]}
+            actions={[
+              { label: t("quickActions.recordWeight"), href: "/app/seguimiento#weight-entry" },
+              { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
+            ]}
           />
         ) : weightState.status === "empty" ? (
           <EmptyState
