@@ -7,8 +7,12 @@ export default async function TodayPage() {
   return (
     <div className="page">
       <section className="card">
-        <h1 className="section-title">{t("today.title")}</h1>
-        <p className="section-subtitle">{t("today.subtitle")}</p>
+        <div className="page-header">
+          <div className="page-header-body">
+            <h1 className="section-title">{t("today.title")}</h1>
+            <p className="section-subtitle">{t("today.subtitle")}</p>
+          </div>
+        </div>
       </section>
       <TodaySummaryClient />
     </div>
