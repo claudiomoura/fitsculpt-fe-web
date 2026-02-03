@@ -102,6 +102,10 @@ export default function TrackingClient() {
   const [checkinEnergy, setCheckinEnergy] = useState(3);
   const [checkinHunger, setCheckinHunger] = useState(3);
   const [checkinNotes, setCheckinNotes] = useState("");
+  const [energyDate, setEnergyDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [energyValue, setEnergyValue] = useState(3);
+  const [notesDate, setNotesDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [notesValue, setNotesValue] = useState("");
   const [checkinFrontPhoto, setCheckinFrontPhoto] = useState<string | null>(null);
   const [checkinSidePhoto, setCheckinSidePhoto] = useState<string | null>(null);
   const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
@@ -139,16 +143,33 @@ export default function TrackingClient() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isEnergySubmitting, setIsEnergySubmitting] = useState(false);
+  const [energySubmitError, setEnergySubmitError] = useState<string | null>(null);
+  const [isNotesSubmitting, setIsNotesSubmitting] = useState(false);
+  const [notesSubmitError, setNotesSubmitError] = useState<string | null>(null);
+  const [trackingSupports, setTrackingSupports] = useState<{ energy: boolean | null; notes: boolean | null }>({
+    energy: null,
+    notes: null,
+  });
   const isMountedRef = useRef(true);
 
   const isWeightValid = Number.isFinite(checkinWeight) && checkinWeight >= 30 && checkinWeight <= 250;
   const isDateValid = Boolean(checkinDate);
   const isTrackingReady = trackingStatus === "ready";
   const isSubmitDisabled = !isTrackingReady || !isWeightValid || !isDateValid || isSubmitting;
+  const isEnergyValid = Number.isFinite(energyValue) && energyValue >= 1 && energyValue <= 5;
+  const isNotesValid = notesValue.trim().length > 0;
 
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
   }, [checkinMode]);
+
+  function detectTrackingSupport(entries?: Array<Record<string, unknown>> | null) {
+    if (!entries || entries.length === 0) return { energy: false, notes: false };
+    const supportsEnergy = entries.some((entry) => Object.prototype.hasOwnProperty.call(entry, "energy"));
+    const supportsNotes = entries.some((entry) => Object.prototype.hasOwnProperty.call(entry, "notes"));
+    return { energy: supportsEnergy, notes: supportsNotes };
+  }
 
   async function refreshTrackingData(options?: { showLoading?: boolean; showError?: boolean }) {
     const { showLoading = false, showError = false } = options ?? {};
@@ -169,6 +190,7 @@ export default function TrackingClient() {
       setCheckins(data.checkins ?? []);
       setFoodLog(data.foodLog ?? []);
       setWorkoutLog(data.workoutLog ?? []);
+      setTrackingSupports(detectTrackingSupport(data.checkins as Array<Record<string, unknown>>));
       setTrackingLoaded(true);
       setTrackingStatus("ready");
       return true;
@@ -403,7 +425,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       setSubmitError(t(feedback.error));
       return false;
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   }
 
@@ -565,6 +587,16 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     [checkins]
   );
   const latestCheckin = sortedCheckins[0];
+  const latestEnergyCheckin = sortedCheckins.find((entry) => Number.isFinite(entry.energy) && entry.energy > 0);
+  const latestNotesCheckin = sortedCheckins.find((entry) => entry.notes?.trim());
+  const supportsEnergy = trackingSupports.energy === true;
+  const supportsNotes = trackingSupports.notes === true;
+  const baseWeight = Number(latestCheckin?.weightKg ?? profile.weightKg ?? 0);
+  const hasBaseWeight = Number.isFinite(baseWeight) && baseWeight >= 30 && baseWeight <= 250;
+  const isEnergySubmitDisabled =
+    !supportsEnergy || !isTrackingReady || !isEnergyValid || !energyDate || !hasBaseWeight || isEnergySubmitting;
+  const isNotesSubmitDisabled =
+    !supportsNotes || !isTrackingReady || !isNotesValid || !notesDate || !hasBaseWeight || isNotesSubmitting;
 
   async function addQuickWeightEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -713,7 +745,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           </div>
         </div>
       </section>
-      <section className="card">
+      <section className="card" id="checkin-entry">
         <div className="section-head">
           <div>
             <h2 className="section-title" style={{ fontSize: 20 }}>{t("profile.checkinTitle")}</h2>
