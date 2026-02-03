@@ -34,12 +34,14 @@ FitSculpt é uma **web app mobile-first de treino e nutrição**, focada em UX p
 - i18n (ES e EN)
 - Dark mode
 - Layout mobile-first já implementado
+- the favorites/recents item is now implemented and should be reflected
+- the full-screen media viewer and advanced detail layout polish are now implemented and should be reflected in the status doc.
+- Media viewer (GIF e vídeo) em full screen (implementado)
+- Página de detalhe com layout avançado (implementado)
+- Sistema de favoritos e recentes (implementado)
 
 ### Não implementado ou incompleto
 - UX premium da Biblioteca de Exercícios (**em progresso**)
-- Página de detalhe de exercício com layout avançado (**parcial** — base e secções condicionais melhoradas, ainda falta “layout avançado” completo)
-- Media viewer (GIF e vídeo) em full screen
-- Sistema de favoritos e recentes (ainda não implementado como feature completa; “recents” só entra quando for feito explicitamente)
 - Polimento consistente de estados:
   - empty
   - error
