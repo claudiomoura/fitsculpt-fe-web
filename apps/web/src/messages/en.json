@@ -419,6 +419,7 @@
     "weightProgressTitle": "Weight progress",
     "weightProgressSubtitle": "Last 7 days summary.",
     "weightProgressCta": "Log weight",
+    "weightProgressBackCta": "Back to progress",
     "weightProgressEmptyTitle": "No weight logs yet.",
     "weightProgressEmptySubtitle": "Log your weight to see a weekly summary.",
     "weightProgressEmptyCta": "Log weight",

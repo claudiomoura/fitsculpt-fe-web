@@ -419,6 +419,7 @@
     "weightProgressTitle": "Progreso (peso)",
     "weightProgressSubtitle": "Resumen de los últimos 7 días.",
     "weightProgressCta": "Registar peso",
+    "weightProgressBackCta": "Volver a seguimiento",
     "weightProgressEmptyTitle": "Aún no hay pesos registrados.",
     "weightProgressEmptySubtitle": "Registra tu peso para ver el resumen semanal.",
     "weightProgressEmptyCta": "Registar peso",
