@@ -29,3 +29,23 @@ export function TodayWeightSkeleton() {
     </div>
   );
 }
+
+export function TodayEnergySkeleton() {
+  return (
+    <div className="stack-md">
+      <Skeleton variant="line" style={{ width: "35%" }} />
+      <Skeleton variant="line" style={{ width: "30%" }} />
+      <Skeleton variant="line" style={{ width: "25%" }} />
+    </div>
+  );
+}
+
+export function TodayNotesSkeleton() {
+  return (
+    <div className="stack-md">
+      <Skeleton variant="line" style={{ width: "45%" }} />
+      <Skeleton variant="line" style={{ width: "60%" }} />
+      <Skeleton variant="line" style={{ width: "40%" }} />
+    </div>
+  );
+}
