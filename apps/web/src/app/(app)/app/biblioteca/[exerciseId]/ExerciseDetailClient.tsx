@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseDemoUrl } from "@/lib/exerciseMedia";
+import { addExerciseRecent } from "@/lib/exerciseRecents";
 import type { Exercise } from "@/lib/types";
 import { ButtonLink } from "@/components/ui/Button";
 import { Button } from "@/components/ui/Button";
@@ -43,6 +44,12 @@ export default function ExerciseDetailClient({
   const { t } = useLanguage();
   const [forceImageFallback, setForceImageFallback] = useState(false);
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
+
+  useEffect(() => {
+    if (exercise) {
+      addExerciseRecent(exercise);
+    }
+  }, [exercise]);
   if (error) {
     return (
       <ExerciseDetailErrorState

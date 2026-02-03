@@ -1150,7 +1150,9 @@
     "errorTitle": "We couldn't load the library",
     "emptyTitle": "No exercises found",
     "resetFilters": "Clear filters",
-    "retrySearch": "Try again"
+    "retrySearch": "Try again",
+    "recentsTitle": "Recents",
+    "recentsClear": "Clear"
   },
   "recipes": {
     "loading": "Loading recipes...",

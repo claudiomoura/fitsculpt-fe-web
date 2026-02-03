@@ -1153,7 +1153,9 @@
     "errorTitle": "No pudimos cargar la biblioteca",
     "emptyTitle": "No encontramos ejercicios",
     "resetFilters": "Limpiar filtros",
-    "retrySearch": "Volver a intentar"
+    "retrySearch": "Volver a intentar",
+    "recentsTitle": "Recientes",
+    "recentsClear": "Limpiar"
   },
   "recipes": {
     "loading": "Cargando recetas...",
