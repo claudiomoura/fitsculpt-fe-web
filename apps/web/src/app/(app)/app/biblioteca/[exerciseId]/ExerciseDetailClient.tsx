@@ -24,6 +24,11 @@ type MuscleGroups = {
   secondary: string[];
 };
 
+type ExerciseOverviewItem = {
+  label: string;
+  value: string;
+};
+
 function getMuscleGroups(exercise: Exercise): MuscleGroups {
   const primaryFromMain = exercise.mainMuscleGroup ? [exercise.mainMuscleGroup] : [];
   const primaryFromLegacy = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
@@ -101,34 +106,49 @@ export default function ExerciseDetailClient({
   }
 
   const { primary, secondary } = getMuscleGroups(exercise);
-  const levelLabel = t("library.levelGeneral");
-  const equipmentLabel = exercise.equipment ?? t("library.equipmentFallback");
+  const equipmentLabel = exercise.equipment ?? null;
   const hasDescription = Boolean(exercise.description);
   const hasTechnique = Boolean(exercise.technique);
   const hasTips = Boolean(exercise.tips);
   const hasMedia = Boolean(media);
+  const hasPrimaryMuscles = primary.length > 0;
+  const hasSecondaryMuscles = secondary.length > 0;
   const badgeItems = useMemo(
     () => [
       {
         label: t("library.primaryLabel"),
-        value: primary[0] ?? t("library.noMuscleData"),
+        value: primary[0] ?? null,
       },
       ...secondary.map((muscle) => ({
         label: t("library.secondaryLabel"),
         value: muscle,
         variant: "muted" as const,
       })),
-      {
-        label: t("library.levelLabel"),
-        value: levelLabel,
-      },
-      {
+    ],
+    [primary, secondary, t]
+  );
+  const overviewItems = useMemo<ExerciseOverviewItem[]>(() => {
+    const items: ExerciseOverviewItem[] = [];
+    if (equipmentLabel) {
+      items.push({
         label: t("library.equipmentLabel"),
         value: equipmentLabel,
-      },
-    ],
-    [equipmentLabel, levelLabel, primary, secondary, t]
-  );
+      });
+    }
+    if (hasPrimaryMuscles) {
+      items.push({
+        label: t("exerciseDetail.primaryMuscles"),
+        value: primary.join(", "),
+      });
+    }
+    if (hasSecondaryMuscles) {
+      items.push({
+        label: t("exerciseDetail.secondaryMuscles"),
+        value: secondary.join(", "),
+      });
+    }
+    return items;
+  }, [equipmentLabel, hasPrimaryMuscles, hasSecondaryMuscles, primary, secondary, t]);
   const isFavorite = Boolean(exercise?.id && favorites.includes(exercise.id));
   const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
 
@@ -159,55 +179,70 @@ export default function ExerciseDetailClient({
         }
       />
 
-      <div className="exercise-detail-grid">
-        <div className="feature-card exercise-media">
-          <div className="exercise-media-header">
-            <h3>{t("exerciseDetail.mediaSectionTitle")}</h3>
-            {hasMedia ? (
+      {overviewItems.length > 0 ? (
+        <div className="exercise-detail-overview">
+          <h2 className="section-title">{t("exerciseDetail.summaryTitle")}</h2>
+          <div className="info-grid mt-16">
+            {overviewItems.map((item) => (
+              <div key={item.label} className="info-item">
+                <p className="info-label">{item.label}</p>
+                <p className="info-value">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {hasMedia ? (
+        <div className="exercise-detail-grid">
+          <div className="feature-card exercise-media">
+            <div className="exercise-media-header">
+              <h3>{t("exerciseDetail.mediaSectionTitle")}</h3>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setIsMediaViewerOpen(true)}
-                aria-label={t("exerciseDetail.openMedia")}
+                aria-label={`${t("exerciseDetail.openMedia")} ${exercise.name}`}
               >
                 {t("exerciseDetail.openMedia")}
               </Button>
-            ) : null}
-          </div>
-          <div className="exercise-media-preview">
-            {hasMedia ? (
-              media?.kind === "video" && !mediaPreviewError ? (
-                <video
-                  className="exercise-media-img"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  poster={media.poster}
-                  onError={() => setMediaPreviewError(true)}
-                >
-                  <source src={media.url} />
-                </video>
-              ) : media?.kind === "image" && !mediaPreviewError ? (
-                <img
-                  src={media.url}
-                  alt={`${t("library.mediaAlt")} ${exercise.name}`}
-                  className="exercise-media-img"
-                  onError={() => setMediaPreviewError(true)}
-                />
-              ) : (
-                <div className="exercise-media-fallback">
-                  <p className="muted">{t("exerciseDetail.mediaPreviewFallback")}</p>
-                </div>
-              )
-            ) : (
-              <div className="exercise-media-fallback">
-                <p className="muted">{t("library.mediaPlaceholder")}</p>
-              </div>
-            )}
+            </div>
+            <div className="exercise-media-preview">
+              <button
+                type="button"
+                className="exercise-media-preview-button"
+                onClick={() => setIsMediaViewerOpen(true)}
+                aria-label={`${t("exerciseDetail.openMedia")} ${exercise.name}`}
+              >
+                {media?.kind === "video" && !mediaPreviewError ? (
+                  <video
+                    className="exercise-media-img"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    poster={media.poster}
+                    onError={() => setMediaPreviewError(true)}
+                  >
+                    <source src={media.url} />
+                  </video>
+                ) : media?.kind === "image" && !mediaPreviewError ? (
+                  <img
+                    src={media.url}
+                    alt={`${t("library.mediaAlt")} ${exercise.name}`}
+                    className="exercise-media-img"
+                    onError={() => setMediaPreviewError(true)}
+                  />
+                ) : (
+                  <div className="exercise-media-fallback">
+                    <p className="muted">{t("exerciseDetail.mediaPreviewFallback")}</p>
+                  </div>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <ExerciseDetailSections
         description={hasDescription ? exercise.description : null}
@@ -231,7 +266,7 @@ export default function ExerciseDetailClient({
       />
 
       <ExerciseMediaViewer
-        open={isMediaViewerOpen}
+        open={isMediaViewerOpen && hasMedia}
         onClose={() => setIsMediaViewerOpen(false)}
         media={media}
         title={t("exerciseDetail.mediaViewerTitle")}

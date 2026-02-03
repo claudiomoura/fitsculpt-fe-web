@@ -91,6 +91,7 @@
     "mediaPreviewFallback": "La vista previa del media no está disponible.",
     "mediaViewerFallbackTitle": "Media no disponible",
     "mediaViewerFallbackDescription": "No pudimos cargar este contenido. Inténtalo de nuevo más tarde.",
+    "summaryTitle": "Resumen rápido",
     "emptyTitle": "Ejercicio no disponible",
     "emptyDescription": "Este ejercicio aún no está disponible.",
     "errorTitle": "No pudimos cargar el ejercicio",
