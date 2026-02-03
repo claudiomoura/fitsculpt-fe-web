@@ -35,96 +35,100 @@ export function ExerciseDetailSections({
   labels,
   defaultTab = "execution",
 }: ExerciseDetailSectionsProps) {
-  const [activeTab, setActiveTab] = useState<"execution" | "muscles">(defaultTab);
   const executionBlocks = useMemo(() => [description, technique, tips].filter(Boolean), [description, technique, tips]);
   const primaryList = useMemo(() => (primaryMuscles ?? []).filter(Boolean), [primaryMuscles]);
   const secondaryList = useMemo(() => (secondaryMuscles ?? []).filter(Boolean), [secondaryMuscles]);
   const hasExecutionDetails = executionBlocks.length > 0;
   const hasMuscleDetails = primaryList.length > 0 || secondaryList.length > 0;
+  const availableTabs = useMemo(
+    () =>
+      [
+        { id: "execution" as const, label: labels.executionTab, visible: hasExecutionDetails },
+        { id: "muscles" as const, label: labels.musclesTab, visible: hasMuscleDetails },
+      ].filter((tab) => tab.visible),
+    [hasExecutionDetails, hasMuscleDetails, labels.executionTab, labels.musclesTab]
+  );
+  const [activeTab, setActiveTab] = useState<"execution" | "muscles">(() => {
+    if (availableTabs.some((tab) => tab.id === defaultTab)) {
+      return defaultTab;
+    }
+    return availableTabs[0]?.id ?? "execution";
+  });
+
+  if (availableTabs.length === 0) return null;
+  const showTabs = availableTabs.length > 1;
 
   return (
     <div className="stack-lg">
-      <div className="tab-list mt-20">
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "execution" ? "active" : ""}`}
-          onClick={() => setActiveTab("execution")}
-        >
-          {labels.executionTab}
-        </button>
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "muscles" ? "active" : ""}`}
-          onClick={() => setActiveTab("muscles")}
-        >
-          {labels.musclesTab}
-        </button>
-      </div>
+      {showTabs ? (
+        <div className="tab-list mt-20">
+          {availableTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-      {activeTab === "execution" ? (
-        hasExecutionDetails ? (
-          <div className="tab-panel">
-            {description ? (
-              <div className="feature-card">
-                <h3>{labels.executionPrepTitle}</h3>
-                <p className="muted mt-8">{description}</p>
-              </div>
-            ) : null}
-            {technique ? (
-              <div className="feature-card">
-                <h3>{labels.executionMoveTitle}</h3>
-                <p className="muted mt-8">{technique}</p>
-              </div>
-            ) : null}
-            {tips ? (
-              <div className="feature-card">
-                <h3>{labels.executionTipsTitle}</h3>
-                <p className="muted mt-8">{tips}</p>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="muted mt-16">{labels.executionEmpty}</p>
-        )
-      ) : (
+      {activeTab === "execution" && hasExecutionDetails ? (
+        <div className="tab-panel">
+          {description ? (
+            <div className="feature-card">
+              <h3>{labels.executionPrepTitle}</h3>
+              <p className="muted mt-8">{description}</p>
+            </div>
+          ) : null}
+          {technique ? (
+            <div className="feature-card">
+              <h3>{labels.executionMoveTitle}</h3>
+              <p className="muted mt-8">{technique}</p>
+            </div>
+          ) : null}
+          {tips ? (
+            <div className="feature-card">
+              <h3>{labels.executionTipsTitle}</h3>
+              <p className="muted mt-8">{tips}</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {activeTab === "muscles" && hasMuscleDetails ? (
         <div className="tab-panel">
           {labels.muscleMapPlaceholder ? (
             <div className="feature-card muscle-map">
               <span className="muted">{labels.muscleMapPlaceholder}</span>
             </div>
           ) : null}
-          {hasMuscleDetails ? (
-            <div className="list-grid">
+          <div className="list-grid">
+            {primaryList.length > 0 ? (
               <div className="feature-card">
                 <h3>{labels.primaryMusclesTitle}</h3>
-                {primaryList.length > 0 ? (
-                  <ul className="muted list-muted">
-                    {primaryList.map((muscle, index) => (
-                      <li key={`${muscle}-${index}`}>{muscle}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="muted mt-8">{labels.noMusclesFallback ?? labels.secondaryMusclesEmpty}</p>
-                )}
+                <ul className="muted list-muted">
+                  {primaryList.map((muscle, index) => (
+                    <li key={`${muscle}-${index}`}>{muscle}</li>
+                  ))}
+                </ul>
               </div>
+            ) : null}
+            {secondaryList.length > 0 ? (
               <div className="feature-card">
                 <h3>{labels.secondaryMusclesTitle}</h3>
-                {secondaryList.length > 0 ? (
-                  <ul className="muted list-muted">
-                    {secondaryList.map((muscle, index) => (
-                      <li key={`${muscle}-${index}`}>{muscle}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="muted mt-8">{labels.secondaryMusclesEmpty}</p>
-                )}
+                <ul className="muted list-muted">
+                  {secondaryList.map((muscle, index) => (
+                    <li key={`${muscle}-${index}`}>{muscle}</li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          ) : (
-            <p className="muted mt-16">{labels.noMusclesFallback ?? labels.secondaryMusclesEmpty}</p>
-          )}
+            ) : null}
+          </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
