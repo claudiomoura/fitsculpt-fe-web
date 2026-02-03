@@ -13,9 +13,14 @@ export function TodayTrainingSkeleton() {
 export function TodayNutritionSkeleton() {
   return (
     <div className="stack-md">
-      <Skeleton variant="line" style={{ width: "45%" }} />
-      <Skeleton variant="line" style={{ width: "55%" }} />
-      <Skeleton variant="line" style={{ width: "32%" }} />
+      <div className="stack-sm">
+        <Skeleton variant="line" style={{ width: "45%" }} />
+        <Skeleton variant="line" style={{ width: "40%" }} />
+      </div>
+      <div className="stack-sm">
+        <Skeleton variant="line" style={{ width: "70%" }} />
+        <Skeleton variant="line" style={{ width: "60%" }} />
+      </div>
     </div>
   );
 }

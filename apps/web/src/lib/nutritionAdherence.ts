@@ -1,140 +1,114 @@
 import { useCallback, useEffect, useState } from "react";
 
-export const NUTRITION_ADHERENCE_STORAGE_KEY = "fs_nutrition_adherence_v1";
+export const NUTRITION_ADHERENCE_STORAGE_KEY = "fs_nutrition_adherence";
 
-type NutritionAdherence = Record<string, Record<string, boolean>>;
+type NutritionAdherenceStore = Record<string, string[]>;
 
 const isBrowser = () => typeof window !== "undefined";
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const normalizeStore = (value: unknown): NutritionAdherenceStore => {
+  if (!value || typeof value !== "object") return {};
+  const record = value as Record<string, unknown>;
+  const normalized: NutritionAdherenceStore = {};
 
-const normalizeAdherence = (value: unknown): NutritionAdherence => {
-  if (!isRecord(value)) return {};
-  const normalized: NutritionAdherence = {};
-  for (const [dateKey, items] of Object.entries(value)) {
-    if (typeof dateKey !== "string" || !isRecord(items)) continue;
-    const dayEntries: Record<string, boolean> = {};
-    for (const [itemKey, consumed] of Object.entries(items)) {
-      if (typeof itemKey !== "string") continue;
-      if (consumed === true) {
-        dayEntries[itemKey] = true;
-      }
+  Object.entries(record).forEach(([dateKey, items]) => {
+    if (!Array.isArray(items)) return;
+    const keys = items.filter((item): item is string => typeof item === "string");
+    if (keys.length > 0) {
+      normalized[dateKey] = Array.from(new Set(keys));
     }
-    if (Object.keys(dayEntries).length > 0) {
-      normalized[dateKey] = dayEntries;
-    }
-  }
+  });
+
   return normalized;
 };
 
-export const getNutritionAdherence = (): NutritionAdherence => {
+const readStore = (): NutritionAdherenceStore => {
   if (!isBrowser()) return {};
   try {
     const stored = window.localStorage.getItem(NUTRITION_ADHERENCE_STORAGE_KEY);
     if (!stored) return {};
-    return normalizeAdherence(JSON.parse(stored));
+    return normalizeStore(JSON.parse(stored));
   } catch {
     return {};
   }
 };
 
-export const setNutritionAdherence = (data: NutritionAdherence) => {
-  if (!isBrowser()) return false;
+const writeStore = (store: NutritionAdherenceStore) => {
+  if (!isBrowser()) return;
   try {
-    window.localStorage.setItem(NUTRITION_ADHERENCE_STORAGE_KEY, JSON.stringify(normalizeAdherence(data)));
-    return true;
+    window.localStorage.setItem(NUTRITION_ADHERENCE_STORAGE_KEY, JSON.stringify(store));
   } catch {
-    return false;
+    // ignore storage errors
   }
 };
 
-const updateAdherence = (data: NutritionAdherence, itemKey: string, dateKey: string) => {
-  const next: NutritionAdherence = { ...data };
-  const dayEntries = { ...(next[dateKey] ?? {}) };
-  if (dayEntries[itemKey]) {
-    delete dayEntries[itemKey];
-  } else {
-    dayEntries[itemKey] = true;
-  }
-  if (Object.keys(dayEntries).length > 0) {
-    next[dateKey] = dayEntries;
-  } else {
-    delete next[dateKey];
-  }
+export const getNutritionAdherence = (dateKey: string): string[] => {
+  if (!dateKey) return [];
+  const store = readStore();
+  return store[dateKey] ?? [];
+};
+
+export const setNutritionAdherence = (dateKey: string, items: string[]) => {
+  if (!dateKey) return;
+  const store = readStore();
+  store[dateKey] = Array.from(new Set(items));
+  writeStore(store);
+};
+
+export const toggleNutritionAdherence = (dateKey: string, itemKey: string) => {
+  if (!dateKey || !itemKey) return [];
+  const current = getNutritionAdherence(dateKey);
+  const next = current.includes(itemKey)
+    ? current.filter((item) => item !== itemKey)
+    : [...current, itemKey];
+  setNutritionAdherence(dateKey, next);
   return next;
 };
 
-const clearAdherenceDay = (data: NutritionAdherence, dateKey: string) => {
-  const next: NutritionAdherence = { ...data };
-  delete next[dateKey];
-  return next;
-};
+export const useNutritionAdherence = (dateKey: string) => {
+  const [consumedKeys, setConsumedKeys] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
-export const useNutritionAdherence = () => {
-  const [data, setData] = useState<NutritionAdherence>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  const loadAdherence = useCallback(() => {
+  const load = useCallback(() => {
     if (!isBrowser()) {
-      setIsLoading(false);
+      setLoading(false);
       return;
     }
-    setIsLoading(true);
+    setLoading(true);
     try {
-      const stored = window.localStorage.getItem(NUTRITION_ADHERENCE_STORAGE_KEY);
-      const parsed = stored ? normalizeAdherence(JSON.parse(stored)) : {};
-      setData(parsed);
-      setError(false);
+      setConsumedKeys(getNutritionAdherence(dateKey));
+      setHasError(false);
     } catch {
-      setData({});
-      setError(true);
+      setConsumedKeys([]);
+      setHasError(true);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, []);
+  }, [dateKey]);
 
   useEffect(() => {
     if (!isBrowser()) return;
-    loadAdherence();
+    load();
     const handleStorage = (event: StorageEvent) => {
       if (event.key === NUTRITION_ADHERENCE_STORAGE_KEY) {
-        loadAdherence();
+        load();
       }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [loadAdherence]);
+  }, [load]);
 
-  const toggle = useCallback((itemKey: string, dateKey: string) => {
-    if (!isBrowser()) return;
-    if (!itemKey || !dateKey) return;
-    setData((prev) => {
-      const next = updateAdherence(prev, itemKey, dateKey);
-      const ok = setNutritionAdherence(next);
-      setError(!ok);
-      return next;
-    });
-  }, []);
-
-  const clearDay = useCallback((dateKey: string) => {
-    if (!isBrowser()) return;
-    if (!dateKey) return;
-    setData((prev) => {
-      const next = clearAdherenceDay(prev, dateKey);
-      const ok = setNutritionAdherence(next);
-      setError(!ok);
-      return next;
-    });
-  }, []);
+  const toggle = (itemKey: string) => {
+    const next = toggleNutritionAdherence(dateKey, itemKey);
+    setConsumedKeys(next);
+  };
 
   return {
-    data,
-    isLoading,
-    error,
+    consumedKeys,
+    loading,
+    hasError,
     toggle,
-    clearDay,
-    refresh: loadAdherence,
+    refresh: load,
   };
 };
