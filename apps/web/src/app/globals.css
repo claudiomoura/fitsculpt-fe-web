@@ -1834,6 +1834,26 @@ label {
   background: var(--bg-card);
 }
 
+.exercise-media-modal {
+  width: min(960px, 100%);
+  max-height: 90vh;
+}
+
+.exercise-media-modal-body {
+  display: grid;
+  place-items: center;
+  gap: 16px;
+}
+
+.exercise-media-viewer {
+  width: 100%;
+  max-height: 70vh;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-highlight);
+  object-fit: contain;
+}
+
 .recipe-media {
   border: 1px dashed var(--border);
   border-radius: 16px;
