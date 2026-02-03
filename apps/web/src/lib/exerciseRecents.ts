@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Exercise } from "@/lib/types";
 
 export type ExerciseRecent = Pick<
@@ -102,24 +102,61 @@ export const addExerciseRecent = (exercise: Exercise) => {
 
 export const useExerciseRecents = () => {
   const [recents, setRecents] = useState<ExerciseRecent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  const loadRecents = useCallback(() => {
+    if (!isBrowser()) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const stored = window.localStorage.getItem(EXERCISE_RECENTS_STORAGE_KEY);
+      if (!stored) {
+        setRecents([]);
+        setHasError(false);
+        return;
+      }
+      const parsed = JSON.parse(stored);
+      if (!Array.isArray(parsed)) {
+        setRecents([]);
+        setHasError(false);
+        return;
+      }
+      setRecents(parsed.map(normalizeRecent).filter((item): item is ExerciseRecent => Boolean(item)));
+      setHasError(false);
+    } catch {
+      setRecents([]);
+      setHasError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isBrowser()) return;
-    const refresh = () => setRecents(getExerciseRecents());
-    refresh();
+    loadRecents();
     const handleStorage = (event: StorageEvent) => {
       if (event.key === EXERCISE_RECENTS_STORAGE_KEY) {
-        refresh();
+        loadRecents();
       }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  }, [loadRecents]);
 
   const clearRecents = () => {
     clearExerciseRecents();
     setRecents([]);
   };
 
-  return { recents, clearRecents, setRecents };
+  return {
+    recents,
+    clearRecents,
+    setRecents,
+    loading,
+    hasError,
+    refresh: loadRecents,
+  };
 };

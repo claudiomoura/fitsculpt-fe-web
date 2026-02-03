@@ -13,6 +13,8 @@ import type { Exercise } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 import { EmptyState, ErrorState, SkeletonExerciseList } from "@/components/exercise-library";
 
 type ExerciseResponse = {
@@ -33,17 +35,58 @@ export default function ExerciseLibraryClient() {
   const [equipmentFilter, setEquipmentFilter] = useState("all");
   const [muscleFilter, setMuscleFilter] = useState("all");
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const { recents, clearRecents } = useExerciseRecents();
-  const { favorites, toggleFavorite } = useExerciseFavorites();
+  const {
+    recents,
+    clearRecents,
+    loading: recentsLoading,
+    hasError: recentsError,
+    refresh: refreshRecents,
+  } = useExerciseRecents();
+  const {
+    favorites,
+    toggleFavorite,
+    loading: favoritesLoading,
+    hasError: favoritesError,
+    refresh: refreshFavorites,
+  } = useExerciseFavorites();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
+  const [isClearingRecents, setIsClearingRecents] = useState(false);
+  const { notify } = useToast();
 
   const handleResetFilters = () => {
     setQuery("");
     setEquipmentFilter("all");
     setMuscleFilter("all");
     setError(null);
+  };
+
+  const handleFavoriteToggle = (exerciseId: string, isFavorite: boolean) => {
+    if (!exerciseId || pendingFavoriteIds.includes(exerciseId)) return;
+    setPendingFavoriteIds((prev) => [...prev, exerciseId]);
+    toggleFavorite(exerciseId);
+    notify({
+      title: isFavorite ? t("library.favoriteRemovedToastTitle") : t("library.favoriteAddedToastTitle"),
+      description: t("library.favoriteToastDescription"),
+      variant: "success",
+    });
+    window.setTimeout(() => {
+      setPendingFavoriteIds((prev) => prev.filter((id) => id !== exerciseId));
+    }, 400);
+  };
+
+  const handleClearRecents = () => {
+    if (isClearingRecents) return;
+    setIsClearingRecents(true);
+    clearRecents();
+    notify({
+      title: t("library.recentsClearedToastTitle"),
+      description: t("library.recentsClearedToastDescription"),
+      variant: "success",
+    });
+    window.setTimeout(() => setIsClearingRecents(false), 400);
   };
 
   useEffect(() => {
@@ -103,6 +146,7 @@ export default function ExerciseLibraryClient() {
     const exerciseId = exercise.id;
     const coverUrl = getExerciseCoverUrl(exercise) || "/placeholders/exercise-cover.svg";
     const isFavorite = Boolean(exerciseId && favorites.includes(exerciseId));
+    const isFavoritePending = Boolean(exerciseId && pendingFavoriteIds.includes(exerciseId));
     const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
     const content = (
       <>
@@ -150,10 +194,11 @@ export default function ExerciseLibraryClient() {
           className="library-favorite-button"
           aria-pressed={isFavorite}
           aria-label={favoriteLabel}
+          loading={isFavoritePending}
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            toggleFavorite(exerciseId);
+            handleFavoriteToggle(exerciseId, isFavorite);
           }}
         >
           {favoriteLabel}
@@ -161,6 +206,9 @@ export default function ExerciseLibraryClient() {
       </div>
     );
   };
+
+  const showFavoritesEmpty = !favoritesLoading && !favoritesError && favoriteExercises.length === 0;
+  const showRecentsEmpty = !recentsLoading && !recentsError && recents.length === 0;
 
   return (
     <section className="card">
@@ -207,30 +255,100 @@ export default function ExerciseLibraryClient() {
         </div>
       </div>
 
-      {favoriteExercises.length > 0 ? (
-        <div className="mt-16">
-          <div className="flex items-center justify-between gap-8">
+      <div className="library-section mt-16">
+        <div className="library-section-header">
+          {favoritesLoading ? (
+            <Skeleton variant="line" className="w-30" />
+          ) : (
             <h3 className="m-0">{t("library.favoritesTitle")}</h3>
-          </div>
-          <div className="list-grid mt-12">
-            {favoriteExercises.map((exercise) => renderExerciseCard(exercise))}
-          </div>
+          )}
         </div>
-      ) : null}
+        <div className="library-section-body">
+          {favoritesLoading ? (
+            <SkeletonExerciseList count={2} className="mt-12" />
+          ) : favoritesError ? (
+            <div className="library-section-empty">
+              <ErrorState
+                title={t("library.favoritesErrorTitle")}
+                description={t("library.favoritesErrorDescription")}
+                actions={[
+                  {
+                    label: t("ui.retry"),
+                    onClick: refreshFavorites,
+                    variant: "secondary",
+                  },
+                ]}
+              />
+            </div>
+          ) : showFavoritesEmpty ? (
+            <div className="library-section-empty">
+              <EmptyState
+                title={t("library.favoritesEmptyTitle")}
+                description={t("library.favoritesEmptyDescription")}
+                icon="sparkles"
+              />
+            </div>
+          ) : (
+            <div className="list-grid mt-12">
+              {favoriteExercises.map((exercise) => renderExerciseCard(exercise))}
+            </div>
+          )}
+        </div>
+      </div>
 
-      {recents.length > 0 ? (
-        <div className="mt-16">
-          <div className="flex items-center justify-between gap-8">
+      <div className="library-section mt-16">
+        <div className="library-section-header">
+          {recentsLoading ? (
+            <Skeleton variant="line" className="w-25" />
+          ) : (
             <h3 className="m-0">{t("library.recentsTitle")}</h3>
-            <Button variant="ghost" size="sm" onClick={clearRecents}>
+          )}
+          {recentsLoading ? (
+            <Skeleton variant="line" className="w-20" />
+          ) : recentsError ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearRecents}
+              disabled={recents.length === 0}
+              loading={isClearingRecents}
+            >
               {t("library.recentsClear")}
             </Button>
-          </div>
-          <div className="list-grid mt-12">
-            {recents.map((exercise) => renderExerciseCard(exercise))}
-          </div>
+          )}
         </div>
-      ) : null}
+        <div className="library-section-body">
+          {recentsLoading ? (
+            <SkeletonExerciseList count={2} className="mt-12" />
+          ) : recentsError ? (
+            <div className="library-section-empty">
+              <ErrorState
+                title={t("library.recentsErrorTitle")}
+                description={t("library.recentsErrorDescription")}
+                actions={[
+                  {
+                    label: t("ui.retry"),
+                    onClick: refreshRecents,
+                    variant: "secondary",
+                  },
+                ]}
+              />
+            </div>
+          ) : showRecentsEmpty ? (
+            <div className="library-section-empty">
+              <EmptyState
+                title={t("library.recentsEmptyTitle")}
+                description={t("library.recentsEmptyDescription")}
+                icon="dumbbell"
+              />
+            </div>
+          ) : (
+            <div className="list-grid mt-12">
+              {recents.map((exercise) => renderExerciseCard(exercise))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {loading ? (
         <SkeletonExerciseList className="mt-16" />

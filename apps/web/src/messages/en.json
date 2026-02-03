@@ -1160,7 +1160,20 @@
     "favoriteAdd": "Add to favorites",
     "favoriteRemove": "Remove favorite",
     "recentsTitle": "Recents",
-    "recentsClear": "Clear"
+    "recentsClear": "Clear",
+    "favoritesEmptyTitle": "No favorites yet",
+    "favoritesEmptyDescription": "Save exercises to keep your go-to moves in one place.",
+    "favoritesErrorTitle": "We couldn't load your favorites",
+    "favoritesErrorDescription": "Try again to see your saved exercises.",
+    "recentsEmptyTitle": "No recent exercises",
+    "recentsEmptyDescription": "Your recently viewed exercises will show up here.",
+    "recentsErrorTitle": "We couldn't load your recents",
+    "recentsErrorDescription": "Refresh to see your recent exercises again.",
+    "favoriteAddedToastTitle": "Added to favorites",
+    "favoriteRemovedToastTitle": "Removed from favorites",
+    "favoriteToastDescription": "Your favorites list is up to date.",
+    "recentsClearedToastTitle": "Recents cleared",
+    "recentsClearedToastDescription": "Your recent exercises have been removed."
   },
   "recipes": {
     "loading": "Loading recipes...",

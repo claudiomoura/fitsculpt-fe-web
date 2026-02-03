@@ -6,6 +6,7 @@ import { addExerciseRecent } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise } from "@/lib/types";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import {
   ExerciseDetailErrorState,
   ExerciseDetailHeader,
@@ -48,7 +49,9 @@ export default function ExerciseDetailClient({
   const { t } = useLanguage();
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
   const [mediaPreviewError, setMediaPreviewError] = useState(false);
+  const [isFavoritePending, setIsFavoritePending] = useState(false);
   const { favorites, toggleFavorite } = useExerciseFavorites();
+  const { notify } = useToast();
   const media = useMemo(() => {
     if (!exercise) return null;
     const videoUrl = exercise.mediaUrl ?? exercise.videoUrl;
@@ -151,6 +154,17 @@ export default function ExerciseDetailClient({
   }, [equipmentLabel, hasPrimaryMuscles, hasSecondaryMuscles, primary, secondary, t]);
   const isFavorite = Boolean(exercise?.id && favorites.includes(exercise.id));
   const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
+  const handleFavoriteToggle = () => {
+    if (!exercise?.id || isFavoritePending) return;
+    setIsFavoritePending(true);
+    toggleFavorite(exercise.id);
+    notify({
+      title: isFavorite ? t("library.favoriteRemovedToastTitle") : t("library.favoriteAddedToastTitle"),
+      description: t("library.favoriteToastDescription"),
+      variant: "success",
+    });
+    window.setTimeout(() => setIsFavoritePending(false), 400);
+  };
 
   return (
     <section className="card centered-card">
@@ -165,10 +179,9 @@ export default function ExerciseDetailClient({
               size="sm"
               aria-pressed={isFavorite}
               aria-label={favoriteLabel}
-              onClick={() => {
-                if (!exercise.id) return;
-                toggleFavorite(exercise.id);
-              }}
+              loading={isFavoritePending}
+              disabled={!exercise.id}
+              onClick={handleFavoriteToggle}
             >
               {favoriteLabel}
             </Button>

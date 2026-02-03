@@ -2470,6 +2470,43 @@ label {
   z-index: 1;
 }
 
+.library-card-skeleton {
+  position: relative;
+}
+
+.skeleton-favorite {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 88px;
+  height: 30px;
+  border-radius: 999px;
+}
+
+.library-section {
+  display: grid;
+  gap: 12px;
+}
+
+.library-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.library-section-body {
+  display: grid;
+  gap: 12px;
+}
+
+.library-section-empty {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--bg-muted);
+}
+
 .inline-grid-2 {
   display: grid;
   gap: 12px;
