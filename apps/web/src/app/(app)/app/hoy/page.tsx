@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ButtonLink } from "@/components/ui/Button";
 import { getServerT } from "@/lib/serverI18n";
 
 export default async function TodayPage() {
@@ -11,27 +12,31 @@ export default async function TodayPage() {
         <p className="section-subtitle">{t("today.subtitle")}</p>
       </section>
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>
-          {t("quickActions.title")}
-        </h2>
-        <p className="section-subtitle">{t("quickActions.subtitle")}</p>
-        <div className="feature-card" style={{ marginTop: 12 }}>
-          <div style={{ display: "grid", gap: 6 }}>
-            <strong>{t("quickActions.recordWeight")}</strong>
-            <span className="muted">{t("quickActions.recordWeightDescription")}</span>
+        <div className="section-head">
+          <div>
+            <h2 className="section-title section-title-sm">{t("quickActions.title")}</h2>
+            <p className="section-subtitle">{t("quickActions.subtitle")}</p>
           </div>
-          <div style={{ marginTop: 12 }}>
-            <Link className="btn" href="/app/seguimiento#weight-entry">
+        </div>
+        <div className="quick-actions-grid">
+          <div className="quick-action-card">
+            <div>
+              <p className="quick-action-title">{t("quickActions.recordWeight")}</p>
+              <p className="quick-action-description">{t("quickActions.recordWeightDescription")}</p>
+            </div>
+            <ButtonLink as={Link} href="/app/seguimiento#weight-entry" className="quick-action-button">
               {t("quickActions.recordWeight")}
-            </Link>
+            </ButtonLink>
           </div>
         </div>
       </section>
       <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>
-          {t("today.focusTitle")}
-        </h2>
-        <p className="section-subtitle">{t("today.focusSubtitle")}</p>
+        <div className="section-head">
+          <div>
+            <h2 className="section-title section-title-sm">{t("today.focusTitle")}</h2>
+            <p className="section-subtitle">{t("today.focusSubtitle")}</p>
+          </div>
+        </div>
         <div className="today-highlight">
           <div>
             <p className="today-highlight-label">{t("today.focusPlan")}</p>

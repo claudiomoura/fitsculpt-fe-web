@@ -81,6 +81,22 @@
     "focusRecovery": "Recovery",
     "focusRecoveryValue": "Hydrate + rest check"
   },
+  "foods": {
+    "salmon": "Salmon",
+    "eggs": "Eggs",
+    "chicken": "Chicken",
+    "brownRice": "Brown rice",
+    "quinoa": "Quinoa",
+    "greekYogurt": "Greek yogurt",
+    "potato": "Potato",
+    "avocado": "Avocado"
+  },
+  "units": {
+    "kcal": "kcal",
+    "grams": "g",
+    "kilograms": "kg",
+    "percent": "%"
+  },
   "exerciseDetail": {
     "tabsLabel": "Exercise detail tabs",
     "detailsEmptyTitle": "No extra details",
@@ -357,6 +373,9 @@
     "todayMealsLabel": "meals",
     "quickActionsTitle": "Quick actions",
     "quickActionsSubtitle": "Generate a fresh plan with one tap.",
+    "calorieProgressLabel": "Calories progress ring",
+    "weightChartAria": "Weight chart",
+    "bodyFatChartAria": "Body fat chart",
     "profileIncompleteTitle": "Complete your onboarding",
     "profileIncompleteSubtitle": "Add a few details to unlock your training and nutrition dashboard.",
     "aiEyebrow": "AI Assistant",
@@ -500,6 +519,9 @@
     "proteinLabel": "Protein",
     "fatLabel": "Fat",
     "carbsLabel": "Carbs",
+    "proteinShort": "P",
+    "carbsShort": "C",
+    "fatShort": "F",
     "noteZeroCarbs": "Note: protein + fat already consumed the target calories. Lower g/kg or increase calories.",
     "perMeal": "Per meal",
     "perMealEqual": "equal",
