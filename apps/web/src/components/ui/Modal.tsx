@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/classNames";
+import { useLanguage } from "@/context/LanguageProvider";
 import { Button } from "./Button";
 
 type ModalProps = {
@@ -13,9 +14,11 @@ type ModalProps = {
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
+  overlayClassName?: string;
 };
 
-export function Modal({ open, title, description, onClose, children, footer, className }: ModalProps) {
+export function Modal({ open, title, description, onClose, children, footer, className, overlayClassName }: ModalProps) {
+  const { t } = useLanguage();
   useEffect(() => {
     if (!open) return;
     const handleKey = (event: KeyboardEvent) => {
@@ -33,7 +36,11 @@ export function Modal({ open, title, description, onClose, children, footer, cla
   if (!open) return null;
 
   return createPortal(
-    <div className="ui-modal-overlay" role="presentation" onMouseDown={(event) => event.currentTarget === event.target && onClose()}>
+    <div
+      className={cn("ui-modal-overlay", overlayClassName)}
+      role="presentation"
+      onMouseDown={(event) => event.currentTarget === event.target && onClose()}
+    >
       <div className={cn("ui-modal-card", className)} role="dialog" aria-modal="true">
         {(title || description) && (
           <div className="ui-modal-header">
@@ -41,7 +48,7 @@ export function Modal({ open, title, description, onClose, children, footer, cla
               {title ? <div className="ui-modal-title">{title}</div> : null}
               {description ? <p className="ui-modal-description">{description}</p> : null}
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label={t("ui.close")}>
               ×
             </Button>
           </div>

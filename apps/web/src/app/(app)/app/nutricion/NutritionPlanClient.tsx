@@ -617,7 +617,6 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     const media = window.matchMedia("(max-width: 768px)");
     const handleChange = () => {
       setIsMobile(media.matches);
-      setCalendarView((prev) => (media.matches && prev === "day" ? "agenda" : prev));
     };
     handleChange();
     if (typeof media.addEventListener === "function") {
@@ -699,7 +698,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const today = new Date();
   const calendarOptions = useMemo(() => {
     const baseOptions = [
-      { value: "day", label: t("calendar.viewDay") },
+      { value: "today", label: t("calendar.today") },
       { value: "week", label: t("calendar.viewWeek") },
       { value: "month", label: t("calendar.viewMonth") },
     ];
@@ -716,7 +715,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   useEffect(() => {
     if (!planStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
-    setSelectedDate(planStartDate);
+    setSelectedDate(new Date());
   }, [planStartDate]);
 
   useEffect(() => {
@@ -1354,20 +1353,28 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                     <p className="section-subtitle">{t("nutrition.calendarSubtitle")}</p>
                   </div>
                   <div className="section-actions calendar-actions">
-                    <Button variant="secondary" size="sm" onClick={() => setSelectedDate(new Date())}>
-                      {t("calendar.today")}
-                    </Button>
                     <div className="segmented-control">
-                      {calendarOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`segmented-control-btn ${calendarView === option.value ? "active" : ""}`}
-                          onClick={() => setCalendarView(option.value as typeof calendarView)}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+                      {calendarOptions.map((option) => {
+                        const isActive =
+                          option.value === "today" ? calendarView === "day" : calendarView === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            className={`segmented-control-btn ${isActive ? "active" : ""}`}
+                            onClick={() => {
+                              if (option.value === "today") {
+                                setSelectedDate(new Date());
+                                setCalendarView("day");
+                                return;
+                              }
+                              setCalendarView(option.value as typeof calendarView);
+                            }}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
