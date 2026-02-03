@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-export const NUTRITION_ADHERENCE_STORAGE_KEY = "fs_nutrition_adherence";
+export const NUTRITION_ADHERENCE_STORAGE_KEY = "fs_nutrition_adherence_v1";
 
 type NutritionAdherenceStore = Record<string, string[]>;
 
@@ -42,73 +42,96 @@ const writeStore = (store: NutritionAdherenceStore) => {
   }
 };
 
-export const getNutritionAdherence = (dateKey: string): string[] => {
-  if (!dateKey) return [];
-  const store = readStore();
-  return store[dateKey] ?? [];
-};
+const normalizeKey = (value?: string | null) => value?.trim() ?? "";
 
-export const setNutritionAdherence = (dateKey: string, items: string[]) => {
-  if (!dateKey) return;
-  const store = readStore();
-  store[dateKey] = Array.from(new Set(items));
-  writeStore(store);
-};
-
-export const toggleNutritionAdherence = (dateKey: string, itemKey: string) => {
-  if (!dateKey || !itemKey) return [];
-  const current = getNutritionAdherence(dateKey);
+const toggleStoreItem = (
+  store: NutritionAdherenceStore,
+  dateKey: string,
+  itemKey: string
+): NutritionAdherenceStore => {
+  const current = store[dateKey] ?? [];
   const next = current.includes(itemKey)
     ? current.filter((item) => item !== itemKey)
     : [...current, itemKey];
-  setNutritionAdherence(dateKey, next);
-  return next;
+  const nextStore = { ...store };
+  if (next.length > 0) {
+    nextStore[dateKey] = Array.from(new Set(next));
+  } else {
+    delete nextStore[dateKey];
+  }
+  return nextStore;
 };
 
-export const useNutritionAdherence = (dateKey: string) => {
-  const [consumedKeys, setConsumedKeys] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+export const useNutritionAdherence = () => {
+  const [store, setStore] = useState<NutritionAdherenceStore>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  const load = useCallback(() => {
+  const loadStore = useCallback(() => {
     if (!isBrowser()) {
-      setLoading(false);
+      setIsLoading(false);
       return;
     }
-    setLoading(true);
+    setIsLoading(true);
     try {
-      setConsumedKeys(getNutritionAdherence(dateKey));
-      setHasError(false);
+      setStore(readStore());
+      setError(false);
     } catch {
-      setConsumedKeys([]);
-      setHasError(true);
+      setStore({});
+      setError(true);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [dateKey]);
+  }, []);
 
   useEffect(() => {
     if (!isBrowser()) return;
-    load();
+    loadStore();
     const handleStorage = (event: StorageEvent) => {
       if (event.key === NUTRITION_ADHERENCE_STORAGE_KEY) {
-        load();
+        loadStore();
       }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [load]);
+  }, [loadStore]);
 
-  const toggle = (itemKey: string) => {
-    const next = toggleNutritionAdherence(dateKey, itemKey);
-    setConsumedKeys(next);
-  };
+  const isConsumed = useCallback(
+    (itemKey?: string | null, dateKey?: string | null) => {
+      const normalizedItemKey = normalizeKey(itemKey);
+      const normalizedDateKey = normalizeKey(dateKey);
+      if (!normalizedItemKey || !normalizedDateKey) return false;
+      return Boolean(store[normalizedDateKey]?.includes(normalizedItemKey));
+    },
+    [store]
+  );
+
+  const toggle = useCallback((itemKey?: string | null, dateKey?: string | null) => {
+    const normalizedItemKey = normalizeKey(itemKey);
+    const normalizedDateKey = normalizeKey(dateKey);
+    if (!normalizedItemKey || !normalizedDateKey) return;
+    const currentStore = readStore();
+    const nextStore = toggleStoreItem(currentStore, normalizedDateKey, normalizedItemKey);
+    writeStore(nextStore);
+    setStore(nextStore);
+  }, []);
+
+  const clearDay = useCallback((dateKey?: string | null) => {
+    const normalizedDateKey = normalizeKey(dateKey);
+    if (!normalizedDateKey) return;
+    const currentStore = readStore();
+    if (!currentStore[normalizedDateKey]) return;
+    const nextStore = { ...currentStore };
+    delete nextStore[normalizedDateKey];
+    writeStore(nextStore);
+    setStore(nextStore);
+  }, []);
 
   return {
-    consumedKeys,
-    loading,
-    hasError,
+    isLoading,
+    error,
+    isConsumed,
     toggle,
-    refresh: load,
+    clearDay,
   };
 };
