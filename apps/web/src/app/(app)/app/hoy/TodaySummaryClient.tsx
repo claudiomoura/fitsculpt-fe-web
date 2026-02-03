@@ -24,7 +24,8 @@ import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import { useExerciseRecents } from "@/lib/exerciseRecents";
-import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
+import type { NutritionPlanData, NutritionMeal, ProfileData, TrainingPlanData } from "@/lib/profile";
+import { slugifyExerciseName } from "@/lib/slugify";
 
 type CheckinEntry = {
   date?: string | null;
@@ -82,11 +83,30 @@ const buildTrainingSummary = (plan?: TrainingPlanData | null): TodayTrainingSumm
 const buildNutritionSummary = (plan?: NutritionPlanData | null): TodayNutritionSummaryData | null => {
   if (!plan?.days?.length) return null;
   const day = findTodayPlanDay(plan.days, plan.startDate);
-  if (!day) return null;
+  if (!day || day.meals.length === 0) return null;
+  const todayKey = toDateKey(new Date());
+  const meals = day.meals.map((meal: NutritionMeal) => {
+    const mealId = typeof (meal as { id?: unknown }).id === "string" ? (meal as { id: string }).id : null;
+    const title = meal.title?.trim();
+    const description = meal.description?.trim();
+    const parts = [day.date ?? todayKey, meal.type, title ? slugifyExerciseName(title) : ""].filter(Boolean);
+    const descriptionSlug = description ? slugifyExerciseName(description) : "";
+    if (descriptionSlug) {
+      parts.push(descriptionSlug);
+    }
+    const key = mealId ?? (title ? parts.join(":") : null);
+    return {
+      key,
+      title: meal.title,
+      description: meal.description,
+      type: meal.type,
+    };
+  });
   return {
     label: day.dayLabel,
-    meals: day.meals.length,
+    meals,
     calories: plan.dailyCalories,
+    dayKey: todayKey,
   };
 };
 
@@ -251,6 +271,14 @@ export default function TodaySummaryClient() {
     );
   }, [notesSupported, t]);
 
+  const nutritionEmptyActions = [
+    { label: t("today.nutritionCta"), href: "/app/nutricion", variant: "secondary" },
+  ];
+  const nutritionErrorActions = [
+    { label: t("today.nutritionCta"), href: "/app/nutricion" },
+    { label: t("ui.retry"), onClick: loadProfile, variant: "secondary" },
+  ];
+
   const energyEmptyActions = energySupported
     ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
     : undefined;
@@ -376,13 +404,14 @@ export default function TodaySummaryClient() {
           <ErrorState
             title={t("today.nutritionErrorTitle")}
             description={t("today.nutritionErrorDescription")}
-            actions={[{ label: t("ui.retry"), onClick: loadProfile, variant: "secondary" }]}
+            actions={nutritionErrorActions}
           />
         }
         empty={
           <EmptyState
             title={t("today.nutritionEmptyTitle")}
             description={t("today.nutritionEmptyDescription")}
+            actions={nutritionEmptyActions}
           />
         }
       >
