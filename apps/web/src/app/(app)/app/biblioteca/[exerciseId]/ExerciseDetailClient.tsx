@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseDemoUrl } from "@/lib/exerciseMedia";
 import type { Exercise } from "@/lib/types";
 import { ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
+import { Button } from "@/components/ui/Button";
+import {
+  ExerciseDetailErrorState,
+  ExerciseDetailHeader,
+  ExerciseDetailSections,
+  ExerciseMediaViewer,
+  ExerciseDetailEmptyState,
+} from "@/components/exercise-library";
 
 type ExerciseDetailClientProps = {
   exercise: Exercise | null;
@@ -35,68 +42,73 @@ export default function ExerciseDetailClient({
 }: ExerciseDetailClientProps) {
   const { t } = useLanguage();
   const [forceImageFallback, setForceImageFallback] = useState(false);
-  const [activeTab, setActiveTab] = useState<"execution" | "muscles">("execution");
-  if (error || !exercise) {
+  const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
+  if (error) {
     return (
-      <section className="card centered-card">
-        <div className="empty-state">
-          <div className="empty-state-icon">
-            <Icon name="warning" />
-          </div>
-          <div>
-            <h3 className="m-0">{t("library.errorTitle")}</h3>
-            <p className="muted">{error ?? t("library.loadError")}</p>
-          </div>
-          <ButtonLink href="/app/biblioteca" className="fit-content">
-            {t("ui.backToLibrary")}
-          </ButtonLink>
-        </div>
-      </section>
+      <ExerciseDetailErrorState
+        title={t("exerciseDetail.errorTitle")}
+        description={error ?? t("library.loadError")}
+        actionLabel={t("ui.backToLibrary")}
+        actionHref="/app/biblioteca"
+      />
+    );
+  }
+
+  if (!exercise) {
+    return (
+      <ExerciseDetailEmptyState
+        title={t("exerciseDetail.emptyTitle")}
+        description={t("exerciseDetail.emptyDescription")}
+        actionLabel={t("ui.backToLibrary")}
+        actionHref="/app/biblioteca"
+      />
     );
   }
 
   const { primary, secondary } = getMuscleGroups(exercise);
   const levelLabel = t("library.levelGeneral");
-  const primaryLabel = primary[0] ?? t("library.levelGeneral");
   const equipmentLabel = exercise.equipment ?? t("library.equipmentFallback");
   const hasDescription = Boolean(exercise.description);
   const hasTechnique = Boolean(exercise.technique);
   const hasTips = Boolean(exercise.tips);
-  const hasExecutionDetails = hasDescription || hasTechnique || hasTips;
   const demoMedia = getExerciseDemoUrl(exercise);
   const hasMedia = Boolean(exercise.mediaUrl || exercise.videoUrl || exercise.posterUrl || exercise.imageUrl);
   const demoImageUrl = forceImageFallback ? "/placeholders/exercise-demo.svg" : demoMedia.url;
+  const badgeItems = useMemo(
+    () => [
+      {
+        label: t("library.primaryLabel"),
+        value: primary[0] ?? t("library.noMuscleData"),
+      },
+      ...secondary.map((muscle) => ({
+        label: t("library.secondaryLabel"),
+        value: muscle,
+        variant: "muted" as const,
+      })),
+      {
+        label: t("library.levelLabel"),
+        value: levelLabel,
+      },
+      {
+        label: t("library.equipmentLabel"),
+        value: equipmentLabel,
+      },
+    ],
+    [equipmentLabel, levelLabel, primary, secondary, t]
+  );
 
   return (
     <section className="card centered-card">
-      <div className="page-header">
-        <div className="page-header-body">
-          <h1 className="section-title">{exercise.name}</h1>
-          <p className="section-subtitle">{t("ui.exerciseGuide")}</p>
-        </div>
-        <div className="page-header-actions">
+      <ExerciseDetailHeader
+        title={exercise.name}
+        subtitle={t("ui.exerciseGuide")}
+        badges={badgeItems}
+        actions={
           <ButtonLink variant="secondary" href="/app/biblioteca">
             {t("ui.backToLibrary")}
           </ButtonLink>
-        </div>
-      </div>
-
-      <div className="badge-list mt-12">
-        <span className="badge">
-          {t("library.primaryLabel")}: {primary[0] ?? t("library.levelGeneral")}
-        </span>
-        {secondary.length > 0 ? (
-          secondary.map((muscle, index) => (
-            <span key={`${muscle}-${index}`} className="badge">
-              {t("library.secondaryLabel")}: {muscle}
-            </span>
-          ))
-        ) : (
-          <span className="badge">{t("library.secondaryLabel")}: {t("library.secondaryFallback")}</span>
-        )}
-        <span className="badge">{t("library.levelLabel")}: {levelLabel}</span>
-        <span className="badge">{t("library.equipmentLabel")}: {equipmentLabel}</span>
-      </div>
+        }
+      />
 
       <div className="exercise-detail-grid">
         <div className="feature-card exercise-media">
@@ -122,7 +134,14 @@ export default function ExerciseDetailClient({
               }}
             />
           )}
-          {!hasMedia ? <p className="muted">{t("library.mediaPlaceholder")}</p> : null}
+          <div className="inline-actions-sm">
+            {hasMedia ? (
+              <Button variant="secondary" size="sm" onClick={() => setIsMediaViewerOpen(true)}>
+                {t("exerciseDetail.openMedia")}
+              </Button>
+            ) : null}
+            {!hasMedia ? <p className="muted">{t("library.mediaPlaceholder")}</p> : null}
+          </div>
         </div>
 
         {hasDescription ? (
@@ -135,81 +154,36 @@ export default function ExerciseDetailClient({
         ) : null}
       </div>
 
-      <div className="tab-list mt-20">
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "execution" ? "active" : ""}`}
-          onClick={() => setActiveTab("execution")}
-        >
-          {t("exerciseDetail.tabExecution")}
-        </button>
-        <button
-          type="button"
-          className={`tab-btn ${activeTab === "muscles" ? "active" : ""}`}
-          onClick={() => setActiveTab("muscles")}
-        >
-          {t("exerciseDetail.tabMuscles")}
-        </button>
-      </div>
+      <ExerciseDetailSections
+        description={hasDescription ? exercise.description : null}
+        technique={hasTechnique ? exercise.technique : null}
+        tips={hasTips ? exercise.tips : null}
+        primaryMuscles={primary}
+        secondaryMuscles={secondary}
+        labels={{
+          executionTab: t("exerciseDetail.tabExecution"),
+          musclesTab: t("exerciseDetail.tabMuscles"),
+          executionPrepTitle: t("exerciseDetail.executionPrep"),
+          executionMoveTitle: t("exerciseDetail.executionMove"),
+          executionTipsTitle: t("exerciseDetail.executionTips"),
+          executionEmpty: t("library.noExecutionDetails"),
+          muscleMapPlaceholder: t("exerciseDetail.muscleMapPlaceholder"),
+          primaryMusclesTitle: t("exerciseDetail.primaryMuscles"),
+          secondaryMusclesTitle: t("exerciseDetail.secondaryMuscles"),
+          secondaryMusclesEmpty: t("library.secondaryFallback"),
+          noMusclesFallback: t("library.noMuscleData"),
+        }}
+      />
 
-      {activeTab === "execution" ? (
-        hasExecutionDetails ? (
-          <div className="tab-panel">
-            {hasDescription ? (
-              <div className="feature-card">
-                <h3>{t("exerciseDetail.executionPrep")}</h3>
-                <p className="muted mt-8">
-                  {exercise.description}
-                </p>
-              </div>
-            ) : null}
-            {hasTechnique ? (
-              <div className="feature-card">
-                <h3>{t("exerciseDetail.executionMove")}</h3>
-                <p className="muted mt-8">
-                  {exercise.technique}
-                </p>
-              </div>
-            ) : null}
-            {hasTips ? (
-              <div className="feature-card">
-                <h3>{t("exerciseDetail.executionTips")}</h3>
-                <p className="muted mt-8">
-                  {exercise.tips}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="muted mt-16">
-            {t("library.noExecutionDetails")}
-          </p>
-        )
-      ) : (
-        <div className="tab-panel">
-          <div className="feature-card muscle-map">
-            <span className="muted">{t("exerciseDetail.muscleMapPlaceholder")}</span>
-          </div>
-          <div className="list-grid">
-            <div className="feature-card">
-              <h3>{t("exerciseDetail.primaryMuscles")}</h3>
-              <p className="muted mt-8">{primaryLabel}</p>
-            </div>
-            <div className="feature-card">
-              <h3>{t("exerciseDetail.secondaryMuscles")}</h3>
-              {secondary.length > 0 ? (
-                <ul className="muted list-muted">
-                  {secondary.map((muscle, index) => (
-                    <li key={`${muscle}-${index}`}>{muscle}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="muted mt-8">{t("library.secondaryFallback")}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ExerciseMediaViewer
+        open={isMediaViewerOpen}
+        onClose={() => setIsMediaViewerOpen(false)}
+        media={hasMedia ? demoMedia : null}
+        title={t("exerciseDetail.mediaViewerTitle")}
+        description={t("exerciseDetail.mediaViewerDescription")}
+        closeLabel={t("ui.close")}
+        mediaAlt={`${t("library.mediaAlt")} ${exercise.name}`}
+      />
     </section>
   );
 }

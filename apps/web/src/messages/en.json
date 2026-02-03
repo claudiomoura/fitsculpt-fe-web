@@ -84,6 +84,12 @@
   "exerciseDetail": {
     "tabExecution": "Execution",
     "tabMuscles": "Muscles",
+    "openMedia": "View media",
+    "mediaViewerTitle": "Exercise media",
+    "mediaViewerDescription": "Full-screen demo for this exercise.",
+    "emptyTitle": "Exercise not found",
+    "emptyDescription": "This exercise isn't available yet.",
+    "errorTitle": "We couldn't load the exercise",
     "executionPrep": "Setup",
     "executionMove": "Execution",
     "executionTips": "Tips",
