@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
-import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type CheckinEntry = {
   id: string;
@@ -553,12 +553,22 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     return delta < 0 ? t("tracking.statusUnder") : t("tracking.statusOver");
   }
 
+  const macroLabels = useMemo(
+    () => ({
+      protein: t("macros.proteinShort"),
+      carbs: t("macros.carbsShort"),
+      fat: t("macros.fatShort"),
+    }),
+    [t]
+  );
+
   function getMacroBadge(label: string, value: number, target?: number | null) {
     if (!target) return null;
     const statusClass = getStatusClass(value, target);
     return (
       <span className={`status-pill is-compact ${statusClass}`} key={label}>
-        {label} {value.toFixed(0)}g
+        {label} {value.toFixed(0)}
+        {t("units.grams")}
       </span>
     );
   }
@@ -791,7 +801,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             ) : latestCheckin ? (
               <div style={{ display: "grid", gap: 4 }}>
                 <strong>
-                  {latestCheckin.weightKg} {t("tracking.weightUnit")}
+                  {latestCheckin.weightKg} {t("units.kilograms")}
                 </strong>
                 <span className="muted">{latestCheckin.date}</span>
               </div>
@@ -805,7 +815,14 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               {t("tracking.weightHistoryTitle")}
             </p>
             {trackingStatus === "loading" ? (
-              <SkeletonCard />
+              <div className="tracking-history-skeleton" aria-hidden="true">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={`history-skeleton-${index}`} className="tracking-history-skeleton-row">
+                    <Skeleton variant="line" className="tracking-history-skeleton-date" />
+                    <Skeleton variant="line" className="tracking-history-skeleton-value" />
+                  </div>
+                ))}
+              </div>
             ) : trackingStatus === "error" ? (
               <p className="muted">{t("tracking.weightHistoryError")}</p>
             ) : sortedCheckins.length === 0 ? (
@@ -816,7 +833,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <span>{entry.date}</span>
                     <span className="muted">
-                      {entry.weightKg} {t("tracking.weightUnit")}
+                      {entry.weightKg} {t("units.kilograms")}
                     </span>
                   </div>
                 ))}
@@ -974,7 +991,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   <strong>{entry.date}</strong>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span>
-                      {entry.weightKg} kg · {entry.waistCm} cm
+                      {entry.weightKg} {t("units.kilograms")} · {entry.waistCm} {t("units.centimeters")}
                     </span>
                     <button
                       type="button"
@@ -1026,7 +1043,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               <div key={`${point.date}-${index}`} className="info-item">
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                   <strong>{point.date}</strong>
-                  <span className="muted">{point.weight} kg · {point.bodyFat}%</span>
+                  <span className="muted">
+                    {point.weight} {t("units.kilograms")} · {point.bodyFat}
+                    {t("units.percent")}
+                  </span>
                 </div>
                 <div style={{ marginTop: 8, background: "#fef3c7", borderRadius: 999, overflow: "hidden", height: 10 }}>
                   <div
@@ -1097,7 +1117,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     <div className="meal-totals-header">
                       <span className="muted">{t("tracking.mealTotals")}</span>
                       <div className="meal-totals-calories">
-                        <strong>{totals.calories.toFixed(0)} kcal</strong>
+                        <strong>
+                          {totals.calories.toFixed(0)} {t("units.kcal")}
+                        </strong>
                         {nutritionTargets ? (
                           <span
                             className={`status-pill ${getStatusClass(totals.calories, nutritionTargets.calories)}`}
@@ -1108,17 +1130,26 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                       </div>
                     </div>
                     <div className="meal-totals-macros">
-                      <span>{totals.protein.toFixed(1)}g P</span>
-                      <span>{totals.carbs.toFixed(1)}g C</span>
-                      <span>{totals.fat.toFixed(1)}g G</span>
+                      <span>
+                        {totals.protein.toFixed(1)}
+                        {t("units.grams")} {macroLabels.protein}
+                      </span>
+                      <span>
+                        {totals.carbs.toFixed(1)}
+                        {t("units.grams")} {macroLabels.carbs}
+                      </span>
+                      <span>
+                        {totals.fat.toFixed(1)}
+                        {t("units.grams")} {macroLabels.fat}
+                      </span>
                     </div>
                     {nutritionTargets ? (
                       <div className="meal-targets">
-                        {getMacroBadge("P", totals.protein, nutritionTargets.protein)}
-                        {getMacroBadge("C", totals.carbs, nutritionTargets.carbs)}
-                        {getMacroBadge("G", totals.fat, nutritionTargets.fat)}
+                        {getMacroBadge(macroLabels.protein, totals.protein, nutritionTargets.protein)}
+                        {getMacroBadge(macroLabels.carbs, totals.carbs, nutritionTargets.carbs)}
+                        {getMacroBadge(macroLabels.fat, totals.fat, nutritionTargets.fat)}
                         <span className="muted">
-                          {t("tracking.targetLabel")}: {nutritionTargets.calories} kcal
+                          {t("tracking.targetLabel")}: {nutritionTargets.calories} {t("units.kcal")}
                         </span>
                       </div>
                     ) : (
@@ -1134,8 +1165,11 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                         <li key={entry.id}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             <span>
-                              {profile.label} {entry.grams}g → {(profile.protein * factor).toFixed(1)}P /{" "}
-                              {(profile.carbs * factor).toFixed(1)}C / {(profile.fat * factor).toFixed(1)}G
+                              {profile.label} {entry.grams}
+                              {t("units.grams")} → {(profile.protein * factor).toFixed(1)}
+                              {macroLabels.protein} / {(profile.carbs * factor).toFixed(1)}
+                              {macroLabels.carbs} / {(profile.fat * factor).toFixed(1)}
+                              {macroLabels.fat}
                             </span>
                             <button
                               type="button"
