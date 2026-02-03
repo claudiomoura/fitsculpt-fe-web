@@ -1,0 +1,61 @@
+"use client";
+
+import type { ComponentPropsWithoutRef } from "react";
+import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
+import { useLanguage } from "@/context/LanguageProvider";
+import { useNutritionAdherence } from "@/lib/nutritionAdherence";
+
+export type ToggleConsumidoProps = {
+  itemKey?: string | null;
+  dateKey?: string | null;
+  disabled?: boolean;
+} & Omit<ComponentPropsWithoutRef<typeof Button>, "onClick" | "disabled" | "loading">;
+
+export default function ToggleConsumido({
+  itemKey,
+  dateKey,
+  disabled = false,
+  variant = "secondary",
+  size = "sm",
+  ...props
+}: ToggleConsumidoProps) {
+  const { t } = useLanguage();
+  const { notify } = useToast();
+  const { data, isLoading, toggle } = useNutritionAdherence();
+
+  const normalizedItemKey = itemKey?.trim();
+  const normalizedDateKey = dateKey?.trim();
+  const isConsumed = Boolean(
+    normalizedItemKey && normalizedDateKey && data[normalizedDateKey]?.[normalizedItemKey]
+  );
+  const isDisabled = disabled || isLoading || !normalizedItemKey || !normalizedDateKey;
+
+  const handleToggle = () => {
+    if (!normalizedItemKey || !normalizedDateKey) return;
+    const nextConsumed = !isConsumed;
+    toggle(normalizedItemKey, normalizedDateKey);
+    if (nextConsumed) {
+      notify({
+        title: t("nutrition.adherenceToastTitle"),
+        description: t("nutrition.adherenceToastDescription"),
+        variant: "success",
+      });
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant={variant}
+      size={size}
+      loading={isLoading}
+      disabled={isDisabled}
+      aria-pressed={isConsumed}
+      onClick={handleToggle}
+      {...props}
+    >
+      {isConsumed ? t("nutrition.adherenceConsumedLabel") : t("nutrition.adherenceMarkLabel")}
+    </Button>
+  );
+}
