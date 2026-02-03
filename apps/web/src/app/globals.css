@@ -1651,6 +1651,15 @@ label {
   margin-top: 16px;
 }
 
+.today-highlight-item {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  display: grid;
+  gap: 6px;
+}
+
 .today-actions-grid {
   display: grid;
   gap: 16px;
@@ -1662,7 +1671,18 @@ label {
 }
 
 .today-action-card.is-disabled {
-  opacity: 0.65;
+  opacity: 1;
+  background: color-mix(in srgb, var(--bg-muted) 80%, var(--bg) 20%);
+  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.today-action-card.is-disabled .today-action-title {
+  color: var(--text-muted);
+}
+
+.today-action-card:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .today-action-title {
@@ -1721,6 +1741,27 @@ label {
 .today-highlight-value {
   font-weight: 600;
   margin: 0;
+}
+
+@media (max-width: 640px) {
+  .section-head--card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-head--card .section-actions {
+    width: 100%;
+  }
+
+  .section-head--card .section-actions .ui-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .quick-action-button {
+    width: 100%;
+    justify-self: stretch;
+  }
 }
 
 .nav-link {
@@ -1839,6 +1880,17 @@ label {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
+}
+
+.section-head--card {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .list-grid {
