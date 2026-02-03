@@ -144,12 +144,15 @@ export async function saveCheckinAndSyncProfileMetrics(
     },
   };
 
-  await fetch("/api/tracking", {
+  const trackingResponse = await fetch("/api/tracking", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify(tracking),
   });
+  if (!trackingResponse.ok) {
+    throw new Error("Tracking save failed");
+  }
 
   const profileResponse = await fetch("/api/profile", {
     method: "PUT",
