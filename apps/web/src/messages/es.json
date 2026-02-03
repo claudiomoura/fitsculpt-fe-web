@@ -72,14 +72,27 @@
   "today": {
     "title": "Hoy",
     "subtitle": "Tu centro móvil para lo más importante de ahora.",
-    "focusTitle": "Resumen rápido",
-    "focusSubtitle": "Una vista rápida para mantenerte en ruta.",
-    "focusPlan": "Entrenamiento",
-    "focusPlanValue": "Plan listo para hoy",
-    "focusNutrition": "Nutrición",
-    "focusNutritionValue": "Macros alineadas con tu objetivo",
-    "focusRecovery": "Recuperación",
-    "focusRecoveryValue": "Hidratación + descanso"
+    "quickActionsTitle": "Acciones rápidas",
+    "quickActionsSubtitle": "Entra en lo esencial de hoy con un toque.",
+    "summaryTitle": "Resumen de hoy",
+    "summarySubtitle": "Entrenamiento, nutrición y check-ins aparecerán aquí.",
+    "summaryTrainingTitle": "Entrenamiento",
+    "summaryTrainingPlaceholder": "Aquí se mostrará el entrenamiento de hoy.",
+    "summaryNutritionTitle": "Nutrición",
+    "summaryNutritionPlaceholder": "Aquí se mostrará la nutrición de hoy.",
+    "summaryWeightTitle": "Peso",
+    "summaryWeightPlaceholder": "Aquí se mostrará el último check-in.",
+    "actionUnavailable": "No disponible por ahora.",
+    "actions": {
+      "openTraining": "Abrir entrenamiento de hoy",
+      "openTrainingDescription": "Revisa tu plan de entrenamiento y empieza.",
+      "openNutrition": "Ver nutrición de hoy",
+      "openNutritionDescription": "Consulta comidas y macros de hoy.",
+      "recordWeight": "Registrar peso",
+      "recordWeightDescription": "Añade un nuevo check-in en Progreso.",
+      "openLibrary": "Abrir biblioteca",
+      "openLibraryDescription": "Explora ejercicios y guarda favoritos."
+    }
   },
   "exerciseDetail": {
     "tabsLabel": "Pestañas de detalle del ejercicio",
