@@ -18,6 +18,10 @@ export type WeightProgressSummary = {
   deltaKg: number | null;
 };
 
+export function hasSufficientWeightProgress(summary: WeightProgressSummary): boolean {
+  return Boolean(summary.current?.entries.length && summary.previous?.entries.length);
+}
+
 const toStartOfDay = (date: Date) => {
   const next = new Date(date);
   next.setHours(0, 0, 0, 0);

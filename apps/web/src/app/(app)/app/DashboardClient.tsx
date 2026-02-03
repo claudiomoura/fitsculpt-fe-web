@@ -5,7 +5,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
-import { buildWeightProgressSummary, normalizeWeightLogs } from "@/lib/weightProgress";
+import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -336,10 +336,11 @@ export default function DashboardClient() {
 
   const weightLogs = useMemo(() => normalizeWeightLogs(checkins), [checkins]);
   const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
+  const hasWeightEntries = Boolean(weightProgress.current?.entries.length);
+  const hasWeightProgress = hasSufficientWeightProgress(weightProgress);
   const weightDelta = weightProgress.deltaKg;
-  const hasWeightTrend = Boolean(weightProgress.current?.entries.length && weightProgress.previous?.entries.length);
   const weightDeltaLabel =
-    hasWeightTrend && weightDelta !== null
+    hasWeightProgress && weightDelta !== null
       ? weightDelta > 0
         ? t("dashboard.weightProgressTrendUp")
         : weightDelta < 0
@@ -347,7 +348,7 @@ export default function DashboardClient() {
           : t("dashboard.weightProgressTrendStable")
       : null;
   const weightDeltaStatus =
-    weightDelta === null || !hasWeightTrend
+    weightDelta === null || !hasWeightProgress
       ? ""
       : weightDelta > 0
         ? "status-over"
@@ -568,7 +569,7 @@ export default function DashboardClient() {
               </ButtonLink>
             </div>
           </div>
-        ) : !weightProgress.current ? (
+        ) : !hasWeightEntries ? (
           <div className="empty-state dashboard-empty">
             <div className="empty-state-icon">
               <Icon name="info" />
@@ -576,6 +577,19 @@ export default function DashboardClient() {
             <div>
               <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
               <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
+            </div>
+            <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+              {t("dashboard.weightProgressEmptyCta")}
+            </ButtonLink>
+          </div>
+        ) : !hasWeightProgress ? (
+          <div className="empty-state dashboard-empty">
+            <div className="empty-state-icon">
+              <Icon name="info" />
+            </div>
+            <div>
+              <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
+              <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
             </div>
             <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
               {t("dashboard.weightProgressEmptyCta")}
