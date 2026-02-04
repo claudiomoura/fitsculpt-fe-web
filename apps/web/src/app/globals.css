@@ -933,6 +933,28 @@ main {
   justify-self: start;
 }
 
+.exercise-mini-card.is-clickable,
+.exercise-row.is-clickable {
+  cursor: pointer;
+}
+
+.exercise-mini-card.is-clickable:hover,
+.exercise-row.is-clickable:hover {
+  box-shadow: var(--shadow);
+}
+
+.exercise-mini-card.is-clickable:focus-visible,
+.exercise-row.is-clickable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.exercise-mini-card.is-disabled,
+.exercise-row.is-disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
 .exercise-list {
   display: grid;
   gap: 12px;
@@ -1559,7 +1581,7 @@ label {
   background: color-mix(in srgb, var(--bg-card) 88%, transparent);
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   backdrop-filter: blur(16px);
-  z-index: 45;
+  z-index: 60;
   display: none;
 }
 
