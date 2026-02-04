@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { EmptyState } from "@/components/exercise-library/states/EmptyState";
 import { ErrorState } from "@/components/exercise-library/states/ErrorState";
 import { SkeletonExerciseList } from "@/components/exercise-library/states/SkeletonExerciseList";
@@ -53,6 +53,9 @@ type ShortcutExercise = {
   isFallback: boolean;
 };
 
+type ErrorAction = NonNullable<ComponentProps<typeof ErrorState>["actions"]>[number];
+type EmptyAction = NonNullable<ComponentProps<typeof EmptyState>["actions"]>[number];
+
 const SHORTCUT_LIMIT = 4;
 
 const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
@@ -85,23 +88,27 @@ const buildNutritionSummary = (plan?: NutritionPlanData | null): TodayNutritionS
   const day = findTodayPlanDay(plan.days, plan.startDate);
   if (!day || day.meals.length === 0) return null;
   const todayKey = toDateKey(new Date());
-  const meals = day.meals.map((meal: NutritionMeal) => {
-    const mealId = typeof (meal as { id?: unknown }).id === "string" ? (meal as { id: string }).id : null;
-    const title = meal.title?.trim();
-    const description = meal.description?.trim();
-    const parts = [day.date ?? todayKey, meal.type, title ? slugifyExerciseName(title) : ""].filter(Boolean);
-    const descriptionSlug = description ? slugifyExerciseName(description) : "";
-    if (descriptionSlug) {
-      parts.push(descriptionSlug);
-    }
-    const key = mealId ?? (title ? parts.join(":") : null);
-    return {
-      key,
-      title: meal.title,
-      description: meal.description,
-      type: meal.type,
-    };
-  });
+const meals = day.meals.map((meal: NutritionMeal, index: number) => {
+  const title = meal.title?.trim() ?? "";
+  const description = meal.description?.trim() ?? "";
+
+  const parts = [
+    day.date ?? todayKey,
+    meal.type ?? "",
+    title ? slugifyExerciseName(title) : "",
+    description ? slugifyExerciseName(description) : "",
+  ].filter(Boolean);
+
+  // key MUST be a string (avoid null) to satisfy TS and React keys
+  const key = parts.length > 0 ? parts.join(":") : `meal:${todayKey}:${index}`;
+
+  return {
+    key,
+    title: meal.title,
+    description: meal.description,
+    type: meal.type,
+  };
+});
   return {
     label: day.dayLabel,
     meals,
@@ -113,36 +120,57 @@ const buildNutritionSummary = (plan?: NutritionPlanData | null): TodayNutritionS
 const getLatestWeight = (checkins: CheckinEntry[]): TodayWeightSummaryData | null => {
   const validEntries = checkins
     .map((entry) => ({ entry, parsed: parseDate(entry.date) }))
-    .filter(({ entry, parsed }) => parsed && Number.isFinite(entry.weightKg));
+    .filter(
+      (item): item is { entry: CheckinEntry; parsed: Date } =>
+        item.parsed !== null && Number.isFinite(item.entry.weightKg)
+    );
+
   if (validEntries.length === 0) return null;
-  const latest = validEntries.sort((a, b) => a.parsed.getTime() - b.parsed.getTime()).at(-1)?.entry;
+
+  const latest = validEntries
+    .sort((a, b) => b.parsed.getTime() - a.parsed.getTime())[0]?.entry;
+
   if (!latest?.date || !Number.isFinite(latest.weightKg)) return null;
+
   return { weightKg: Number(latest.weightKg), date: latest.date };
 };
 
 const getLatestEnergy = (checkins: CheckinEntry[]): TodayEnergySummaryData | null => {
   const validEntries = checkins
     .map((entry) => ({ entry, parsed: parseDate(entry.date) }))
-    .filter(({ entry, parsed }) => parsed && Number.isFinite(entry.energy));
+    .filter(
+      (item): item is { entry: CheckinEntry; parsed: Date } =>
+        item.parsed !== null && Number.isFinite(item.entry.energy)
+    );
+
   if (validEntries.length === 0) return null;
-  const latest = validEntries.sort((a, b) => a.parsed.getTime() - b.parsed.getTime()).at(-1)?.entry;
+
+  const latest = validEntries
+    .sort((a, b) => b.parsed.getTime() - a.parsed.getTime())[0]?.entry;
+
   if (!latest?.date || !Number.isFinite(latest.energy)) return null;
+
   return { energy: Number(latest.energy), date: latest.date };
 };
-
 const getLatestNote = (checkins: CheckinEntry[]): TodayNotesSummaryData | null => {
   const validEntries = checkins
     .map((entry) => ({ entry, parsed: parseDate(entry.date) }))
-    .filter(({ entry, parsed }) => parsed && typeof entry.notes === "string");
+    .filter(
+      (item): item is { entry: CheckinEntry; parsed: Date } =>
+        item.parsed !== null &&
+        typeof item.entry.notes === "string" &&
+        item.entry.notes.trim().length > 0
+    );
+
   if (validEntries.length === 0) return null;
+
   const latest = validEntries
-    .filter(({ entry }) => entry.notes && entry.notes.trim().length > 0)
-    .sort((a, b) => a.parsed.getTime() - b.parsed.getTime())
-    .at(-1)?.entry;
+    .sort((a, b) => b.parsed.getTime() - a.parsed.getTime())[0]?.entry;
+
   if (!latest?.date || !latest.notes?.trim()) return null;
+
   return { notes: latest.notes.trim(), date: latest.date };
 };
-
 export default function TodaySummaryClient() {
   const { t } = useLanguage();
   const mountedRef = useRef(true);
@@ -271,28 +299,31 @@ export default function TodaySummaryClient() {
     );
   }, [notesSupported, t]);
 
-  const nutritionEmptyActions = [
-    { label: t("today.nutritionCta"), href: "/app/nutricion", variant: "secondary" },
-  ];
-  const nutritionErrorActions = [
-    { label: t("today.nutritionCta"), href: "/app/nutricion" },
-    { label: t("ui.retry"), onClick: loadProfile, variant: "secondary" },
-  ];
+const nutritionEmptyActions: EmptyAction[] = [
+  { label: t("today.nutritionCta"), href: "/app/nutricion", variant: "secondary" },
+];
 
-  const energyEmptyActions = energySupported
-    ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
-    : undefined;
-  const notesEmptyActions = notesSupported
-    ? [{ label: t("today.notesCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
-    : undefined;
-  const energyErrorActions = [
-    ...(energySupported ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry" }] : []),
-    { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
-  ];
-  const notesErrorActions = [
-    ...(notesSupported ? [{ label: t("today.notesCta"), href: "/app/seguimiento#checkin-entry" }] : []),
-    { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
-  ];
+const nutritionErrorActions: ErrorAction[] = [
+  { label: t("today.nutritionCta"), href: "/app/nutricion" },
+  { label: t("ui.retry"), onClick: loadProfile, variant: "secondary" },
+];
+
+const energyEmptyActions: EmptyAction[] | undefined = energySupported
+  ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
+  : undefined;
+
+const notesEmptyActions: EmptyAction[] | undefined = notesSupported
+  ? [{ label: t("today.notesCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
+  : undefined;
+const energyErrorActions: ErrorAction[] = [
+  ...(energySupported ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry" }] : []),
+  { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
+];
+
+const notesErrorActions: ErrorAction[] = [
+  ...(notesSupported ? [{ label: t("today.notesCta"), href: "/app/seguimiento#checkin-entry" }] : []),
+  { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
+];
 
   const recentsById = useMemo(() => {
     return new Map(recents.map((recent) => [recent.id, recent]));

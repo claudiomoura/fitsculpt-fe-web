@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { slugifyExerciseName } from "@/lib/slugify";
@@ -25,7 +26,21 @@ type TodayNutritionSummaryProps = {
 
 export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
   const { t } = useLanguage();
-  const mealLabel = data.meals === 1 ? t("today.mealLabel") : t("today.mealsLabel");
+  const { notify } = useToast();
+
+  const { isLoading, error, isConsumed, toggle } = useNutritionAdherence(data.dayKey);
+
+  const totalMeals = data.meals.length;
+  const mealLabel = totalMeals === 1 ? t("today.mealLabel") : t("today.mealsLabel");
+
+  const consumedCount = data.meals.filter((meal) => (meal.key ? isConsumed(meal.key, data.dayKey) : false)).length;
+
+  const mealTypeLabels: Record<NonNullable<NutritionMeal["type"]>, string> = {
+    breakfast: t("nutrition.mealTypeBreakfast"),
+    lunch: t("nutrition.mealTypeLunch"),
+    dinner: t("nutrition.mealTypeDinner"),
+    snack: t("nutrition.mealTypeSnack"),
+  };
 
   return (
     <div className="stack-md">
@@ -39,36 +54,51 @@ export function TodayNutritionSummary({ data }: TodayNutritionSummaryProps) {
           ) : null}
         </div>
         <p className="muted m-0">
-          {data.meals} {mealLabel}
+          {totalMeals} {mealLabel}
           {typeof data.calories === "number" ? ` · ${data.calories} ${t("units.kcal")}` : ""}
         </p>
       </div>
       <div className="today-nutrition-list">
-        {data.meals.map((meal, index) => {
+         {data.meals.map((meal, index) => {
           const typeLabel = meal.type ? mealTypeLabels[meal.type] : null;
-          const fallbackKey = `${slugifyExerciseName(meal.title)}-${index}`;
+          const mealTitle = meal.title?.trim() || t("nutrition.mealTypeFallback");
+          const fallbackKey = `${slugifyExerciseName(mealTitle)}-${index}`;
           const itemKey = meal.key ?? fallbackKey;
-          const isConsumed = meal.key ? consumedKeys.includes(meal.key) : false;
-          const isDisabled = loading || hasError || !meal.key;
+
+          const consumed = meal.key ? isConsumed(meal.key, data.dayKey) : false;
+          const isDisabled = isLoading || error || !meal.key;
+
+          const toggleLabel = consumed ? t("today.nutritionToggleConsumed") : t("today.nutritionToggleMark");
 
           return (
             <div key={itemKey} className="today-nutrition-item">
               <div className="today-nutrition-item-body">
-                <div className="today-nutrition-item-title">{meal.title}</div>
+                <div className="today-nutrition-item-title">{mealTitle}</div>
                 {typeLabel ? <p className="muted m-0">{typeLabel}</p> : null}
                 {meal.description ? <p className="muted m-0">{meal.description}</p> : null}
               </div>
               <Button
                 size="sm"
-                variant={isConsumed ? "primary" : "secondary"}
+                variant={consumed ? "primary" : "secondary"}
                 className="today-nutrition-toggle"
                 disabled={isDisabled}
+                aria-pressed={consumed}
+                aria-label={`${toggleLabel}: ${meal.title}`}
                 onClick={() => {
                   if (!meal.key) return;
-                  toggle(meal.key);
+                  const nextConsumed = !consumed;
+
+                  toggle(meal.key, data.dayKey);
+
+                  if (nextConsumed) {
+                    notify({
+                      title: t("nutrition.adherenceToastTitle"),
+                      description: t("nutrition.adherenceToastDescription"),
+                    });
+                  }
                 }}
               >
-                {isConsumed ? t("today.nutritionToggleConsumed") : t("today.nutritionToggleMark")}
+                {toggleLabel}
               </Button>
             </div>
           );

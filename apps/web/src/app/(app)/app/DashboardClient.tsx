@@ -5,7 +5,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
-import { buildWeightProgressSummary, normalizeWeightLogs } from "@/lib/weightProgress";
+import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -159,6 +159,7 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [summary, setSummary] = useState<TodaySummary | null>(null);
 
   useEffect(() => {
@@ -209,6 +210,7 @@ export default function DashboardClient() {
     let active = true;
     const loadProfile = async () => {
       try {
+        setProfileLoading(true);
         const response = await fetch("/api/profile", { cache: "no-store" });
         if (!response.ok) return;
         const data = (await response.json()) as ProfileData;
@@ -216,6 +218,8 @@ export default function DashboardClient() {
         setProfile(data);
       } catch {
         if (active) setProfile(null);
+      } finally {
+        if (active) setProfileLoading(false);
       }
     };
     void loadProfile();
@@ -335,11 +339,13 @@ export default function DashboardClient() {
   const calorieStatus = nutritionTargets ? getStatusClass(todayTotals.calories, nutritionTargets.calories) : "";
 
   const weightLogs = useMemo(() => normalizeWeightLogs(checkins), [checkins]);
-  const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
+const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
+const currentWeight = weightProgress.current;
+const hasWeightEntries = Boolean(currentWeight?.entries.length);
+  const hasWeightProgress = hasSufficientWeightProgress(weightProgress);
   const weightDelta = weightProgress.deltaKg;
-  const hasWeightTrend = Boolean(weightProgress.current?.entries.length && weightProgress.previous?.entries.length);
   const weightDeltaLabel =
-    hasWeightTrend && weightDelta !== null
+    hasWeightProgress && weightDelta !== null
       ? weightDelta > 0
         ? t("dashboard.weightProgressTrendUp")
         : weightDelta < 0
@@ -347,7 +353,7 @@ export default function DashboardClient() {
           : t("dashboard.weightProgressTrendStable")
       : null;
   const weightDeltaStatus =
-    weightDelta === null || !hasWeightTrend
+    weightDelta === null || !hasWeightProgress
       ? ""
       : weightDelta > 0
         ? "status-over"
@@ -376,7 +382,31 @@ export default function DashboardClient() {
             <p className="section-subtitle">{t("dashboard.todaySubtitle")}</p>
           </div>
         </div>
-        {!profileReady ? (
+        {profileLoading ? (
+          <div className="list-grid dashboard-summary-grid" aria-busy="true" aria-live="polite">
+            <div className="feature-card today-calories-card dashboard-summary-card">
+              <div className="stack-sm">
+                <Skeleton variant="line" className="w-45" />
+                <Skeleton variant="line" className="w-70" />
+              </div>
+              <div className="today-calories-body">
+                <Skeleton className="dashboard-summary-skeleton-ring" />
+                <div className="dashboard-summary-skeleton-meta">
+                  <Skeleton variant="line" className="w-40" />
+                  <Skeleton variant="line" className="w-55" />
+                  <Skeleton variant="line" className="w-60" />
+                </div>
+              </div>
+            </div>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={`dashboard-summary-skeleton-${index}`} className="feature-card dashboard-summary-card">
+                <Skeleton variant="line" className="w-40" />
+                <Skeleton variant="line" className="w-60" />
+                <Skeleton variant="line" className="w-45" />
+              </div>
+            ))}
+          </div>
+        ) : !profileReady ? (
           <div className="empty-state mt-16">
             <div className="empty-state-icon">
               <Icon name="sparkles" />
@@ -399,44 +429,74 @@ export default function DashboardClient() {
                 </p>
               </div>
               <div className="today-calories-body">
-                <ProgressRing
-                  value={todayTotals.calories}
-                  target={nutritionTargets?.calories ?? null}
-                  statusClass={calorieStatus}
-                  ariaLabel={t("dashboard.calorieProgressLabel")}
-                />
-                <div className="today-calories-meta">
-                  <div className="today-calories-value">
-                    {todayTotals.calories.toFixed(0)} {t("units.kcal")}
-                  </div>
-                  {nutritionTargets ? (
-                    <span className={`status-pill ${calorieStatus}`}>
-                      {getStatusLabel(todayTotals.calories, nutritionTargets.calories)}
-                    </span>
-                  ) : (
-                    <span className="muted">{t("tracking.targetsMissing")}</span>
-                  )}
-                  {nutritionTargets && calorieDelta !== null ? (
-                    <span className="muted">
-                      {calorieDelta >= 0
-                        ? `${t("dashboard.caloriesRemainingLabel")} ${Math.round(calorieDelta)} ${t("units.kcal")}`
-                        : `${t("dashboard.caloriesOverLabel")} ${Math.round(Math.abs(calorieDelta))} ${t("units.kcal")}`}
-                    </span>
-                  ) : null}
-                  {nutritionTargets ? (
-                    <div className="today-macro-badges">
-                      <span className={`status-pill is-compact ${getStatusClass(todayTotals.protein, nutritionTargets?.protein)}`}>
-                        {t("macros.proteinShort")} {todayTotals.protein.toFixed(0)}{t("units.grams")}
-                      </span>
-                      <span className={`status-pill is-compact ${getStatusClass(todayTotals.carbs, nutritionTargets?.carbs)}`}>
-                        {t("macros.carbsShort")} {todayTotals.carbs.toFixed(0)}{t("units.grams")}
-                      </span>
-                      <span className={`status-pill is-compact ${getStatusClass(todayTotals.fat, nutritionTargets?.fat)}`}>
-                        {t("macros.fatShort")} {todayTotals.fat.toFixed(0)}{t("units.grams")}
-                      </span>
+                {loading ? (
+                  <div className="dashboard-summary-loading" aria-busy="true" aria-live="polite">
+                    <Skeleton className="dashboard-summary-skeleton-ring" />
+                    <div className="dashboard-summary-skeleton-meta">
+                      <Skeleton variant="line" className="w-40" />
+                      <Skeleton variant="line" className="w-55" />
+                      <Skeleton variant="line" className="w-60" />
                     </div>
-                  ) : null}
-                </div>
+                  </div>
+                ) : error ? (
+                  <div className="status-card status-card--warning">
+                    <div className="inline-actions-sm">
+                      <Icon name="warning" />
+                      <strong>{t("dashboard.todayCaloriesErrorTitle")}</strong>
+                    </div>
+                    <p className="muted">{t("dashboard.todayCaloriesErrorDescription")}</p>
+                  </div>
+                ) : (
+                  <>
+                    <ProgressRing
+                      value={todayTotals.calories}
+                      target={nutritionTargets?.calories ?? null}
+                      statusClass={calorieStatus}
+                      ariaLabel={t("dashboard.calorieProgressLabel")}
+                    />
+                    <div className="today-calories-meta">
+                      <div className="today-calories-value">
+                        {todayTotals.calories.toFixed(0)} {t("units.kcal")}
+                      </div>
+                      {nutritionTargets ? (
+                        <span className={`status-pill ${calorieStatus}`}>
+                          {getStatusLabel(todayTotals.calories, nutritionTargets.calories)}
+                        </span>
+                      ) : (
+                        <span className="muted">{t("tracking.targetsMissing")}</span>
+                      )}
+                      {nutritionTargets && calorieDelta !== null ? (
+                        <span className="muted">
+                          {calorieDelta >= 0
+                            ? `${t("dashboard.caloriesRemainingLabel")} ${Math.round(calorieDelta)} ${t("units.kcal")}`
+                            : `${t("dashboard.caloriesOverLabel")} ${Math.round(Math.abs(calorieDelta))} ${t("units.kcal")}`}
+                        </span>
+                      ) : null}
+                      {nutritionTargets ? (
+                        <div className="today-macro-badges">
+                          <span
+                            className={`status-pill is-compact ${getStatusClass(todayTotals.protein, nutritionTargets?.protein)}`}
+                          >
+                            {t("macros.proteinShort")} {todayTotals.protein.toFixed(0)}
+                            {t("units.grams")}
+                          </span>
+                          <span
+                            className={`status-pill is-compact ${getStatusClass(todayTotals.carbs, nutritionTargets?.carbs)}`}
+                          >
+                            {t("macros.carbsShort")} {todayTotals.carbs.toFixed(0)}
+                            {t("units.grams")}
+                          </span>
+                          <span
+                            className={`status-pill is-compact ${getStatusClass(todayTotals.fat, nutritionTargets?.fat)}`}
+                          >
+                            {t("macros.fatShort")} {todayTotals.fat.toFixed(0)}
+                            {t("units.grams")}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="feature-card dashboard-summary-card">
@@ -568,7 +628,7 @@ export default function DashboardClient() {
               </ButtonLink>
             </div>
           </div>
-        ) : !weightProgress.current ? (
+        ) : !hasWeightEntries ? (
           <div className="empty-state dashboard-empty">
             <div className="empty-state-icon">
               <Icon name="info" />
@@ -581,34 +641,49 @@ export default function DashboardClient() {
               {t("dashboard.weightProgressEmptyCta")}
             </ButtonLink>
           </div>
+        ) : !hasWeightProgress || !currentWeight ? (
+  <div className="empty-state dashboard-empty">
+    <div className="empty-state-icon">
+      <Icon name="info" />
+    </div>
+    <div>
+      <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
+      <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
+    </div>
+    <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+      {t("dashboard.weightProgressEmptyCta")}
+    </ButtonLink>
+  </div>
+) : (
+  <div className="list-grid">
+    <div className="feature-card stack-md">
+      <div>
+        <span className="muted">{t("dashboard.weightProgressLast7Days")}</span>
+        <div className="mt-6">
+          <strong>
+            {currentWeight.latest.weightKg.toFixed(1)} {t("units.kilograms")}
+          </strong>
+          <p className="muted mt-6">
+            {t("dashboard.weightProgressLatestLabel")}{" "}
+            {weightDateFormatter.format(currentWeight.latest.date)}
+          </p>
+        </div>
+      </div>
+      <div className="stack-sm">
+        {weightDeltaLabel ? (
+          <>
+            <span className={`status-pill ${weightDeltaStatus}`}>
+              {weightDeltaLabel} {Math.abs(weightDelta ?? 0).toFixed(1)} {t("units.kilograms")}
+            </span>
+            <span className="muted">{t("dashboard.weightProgressDeltaLabel")}</span>
+          </>
         ) : (
-          <div className="list-grid">
-            <div className="feature-card stack-md">
-              <div>
-                <span className="muted">{t("dashboard.weightProgressLast7Days")}</span>
-                <div className="mt-6">
-                  <strong>{weightProgress.current.latest.weightKg.toFixed(1)} kg</strong>
-                  <p className="muted mt-6">
-                    {t("dashboard.weightProgressLatestLabel")}{" "}
-                    {weightDateFormatter.format(weightProgress.current.latest.date)}
-                  </p>
-                </div>
-              </div>
-              <div className="stack-sm">
-                {weightDeltaLabel ? (
-                  <>
-                    <span className={`status-pill ${weightDeltaStatus}`}>
-                      {weightDeltaLabel} {Math.abs(weightDelta ?? 0).toFixed(1)} kg
-                    </span>
-                    <span className="muted">{t("dashboard.weightProgressDeltaLabel")}</span>
-                  </>
-                ) : (
-                  <span className="muted">{t("dashboard.weightProgressDeltaUnavailable")}</span>
-                )}
-              </div>
-            </div>
-          </div>
+          <span className="muted">{t("dashboard.weightProgressDeltaUnavailable")}</span>
         )}
+      </div>
+    </div>
+  </div>
+)}
       </section>
 
       <section className="card">
