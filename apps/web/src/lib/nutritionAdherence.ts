@@ -62,7 +62,7 @@ const toggleStoreItem = (
   return nextStore;
 };
 
-export const useNutritionAdherence = () => {
+export const useNutritionAdherence = (dayKey: string) => {
   const [store, setStore] = useState<NutritionAdherenceStore>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);

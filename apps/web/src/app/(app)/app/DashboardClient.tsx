@@ -339,8 +339,9 @@ export default function DashboardClient() {
   const calorieStatus = nutritionTargets ? getStatusClass(todayTotals.calories, nutritionTargets.calories) : "";
 
   const weightLogs = useMemo(() => normalizeWeightLogs(checkins), [checkins]);
-  const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
-  const hasWeightEntries = Boolean(weightProgress.current?.entries.length);
+const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
+const currentWeight = weightProgress.current;
+const hasWeightEntries = Boolean(currentWeight?.entries.length);
   const hasWeightProgress = hasSufficientWeightProgress(weightProgress);
   const weightDelta = weightProgress.deltaKg;
   const weightDeltaLabel =
@@ -640,49 +641,49 @@ export default function DashboardClient() {
               {t("dashboard.weightProgressEmptyCta")}
             </ButtonLink>
           </div>
-        ) : !hasWeightProgress ? (
-          <div className="empty-state dashboard-empty">
-            <div className="empty-state-icon">
-              <Icon name="info" />
-            </div>
-            <div>
-              <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
-              <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
-            </div>
-            <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
-              {t("dashboard.weightProgressEmptyCta")}
-            </ButtonLink>
-          </div>
+        ) : !hasWeightProgress || !currentWeight ? (
+  <div className="empty-state dashboard-empty">
+    <div className="empty-state-icon">
+      <Icon name="info" />
+    </div>
+    <div>
+      <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
+      <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
+    </div>
+    <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+      {t("dashboard.weightProgressEmptyCta")}
+    </ButtonLink>
+  </div>
+) : (
+  <div className="list-grid">
+    <div className="feature-card stack-md">
+      <div>
+        <span className="muted">{t("dashboard.weightProgressLast7Days")}</span>
+        <div className="mt-6">
+          <strong>
+            {currentWeight.latest.weightKg.toFixed(1)} {t("units.kilograms")}
+          </strong>
+          <p className="muted mt-6">
+            {t("dashboard.weightProgressLatestLabel")}{" "}
+            {weightDateFormatter.format(currentWeight.latest.date)}
+          </p>
+        </div>
+      </div>
+      <div className="stack-sm">
+        {weightDeltaLabel ? (
+          <>
+            <span className={`status-pill ${weightDeltaStatus}`}>
+              {weightDeltaLabel} {Math.abs(weightDelta ?? 0).toFixed(1)} {t("units.kilograms")}
+            </span>
+            <span className="muted">{t("dashboard.weightProgressDeltaLabel")}</span>
+          </>
         ) : (
-          <div className="list-grid">
-            <div className="feature-card stack-md">
-              <div>
-                <span className="muted">{t("dashboard.weightProgressLast7Days")}</span>
-                <div className="mt-6">
-                  <strong>
-                    {weightProgress.current.latest.weightKg.toFixed(1)} {t("units.kilograms")}
-                  </strong>
-                  <p className="muted mt-6">
-                    {t("dashboard.weightProgressLatestLabel")}{" "}
-                    {weightDateFormatter.format(weightProgress.current.latest.date)}
-                  </p>
-                </div>
-              </div>
-              <div className="stack-sm">
-                {weightDeltaLabel ? (
-                  <>
-                    <span className={`status-pill ${weightDeltaStatus}`}>
-                      {weightDeltaLabel} {Math.abs(weightDelta ?? 0).toFixed(1)} {t("units.kilograms")}
-                    </span>
-                    <span className="muted">{t("dashboard.weightProgressDeltaLabel")}</span>
-                  </>
-                ) : (
-                  <span className="muted">{t("dashboard.weightProgressDeltaUnavailable")}</span>
-                )}
-              </div>
-            </div>
-          </div>
+          <span className="muted">{t("dashboard.weightProgressDeltaUnavailable")}</span>
         )}
+      </div>
+    </div>
+  </div>
+)}
       </section>
 
       <section className="card">

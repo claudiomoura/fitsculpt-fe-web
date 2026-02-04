@@ -4,6 +4,7 @@ import type { ComponentPropsWithoutRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
+import { toDateKey } from "@/lib/calendar";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 
 export type ToggleConsumidoProps = {
@@ -20,16 +21,23 @@ export default function ToggleConsumido({
   size = "sm",
   ...props
 }: ToggleConsumidoProps) {
-  const { t } = useLanguage();
-  const { notify } = useToast();
-  const { isLoading, error, isConsumed, toggle } = useNutritionAdherence();
+const { t } = useLanguage();
+const { notify } = useToast();
 
-  const normalizedItemKey = itemKey?.trim();
-  const normalizedDateKey = dateKey?.trim();
-  const consumed = isConsumed(normalizedItemKey, normalizedDateKey);
-  const isDisabled =
-    disabled || isLoading || Boolean(error) || !normalizedItemKey || !normalizedDateKey;
+const normalizedItemKey = itemKey?.trim();
+const normalizedDateKey = dateKey?.trim();
 
+// dayKey obligatorio para el hook, fallback a "hoy" solo para poder montar el hook
+const dayKey = normalizedDateKey ?? toDateKey(new Date());
+
+const { isLoading, error, isConsumed, toggle } = useNutritionAdherence(dayKey);
+
+// No calcules consumed si falta itemKey o dateKey real
+const consumed =
+  normalizedItemKey && normalizedDateKey ? isConsumed(normalizedItemKey, normalizedDateKey) : false;
+
+const isDisabled =
+  disabled || isLoading || Boolean(error) || !normalizedItemKey || !normalizedDateKey;
   const handleToggle = () => {
     if (!normalizedItemKey || !normalizedDateKey) return;
     const nextConsumed = !consumed;
