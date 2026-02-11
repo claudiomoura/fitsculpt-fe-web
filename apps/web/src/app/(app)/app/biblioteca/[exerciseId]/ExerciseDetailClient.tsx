@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { addExerciseRecent } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
@@ -49,11 +50,20 @@ export default function ExerciseDetailClient({
   errorTitle,
 }: ExerciseDetailClientProps) {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
-  const [mediaPreviewError, setMediaPreviewError] = useState(false);
   const [isFavoritePending, setIsFavoritePending] = useState(false);
   const { favorites, toggleFavorite } = useExerciseFavorites();
   const { notify } = useToast();
+  const fromPlan = searchParams.get("from") === "plan";
+  const returnToParam = searchParams.get("returnTo");
+  const safeReturnTo = returnToParam && returnToParam.startsWith("/app/") ? returnToParam : null;
+  const backHref = fromPlan ? safeReturnTo ?? "/app/entrenamiento" : "/app/biblioteca";
+  const backLabel = fromPlan ? t("ui.backToPlan") : t("ui.backToLibrary");
+  const muscleGroups = useMemo(
+    () => (exercise ? getMuscleGroups(exercise) : { primary: [], secondary: [] }),
+    [exercise]
+  );
   const media = useMemo(() => {
     if (!exercise) return null;
     const videoUrl = exercise.mediaUrl ?? exercise.videoUrl;
@@ -75,46 +85,12 @@ export default function ExerciseDetailClient({
 
     return null;
   }, [exercise]);
-
-  useEffect(() => {
-    if (exercise) {
-      addExerciseRecent(exercise);
-    }
-  }, [exercise]);
-
-  useEffect(() => {
-    if (!exercise) return;
-    setMediaPreviewError(false);
-  }, [exercise?.id, media?.url]);
-  if (error) {
-    return (
-      <ExerciseDetailErrorState
-        title={errorTitle ?? t("exerciseDetail.errorTitle")}
-        description={error ?? t("library.loadError")}
-        actionLabel={t("ui.backToLibrary")}
-        actionHref="/app/biblioteca"
-        onRetry={() => window.location.reload()}
-        retryLabel={t("ui.retry")}
-      />
-    );
-  }
-
-  if (!exercise) {
-    return (
-      <ExerciseDetailEmptyState
-        title={t("exerciseDetail.emptyTitle")}
-        description={t("exerciseDetail.emptyDescription")}
-        actionLabel={t("ui.backToLibrary")}
-        actionHref="/app/biblioteca"
-      />
-    );
-  }
-
-  const { primary, secondary } = getMuscleGroups(exercise);
-  const equipmentLabel = exercise.equipment ?? null;
-  const hasDescription = Boolean(exercise.description);
-  const hasTechnique = Boolean(exercise.technique);
-  const hasTips = Boolean(exercise.tips);
+  const primary = muscleGroups.primary;
+  const secondary = muscleGroups.secondary;
+  const equipmentLabel = exercise?.equipment ?? null;
+  const hasDescription = Boolean(exercise?.description);
+  const hasTechnique = Boolean(exercise?.technique);
+  const hasTips = Boolean(exercise?.tips);
   const hasMedia = Boolean(media);
   const hasPrimaryMuscles = primary.length > 0;
   const hasSecondaryMuscles = secondary.length > 0;
@@ -154,6 +130,38 @@ export default function ExerciseDetailClient({
     }
     return items;
   }, [equipmentLabel, hasPrimaryMuscles, hasSecondaryMuscles, primary, secondary, t]);
+  const mediaKey = `${exercise?.id ?? "exercise"}-${media?.kind ?? "none"}-${media?.url ?? "none"}`;
+
+  useEffect(() => {
+    if (exercise) {
+      addExerciseRecent(exercise);
+    }
+  }, [exercise]);
+
+  if (error) {
+    return (
+      <ExerciseDetailErrorState
+        title={errorTitle ?? t("exerciseDetail.errorTitle")}
+        description={error ?? t("library.loadError")}
+        actionLabel={backLabel}
+        actionHref={backHref}
+        onRetry={() => window.location.reload()}
+        retryLabel={t("ui.retry")}
+      />
+    );
+  }
+
+  if (!exercise) {
+    return (
+      <ExerciseDetailEmptyState
+        title={t("exerciseDetail.emptyTitle")}
+        description={t("exerciseDetail.emptyDescription")}
+        actionLabel={backLabel}
+        actionHref={backHref}
+      />
+    );
+  }
+
   const isFavorite = Boolean(exercise?.id && favorites.includes(exercise.id));
   const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
   const handleFavoriteToggle = () => {
@@ -187,8 +195,8 @@ export default function ExerciseDetailClient({
             >
               {favoriteLabel}
             </Button>
-            <ButtonLink variant="secondary" href="/app/biblioteca">
-              {t("ui.backToLibrary")}
+            <ButtonLink variant="secondary" href={backHref}>
+              {backLabel}
             </ButtonLink>
           </>
         }
@@ -229,30 +237,12 @@ export default function ExerciseDetailClient({
                 onClick={() => setIsMediaViewerOpen(true)}
                 aria-label={`${t("exerciseDetail.openMedia")} ${exercise.name}`}
               >
-                {media?.kind === "video" && !mediaPreviewError ? (
-                  <video
-                    className="exercise-media-img"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    poster={media.poster}
-                    onError={() => setMediaPreviewError(true)}
-                  >
-                    <source src={media.url} />
-                  </video>
-                ) : media?.kind === "image" && !mediaPreviewError ? (
-                  <img
-                    src={media.url}
-                    alt={`${t("library.mediaAlt")} ${exercise.name}`}
-                    className="exercise-media-img"
-                    onError={() => setMediaPreviewError(true)}
-                  />
-                ) : (
-                  <div className="exercise-media-fallback">
-                    <p className="muted">{t("exerciseDetail.mediaPreviewFallback")}</p>
-                  </div>
-                )}
+                <ExerciseMediaPreview
+                  key={mediaKey}
+                  media={media}
+                  mediaAlt={`${t("library.mediaAlt")} ${exercise.name}`}
+                  fallbackLabel={t("exerciseDetail.mediaPreviewFallback")}
+                />
               </button>
             </div>
           </div>
@@ -295,5 +285,50 @@ export default function ExerciseDetailClient({
         fallbackDescription={t("exerciseDetail.mediaViewerFallbackDescription")}
       />
     </section>
+  );
+}
+
+function ExerciseMediaPreview({
+  media,
+  mediaAlt,
+  fallbackLabel,
+}: {
+  media: { kind: "image" | "video"; url: string; poster?: string } | null;
+  mediaAlt: string;
+  fallbackLabel: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!media || hasError) {
+    return (
+      <div className="exercise-media-fallback">
+        <p className="muted">{fallbackLabel}</p>
+      </div>
+    );
+  }
+
+  if (media.kind === "video") {
+    return (
+      <video
+        className="exercise-media-img"
+        autoPlay
+        loop
+        muted
+        playsInline
+        poster={media.poster}
+        onError={() => setHasError(true)}
+      >
+        <source src={media.url} />
+      </video>
+    );
+  }
+
+  return (
+    <img
+      src={media.url}
+      alt={mediaAlt}
+      className="exercise-media-img"
+      onError={() => setHasError(true)}
+    />
   );
 }

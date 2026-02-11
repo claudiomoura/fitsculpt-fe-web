@@ -1,27 +1,31 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+/* eslint-disable react-hooks/refs */
+
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/classNames";
 
 type DropdownContextValue = {
   open: boolean;
   setOpen: (value: boolean) => void;
-  triggerRef: RefObject<HTMLButtonElement | null>;
-  contentRef: RefObject<HTMLDivElement | null>;
+  triggerEl: HTMLButtonElement | null;
+  contentEl: HTMLDivElement | null;
+  setTriggerEl: (value: HTMLButtonElement | null) => void;
+  setContentEl: (value: HTMLDivElement | null) => void;
 };
 
 const DropdownContext = createContext<DropdownContextValue | null>(null);
 
 export function DropdownMenu({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-const triggerRef = useRef<HTMLButtonElement | null>(null);
-const contentRef = useRef<HTMLDivElement | null>(null);
+  const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
+  const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const handleClick = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (contentRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      if (contentEl?.contains(target) || triggerEl?.contains(target)) return;
       setOpen(false);
     };
     const handleKey = (event: KeyboardEvent) => {
@@ -36,7 +40,7 @@ const contentRef = useRef<HTMLDivElement | null>(null);
   }, [open]);
 
   return (
-    <DropdownContext.Provider value={{ open, setOpen, triggerRef, contentRef }}>
+    <DropdownContext.Provider value={{ open, setOpen, triggerEl, contentEl, setTriggerEl, setContentEl }}>
       <div className="ui-dropdown">{children}</div>
     </DropdownContext.Provider>
   );
@@ -51,7 +55,7 @@ export function DropdownMenuTrigger({ children, className }: { children: ReactNo
       aria-haspopup="menu"
       aria-expanded={context.open}
       onClick={() => context.setOpen(!context.open)}
-      ref={context.triggerRef}
+      ref={context.setTriggerEl}
     >
       {children}
     </button>
@@ -62,7 +66,7 @@ export function DropdownMenuContent({ children, className }: { children: ReactNo
   const context = useDropdownContext();
   if (!context.open) return null;
   return (
-    <div className={cn("ui-dropdown-content", className)} role="menu" ref={context.contentRef}>
+    <div className={cn("ui-dropdown-content", className)} role="menu" ref={context.setContentEl}>
       {children}
     </div>
   );

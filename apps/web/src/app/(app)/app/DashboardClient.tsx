@@ -62,7 +62,12 @@ const defaultFoodProfiles: Record<string, { labelKey: string; protein: number; c
 function buildSeries(checkins: CheckinEntry[], key: "weightKg" | "bodyFatPercent") {
   return [...checkins]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((entry) => ({ label: entry.date, value: entry[key] }));
+    .map((entry) => {
+      const value = Number(entry[key]);
+      if (!Number.isFinite(value)) return null;
+      return { label: entry.date, value };
+    })
+    .filter((entry): entry is ChartPoint => entry !== null);
 }
 
 function LineChart({ data, unit, label }: { data: ChartPoint[]; unit: string; label: string }) {
@@ -339,9 +344,9 @@ export default function DashboardClient() {
   const calorieStatus = nutritionTargets ? getStatusClass(todayTotals.calories, nutritionTargets.calories) : "";
 
   const weightLogs = useMemo(() => normalizeWeightLogs(checkins), [checkins]);
-const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
-const currentWeight = weightProgress.current;
-const hasWeightEntries = Boolean(currentWeight?.entries.length);
+  const weightProgress = useMemo(() => buildWeightProgressSummary(weightLogs), [weightLogs]);
+  const currentWeight = weightProgress.current;
+  const hasWeightEntries = Boolean(currentWeight?.entries.length);
   const hasWeightProgress = hasSufficientWeightProgress(weightProgress);
   const weightDelta = weightProgress.deltaKg;
   const weightDeltaLabel =
@@ -371,10 +376,12 @@ const hasWeightEntries = Boolean(currentWeight?.entries.length);
 
   const weightSeries = useMemo(() => buildSeries(checkins, "weightKg"), [checkins]);
   const bodyFatSeries = useMemo(() => buildSeries(checkins, "bodyFatPercent"), [checkins]);
+  const hasWeightData = weightSeries.length > 0;
+  const hasBodyFatData = bodyFatSeries.length > 0;
   const handleRetry = () => window.location.reload();
 
   return (
-    <div className="page">
+    <div className="page page-with-tabbar-safe-area">
       <section className="card">
         <div className="section-head">
           <div>
@@ -738,14 +745,38 @@ const hasWeightEntries = Boolean(currentWeight?.entries.length);
                 <h3>{t("dashboard.weightChartTitle")}</h3>
                 <span className="muted">{t("dashboard.weightChartSubtitle")}</span>
               </div>
-              <LineChart data={weightSeries} unit={t("units.kilograms")} label={t("dashboard.weightChartAria")} />
+              {hasWeightData ? (
+                <LineChart data={weightSeries} unit={t("units.kilograms")} label={t("dashboard.weightChartAria")} />
+              ) : (
+                <div className="empty-state">
+                  <div>
+                    <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
+                    <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
+                  </div>
+                  <ButtonLink href="/app/seguimiento" className="fit-content">
+                    {t("dashboard.progressEmptyCta")}
+                  </ButtonLink>
+                </div>
+              )}
             </div>
             <div className="feature-card chart-card">
               <div className="chart-header">
                 <h3>{t("dashboard.bodyFatChartTitle")}</h3>
                 <span className="muted">{t("dashboard.bodyFatChartSubtitle")}</span>
               </div>
-              <LineChart data={bodyFatSeries} unit={t("units.percent")} label={t("dashboard.bodyFatChartAria")} />
+              {hasBodyFatData ? (
+                <LineChart data={bodyFatSeries} unit={t("units.percent")} label={t("dashboard.bodyFatChartAria")} />
+              ) : (
+                <div className="empty-state">
+                  <div>
+                    <p className="muted m-0">{t("dashboard.bodyFatEmptyTitle")}</p>
+                    <p className="muted m-0">{t("dashboard.bodyFatEmptySubtitle")}</p>
+                  </div>
+                  <ButtonLink href="/app/seguimiento" className="fit-content">
+                    {t("dashboard.progressEmptyCta")}
+                  </ButtonLink>
+                </div>
+              )}
             </div>
           </div>
         )}

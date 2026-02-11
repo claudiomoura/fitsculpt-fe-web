@@ -1,6 +1,4 @@
 "use client";
-
-import { useMemo } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanDetail } from "@/lib/types";
 import { ButtonLink } from "@/components/ui/Button";
@@ -31,7 +29,7 @@ export default function TrainingPlanDetailClient({ plan, error }: TrainingPlanDe
   const equipmentLabel = (equipment: string) =>
     equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome");
 
-  const dayCards = useMemo(() => {
+  const dayCards = (() => {
     if (!plan?.days?.length) return [];
     const formatter = new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
       month: "short",
@@ -41,7 +39,7 @@ export default function TrainingPlanDetailClient({ plan, error }: TrainingPlanDe
       ...day,
       dateLabel: day.date ? formatter.format(new Date(day.date)) : "",
     }));
-  }, [plan?.days, locale]);
+  })();
 
   if (error || !plan) {
     return (

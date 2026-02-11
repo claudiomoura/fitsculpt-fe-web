@@ -38,7 +38,9 @@
     "themeDark": "Dark mode",
     "language": "Language",
     "userFallback": "FitSculpt",
+    "back": "Back",
     "backToLibrary": "Back to library",
+    "backToPlan": "Back to plan",
     "exerciseGuide": "Complete guide focused on technique, execution, and progression.",
     "description": "Description",
     "technique": "Technique",
@@ -55,7 +57,14 @@
     "viewDay": "Day",
     "viewWeek": "Week",
     "viewMonth": "Month",
-    "viewAgenda": "Agenda"
+    "viewAgenda": "Agenda",
+    "previousWeek": "Previous week",
+    "nextWeek": "Next week",
+    "previousWeekAria": "Go to previous week",
+    "nextWeekAria": "Go to next week"
+  },
+  "plan": {
+    "replicatedWeekLabel": "Week replicated from current plan"
   },
   "quickActions": {
     "title": "Quick actions",
@@ -68,6 +77,11 @@
     "addFoodDescription": "Log food and macros (coming soon).",
     "addSet": "Add set",
     "addSetDescription": "Track a training set (coming soon).",
+    "checkinTitle": "Weekly check-in",
+    "checkinDescription": "Log a weekly check-in in Tracking.",
+    "checkinCta": "Check-in",
+    "checkinLoading": "Loading check-in...",
+    "checkinUnavailable": "Check-in unavailable right now.",
     "recordWeight": "Record weight",
     "recordWeightDescription": "Update your latest check-in in Progress.",
     "openLibrary": "Open library",
@@ -500,6 +514,8 @@
     "weightChartSubtitle": "Latest entries",
     "bodyFatChartTitle": "Body fat %",
     "bodyFatChartSubtitle": "Recent trend",
+    "bodyFatEmptyTitle": "Body fat data unavailable",
+    "bodyFatEmptySubtitle": "Log a check-in with body fat to see the trend.",
     "chartError": "We couldn't load progress.",
     "errorTitle": "We couldn't load your progress",
     "progressEmptyHint": "Log a check-in to see your trend."
@@ -744,6 +760,10 @@
     "mealTypeLunch": "Lunch",
     "mealTypeDinner": "Dinner",
     "mealTypeSnack": "Snack",
+    "mealTypeFallback": "Meal",
+    "mealTitleFallback": "Meal",
+    "mealDetailTitle": "Meal details",
+    "mealDetailsEmpty": "No details available.",
     "dailyTargetTitle": "Daily target",
     "calories": "Calories",
     "protein": "Protein",
@@ -774,7 +794,9 @@
     "preferencesHint": "Update these preferences in Profile.",
     "emptyPlan": "Complete the form to generate your plan.",
     "generateSuccess": "Plan generated successfully.",
-    "errorTitle": "We couldn't load your nutrition plan"
+    "errorTitle": "We couldn't load your nutrition plan",
+    "ingredientsNotAvailable": "Ingredients not available.",
+    "mealDetailsNotFound": "We could not find this meal for the selected day."
   },
   "training": {
     "formTitle": "Plan details",
@@ -845,6 +867,7 @@
     "weeklyPlanTipOne": "Open each day to see exercises and sets.",
     "weeklyPlanTipTwo": "Use “View technique” to review execution.",
     "weeklyPlanTipThree": "Edit the plan if you need adjustments.",
+    "exerciseUnavailable": "Details unavailable for this exercise.",
     "manualPlanTitle": "Manual weekly plan",
     "manualPlanSubtitle": "Customize each day, swap exercises, and save your changes.",
     "manualPlanReset": "Use suggested plan",
@@ -1152,6 +1175,7 @@
     "workoutEmpty": "No workouts logged yet.",
     "weeklyProgressTitle": "Weekly progress",
     "weeklyProgressSubtitle": "See the evolution of weight and body fat percentage.",
+    "weeklyProgressSubtitleWeightOnly": "See the evolution of your weight check-ins.",
     "weeklyProgressEmpty": "Not enough data for charts yet.",
     "weightEntryTitle": "Record weight",
     "weightEntrySubtitle": "Log your latest weight and review recent entries.",
@@ -1161,6 +1185,8 @@
     "weightEntryError": "We couldn't save your weight.",
     "weightEntryInvalid": "Enter a valid weight.",
     "weightEntryUnavailable": "Weight tracking is unavailable right now.",
+    "checkinUnavailable": "Weekly check-ins are unavailable right now.",
+    "bodyFatInvalid": "Enter a valid body fat percentage.",
     "latestWeightTitle": "Latest weight",
     "latestWeightEmpty": "No weight recorded yet.",
     "weightHistoryTitle": "Weight history",
@@ -1199,7 +1225,7 @@
     "notesHistoryError": "We couldn't load notes.",
     "checkinModeQuick": "Quick mode",
     "checkinModeFull": "Full mode",
-    "checkinModeQuickHint": "Just the essentials: date, weight, body fat, and waist.",
+    "checkinModeQuickHint": "Just the essentials: date, weight, and body fat or waist when available.",
     "checkinModeFullHint": "Includes measurements, energy, notes, and photos.",
     "checkinWaistOptional": "Waist (optional)",
     "checkinAdvancedTitle": "Advanced metrics",
@@ -1207,6 +1233,8 @@
     "checkinPhotoSoonTitle": "Weekly photo upload (coming soon)",
     "checkinPhotoSoonSubtitle": "We'll save side-by-side visuals for your progress.",
     "checkinPhotoSoonCta": "Upload weekly photo",
+    "checkinPhotosUnavailableTitle": "Check-in photos unavailable",
+    "checkinPhotosUnavailableSubtitle": "Photo uploads for check-ins are not available in your account right now.",
     "comingSoon": "Coming soon",
     "foods": {
       "salmon": "Salmon",
@@ -1217,7 +1245,9 @@
       "yogurt": "Greek yogurt",
       "potatoes": "Potato",
       "avocado": "Avocado"
-    }
+    },
+    "weeklyProgressErrorTitle": "We couldn't load weekly progress",
+    "weeklyProgressErrorSubtitle": "Retry to fetch your latest tracking entries."
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",

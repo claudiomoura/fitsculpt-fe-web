@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
-import { addDays, buildMonthGrid, differenceInDays, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
+import { addDays, buildMonthGrid, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
+import { addWeeks, getWeekStart, projectDaysForWeek } from "@/lib/planProjection";
+import { slugifyExerciseName } from "@/lib/slugify";
 import {
   type Activity,
   type Goal,
@@ -14,6 +16,7 @@ import {
   type NutritionCookingTime,
   type ProfileData,
   type NutritionPlanData,
+  type NutritionMeal,
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
@@ -21,6 +24,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Modal } from "@/components/ui/Modal";
+import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
 
 type NutritionForm = {
   age: number;
@@ -60,6 +65,16 @@ type NutritionPlan = NutritionPlanData;
 
 type NutritionPlanClientProps = {
   mode?: "suggested" | "manual";
+};
+
+type MealMediaCandidate = {
+  imageUrl?: unknown;
+  thumbnailUrl?: unknown;
+  mediaUrl?: unknown;
+  media?: {
+    url?: unknown;
+    thumbnailUrl?: unknown;
+  };
 };
 
 const formatDate = (value?: string | null) => {
@@ -265,6 +280,57 @@ const MEAL_TEMPLATES: Record<Locale, Record<string, MealTemplate[]>> = {
       },
     ],
   },
+};
+
+const getMealTypeLabel = (meal: NutritionMeal, t: (key: string) => string) => {
+  switch (meal.type) {
+    case "breakfast":
+      return t("nutrition.mealTypeBreakfast");
+    case "lunch":
+      return t("nutrition.mealTypeLunch");
+    case "dinner":
+      return t("nutrition.mealTypeDinner");
+    case "snack":
+      return t("nutrition.mealTypeSnack");
+    default:
+      return t("nutrition.mealTypeFallback");
+  }
+};
+
+const getMealTitle = (meal: NutritionMeal, t: (key: string) => string) => {
+  const title = meal.title?.trim();
+  return title && title.length > 0 ? title : t("nutrition.mealTitleFallback");
+};
+
+const getMealDescription = (meal: NutritionMeal) => {
+  const description = meal.description?.trim();
+  return description && description.length > 0 ? description : null;
+};
+
+const getMealMediaUrl = (meal: NutritionMeal) => {
+  const candidate = meal as MealMediaCandidate;
+  const urls = [
+    candidate.imageUrl,
+    candidate.thumbnailUrl,
+    candidate.mediaUrl,
+    candidate.media?.thumbnailUrl,
+    candidate.media?.url,
+  ];
+  const match = urls.find((url) => typeof url === "string" && url.trim().length > 0);
+  return typeof match === "string" ? match : null;
+};
+
+const getMealKey = (meal: NutritionMeal, dayKey: string, index: number) => {
+  const maybeMeal = meal as unknown as { id?: unknown };
+  if (typeof maybeMeal.id === "string" && maybeMeal.id.trim().length > 0) {
+    return maybeMeal.id;
+  }
+  const title = meal.title?.trim();
+  const description = meal.description?.trim();
+  const safeTitle = title ? slugifyExerciseName(title) : "";
+  const safeDescription = description ? slugifyExerciseName(description) : "";
+  const parts = [dayKey, meal.type, safeTitle, safeDescription].filter((value) => typeof value === "string" && value.length > 0);
+  return parts.length > 0 ? parts.join(":") : `meal:${dayKey}:${index}`;
 };
 
 export const DAY_LABELS: Record<Locale, string[]> = {
@@ -528,13 +594,6 @@ export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: st
   return { ...plan, days: nextDays };
 }
 
-function getDayIndex(startDate: Date | null, selectedDate: Date, totalDays: number): number | null {
-  if (!startDate || totalDays === 0) return null;
-  const diff = differenceInDays(selectedDate, startDate);
-  const normalized = ((diff % totalDays) + totalDays) % totalDays;
-  return normalized;
-}
-
 export default function NutritionPlanClient({ mode = "suggested" }: NutritionPlanClientProps) {
   const { t, locale } = useLanguage();
   const router = useRouter();
@@ -560,11 +619,27 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<"day" | "week" | "month" | "agenda">("day");
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const dayParam = searchParams.get("day");
+    const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
+    const dayDate = parseDate(dayParam);
+    if (dayDate) return dayDate;
+    if (Number.isFinite(weekOffsetParam)) {
+      return addWeeks(getWeekStart(new Date()), weekOffsetParam);
+    }
+    return new Date();
+  });
+  const [selectedMeal, setSelectedMeal] = useState<{
+    meal: NutritionMeal;
+    dayLabel?: string | null;
+    dayKey: string;
+    mealKey: string;
+  } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const swipeStartX = useRef<number | null>(null);
   const autoGenerated = useRef(false);
   const calendarInitialized = useRef(false);
+  const urlSyncInitialized = useRef(false);
   const isManualView = mode === "manual";
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -658,28 +733,6 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     [visiblePlan?.startDate, visiblePlan?.days]
   );
   const planDays = visiblePlan?.days ?? [];
-  const planDayMap = useMemo(() => {
-    if (!planStartDate && planDays.length === 0) return new Map<string, { day: DayPlan; index: number; date: Date }>();
-    const next = new Map<string, { day: DayPlan; index: number; date: Date }>();
-    planDays.forEach((day, index) => {
-      const date = day.date ? parseDate(day.date) : planStartDate ? addDays(planStartDate, index) : null;
-      if (!date) return;
-      next.set(toDateKey(date), { day, index, date });
-    });
-    return next;
-  }, [planStartDate, planDays]);
-  const selectedDayIndex = useMemo(
-    () => getDayIndex(planStartDate, selectedDate, planDays.length),
-    [planStartDate, selectedDate, planDays.length]
-  );
-  const selectedPlanDay = useMemo(() => {
-    if (selectedDayIndex === null || !planStartDate || !planDays[selectedDayIndex]) {
-      return null;
-    }
-    const day = planDays[selectedDayIndex];
-    const date = day.date ? parseDate(day.date) : addDays(planStartDate, selectedDayIndex);
-    return date ? { day, index: selectedDayIndex, date } : null;
-  }, [planDays, planStartDate, selectedDayIndex]);
   const planEntries = useMemo(
     () =>
       planDays
@@ -690,7 +743,51 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         .filter((entry): entry is { day: DayPlan; index: number; date: Date } => Boolean(entry)),
     [planDays, planStartDate]
   );
+  const calendarMealSkeletons = useMemo(
+    () => Array.from({ length: 4 }, (_, index) => <MealCardSkeleton key={`meal-skeleton-${index}`} />),
+    []
+  );
   const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
+  const modelWeekStart = useMemo(() => {
+    if (planEntries.length > 0) {
+      return getWeekStart(planEntries[0].date);
+    }
+    return getWeekStart(new Date());
+  }, [planEntries]);
+  const projectedWeek = useMemo(
+    () => projectDaysForWeek({ entries: planEntries, selectedWeekStart: weekStart, modelWeekStart }),
+    [planEntries, weekStart, modelWeekStart]
+  );
+  const visiblePlanEntries = useMemo(() => {
+    const all = new Map<string, { day: DayPlan; index: number; date: Date; isReplicated: boolean }>();
+    planEntries.forEach((entry) => {
+      all.set(toDateKey(entry.date), { ...entry, isReplicated: false });
+    });
+    for (let offset = 1; offset <= 3; offset += 1) {
+      const nextWeek = projectDaysForWeek({
+        entries: planEntries,
+        selectedWeekStart: addWeeks(getWeekStart(new Date()), offset),
+        modelWeekStart,
+      });
+      if (!nextWeek.isReplicated) continue;
+      nextWeek.days.forEach((entry) => {
+        const key = toDateKey(entry.date);
+        if (!all.has(key)) {
+          all.set(key, { ...entry, isReplicated: true });
+        }
+      });
+    }
+    return Array.from(all.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [planEntries, modelWeekStart]);
+  const visibleDayMap = useMemo(() => {
+    const next = new Map<string, { day: DayPlan; index: number; date: Date; isReplicated: boolean }>();
+    visiblePlanEntries.forEach((entry) => {
+      next.set(toDateKey(entry.date), entry);
+    });
+    return next;
+  }, [visiblePlanEntries]);
+  const selectedVisiblePlanDay = useMemo(() => visibleDayMap.get(toDateKey(selectedDate)) ?? null, [selectedDate, visibleDayMap]);
+  const isSelectedDayReplicated = selectedVisiblePlanDay?.isReplicated ?? false;
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
   const monthDates = useMemo(() => buildMonthGrid(selectedDate), [selectedDate]);
   const localeCode = locale === "es" ? "es-ES" : "en-US";
@@ -715,18 +812,47 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   useEffect(() => {
     if (!planStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
-    setSelectedDate(new Date());
-  }, [planStartDate]);
+    const dayParam = searchParams.get("day");
+    setSelectedDate(parseDate(dayParam) ?? new Date());
+  }, [planStartDate, searchParams]);
 
-  useEffect(() => {
-    if (!planStartDate || selectedDayIndex === null) return;
-    console.debug("nutrition:selected-day", {
-      selectedDate: toDateKey(selectedDate),
-      planStartDate: toDateKey(planStartDate),
-      index: selectedDayIndex,
-      dayLabel: selectedPlanDay?.day.dayLabel ?? null,
+  const updateNutritionSearchParams = (nextDayKey: string, dishKey?: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("day", nextDayKey);
+    const currentWeek = getWeekStart(new Date());
+    const selectedWeek = getWeekStart(parseDate(nextDayKey) ?? selectedDate);
+    const offset = Math.floor((selectedWeek.getTime() - currentWeek.getTime()) / (1000 * 60 * 60 * 24 * 7));
+    if (offset !== 0) {
+      params.set("weekOffset", String(offset));
+    } else {
+      params.delete("weekOffset");
+    }
+    if (dishKey && dishKey.length > 0) {
+      params.set("dish", dishKey);
+    } else {
+      params.delete("dish");
+    }
+    const query = params.toString();
+    router.replace(`/app/nutricion${query.length > 0 ? `?${query}` : ""}`, { scroll: false });
+  };
+
+  const openMealDetail = (
+    meal: NutritionMeal,
+    dayKey: string,
+    mealKey: string,
+    dayLabel?: string | null
+  ) => {
+    setSelectedMeal({ meal, dayKey, dayLabel, mealKey });
+    updateNutritionSearchParams(dayKey, mealKey);
+  };
+
+  const closeMealDetail = () => {
+    setSelectedMeal((prev) => {
+      const currentDay = prev?.dayKey ?? toDateKey(selectedDate);
+      updateNutritionSearchParams(currentDay);
+      return null;
     });
-  }, [planStartDate, selectedDate, selectedDayIndex, selectedPlanDay?.day.dayLabel]);
+  };
 
   function buildShoppingList(activePlan: NutritionPlan) {
     const totals: Record<string, number> = {};
@@ -925,6 +1051,58 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       return { ...prev, days };
     });
   }
+
+  const selectedMealDetails = selectedMeal?.meal ?? null;
+  const selectedMealTitle = selectedMealDetails ? getMealTitle(selectedMealDetails, t) : "";
+  const selectedMealDescription = selectedMealDetails ? getMealDescription(selectedMealDetails) : null;
+  const selectedMealIngredients =
+    selectedMealDetails?.ingredients?.filter((ingredient) => ingredient.name.trim().length > 0) ?? [];
+
+  useEffect(() => {
+    if (urlSyncInitialized.current) return;
+    if (!visiblePlan) return;
+
+    const dayParam = searchParams.get("day");
+    const dishParam = searchParams.get("dish");
+    const parsedDay = parseDate(dayParam);
+    if (parsedDay) {
+      setSelectedDate(parsedDay);
+    }
+
+    if (!dayParam || !dishParam) {
+      urlSyncInitialized.current = true;
+      return;
+    }
+
+    const dayEntry = visiblePlan.days.find((day, index) => {
+      const reference = day.date ?? (planStartDate ? toDateKey(addDays(planStartDate, index)) : null);
+      return reference === dayParam;
+    });
+
+    if (!dayEntry) {
+      urlSyncInitialized.current = true;
+      return;
+    }
+
+    const mealEntry = dayEntry.meals.find((meal, index) => getMealKey(meal, dayParam, index) === dishParam);
+    if (mealEntry) {
+      setSelectedMeal({
+        meal: mealEntry,
+        dayKey: dayParam,
+        dayLabel: dayEntry.dayLabel,
+        mealKey: dishParam,
+      });
+    }
+
+    urlSyncInitialized.current = true;
+  }, [searchParams, visiblePlan, planStartDate]);
+
+  useEffect(() => {
+    if (!planStartDate) return;
+    const dayKey = toDateKey(selectedDate);
+    if (searchParams.get("day") === dayKey) return;
+    updateNutritionSearchParams(dayKey, selectedMeal?.mealKey ?? null);
+  }, [planStartDate, searchParams, selectedDate, selectedMeal?.mealKey]);
 
   const handleAiPlan = async () => {
     if (!profile || aiLoading) return;
@@ -1233,9 +1411,14 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                   <strong>{t("nutrition.errorTitle")}</strong>
                 </div>
                 <p className="muted">{error}</p>
-                <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
-                  {t("ui.retry")}
-                </button>
+                <div className="inline-actions-sm">
+                  <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                    {t("ui.retry")}
+                  </button>
+                  <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>
+                    {t("ui.back")}
+                  </button>
+                </div>
               </div>
             ) : saveMessage ? (
               <p className="muted">{saveMessage}</p>
@@ -1305,7 +1488,17 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             </p>
           </section>
 
-          {!loading && !error && profile && !isProfileComplete(profile) ? (
+          {loading ? (
+            <section className="card">
+              <div className="section-head">
+                <div>
+                  <h2 className="section-title section-title-sm">{t("nutrition.calendarTitle")}</h2>
+                  <p className="section-subtitle">{t("nutrition.calendarSubtitle")}</p>
+                </div>
+              </div>
+              <div className="list-grid">{calendarMealSkeletons}</div>
+            </section>
+          ) : !error && profile && !isProfileComplete(profile) ? (
             <section className="card">
               <div className="empty-state">
                 <div className="empty-state-icon">
@@ -1320,7 +1513,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                 </ButtonLink>
               </div>
             </section>
-          ) : !loading && !error && !hasPlan ? (
+          ) : !error && !hasPlan ? (
             <section className="card">
               <div className="empty-state">
                 <div className="empty-state-icon">
@@ -1390,23 +1583,28 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                       {visiblePlan?.days.map((day) => (
                         <div key={day.dayLabel} className="feature-card">
                           <strong>{day.dayLabel}</strong>
-                          <div className="table-grid-sm mt-8">
-                            {day.meals.map((meal, mealIndex) => (
-                              <div key={`${meal.title}-${mealIndex}`}>
-                                <div className="text-semibold">{meal.title}</div>
-                                {meal.description ? <div className="muted">{meal.description}</div> : null}
-                                <div className="muted mt-6">
-                                  {t("nutrition.ingredients")}:
-                                </div>
-                                <ul className="list-muted-sm">
-                                  {(meal.ingredients ?? []).map((ingredient, ingredientIndex) => (
-                                    <li key={`${ingredient.name}-${ingredientIndex}`}>
-                                      {ingredient.name}: {ingredient.grams} {t("nutrition.grams")}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
+                          <div className="list-grid mt-8">
+                            {day.meals.map((meal, mealIndex) => {
+                              const mealKey = getMealKey(meal, day.dayLabel, mealIndex);
+                              return (
+                                <MealCard
+                                key={mealKey}
+                                title={getMealTitle(meal, t)}
+                                description={getMealDescription(meal)}
+                                meta={[
+                                  getMealTypeLabel(meal, t),
+                                  Number.isFinite(meal.macros?.calories)
+                                    ? `${meal.macros.calories} ${t("units.kcal")}`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                                imageUrl={getMealMediaUrl(meal)}
+                                onClick={() => openMealDetail(meal, day.dayLabel, mealKey, day.dayLabel)}
+                                ariaLabel={`${t("nutrition.mealDetailTitle")}: ${getMealTitle(meal, t)}`}
+                              />
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
@@ -1425,7 +1623,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                           <div>
                             <strong>{selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" })}</strong>
                             <p className="muted mt-4 mb-0">
-                              {selectedPlanDay?.day.dayLabel ?? safeT("nutrition.calendarEmptyFocus", t("nutrition.todayTitle"))}
+                              {selectedVisiblePlanDay?.day.dayLabel ?? safeT("nutrition.calendarEmptyFocus", t("nutrition.todayTitle"))}
                             </p>
                           </div>
                           <div className="calendar-day-actions">
@@ -1437,26 +1635,33 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                             </button>
                           </div>
                         </div>
-                        {selectedPlanDay ? (
+                        {selectedVisiblePlanDay ? (
                           <div className="list-grid">
-                            {selectedPlanDay.day.meals.map((meal, mealIndex) => (
-                              <div key={`${meal.title}-${mealIndex}`} className="feature-card">
-                                <strong>{meal.title}</strong>
-                                {meal.description ? (
-                                  <p className="muted mt-6">{meal.description}</p>
-                                ) : null}
-                                <div className="muted mt-8">
-                                  {t("nutrition.ingredients")}:
-                                </div>
-                                <ul className="list-muted-sm">
-                                  {(meal.ingredients ?? []).map((ingredient, ingredientIndex) => (
-                                    <li key={`${ingredient.name}-${ingredientIndex}`}>
-                                      {ingredient.name}: {ingredient.grams} {t("nutrition.grams")}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
+                            {isSelectedDayReplicated ? <Badge variant="muted">{t("plan.replicatedWeekLabel")}</Badge> : null}
+                            {selectedVisiblePlanDay.day.meals.map((meal, mealIndex) => {
+                              const dayKey = toDateKey(selectedVisiblePlanDay.date);
+                              const mealKey = getMealKey(meal, dayKey, mealIndex);
+                              return (
+                                <MealCard
+                                key={mealKey}
+                                title={getMealTitle(meal, t)}
+                                description={getMealDescription(meal)}
+                                meta={[
+                                  getMealTypeLabel(meal, t),
+                                  Number.isFinite(meal.macros?.calories)
+                                    ? `${meal.macros.calories} ${t("units.kcal")}`
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                                imageUrl={getMealMediaUrl(meal)}
+                                onClick={() =>
+                                  openMealDetail(meal, dayKey, mealKey, selectedVisiblePlanDay.day.dayLabel)
+                                }
+                                ariaLabel={`${t("nutrition.mealDetailTitle")}: ${getMealTitle(meal, t)}`}
+                              />
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="empty-state">
@@ -1469,12 +1674,29 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                     {calendarView === "week" ? (
                       <div className="calendar-week">
                         <div className="calendar-range">
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            aria-label={t("calendar.previousWeekAria")}
+                            onClick={() => setSelectedDate((prev) => addWeeks(prev, -1))}
+                          >
+                            {t("calendar.previousWeek")}
+                          </button>
                           <strong>{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</strong>
                           <span className="muted">→ {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            aria-label={t("calendar.nextWeekAria")}
+                            onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))}
+                          >
+                            {t("calendar.nextWeek")}
+                          </button>
+                          {projectedWeek.isReplicated ? <Badge variant="muted">{t("plan.replicatedWeekLabel")}</Badge> : null}
                         </div>
                         <div className="calendar-week-grid">
                           {weekDates.map((date) => {
-                            const entry = planDayMap.get(toDateKey(date));
+                            const entry = visibleDayMap.get(toDateKey(date));
                             return (
                               <button
                                 key={toDateKey(date)}
@@ -1512,7 +1734,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                         </div>
                         <div className="calendar-month-grid">
                           {monthDates.map((date) => {
-                            const entry = planDayMap.get(toDateKey(date));
+                            const entry = visibleDayMap.get(toDateKey(date));
                             const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
                             return (
                               <button
@@ -1535,7 +1757,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
 
                     {calendarView === "agenda" ? (
                       <div className="calendar-agenda">
-                        {planEntries.map((entry) => (
+                        {visiblePlanEntries.map((entry) => (
                           <button
                             key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`}
                             type="button"
@@ -1637,9 +1859,14 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                 <strong>{t("nutrition.errorTitle")}</strong>
               </div>
               <p className="muted">{error}</p>
-              <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
-                {t("ui.retry")}
-              </button>
+              <div className="inline-actions-sm">
+                <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                  {t("ui.retry")}
+                </button>
+                <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>
+                  {t("ui.back")}
+                </button>
+              </div>
             </div>
           ) : saveMessage ? (
             <p className="muted">{saveMessage}</p>
@@ -1791,6 +2018,62 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
           )}
         </section>
       ) : null}
+
+      <Modal
+        open={Boolean(selectedMeal)}
+        title={t("nutrition.mealDetailTitle")}
+        description={selectedMeal?.dayLabel ?? undefined}
+        onClose={closeMealDetail}
+        footer={
+          <Button onClick={closeMealDetail}>{t("ui.close")}</Button>
+        }
+      >
+        {selectedMealDetails ? (
+          <div className="stack-md">
+            <div>
+              <h3 className="m-0">{selectedMealTitle}</h3>
+              <p className="muted mt-4">
+                {getMealTypeLabel(selectedMealDetails, t)}
+              </p>
+            </div>
+            {getMealMediaUrl(selectedMealDetails) ? (
+              <img
+                src={getMealMediaUrl(selectedMealDetails) ?? ""}
+                alt={selectedMealTitle}
+                className="meal-card-thumb"
+                loading="lazy"
+              />
+            ) : null}
+            {selectedMealDescription ? (
+              <p className="muted mt-4">{selectedMealDescription}</p>
+            ) : null}
+            {selectedMealIngredients.length > 0 ? (
+              <div>
+                <div className="text-semibold">{t("nutrition.ingredients")}</div>
+                <ul className="list-muted-sm">
+                  {selectedMealIngredients.map((ingredient, index) => (
+                    <li key={`${ingredient.name}-${index}`}>
+                      {ingredient.name}
+                      {Number.isFinite(ingredient.grams)
+                        ? `: ${ingredient.grams} ${t("nutrition.grams")}`
+                        : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="muted">{t("nutrition.ingredientsNotAvailable")}</p>
+            )}
+            {!selectedMealDescription && selectedMealIngredients.length === 0 ? (
+              <p className="muted">{t("nutrition.mealDetailsEmpty")}</p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <p className="muted">{t("nutrition.mealDetailsNotFound")}</p>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
