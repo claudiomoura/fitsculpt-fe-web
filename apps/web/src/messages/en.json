@@ -787,7 +787,9 @@
     "preferencesHint": "Update these preferences in Profile.",
     "emptyPlan": "Complete the form to generate your plan.",
     "generateSuccess": "Plan generated successfully.",
-    "errorTitle": "We couldn't load your nutrition plan"
+    "errorTitle": "We couldn't load your nutrition plan",
+    "ingredientsNotAvailable": "Ingredients not available.",
+    "mealDetailsNotFound": "We could not find this meal for the selected day."
   },
   "training": {
     "formTitle": "Plan details",
