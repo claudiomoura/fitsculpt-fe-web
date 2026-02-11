@@ -106,8 +106,6 @@ export default function TrackingClient() {
   const [energyValue, setEnergyValue] = useState(3);
   const [notesDate, setNotesDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notesValue, setNotesValue] = useState("");
-  const [checkinFrontPhoto, setCheckinFrontPhoto] = useState<string | null>(null);
-  const [checkinSidePhoto, setCheckinSidePhoto] = useState<string | null>(null);
   const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
     if (typeof window === "undefined") return "quick";
     const storedMode = window.localStorage.getItem(CHECKIN_MODE_KEY);
@@ -160,6 +158,7 @@ export default function TrackingClient() {
     waist: null,
     measurements: null,
   });
+  const supportsCheckinPhotos = false;
   const isMountedRef = useRef(true);
 
   const isWeightValid = Number.isFinite(checkinWeight) && checkinWeight >= 30 && checkinWeight <= 250;
@@ -302,17 +301,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     return () => window.clearTimeout(timeout);
   }, [checkins, foodLog, workoutLog, trackingLoaded]);
 
-  function handlePhoto(
-    e: React.ChangeEvent<HTMLInputElement>,
-    onChange: (value: string | null) => void
-  ) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => onChange(String(reader.result || ""));
-    reader.readAsDataURL(file);
-  }
-
   function buildRecommendation(currentWeight: number) {
     if (checkins.length === 0) return t("profile.checkinKeep");
     const latest = [...checkins].sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -367,8 +355,8 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       hunger: resolvedHunger,
       notes: resolvedNotes,
       recommendation,
-      frontPhotoUrl: checkinMode === "full" ? checkinFrontPhoto : null,
-      sidePhotoUrl: checkinMode === "full" ? checkinSidePhoto : null,
+      frontPhotoUrl: null,
+      sidePhotoUrl: null,
     };
 
     const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
@@ -385,8 +373,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     });
     if (saved) {
       setCheckinNotes("");
-      setCheckinFrontPhoto(null);
-      setCheckinSidePhoto(null);
     }
   }
 
@@ -1096,30 +1082,14 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 </label>
               ) : null}
 
-              <div className="form-stack">
-                <div style={{ fontWeight: 600 }}>{t("profile.checkinPhotos")}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-                  <label className="form-stack">
-                    {t("profile.checkinFrontPhoto")}
-                    <input type="file" accept="image/*" onChange={(e) => handlePhoto(e, setCheckinFrontPhoto)} />
-                  </label>
-                  <label className="form-stack">
-                    {t("profile.checkinSidePhoto")}
-                    <input type="file" accept="image/*" onChange={(e) => handlePhoto(e, setCheckinSidePhoto)} />
-                  </label>
+              {!supportsCheckinPhotos ? (
+                <div className="feature-card" style={{ marginTop: 12 }} role="status" aria-live="polite">
+                  <strong>{t("tracking.checkinPhotosUnavailableTitle")}</strong>
+                  <p className="muted" style={{ marginTop: 6 }}>
+                    {t("tracking.checkinPhotosUnavailableSubtitle")}
+                  </p>
                 </div>
-                <span className="muted">{t("profile.checkinPhotoHint")}</span>
-              </div>
-
-              <div className="feature-card" style={{ marginTop: 12 }}>
-                <strong>{t("tracking.checkinPhotoSoonTitle")}</strong>
-                <p className="muted" style={{ marginTop: 6 }}>
-                  {t("tracking.checkinPhotoSoonSubtitle")}
-                </p>
-                <button type="button" className="btn secondary" disabled title={t("tracking.comingSoon")}>
-                  {t("tracking.checkinPhotoSoonCta")}
-                </button>
-              </div>
+              ) : null}
             </details>
           ) : null}
 

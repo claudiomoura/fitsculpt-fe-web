@@ -1236,6 +1236,8 @@
     "checkinPhotoSoonTitle": "Subir foto semanal (próximamente)",
     "checkinPhotoSoonSubtitle": "Guardaremos comparativas visuales para ver tu progreso.",
     "checkinPhotoSoonCta": "Subir foto semanal",
+    "checkinPhotosUnavailableTitle": "Fotos del check-in no disponibles",
+    "checkinPhotosUnavailableSubtitle": "La subida de fotos para check-ins no está disponible en tu cuenta por ahora.",
     "comingSoon": "Próximamente",
     "foods": {
       "salmon": "Salmón",
