@@ -3441,3 +3441,58 @@ textarea:disabled {
     top: auto;
   }
 }
+
+.page-with-tabbar-safe-area {
+  padding-bottom: calc(var(--mobile-tab-bar-height, 88px) + env(safe-area-inset-bottom) + 12px);
+}
+
+.tracking-metric-skeleton {
+  display: grid;
+  gap: 8px;
+}
+
+.tracking-metric-skeleton-value {
+  width: 42%;
+}
+
+.tracking-metric-skeleton-date {
+  width: 32%;
+}
+
+.tracking-weekly-skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.tracking-weekly-skeleton-row {
+  display: grid;
+  gap: 8px;
+}
+
+.tracking-weekly-skeleton-label {
+  width: 40%;
+}
+
+.tracking-weekly-skeleton-value {
+  width: 28%;
+}
+
+.tracking-weekly-skeleton-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.tracking-weekly-progress-bar-track {
+  margin-top: 8px;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-muted));
+}
+
+.tracking-weekly-progress-bar-value {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
