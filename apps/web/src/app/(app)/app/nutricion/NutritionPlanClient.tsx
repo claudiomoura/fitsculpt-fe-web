@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
-import { addDays, buildMonthGrid, differenceInDays, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
+import { addDays, buildMonthGrid, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
+import { addWeeks, getWeekStart, projectDaysForWeek } from "@/lib/planProjection";
 import { slugifyExerciseName } from "@/lib/slugify";
 import {
   type Activity,
@@ -593,13 +594,6 @@ export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: st
   return { ...plan, days: nextDays };
 }
 
-function getDayIndex(startDate: Date | null, selectedDate: Date, totalDays: number): number | null {
-  if (!startDate || totalDays === 0) return null;
-  const diff = differenceInDays(selectedDate, startDate);
-  const normalized = ((diff % totalDays) + totalDays) % totalDays;
-  return normalized;
-}
-
 export default function NutritionPlanClient({ mode = "suggested" }: NutritionPlanClientProps) {
   const { t, locale } = useLanguage();
   const router = useRouter();
@@ -627,7 +621,13 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [calendarView, setCalendarView] = useState<"day" | "week" | "month" | "agenda">("day");
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
-    return parseDate(dayParam) ?? new Date();
+    const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
+    const dayDate = parseDate(dayParam);
+    if (dayDate) return dayDate;
+    if (Number.isFinite(weekOffsetParam)) {
+      return addWeeks(getWeekStart(new Date()), weekOffsetParam);
+    }
+    return new Date();
   });
   const [selectedMeal, setSelectedMeal] = useState<{
     meal: NutritionMeal;
@@ -733,28 +733,6 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     [visiblePlan?.startDate, visiblePlan?.days]
   );
   const planDays = visiblePlan?.days ?? [];
-  const planDayMap = useMemo(() => {
-    if (!planStartDate && planDays.length === 0) return new Map<string, { day: DayPlan; index: number; date: Date }>();
-    const next = new Map<string, { day: DayPlan; index: number; date: Date }>();
-    planDays.forEach((day, index) => {
-      const date = day.date ? parseDate(day.date) : planStartDate ? addDays(planStartDate, index) : null;
-      if (!date) return;
-      next.set(toDateKey(date), { day, index, date });
-    });
-    return next;
-  }, [planStartDate, planDays]);
-  const selectedDayIndex = useMemo(
-    () => getDayIndex(planStartDate, selectedDate, planDays.length),
-    [planStartDate, selectedDate, planDays.length]
-  );
-  const selectedPlanDay = useMemo(() => {
-    if (selectedDayIndex === null || !planStartDate || !planDays[selectedDayIndex]) {
-      return null;
-    }
-    const day = planDays[selectedDayIndex];
-    const date = day.date ? parseDate(day.date) : addDays(planStartDate, selectedDayIndex);
-    return date ? { day, index: selectedDayIndex, date } : null;
-  }, [planDays, planStartDate, selectedDayIndex]);
   const planEntries = useMemo(
     () =>
       planDays
@@ -770,6 +748,46 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     []
   );
   const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
+  const modelWeekStart = useMemo(() => {
+    if (planEntries.length > 0) {
+      return getWeekStart(planEntries[0].date);
+    }
+    return getWeekStart(new Date());
+  }, [planEntries]);
+  const projectedWeek = useMemo(
+    () => projectDaysForWeek({ entries: planEntries, selectedWeekStart: weekStart, modelWeekStart }),
+    [planEntries, weekStart, modelWeekStart]
+  );
+  const visiblePlanEntries = useMemo(() => {
+    const all = new Map<string, { day: DayPlan; index: number; date: Date; isReplicated: boolean }>();
+    planEntries.forEach((entry) => {
+      all.set(toDateKey(entry.date), { ...entry, isReplicated: false });
+    });
+    for (let offset = 1; offset <= 3; offset += 1) {
+      const nextWeek = projectDaysForWeek({
+        entries: planEntries,
+        selectedWeekStart: addWeeks(getWeekStart(new Date()), offset),
+        modelWeekStart,
+      });
+      if (!nextWeek.isReplicated) continue;
+      nextWeek.days.forEach((entry) => {
+        const key = toDateKey(entry.date);
+        if (!all.has(key)) {
+          all.set(key, { ...entry, isReplicated: true });
+        }
+      });
+    }
+    return Array.from(all.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [planEntries, modelWeekStart]);
+  const visibleDayMap = useMemo(() => {
+    const next = new Map<string, { day: DayPlan; index: number; date: Date; isReplicated: boolean }>();
+    visiblePlanEntries.forEach((entry) => {
+      next.set(toDateKey(entry.date), entry);
+    });
+    return next;
+  }, [visiblePlanEntries]);
+  const selectedVisiblePlanDay = useMemo(() => visibleDayMap.get(toDateKey(selectedDate)) ?? null, [selectedDate, visibleDayMap]);
+  const isSelectedDayReplicated = selectedVisiblePlanDay?.isReplicated ?? false;
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
   const monthDates = useMemo(() => buildMonthGrid(selectedDate), [selectedDate]);
   const localeCode = locale === "es" ? "es-ES" : "en-US";
@@ -798,19 +816,17 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     setSelectedDate(parseDate(dayParam) ?? new Date());
   }, [planStartDate, searchParams]);
 
-  useEffect(() => {
-    if (!planStartDate || selectedDayIndex === null) return;
-    console.debug("nutrition:selected-day", {
-      selectedDate: toDateKey(selectedDate),
-      planStartDate: toDateKey(planStartDate),
-      index: selectedDayIndex,
-      dayLabel: selectedPlanDay?.day.dayLabel ?? null,
-    });
-  }, [planStartDate, selectedDate, selectedDayIndex, selectedPlanDay?.day.dayLabel]);
-
   const updateNutritionSearchParams = (nextDayKey: string, dishKey?: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("day", nextDayKey);
+    const currentWeek = getWeekStart(new Date());
+    const selectedWeek = getWeekStart(parseDate(nextDayKey) ?? selectedDate);
+    const offset = Math.floor((selectedWeek.getTime() - currentWeek.getTime()) / (1000 * 60 * 60 * 24 * 7));
+    if (offset !== 0) {
+      params.set("weekOffset", String(offset));
+    } else {
+      params.delete("weekOffset");
+    }
     if (dishKey && dishKey.length > 0) {
       params.set("dish", dishKey);
     } else {
@@ -1607,7 +1623,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                           <div>
                             <strong>{selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" })}</strong>
                             <p className="muted mt-4 mb-0">
-                              {selectedPlanDay?.day.dayLabel ?? safeT("nutrition.calendarEmptyFocus", t("nutrition.todayTitle"))}
+                              {selectedVisiblePlanDay?.day.dayLabel ?? safeT("nutrition.calendarEmptyFocus", t("nutrition.todayTitle"))}
                             </p>
                           </div>
                           <div className="calendar-day-actions">
@@ -1619,10 +1635,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                             </button>
                           </div>
                         </div>
-                        {selectedPlanDay ? (
+                        {selectedVisiblePlanDay ? (
                           <div className="list-grid">
-                            {selectedPlanDay.day.meals.map((meal, mealIndex) => {
-                              const dayKey = toDateKey(selectedPlanDay.date);
+                            {isSelectedDayReplicated ? <Badge variant="muted">{t("plan.replicatedWeekLabel")}</Badge> : null}
+                            {selectedVisiblePlanDay.day.meals.map((meal, mealIndex) => {
+                              const dayKey = toDateKey(selectedVisiblePlanDay.date);
                               const mealKey = getMealKey(meal, dayKey, mealIndex);
                               return (
                                 <MealCard
@@ -1639,7 +1656,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                                   .join(" · ")}
                                 imageUrl={getMealMediaUrl(meal)}
                                 onClick={() =>
-                                  openMealDetail(meal, dayKey, mealKey, selectedPlanDay.day.dayLabel)
+                                  openMealDetail(meal, dayKey, mealKey, selectedVisiblePlanDay.day.dayLabel)
                                 }
                                 ariaLabel={`${t("nutrition.mealDetailTitle")}: ${getMealTitle(meal, t)}`}
                               />
@@ -1657,12 +1674,29 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                     {calendarView === "week" ? (
                       <div className="calendar-week">
                         <div className="calendar-range">
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            aria-label={t("calendar.previousWeekAria")}
+                            onClick={() => setSelectedDate((prev) => addWeeks(prev, -1))}
+                          >
+                            {t("calendar.previousWeek")}
+                          </button>
                           <strong>{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</strong>
                           <span className="muted">→ {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            aria-label={t("calendar.nextWeekAria")}
+                            onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))}
+                          >
+                            {t("calendar.nextWeek")}
+                          </button>
+                          {projectedWeek.isReplicated ? <Badge variant="muted">{t("plan.replicatedWeekLabel")}</Badge> : null}
                         </div>
                         <div className="calendar-week-grid">
                           {weekDates.map((date) => {
-                            const entry = planDayMap.get(toDateKey(date));
+                            const entry = visibleDayMap.get(toDateKey(date));
                             return (
                               <button
                                 key={toDateKey(date)}
@@ -1700,7 +1734,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                         </div>
                         <div className="calendar-month-grid">
                           {monthDates.map((date) => {
-                            const entry = planDayMap.get(toDateKey(date));
+                            const entry = visibleDayMap.get(toDateKey(date));
                             const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
                             return (
                               <button
@@ -1723,7 +1757,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
 
                     {calendarView === "agenda" ? (
                       <div className="calendar-agenda">
-                        {planEntries.map((entry) => (
+                        {visiblePlanEntries.map((entry) => (
                           <button
                             key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`}
                             type="button"
