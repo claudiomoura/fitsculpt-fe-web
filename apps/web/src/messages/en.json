@@ -858,6 +858,7 @@
     "weeklyPlanTipOne": "Open each day to see exercises and sets.",
     "weeklyPlanTipTwo": "Use “View technique” to review execution.",
     "weeklyPlanTipThree": "Edit the plan if you need adjustments.",
+    "exerciseUnavailable": "Details unavailable for this exercise.",
     "manualPlanTitle": "Manual weekly plan",
     "manualPlanSubtitle": "Customize each day, swap exercises, and save your changes.",
     "manualPlanReset": "Use suggested plan",
