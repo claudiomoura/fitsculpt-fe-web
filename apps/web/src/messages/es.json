@@ -791,7 +791,9 @@
     "preferencesHint": "Cambia estas preferencias desde Perfil.",
     "emptyPlan": "Completa el formulario para generar tu plan.",
     "generateSuccess": "Plan generado correctamente.",
-    "errorTitle": "No pudimos cargar tu plan de nutrición"
+    "errorTitle": "No pudimos cargar tu plan de nutrición",
+    "ingredientsNotAvailable": "Ingredientes no disponibles.",
+    "mealDetailsNotFound": "No hemos podido encontrar este plato para el día seleccionado."
   },
   "training": {
     "formTitle": "Datos del plan",

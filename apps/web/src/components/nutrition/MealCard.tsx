@@ -12,15 +12,21 @@ type MealCardProps = {
   imageUrl?: string | null;
   onClick?: () => void;
   className?: string;
+  ariaLabel?: string;
 };
 
-export function MealCard({ title, description, meta, imageUrl, onClick, className }: MealCardProps) {
+export function MealCard({ title, description, meta, imageUrl, onClick, className, ariaLabel }: MealCardProps) {
   const { t } = useLanguage();
   const [imageError, setImageError] = useState(false);
   const showImage = Boolean(imageUrl && imageUrl.trim().length > 0) && !imageError;
 
   return (
-    <button type="button" className={cn("meal-card", className)} onClick={onClick}>
+    <button
+      type="button"
+      className={cn("meal-card", className)}
+      onClick={onClick}
+      aria-label={ariaLabel ?? title ?? t("nutrition.mealTitleFallback")}
+    >
       <div className="meal-card-media" aria-hidden="true">
         {showImage ? (
           <img
