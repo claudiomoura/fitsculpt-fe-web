@@ -377,28 +377,35 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return ctxKey;
   };
 
-  const handleExerciseNavigate = (exerciseId?: string) => {
+  const handleExerciseNavigate = (exerciseId?: string, dayDate?: Date) => {
     if (!exerciseId) return;
     const ctxKey = storePlanContext();
+    const dayKey = dayDate ? toDateKey(dayDate) : null;
     const returnParams = new URLSearchParams(searchParams.toString());
     if (ctxKey) {
       returnParams.set("ctx", ctxKey);
+    }
+    if (dayKey) {
+      returnParams.set("dayKey", dayKey);
     }
     const returnTo = `${pathname}${returnParams.toString() ? `?${returnParams.toString()}` : ""}`;
     const detailParams = new URLSearchParams();
     detailParams.set("from", "plan");
     detailParams.set("returnTo", returnTo);
+    if (dayKey) {
+      detailParams.set("dayKey", dayKey);
+    }
     if (ctxKey) {
       detailParams.set("ctx", ctxKey);
     }
     router.push(`/app/biblioteca/${exerciseId}?${detailParams.toString()}`);
   };
 
-  const handleExerciseKeyDown = (event: KeyboardEvent<HTMLDivElement>, exerciseId?: string) => {
+  const handleExerciseKeyDown = (event: KeyboardEvent<HTMLDivElement>, exerciseId?: string, dayDate?: Date) => {
     if (!exerciseId) return;
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      handleExerciseNavigate(exerciseId);
+      handleExerciseNavigate(exerciseId, dayDate);
     }
   };
 
@@ -916,7 +923,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                     </Button>
                   </div>
                   <div className="list-grid">
-                    {visiblePlan?.days.map((day, dayIdx) => (
+                    {visiblePlan?.days.map((day, dayIdx) => {
+                      const dayDate = day.date ? parseDate(day.date) : null;
+                      return (
                       <details key={`${day.label}-${dayIdx}`} className="accordion-card">
                         <summary>
                           <span>{t("training.dayLabel")} {day.label}</span>
@@ -932,14 +941,19 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                               role={exercise.id ? "button" : undefined}
                               tabIndex={exercise.id ? 0 : undefined}
                               aria-disabled={!exercise.id}
-                              aria-label={exercise.id ? `${t("training.exerciseLink")}: ${exercise.name}` : undefined}
-                              onClick={() => handleExerciseNavigate(exercise.id)}
-                              onKeyDown={(event) => handleExerciseKeyDown(event, exercise.id)}
+                              aria-label={
+                                exercise.id
+                                  ? `${t("training.exerciseLink")}: ${exercise.name}`
+                                  : `${exercise.name}: ${t("training.exerciseUnavailable")}`
+                              }
+                              onClick={() => handleExerciseNavigate(exercise.id, dayDate ?? undefined)}
+                              onKeyDown={(event) => handleExerciseKeyDown(event, exercise.id, dayDate ?? undefined)}
                             >
                               <strong>{exercise.name}</strong>
                               <span className="muted">
                                 {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
                               </span>
+                              {!exercise.id ? <small className="muted">{t("training.exerciseUnavailable")}</small> : null}
                               <button
                                 type="button"
                                 className="btn secondary"
@@ -954,7 +968,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           ))}
                         </div>
                       </details>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
@@ -999,9 +1014,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                   role={exercise.id ? "button" : undefined}
                                   tabIndex={exercise.id ? 0 : undefined}
                                   aria-disabled={!exercise.id}
-                                  aria-label={exercise.id ? `${t("training.exerciseLink")}: ${exercise.name}` : undefined}
-                                  onClick={() => handleExerciseNavigate(exercise.id)}
-                                  onKeyDown={(event) => handleExerciseKeyDown(event, exercise.id)}
+                                  aria-label={
+                                    exercise.id
+                                      ? `${t("training.exerciseLink")}: ${exercise.name}`
+                                      : `${exercise.name}: ${t("training.exerciseUnavailable")}`
+                                  }
+                                  onClick={() => handleExerciseNavigate(exercise.id, selectedPlanDay.date)}
+                                  onKeyDown={(event) => handleExerciseKeyDown(event, exercise.id, selectedPlanDay.date)}
                                 >
                                   <img
                                     src="/placeholders/exercise-cover.svg"
@@ -1029,6 +1048,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                         </span>
                                       ))}
                                     </div>
+                                    {!exercise.id ? <small className="muted">{t("training.exerciseUnavailable")}</small> : null}
                                   </div>
                                 </div>
                               ))}
