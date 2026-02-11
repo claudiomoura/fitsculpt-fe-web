@@ -1246,7 +1246,9 @@
       "yogurt": "Yogur griego",
       "potatoes": "Patata",
       "avocado": "Aguacate"
-    }
+    },
+    "weeklyProgressErrorTitle": "No pudimos cargar el progreso semanal",
+    "weeklyProgressErrorSubtitle": "Reintenta para recuperar tus registros de seguimiento."
   },
   "onboarding": {
     "title": "Bienvenido a FitSculpt",

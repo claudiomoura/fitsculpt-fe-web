@@ -1243,7 +1243,9 @@
       "yogurt": "Greek yogurt",
       "potatoes": "Potato",
       "avocado": "Avocado"
-    }
+    },
+    "weeklyProgressErrorTitle": "We couldn't load weekly progress",
+    "weeklyProgressErrorSubtitle": "Retry to fetch your latest tracking entries."
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",

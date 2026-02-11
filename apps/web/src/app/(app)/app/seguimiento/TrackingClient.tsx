@@ -660,6 +660,8 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     !supportsEnergy || !isTrackingReady || !isEnergyValid || !energyDate || !hasBaseWeight || isEnergySubmitting;
   const isNotesSubmitDisabled =
     !supportsNotes || !isTrackingReady || !isNotesValid || !notesDate || !hasBaseWeight || isNotesSubmitting;
+  const isTrackingLoading = trackingStatus === "loading";
+  const isTrackingError = trackingStatus === "error";
 
   async function addQuickWeightEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -801,7 +803,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   }
 
   return (
-    <div className="page">
+    <div className="page page-with-tabbar-safe-area">
       {actionMessage && (
         <div className="toast" role="status" aria-live="polite">
           {actionMessage}
@@ -856,9 +858,12 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             <p className="muted" style={{ marginBottom: 8 }}>
               {t("tracking.latestWeightTitle")}
             </p>
-            {trackingStatus === "loading" ? (
-              <Skeleton variant="line" style={{ width: "40%" }} />
-            ) : trackingStatus === "error" ? (
+            {isTrackingLoading ? (
+              <div className="tracking-metric-skeleton" aria-hidden="true">
+                <Skeleton variant="line" className="tracking-metric-skeleton-value" />
+                <Skeleton variant="line" className="tracking-metric-skeleton-date" />
+              </div>
+            ) : isTrackingError ? (
               <div className="form-stack">
                 <p className="muted">{t("tracking.weightHistoryError")}</p>
                 <button
@@ -885,7 +890,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             <p className="muted" style={{ marginBottom: 8 }}>
               {t("tracking.weightHistoryTitle")}
             </p>
-            {trackingStatus === "loading" ? (
+            {isTrackingLoading ? (
               <div className="tracking-history-skeleton" aria-hidden="true">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div key={`history-skeleton-${index}`} className="tracking-history-skeleton-row">
@@ -894,7 +899,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   </div>
                 ))}
               </div>
-            ) : trackingStatus === "error" ? (
+            ) : isTrackingError ? (
               <div className="form-stack">
                 <p className="muted">{t("tracking.weightHistoryError")}</p>
                 <button
@@ -935,6 +940,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               type="button"
               className={`btn secondary ${checkinMode === "quick" ? "is-active" : ""}`}
               onClick={() => setCheckinMode("quick")}
+              aria-pressed={checkinMode === "quick"}
             >
               {t("tracking.checkinModeQuick")}
             </button>
@@ -942,6 +948,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               type="button"
               className={`btn secondary ${checkinMode === "full" ? "is-active" : ""}`}
               onClick={() => setCheckinMode("full")}
+              aria-pressed={checkinMode === "full"}
             >
               {t("tracking.checkinModeFull")}
             </button>
@@ -1164,6 +1171,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                       type="button"
                       className="btn secondary"
                       onClick={() => handleDeleteEntry("checkins", entry.id)}
+                      aria-label={`${t("tracking.delete")} ${entry.date}`}
                     >
                       {t("tracking.delete")}
                     </button>
@@ -1204,7 +1212,29 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             </p>
           </div>
         </div>
-        {checkinChart.length === 0 ? (
+        {isTrackingLoading ? (
+          <div className="tracking-weekly-skeleton" aria-hidden="true">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={`weekly-skeleton-${index}`} className="tracking-weekly-skeleton-row">
+                <Skeleton variant="line" className="tracking-weekly-skeleton-label" />
+                <Skeleton variant="line" className="tracking-weekly-skeleton-value" />
+                <Skeleton className="tracking-weekly-skeleton-bar" />
+              </div>
+            ))}
+          </div>
+        ) : isTrackingError ? (
+          <div className="status-card status-card--warning">
+            <strong>{t("tracking.weeklyProgressErrorTitle")}</strong>
+            <p className="muted">{t("tracking.weeklyProgressErrorSubtitle")}</p>
+            <button
+              type="button"
+              className="btn secondary fit-content"
+              onClick={() => refreshTrackingData({ showLoading: true, showError: true })}
+            >
+              {t("ui.retry")}
+            </button>
+          </div>
+        ) : checkinChart.length === 0 ? (
           <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
@@ -1217,14 +1247,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     {point.bodyFat !== null ? ` · ${point.bodyFat}${t("units.percent")}` : ""}
                   </span>
                 </div>
-                <div style={{ marginTop: 8, background: "#fef3c7", borderRadius: 999, overflow: "hidden", height: 10 }}>
+                <div className="tracking-weekly-progress-bar-track">
                   <div
-                    style={{
-                      width: `${point.percent}%`,
-                      height: "100%",
-                      background: "var(--primary)",
-                      borderRadius: 999,
-                    }}
+                    className="tracking-weekly-progress-bar-value"
+                    style={{ width: `${point.percent}%` }}
                   />
                 </div>
               </div>

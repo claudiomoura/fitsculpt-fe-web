@@ -381,7 +381,7 @@ export default function DashboardClient() {
   const handleRetry = () => window.location.reload();
 
   return (
-    <div className="page">
+    <div className="page page-with-tabbar-safe-area">
       <section className="card">
         <div className="section-head">
           <div>
