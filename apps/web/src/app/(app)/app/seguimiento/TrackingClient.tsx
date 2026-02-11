@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
+import {
+  canApplyTrainingAdjustment,
+  generateAndSaveTrainingPlan,
+  getTrainingAdjustmentInput,
+} from "@/lib/trainingPlanAdjustment";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 type CheckinEntry = {
@@ -86,6 +92,7 @@ type TrackingPayload = {
 
 export default function TrackingClient() {
   const { t } = useLanguage();
+  const router = useRouter();
   const CHECKIN_MODE_KEY = "fs_checkin_mode_v1";
   const SHOW_WORKOUT_LOG = false;
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
@@ -147,6 +154,9 @@ export default function TrackingClient() {
   const [energySubmitError, setEnergySubmitError] = useState<string | null>(null);
   const [isNotesSubmitting, setIsNotesSubmitting] = useState(false);
   const [notesSubmitError, setNotesSubmitError] = useState<string | null>(null);
+  const [adjustmentStatus, setAdjustmentStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
+  const [adjustmentSuccess, setAdjustmentSuccess] = useState<{ at: string; period?: string } | null>(null);
   const [trackingSupports, setTrackingSupports] = useState<{
     energy: boolean | null;
     notes: boolean | null;
@@ -178,6 +188,8 @@ export default function TrackingClient() {
   const isWeightEntrySubmitDisabled = !isTrackingReady || !isWeightValid || !isDateValid || isSubmitting;
   const isCheckinSubmitDisabled =
     !isTrackingReady || !isWeightValid || !isDateValid || !isBodyFatValid || !isWaistValid || isSubmitting;
+  const adjustmentInput = canApplyTrainingAdjustment(profile) ? getTrainingAdjustmentInput(profile) : null;
+  const isApplyAdjustmentDisabled = adjustmentStatus === "loading" || !adjustmentInput;
 
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
@@ -800,6 +812,53 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     }
   }
 
+  const formatLocalDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString();
+  };
+
+  const translateWithDate = (key: string, date: string) => t(key).replace("{date}", date);
+
+  const resolvePeriodText = (metadata: { effectiveFrom?: string; weekStart?: string }) => {
+    const source = metadata.effectiveFrom ?? metadata.weekStart;
+    if (!source) return undefined;
+    const formatted = formatLocalDate(source);
+    return formatted ? translateWithDate("tracking.adjustmentPeriod", formatted) : undefined;
+  };
+
+  async function handleApplyAdjustment() {
+    if (!adjustmentInput || adjustmentStatus === "loading") return;
+    setAdjustmentStatus("loading");
+    setAdjustmentError(null);
+    setAdjustmentSuccess(null);
+    try {
+      const result = await generateAndSaveTrainingPlan(profile, adjustmentInput);
+      const refreshedTracking = await refreshTrackingData({ showLoading: true, showError: true });
+      const refreshedProfile = await getUserProfile();
+      if (!refreshedTracking) {
+        setAdjustmentStatus("error");
+        setAdjustmentError(t("tracking.adjustmentRefreshError"));
+        return;
+      }
+      setProfile(refreshedProfile);
+      const successDate = formatLocalDate(result.metadata.updatedAt ?? new Date().toISOString()) ?? new Date().toLocaleString();
+      setAdjustmentSuccess({
+        at: successDate,
+        period: resolvePeriodText(result.metadata),
+      });
+      setAdjustmentStatus("success");
+      router.refresh();
+    } catch (error) {
+      if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+        setAdjustmentError(t("ai.insufficientTokens"));
+      } else {
+        setAdjustmentError(t("tracking.adjustmentError"));
+      }
+      setAdjustmentStatus("error");
+    }
+  }
+
   return (
     <div className="page">
       {actionMessage && (
@@ -1141,6 +1200,54 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             )}
           </button>
         </form>
+
+        <div className="feature-card" style={{ marginTop: 16 }}>
+          <p className="muted" style={{ marginBottom: 8 }}>
+            {t("profile.checkinRecommendation")}
+          </p>
+          <p style={{ marginBottom: 12 }}>
+            {latestCheckin?.recommendation || t("profile.checkinKeep")}
+          </p>
+
+          {adjustmentInput ? (
+            <button
+              type="button"
+              className={`btn ${adjustmentStatus === "loading" ? "is-loading" : ""}`}
+              onClick={handleApplyAdjustment}
+              disabled={isApplyAdjustmentDisabled}
+            >
+              {adjustmentStatus === "loading" ? (
+                <>
+                  <span className="spinner" aria-hidden="true" /> {t("tracking.adjustmentApplying")}
+                </>
+              ) : (
+                t("tracking.adjustmentApply")
+              )}
+            </button>
+          ) : (
+            <p className="muted">{t("tracking.adjustmentUnavailable")}</p>
+          )}
+
+          {adjustmentStatus === "success" && adjustmentSuccess ? (
+            <div className="info-item" role="status" aria-live="polite" style={{ marginTop: 12 }}>
+              <strong>{t("tracking.adjustmentSuccessTitle")}</strong>
+              <p className="muted" style={{ marginTop: 4 }}>
+                {translateWithDate("tracking.adjustmentSuccessBody", adjustmentSuccess.at)}
+              </p>
+              {adjustmentSuccess.period ? (
+                <p className="muted" style={{ marginTop: 4 }}>
+                  {adjustmentSuccess.period}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {adjustmentStatus === "error" && adjustmentError ? (
+            <p className="muted" role="status" aria-live="polite" style={{ marginTop: 8 }}>
+              {adjustmentError}
+            </p>
+          ) : null}
+        </div>
 
         <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
           {checkins.length === 0 ? (

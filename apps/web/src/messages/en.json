@@ -1243,7 +1243,15 @@
       "yogurt": "Greek yogurt",
       "potatoes": "Potato",
       "avocado": "Avocado"
-    }
+    },
+    "adjustmentApply": "Apply adjustment",
+    "adjustmentApplying": "Applying adjustment...",
+    "adjustmentUnavailable": "Adjustment is not available yet.",
+    "adjustmentSuccessTitle": "Plan updated",
+    "adjustmentSuccessBody": "Your plan was updated on {date}.",
+    "adjustmentPeriod": "Effective period: {date}.",
+    "adjustmentError": "We could not apply the adjustment right now.",
+    "adjustmentRefreshError": "The plan was updated, but we could not refresh your calendar. Please retry."
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",

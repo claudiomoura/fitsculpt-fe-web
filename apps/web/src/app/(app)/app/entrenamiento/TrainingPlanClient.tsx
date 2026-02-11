@@ -18,6 +18,7 @@ import {
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
+import { generateAndSaveTrainingPlan } from "@/lib/trainingPlanAdjustment";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -602,61 +603,31 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setAiLoading(true);
     setError(null);
     try {
-      const startDate = toDateKey(startOfWeek(new Date()));
-      const response = await fetch("/api/ai/training-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name: profile.name || undefined,
-          age: profile.age,
-          sex: profile.sex,
-          level: form.level,
-          goal: form.goal,
-          goals: profile.goals,
-          equipment: form.equipment,
-          daysPerWeek: form.daysPerWeek,
-          startDate,
-          daysCount: 7,
-          sessionTime: form.sessionTime,
-          focus: form.focus,
-          timeAvailableMinutes: form.sessionTime === "short" ? 35 : form.sessionTime === "medium" ? 50 : 65,
-          includeCardio: profile.trainingPreferences.includeCardio,
-          includeMobilityWarmups: profile.trainingPreferences.includeMobilityWarmups,
-          workoutLength: profile.trainingPreferences.workoutLength,
-          timerSound: profile.trainingPreferences.timerSound,
-          injuries: profile.injuries || undefined,
-          restrictions: profile.notes || undefined,
-        }),
+      const result = await generateAndSaveTrainingPlan(profile, {
+        goal: form.goal,
+        level: form.level,
+        daysPerWeek: form.daysPerWeek,
+        equipment: form.equipment,
+        focus: form.focus,
+        sessionTime: form.sessionTime,
       });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: string; message?: string; retryAfterSec?: number }
-          | null;
-        if (payload?.error === "INSUFFICIENT_TOKENS") {
-          throw new Error(t("ai.insufficientTokens"));
-        }
-        if (response.status === 429) {
-          const message = payload?.message ?? t("training.aiRateLimit");
-          throw new Error(message);
-        }
-        throw new Error(t("training.aiError"));
+      if (typeof result.aiTokenBalance === "number") {
+        setAiTokenBalance(result.aiTokenBalance);
       }
-      const data = (await response.json()) as { plan?: TrainingPlan; aiTokenBalance?: number; aiTokenRenewalAt?: string | null };
-      const plan = data.plan ?? (data as unknown as TrainingPlan);
-      if (typeof data.aiTokenBalance === "number") {
-        setAiTokenBalance(data.aiTokenBalance);
+      if (typeof result.aiTokenRenewalAt === "string" || result.aiTokenRenewalAt === null) {
+        setAiTokenRenewalAt(result.aiTokenRenewalAt ?? null);
       }
-      if (typeof data.aiTokenRenewalAt === "string" || data.aiTokenRenewalAt === null) {
-        setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
-      }
-      const nextPlan = ensurePlanStartDate(plan);
-      const updated = await updateUserProfile({ trainingPlan: nextPlan });
-      setSavedPlan(updated.trainingPlan ?? nextPlan);
+      setSavedPlan(result.profile.trainingPlan ?? null);
       setSaveMessage(t("training.aiSuccess"));
       void refreshSubscription();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("training.aiError"));
+      if (err instanceof Error && err.message === "INSUFFICIENT_TOKENS") {
+        setError(t("ai.insufficientTokens"));
+      } else if (err instanceof Error && err.message && err.message !== "AI_GENERATION_FAILED") {
+        setError(err.message);
+      } else {
+        setError(t("training.aiError"));
+      }
     } finally {
       setAiLoading(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
