@@ -1608,7 +1608,8 @@
       "error": "No fue posible cargar la lista de clientes.",
       "active": "Activo",
       "blocked": "Bloqueado",
-      "openClientAriaPrefix": "Abrir contexto de"
+      "openClientAriaPrefix": "Abrir contexto de",
+      "unknownStatus": "Estado desconocido"
     },
     "clientContext": {
       "title": "Contexto del atleta",

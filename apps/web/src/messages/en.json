@@ -1605,7 +1605,8 @@
       "error": "Could not load the client list.",
       "active": "Active",
       "blocked": "Blocked",
-      "openClientAriaPrefix": "Open context for"
+      "openClientAriaPrefix": "Open context for",
+      "unknownStatus": "Unknown status"
     },
     "clientContext": {
       "title": "Athlete context",
