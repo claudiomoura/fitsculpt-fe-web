@@ -1,5 +1,7 @@
 FitSculpt – Project Status
 
+> Estado atual validado no branch `work` (última revisão documental): Sprint 03 ativo com foco em check-in semanal, progresso semanal e integração no Hoje, mantendo backend/contratos sem alterações.
+
 ## 1. Visão (North Star)
 FitSculpt é uma web app mobile-first de treino e nutrição, focada em UX premium, progressão clara e experiência comparável a apps líderes como FitnessAI ou Dr. Muscle.
 
