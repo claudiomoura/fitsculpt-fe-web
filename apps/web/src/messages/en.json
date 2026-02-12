@@ -1247,7 +1247,20 @@
       "avocado": "Avocado"
     },
     "weeklyProgressErrorTitle": "We couldn't load weekly progress",
-    "weeklyProgressErrorSubtitle": "Retry to fetch your latest tracking entries."
+    "weeklyProgressErrorSubtitle": "Retry to fetch your latest tracking entries.",
+    "adjustmentApply": "Apply adjustment",
+    "adjustmentApplyAria": "Apply recommended plan adjustment",
+    "adjustmentApplying": "Applying adjustment...",
+    "adjustmentUnavailable": "Adjustment not available at the moment.",
+    "adjustmentSuccessTitle": "Adjustment applied",
+    "adjustmentSuccessBody": "Plan updated on {date}.",
+    "adjustmentPeriod": "Affected week: {date}.",
+    "adjustmentError": "We could not apply the plan adjustment.",
+    "adjustmentRefreshError": "Adjustment was applied, but we could not refresh your data.",
+    "adjustmentRetry": "Retry",
+    "adjustmentRetryAria": "Retry applying the adjustment",
+    "adjustmentBack": "Back",
+    "adjustmentBackAria": "Go back to the check-in form"
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",

@@ -9,6 +9,7 @@ import {
   canApplyTrainingAdjustment,
   generateAndSaveTrainingPlan,
   getTrainingAdjustmentInput,
+  hasTrainingPlanAdjustmentCapability,
 } from "@/lib/trainingPlanAdjustment";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -155,6 +156,8 @@ export default function TrackingClient() {
   const [adjustmentStatus, setAdjustmentStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
   const [adjustmentSuccess, setAdjustmentSuccess] = useState<{ at: string; period?: string } | null>(null);
+  const [adjustmentCapabilityChecked, setAdjustmentCapabilityChecked] = useState(false);
+  const [hasAdjustmentCapability, setHasAdjustmentCapability] = useState(false);
   const [trackingSupports, setTrackingSupports] = useState<{
     energy: boolean | null;
     notes: boolean | null;
@@ -188,11 +191,26 @@ export default function TrackingClient() {
   const isCheckinSubmitDisabled =
     !isTrackingReady || !isWeightValid || !isDateValid || !isBodyFatValid || !isWaistValid || isSubmitting;
   const adjustmentInput = canApplyTrainingAdjustment(profile) ? getTrainingAdjustmentInput(profile) : null;
-  const isApplyAdjustmentDisabled = adjustmentStatus === "loading" || !adjustmentInput;
+  const canApplyAdjustment = adjustmentCapabilityChecked && hasAdjustmentCapability && Boolean(adjustmentInput);
+  const isApplyAdjustmentDisabled = adjustmentStatus === "loading" || !canApplyAdjustment;
 
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
   }, [checkinMode]);
+
+  useEffect(() => {
+    let active = true;
+    const detectCapability = async () => {
+      const hasCapability = await hasTrainingPlanAdjustmentCapability();
+      if (!active) return;
+      setHasAdjustmentCapability(hasCapability);
+      setAdjustmentCapabilityChecked(true);
+    };
+    void detectCapability();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function detectTrackingSupport(entries?: Array<Record<string, unknown>> | null) {
     if (!entries || entries.length === 0) {
@@ -803,7 +821,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   const formatLocalDate = (value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleString();
+    return date.toLocaleDateString();
   };
 
   const translateWithDate = (key: string, date: string) => t(key).replace("{date}", date);
@@ -816,7 +834,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   };
 
   async function handleApplyAdjustment() {
-    if (!adjustmentInput || adjustmentStatus === "loading") return;
+    if (!canApplyAdjustment || !adjustmentInput || adjustmentStatus === "loading") return;
     setAdjustmentStatus("loading");
     setAdjustmentError(null);
     setAdjustmentSuccess(null);
@@ -830,7 +848,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         return;
       }
       setProfile(refreshedProfile);
-      const successDate = formatLocalDate(result.metadata.updatedAt ?? new Date().toISOString()) ?? new Date().toLocaleString();
+      const successDate = formatLocalDate(result.metadata.updatedAt ?? new Date().toISOString()) ?? formatLocalDate(new Date().toISOString()) ?? new Date().toLocaleDateString();
       setAdjustmentSuccess({
         at: successDate,
         period: resolvePeriodText(result.metadata),
@@ -1186,12 +1204,13 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             {latestCheckin?.recommendation || t("profile.checkinKeep")}
           </p>
 
-          {adjustmentInput ? (
+          {canApplyAdjustment ? (
             <button
               type="button"
               className={`btn ${adjustmentStatus === "loading" ? "is-loading" : ""}`}
               onClick={handleApplyAdjustment}
               disabled={isApplyAdjustmentDisabled}
+              aria-label={t("tracking.adjustmentApplyAria")}
             >
               {adjustmentStatus === "loading" ? (
                 <>
@@ -1202,7 +1221,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               )}
             </button>
           ) : (
-            <p className="muted">{t("tracking.adjustmentUnavailable")}</p>
+            <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentUnavailable")}</p>
           )}
 
           {adjustmentStatus === "success" && adjustmentSuccess ? (
@@ -1220,9 +1239,25 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           ) : null}
 
           {adjustmentStatus === "error" && adjustmentError ? (
-            <p className="muted" role="status" aria-live="polite" style={{ marginTop: 8 }}>
-              {adjustmentError}
-            </p>
+            <div className="feature-card" role="status" aria-live="polite" style={{ marginTop: 10 }}>
+              <p className="muted" style={{ marginBottom: 10 }}>
+                {adjustmentError}
+              </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={handleApplyAdjustment}
+                  disabled={!canApplyAdjustment}
+                  aria-label={t("tracking.adjustmentRetryAria")}
+                >
+                  {t("tracking.adjustmentRetry")}
+                </button>
+                <a className="btn ghost" href="#weight-entry" aria-label={t("tracking.adjustmentBackAria")}>
+                  {t("tracking.adjustmentBack")}
+                </a>
+              </div>
+            </div>
           ) : null}
         </div>
 

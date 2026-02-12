@@ -78,6 +78,19 @@ export function canApplyTrainingAdjustment(profile: ProfileData): boolean {
   return Boolean(isProfileComplete(profile) && getTrainingAdjustmentInput(profile));
 }
 
+export async function hasTrainingPlanAdjustmentCapability(): Promise<boolean> {
+  try {
+    const response = await fetch("/api/ai/training-plan", {
+      method: "OPTIONS",
+      cache: "no-store",
+      credentials: "include",
+    });
+    return response.status !== 404;
+  } catch {
+    return false;
+  }
+}
+
 export async function generateAndSaveTrainingPlan(
   profile: ProfileData,
   input: TrainingPreferencesInput
