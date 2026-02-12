@@ -1689,6 +1689,7 @@
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",
     "adminPreviewDescription": "Access in-progress screens using real permissions and neutral states.",
+    "testerModeToggle": "Enable Tester Mode (admin only)",
     "previewBadge": "Preview / Under construction",
     "previewCardDescription": "Review this screen in preview mode.",
     "notAvailableTitle": "Feature unavailable",
