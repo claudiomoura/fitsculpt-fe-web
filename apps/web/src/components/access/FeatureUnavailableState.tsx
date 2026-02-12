@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { EmptyState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type Props = {
@@ -20,15 +20,19 @@ export default function FeatureUnavailableState({
   const { t } = useLanguage();
 
   return (
-    <section className="empty-state card form-stack" role="status" aria-live="polite">
-      <h2>{title ?? t("access.notAvailableTitle")}</h2>
-      <p className="muted">{description ?? t("access.notAvailableDescription")}</p>
-      <div className="empty-state-actions">
-        <Link href={backHref} className="btn btn-ghost">
-          {t("access.backCta")}
-        </Link>
-        {actions}
-      </div>
-    </section>
+    <EmptyState
+      title={title ?? t("access.notAvailableTitle")}
+      description={description ?? t("access.notAvailableDescription")}
+      wrapInCard
+      actions={[
+        {
+          label: t("access.backCta"),
+          href: backHref,
+          variant: "ghost",
+        },
+      ]}
+    >
+      {actions ? <div className="empty-state-actions">{actions}</div> : null}
+    </EmptyState>
   );
 }
