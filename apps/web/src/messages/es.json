@@ -22,7 +22,8 @@
     "billing": "Pro y pagos",
     "admin": "Admin",
     "adminUsers": "Usuarios",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "mobileTabs": "Pestañas móviles"
   },
   "navSections": {
     "summary": "Resumen",
@@ -801,7 +802,8 @@
     "errorTitle": "No pudimos cargar tu plan de nutrición",
     "ingredientsNotAvailable": "Ingredientes no disponibles.",
     "mealDetailsNotFound": "No hemos podido encontrar este plato para el día seleccionado.",
-    "weekLabel": "Semana"
+    "weekLabel": "Semana",
+    "instructionsTitle": "Instrucciones"
   },
   "training": {
     "formTitle": "Datos del plan",

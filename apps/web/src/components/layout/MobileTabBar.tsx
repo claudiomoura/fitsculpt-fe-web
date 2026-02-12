@@ -21,7 +21,7 @@ export default function MobileTabBar() {
 
   return (
     <>
-      <nav className="mobile-tab-bar" aria-label={t("appName")}>
+      <nav className="mobile-tab-bar" aria-label={t("nav.mobileTabs")}>
         <div className="mobile-tab-bar-inner">
           {mainTabsMobile.map((tab) => {
             const active = tab.action === "quickActions" ? quickActionsOpen : isActive(tab.href);
