@@ -23,7 +23,7 @@
     "admin": "Admin",
     "adminUsers": "Usuarios",
     "logout": "Cerrar sesión",
-    "mobileTabs": "Pestañas móviles"
+    "trainer": "Entrenador"
   },
   "navSections": {
     "summary": "Resumen",
@@ -1578,5 +1578,13 @@
     "manageSubscription": "Gestionar suscripción",
     "redirecting": "Redirigiendo...",
     "opening": "Abriendo..."
+  },
+  "trainer": {
+    "title": "Modo entrenador",
+    "loading": "Cargando modo entrenador...",
+    "error": "No se pudieron validar los permisos de entrenador ahora mismo.",
+    "unauthorized": "El modo entrenador no está disponible para esta cuenta.",
+    "modeTitle": "Viendo como entrenador",
+    "notAvailable": "La lista de clientes para entrenador aún no está disponible en este entorno."
   }
 }
