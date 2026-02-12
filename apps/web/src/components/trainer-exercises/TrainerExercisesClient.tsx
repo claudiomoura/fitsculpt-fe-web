@@ -147,7 +147,7 @@ export default function TrainerExercisesClient() {
       <div className="feature-card form-stack">
         <h2 style={{ margin: 0 }}>{t("library.tabs.exercises")}</h2>
         {canCreateExercise ? (
-          <Link href="/app/treinador/exercicios/novo" className="btn primary" style={{ width: "fit-content" }}>
+          <Link href="/app/trainer/exercises/new" className="btn primary" style={{ width: "fit-content" }}>
             {t("training.manualCreate")}
           </Link>
         ) : (

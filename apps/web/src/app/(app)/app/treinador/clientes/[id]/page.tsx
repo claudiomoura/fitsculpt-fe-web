@@ -1,15 +1,10 @@
-import { getServerT } from "@/lib/serverI18n";
-import TrainerClientContext from "@/components/trainer/TrainerClientContext";
+import { redirect } from "next/navigation";
 
-export default async function TreinadorClientePage() {
-  const { t } = await getServerT();
+type TreinadorClientePageProps = {
+  params: Promise<{ id: string }>;
+};
 
-  return (
-    <section className="section-stack">
-      <header>
-        <h1 className="section-title">{t("trainer.clientContext.title")}</h1>
-      </header>
-      <TrainerClientContext />
-    </section>
-  );
+export default async function TreinadorClientePage({ params }: TreinadorClientePageProps) {
+  const { id } = await params;
+  redirect(`/app/trainer/clients/${id}`);
 }

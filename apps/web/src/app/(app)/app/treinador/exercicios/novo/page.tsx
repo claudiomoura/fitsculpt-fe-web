@@ -1,15 +1,5 @@
-import { getServerT } from "@/lib/serverI18n";
-import TrainerExerciseCreateForm from "@/components/trainer-exercises/TrainerExerciseCreateForm";
+import { redirect } from "next/navigation";
 
-export default async function TrainerExerciseCreatePage() {
-  const { t } = await getServerT();
-
-  return (
-    <section className="section-stack">
-      <header>
-        <h1 className="section-title">{t("training.manualCreate")}</h1>
-      </header>
-      <TrainerExerciseCreateForm />
-    </section>
-  );
+export default function TrainerExerciseCreateLegacyPage() {
+  redirect("/app/trainer/exercises/new");
 }

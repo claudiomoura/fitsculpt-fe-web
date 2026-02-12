@@ -98,7 +98,7 @@ export default function TrainerHome() {
           const clientName = client.name?.trim() || client.email;
           return (
             <li key={client.id} className="card">
-              <Link className="sidebar-link" href={`/app/treinador/clientes/${client.id}`}>
+              <Link className="sidebar-link" href={`/app/trainer/clients/${client.id}`}>
                 {clientName}
               </Link>
             </li>

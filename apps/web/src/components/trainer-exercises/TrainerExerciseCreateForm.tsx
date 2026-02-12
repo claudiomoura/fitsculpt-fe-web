@@ -103,7 +103,7 @@ export default function TrainerExerciseCreateForm() {
         return;
       }
 
-      router.push("/app/treinador/exercicios");
+      router.push("/app/trainer/exercises");
     } catch {
       notify({
         title: t("trainer.error"),
@@ -161,7 +161,7 @@ export default function TrainerExerciseCreateForm() {
         <button className="btn primary" type="submit" disabled={!isValid || submitting}>
           {submitting ? t("ui.loading") : t("ui.save")}
         </button>
-        <Link href="/app/treinador/exercicios" className="btn secondary">
+        <Link href="/app/trainer/exercises" className="btn secondary">
           {t("ui.cancel")}
         </Link>
       </div>
