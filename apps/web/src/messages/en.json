@@ -796,7 +796,8 @@
     "generateSuccess": "Plan generated successfully.",
     "errorTitle": "We couldn't load your nutrition plan",
     "ingredientsNotAvailable": "Ingredients not available.",
-    "mealDetailsNotFound": "We could not find this meal for the selected day."
+    "mealDetailsNotFound": "We could not find this meal for the selected day.",
+    "weekLabel": "Week"
   },
   "training": {
     "formTitle": "Plan details",
