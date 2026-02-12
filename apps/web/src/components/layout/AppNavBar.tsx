@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import AppUserBadge from "./AppUserBadge";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
-import { buildUserSections, sidebarAdmin } from "./navConfig";
+import { buildNavigationSections } from "./navConfig";
 import { useAccess } from "@/lib/useAccess";
 
 type AuthUser = {
@@ -29,7 +29,7 @@ export default function AppNavBar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const { isAdmin, isCoach } = useAccess();
+  const { role, isAdmin, isCoach } = useAccess();
 
   useEffect(() => {
     let active = true;
@@ -69,10 +69,7 @@ export default function AppNavBar() {
   const isPro = planLabel === "PRO";
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
 
-  const sections = useMemo(() => {
-    const userSections = buildUserSections(isCoach || isAdmin);
-    return isAdmin ? [...userSections, ...sidebarAdmin] : userSections;
-  }, [isCoach, isAdmin]);
+  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach }), [role, isCoach, isAdmin]);
 
   const closeMenu = () => setOpen(false);
 

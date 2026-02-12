@@ -1,3 +1,5 @@
+import { canAccessAdmin, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
+
 export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin";
 
 export type NavItem = {
@@ -111,8 +113,8 @@ export const sidebarAdmin: NavSectionGroup[] = [
   },
 ];
 
-export function buildUserSections(canAccessTrainer: boolean): NavSectionGroup[] {
-  if (canAccessTrainer) {
+export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
+  if (canAccessTrainer(input)) {
     return sidebarUser;
   }
 
@@ -124,4 +126,14 @@ export function buildUserSections(canAccessTrainer: boolean): NavSectionGroup[] 
       items: section.items.filter((item) => item.id !== "trainer-home"),
     };
   });
+}
+
+export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup[] {
+  const userSections = buildUserSections(input);
+
+  if (!canAccessAdmin(input)) {
+    return userSections;
+  }
+
+  return [...userSections, ...sidebarAdmin];
 }
