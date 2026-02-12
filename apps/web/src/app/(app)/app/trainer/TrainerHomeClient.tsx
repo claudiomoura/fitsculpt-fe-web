@@ -4,24 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getUserRoleFlags } from "@/lib/userCapabilities";
-import { hasTrainerClientsCapability } from "@/lib/capabilities";
-import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabilityAudit";
-import { hasTrainerClientsCapability } from "@/lib/capabilities";
-
-type AuthUser = Record<string, unknown>;
-
-type ClientRow = {
-  id: string;
-  email: string;
-  name: string | null;
-  role: string;
-  isBlocked: boolean;
-  subscriptionStatus: string | null;
-};
-
-type ClientsResponse = {
-  users?: ClientRow[];
-};
+import { extractTrainerClients, type TrainerClient } from "@/lib/trainerClients";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -30,28 +13,20 @@ export default function TrainerHomeClient() {
   const [permissionState, setPermissionState] = useState<LoadState>("loading");
   const [clientsState, setClientsState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
-  const [clients, setClients] = useState<ClientRow[]>([]);
-  const [canCreateExercise, setCanCreateExercise] = useState(false);
+  const [clients, setClients] = useState<TrainerClient[]>([]);
 
   const loadClients = useCallback(async () => {
     setClientsState("loading");
 
     try {
-      const response = await fetch("/api/admin/users?page=1", { cache: "no-store" });
+      const response = await fetch("/api/profile", { cache: "no-store" });
       if (!response.ok) {
         setClientsState("error");
         return;
       }
 
-      const data = (await response.json()) as ClientsResponse;
-      if (!hasTrainerClientsCapability(data)) {
-        setClients([]);
-        setClientsState("ready");
-        return;
-      }
-
-      const list = Array.isArray(data.users) ? data.users : [];
-      setClients(list.filter((client) => client.role !== "ADMIN"));
+      const data = (await response.json()) as unknown;
+      setClients(extractTrainerClients(data));
       setClientsState("ready");
     } catch {
       setClientsState("error");
@@ -69,17 +44,13 @@ export default function TrainerHomeClient() {
           return;
         }
 
-        const [data, capabilities] = await Promise.all([
-          response.json() as Promise<AuthUser>,
-          auditTrainerExerciseCapabilities(),
-        ]);
+        const data = (await response.json()) as Record<string, unknown>;
         const roleFlags = getUserRoleFlags(data);
 
         if (!active) return;
 
         const canAccess = roleFlags.isTrainer || roleFlags.isAdmin;
         setCanAccessTrainer(canAccess);
-        setCanCreateExercise(capabilities.canCreateExercise);
         setPermissionState("ready");
 
         if (canAccess) {
@@ -96,8 +67,6 @@ export default function TrainerHomeClient() {
       active = false;
     };
   }, [loadClients]);
-
-  const hasClients = clients.length > 0;
 
   const listBody = useMemo(() => {
     if (clientsState === "loading") {
@@ -116,14 +85,14 @@ export default function TrainerHomeClient() {
       return (
         <div className="card form-stack" role="status" aria-live="polite">
           <p className="muted">{t("trainer.clients.error")}</p>
-          <button type="button" className="btn secondary" onClick={() => void loadClients()}>
+          <button type="button" className="btn secondary" style={{ minHeight: 44 }} onClick={() => void loadClients()}>
             {t("trainer.retry")}
           </button>
         </div>
       );
     }
 
-    if (!hasClients) {
+    if (!clients.length) {
       return (
         <div className="card" role="status" aria-live="polite">
           <p className="muted">{t("trainer.clients.empty")}</p>
@@ -134,18 +103,22 @@ export default function TrainerHomeClient() {
     return (
       <ul className="form-stack" aria-label={t("trainer.clients.title")}>
         {clients.map((client) => {
-          const clientName = client.name?.trim() || client.email;
-          const statusText = client.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active");
+          const statusText =
+            client.isBlocked === true
+              ? t("trainer.clients.blocked")
+              : client.isBlocked === false
+                ? t("trainer.clients.active")
+                : t("trainer.clients.unknownStatus");
 
           return (
             <li key={client.id} className="card">
               <Link
-                href={`/app/trainer/clients/${client.id}`}
+                href={`/app/trainer/client/${client.id}`}
                 className="sidebar-link"
                 style={{ display: "block", minHeight: 44 }}
-                aria-label={`${t("trainer.clients.openClientAriaPrefix")} ${clientName}`}
+                aria-label={`${t("trainer.clients.openClientAriaPrefix")} ${client.name}`}
               >
-                <strong>{clientName}</strong>
+                <strong>{client.name}</strong>
                 <p className="muted" style={{ margin: "4px 0 0" }}>
                   {statusText}
                   {client.subscriptionStatus ? ` · ${client.subscriptionStatus}` : ""}
@@ -156,7 +129,7 @@ export default function TrainerHomeClient() {
         })}
       </ul>
     );
-  }, [clients, clientsState, hasClients, loadClients, t]);
+  }, [clients, clientsState, loadClients, t]);
 
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
@@ -170,7 +143,7 @@ export default function TrainerHomeClient() {
     return (
       <div className="feature-card form-stack" role="status">
         <p className="muted">{t("trainer.unauthorized")}</p>
-        <Link href="/app" className="btn secondary" style={{ width: "fit-content" }}>
+        <Link href="/app" className="btn secondary" style={{ width: "fit-content", minHeight: 44 }}>
           {t("trainer.backToDashboard")}
         </Link>
       </div>
@@ -181,23 +154,10 @@ export default function TrainerHomeClient() {
     <div className="form-stack">
       <div className="feature-card form-stack">
         <h2 style={{ margin: 0 }}>{t("trainer.modeTitle")}</h2>
-        <p className="muted" style={{ margin: 0 }}>{t("trainer.viewingAsCoach")}</p>
+        <p className="muted" style={{ margin: 0 }}>
+          {t("trainer.viewingAsCoach")}
+        </p>
       </div>
-
-      <section className="section-stack" aria-labelledby="trainer-exercises-title">
-        <h2 id="trainer-exercises-title" className="section-title" style={{ fontSize: 20 }}>
-          {t("library.tabs.exercises")}
-        </h2>
-        <div className="card form-stack">
-          {canCreateExercise ? (
-            <Link href="/app/treinador/exercicios" className="btn secondary" style={{ width: "fit-content" }}>
-              {t("library.tabs.exercises")}
-            </Link>
-          ) : (
-            <p className="muted" style={{ margin: 0 }}>{t("trainer.notAvailable")}</p>
-          )}
-        </div>
-      </section>
 
       <section className="section-stack" aria-labelledby="trainer-clients-title">
         <h2 id="trainer-clients-title" className="section-title" style={{ fontSize: 20 }}>
