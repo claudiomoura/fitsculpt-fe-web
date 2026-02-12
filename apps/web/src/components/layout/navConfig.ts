@@ -12,14 +12,12 @@ export type NavSectionGroup = {
   items: NavItem[];
 };
 
-export type MobileTabAction = "quickActions";
 
 export type MobileTab = {
   id: string;
   href?: string;
   labelKey: string;
   icon: "sparkles" | "dumbbell" | "book" | "info" | "check";
-  action?: MobileTabAction;
   badgeCount?: number;
 };
 
@@ -31,16 +29,16 @@ export const mainTabsMobile: MobileTab[] = [
     icon: "sparkles",
   },
   {
+    id: "dashboard",
+    href: "/app",
+    labelKey: "nav.dashboard",
+    icon: "info",
+  },
+  {
     id: "plan",
     href: "/app/entrenamiento",
     labelKey: "nav.plan",
     icon: "dumbbell",
-  },
-  {
-    id: "log",
-    labelKey: "nav.log",
-    icon: "check",
-    action: "quickActions",
   },
   {
     id: "library",
@@ -49,10 +47,16 @@ export const mainTabsMobile: MobileTab[] = [
     icon: "book",
   },
   {
-    id: "profile",
-    href: "/app/profile",
-    labelKey: "nav.profile",
-    icon: "info",
+    id: "nutrition",
+    href: "/app/nutricion",
+    labelKey: "nav.nutrition",
+    icon: "sparkles",
+  },
+  {
+    id: "tracking",
+    href: "/app/seguimiento",
+    labelKey: "nav.tracking",
+    icon: "check",
   },
 ];
 

@@ -7,12 +7,10 @@ import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Icon } from "@/components/ui/Icon";
 import { mainTabsMobile } from "./navConfig";
-import QuickActionsDrawer from "./QuickActionsDrawer";
 
 export default function MobileTabBar() {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -29,27 +27,8 @@ export default function MobileTabBar() {
     <nav className="mobile-tab-bar" aria-label={t("nav.mobileTabBarAriaLabel")}>
       <div className="mobile-tab-bar-inner">
         {mainTabsMobile.map((tab) => {
-          const active = tab.action === "quickActions" ? quickActionsOpen : isActive(tab.href);
+          const active = isActive(tab.href);
           const tabLabel = t(tab.labelKey);
-
-          if (tab.action === "quickActions") {
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                className={`mobile-tab mobile-tab--action ${active ? "is-active" : ""}`}
-                aria-label={tabLabel}
-                aria-haspopup="dialog"
-                aria-expanded={quickActionsOpen}
-                onClick={() => setQuickActionsOpen(true)}
-              >
-                <span className="mobile-tab-icon mobile-tab-icon--action" aria-hidden="true">
-                  ＋
-                </span>
-                <span className="mobile-tab-label">{tabLabel}</span>
-              </button>
-            );
-          }
 
           return (
             <Link
@@ -74,10 +53,5 @@ export default function MobileTabBar() {
     </nav>
   );
 
-  return (
-    <>
-      {mounted ? createPortal(nav, document.body) : null}
-      <QuickActionsDrawer open={quickActionsOpen} onClose={() => setQuickActionsOpen(false)} />
-    </>
-  );
+  return mounted ? createPortal(nav, document.body) : null;
 }
