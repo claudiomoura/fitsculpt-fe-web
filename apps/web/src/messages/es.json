@@ -1251,7 +1251,20 @@
       "avocado": "Aguacate"
     },
     "weeklyProgressErrorTitle": "No pudimos cargar el progreso semanal",
-    "weeklyProgressErrorSubtitle": "Reintenta para recuperar tus registros de seguimiento."
+    "weeklyProgressErrorSubtitle": "Reintenta para recuperar tus registros de seguimiento.",
+    "adjustmentApply": "Aplicar ajuste",
+    "adjustmentApplyAria": "Aplicar ajuste recomendado del plan",
+    "adjustmentApplying": "Aplicando ajuste...",
+    "adjustmentUnavailable": "Ajuste no disponible en este momento.",
+    "adjustmentSuccessTitle": "Ajuste aplicado",
+    "adjustmentSuccessBody": "Plan actualizado el {date}.",
+    "adjustmentPeriod": "Semana afectada: {date}.",
+    "adjustmentError": "No pudimos aplicar el ajuste del plan.",
+    "adjustmentRefreshError": "Se aplicó el ajuste, pero no pudimos refrescar los datos.",
+    "adjustmentRetry": "Reintentar",
+    "adjustmentRetryAria": "Reintentar aplicar el ajuste",
+    "adjustmentBack": "Volver",
+    "adjustmentBackAria": "Volver al formulario de check-in"
   },
   "onboarding": {
     "title": "Bienvenido a FitSculpt",
