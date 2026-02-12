@@ -24,6 +24,8 @@ type ClientsResponse = {
 };
 
 type LoadState = "loading" | "ready" | "error";
+type TabKey = "today" | "tracking" | "plans";
+type SectionState = "loading" | "empty" | "ready" | "error";
 
 export default function TrainerClientContextClient() {
   const { t } = useLanguage();
@@ -34,6 +36,7 @@ export default function TrainerClientContextClient() {
   const [clientState, setClientState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [client, setClient] = useState<ClientRow | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("today");
 
   useEffect(() => {
     let active = true;
@@ -97,6 +100,75 @@ export default function TrainerClientContextClient() {
     return client.name?.trim() || client.email;
   }, [client, t]);
 
+  const tabs: { key: TabKey; label: string }[] = useMemo(
+    () => [
+      { key: "today", label: t("trainer.clientContext.today.title") },
+      { key: "tracking", label: t("trainer.clientContext.tracking.title") },
+      { key: "plans", label: t("trainer.clientContext.plans.title") },
+    ],
+    [t],
+  );
+
+  const sectionStateByTab = useMemo<Record<TabKey, SectionState>>(() => {
+    if (clientState === "loading") {
+      return { today: "loading", tracking: "loading", plans: "loading" };
+    }
+
+    if (clientState === "error") {
+      return { today: "error", tracking: "error", plans: "error" };
+    }
+
+    if (!client || !hasTrainerClientContextCapability(client)) {
+      return { today: "empty", tracking: "empty", plans: "empty" };
+    }
+
+    return {
+      today: client.subscriptionStatus ? "ready" : "empty",
+      tracking: "empty",
+      plans: "empty",
+    };
+  }, [client, clientState]);
+
+  const renderSectionBody = () => {
+    const sectionState = sectionStateByTab[activeTab];
+
+    if (sectionState === "loading") {
+      return <p className="muted">{t("trainer.clientContext.loading")}</p>;
+    }
+
+    if (sectionState === "error") {
+      return (
+        <div className="form-stack">
+          <p className="muted">{t("trainer.clientContext.error")}</p>
+          <button className="btn secondary" type="button" onClick={() => window.location.reload()}>
+            {t("trainer.retry")}
+          </button>
+        </div>
+      );
+    }
+
+    if (sectionState === "empty") {
+      return <p className="muted">{t("trainer.clientContext.unavailable")}</p>;
+    }
+
+    if (activeTab === "today") {
+      return (
+        <div className="form-stack">
+          {client?.lastLoginAt ? (
+            <p className="muted" style={{ margin: 0 }}>
+              {`${t("trainer.clientContext.today.lastLoginPrefix")} ${new Date(client.lastLoginAt).toLocaleDateString()}`}
+            </p>
+          ) : null}
+          <p className="muted" style={{ margin: 0 }}>
+            {`${t("trainer.clientContext.today.subscriptionStatusPrefix")} ${client?.subscriptionStatus ?? "-"}`}
+          </p>
+        </div>
+      );
+    }
+
+    return <p className="muted">{t("trainer.clientContext.unavailable")}</p>;
+  };
+
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
   }
@@ -116,50 +188,34 @@ export default function TrainerClientContextClient() {
     );
   }
 
-  if (clientState === "loading") {
-    return <p className="muted">{t("trainer.clientContext.loading")}</p>;
-  }
-
-  if (clientState === "error") {
-    return (
-      <div className="card form-stack" role="status">
-        <p className="muted">{t("trainer.clientContext.error")}</p>
-        <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
-          {t("trainer.back")}
-        </Link>
-      </div>
-    );
-  }
-
   return (
     <div className="form-stack">
       <header className="feature-card form-stack">
         <h2 style={{ margin: 0 }}>{clientName}</h2>
-        <p className="muted" style={{ margin: 0 }}>{t("trainer.viewingAsCoach")}</p>
-        {client?.lastLoginAt ? (
-          <p className="muted" style={{ margin: 0 }}>
-            {`${t("trainer.clientContext.today.lastLoginPrefix")} ${new Date(client.lastLoginAt).toLocaleDateString()}`}
-          </p>
-        ) : null}
+        <p className="muted" style={{ margin: 0 }}>
+          {t("trainer.viewingAsCoach")}
+        </p>
       </header>
 
-      <section className="card form-stack" aria-labelledby="trainer-today-title">
-        <h3 id="trainer-today-title" style={{ margin: 0 }}>{t("trainer.clientContext.today.title")}</h3>
-        <p className="muted" style={{ margin: 0 }}>
-          {client && hasTrainerClientContextCapability(client) && client.subscriptionStatus
-            ? `${t("trainer.clientContext.today.subscriptionStatusPrefix")} ${client.subscriptionStatus}`
-            : t("trainer.clientContext.unavailable")}
-        </p>
-      </section>
+      <section className="card form-stack" aria-label={t("trainer.clientContext.title")}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={activeTab === tab.key ? "btn" : "btn secondary"}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              aria-pressed={activeTab === tab.key}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      <section className="card form-stack" aria-labelledby="trainer-tracking-title">
-        <h3 id="trainer-tracking-title" style={{ margin: 0 }}>{t("trainer.clientContext.tracking.title")}</h3>
-        <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.unavailable")}</p>
-      </section>
-
-      <section className="card form-stack" aria-labelledby="trainer-plans-title">
-        <h3 id="trainer-plans-title" style={{ margin: 0 }}>{t("trainer.clientContext.plans.title")}</h3>
-        <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.unavailable")}</p>
+        <div className="card form-stack" role="status" aria-live="polite">
+          <h3 style={{ margin: 0 }}>{tabs.find((tab) => tab.key === activeTab)?.label}</h3>
+          {renderSectionBody()}
+        </div>
       </section>
 
       <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
