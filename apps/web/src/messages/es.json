@@ -444,7 +444,8 @@
     "adminTitle": "Panel de admin",
     "adminSubtitle": "Gestiona usuarios y accesos.",
     "adminUsersTitle": "Usuarios",
-    "adminUsersSubtitle": "Administra usuarios, accesos y estados de cuenta."
+    "adminUsersSubtitle": "Administra usuarios, accesos y estados de cuenta.",
+    "mobileTabBarAriaLabel": "Navegación principal móvil"
   },
   "dashboard": {
     "title": "Panel",
