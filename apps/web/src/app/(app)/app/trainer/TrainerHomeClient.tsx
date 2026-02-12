@@ -1,20 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import PreviewBanner from "@/components/access/PreviewBanner";
-import {
-  ADMIN_TESTER_MODE_KEY,
-  isTesterModeEnabled,
-  resolveTesterModeFromQueryParam,
-} from "@/config/featureFlags";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
-import {
-  canUseTrainerDemoPreview,
-  getTrainerDemoClients,
-  probeTrainerClientsCapability,
-} from "@/lib/trainerCapability";
+import { probeTrainerClientsCapability } from "@/lib/trainerCapability";
 import type { TrainerClient } from "@/lib/trainerClients";
 
 type LoadState = "loading" | "ready" | "error" | "unavailable";
@@ -22,23 +13,16 @@ type LoadState = "loading" | "ready" | "error" | "unavailable";
 export default function TrainerHomeClient() {
   const { t } = useLanguage();
   const { isCoach, isAdmin, isLoading: accessLoading } = useAccess();
-  const searchParams = useSearchParams();
 
   const [clientsState, setClientsState] = useState<LoadState>("loading");
   const [clients, setClients] = useState<TrainerClient[]>([]);
   const [activeEndpoint, setActiveEndpoint] = useState<string | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-  const [testerModeEnabled] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return isTesterModeEnabled(window.localStorage.getItem(ADMIN_TESTER_MODE_KEY));
-  });
 
   const canAccessTrainer = isCoach || isAdmin;
 
   const loadClients = useCallback(async () => {
     setClientsState("loading");
     setActiveEndpoint(null);
-    setIsDemoMode(false);
 
     const result = await probeTrainerClientsCapability();
 
@@ -50,17 +34,6 @@ export default function TrainerHomeClient() {
     }
 
     if (result.status === "unavailable") {
-      const previewMode = searchParams.get("preview");
-      const testerModeFromQuery = resolveTesterModeFromQueryParam(searchParams.get("tester"));
-      const canUseTesterPreview = isAdmin && testerModeEnabled && testerModeFromQuery;
-
-      if (canUseTesterPreview && canUseTrainerDemoPreview(previewMode)) {
-        setClients(getTrainerDemoClients());
-        setIsDemoMode(true);
-        setClientsState("ready");
-        return;
-      }
-
       setClients([]);
       setClientsState("unavailable");
       return;
@@ -68,7 +41,7 @@ export default function TrainerHomeClient() {
 
     setClientsState("error");
     setActiveEndpoint(result.endpoint ?? null);
-  }, [isAdmin, searchParams, testerModeEnabled]);
+  }, []);
 
   useEffect(() => {
     if (!canAccessTrainer) return;
@@ -83,7 +56,7 @@ export default function TrainerHomeClient() {
 
   const listBody = useMemo(() => {
     if (clientsState === "loading") {
-      return <p className="muted">{t("trainer.loading")}</p>;
+      return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
     }
 
     if (clientsState === "unavailable") {
@@ -99,12 +72,12 @@ export default function TrainerHomeClient() {
 
     if (clientsState === "error") {
       return (
-        <div className="card form-stack" role="status" aria-live="polite">
-          <p className="muted">{t("trainer.clients.error")}</p>
-          <button type="button" className="btn secondary" style={{ minHeight: 44 }} onClick={() => void loadClients()}>
-            {t("ui.retry")}
-          </button>
-        </div>
+        <ErrorState
+          title={t("trainer.clients.error")}
+          retryLabel={t("ui.retry")}
+          onRetry={() => void loadClients()}
+          wrapInCard
+        />
       );
     }
 
@@ -128,7 +101,9 @@ export default function TrainerHomeClient() {
 
           return (
             <li key={client.id} className="card">
-              <strong>{client.name || t("trainer.clients.empty")}</strong>
+              <Link href={`/app/trainer/clients/${client.id}`} className="sidebar-link" style={{ display: "block" }}>
+                <strong>{client.name || t("trainer.clients.empty")}</strong>
+              </Link>
               <p className="muted" style={{ margin: "4px 0 0" }}>
                 {statusText}
                 {client.subscriptionStatus ? ` · ${client.subscriptionStatus}` : ""}
@@ -141,25 +116,18 @@ export default function TrainerHomeClient() {
   }, [clients, clientsState, loadClients, t]);
 
   if (accessLoading) {
-    return <p className="muted">{t("trainer.loading")}</p>;
+    return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
   }
 
   if (!canAccessTrainer) {
-    return (
-      <div className="feature-card form-stack" role="status">
-        <p className="muted">{t("trainer.unauthorized")}</p>
-      </div>
-    );
+    return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="lock" />;
   }
 
   return (
     <div className="form-stack">
       <div className="feature-card form-stack">
-        {isDemoMode ? <PreviewBanner /> : null}
         <h2 style={{ margin: 0 }}>{t("trainer.modeTitle")}</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          {isDemoMode ? t("trainer.demoMode") : t("trainer.viewingAsCoach")}
-        </p>
+        <p className="muted" style={{ margin: 0 }}>{t("trainer.viewingAsCoach")}</p>
         {activeEndpoint ? (
           <p className="muted" style={{ margin: 0 }}>
             {t("trainer.clientsEndpointPrefix")} {activeEndpoint}
@@ -170,7 +138,6 @@ export default function TrainerHomeClient() {
       <section className="section-stack" aria-labelledby="trainer-clients-title">
         <h2 id="trainer-clients-title" className="section-title" style={{ fontSize: 20 }}>
           {t("trainer.clients.title")}
-          {isDemoMode ? <span className="chip">Demo</span> : null}
         </h2>
         {listBody}
       </section>
