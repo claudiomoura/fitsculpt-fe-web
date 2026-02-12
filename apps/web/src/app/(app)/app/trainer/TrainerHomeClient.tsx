@@ -59,7 +59,13 @@ export default function TrainerHomeClient() {
 
   useEffect(() => {
     if (!canAccessTrainer) return;
-    void loadClients();
+    const timeoutId = setTimeout(() => {
+      void loadClients();
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [canAccessTrainer, loadClients]);
 
   const listBody = useMemo(() => {
