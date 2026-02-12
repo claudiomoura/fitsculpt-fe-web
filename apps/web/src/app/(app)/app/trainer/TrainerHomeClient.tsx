@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
-import { getUserRoleFlags } from "@/lib/userCapabilities";
+import { hasTrainerClientsCapability } from "@/lib/capabilities";
+import { getRoleFlags } from "@/lib/roles";
 
 type AuthUser = Record<string, unknown>;
 
@@ -40,6 +41,12 @@ export default function TrainerHomeClient() {
       }
 
       const data = (await response.json()) as ClientsResponse;
+      if (!hasTrainerClientsCapability(data)) {
+        setClients([]);
+        setClientsState("ready");
+        return;
+      }
+
       const list = Array.isArray(data.users) ? data.users : [];
       setClients(list.filter((client) => client.role !== "ADMIN"));
       setClientsState("ready");
@@ -60,7 +67,7 @@ export default function TrainerHomeClient() {
         }
 
         const data = (await response.json()) as AuthUser;
-        const roleFlags = getUserRoleFlags(data);
+        const roleFlags = getRoleFlags(data);
 
         if (!active) return;
 
