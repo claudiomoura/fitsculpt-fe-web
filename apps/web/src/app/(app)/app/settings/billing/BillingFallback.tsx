@@ -1,8 +1,10 @@
 "use client";
 
+import { LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 
 export default function BillingFallback() {
   const { t } = useLanguage();
-  return <p className="muted">{t("billing.loadingBilling")}</p>;
+
+  return <LoadingState ariaLabel={t("billing.loadingBilling")} title={t("billing.loadingBilling")} showCard={false} />;
 }
