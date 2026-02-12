@@ -3,7 +3,8 @@
 import { LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 
-export default function BillingFallback() {
+export default function SettingsFallback() {
   const { t } = useLanguage();
-  return <LoadingState ariaLabel={t("billing.loadingBilling")} title={t("billing.title")} lines={4} />;
+
+  return <LoadingState ariaLabel={t("settings.loadingAria")} title={t("settings.loadingTitle")} lines={4} />;
 }

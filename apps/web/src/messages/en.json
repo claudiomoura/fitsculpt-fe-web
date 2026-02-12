@@ -1588,6 +1588,41 @@
     "redirecting": "Redirecting...",
     "opening": "Opening..."
   },
+  "settings": {
+    "subtitle": "Manage your account preferences and next steps.",
+    "loadingAria": "Loading settings",
+    "loadingTitle": "Loading settings...",
+    "errorTitle": "Settings unavailable",
+    "errorDescription": "We couldn't load your settings right now.",
+    "profileFallbackAction": "Go to profile",
+    "sections": {
+      "account": {
+        "title": "Account",
+        "description": "Basic information linked to your account.",
+        "empty": "No account name available yet."
+      },
+      "profile": {
+        "title": "Profile",
+        "description": "Update your goals, measurements, and preferences.",
+        "action": "Review profile"
+      },
+      "billing": {
+        "title": "Billing",
+        "description": "Review your plan and manage your subscription.",
+        "action": "Open billing"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Communication preferences are not available in this version.",
+        "emptyTitle": "Notifications will appear when options are enabled."
+      },
+      "support": {
+        "title": "Support",
+        "description": "Support channels are not available in this environment.",
+        "emptyTitle": "Support access will be shown when a channel is available."
+      }
+    }
+  },
   "trainer": {
     "title": "Trainer",
     "loading": "Loading trainer mode...",
