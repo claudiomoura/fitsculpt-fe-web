@@ -3,19 +3,16 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { buildUserSections, sidebarAdmin } from "./navConfig";
+import { buildNavigationSections } from "./navConfig";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 
 export default function AppSidebar() {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const { isAdmin, isCoach } = useAccess();
+  const { role, isAdmin, isCoach } = useAccess();
 
-  const sections = useMemo(() => {
-    const userSections = buildUserSections(isCoach || isAdmin);
-    return isAdmin ? [...userSections, ...sidebarAdmin] : userSections;
-  }, [isCoach, isAdmin]);
+  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach }), [role, isCoach, isAdmin]);
 
   const isActive = (href: string) => {
     if (!pathname) return false;
