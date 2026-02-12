@@ -58,6 +58,13 @@
   --hero-bg: linear-gradient(135deg, #fff7ed 0%, #ffedd5 45%, #fef3c7 100%);
   --skeleton-base: rgba(148, 163, 184, 0.18);
   --skeleton-highlight: rgba(148, 163, 184, 0.34);
+  --mobile-tab-bar-height: 88px;
+  --mobile-tab-bar-offset: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom));
+}
+
+html,
+body {
+  min-height: 100dvh;
 }
 
 html.theme-dark {
@@ -168,11 +175,19 @@ main {
   padding: 32px 20px 64px;
 }
 
+.app-frame {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
 .app-shell {
+  flex: 1;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 24px;
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
   padding: 24px 20px 64px;
 }
@@ -3020,10 +3035,6 @@ label {
 }
 
 @media (max-width: 900px) {
-  :root {
-    --mobile-tab-bar-height: 88px;
-  }
-
   .nav-inner {
     flex-direction: row;
     align-items: center;
@@ -3079,11 +3090,11 @@ label {
   }
 
   .app-content {
-    padding-bottom: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom));
+    padding-bottom: var(--mobile-tab-bar-offset);
   }
 
   .page {
-    padding-bottom: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom));
+    padding-bottom: var(--mobile-tab-bar-offset);
   }
 
   .app-sidebar {
@@ -3443,7 +3454,7 @@ textarea:disabled {
 }
 
 .page-with-tabbar-safe-area {
-  padding-bottom: calc(var(--mobile-tab-bar-height, 88px) + env(safe-area-inset-bottom) + 12px);
+  padding-bottom: calc(var(--mobile-tab-bar-offset) + 12px);
 }
 
 .tracking-metric-skeleton {
