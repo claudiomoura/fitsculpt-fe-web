@@ -8,7 +8,7 @@ import AppUserBadge from "./AppUserBadge";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
 import { buildUserSections, sidebarAdmin } from "./navConfig";
-import { getUserCapabilities } from "@/lib/userCapabilities";
+import { useAccess } from "@/lib/useAccess";
 
 type AuthUser = {
   name?: string | null;
@@ -29,6 +29,7 @@ export default function AppNavBar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const { isAdmin, isCoach } = useAccess();
 
   useEffect(() => {
     let active = true;
@@ -62,8 +63,6 @@ export default function AppNavBar() {
     };
   }, []);
 
-  const capabilities = getUserCapabilities(user);
-  const isAdmin = capabilities.isAdmin;
   const userRole = typeof user?.role === "string" ? user.role : "";
   const userMeta = user?.email || userRole || "";
   const planLabel = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
@@ -71,9 +70,9 @@ export default function AppNavBar() {
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
 
   const sections = useMemo(() => {
-    const userSections = buildUserSections(capabilities.isTrainer);
+    const userSections = buildUserSections(isCoach || isAdmin);
     return isAdmin ? [...userSections, ...sidebarAdmin] : userSections;
-  }, [capabilities.isTrainer, isAdmin]);
+  }, [isCoach, isAdmin]);
 
   const closeMenu = () => setOpen(false);
 

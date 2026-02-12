@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getUserRoleFlags } from "@/lib/userCapabilities";
 import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabilityAudit";
+import { hasTrainerClientsCapability } from "@/lib/capabilities";
 
 type AuthUser = Record<string, unknown>;
 

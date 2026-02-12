@@ -1,44 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildUserSections, sidebarAdmin } from "./navConfig";
 import { useLanguage } from "@/context/LanguageProvider";
-import { getUserCapabilities } from "@/lib/userCapabilities";
-
-type AuthUser = Record<string, unknown>;
+import { useAccess } from "@/lib/useAccess";
 
 export default function AppSidebar() {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const [user, setUser] = useState<AuthUser | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as AuthUser;
-        if (active) setUser(data);
-      } catch {
-        // Ignore.
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const capabilities = getUserCapabilities(user);
-  const isAdmin = capabilities.isAdmin;
+  const { isAdmin, isCoach } = useAccess();
 
   const sections = useMemo(() => {
-    const userSections = buildUserSections(capabilities.isTrainer || capabilities.isAdmin);
+    const userSections = buildUserSections(isCoach || isAdmin);
     return isAdmin ? [...userSections, ...sidebarAdmin] : userSections;
-  }, [capabilities.isAdmin, capabilities.isTrainer, isAdmin]);
+  }, [isCoach, isAdmin]);
 
   const isActive = (href: string) => {
     if (!pathname) return false;
