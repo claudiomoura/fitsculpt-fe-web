@@ -51,7 +51,18 @@
     "cancel": "Cancel",
     "closeLabel": "Close",
     "retry": "Try again",
-    "tokensLabel": "Tokens:"
+    "tokensLabel": "Tokens:",
+    "open": "Open",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search",
+    "select": "Select",
+    "clear": "Clear",
+    "continue": "Continue",
+    "optional": "Optional",
+    "required": "Required",
+    "notAvailable": "Not available"
   },
   "calendar": {
     "today": "Today",
@@ -1613,6 +1624,59 @@
       "plans": {
         "title": "Plans"
       }
+    },
+    "planBuilder": {
+      "title": "Plan builder",
+      "subtitle": "Create and adjust plans manually.",
+      "nameLabel": "Plan name",
+      "descriptionLabel": "Description",
+      "goalLabel": "Goal",
+      "levelLabel": "Level",
+      "daysPerWeekLabel": "Days per week",
+      "sessionDurationLabel": "Session duration",
+      "focusLabel": "Focus",
+      "equipmentLabel": "Equipment",
+      "addDay": "Add day",
+      "dayTitle": "Day {index}",
+      "dayFocusLabel": "Day focus",
+      "exerciseSearchLabel": "Search exercise",
+      "addExercise": "Add exercise",
+      "setsLabel": "Sets",
+      "repsLabel": "Reps",
+      "restLabel": "Rest",
+      "saveDraft": "Save draft",
+      "publishPlan": "Publish plan"
+    },
+    "exerciseCreate": {
+      "title": "Create exercise",
+      "subtitle": "Add a custom exercise to your library.",
+      "nameLabel": "Exercise name",
+      "descriptionLabel": "Description",
+      "mainMuscleLabel": "Main muscle group",
+      "secondaryMusclesLabel": "Secondary muscle groups",
+      "equipmentLabel": "Equipment",
+      "techniqueLabel": "Technique",
+      "tipsLabel": "Tips",
+      "mediaUrlLabel": "Media URL",
+      "videoUrlLabel": "Video URL",
+      "imageUrlLabel": "Image URL",
+      "visibilityLabel": "Visibility",
+      "saveExercise": "Save exercise",
+      "cancel": "Cancel"
     }
+  },
+  "gym": {
+    "title": "Gym",
+    "tenant": "Tenant",
+    "tenantName": "Gym name",
+    "tenantId": "Gym ID",
+    "scope": "Scope",
+    "exerciseScope": "Exercise scope",
+    "exerciseScopeGlobal": "Global",
+    "exerciseScopeGym": "Gym exercises",
+    "exerciseScopeMixed": "Gym + Global",
+    "filterAll": "All exercises",
+    "filterGymOnly": "Gym only",
+    "filterGlobalOnly": "Global only"
   }
 }

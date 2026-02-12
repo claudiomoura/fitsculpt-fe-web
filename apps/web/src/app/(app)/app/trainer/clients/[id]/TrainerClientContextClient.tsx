@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
-import { getUserRoleFlags } from "@/lib/userCapabilities";
+import { hasTrainerClientContextCapability, hasTrainerClientsCapability } from "@/lib/capabilities";
+import { getRoleFlags } from "@/lib/roles";
 
 type AuthUser = Record<string, unknown>;
 
@@ -46,7 +47,7 @@ export default function TrainerClientContextClient() {
         }
 
         const meData = (await meResponse.json()) as AuthUser;
-        const roleFlags = getUserRoleFlags(meData);
+        const roleFlags = getRoleFlags(meData);
 
         if (!active) return;
 
@@ -65,6 +66,12 @@ export default function TrainerClientContextClient() {
 
         const data = (await clientsResponse.json()) as ClientsResponse;
         if (!active) return;
+
+        if (!hasTrainerClientsCapability(data)) {
+          setClient(null);
+          setClientState("ready");
+          return;
+        }
 
         const users = Array.isArray(data.users) ? data.users : [];
         const selectedClient = users.find((user) => user.id === clientId && user.role !== "ADMIN") ?? null;
@@ -139,7 +146,7 @@ export default function TrainerClientContextClient() {
       <section className="card form-stack" aria-labelledby="trainer-today-title">
         <h3 id="trainer-today-title" style={{ margin: 0 }}>{t("trainer.clientContext.today.title")}</h3>
         <p className="muted" style={{ margin: 0 }}>
-          {client?.subscriptionStatus
+          {client && hasTrainerClientContextCapability(client) && client.subscriptionStatus
             ? `${t("trainer.clientContext.today.subscriptionStatusPrefix")} ${client.subscriptionStatus}`
             : t("trainer.clientContext.unavailable")}
         </p>

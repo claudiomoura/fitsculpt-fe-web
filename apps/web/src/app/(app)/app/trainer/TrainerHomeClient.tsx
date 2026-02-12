@@ -42,6 +42,12 @@ export default function TrainerHomeClient() {
       }
 
       const data = (await response.json()) as ClientsResponse;
+      if (!hasTrainerClientsCapability(data)) {
+        setClients([]);
+        setClientsState("ready");
+        return;
+      }
+
       const list = Array.isArray(data.users) ? data.users : [];
       setClients(list.filter((client) => client.role !== "ADMIN"));
       setClientsState("ready");
