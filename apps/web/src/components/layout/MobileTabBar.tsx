@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -11,11 +9,6 @@ import { mainTabsMobile } from "./navConfig";
 export default function MobileTabBar() {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const isActive = (href?: string) => {
     if (!href || !pathname) return false;
@@ -23,7 +16,7 @@ export default function MobileTabBar() {
     return pathname.startsWith(href);
   };
 
-  const nav = (
+  return (
     <nav className="mobile-tab-bar" aria-label={t("nav.mobileTabBarAriaLabel")}>
       <div className="mobile-tab-bar-inner">
         {mainTabsMobile.map((tab) => {
@@ -52,6 +45,4 @@ export default function MobileTabBar() {
       </div>
     </nav>
   );
-
-  return mounted ? createPortal(nav, document.body) : null;
 }
