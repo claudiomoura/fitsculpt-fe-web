@@ -1062,6 +1062,12 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const selectedMealDescription = selectedMealDetails ? getMealDescription(selectedMealDetails) : null;
   const selectedMealIngredients =
     selectedMealDetails?.ingredients?.filter((ingredient) => ingredient.name.trim().length > 0) ?? [];
+  const selectedMealMacros = selectedMealDetails?.macros ?? null;
+  const hasSelectedMealMacros =
+    selectedMealMacros !== null &&
+    [selectedMealMacros.calories, selectedMealMacros.protein, selectedMealMacros.carbs, selectedMealMacros.fats].some(
+      (value) => Number.isFinite(value)
+    );
 
   useEffect(() => {
     if (urlSyncInitialized.current) return;
@@ -2055,6 +2061,17 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             {selectedMealDescription ? (
               <p className="muted mt-4">{selectedMealDescription}</p>
             ) : null}
+            {hasSelectedMealMacros && selectedMealMacros ? (
+              <div>
+                <div className="text-semibold">{t("nutrition.macrosTitle")}</div>
+                <ul className="list-muted-sm">
+                  <li>{t("nutrition.calories")}: {selectedMealMacros.calories}</li>
+                  <li>{t("nutrition.protein")}: {selectedMealMacros.protein} {t("units.grams")}</li>
+                  <li>{t("nutrition.carbs")}: {selectedMealMacros.carbs} {t("units.grams")}</li>
+                  <li>{t("nutrition.fat")}: {selectedMealMacros.fats} {t("units.grams")}</li>
+                </ul>
+              </div>
+            ) : null}
             {selectedMealIngredients.length > 0 ? (
               <div>
                 <div className="text-semibold">{t("nutrition.ingredients")}</div>
@@ -2072,7 +2089,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             ) : (
               <p className="muted">{t("nutrition.ingredientsNotAvailable")}</p>
             )}
-            {!selectedMealDescription && selectedMealIngredients.length === 0 ? (
+            {!selectedMealDescription && selectedMealIngredients.length === 0 && !hasSelectedMealMacros ? (
               <p className="muted">{t("nutrition.mealDetailsEmpty")}</p>
             ) : null}
           </div>
