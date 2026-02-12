@@ -1692,6 +1692,7 @@
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",
     "adminPreviewDescription": "Accede a pantallas en progreso usando permisos reales y estados neutros.",
+    "testerModeToggle": "Activar modo tester (solo admin)",
     "previewBadge": "Vista previa / En construcción",
     "previewCardDescription": "Revisa esta pantalla en modo vista previa.",
     "notAvailableTitle": "Funcionalidad no disponible",

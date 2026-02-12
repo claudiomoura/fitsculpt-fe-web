@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import PreviewBanner from "@/components/access/PreviewBanner";
+import {
+  ADMIN_TESTER_MODE_KEY,
+  isTesterModeEnabled,
+  resolveTesterModeFromQueryParam,
+} from "@/config/featureFlags";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 import {
@@ -22,6 +28,10 @@ export default function TrainerHomeClient() {
   const [clients, setClients] = useState<TrainerClient[]>([]);
   const [activeEndpoint, setActiveEndpoint] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [testerModeEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return isTesterModeEnabled(window.localStorage.getItem(ADMIN_TESTER_MODE_KEY));
+  });
 
   const canAccessTrainer = isCoach || isAdmin;
 
@@ -41,7 +51,10 @@ export default function TrainerHomeClient() {
 
     if (result.status === "unavailable") {
       const previewMode = searchParams.get("preview");
-      if (canUseTrainerDemoPreview(previewMode)) {
+      const testerModeFromQuery = resolveTesterModeFromQueryParam(searchParams.get("tester"));
+      const canUseTesterPreview = isAdmin && testerModeEnabled && testerModeFromQuery;
+
+      if (canUseTesterPreview && canUseTrainerDemoPreview(previewMode)) {
         setClients(getTrainerDemoClients());
         setIsDemoMode(true);
         setClientsState("ready");
@@ -55,11 +68,17 @@ export default function TrainerHomeClient() {
 
     setClientsState("error");
     setActiveEndpoint(result.endpoint ?? null);
-  }, [searchParams]);
+  }, [isAdmin, searchParams, testerModeEnabled]);
 
   useEffect(() => {
     if (!canAccessTrainer) return;
-    void loadClients();
+    const timeoutId = window.setTimeout(() => {
+      void loadClients();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [canAccessTrainer, loadClients]);
 
   const listBody = useMemo(() => {
@@ -109,7 +128,7 @@ export default function TrainerHomeClient() {
 
           return (
             <li key={client.id} className="card">
-              <strong>{client.name}</strong>
+              <strong>{client.name || t("trainer.clients.empty")}</strong>
               <p className="muted" style={{ margin: "4px 0 0" }}>
                 {statusText}
                 {client.subscriptionStatus ? ` · ${client.subscriptionStatus}` : ""}
@@ -136,6 +155,7 @@ export default function TrainerHomeClient() {
   return (
     <div className="form-stack">
       <div className="feature-card form-stack">
+        {isDemoMode ? <PreviewBanner /> : null}
         <h2 style={{ margin: 0 }}>{t("trainer.modeTitle")}</h2>
         <p className="muted" style={{ margin: 0 }}>
           {isDemoMode ? t("trainer.demoMode") : t("trainer.viewingAsCoach")}

@@ -1,8 +1,13 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import PreviewBanner from "@/components/access/PreviewBanner";
 import FeatureUnavailableState from "@/components/access/FeatureUnavailableState";
+import {
+  ADMIN_TESTER_MODE_KEY,
+  isTesterModeEnabled,
+} from "@/config/featureFlags";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 
@@ -12,12 +17,41 @@ const previewLinks = [
   { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
   { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutrition" },
   { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
-  { id: "trainer", href: "/app/trainer?preview=admin-dev", labelKey: "nav.trainer" },
+  { id: "trainer", href: "/app/trainer", labelKey: "nav.trainer" },
 ];
 
 export default function AdminPreviewClient() {
   const { t } = useLanguage();
   const { isAdmin, isLoading } = useAccess();
+  const [testerModeEnabled, setTesterModeEnabled] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return isTesterModeEnabled(window.localStorage.getItem(ADMIN_TESTER_MODE_KEY));
+  });
+
+  const previewHrefSuffix = testerModeEnabled ? "?preview=admin-dev&tester=on" : "";
+
+  const links = useMemo(
+    () =>
+      previewLinks.map((item) => ({
+        ...item,
+        href: item.id === "trainer" ? `${item.href}${previewHrefSuffix}` : item.href,
+      })),
+    [previewHrefSuffix],
+  );
+
+  const handleTesterModeToggle = () => {
+    if (!isAdmin) return;
+
+    const nextValue = !testerModeEnabled;
+    setTesterModeEnabled(nextValue);
+
+    if (nextValue) {
+      window.localStorage.setItem(ADMIN_TESTER_MODE_KEY, "enabled");
+      return;
+    }
+
+    window.localStorage.removeItem(ADMIN_TESTER_MODE_KEY);
+  };
 
   if (isLoading) {
     return (
@@ -37,10 +71,14 @@ export default function AdminPreviewClient() {
         <PreviewBanner />
         <h1>{t("access.adminPreviewTitle")}</h1>
         <p className="muted">{t("access.adminPreviewDescription")}</p>
+        <label className="form-row" style={{ alignItems: "center", gap: 8 }}>
+          <input type="checkbox" checked={testerModeEnabled} onChange={handleTesterModeToggle} />
+          <span>{t("access.testerModeToggle")}</span>
+        </label>
       </header>
 
       <div className="grid cols-3">
-        {previewLinks.map((item) => (
+        {links.map((item) => (
           <article key={item.id} className="feature-card form-stack">
             <h3>{t(item.labelKey)}</h3>
             <p className="muted">{t("access.previewCardDescription")}</p>
