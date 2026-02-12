@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
-import { hasTrainerClientsCapability } from "@/lib/capabilities";
-import { getRoleFlags } from "@/lib/roles";
+import { getUserRoleFlags } from "@/lib/userCapabilities";
+import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabilityAudit";
 
 type AuthUser = Record<string, unknown>;
 
@@ -29,6 +29,7 @@ export default function TrainerHomeClient() {
   const [clientsState, setClientsState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [clients, setClients] = useState<ClientRow[]>([]);
+  const [canCreateExercise, setCanCreateExercise] = useState(false);
 
   const loadClients = useCallback(async () => {
     setClientsState("loading");
@@ -66,13 +67,17 @@ export default function TrainerHomeClient() {
           return;
         }
 
-        const data = (await response.json()) as AuthUser;
-        const roleFlags = getRoleFlags(data);
+        const [data, capabilities] = await Promise.all([
+          response.json() as Promise<AuthUser>,
+          auditTrainerExerciseCapabilities(),
+        ]);
+        const roleFlags = getUserRoleFlags(data);
 
         if (!active) return;
 
         const canAccess = roleFlags.isTrainer || roleFlags.isAdmin;
         setCanAccessTrainer(canAccess);
+        setCanCreateExercise(capabilities.canCreateExercise);
         setPermissionState("ready");
 
         if (canAccess) {
@@ -176,6 +181,21 @@ export default function TrainerHomeClient() {
         <h2 style={{ margin: 0 }}>{t("trainer.modeTitle")}</h2>
         <p className="muted" style={{ margin: 0 }}>{t("trainer.viewingAsCoach")}</p>
       </div>
+
+      <section className="section-stack" aria-labelledby="trainer-exercises-title">
+        <h2 id="trainer-exercises-title" className="section-title" style={{ fontSize: 20 }}>
+          {t("library.tabs.exercises")}
+        </h2>
+        <div className="card form-stack">
+          {canCreateExercise ? (
+            <Link href="/app/treinador/exercicios" className="btn secondary" style={{ width: "fit-content" }}>
+              {t("library.tabs.exercises")}
+            </Link>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>{t("trainer.notAvailable")}</p>
+          )}
+        </div>
+      </section>
 
       <section className="section-stack" aria-labelledby="trainer-clients-title">
         <h2 id="trainer-clients-title" className="section-title" style={{ fontSize: 20 }}>
