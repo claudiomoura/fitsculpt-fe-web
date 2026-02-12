@@ -51,7 +51,18 @@
     "cancel": "Cancelar",
     "closeLabel": "Cerrar",
     "retry": "Reintentar",
-    "tokensLabel": "Tokens:"
+    "tokensLabel": "Tokens:",
+    "open": "Abrir",
+    "create": "Crear",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "search": "Buscar",
+    "select": "Seleccionar",
+    "clear": "Limpiar",
+    "continue": "Continuar",
+    "optional": "Opcional",
+    "required": "Obligatorio",
+    "notAvailable": "No disponible"
   },
   "calendar": {
     "today": "Hoy",
@@ -1616,6 +1627,59 @@
       "plans": {
         "title": "Planes"
       }
+    },
+    "planBuilder": {
+      "title": "Constructor de planes",
+      "subtitle": "Crea y ajusta planes manualmente.",
+      "nameLabel": "Nombre del plan",
+      "descriptionLabel": "Descripción",
+      "goalLabel": "Objetivo",
+      "levelLabel": "Nivel",
+      "daysPerWeekLabel": "Días por semana",
+      "sessionDurationLabel": "Duración de sesión",
+      "focusLabel": "Enfoque",
+      "equipmentLabel": "Equipamiento",
+      "addDay": "Agregar día",
+      "dayTitle": "Día {index}",
+      "dayFocusLabel": "Enfoque del día",
+      "exerciseSearchLabel": "Buscar ejercicio",
+      "addExercise": "Agregar ejercicio",
+      "setsLabel": "Series",
+      "repsLabel": "Repeticiones",
+      "restLabel": "Descanso",
+      "saveDraft": "Guardar borrador",
+      "publishPlan": "Publicar plan"
+    },
+    "exerciseCreate": {
+      "title": "Crear ejercicio",
+      "subtitle": "Agrega un ejercicio personalizado a tu biblioteca.",
+      "nameLabel": "Nombre del ejercicio",
+      "descriptionLabel": "Descripción",
+      "mainMuscleLabel": "Grupo muscular principal",
+      "secondaryMusclesLabel": "Grupos musculares secundarios",
+      "equipmentLabel": "Equipamiento",
+      "techniqueLabel": "Técnica",
+      "tipsLabel": "Consejos",
+      "mediaUrlLabel": "URL de media",
+      "videoUrlLabel": "URL de video",
+      "imageUrlLabel": "URL de imagen",
+      "visibilityLabel": "Visibilidad",
+      "saveExercise": "Guardar ejercicio",
+      "cancel": "Cancelar"
     }
+  },
+  "gym": {
+    "title": "Gimnasio",
+    "tenant": "Tenant",
+    "tenantName": "Nombre del gimnasio",
+    "tenantId": "ID del gimnasio",
+    "scope": "Alcance",
+    "exerciseScope": "Alcance de ejercicios",
+    "exerciseScopeGlobal": "Global",
+    "exerciseScopeGym": "Ejercicios del gimnasio",
+    "exerciseScopeMixed": "Gimnasio + Global",
+    "filterAll": "Todos los ejercicios",
+    "filterGymOnly": "Solo gimnasio",
+    "filterGlobalOnly": "Solo globales"
   }
 }
