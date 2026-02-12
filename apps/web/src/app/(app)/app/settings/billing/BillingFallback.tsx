@@ -5,5 +5,6 @@ import { useLanguage } from "@/context/LanguageProvider";
 
 export default function BillingFallback() {
   const { t } = useLanguage();
-  return <LoadingState ariaLabel={t("billing.loadingBilling")} title={t("billing.title")} lines={4} />;
+
+  return <LoadingState ariaLabel={t("billing.loadingBilling")} title={t("billing.loadingBilling")} showCard={false} />;
 }
