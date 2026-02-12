@@ -3,44 +3,38 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
+import type { ClientRow } from "@/components/trainer/types";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
-import { probeTrainerClientsCapability } from "@/lib/trainerCapability";
-import type { TrainerClient } from "@/lib/trainerClients";
 
-type LoadState = "loading" | "ready" | "error" | "unavailable";
+type LoadState = "loading" | "ready" | "error";
+type ClientsResponse = { users?: ClientRow[] };
 
 export default function TrainerHomeClient() {
   const { t } = useLanguage();
   const { isCoach, isAdmin, isLoading: accessLoading } = useAccess();
 
   const [clientsState, setClientsState] = useState<LoadState>("loading");
-  const [clients, setClients] = useState<TrainerClient[]>([]);
-  const [activeEndpoint, setActiveEndpoint] = useState<string | null>(null);
+  const [clients, setClients] = useState<ClientRow[]>([]);
 
   const canAccessTrainer = isCoach || isAdmin;
 
   const loadClients = useCallback(async () => {
     setClientsState("loading");
-    setActiveEndpoint(null);
+    try {
+      const response = await fetch("/api/admin/users?page=1", { cache: "no-store" });
+      if (!response.ok) {
+        setClientsState("error");
+        return;
+      }
 
-    const result = await probeTrainerClientsCapability();
-
-    if (result.status === "supported") {
-      setClients(result.clients);
-      setActiveEndpoint(result.endpoint);
+      const data = (await response.json()) as ClientsResponse;
+      const users = Array.isArray(data.users) ? data.users : [];
+      setClients(users.filter((user) => user.role !== "ADMIN"));
       setClientsState("ready");
-      return;
+    } catch {
+      setClientsState("error");
     }
-
-    if (result.status === "unavailable") {
-      setClients([]);
-      setClientsState("unavailable");
-      return;
-    }
-
-    setClientsState("error");
-    setActiveEndpoint(result.endpoint ?? null);
   }, []);
 
   useEffect(() => {
@@ -59,17 +53,6 @@ export default function TrainerHomeClient() {
       return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
     }
 
-    if (clientsState === "unavailable") {
-      return (
-        <div className="card form-stack" role="status" aria-live="polite">
-          <h3 style={{ margin: 0 }}>{t("trainer.unavailableTitle")}</h3>
-          <p className="muted" style={{ margin: 0 }}>
-            {t("trainer.unavailableDesc")}
-          </p>
-        </div>
-      );
-    }
-
     if (clientsState === "error") {
       return (
         <ErrorState
@@ -84,7 +67,7 @@ export default function TrainerHomeClient() {
     if (!clients.length) {
       return (
         <div className="card" role="status" aria-live="polite">
-          <p className="muted">{t("trainer.clients.empty")}</p>
+          <p className="muted">No clients yet</p>
         </div>
       );
     }
@@ -92,12 +75,7 @@ export default function TrainerHomeClient() {
     return (
       <ul className="form-stack" aria-label={t("trainer.clients.title")}>
         {clients.map((client) => {
-          const statusText =
-            client.isBlocked === true
-              ? t("trainer.clients.blocked")
-              : client.isBlocked === false
-                ? t("trainer.clients.active")
-                : t("trainer.clients.unknownStatus");
+          const statusText = client.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active");
 
           return (
             <li key={client.id} className="card">
@@ -128,11 +106,6 @@ export default function TrainerHomeClient() {
       <div className="feature-card form-stack">
         <h2 style={{ margin: 0 }}>{t("trainer.modeTitle")}</h2>
         <p className="muted" style={{ margin: 0 }}>{t("trainer.viewingAsCoach")}</p>
-        {activeEndpoint ? (
-          <p className="muted" style={{ margin: 0 }}>
-            {t("trainer.clientsEndpointPrefix")} {activeEndpoint}
-          </p>
-        ) : null}
       </div>
 
       <section className="section-stack" aria-labelledby="trainer-clients-title">
