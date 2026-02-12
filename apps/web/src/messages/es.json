@@ -443,7 +443,8 @@
     "adminTitle": "Panel de admin",
     "adminSubtitle": "Gestiona usuarios y accesos.",
     "adminUsersTitle": "Usuarios",
-    "adminUsersSubtitle": "Administra usuarios, accesos y estados de cuenta."
+    "adminUsersSubtitle": "Administra usuarios, accesos y estados de cuenta.",
+    "mobileTabBarAriaLabel": "Navegación principal móvil"
   },
   "dashboard": {
     "title": "Panel",
@@ -801,7 +802,8 @@
     "errorTitle": "No pudimos cargar tu plan de nutrición",
     "ingredientsNotAvailable": "Ingredientes no disponibles.",
     "mealDetailsNotFound": "No hemos podido encontrar este plato para el día seleccionado.",
-    "weekLabel": "Semana"
+    "weekLabel": "Semana",
+    "macrosTitle": "Macros"
   },
   "training": {
     "formTitle": "Datos del plan",
