@@ -205,7 +205,7 @@ export default function TrainerClientContext() {
         {!trainerApiCapabilities.canAssignTrainingPlan ? <p className="muted">{t("trainer.clientContext.unavailable")}</p> : null}
       </section>
 
-      <Link href="/app/treinador" className="btn secondary">{t("trainer.back")}</Link>
+      <Link href="/app/trainer" className="btn secondary">{t("trainer.back")}</Link>
     </div>
   );
 }
