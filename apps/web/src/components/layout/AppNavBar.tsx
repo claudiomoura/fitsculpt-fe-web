@@ -7,15 +7,15 @@ import { useLanguage } from "@/context/LanguageProvider";
 import AppUserBadge from "./AppUserBadge";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
-import { sidebarAdmin, sidebarUser } from "./navConfig";
+import { buildUserSections, sidebarAdmin } from "./navConfig";
+import { getUserCapabilities } from "@/lib/userCapabilities";
 
 type AuthUser = {
   name?: string | null;
   email?: string | null;
-  role?: string | null;
   subscriptionPlan?: "FREE" | "PRO";
   aiTokenBalance?: number;
-};
+} & Record<string, unknown>;
 
 type BillingStatus = {
   plan?: "FREE" | "PRO";
@@ -62,13 +62,18 @@ export default function AppNavBar() {
     };
   }, []);
 
-  const isAdmin = user?.role === "ADMIN";
-  const userMeta = user?.email || user?.role || "";
+  const capabilities = getUserCapabilities(user);
+  const isAdmin = capabilities.isAdmin;
+  const userRole = typeof user?.role === "string" ? user.role : "";
+  const userMeta = user?.email || userRole || "";
   const planLabel = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
   const isPro = planLabel === "PRO";
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
 
-  const sections = useMemo(() => (isAdmin ? [...sidebarUser, ...sidebarAdmin] : sidebarUser), [isAdmin]);
+  const sections = useMemo(() => {
+    const userSections = buildUserSections(capabilities.isTrainer);
+    return isAdmin ? [...userSections, ...sidebarAdmin] : userSections;
+  }, [capabilities.isTrainer, isAdmin]);
 
   const closeMenu = () => setOpen(false);
 

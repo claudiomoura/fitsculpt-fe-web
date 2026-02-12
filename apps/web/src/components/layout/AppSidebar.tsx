@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { sidebarAdmin, sidebarUser } from "./navConfig";
+import { buildUserSections, sidebarAdmin } from "./navConfig";
 import { useLanguage } from "@/context/LanguageProvider";
+import { getUserCapabilities } from "@/lib/userCapabilities";
 
-type AuthUser = {
-  role?: string | null;
-};
+type AuthUser = Record<string, unknown>;
 
 export default function AppSidebar() {
   const { t } = useLanguage();
@@ -33,9 +32,13 @@ export default function AppSidebar() {
     };
   }, []);
 
-  const isAdmin = user?.role === "ADMIN";
+  const capabilities = getUserCapabilities(user);
+  const isAdmin = capabilities.isAdmin;
 
-  const sections = useMemo(() => (isAdmin ? [...sidebarUser, ...sidebarAdmin] : sidebarUser), [isAdmin]);
+  const sections = useMemo(() => {
+    const userSections = buildUserSections(capabilities.isTrainer);
+    return isAdmin ? [...userSections, ...sidebarAdmin] : userSections;
+  }, [capabilities.isTrainer, isAdmin]);
 
   const isActive = (href: string) => {
     if (!pathname) return false;

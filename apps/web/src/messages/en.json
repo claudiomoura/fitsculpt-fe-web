@@ -22,7 +22,8 @@
     "billing": "Billing & Pro",
     "admin": "Admin",
     "adminUsers": "Users",
-    "logout": "Log out"
+    "logout": "Log out",
+    "trainer": "Trainer"
   },
   "navSections": {
     "summary": "Summary",
@@ -1572,5 +1573,13 @@
     "manageSubscription": "Manage subscription",
     "redirecting": "Redirecting...",
     "opening": "Opening..."
+  },
+  "trainer": {
+    "title": "Trainer mode",
+    "loading": "Loading trainer mode...",
+    "error": "Unable to validate trainer permissions right now.",
+    "unauthorized": "Trainer mode is not available for this account.",
+    "modeTitle": "Viewing as trainer",
+    "notAvailable": "Trainer client list is not available in this environment yet."
   }
 }

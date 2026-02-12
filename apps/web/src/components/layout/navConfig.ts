@@ -72,6 +72,7 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.training",
     items: [
       { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingPlan" },
+      { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
       { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
     ],
   },
@@ -104,3 +105,18 @@ export const sidebarAdmin: NavSectionGroup[] = [
     ],
   },
 ];
+
+export function buildUserSections(canAccessTrainer: boolean): NavSectionGroup[] {
+  if (canAccessTrainer) {
+    return sidebarUser;
+  }
+
+  return sidebarUser.map((section) => {
+    if (section.id !== "training") return section;
+
+    return {
+      ...section,
+      items: section.items.filter((item) => item.id !== "trainer-home"),
+    };
+  });
+}
