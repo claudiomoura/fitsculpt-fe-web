@@ -1584,7 +1584,38 @@
     "loading": "Cargando modo entrenador...",
     "error": "No se pudieron validar los permisos de entrenador ahora mismo.",
     "unauthorized": "El modo entrenador no está disponible para esta cuenta.",
-    "modeTitle": "Viendo como entrenador",
-    "notAvailable": "La lista de clientes para entrenador aún no está disponible en este entorno."
+    "modeTitle": "Panel del entrenador",
+    "notAvailable": "La lista de clientes para entrenador aún no está disponible en este entorno.",
+    "viewingAsCoach": "Viendo como entrenador",
+    "backToDashboard": "Volver al panel",
+    "back": "Volver",
+    "retry": "Reintentar",
+    "clients": {
+      "title": "Clientes",
+      "loadingItem": "Cargando cliente...",
+      "empty": "No hay clientes disponibles para mostrar.",
+      "error": "No fue posible cargar la lista de clientes.",
+      "active": "Activo",
+      "blocked": "Bloqueado",
+      "openClientAriaPrefix": "Abrir contexto de"
+    },
+    "clientContext": {
+      "title": "Contexto del atleta",
+      "loading": "Cargando contexto del atleta...",
+      "error": "No fue posible cargar el contexto del atleta.",
+      "unknownClient": "Atleta",
+      "unavailable": "Indisponible con los endpoints actuales.",
+      "today": {
+        "title": "Hoy",
+        "lastLoginPrefix": "Último acceso:",
+        "subscriptionStatusPrefix": "Estado de suscripción:"
+      },
+      "tracking": {
+        "title": "Tracking"
+      },
+      "plans": {
+        "title": "Planes"
+      }
+    }
   }
 }

@@ -1581,7 +1581,38 @@
     "loading": "Loading trainer mode...",
     "error": "Unable to validate trainer permissions right now.",
     "unauthorized": "Trainer mode is not available for this account.",
-    "modeTitle": "Viewing as trainer",
-    "notAvailable": "Trainer client list is not available in this environment yet."
+    "modeTitle": "Trainer dashboard",
+    "notAvailable": "Trainer client list is not available in this environment yet.",
+    "viewingAsCoach": "Viewing as coach",
+    "backToDashboard": "Back to dashboard",
+    "back": "Back",
+    "retry": "Retry",
+    "clients": {
+      "title": "Clients",
+      "loadingItem": "Loading client...",
+      "empty": "No clients available to show.",
+      "error": "Could not load the client list.",
+      "active": "Active",
+      "blocked": "Blocked",
+      "openClientAriaPrefix": "Open context for"
+    },
+    "clientContext": {
+      "title": "Athlete context",
+      "loading": "Loading athlete context...",
+      "error": "Could not load athlete context.",
+      "unknownClient": "Athlete",
+      "unavailable": "Unavailable with current endpoints.",
+      "today": {
+        "title": "Today",
+        "lastLoginPrefix": "Last sign-in:",
+        "subscriptionStatusPrefix": "Subscription status:"
+      },
+      "tracking": {
+        "title": "Tracking"
+      },
+      "plans": {
+        "title": "Plans"
+      }
+    }
   }
 }

@@ -36,9 +36,9 @@ export default function AppSidebar() {
   const isAdmin = capabilities.isAdmin;
 
   const sections = useMemo(() => {
-    const userSections = buildUserSections(capabilities.isTrainer);
+    const userSections = buildUserSections(capabilities.isTrainer || capabilities.isAdmin);
     return isAdmin ? [...userSections, ...sidebarAdmin] : userSections;
-  }, [capabilities.isTrainer, isAdmin]);
+  }, [capabilities.isAdmin, capabilities.isTrainer, isAdmin]);
 
   const isActive = (href: string) => {
     if (!pathname) return false;
