@@ -22,7 +22,8 @@
     "billing": "Billing & Pro",
     "admin": "Admin",
     "adminUsers": "Users",
-    "logout": "Log out"
+    "logout": "Log out",
+    "mobileTabs": "Mobile tabs"
   },
   "navSections": {
     "summary": "Summary",
@@ -799,7 +800,7 @@
     "ingredientsNotAvailable": "Ingredients not available.",
     "mealDetailsNotFound": "We could not find this meal for the selected day.",
     "weekLabel": "Week",
-    "macrosTitle": "Macros"
+    "instructionsTitle": "Instructions"
   },
   "training": {
     "formTitle": "Plan details",

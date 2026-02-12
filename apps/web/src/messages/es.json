@@ -22,7 +22,8 @@
     "billing": "Pro y pagos",
     "admin": "Admin",
     "adminUsers": "Usuarios",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "mobileTabs": "Pestañas móviles"
   },
   "navSections": {
     "summary": "Resumen",
@@ -803,7 +804,7 @@
     "ingredientsNotAvailable": "Ingredientes no disponibles.",
     "mealDetailsNotFound": "No hemos podido encontrar este plato para el día seleccionado.",
     "weekLabel": "Semana",
-    "macrosTitle": "Macros"
+    "instructionsTitle": "Instrucciones"
   },
   "training": {
     "formTitle": "Datos del plan",
