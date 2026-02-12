@@ -1589,7 +1589,7 @@
     "opening": "Opening..."
   },
   "trainer": {
-    "title": "Trainer mode",
+    "title": "Trainer",
     "loading": "Loading trainer mode...",
     "error": "Unable to validate trainer permissions right now.",
     "unauthorized": "Trainer mode is not available for this account.",
@@ -1625,7 +1625,8 @@
       },
       "plans": {
         "title": "Plans"
-      }
+      },
+      "nextStep": "Athlete context will be enabled when backend impersonation support is available."
     },
     "planBuilder": {
       "title": "Plan builder",
@@ -1665,7 +1666,11 @@
       "visibilityLabel": "Visibility",
       "saveExercise": "Save exercise",
       "cancel": "Cancel"
-    }
+    },
+    "unavailableTitle": "Not available (backend required)",
+    "unavailableDesc": "This workspace has no trainer/coach clients endpoint yet.",
+    "demoMode": "Demo/Dev preview mode",
+    "clientsEndpointPrefix": "Endpoint in use:"
   },
   "gym": {
     "title": "Gym",
