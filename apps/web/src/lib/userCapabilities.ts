@@ -5,6 +5,11 @@ export type UserCapabilities = {
   isTrainer: boolean;
 };
 
+export type UserRoleFlags = {
+  isAdmin: boolean;
+  isTrainer: boolean;
+};
+
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null;
 }
@@ -62,3 +67,6 @@ export function getUserCapabilities(profile: unknown): UserCapabilities {
   };
 }
 
+export function getUserRoleFlags(profile: unknown): UserRoleFlags {
+  return getUserCapabilities(profile);
+}
