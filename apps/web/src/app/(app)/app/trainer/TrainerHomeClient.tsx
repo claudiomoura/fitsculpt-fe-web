@@ -72,12 +72,12 @@ export default function TrainerHomeClient() {
 
   useEffect(() => {
     if (!canAccessTrainer) return;
-    const timeoutId = window.setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       void loadClients();
     }, 0);
 
     return () => {
-      window.clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
     };
   }, [canAccessTrainer, loadClients]);
 
