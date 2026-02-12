@@ -23,7 +23,8 @@
     "admin": "Admin",
     "adminUsers": "Users",
     "logout": "Log out",
-    "trainer": "Trainer"
+    "trainer": "Trainer",
+    "adminPreview": "Admin Preview"
   },
   "navSections": {
     "summary": "Summary",
@@ -1679,5 +1680,14 @@
     "filterAll": "All exercises",
     "filterGymOnly": "Gym only",
     "filterGlobalOnly": "Global only"
+  },
+  "access": {
+    "adminPreviewTitle": "Admin Preview Mode",
+    "adminPreviewDescription": "Access in-progress screens using real permissions and neutral states.",
+    "previewBadge": "Preview / Under construction",
+    "previewCardDescription": "Review this screen in preview mode.",
+    "notAvailableTitle": "Feature unavailable",
+    "notAvailableDescription": "This area is not available for your current access level.",
+    "backCta": "Back"
   }
 }

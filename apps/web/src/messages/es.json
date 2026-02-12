@@ -23,7 +23,8 @@
     "admin": "Admin",
     "adminUsers": "Usuarios",
     "logout": "Cerrar sesión",
-    "trainer": "Entrenador"
+    "trainer": "Entrenador",
+    "adminPreview": "Vista previa admin"
   },
   "navSections": {
     "summary": "Resumen",
@@ -1682,5 +1683,14 @@
     "filterAll": "Todos los ejercicios",
     "filterGymOnly": "Solo gimnasio",
     "filterGlobalOnly": "Solo globales"
+  },
+  "access": {
+    "adminPreviewTitle": "Modo vista previa admin",
+    "adminPreviewDescription": "Accede a pantallas en progreso usando permisos reales y estados neutros.",
+    "previewBadge": "Vista previa / En construcción",
+    "previewCardDescription": "Revisa esta pantalla en modo vista previa.",
+    "notAvailableTitle": "Funcionalidad no disponible",
+    "notAvailableDescription": "Esta área no está disponible para tu nivel de acceso actual.",
+    "backCta": "Volver"
   }
 }
