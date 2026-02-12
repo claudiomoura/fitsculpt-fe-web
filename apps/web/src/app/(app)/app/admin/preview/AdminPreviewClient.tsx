@@ -12,7 +12,7 @@ const previewLinks = [
   { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
   { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutrition" },
   { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
-  { id: "trainer", href: "/app/trainer", labelKey: "nav.trainer" },
+  { id: "trainer", href: "/app/trainer?preview=admin-dev", labelKey: "nav.trainer" },
 ];
 
 export default function AdminPreviewClient() {

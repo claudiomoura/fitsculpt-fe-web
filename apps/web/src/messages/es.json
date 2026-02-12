@@ -1592,7 +1592,7 @@
     "opening": "Abriendo..."
   },
   "trainer": {
-    "title": "Modo entrenador",
+    "title": "Entrenador",
     "loading": "Cargando modo entrenador...",
     "error": "No se pudieron validar los permisos de entrenador ahora mismo.",
     "unauthorized": "El modo entrenador no está disponible para esta cuenta.",
@@ -1628,7 +1628,8 @@
       },
       "plans": {
         "title": "Planes"
-      }
+      },
+      "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend."
     },
     "planBuilder": {
       "title": "Constructor de planes",
@@ -1668,7 +1669,11 @@
       "visibilityLabel": "Visibilidad",
       "saveExercise": "Guardar ejercicio",
       "cancel": "Cancelar"
-    }
+    },
+    "unavailableTitle": "No disponible (requiere backend)",
+    "unavailableDesc": "Este entorno aún no tiene un endpoint de clientes para entrenador.",
+    "demoMode": "Modo Demo/Dev preview",
+    "clientsEndpointPrefix": "Endpoint en uso:"
   },
   "gym": {
     "title": "Gimnasio",
