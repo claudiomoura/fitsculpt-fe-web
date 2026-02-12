@@ -17,7 +17,7 @@ export default function MobileTabBar() {
   };
 
   return (
-    <nav className="mobile-tab-bar" aria-label={t("nav.mobileTabBarAriaLabel")}>
+    <nav className="mobile-tab-bar" aria-label={t("app.mobileTabBarAriaLabel")}>
       <div className="mobile-tab-bar-inner">
         {mainTabsMobile.map((tab) => {
           const active = isActive(tab.href);

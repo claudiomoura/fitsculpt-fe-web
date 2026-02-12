@@ -1586,7 +1586,16 @@
     "upgradePro": "Upgrade to PRO",
     "manageSubscription": "Manage subscription",
     "redirecting": "Redirecting...",
-    "opening": "Opening..."
+    "opening": "Opening...",
+    "subscriptionStatuses": {
+      "active": "Active",
+      "trialing": "Trialing",
+      "past_due": "Past due",
+      "incomplete": "Incomplete",
+      "canceled": "Canceled",
+      "unpaid": "Unpaid",
+      "unknown": "Unknown"
+    }
   },
   "settings": {
     "subtitle": "Manage your account preferences and next steps.",

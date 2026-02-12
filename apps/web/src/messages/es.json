@@ -1589,7 +1589,16 @@
     "upgradePro": "Mejorar a PRO",
     "manageSubscription": "Gestionar suscripción",
     "redirecting": "Redirigiendo...",
-    "opening": "Abriendo..."
+    "opening": "Abriendo...",
+    "subscriptionStatuses": {
+      "active": "Activa",
+      "trialing": "En prueba",
+      "past_due": "Pago vencido",
+      "incomplete": "Incompleta",
+      "canceled": "Cancelada",
+      "unpaid": "Impaga",
+      "unknown": "Desconocido"
+    }
   },
   "settings": {
     "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",

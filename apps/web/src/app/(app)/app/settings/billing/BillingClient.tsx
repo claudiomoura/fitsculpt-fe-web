@@ -40,6 +40,19 @@ function resolveStatusBadgeVariant(subscriptionStatus: string | null | undefined
   return "default" as const;
 }
 
+
+function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (key: string) => string) {
+  const normalizedStatus = subscriptionStatus?.toLowerCase();
+
+  if (!normalizedStatus) {
+    return t("ui.notAvailable");
+  }
+
+  return t(`billing.subscriptionStatuses.${normalizedStatus}`) === `billing.subscriptionStatuses.${normalizedStatus}`
+    ? t("billing.subscriptionStatuses.unknown")
+    : t(`billing.subscriptionStatuses.${normalizedStatus}`);
+}
+
 export default function BillingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -189,7 +202,7 @@ export default function BillingClient() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <Badge variant={isPro ? "success" : "muted"}>{profile.plan ?? t("ui.notAvailable")}</Badge>
                 <Badge variant={resolveStatusBadgeVariant(profile.subscriptionStatus)}>
-                  {profile.subscriptionStatus ?? t("ui.notAvailable")}
+                  {resolveStatusLabel(profile.subscriptionStatus, t)}
                 </Badge>
               </div>
               <p className="muted">
