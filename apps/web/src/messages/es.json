@@ -1591,6 +1591,41 @@
     "redirecting": "Redirigiendo...",
     "opening": "Abriendo..."
   },
+  "settings": {
+    "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",
+    "loadingAria": "Cargando ajustes",
+    "loadingTitle": "Cargando ajustes...",
+    "errorTitle": "Ajustes no disponibles",
+    "errorDescription": "No pudimos cargar tus ajustes en este momento.",
+    "profileFallbackAction": "Ir al perfil",
+    "sections": {
+      "account": {
+        "title": "Cuenta",
+        "description": "Información básica vinculada a tu cuenta.",
+        "empty": "Aún no hay un nombre de cuenta disponible."
+      },
+      "profile": {
+        "title": "Perfil",
+        "description": "Actualiza objetivos, medidas y preferencias.",
+        "action": "Revisar perfil"
+      },
+      "billing": {
+        "title": "Facturación",
+        "description": "Revisa tu plan y gestiona tu suscripción.",
+        "action": "Abrir facturación"
+      },
+      "notifications": {
+        "title": "Notificaciones",
+        "description": "Las preferencias de comunicación no están disponibles en esta versión.",
+        "emptyTitle": "Las notificaciones aparecerán cuando se habiliten opciones."
+      },
+      "support": {
+        "title": "Soporte",
+        "description": "Los canales de soporte no están disponibles en este entorno.",
+        "emptyTitle": "El acceso a soporte aparecerá cuando haya un canal disponible."
+      }
+    }
+  },
   "trainer": {
     "title": "Entrenador",
     "loading": "Cargando modo entrenador...",

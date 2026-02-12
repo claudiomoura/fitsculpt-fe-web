@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ErrorState, LoadingState } from "@/components/states";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type BillingProfile = {
@@ -98,61 +101,66 @@ export default function BillingClient() {
     }
   };
 
+  if (loading) {
+    return <LoadingState ariaLabel={t("billing.loadingBilling")} title={t("billing.title")} lines={4} />;
+  }
+
+  if (error && !profile) {
+    return (
+      <ErrorState
+        title={t("billing.loadError")}
+        description={t("billing.portalError")}
+        actions={[{ label: t("billing.manageSubscription"), href: "/app/settings", variant: "secondary" }]}
+        wrapInCard
+      />
+    );
+  }
+
   return (
-    <section className="card">
-      <h1 className="section-title">{t("billing.title")}</h1>
-      <p className="section-subtitle">{t("billing.subtitle")}</p>
+    <section className="form-stack" aria-labelledby="billing-title">
+      <header className="form-stack">
+        <h1 id="billing-title" className="section-title">
+          {t("billing.title")}
+        </h1>
+        <p className="section-subtitle">{t("billing.subtitle")}</p>
+      </header>
 
-      {loading ? (
-        <p className="muted">{t("billing.loadingStatus")}</p>
-      ) : (
-        <div style={{ display: "grid", gap: 12 }}>
-          <div className="card" style={{ background: "rgba(255,255,255,0.02)" }}>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <div>
-                <div className="muted" style={{ fontSize: 12 }}>
-                  {t("billing.currentPlanLabel")}
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 600 }}>{planLabel}</div>
-              </div>
-              <div>
-                <div className="muted" style={{ fontSize: 12 }}>
-                  {t("billing.stripeStatusLabel")}
-                </div>
-                <div>{profile?.subscriptionStatus ?? "-"}</div>
-              </div>
-              <div>
-                <div className="muted" style={{ fontSize: 12 }}>
-                  {t("billing.tokenRenewalLabel")}
-                </div>
-                <div>{formatDate(tokenRenewalDate)}</div>
-              </div>
-            </div>
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>{t("billing.currentPlanLabel")}</CardTitle>
+            <CardDescription>{t("billing.stripeStatusLabel")}</CardDescription>
           </div>
-
-          <div className="card" style={{ background: "rgba(255,255,255,0.02)" }}>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <div>
-                <div className="muted" style={{ fontSize: 12 }}>
-                  {t("billing.aiTokensLabel")}
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 600 }}>{tokenLabel ?? "-"}</div>
-              </div>
-            </div>
+        </CardHeader>
+        <CardContent className="info-grid">
+          <div className="info-item">
+            <div className="info-label">{t("billing.currentPlanLabel")}</div>
+            <div className="info-value">{planLabel}</div>
           </div>
-
-          {error ? <p className="muted">{error}</p> : null}
-
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button type="button" className="btn" onClick={handleCheckout} disabled={action === "checkout"}>
-              {action === "checkout" ? t("billing.redirecting") : t("billing.upgradePro")}
-            </button>
-            <button type="button" className="btn secondary" onClick={handlePortal} disabled={action === "portal"}>
-              {action === "portal" ? t("billing.opening") : t("billing.manageSubscription")}
-            </button>
+          <div className="info-item">
+            <div className="info-label">{t("billing.stripeStatusLabel")}</div>
+            <div className="info-value">{profile?.subscriptionStatus ?? "-"}</div>
           </div>
-        </div>
-      )}
+          <div className="info-item">
+            <div className="info-label">{t("billing.tokenRenewalLabel")}</div>
+            <div className="info-value">{formatDate(tokenRenewalDate)}</div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("billing.aiTokensLabel")}</div>
+            <div className="info-value">{tokenLabel ?? "-"}</div>
+          </div>
+        </CardContent>
+        <CardFooter style={{ justifyContent: "flex-start" }}>
+          <Button onClick={handleCheckout} disabled={action === "checkout"}>
+            {action === "checkout" ? t("billing.redirecting") : t("billing.upgradePro")}
+          </Button>
+          <Button variant="secondary" onClick={handlePortal} disabled={action === "portal"}>
+            {action === "portal" ? t("billing.opening") : t("billing.manageSubscription")}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {error ? <p className="muted">{error}</p> : null}
     </section>
   );
 }
