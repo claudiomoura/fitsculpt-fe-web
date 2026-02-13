@@ -111,7 +111,19 @@
     "openLibrary": "Abrir biblioteca",
     "openLibraryDescription": "Explora ejercicios y recetas.",
     "comingSoon": "Próximamente",
-    "open": "Abrir"
+    "open": "Abrir",
+    "checkinOutcome": "Abre el check-in semanal con tu estado más reciente.",
+    "trainingOutcome": "Abre el plan de entrenamiento de hoy cuando esté disponible.",
+    "macrosOutcome": "Abre tu vista de macros para registrar comida.",
+    "openPlanCta": "Ver plan",
+    "openMacrosCta": "Ver macros",
+    "trainingUnavailable": "Aún no hay plan para hoy.",
+    "macrosUnavailable": "Aún no hay datos de nutrición para hoy.",
+    "loadingAria": "Cargando acciones rápidas",
+    "errorTitle": "Acciones rápidas no disponibles",
+    "errorDescription": "No pudimos cargar las acciones rápidas ahora mismo.",
+    "emptyTitle": "No hay acciones rápidas disponibles",
+    "emptyDescription": "Todavía no hay una acción disponible para hoy."
   },
   "today": {
     "title": "Hoy",

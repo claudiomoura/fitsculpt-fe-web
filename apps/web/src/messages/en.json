@@ -111,7 +111,19 @@
     "openLibrary": "Open library",
     "openLibraryDescription": "Browse exercises and recipes.",
     "comingSoon": "Coming soon",
-    "open": "Open"
+    "open": "Open",
+    "checkinOutcome": "Opens weekly check-in with your latest tracking status.",
+    "trainingOutcome": "Opens today's training plan when available.",
+    "macrosOutcome": "Opens your macros view for food logging.",
+    "openPlanCta": "View plan",
+    "openMacrosCta": "View macros",
+    "trainingUnavailable": "No plan available for today yet.",
+    "macrosUnavailable": "No nutrition data for today yet.",
+    "loadingAria": "Loading quick actions",
+    "errorTitle": "Quick actions unavailable",
+    "errorDescription": "We could not load quick actions right now.",
+    "emptyTitle": "No quick actions available",
+    "emptyDescription": "There is no available action for today yet."
   },
   "today": {
     "title": "Today",
