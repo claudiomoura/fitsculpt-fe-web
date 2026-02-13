@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAccessAdmin, canAccessTrainer } from "@/config/roleAccess";
+import { canAccessAdmin, canAccessDevelopment, canAccessTrainer } from "@/config/roleAccess";
 import { buildNavigationSections } from "@/components/layout/navConfig";
 
 describe("role access helpers", () => {
@@ -11,9 +11,15 @@ describe("role access helpers", () => {
     expect(canAccessTrainer({ role: "trainer" })).toBe(true);
   });
 
+  it("allows development access for dev role", () => {
+    expect(canAccessDevelopment({ role: "dev" })).toBe(true);
+    expect(canAccessDevelopment({ role: "developer" })).toBe(true);
+  });
+
   it("hides restricted access for missing role", () => {
     expect(canAccessTrainer({})).toBe(false);
     expect(canAccessAdmin({})).toBe(false);
+    expect(canAccessDevelopment({})).toBe(false);
   });
 });
 
@@ -24,6 +30,7 @@ describe("navigation section gating", () => {
 
     expect(allItemIds).not.toContain("trainer-home");
     expect(sections.find((section) => section.id === "admin")).toBeUndefined();
+    expect(sections.find((section) => section.id === "development")).toBeUndefined();
   });
 
   it("shows admin section and trainer entry for admin users", () => {
@@ -33,5 +40,14 @@ describe("navigation section gating", () => {
     expect(allItemIds).toContain("trainer-home");
     expect(sections.find((section) => section.id === "admin")).toBeDefined();
     expect(allItemIds).toContain("admin-labs");
+  });
+
+  it("shows development section for dev users without admin section", () => {
+    const sections = buildNavigationSections({ role: "dev" });
+    const allItemIds = sections.flatMap((section) => section.items.map((item) => item.id));
+
+    expect(sections.find((section) => section.id === "development")).toBeDefined();
+    expect(sections.find((section) => section.id === "admin")).toBeUndefined();
+    expect(allItemIds).toContain("dev-trainer-home");
   });
 });

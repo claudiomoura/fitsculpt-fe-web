@@ -29,7 +29,7 @@ export default function AppNavBar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const { role, isAdmin, isCoach } = useAccess();
+  const { role, isAdmin, isCoach, isDev } = useAccess();
 
   useEffect(() => {
     let active = true;
@@ -69,7 +69,7 @@ export default function AppNavBar() {
   const isPro = planLabel === "PRO";
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
 
-  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach }), [role, isCoach, isAdmin]);
+  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach, isDev }), [role, isCoach, isAdmin, isDev]);
 
   const closeMenu = () => setOpen(false);
 

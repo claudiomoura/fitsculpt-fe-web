@@ -3,6 +3,7 @@ type UnknownRecord = Record<string, unknown>;
 export type RoleFlags = {
   isAdmin: boolean;
   isTrainer: boolean;
+  isDev: boolean;
 };
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -39,6 +40,7 @@ export function getRoleFlags(profile: unknown): RoleFlags {
   const roleTokens = collectRoleTokens(profile);
   const permissionTokens = collectPermissionTokens(profile);
   const isTrainerFlag = isRecord(profile) && profile.isTrainer === true;
+  const isDevFlag = isRecord(profile) && profile.isDev === true;
 
   const isAdmin = hasValue(roleTokens, "ADMIN") || permissionTokens.includes("ADMIN");
   const isTrainer =
@@ -46,10 +48,17 @@ export function getRoleFlags(profile: unknown): RoleFlags {
     hasValue(roleTokens, "TRAINER") ||
     permissionTokens.includes("TRAINER") ||
     permissionTokens.includes("TRAINER_READ");
+  const isDev =
+    isDevFlag ||
+    hasValue(roleTokens, "DEV") ||
+    hasValue(roleTokens, "DEVELOPER") ||
+    permissionTokens.includes("DEV") ||
+    permissionTokens.includes("DEVELOPER");
 
   return {
     isAdmin,
     isTrainer,
+    isDev,
   };
 }
 

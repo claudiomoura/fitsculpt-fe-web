@@ -1,4 +1,4 @@
-import { canAccessAdmin, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
+import { canAccessAdmin, canAccessDevelopment, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
 
 export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin" | "development";
 
@@ -207,7 +207,11 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
   const userSections = buildUserSections(input);
 
   if (!canAccessAdmin(input)) {
-    return userSections;
+    if (!canAccessDevelopment(input)) {
+      return userSections;
+    }
+
+    return [...userSections, ...sidebarDevelopment];
   }
 
   return [...userSections, ...sidebarAdmin, ...sidebarDevelopment];

@@ -11,6 +11,7 @@ type UserRoleState = {
   role: AccessRole;
   isAdmin: boolean;
   isTrainer: boolean;
+  isDev: boolean;
 };
 
 function readExplicitRole(profile: unknown): AccessRole | null {
@@ -87,6 +88,7 @@ export function useUserRole(): UserRoleState {
     const capabilities = getUserCapabilities(profile);
     const isAdmin = capabilities.isAdmin;
     const isTrainer = capabilities.isTrainer;
+    const isDev = capabilities.isDev;
 
     return {
       loading,
@@ -94,6 +96,7 @@ export function useUserRole(): UserRoleState {
       role: resolveRole(profile, isAdmin, isTrainer),
       isAdmin,
       isTrainer,
+      isDev,
     };
   }, [profile, loading, error]);
 }
