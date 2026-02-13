@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { hasTrainerClientContextCapability, hasTrainerClientsCapability } from "@/lib/capabilities";
 import { getRoleFlags } from "@/lib/roles";
+import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
 
 type AuthUser = Record<string, unknown>;
 
@@ -128,10 +129,9 @@ export default function TrainerClientContextClient() {
     }
 
     return {
-      summary: "ready",
-      training: client.subscriptionStatus ? "ready" : "empty",
-      nutrition: "unavailable",
-      tracking: client.lastLoginAt ? "ready" : "empty",
+      today: "ready",
+      tracking: "empty",
+      plans: "empty",
     };
   }, [client, clientState]);
 
@@ -210,6 +210,7 @@ export default function TrainerClientContextClient() {
           <p className="muted" style={{ margin: 0 }}>
             {t("trainer.clientContext.training.subscriptionHint")}
           </p>
+          {client ? <TrainerClientDraftActions clientId={client.id} /> : null}
         </div>
       );
     }

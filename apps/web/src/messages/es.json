@@ -1822,6 +1822,29 @@
         "noRecentActivity": "No hay actividad reciente disponible.",
         "activityHint": "El detalle de seguimiento aparecerá cuando exista data real de check-ins."
       },
+      "drafts": {
+        "title": "Notas y borradores de ajuste",
+        "localOnly": "Los borradores son locales solo en este dispositivo.",
+        "storageWarning": "Los borradores locales no están disponibles en este momento.",
+        "saveError": "No pudimos guardar este borrador en este dispositivo.",
+        "noteFormTitle": "Agregar nota",
+        "noteLabel": "Nota",
+        "notePlaceholder": "Escribe una nota de coaching para este atleta...",
+        "noteSubmit": "Guardar borrador de nota",
+        "noteInvalid": "Escribe una nota antes de guardar.",
+        "noteSaved": "Borrador de nota guardado en este dispositivo.",
+        "notesListTitle": "Borradores de notas guardados",
+        "notesEmpty": "Aún no hay borradores de notas guardados en este dispositivo.",
+        "adjustmentFormTitle": "Proponer ajuste",
+        "adjustmentLabel": "Propuesta de ajuste",
+        "adjustmentPlaceholder": "Describe el ajuste que quieres proponer...",
+        "adjustmentSubmit": "Guardar borrador de ajuste",
+        "adjustmentInvalid": "Escribe una propuesta de ajuste antes de guardar.",
+        "adjustmentSaved": "Borrador de ajuste guardado en este dispositivo.",
+        "adjustmentsListTitle": "Borradores de ajuste guardados",
+        "adjustmentsEmpty": "Aún no hay borradores de ajuste guardados en este dispositivo.",
+        "pendingLocalBadge": "Pendiente (local)"
+      },
       "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend."
     },
     "planBuilder": {

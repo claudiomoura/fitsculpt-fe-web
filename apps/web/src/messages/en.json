@@ -1819,6 +1819,29 @@
         "noRecentActivity": "No recent activity is available.",
         "activityHint": "Tracking detail will appear when client check-in data is available."
       },
+      "drafts": {
+        "title": "Notes & adjustment drafts",
+        "localOnly": "Drafts are local on this device only.",
+        "storageWarning": "Local drafts are unavailable right now.",
+        "saveError": "We couldn't save this draft on this device.",
+        "noteFormTitle": "Add note",
+        "noteLabel": "Note",
+        "notePlaceholder": "Write a coaching note for this athlete...",
+        "noteSubmit": "Save note draft",
+        "noteInvalid": "Write a note before saving.",
+        "noteSaved": "Note draft saved on this device.",
+        "notesListTitle": "Saved note drafts",
+        "notesEmpty": "No note drafts saved on this device yet.",
+        "adjustmentFormTitle": "Propose adjustment",
+        "adjustmentLabel": "Adjustment proposal",
+        "adjustmentPlaceholder": "Describe the adjustment to propose...",
+        "adjustmentSubmit": "Save adjustment draft",
+        "adjustmentInvalid": "Write an adjustment proposal before saving.",
+        "adjustmentSaved": "Adjustment draft saved on this device.",
+        "adjustmentsListTitle": "Saved adjustment drafts",
+        "adjustmentsEmpty": "No adjustment drafts saved on this device yet.",
+        "pendingLocalBadge": "Pending (local)"
+      },
       "nextStep": "Athlete context will be enabled when backend impersonation support is available."
     },
     "planBuilder": {
