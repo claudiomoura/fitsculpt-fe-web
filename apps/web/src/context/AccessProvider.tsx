@@ -10,6 +10,7 @@ type AccessContextValue = {
   isAdmin: boolean;
   isCoach: boolean;
   isTrainer: boolean;
+  isDev: boolean;
   isLoading: boolean;
   error: string | null;
 };
@@ -17,13 +18,14 @@ type AccessContextValue = {
 const AccessContext = createContext<AccessContextValue | undefined>(undefined);
 
 export function AccessProvider({ children }: { children: ReactNode }) {
-  const { loading, error, role, isAdmin, isTrainer } = useUserRole();
+  const { loading, error, role, isAdmin, isTrainer, isDev } = useUserRole();
 
   const value: AccessContextValue = {
     role,
     isAdmin,
     isCoach: isTrainer || isAdmin,
     isTrainer,
+    isDev,
     isLoading: loading,
     error,
   };
