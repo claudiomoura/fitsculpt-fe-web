@@ -32,5 +32,6 @@ describe("navigation section gating", () => {
 
     expect(allItemIds).toContain("trainer-home");
     expect(sections.find((section) => section.id === "admin")).toBeDefined();
+    expect(allItemIds).toContain("admin-labs");
   });
 });

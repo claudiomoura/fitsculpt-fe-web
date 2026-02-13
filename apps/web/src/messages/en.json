@@ -24,7 +24,8 @@
     "adminUsers": "Users",
     "logout": "Log out",
     "trainer": "Trainer",
-    "adminPreview": "Admin Preview"
+    "adminPreview": "Admin Preview",
+    "adminLabs": "Labs"
   },
   "navSections": {
     "summary": "Summary",
@@ -1739,5 +1740,60 @@
     "notAvailableTitle": "Feature unavailable",
     "notAvailableDescription": "This area is not available for your current access level.",
     "backCta": "Back"
+  },
+  "adminLabs": {
+    "title": "Admin Labs",
+    "subtitle": "In-progress area with real access and neutral states.",
+    "loading": "Validating admin permissions...",
+    "error": "We could not validate your permissions right now.",
+    "unauthorized": "You do not have permissions to view Labs.",
+    "statusLabel": "Status",
+    "emptyTitle": "No labs available",
+    "emptyDesc": "There are no labs routes configured yet.",
+    "badgeReadOnly": "read-only",
+    "badgeNoBackend": "no backend",
+    "badgeBeta": "beta",
+    "items": {
+      "adminUsers": {
+        "title": "Admin users",
+        "description": "User management backed by real data."
+      },
+      "adminDashboard": {
+        "title": "Admin dashboard",
+        "description": "Operational summary with available data."
+      },
+      "trainerHome": {
+        "title": "Trainer workspace",
+        "description": "Trainer view with real data or neutral states."
+      },
+      "trainerExercises": {
+        "title": "Trainer exercises",
+        "description": "Evolving exercise catalog."
+      },
+      "trainerExerciseCreate": {
+        "title": "Create exercise",
+        "description": "Beta flow for exercise creation."
+      },
+      "trainingLibrary": {
+        "title": "Training library",
+        "description": "Library exploration in read-only mode."
+      },
+      "recipeLibrary": {
+        "title": "Recipe library",
+        "description": "Recipe view connected to current backend."
+      },
+      "nutrition": {
+        "title": "Nutrition",
+        "description": "Nutrition screen with neutral states when needed."
+      },
+      "tracking": {
+        "title": "Tracking",
+        "description": "User metrics using real data."
+      },
+      "profile": {
+        "title": "Profile",
+        "description": "User profile as admin reference."
+      }
+    }
   }
 }
