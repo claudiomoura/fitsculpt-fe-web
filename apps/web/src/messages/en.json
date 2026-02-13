@@ -25,14 +25,24 @@
     "logout": "Log out",
     "trainer": "Trainer",
     "adminPreview": "Admin Preview",
-    "adminLabs": "Labs"
+    "adminLabs": "Labs",
+    "trainerClients": "Trainer clients",
+    "trainerExercises": "Trainer exercises",
+    "newExercise": "New exercise",
+    "onboarding": "Onboarding",
+    "trainingEditor": "Training editor",
+    "nutritionEditor": "Nutrition editor",
+    "legacyProfile": "Legacy profile",
+    "workoutLibrary": "Workout library",
+    "recipeLibrary": "Recipe library"
   },
   "navSections": {
     "summary": "Summary",
     "training": "Training",
     "nutrition": "Nutrition",
     "account": "Account",
-    "admin": "Admin"
+    "admin": "Admin",
+    "development": "In development"
   },
   "ui": {
     "menu": "Menu",

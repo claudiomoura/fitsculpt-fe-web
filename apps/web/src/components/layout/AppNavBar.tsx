@@ -151,7 +151,8 @@ export default function AppNavBar() {
                           aria-current={active ? "page" : undefined}
                           onClick={closeMenu}
                         >
-                          {t(item.labelKey)}
+                          <span>{t(item.labelKey)}</span>
+                          {item.meta ? <span className="text-xs text-[var(--text-muted)]">{item.meta}</span> : null}
                         </Link>
                       );
                     })}
@@ -178,7 +179,8 @@ export default function AppNavBar() {
                         aria-current={active ? "page" : undefined}
                         onClick={closeMenu}
                       >
-                        {t(item.labelKey)}
+                        <span>{t(item.labelKey)}</span>
+                        {item.meta ? <span className="text-xs text-[var(--text-muted)]">{item.meta}</span> : null}
                       </Link>
                     );
                   })}
