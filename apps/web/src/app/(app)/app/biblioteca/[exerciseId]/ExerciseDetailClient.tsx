@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { addExerciseRecent } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise } from "@/lib/types";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import {
   ExerciseDetailErrorState,
@@ -50,6 +50,7 @@ export default function ExerciseDetailClient({
   errorTitle,
 }: ExerciseDetailClientProps) {
   const { t } = useLanguage();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
   const [isFavoritePending, setIsFavoritePending] = useState(false);
@@ -176,6 +177,20 @@ export default function ExerciseDetailClient({
     window.setTimeout(() => setIsFavoritePending(false), 400);
   };
 
+  const handleBackNavigation = () => {
+    if (fromPlan) {
+      router.push(backHref);
+      return;
+    }
+
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push(backHref);
+  };
+
   return (
     <section className="card centered-card">
       <ExerciseDetailHeader
@@ -195,9 +210,9 @@ export default function ExerciseDetailClient({
             >
               {favoriteLabel}
             </Button>
-            <ButtonLink variant="secondary" href={backHref}>
+            <Button variant="secondary" onClick={handleBackNavigation}>
               {backLabel}
-            </ButtonLink>
+            </Button>
           </>
         }
       />
@@ -216,38 +231,38 @@ export default function ExerciseDetailClient({
         </div>
       ) : null}
 
-      {hasMedia ? (
-        <div className="exercise-detail-grid">
-          <div className="feature-card exercise-media">
-            <div className="exercise-media-header">
-              <h3>{t("exerciseDetail.mediaSectionTitle")}</h3>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setIsMediaViewerOpen(true)}
-                aria-label={`${t("exerciseDetail.openMedia")} ${exercise.name}`}
-              >
-                {t("exerciseDetail.openMedia")}
-              </Button>
-            </div>
-            <div className="exercise-media-preview">
-              <button
-                type="button"
-                className="exercise-media-preview-button"
-                onClick={() => setIsMediaViewerOpen(true)}
-                aria-label={`${t("exerciseDetail.openMedia")} ${exercise.name}`}
-              >
-                <ExerciseMediaPreview
-                  key={mediaKey}
-                  media={media}
-                  mediaAlt={`${t("library.mediaAlt")} ${exercise.name}`}
-                  fallbackLabel={t("exerciseDetail.mediaPreviewFallback")}
-                />
-              </button>
-            </div>
+      <div className="exercise-detail-grid">
+        <div className="feature-card exercise-media">
+          <div className="exercise-media-header">
+            <h3>{t("exerciseDetail.mediaSectionTitle")}</h3>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsMediaViewerOpen(true)}
+              aria-label={`${t("exerciseDetail.openMedia")} ${exercise.name}`}
+              disabled={!hasMedia}
+            >
+              {t("exerciseDetail.openMedia")}
+            </Button>
+          </div>
+          <div className="exercise-media-preview">
+            <button
+              type="button"
+              className="exercise-media-preview-button"
+              onClick={() => setIsMediaViewerOpen(true)}
+              aria-label={`${t("exerciseDetail.openMedia")} ${exercise.name}`}
+              disabled={!hasMedia}
+            >
+              <ExerciseMediaPreview
+                key={mediaKey}
+                media={media}
+                mediaAlt={`${t("library.mediaAlt")} ${exercise.name}`}
+                fallbackLabel={t("exerciseDetail.mediaPreviewFallback")}
+              />
+            </button>
           </div>
         </div>
-      ) : null}
+      </div>
 
       <ExerciseDetailSections
         description={hasDescription ? exercise.description : null}
@@ -274,7 +289,7 @@ export default function ExerciseDetailClient({
       />
 
       <ExerciseMediaViewer
-        open={isMediaViewerOpen && hasMedia}
+        open={isMediaViewerOpen}
         onClose={() => setIsMediaViewerOpen(false)}
         media={media}
         title={t("exerciseDetail.mediaViewerTitle")}
@@ -301,7 +316,7 @@ function ExerciseMediaPreview({
 
   if (!media || hasError) {
     return (
-      <div className="exercise-media-fallback">
+      <div className="exercise-media-fallback" role="status" aria-live="polite">
         <p className="muted">{fallbackLabel}</p>
       </div>
     );
