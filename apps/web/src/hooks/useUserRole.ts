@@ -44,7 +44,7 @@ export function useUserRole(): UserRoleState {
     setError(null);
 
     try {
-      const response = await fetch("/api/profile", {
+            const response = await fetch("/api/auth/me", {
         cache: "no-store",
         signal,
       });
