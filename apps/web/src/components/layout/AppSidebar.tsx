@@ -23,27 +23,32 @@ export default function AppSidebar() {
   return (
     <aside className="app-sidebar" aria-label={t("appName")}>
       <div className="app-sidebar-inner">
-        {sections.map((section) => (
-          <details key={section.id} className="sidebar-section" open>
-            <summary className="sidebar-section-title">{t(section.labelKey)}</summary>
-            <div className="sidebar-links">
-              {section.items.map((item) => {
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className={`sidebar-link ${active ? "is-active" : ""}`}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    <span>{t(item.labelKey)}</span>
-                    {item.meta ? <span className="text-xs text-[var(--text-muted)]">{item.meta}</span> : null}
-                  </Link>
-                );
-              })}
-            </div>
-          </details>
-        ))}
+        {sections.map((section) => {
+  const isDevelopment = section.id === "development"; // ajusta si tu id es otro
+  const detailsProps = isDevelopment ? {} : { open: true };
+
+  return (
+    <details key={section.id} className="sidebar-section" {...detailsProps}>
+      <summary className="sidebar-section-title">{t(section.labelKey)}</summary>
+      <div className="sidebar-links">
+        {section.items.map((item) => {
+          const active = isActive(item.href);
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={`sidebar-link ${active ? "is-active" : ""}`}
+              aria-current={active ? "page" : undefined}
+            >
+              {t(item.labelKey)}
+            </Link>
+          );
+        })}
+      </div>
+    </details>
+  );
+})}
+
       </div>
     </aside>
   );
