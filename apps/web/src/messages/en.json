@@ -1639,6 +1639,7 @@
     "unauthorized": "Trainer mode is not available for this account.",
     "modeTitle": "Trainer dashboard",
     "notAvailable": "Trainer client list is not available in this environment yet.",
+    "notAvailableInEnvironment": "Não disponível neste ambiente",
     "viewingAsCoach": "Viewing as coach",
     "backToDashboard": "Back to dashboard",
     "back": "Back",
