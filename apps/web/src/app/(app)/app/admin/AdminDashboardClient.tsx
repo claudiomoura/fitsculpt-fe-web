@@ -3,58 +3,70 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
+import { useAccess } from "@/lib/useAccess";
 
 type AdminSummary = {
   total?: number;
 };
 
-type MeResponse = {
-  role?: string;
-};
-
 export default function AdminDashboardClient() {
   const { t } = useLanguage();
+  const { isAdmin, isLoading: roleLoading, error: roleError } = useAccess();
   const [summary, setSummary] = useState<AdminSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [unauthorized, setUnauthorized] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [requestError, setRequestError] = useState(false);
 
   useEffect(() => {
+    if (roleLoading || !isAdmin) return;
+
     let active = true;
     const load = async () => {
       setLoading(true);
-      const me = await fetch("/api/auth/me", { cache: "no-store" });
-      const meData = (await me.json()) as MeResponse;
-      if (!me.ok || meData.role !== "ADMIN") {
-        if (active) {
-          setUnauthorized(true);
-          setLoading(false);
-        }
-        return;
-      }
+      setRequestError(false);
 
-      const response = await fetch("/api/admin/users?page=1", { cache: "no-store" });
-      if (!response.ok) {
+      try {
+        const response = await fetch("/api/admin/users?page=1", { cache: "no-store" });
+        if (!response.ok) {
+          if (active) setRequestError(true);
+          return;
+        }
+
+        const data = (await response.json()) as { total?: number };
+        if (active) {
+          setSummary({ total: data.total ?? 0 });
+        }
+      } catch {
+        if (active) setRequestError(true);
+      } finally {
         if (active) setLoading(false);
-        return;
-      }
-      const data = (await response.json()) as { total: number };
-      if (active) {
-        setSummary({ total: data.total });
-        setLoading(false);
       }
     };
+
     void load();
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [isAdmin, roleLoading]);
 
-  if (unauthorized) {
+  if (roleLoading) {
+    return <p className="muted">{t("admin.loading")}</p>;
+  }
+
+  if (roleError) {
+    return <p className="muted">{t("admin.unauthorized")}</p>;
+  }
+
+  if (!isAdmin) {
     return <p className="muted">{t("admin.unauthorized")}</p>;
   }
 
   if (loading) {
     return <p className="muted">{t("admin.loading")}</p>;
+  }
+
+  if (requestError) {
+    return <p className="muted">{t("admin.usersError")}</p>;
   }
 
   return (

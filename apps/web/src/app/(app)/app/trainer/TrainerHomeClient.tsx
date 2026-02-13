@@ -98,7 +98,7 @@ export default function TrainerHomeClient() {
   }
 
   if (!canAccessTrainer) {
-    return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="lock" />;
+    return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;
   }
 
   return (

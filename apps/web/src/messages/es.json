@@ -24,7 +24,8 @@
     "adminUsers": "Usuarios",
     "logout": "Cerrar sesión",
     "trainer": "Entrenador",
-    "adminPreview": "Vista previa admin"
+    "adminPreview": "Vista previa admin",
+    "adminLabs": "Labs"
   },
   "navSections": {
     "summary": "Resumen",
@@ -1742,5 +1743,60 @@
     "notAvailableTitle": "Funcionalidad no disponible",
     "notAvailableDescription": "Esta área no está disponible para tu nivel de acceso actual.",
     "backCta": "Volver"
+  },
+  "adminLabs": {
+    "title": "Labs de Admin",
+    "subtitle": "Sección en desarrollo con accesos reales y estado neutral.",
+    "loading": "Validando permisos de admin...",
+    "error": "No pudimos validar tus permisos ahora mismo.",
+    "unauthorized": "No tienes permisos para ver Labs.",
+    "statusLabel": "Estado",
+    "emptyTitle": "Sin laboratorios disponibles",
+    "emptyDesc": "No hay rutas de Labs configuradas por el momento.",
+    "badgeReadOnly": "solo lectura",
+    "badgeNoBackend": "sin backend",
+    "badgeBeta": "beta",
+    "items": {
+      "adminUsers": {
+        "title": "Usuarios admin",
+        "description": "Gestión de usuarios con backend real."
+      },
+      "adminDashboard": {
+        "title": "Panel admin",
+        "description": "Resumen operativo con datos disponibles."
+      },
+      "trainerHome": {
+        "title": "Workspace trainer",
+        "description": "Vista de entrenador con datos reales o estado neutral."
+      },
+      "trainerExercises": {
+        "title": "Ejercicios trainer",
+        "description": "Catálogo de ejercicios en evolución."
+      },
+      "trainerExerciseCreate": {
+        "title": "Crear ejercicio",
+        "description": "Flujo beta para crear ejercicios."
+      },
+      "trainingLibrary": {
+        "title": "Biblioteca de entrenamientos",
+        "description": "Exploración de biblioteca en modo lectura."
+      },
+      "recipeLibrary": {
+        "title": "Biblioteca de recetas",
+        "description": "Vista de recetas conectada al backend actual."
+      },
+      "nutrition": {
+        "title": "Nutrición",
+        "description": "Pantalla nutricional con estados neutros cuando aplique."
+      },
+      "tracking": {
+        "title": "Seguimiento",
+        "description": "Métricas del usuario con datos reales."
+      },
+      "profile": {
+        "title": "Perfil",
+        "description": "Perfil de usuario como referencia administrativa."
+      }
+    }
   }
 }
