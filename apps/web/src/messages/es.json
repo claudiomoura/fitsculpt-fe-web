@@ -839,7 +839,67 @@
     "ingredientsNotAvailable": "Ingredientes no disponibles.",
     "mealDetailsNotFound": "No hemos podido encontrar este plato para el día seleccionado.",
     "weekLabel": "Semana",
-    "instructionsTitle": "Instrucciones"
+    "instructionsTitle": "Instrucciones",
+    "ingredient": {
+      "salmon": "Salmón",
+      "chicken": "Pollo",
+      "turkey": "Pavo",
+      "eggs": "Huevos",
+      "yogurt": "Yogur griego",
+      "oats": "Avena",
+      "rice": "Arroz integral",
+      "quinoa": "Quinoa",
+      "chickpeas": "Garbanzos",
+      "potatoes": "Patata",
+      "zucchini": "Calabacín",
+      "avocado": "Aguacate",
+      "oliveOil": "Aceite de oliva",
+      "berries": "Frutos rojos",
+      "milk": "Leche",
+      "bread": "Pan integral"
+    },
+    "template": {
+      "breakfast": {
+        "oatsWithFruit": {
+          "title": "Avena con fruta",
+          "description": "Avena, yogur natural, frutos rojos y semillas."
+        },
+        "eggToast": {
+          "title": "Tostadas con huevo",
+          "description": "Pan integral, huevos revueltos y aguacate."
+        }
+      },
+      "lunch": {
+        "chickenWithRice": {
+          "title": "Pollo con arroz",
+          "description": "Pechuga a la plancha, arroz integral y ensalada."
+        },
+        "mediterraneanBowl": {
+          "title": "Bowl mediterráneo",
+          "description": "Quinoa, garbanzos, verduras y aceite de oliva."
+        }
+      },
+      "dinner": {
+        "salmonWithVeggies": {
+          "title": "Salmón con verduras",
+          "description": "Salmón al horno, calabacín y patata."
+        },
+        "quickStirFry": {
+          "title": "Salteado rápido",
+          "description": "Pavo, verduras mixtas y noodles integrales."
+        }
+      },
+      "snack": {
+        "proteinSnack": {
+          "title": "Snack proteico",
+          "description": "Yogur griego con frutos secos."
+        },
+        "shake": {
+          "title": "Batido",
+          "description": "Leche, fruta y proteína en polvo."
+        }
+      }
+    }
   },
   "training": {
     "formTitle": "Datos del plan",
@@ -956,7 +1016,52 @@
     "profileError": "No pudimos cargar tu perfil.",
     "emptyPlan": "Completa el formulario para generar tu plan.",
     "generateSuccess": "Plan generado correctamente.",
-    "errorTitle": "No pudimos cargar tu plan"
+    "errorTitle": "No pudimos cargar tu plan",
+    "dayNames": {
+      "monday": "Lunes",
+      "tuesday": "Martes",
+      "wednesday": "Miércoles",
+      "thursday": "Jueves",
+      "friday": "Viernes",
+      "saturday": "Sábado",
+      "sunday": "Domingo"
+    },
+    "exercises": {
+      "squat": "Sentadilla",
+      "benchPress": "Press banca",
+      "barbellRow": "Remo con barra",
+      "romanianDeadlift": "Peso muerto rumano",
+      "overheadPress": "Press militar",
+      "plank": "Plancha",
+      "pushUps": "Flexiones",
+      "bandRow": "Remo con banda",
+      "lunges": "Zancadas",
+      "pikePushUps": "Flexiones pike",
+      "pullUps": "Dominadas",
+      "bicepsCurl": "Curl bíceps",
+      "tricepsExtension": "Extensión tríceps",
+      "dumbbellOverheadPress": "Press militar con mancuernas",
+      "benchDips": "Fondos en banco",
+      "legPress": "Prensa",
+      "calfRaise": "Elevación de gemelos",
+      "hipThrust": "Hip thrust",
+      "core": "Core",
+      "gluteBridge": "Puente de glúteo",
+      "goodMorning": "Buenos días",
+      "inclinePress": "Press inclinado",
+      "dips": "Fondos",
+      "lateralRaises": "Elevaciones laterales",
+      "triceps": "Tríceps",
+      "facePull": "Face pull",
+      "cableRow": "Remo en polea",
+      "assistedPullUps": "Dominadas asistidas",
+      "bandFacePull": "Face pull con banda",
+      "invertedRow": "Remo invertido",
+      "hamstringCurl": "Curl femoral",
+      "dumbbellRomanianDeadlift": "Peso muerto rumano con mancuerna",
+      "swissBallLegCurl": "Curl femoral con fitball",
+      "inclineDumbbellPress": "Press inclinado con mancuernas"
+    }
   },
   "profile": {
     "formTitle": "Perfil y métricas",

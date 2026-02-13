@@ -835,7 +835,67 @@
     "ingredientsNotAvailable": "Ingredients not available.",
     "mealDetailsNotFound": "We could not find this meal for the selected day.",
     "weekLabel": "Week",
-    "instructionsTitle": "Instructions"
+    "instructionsTitle": "Instructions",
+    "ingredient": {
+      "salmon": "Salmon",
+      "chicken": "Chicken",
+      "turkey": "Turkey",
+      "eggs": "Eggs",
+      "yogurt": "Greek yogurt",
+      "oats": "Oats",
+      "rice": "Brown rice",
+      "quinoa": "Quinoa",
+      "chickpeas": "Chickpeas",
+      "potatoes": "Potato",
+      "zucchini": "Zucchini",
+      "avocado": "Avocado",
+      "oliveOil": "Olive oil",
+      "berries": "Berries",
+      "milk": "Milk",
+      "bread": "Whole-grain bread"
+    },
+    "template": {
+      "breakfast": {
+        "oatsWithFruit": {
+          "title": "Oats with fruit",
+          "description": "Oats, plain yogurt, berries, and seeds."
+        },
+        "eggToast": {
+          "title": "Egg toast",
+          "description": "Whole-grain toast, scrambled eggs, and avocado."
+        }
+      },
+      "lunch": {
+        "chickenWithRice": {
+          "title": "Chicken with rice",
+          "description": "Grilled chicken breast, brown rice, and salad."
+        },
+        "mediterraneanBowl": {
+          "title": "Mediterranean bowl",
+          "description": "Quinoa, chickpeas, veggies, and olive oil."
+        }
+      },
+      "dinner": {
+        "salmonWithVeggies": {
+          "title": "Salmon with veggies",
+          "description": "Baked salmon, zucchini, and potato."
+        },
+        "quickStirFry": {
+          "title": "Quick stir-fry",
+          "description": "Turkey, mixed veggies, and whole-grain noodles."
+        }
+      },
+      "snack": {
+        "proteinSnack": {
+          "title": "Protein snack",
+          "description": "Greek yogurt with nuts."
+        },
+        "shake": {
+          "title": "Shake",
+          "description": "Milk, fruit, and protein powder."
+        }
+      }
+    }
   },
   "training": {
     "formTitle": "Plan details",
@@ -953,7 +1013,52 @@
     "profileError": "We couldn't load your profile.",
     "emptyPlan": "Complete the form to generate your plan.",
     "generateSuccess": "Plan generated successfully.",
-    "errorTitle": "We couldn't load your plan"
+    "errorTitle": "We couldn't load your plan",
+    "dayNames": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    },
+    "exercises": {
+      "squat": "Squat",
+      "benchPress": "Bench press",
+      "barbellRow": "Barbell row",
+      "romanianDeadlift": "Romanian deadlift",
+      "overheadPress": "Overhead press",
+      "plank": "Plank",
+      "pushUps": "Push-ups",
+      "bandRow": "Band row",
+      "lunges": "Lunges",
+      "pikePushUps": "Pike push-ups",
+      "pullUps": "Pull-ups",
+      "bicepsCurl": "Biceps curl",
+      "tricepsExtension": "Triceps extension",
+      "dumbbellOverheadPress": "Dumbbell overhead press",
+      "benchDips": "Bench dips",
+      "legPress": "Leg press",
+      "calfRaise": "Calf raise",
+      "hipThrust": "Hip thrust",
+      "core": "Core",
+      "gluteBridge": "Glute bridge",
+      "goodMorning": "Good morning",
+      "inclinePress": "Incline press",
+      "dips": "Dips",
+      "lateralRaises": "Lateral raises",
+      "triceps": "Triceps",
+      "facePull": "Face pull",
+      "cableRow": "Cable row",
+      "assistedPullUps": "Assisted pull-ups",
+      "bandFacePull": "Band face pull",
+      "invertedRow": "Inverted row",
+      "hamstringCurl": "Hamstring curl",
+      "dumbbellRomanianDeadlift": "Dumbbell Romanian deadlift",
+      "swissBallLegCurl": "Swiss ball leg curl",
+      "inclineDumbbellPress": "Incline dumbbell press"
+    }
   },
   "profile": {
     "formTitle": "Profile and metrics",
