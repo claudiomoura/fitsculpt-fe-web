@@ -36,7 +36,8 @@ export default function AppSidebar() {
                     className={`sidebar-link ${active ? "is-active" : ""}`}
                     aria-current={active ? "page" : undefined}
                   >
-                    {t(item.labelKey)}
+                    <span>{t(item.labelKey)}</span>
+                    {item.meta ? <span className="text-xs text-[var(--text-muted)]">{item.meta}</span> : null}
                   </Link>
                 );
               })}

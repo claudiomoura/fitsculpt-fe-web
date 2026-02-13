@@ -1,11 +1,12 @@
 import { canAccessAdmin, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
 
-export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin";
+export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin" | "development";
 
 export type NavItem = {
   id: string;
   href: string;
   labelKey: string;
+  meta?: string;
 };
 
 export type NavSectionGroup = {
@@ -114,6 +115,79 @@ export const sidebarAdmin: NavSectionGroup[] = [
   },
 ];
 
+export const sidebarDevelopment: NavSectionGroup[] = [
+  {
+    id: "development",
+    labelKey: "navSections.development",
+    items: [
+      { id: "dev-trainer-home", href: "/app/trainer", labelKey: "nav.trainer", meta: "/app/trainer" },
+      {
+        id: "dev-trainer-clients",
+        href: "/app/trainer/clients",
+        labelKey: "nav.trainerClients",
+        meta: "/app/trainer/clients",
+      },
+      {
+        id: "dev-trainer-exercises",
+        href: "/app/trainer/exercises",
+        labelKey: "nav.trainerExercises",
+        meta: "/app/trainer/exercises",
+      },
+      {
+        id: "dev-trainer-exercises-new",
+        href: "/app/trainer/exercises/new",
+        labelKey: "nav.newExercise",
+        meta: "/app/trainer/exercises/new",
+      },
+      { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
+      { id: "dev-dashboard", href: "/app/dashboard", labelKey: "nav.dashboard", meta: "/app/dashboard" },
+      { id: "dev-workouts", href: "/app/workouts", labelKey: "nav.workouts", meta: "/app/workouts" },
+      {
+        id: "dev-training-edit",
+        href: "/app/entrenamiento/editar",
+        labelKey: "nav.trainingEditor",
+        meta: "/app/entrenamiento/editar",
+      },
+      {
+        id: "dev-nutrition-edit",
+        href: "/app/nutricion/editar",
+        labelKey: "nav.nutritionEditor",
+        meta: "/app/nutricion/editar",
+      },
+      {
+        id: "dev-profile-legacy",
+        href: "/app/profile/legacy",
+        labelKey: "nav.legacyProfile",
+        meta: "/app/profile/legacy",
+      },
+      {
+        id: "dev-settings-billing",
+        href: "/app/settings/billing",
+        labelKey: "nav.billing",
+        meta: "/app/settings/billing",
+      },
+      {
+        id: "dev-library-workouts",
+        href: "/app/biblioteca/entrenamientos",
+        labelKey: "nav.workoutLibrary",
+        meta: "/app/biblioteca/entrenamientos",
+      },
+      {
+        id: "dev-library-recipes",
+        href: "/app/biblioteca/recetas",
+        labelKey: "nav.recipeLibrary",
+        meta: "/app/biblioteca/recetas",
+      },
+      {
+        id: "dev-admin-preview",
+        href: "/app/admin/preview",
+        labelKey: "nav.adminPreview",
+        meta: "/app/admin/preview",
+      },
+    ],
+  },
+];
+
 export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
   if (canAccessTrainer(input)) {
     return sidebarUser;
@@ -136,5 +210,5 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
     return userSections;
   }
 
-  return [...userSections, ...sidebarAdmin];
+  return [...userSections, ...sidebarAdmin, ...sidebarDevelopment];
 }
