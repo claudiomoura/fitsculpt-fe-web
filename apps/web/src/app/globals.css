@@ -62,6 +62,8 @@
   --mobile-tab-safe-area: env(safe-area-inset-bottom, 0px);
   --mobile-tab-bar-height: calc(var(--tabbar-h) + var(--mobile-tab-safe-area));
   --mobile-tab-bar-offset: calc(var(--tabbar-h) + var(--mobile-tab-safe-area));
+  --vv-offset-bottom: 0px;
+  --mobile-tab-bar-offset-effective: calc(var(--mobile-tab-bar-offset) + var(--vv-offset-bottom));
 }
 
 html,
@@ -1591,7 +1593,7 @@ label {
 .mobile-tab-bar {
   position: fixed;
   inset-inline: 0;
-  bottom: 0;
+  bottom: var(--vv-offset-bottom);
   width: 100%;
   height: var(--mobile-tab-bar-height);
   padding: 8px 12px calc(var(--mobile-tab-safe-area) + 8px);
@@ -1599,6 +1601,7 @@ label {
   background: color-mix(in srgb, var(--bg-card) 88%, transparent);
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: 45;
   box-shadow: 0 -8px 24px color-mix(in srgb, var(--text-primary) 12%, transparent);
   display: none;
@@ -3092,15 +3095,15 @@ label {
 
   .app-shell {
     grid-template-columns: 1fr;
-    padding: 16px 16px calc(var(--mobile-tab-bar-offset) + 16px);
+    padding: 16px 16px calc(var(--mobile-tab-bar-offset-effective) + 16px);
   }
 
   .app-content {
-    padding-bottom: calc(var(--mobile-tab-bar-offset) + 12px);
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 12px);
   }
 
   .page {
-    padding-bottom: calc(var(--mobile-tab-bar-offset) + 12px);
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 12px);
   }
 
   .app-sidebar {
@@ -3454,14 +3457,14 @@ textarea:disabled {
 
 @media (max-width: 720px) {
   .ui-toast-viewport {
-    inset: auto 16px calc(var(--mobile-tab-bar-offset) + 16px) 16px;
+    inset: auto 16px calc(var(--mobile-tab-bar-offset-effective) + 16px) 16px;
     top: auto;
   }
 }
 
 @media (max-width: 900px) {
   .page-with-tabbar-safe-area {
-    padding-bottom: calc(var(--mobile-tab-bar-offset) + 12px);
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 12px);
   }
 }
 
