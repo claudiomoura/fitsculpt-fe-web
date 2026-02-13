@@ -1789,18 +1789,35 @@
       "title": "Athlete context",
       "loading": "Loading athlete context...",
       "error": "Could not load athlete context.",
+      "empty": "No data is currently available for this tab.",
       "unknownClient": "Athlete",
-      "unavailable": "Unavailable with current endpoints.",
-      "today": {
-        "title": "Today",
-        "lastLoginPrefix": "Last sign-in:",
-        "subscriptionStatusPrefix": "Subscription status:"
+      "unavailable": "This tab is currently unavailable with the existing data sources.",
+      "stateDescriptions": {
+        "loading": "Preparing section state...",
+        "error": "Section unavailable due to a loading error.",
+        "empty": "No records found for this section.",
+        "unavailable": "This section needs data that is not available in this environment.",
+        "ready": "Section loaded successfully."
+      },
+      "summary": {
+        "title": "Summary",
+        "clientNamePrefix": "Client:",
+        "emailPrefix": "Email:",
+        "accountStatusPrefix": "Account status:"
+      },
+      "training": {
+        "title": "Training",
+        "subscriptionStatusPrefix": "Subscription status:",
+        "subscriptionHint": "Training detail is limited to currently available client status data."
+      },
+      "nutrition": {
+        "title": "Nutrition"
       },
       "tracking": {
-        "title": "Tracking"
-      },
-      "plans": {
-        "title": "Plans"
+        "title": "Tracking",
+        "lastLoginPrefix": "Last sign-in:",
+        "noRecentActivity": "No recent activity is available.",
+        "activityHint": "Tracking detail will appear when client check-in data is available."
       },
       "nextStep": "Athlete context will be enabled when backend impersonation support is available."
     },

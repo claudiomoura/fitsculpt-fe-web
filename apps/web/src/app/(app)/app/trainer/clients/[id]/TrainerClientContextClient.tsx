@@ -24,8 +24,8 @@ type ClientsResponse = {
 };
 
 type LoadState = "loading" | "ready" | "error";
-type TabKey = "today" | "tracking" | "plans";
-type SectionState = "loading" | "empty" | "ready" | "error";
+type TabKey = "summary" | "training" | "nutrition" | "tracking";
+type SectionState = "loading" | "empty" | "ready" | "error" | "unavailable";
 
 export default function TrainerClientContextClient() {
   const { t } = useLanguage();
@@ -36,7 +36,11 @@ export default function TrainerClientContextClient() {
   const [clientState, setClientState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [client, setClient] = useState<ClientRow | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("today");
+  const [activeTab, setActiveTab] = useState<TabKey>("summary");
+
+  const handleRetry = () => {
+    window.location.reload();
+  };
 
   useEffect(() => {
     let active = true;
@@ -102,79 +106,167 @@ export default function TrainerClientContextClient() {
 
   const tabs: { key: TabKey; label: string }[] = useMemo(
     () => [
-      { key: "today", label: t("trainer.clientContext.today.title") },
+      { key: "summary", label: t("trainer.clientContext.summary.title") },
+      { key: "training", label: t("trainer.clientContext.training.title") },
+      { key: "nutrition", label: t("trainer.clientContext.nutrition.title") },
       { key: "tracking", label: t("trainer.clientContext.tracking.title") },
-      { key: "plans", label: t("trainer.clientContext.plans.title") },
     ],
     [t],
   );
 
   const sectionStateByTab = useMemo<Record<TabKey, SectionState>>(() => {
     if (clientState === "loading") {
-      return { today: "loading", tracking: "loading", plans: "loading" };
+      return { summary: "loading", training: "loading", nutrition: "loading", tracking: "loading" };
     }
 
     if (clientState === "error") {
-      return { today: "error", tracking: "error", plans: "error" };
+      return { summary: "error", training: "error", nutrition: "error", tracking: "error" };
     }
 
     if (!client || !hasTrainerClientContextCapability(client)) {
-      return { today: "empty", tracking: "empty", plans: "empty" };
+      return { summary: "empty", training: "empty", nutrition: "empty", tracking: "empty" };
     }
 
     return {
-      today: client.subscriptionStatus ? "ready" : "empty",
-      tracking: "empty",
-      plans: "empty",
+      summary: "ready",
+      training: client.subscriptionStatus ? "ready" : "empty",
+      nutrition: "unavailable",
+      tracking: client.lastLoginAt ? "ready" : "empty",
     };
   }, [client, clientState]);
 
-  const renderSectionBody = () => {
-    const sectionState = sectionStateByTab[activeTab];
-
+  const renderSectionBody = (sectionState: SectionState) => {
     if (sectionState === "loading") {
-      return <p className="muted">{t("trainer.clientContext.loading")}</p>;
+      return (
+        <div className="form-stack" role="status" aria-live="polite">
+          <p className="muted">{t("trainer.clientContext.loading")}</p>
+          <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
+            {t("trainer.back")}
+          </Link>
+        </div>
+      );
     }
 
     if (sectionState === "error") {
       return (
         <div className="form-stack">
           <p className="muted">{t("trainer.clientContext.error")}</p>
-          <button className="btn secondary" type="button" onClick={() => window.location.reload()}>
-            {t("trainer.retry")}
-          </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="btn secondary" type="button" onClick={handleRetry}>
+              {t("trainer.retry")}
+            </button>
+            <Link href="/app/trainer" className="btn secondary">
+              {t("trainer.back")}
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    if (sectionState === "unavailable") {
+      return (
+        <div className="form-stack">
+          <p className="muted">{t("trainer.clientContext.unavailable")}</p>
+          <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
+            {t("trainer.back")}
+          </Link>
         </div>
       );
     }
 
     if (sectionState === "empty") {
-      return <p className="muted">{t("trainer.notAvailableInEnvironment")}</p>;
-    }
-
-    if (activeTab === "today") {
       return (
         <div className="form-stack">
-          {client?.lastLoginAt ? (
-            <p className="muted" style={{ margin: 0 }}>
-              {`${t("trainer.clientContext.today.lastLoginPrefix")} ${new Date(client.lastLoginAt).toLocaleDateString()}`}
-            </p>
-          ) : null}
+          <p className="muted">{t("trainer.clientContext.empty")}</p>
+          <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
+            {t("trainer.back")}
+          </Link>
+        </div>
+      );
+    }
+
+    if (activeTab === "summary") {
+      return (
+        <div className="form-stack">
           <p className="muted" style={{ margin: 0 }}>
-            {`${t("trainer.clientContext.today.subscriptionStatusPrefix")} ${client?.subscriptionStatus ?? "-"}`}
+            {`${t("trainer.clientContext.summary.clientNamePrefix")} ${clientName}`}
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            {`${t("trainer.clientContext.summary.emailPrefix")} ${client?.email ?? "-"}`}
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            {`${t("trainer.clientContext.summary.accountStatusPrefix")} ${client?.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active")}`}
           </p>
         </div>
       );
     }
 
-    return <p className="muted">{t("trainer.notAvailableInEnvironment")}</p>;
+    if (activeTab === "training") {
+      return (
+        <div className="form-stack">
+          <p className="muted" style={{ margin: 0 }}>
+            {`${t("trainer.clientContext.training.subscriptionStatusPrefix")} ${client?.subscriptionStatus ?? "-"}`}
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            {t("trainer.clientContext.training.subscriptionHint")}
+          </p>
+        </div>
+      );
+    }
+
+    if (activeTab === "tracking") {
+      return (
+        <div className="form-stack">
+          <p className="muted" style={{ margin: 0 }}>
+            {client?.lastLoginAt
+              ? `${t("trainer.clientContext.tracking.lastLoginPrefix")} ${new Date(client.lastLoginAt).toLocaleDateString()}`
+              : t("trainer.clientContext.tracking.noRecentActivity")}
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            {t("trainer.clientContext.tracking.activityHint")}
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="form-stack">
+        <p className="muted">{t("trainer.clientContext.unavailable")}</p>
+        <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
+          {t("trainer.back")}
+        </Link>
+      </div>
+    );
   };
+
+  const sectionState = sectionStateByTab[activeTab];
+
+  const tabDescription = useMemo(() => {
+    if (sectionState === "loading") return t("trainer.clientContext.stateDescriptions.loading");
+    if (sectionState === "error") return t("trainer.clientContext.stateDescriptions.error");
+    if (sectionState === "empty") return t("trainer.clientContext.stateDescriptions.empty");
+    if (sectionState === "unavailable") return t("trainer.clientContext.stateDescriptions.unavailable");
+    return t("trainer.clientContext.stateDescriptions.ready");
+  }, [sectionState, t]);
 
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
   }
 
   if (permissionState === "error") {
-    return <p className="muted">{t("trainer.error")}</p>;
+    return (
+      <div className="card form-stack" role="status">
+        <p className="muted">{t("trainer.error")}</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn secondary" type="button" onClick={handleRetry}>
+            {t("trainer.retry")}
+          </button>
+          <Link href="/app/trainer" className="btn secondary">
+            {t("trainer.back")}
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (!canAccessTrainer) {
@@ -214,7 +306,10 @@ export default function TrainerClientContextClient() {
 
         <div className="card form-stack" role="status" aria-live="polite">
           <h3 style={{ margin: 0 }}>{tabs.find((tab) => tab.key === activeTab)?.label}</h3>
-          {renderSectionBody()}
+          <p className="muted" style={{ margin: 0 }}>
+            {tabDescription}
+          </p>
+          {renderSectionBody(sectionState)}
         </div>
       </section>
 
