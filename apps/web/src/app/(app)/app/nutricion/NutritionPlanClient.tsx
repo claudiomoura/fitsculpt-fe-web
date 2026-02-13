@@ -90,197 +90,107 @@ type ShoppingItem = {
 };
 
 type IngredientProfile = {
-  name: string;
+  nameKey: string;
   protein: number;
   carbs: number;
   fat: number;
 };
 
 type MealTemplate = {
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   protein: IngredientProfile;
   carbs?: IngredientProfile;
   fat?: IngredientProfile;
   veg?: IngredientProfile;
 };
 
-const INGREDIENT_PROFILES: Record<Locale, Record<string, IngredientProfile>> = {
-  es: {
-    salmon: { name: "Salmón", protein: 20, carbs: 0, fat: 13 },
-    chicken: { name: "Pollo", protein: 31, carbs: 0, fat: 3.6 },
-    turkey: { name: "Pavo", protein: 29, carbs: 0, fat: 2 },
-    eggs: { name: "Huevos", protein: 13, carbs: 1.1, fat: 10 },
-    yogurt: { name: "Yogur griego", protein: 10, carbs: 4, fat: 4 },
-    oats: { name: "Avena", protein: 17, carbs: 66, fat: 7 },
-    rice: { name: "Arroz integral", protein: 2.7, carbs: 28, fat: 0.3 },
-    quinoa: { name: "Quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
-    chickpeas: { name: "Garbanzos", protein: 9, carbs: 27, fat: 2.6 },
-    potatoes: { name: "Patata", protein: 2, carbs: 17, fat: 0.1 },
-    zucchini: { name: "Calabacín", protein: 1.2, carbs: 3.1, fat: 0.3 },
-    avocado: { name: "Aguacate", protein: 2, carbs: 9, fat: 15 },
-    oliveOil: { name: "Aceite de oliva", protein: 0, carbs: 0, fat: 100 },
-    berries: { name: "Frutos rojos", protein: 1, carbs: 12, fat: 0.3 },
-    milk: { name: "Leche", protein: 3.3, carbs: 5, fat: 3.2 },
-    bread: { name: "Pan integral", protein: 13, carbs: 43, fat: 4 },
-  },
-  en: {
-    salmon: { name: "Salmon", protein: 20, carbs: 0, fat: 13 },
-    chicken: { name: "Chicken", protein: 31, carbs: 0, fat: 3.6 },
-    turkey: { name: "Turkey", protein: 29, carbs: 0, fat: 2 },
-    eggs: { name: "Eggs", protein: 13, carbs: 1.1, fat: 10 },
-    yogurt: { name: "Greek yogurt", protein: 10, carbs: 4, fat: 4 },
-    oats: { name: "Oats", protein: 17, carbs: 66, fat: 7 },
-    rice: { name: "Brown rice", protein: 2.7, carbs: 28, fat: 0.3 },
-    quinoa: { name: "Quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
-    chickpeas: { name: "Chickpeas", protein: 9, carbs: 27, fat: 2.6 },
-    potatoes: { name: "Potato", protein: 2, carbs: 17, fat: 0.1 },
-    zucchini: { name: "Zucchini", protein: 1.2, carbs: 3.1, fat: 0.3 },
-    avocado: { name: "Avocado", protein: 2, carbs: 9, fat: 15 },
-    oliveOil: { name: "Olive oil", protein: 0, carbs: 0, fat: 100 },
-    berries: { name: "Berries", protein: 1, carbs: 12, fat: 0.3 },
-    milk: { name: "Milk", protein: 3.3, carbs: 5, fat: 3.2 },
-    bread: { name: "Whole-grain bread", protein: 13, carbs: 43, fat: 4 },
-  },
+const INGREDIENT_PROFILES: Record<string, IngredientProfile> = {
+  salmon: { nameKey: "nutrition.ingredient.salmon", protein: 20, carbs: 0, fat: 13 },
+  chicken: { nameKey: "nutrition.ingredient.chicken", protein: 31, carbs: 0, fat: 3.6 },
+  turkey: { nameKey: "nutrition.ingredient.turkey", protein: 29, carbs: 0, fat: 2 },
+  eggs: { nameKey: "nutrition.ingredient.eggs", protein: 13, carbs: 1.1, fat: 10 },
+  yogurt: { nameKey: "nutrition.ingredient.yogurt", protein: 10, carbs: 4, fat: 4 },
+  oats: { nameKey: "nutrition.ingredient.oats", protein: 17, carbs: 66, fat: 7 },
+  rice: { nameKey: "nutrition.ingredient.rice", protein: 2.7, carbs: 28, fat: 0.3 },
+  quinoa: { nameKey: "nutrition.ingredient.quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
+  chickpeas: { nameKey: "nutrition.ingredient.chickpeas", protein: 9, carbs: 27, fat: 2.6 },
+  potatoes: { nameKey: "nutrition.ingredient.potatoes", protein: 2, carbs: 17, fat: 0.1 },
+  zucchini: { nameKey: "nutrition.ingredient.zucchini", protein: 1.2, carbs: 3.1, fat: 0.3 },
+  avocado: { nameKey: "nutrition.ingredient.avocado", protein: 2, carbs: 9, fat: 15 },
+  oliveOil: { nameKey: "nutrition.ingredient.oliveOil", protein: 0, carbs: 0, fat: 100 },
+  berries: { nameKey: "nutrition.ingredient.berries", protein: 1, carbs: 12, fat: 0.3 },
+  milk: { nameKey: "nutrition.ingredient.milk", protein: 3.3, carbs: 5, fat: 3.2 },
+  bread: { nameKey: "nutrition.ingredient.bread", protein: 13, carbs: 43, fat: 4 },
 };
 
-const MEAL_TEMPLATES: Record<Locale, Record<string, MealTemplate[]>> = {
-  es: {
+const MEAL_TEMPLATES: Record<string, MealTemplate[]> = {
     breakfast: [
       {
-        title: "Avena con fruta",
-        description: "Avena, yogur natural, frutos rojos y semillas.",
-        protein: INGREDIENT_PROFILES.es.yogurt,
-        carbs: INGREDIENT_PROFILES.es.oats,
-        fat: INGREDIENT_PROFILES.es.oliveOil,
-        veg: INGREDIENT_PROFILES.es.berries,
+        titleKey: "nutrition.template.breakfast.oatsWithFruit.title",
+        descriptionKey: "nutrition.template.breakfast.oatsWithFruit.description",
+        protein: INGREDIENT_PROFILES.yogurt,
+        carbs: INGREDIENT_PROFILES.oats,
+        fat: INGREDIENT_PROFILES.oliveOil,
+        veg: INGREDIENT_PROFILES.berries,
       },
       {
-        title: "Tostadas con huevo",
-        description: "Pan integral, huevos revueltos y aguacate.",
-        protein: INGREDIENT_PROFILES.es.eggs,
-        carbs: INGREDIENT_PROFILES.es.bread,
-        fat: INGREDIENT_PROFILES.es.avocado,
+        titleKey: "nutrition.template.breakfast.eggToast.title",
+        descriptionKey: "nutrition.template.breakfast.eggToast.description",
+        protein: INGREDIENT_PROFILES.eggs,
+        carbs: INGREDIENT_PROFILES.bread,
+        fat: INGREDIENT_PROFILES.avocado,
       },
     ],
     lunch: [
       {
-        title: "Pollo con arroz",
-        description: "Pechuga a la plancha, arroz integral y ensalada.",
-        protein: INGREDIENT_PROFILES.es.chicken,
-        carbs: INGREDIENT_PROFILES.es.rice,
-        veg: INGREDIENT_PROFILES.es.zucchini,
+        titleKey: "nutrition.template.lunch.chickenWithRice.title",
+        descriptionKey: "nutrition.template.lunch.chickenWithRice.description",
+        protein: INGREDIENT_PROFILES.chicken,
+        carbs: INGREDIENT_PROFILES.rice,
+        veg: INGREDIENT_PROFILES.zucchini,
       },
       {
-        title: "Bowl mediterráneo",
-        description: "Quinoa, garbanzos, verduras y aceite de oliva.",
-        protein: INGREDIENT_PROFILES.es.chickpeas,
-        carbs: INGREDIENT_PROFILES.es.quinoa,
-        fat: INGREDIENT_PROFILES.es.oliveOil,
-        veg: INGREDIENT_PROFILES.es.zucchini,
+        titleKey: "nutrition.template.lunch.mediterraneanBowl.title",
+        descriptionKey: "nutrition.template.lunch.mediterraneanBowl.description",
+        protein: INGREDIENT_PROFILES.chickpeas,
+        carbs: INGREDIENT_PROFILES.quinoa,
+        fat: INGREDIENT_PROFILES.oliveOil,
+        veg: INGREDIENT_PROFILES.zucchini,
       },
     ],
     dinner: [
       {
-        title: "Salmón con verduras",
-        description: "Salmón al horno, calabacín y patata.",
-        protein: INGREDIENT_PROFILES.es.salmon,
-        carbs: INGREDIENT_PROFILES.es.potatoes,
-        veg: INGREDIENT_PROFILES.es.zucchini,
+        titleKey: "nutrition.template.dinner.salmonWithVeggies.title",
+        descriptionKey: "nutrition.template.dinner.salmonWithVeggies.description",
+        protein: INGREDIENT_PROFILES.salmon,
+        carbs: INGREDIENT_PROFILES.potatoes,
+        veg: INGREDIENT_PROFILES.zucchini,
       },
       {
-        title: "Salteado rápido",
-        description: "Pavo, verduras mixtas y noodles integrales.",
-        protein: INGREDIENT_PROFILES.es.turkey,
-        carbs: INGREDIENT_PROFILES.es.rice,
-        veg: INGREDIENT_PROFILES.es.zucchini,
+        titleKey: "nutrition.template.dinner.quickStirFry.title",
+        descriptionKey: "nutrition.template.dinner.quickStirFry.description",
+        protein: INGREDIENT_PROFILES.turkey,
+        carbs: INGREDIENT_PROFILES.rice,
+        veg: INGREDIENT_PROFILES.zucchini,
       },
     ],
     snack: [
       {
-        title: "Snack proteico",
-        description: "Yogur griego con frutos secos.",
-        protein: INGREDIENT_PROFILES.es.yogurt,
-        fat: INGREDIENT_PROFILES.es.avocado,
-        carbs: INGREDIENT_PROFILES.es.berries,
+        titleKey: "nutrition.template.snack.proteinSnack.title",
+        descriptionKey: "nutrition.template.snack.proteinSnack.description",
+        protein: INGREDIENT_PROFILES.yogurt,
+        fat: INGREDIENT_PROFILES.avocado,
+        carbs: INGREDIENT_PROFILES.berries,
       },
       {
-        title: "Batido",
-        description: "Leche, fruta y proteína en polvo.",
-        protein: INGREDIENT_PROFILES.es.milk,
-        carbs: INGREDIENT_PROFILES.es.berries,
-        fat: INGREDIENT_PROFILES.es.oliveOil,
+        titleKey: "nutrition.template.snack.shake.title",
+        descriptionKey: "nutrition.template.snack.shake.description",
+        protein: INGREDIENT_PROFILES.milk,
+        carbs: INGREDIENT_PROFILES.berries,
+        fat: INGREDIENT_PROFILES.oliveOil,
       },
     ],
-  },
-  en: {
-    breakfast: [
-      {
-        title: "Oats with fruit",
-        description: "Oats, plain yogurt, berries, and seeds.",
-        protein: INGREDIENT_PROFILES.en.yogurt,
-        carbs: INGREDIENT_PROFILES.en.oats,
-        fat: INGREDIENT_PROFILES.en.oliveOil,
-        veg: INGREDIENT_PROFILES.en.berries,
-      },
-      {
-        title: "Egg toast",
-        description: "Whole-grain toast, scrambled eggs, and avocado.",
-        protein: INGREDIENT_PROFILES.en.eggs,
-        carbs: INGREDIENT_PROFILES.en.bread,
-        fat: INGREDIENT_PROFILES.en.avocado,
-      },
-    ],
-    lunch: [
-      {
-        title: "Chicken with rice",
-        description: "Grilled chicken breast, brown rice, and salad.",
-        protein: INGREDIENT_PROFILES.en.chicken,
-        carbs: INGREDIENT_PROFILES.en.rice,
-        veg: INGREDIENT_PROFILES.en.zucchini,
-      },
-      {
-        title: "Mediterranean bowl",
-        description: "Quinoa, chickpeas, veggies, and olive oil.",
-        protein: INGREDIENT_PROFILES.en.chickpeas,
-        carbs: INGREDIENT_PROFILES.en.quinoa,
-        fat: INGREDIENT_PROFILES.en.oliveOil,
-        veg: INGREDIENT_PROFILES.en.zucchini,
-      },
-    ],
-    dinner: [
-      {
-        title: "Salmon with veggies",
-        description: "Baked salmon, zucchini, and potato.",
-        protein: INGREDIENT_PROFILES.en.salmon,
-        carbs: INGREDIENT_PROFILES.en.potatoes,
-        veg: INGREDIENT_PROFILES.en.zucchini,
-      },
-      {
-        title: "Quick stir-fry",
-        description: "Turkey, mixed veggies, and whole-grain noodles.",
-        protein: INGREDIENT_PROFILES.en.turkey,
-        carbs: INGREDIENT_PROFILES.en.rice,
-        veg: INGREDIENT_PROFILES.en.zucchini,
-      },
-    ],
-    snack: [
-      {
-        title: "Protein snack",
-        description: "Greek yogurt with nuts.",
-        protein: INGREDIENT_PROFILES.en.yogurt,
-        fat: INGREDIENT_PROFILES.en.avocado,
-        carbs: INGREDIENT_PROFILES.en.berries,
-      },
-      {
-        title: "Shake",
-        description: "Milk, fruit, and protein powder.",
-        protein: INGREDIENT_PROFILES.en.milk,
-        carbs: INGREDIENT_PROFILES.en.berries,
-        fat: INGREDIENT_PROFILES.en.oliveOil,
-      },
-    ],
-  },
 };
 
 const getMealTypeLabel = (meal: NutritionMeal, t: (key: string) => string) => {
@@ -340,6 +250,16 @@ const getMealKey = (meal: NutritionMeal, dayKey: string, index: number) => {
   const parts = [dayKey, meal.type, safeTitle, safeDescription].filter((value) => typeof value === "string" && value.length > 0);
   return parts.length > 0 ? parts.join(":") : `meal:${dayKey}:${index}`;
 };
+
+const DAY_LABEL_KEYS = [
+  "training.dayNames.monday",
+  "training.dayNames.tuesday",
+  "training.dayNames.wednesday",
+  "training.dayNames.thursday",
+  "training.dayNames.friday",
+  "training.dayNames.saturday",
+  "training.dayNames.sunday",
+] as const;
 
 export const DAY_LABELS: Record<Locale, string[]> = {
   es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
@@ -408,7 +328,8 @@ function matchesRestrictedKeywords(text: string, keywords: string[]) {
 
 function filterMealTemplates(
   templates: MealTemplate[],
-  form: NutritionForm
+  form: NutritionForm,
+  t: (key: string) => string
 ) {
   const restrictions = [
     ...form.allergies.flatMap((allergy) => ALLERGY_KEYWORDS[allergy] ?? []),
@@ -422,12 +343,12 @@ function filterMealTemplates(
   if (restrictions.length === 0) return templates;
   const filtered = templates.filter((template) => {
     const haystack = [
-      template.title,
-      template.description,
-      template.protein.name,
-      template.carbs?.name,
-      template.fat?.name,
-      template.veg?.name,
+      t(template.titleKey),
+      t(template.descriptionKey),
+      t(template.protein.nameKey),
+      template.carbs ? t(template.carbs.nameKey) : null,
+      template.fat ? t(template.fat.nameKey) : null,
+      template.veg ? t(template.veg.nameKey) : null,
     ]
       .filter(Boolean)
       .join(" ");
@@ -440,8 +361,8 @@ function filterMealTemplates(
     .filter(Boolean);
   if (preferred.length === 0) return available;
   return [...available].sort((a, b) => {
-    const aText = `${a.title} ${a.description}`.toLowerCase();
-    const bText = `${b.title} ${b.description}`.toLowerCase();
+    const aText = `${t(a.titleKey)} ${t(a.descriptionKey)}`.toLowerCase();
+    const bText = `${t(b.titleKey)} ${t(b.descriptionKey)}`.toLowerCase();
     const aScore = preferred.reduce((acc, keyword) => acc + (aText.includes(keyword.toLowerCase()) ? 1 : 0), 0);
     const bScore = preferred.reduce((acc, keyword) => acc + (bText.includes(keyword.toLowerCase()) ? 1 : 0), 0);
     return bScore - aScore;
@@ -475,28 +396,29 @@ function buildMealIngredients(
   template: MealTemplate,
   targetProtein: number,
   targetCarbs: number,
-  targetFat: number
+  targetFat: number,
+  t: (key: string) => string
 ) {
   const ingredients: { name: string; grams: number }[] = [];
   const proteinGrams = gramsForMacro(targetProtein, template.protein.protein);
   const proteinFat = (proteinGrams * template.protein.fat) / 100;
   const proteinCarbs = (proteinGrams * template.protein.carbs) / 100;
-  ingredients.push({ name: template.protein.name, grams: proteinGrams });
+  ingredients.push({ name: t(template.protein.nameKey), grams: proteinGrams });
 
   const remainingCarbs = Math.max(0, targetCarbs - proteinCarbs);
   if (template.carbs) {
     const carbsGrams = gramsForMacro(remainingCarbs, template.carbs.carbs);
-    ingredients.push({ name: template.carbs.name, grams: carbsGrams });
+    ingredients.push({ name: t(template.carbs.nameKey), grams: carbsGrams });
   }
 
   const remainingFat = Math.max(0, targetFat - proteinFat);
   if (template.fat) {
     const fatGrams = gramsForMacro(remainingFat, template.fat.fat);
-    ingredients.push({ name: template.fat.name, grams: fatGrams });
+    ingredients.push({ name: t(template.fat.nameKey), grams: fatGrams });
   }
 
   if (template.veg) {
-    ingredients.push({ name: template.veg.name, grams: 150 });
+    ingredients.push({ name: t(template.veg.nameKey), grams: 150 });
   }
 
   return ingredients;
@@ -505,7 +427,8 @@ function buildMealIngredients(
 function calculatePlan(
   form: NutritionForm,
   mealTemplates: Record<string, MealTemplate[]>,
-  dayLabels: string[]
+  dayLabels: string[],
+  t: (key: string) => string
 ): NutritionPlan {
   const weight = clamp(form.weightKg, 35, 250);
   const height = clamp(form.heightCm, 120, 230);
@@ -541,7 +464,7 @@ function calculatePlan(
 
   const days = dayLabels.map((label, dayIndex) => {
     const meals = mealsOrder.map((slot, slotIndex) => {
-      const options = filterMealTemplates(mealTemplates[slot], form);
+      const options = filterMealTemplates(mealTemplates[slot], form, t);
       const option = options[(dayIndex + slotIndex) % options.length];
       const weight = distributionWeights[slotIndex] ?? 1 / mealsOrder.length;
       const mealProtein = proteinG * weight;
@@ -549,15 +472,15 @@ function calculatePlan(
       const mealFat = fatG * weight;
       return {
         type: slot as Meal["type"],
-        title: `${slotIndex + 1}. ${option.title}`,
-        description: option.description,
+        title: `${slotIndex + 1}. ${t(option.titleKey)}`,
+        description: t(option.descriptionKey),
         macros: {
           calories: round(mealProtein * 4 + mealCarbs * 4 + mealFat * 9),
           protein: round(mealProtein),
           carbs: round(mealCarbs),
           fats: round(mealFat),
         },
-        ingredients: buildMealIngredients(option, mealProtein, mealCarbs, mealFat),
+        ingredients: buildMealIngredients(option, mealProtein, mealCarbs, mealFat, t),
       };
     });
 
@@ -610,8 +533,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     const value = t(key);
     return value === key ? fallback : value;
   };
-  const mealTemplates = MEAL_TEMPLATES[locale];
-  const dayLabels = DAY_LABELS[locale];
+  const mealTemplates = MEAL_TEMPLATES;
+  const dayLabels = DAY_LABEL_KEYS.map((key) => t(key));
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -729,9 +652,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         mealDistribution: profile.nutritionPreferences.mealDistribution,
       },
       mealTemplates,
-      dayLabels
+      dayLabels,
+      t
     );
-  }, [profile, mealTemplates, dayLabels]);
+  }, [profile, mealTemplates, dayLabels, t]);
   const visiblePlan = useMemo(
     () => normalizeNutritionPlan(isManualView ? savedPlan ?? plan : savedPlan, dayLabels),
     [isManualView, savedPlan, plan, dayLabels]
