@@ -7,15 +7,15 @@ import { useLanguage } from "@/context/LanguageProvider";
 import AppUserBadge from "./AppUserBadge";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
-import { sidebarAdmin, sidebarUser } from "./navConfig";
+import { buildNavigationSections } from "./navConfig";
+import { useAccess } from "@/lib/useAccess";
 
 type AuthUser = {
   name?: string | null;
   email?: string | null;
-  role?: string | null;
   subscriptionPlan?: "FREE" | "PRO";
   aiTokenBalance?: number;
-};
+} & Record<string, unknown>;
 
 type BillingStatus = {
   plan?: "FREE" | "PRO";
@@ -29,6 +29,7 @@ export default function AppNavBar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const { role, isAdmin, isCoach } = useAccess();
 
   useEffect(() => {
     let active = true;
@@ -62,13 +63,13 @@ export default function AppNavBar() {
     };
   }, []);
 
-  const isAdmin = user?.role === "ADMIN";
-  const userMeta = user?.email || user?.role || "";
+  const userRole = typeof user?.role === "string" ? user.role : "";
+  const userMeta = user?.email || userRole || "";
   const planLabel = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
   const isPro = planLabel === "PRO";
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
 
-  const sections = useMemo(() => (isAdmin ? [...sidebarUser, ...sidebarAdmin] : sidebarUser), [isAdmin]);
+  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach }), [role, isCoach, isAdmin]);
 
   const closeMenu = () => setOpen(false);
 
@@ -90,7 +91,7 @@ export default function AppNavBar() {
 
   <div className={`account-pill ${isPro ? "is-pro" : "is-free"}`}>
     <span className="account-pill-label">{planLabel}</span>
-    {isPro ? <span className="account-pill-meta">Tokens: {tokenBalance}</span> : null}
+    {isPro ? <span className="account-pill-meta">{t("ui.tokensLabel")} {tokenBalance}</span> : null}
   </div>
 
   <div className="nav-utility">

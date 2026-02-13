@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
 import { addDays, buildMonthGrid, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
-import { addWeeks, getWeekStart, projectDaysForWeek } from "@/lib/planProjection";
+import { addWeeks, clampWeekOffset, getWeekOffsetFromCurrent, getWeekStart, projectDaysForWeek } from "@/lib/planProjection";
 import {
   type Goal,
   type TrainingEquipment,
@@ -420,6 +420,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     [planDays, planStartDate]
   );
   const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
+  const maxProjectedWeeksAhead = 3;
+  const weekOffset = useMemo(() => getWeekOffsetFromCurrent(weekStart), [weekStart]);
+  const clampedWeekOffset = useMemo(
+    () => clampWeekOffset(weekOffset, maxProjectedWeeksAhead),
+    [weekOffset, maxProjectedWeeksAhead]
+  );
   const modelWeekStart = useMemo(() => {
     if (planEntries.length > 0) {
       return getWeekStart(planEntries[0].date);
@@ -435,7 +441,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     planEntries.forEach((entry) => {
       all.set(toDateKey(entry.date), { ...entry, isReplicated: false });
     });
-    for (let offset = 1; offset <= 3; offset += 1) {
+    for (let offset = 1; offset <= maxProjectedWeeksAhead; offset += 1) {
       const nextWeek = projectDaysForWeek({
         entries: planEntries,
         selectedWeekStart: addWeeks(getWeekStart(new Date()), offset),
@@ -450,7 +456,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       });
     }
     return Array.from(all.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [planEntries, modelWeekStart]);
+  }, [maxProjectedWeeksAhead, planEntries, modelWeekStart]);
   const visibleDayMap = useMemo(() => {
     const next = new Map<string, { day: TrainingDay; index: number; date: Date; isReplicated: boolean }>();
     visiblePlanEntries.forEach((entry) => {
@@ -686,8 +692,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       return;
     }
     const params = new URLSearchParams(searchParams.toString());
-    const currentWeek = getWeekStart(new Date());
-    const offset = Math.floor((weekStart.getTime() - currentWeek.getTime()) / (1000 * 60 * 60 * 24 * 7));
+    const offset = getWeekOffsetFromCurrent(weekStart);
     params.set("day", toDateKey(selectedDate));
     if (offset !== 0) {
       params.set("weekOffset", String(offset));
@@ -1113,13 +1118,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         >
                           {t("calendar.previousWeek")}
                         </button>
-                        <strong>{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</strong>
-                        <span className="muted">→ {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
+                        <strong>
+                          {t("training.weekLabel")} {clampedWeekOffset + 1}
+                        </strong>
+                        <span className="muted">{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
                         <button
                           type="button"
                           className="btn secondary"
                           aria-label={t("calendar.nextWeekAria")}
                           onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))}
+                          disabled={weekOffset >= maxProjectedWeeksAhead}
                         >
                           {t("calendar.nextWeek")}
                         </button>

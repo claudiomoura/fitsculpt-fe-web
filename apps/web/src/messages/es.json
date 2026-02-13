@@ -22,7 +22,10 @@
     "billing": "Pro y pagos",
     "admin": "Admin",
     "adminUsers": "Usuarios",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "trainer": "Entrenador",
+    "adminPreview": "Vista previa admin",
+    "adminLabs": "Labs"
   },
   "navSections": {
     "summary": "Resumen",
@@ -50,7 +53,18 @@
     "cancel": "Cancelar",
     "closeLabel": "Cerrar",
     "retry": "Reintentar",
-    "tokensLabel": "Tokens:"
+    "tokensLabel": "Tokens:",
+    "open": "Abrir",
+    "create": "Crear",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "search": "Buscar",
+    "select": "Seleccionar",
+    "clear": "Limpiar",
+    "continue": "Continuar",
+    "optional": "Opcional",
+    "required": "Obligatorio",
+    "notAvailable": "No disponible"
   },
   "calendar": {
     "today": "Hoy",
@@ -443,7 +457,8 @@
     "adminTitle": "Panel de admin",
     "adminSubtitle": "Gestiona usuarios y accesos.",
     "adminUsersTitle": "Usuarios",
-    "adminUsersSubtitle": "Administra usuarios, accesos y estados de cuenta."
+    "adminUsersSubtitle": "Administra usuarios, accesos y estados de cuenta.",
+    "mobileTabBarAriaLabel": "Navegación principal móvil"
   },
   "dashboard": {
     "title": "Panel",
@@ -800,7 +815,9 @@
     "generateSuccess": "Plan generado correctamente.",
     "errorTitle": "No pudimos cargar tu plan de nutrición",
     "ingredientsNotAvailable": "Ingredientes no disponibles.",
-    "mealDetailsNotFound": "No hemos podido encontrar este plato para el día seleccionado."
+    "mealDetailsNotFound": "No hemos podido encontrar este plato para el día seleccionado.",
+    "weekLabel": "Semana",
+    "instructionsTitle": "Instrucciones"
   },
   "training": {
     "formTitle": "Datos del plan",
@@ -1250,7 +1267,20 @@
       "avocado": "Aguacate"
     },
     "weeklyProgressErrorTitle": "No pudimos cargar el progreso semanal",
-    "weeklyProgressErrorSubtitle": "Reintenta para recuperar tus registros de seguimiento."
+    "weeklyProgressErrorSubtitle": "Reintenta para recuperar tus registros de seguimiento.",
+    "adjustmentApply": "Aplicar ajuste",
+    "adjustmentApplyAria": "Aplicar ajuste recomendado del plan",
+    "adjustmentApplying": "Aplicando ajuste...",
+    "adjustmentUnavailable": "Ajuste no disponible en este momento.",
+    "adjustmentSuccessTitle": "Ajuste aplicado",
+    "adjustmentSuccessBody": "Plan actualizado el {date}.",
+    "adjustmentPeriod": "Semana afectada: {date}.",
+    "adjustmentError": "No pudimos aplicar el ajuste del plan.",
+    "adjustmentRefreshError": "Se aplicó el ajuste, pero no pudimos refrescar los datos.",
+    "adjustmentRetry": "Reintentar",
+    "adjustmentRetryAria": "Reintentar aplicar el ajuste",
+    "adjustmentBack": "Volver",
+    "adjustmentBackAria": "Volver al formulario de check-in"
   },
   "onboarding": {
     "title": "Bienvenido a FitSculpt",
@@ -1560,6 +1590,214 @@
     "upgradePro": "Mejorar a PRO",
     "manageSubscription": "Gestionar suscripción",
     "redirecting": "Redirigiendo...",
-    "opening": "Abriendo..."
+    "opening": "Abriendo...",
+    "subscriptionStatuses": {
+      "active": "Activa",
+      "trialing": "En prueba",
+      "past_due": "Pago vencido",
+      "incomplete": "Incompleta",
+      "canceled": "Cancelada",
+      "unpaid": "Impaga",
+      "unknown": "Desconocido"
+    }
+  },
+  "settings": {
+    "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",
+    "loadingAria": "Cargando ajustes",
+    "loadingTitle": "Cargando ajustes...",
+    "errorTitle": "Ajustes no disponibles",
+    "errorDescription": "No pudimos cargar tus ajustes en este momento.",
+    "profileFallbackAction": "Ir al perfil",
+    "sections": {
+      "account": {
+        "title": "Cuenta",
+        "description": "Información básica vinculada a tu cuenta.",
+        "empty": "Aún no hay un nombre de cuenta disponible."
+      },
+      "profile": {
+        "title": "Perfil",
+        "description": "Actualiza objetivos, medidas y preferencias.",
+        "action": "Revisar perfil"
+      },
+      "billing": {
+        "title": "Facturación",
+        "description": "Revisa tu plan y gestiona tu suscripción.",
+        "action": "Abrir facturación"
+      },
+      "notifications": {
+        "title": "Notificaciones",
+        "description": "Las preferencias de comunicación no están disponibles en esta versión.",
+        "emptyTitle": "Las notificaciones aparecerán cuando se habiliten opciones."
+      },
+      "support": {
+        "title": "Soporte",
+        "description": "Los canales de soporte no están disponibles en este entorno.",
+        "emptyTitle": "El acceso a soporte aparecerá cuando haya un canal disponible."
+      }
+    }
+  },
+  "trainer": {
+    "title": "Entrenador",
+    "loading": "Cargando modo entrenador...",
+    "error": "No se pudieron validar los permisos de entrenador ahora mismo.",
+    "unauthorized": "El modo entrenador no está disponible para esta cuenta.",
+    "modeTitle": "Panel del entrenador",
+    "notAvailable": "La lista de clientes para entrenador aún no está disponible en este entorno.",
+    "notAvailableInEnvironment": "Não disponível neste ambiente",
+    "viewingAsCoach": "Viendo como entrenador",
+    "backToDashboard": "Volver al panel",
+    "back": "Volver",
+    "retry": "Reintentar",
+    "clients": {
+      "title": "Clientes",
+      "loadingItem": "Cargando cliente...",
+      "empty": "No hay clientes disponibles para mostrar.",
+      "error": "No fue posible cargar la lista de clientes.",
+      "active": "Activo",
+      "blocked": "Bloqueado",
+      "openClientAriaPrefix": "Abrir contexto de",
+      "unknownStatus": "Estado desconocido"
+    },
+    "clientContext": {
+      "title": "Contexto del atleta",
+      "loading": "Cargando contexto del atleta...",
+      "error": "No fue posible cargar el contexto del atleta.",
+      "unknownClient": "Atleta",
+      "unavailable": "Indisponible con los endpoints actuales.",
+      "today": {
+        "title": "Hoy",
+        "lastLoginPrefix": "Último acceso:",
+        "subscriptionStatusPrefix": "Estado de suscripción:"
+      },
+      "tracking": {
+        "title": "Tracking"
+      },
+      "plans": {
+        "title": "Planes"
+      },
+      "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend."
+    },
+    "planBuilder": {
+      "title": "Constructor de planes",
+      "subtitle": "Crea y ajusta planes manualmente.",
+      "nameLabel": "Nombre del plan",
+      "descriptionLabel": "Descripción",
+      "goalLabel": "Objetivo",
+      "levelLabel": "Nivel",
+      "daysPerWeekLabel": "Días por semana",
+      "sessionDurationLabel": "Duración de sesión",
+      "focusLabel": "Enfoque",
+      "equipmentLabel": "Equipamiento",
+      "addDay": "Agregar día",
+      "dayTitle": "Día {index}",
+      "dayFocusLabel": "Enfoque del día",
+      "exerciseSearchLabel": "Buscar ejercicio",
+      "addExercise": "Agregar ejercicio",
+      "setsLabel": "Series",
+      "repsLabel": "Repeticiones",
+      "restLabel": "Descanso",
+      "saveDraft": "Guardar borrador",
+      "publishPlan": "Publicar plan"
+    },
+    "exerciseCreate": {
+      "title": "Crear ejercicio",
+      "subtitle": "Agrega un ejercicio personalizado a tu biblioteca.",
+      "nameLabel": "Nombre del ejercicio",
+      "descriptionLabel": "Descripción",
+      "mainMuscleLabel": "Grupo muscular principal",
+      "secondaryMusclesLabel": "Grupos musculares secundarios",
+      "equipmentLabel": "Equipamiento",
+      "techniqueLabel": "Técnica",
+      "tipsLabel": "Consejos",
+      "mediaUrlLabel": "URL de media",
+      "videoUrlLabel": "URL de video",
+      "imageUrlLabel": "URL de imagen",
+      "visibilityLabel": "Visibilidad",
+      "saveExercise": "Guardar ejercicio",
+      "cancel": "Cancelar"
+    },
+    "unavailableTitle": "No disponible (requiere backend)",
+    "unavailableDesc": "Este entorno aún no tiene un endpoint de clientes para entrenador.",
+    "demoMode": "Modo Demo/Dev preview",
+    "clientsEndpointPrefix": "Endpoint en uso:"
+  },
+  "gym": {
+    "title": "Gimnasio",
+    "tenant": "Tenant",
+    "tenantName": "Nombre del gimnasio",
+    "tenantId": "ID del gimnasio",
+    "scope": "Alcance",
+    "exerciseScope": "Alcance de ejercicios",
+    "exerciseScopeGlobal": "Global",
+    "exerciseScopeGym": "Ejercicios del gimnasio",
+    "exerciseScopeMixed": "Gimnasio + Global",
+    "filterAll": "Todos los ejercicios",
+    "filterGymOnly": "Solo gimnasio",
+    "filterGlobalOnly": "Solo globales"
+  },
+  "access": {
+    "adminPreviewTitle": "Modo vista previa admin",
+    "adminPreviewDescription": "Accede a pantallas en progreso usando permisos reales y estados neutros.",
+    "testerModeToggle": "Activar modo tester (solo admin)",
+    "previewBadge": "Vista previa / En construcción",
+    "previewCardDescription": "Revisa esta pantalla en modo vista previa.",
+    "notAvailableTitle": "Funcionalidad no disponible",
+    "notAvailableDescription": "Esta área no está disponible para tu nivel de acceso actual.",
+    "backCta": "Volver"
+  },
+  "adminLabs": {
+    "title": "Labs de Admin",
+    "subtitle": "Sección en desarrollo con accesos reales y estado neutral.",
+    "loading": "Validando permisos de admin...",
+    "error": "No pudimos validar tus permisos ahora mismo.",
+    "unauthorized": "No tienes permisos para ver Labs.",
+    "statusLabel": "Estado",
+    "emptyTitle": "Sin laboratorios disponibles",
+    "emptyDesc": "No hay rutas de Labs configuradas por el momento.",
+    "badgeReadOnly": "solo lectura",
+    "badgeNoBackend": "sin backend",
+    "badgeBeta": "beta",
+    "items": {
+      "adminUsers": {
+        "title": "Usuarios admin",
+        "description": "Gestión de usuarios con backend real."
+      },
+      "adminDashboard": {
+        "title": "Panel admin",
+        "description": "Resumen operativo con datos disponibles."
+      },
+      "trainerHome": {
+        "title": "Workspace trainer",
+        "description": "Vista de entrenador con datos reales o estado neutral."
+      },
+      "trainerExercises": {
+        "title": "Ejercicios trainer",
+        "description": "Catálogo de ejercicios en evolución."
+      },
+      "trainerExerciseCreate": {
+        "title": "Crear ejercicio",
+        "description": "Flujo beta para crear ejercicios."
+      },
+      "trainingLibrary": {
+        "title": "Biblioteca de entrenamientos",
+        "description": "Exploración de biblioteca en modo lectura."
+      },
+      "recipeLibrary": {
+        "title": "Biblioteca de recetas",
+        "description": "Vista de recetas conectada al backend actual."
+      },
+      "nutrition": {
+        "title": "Nutrición",
+        "description": "Pantalla nutricional con estados neutros cuando aplique."
+      },
+      "tracking": {
+        "title": "Seguimiento",
+        "description": "Métricas del usuario con datos reales."
+      },
+      "profile": {
+        "title": "Perfil",
+        "description": "Perfil de usuario como referencia administrativa."
+      }
+    }
   }
 }

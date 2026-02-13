@@ -18,12 +18,15 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ### Variáveis de ambiente (frontend)
 
-Configure `BACKEND_URL` apontando para a API (Render ou local), por exemplo:
+Configure as variáveis de ambiente sem commitar credenciais reais:
 
 ```bash
 BACKEND_URL=http://localhost:4000
 NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
 ```
+
+Use o ficheiro `.env.example` na raiz do repositório como referência e mantenha os valores reais apenas no seu ambiente local.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
@@ -43,38 +46,3 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-
-
-## Password e como acceder
-intern
-postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a/fitsculpt_db
-
-
-Exter
-postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a.virginia-postgres.render.com/fitsculpt_db
-
-
-FitSculpt-100%
-
-
-claudio.moura@sapo.pt
-Password1234
-
-test@gmail.com	
-Password123
-
-
-##  acceder a BD  
-
-NOTE: Tem de serr onde esta o eschema  em C:\Users\Moura\Documents\Work\FitSculpt\fitsculpt-fe-web\apps\api>
-
-$env:DATABASE_URL="postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a.virginia-postgres.render.com/fitsculpt_db" 
-npx prisma studio
-
-##  crear usuario na BD
-node scripts/create-user.mjs tu@email.com TuPassword123 "Tu Nombre" ADMIN
-
-##  mudar pass de  usuario na BD
-cd apps\api
-node -e "const b=require('cmkh4tvhr0000kxq8os6qhids'); b.hash('Password1234',12).then(h=>console.log(h))"

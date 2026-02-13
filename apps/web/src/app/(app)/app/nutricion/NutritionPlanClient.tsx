@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
 import { addDays, buildMonthGrid, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
-import { addWeeks, getWeekStart, projectDaysForWeek } from "@/lib/planProjection";
+import { addWeeks, clampWeekOffset, getWeekOffsetFromCurrent, getWeekStart, projectDaysForWeek } from "@/lib/planProjection";
 import { slugifyExerciseName } from "@/lib/slugify";
 import {
   type Activity,
@@ -71,6 +71,7 @@ type MealMediaCandidate = {
   imageUrl?: unknown;
   thumbnailUrl?: unknown;
   mediaUrl?: unknown;
+  instructions?: unknown;
   media?: {
     url?: unknown;
     thumbnailUrl?: unknown;
@@ -318,6 +319,13 @@ const getMealMediaUrl = (meal: NutritionMeal) => {
   ];
   const match = urls.find((url) => typeof url === "string" && url.trim().length > 0);
   return typeof match === "string" ? match : null;
+};
+
+const getMealInstructions = (meal: NutritionMeal) => {
+  const candidate = meal as MealMediaCandidate;
+  if (typeof candidate.instructions !== "string") return null;
+  const instructions = candidate.instructions.trim();
+  return instructions.length > 0 ? instructions : null;
 };
 
 const getMealKey = (meal: NutritionMeal, dayKey: string, index: number) => {
@@ -748,6 +756,12 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     []
   );
   const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
+  const maxProjectedWeeksAhead = 3;
+  const weekOffset = useMemo(() => getWeekOffsetFromCurrent(weekStart), [weekStart]);
+  const clampedWeekOffset = useMemo(
+    () => clampWeekOffset(weekOffset, maxProjectedWeeksAhead),
+    [weekOffset, maxProjectedWeeksAhead]
+  );
   const modelWeekStart = useMemo(() => {
     if (planEntries.length > 0) {
       return getWeekStart(planEntries[0].date);
@@ -763,7 +777,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     planEntries.forEach((entry) => {
       all.set(toDateKey(entry.date), { ...entry, isReplicated: false });
     });
-    for (let offset = 1; offset <= 3; offset += 1) {
+    for (let offset = 1; offset <= maxProjectedWeeksAhead; offset += 1) {
       const nextWeek = projectDaysForWeek({
         entries: planEntries,
         selectedWeekStart: addWeeks(getWeekStart(new Date()), offset),
@@ -778,7 +792,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       });
     }
     return Array.from(all.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [planEntries, modelWeekStart]);
+  }, [maxProjectedWeeksAhead, planEntries, modelWeekStart]);
   const visibleDayMap = useMemo(() => {
     const next = new Map<string, { day: DayPlan; index: number; date: Date; isReplicated: boolean }>();
     visiblePlanEntries.forEach((entry) => {
@@ -819,9 +833,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const updateNutritionSearchParams = (nextDayKey: string, dishKey?: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("day", nextDayKey);
-    const currentWeek = getWeekStart(new Date());
     const selectedWeek = getWeekStart(parseDate(nextDayKey) ?? selectedDate);
-    const offset = Math.floor((selectedWeek.getTime() - currentWeek.getTime()) / (1000 * 60 * 60 * 24 * 7));
+    const offset = getWeekOffsetFromCurrent(selectedWeek);
     if (offset !== 0) {
       params.set("weekOffset", String(offset));
     } else {
@@ -1055,8 +1068,25 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const selectedMealDetails = selectedMeal?.meal ?? null;
   const selectedMealTitle = selectedMealDetails ? getMealTitle(selectedMealDetails, t) : "";
   const selectedMealDescription = selectedMealDetails ? getMealDescription(selectedMealDetails) : null;
+  const selectedMealInstructions = selectedMealDetails ? getMealInstructions(selectedMealDetails) : null;
   const selectedMealIngredients =
     selectedMealDetails?.ingredients?.filter((ingredient) => ingredient.name.trim().length > 0) ?? [];
+  const selectedMealMacros = selectedMealDetails
+    ? [
+        Number.isFinite(selectedMealDetails.macros?.calories)
+          ? `${selectedMealDetails.macros.calories} ${t("units.kcal")}`
+          : null,
+        Number.isFinite(selectedMealDetails.macros?.protein)
+          ? `${t("nutrition.protein")}: ${selectedMealDetails.macros.protein}g`
+          : null,
+        Number.isFinite(selectedMealDetails.macros?.carbs)
+          ? `${t("nutrition.carbs")}: ${selectedMealDetails.macros.carbs}g`
+          : null,
+        Number.isFinite(selectedMealDetails.macros?.fats)
+          ? `${t("nutrition.fat")}: ${selectedMealDetails.macros.fats}g`
+          : null,
+      ].filter((value): value is string => Boolean(value))
+    : [];
 
   useEffect(() => {
     if (urlSyncInitialized.current) return;
@@ -1682,13 +1712,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                           >
                             {t("calendar.previousWeek")}
                           </button>
-                          <strong>{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</strong>
-                          <span className="muted">→ {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
+                          <strong>
+                            {t("nutrition.weekLabel")} {clampedWeekOffset + 1}
+                          </strong>
+                          <span className="muted">{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
                           <button
                             type="button"
                             className="btn secondary"
                             aria-label={t("calendar.nextWeekAria")}
                             onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))}
+                            disabled={weekOffset >= maxProjectedWeeksAhead}
                           >
                             {t("calendar.nextWeek")}
                           </button>
@@ -2047,6 +2080,22 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             {selectedMealDescription ? (
               <p className="muted mt-4">{selectedMealDescription}</p>
             ) : null}
+            {selectedMealMacros.length > 0 ? (
+              <div>
+                <div className="text-semibold">{t("nutrition.dailyTargetTitle")}</div>
+                <ul className="list-muted-sm">
+                  {selectedMealMacros.map((macro) => (
+                    <li key={macro}>{macro}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {selectedMealInstructions ? (
+              <div>
+                <div className="text-semibold">{t("nutrition.instructionsTitle")}</div>
+                <p className="muted mt-4">{selectedMealInstructions}</p>
+              </div>
+            ) : null}
             {selectedMealIngredients.length > 0 ? (
               <div>
                 <div className="text-semibold">{t("nutrition.ingredients")}</div>
@@ -2064,7 +2113,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             ) : (
               <p className="muted">{t("nutrition.ingredientsNotAvailable")}</p>
             )}
-            {!selectedMealDescription && selectedMealIngredients.length === 0 ? (
+            {!selectedMealDescription && !selectedMealInstructions && selectedMealIngredients.length === 0 && selectedMealMacros.length === 0 ? (
               <p className="muted">{t("nutrition.mealDetailsEmpty")}</p>
             ) : null}
           </div>

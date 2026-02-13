@@ -1,5 +1,7 @@
 FitSculpt – Project Status
 
+> Estado atual validado no branch `work` (última revisão documental): Sprint 03 ativo com foco em check-in semanal, progresso semanal e integração no Hoje, mantendo backend/contratos sem alterações.
+
 ## 1. Visão (North Star)
 FitSculpt é uma web app mobile-first de treino e nutrição, focada em UX premium, progressão clara e experiência comparável a apps líderes como FitnessAI ou Dr. Muscle.
 
@@ -13,10 +15,16 @@ FitSculpt é uma web app mobile-first de treino e nutrição, focada em UX premi
 ## 2. Estado atual do produto
 
 ### Snapshot técnico (ambiente dev/web)
-- Frontend em `apps/web` com App Router e rotas protegidas em `src/app/(app)/app/*`.
-- BFF em Next (`src/app/api/*`) a fazer proxy para backend existente, com autenticação por `fs_token` e `cache: no-store` nas rotas críticas de estado.
-- Estado e UX orientados por componentes client-side (`use client`) com cobertura explícita de `loading/empty/error` em superfícies principais (Hoje, Biblioteca, Seguimento).
-- Sprint atual focado em tracking/check-in semanal e integração no ecrã Hoje, sem alterações de contrato no backend.
+- Frontend em `apps/web` com Next.js App Router e rotas protegidas em `src/app/(app)/app/*`.
+- BFF em Next (`src/app/api/*`) a fazer proxy para backend existente; tracking usa autenticação por cookie `fs_token` e `cache: no-store`.
+- UI orientada por componentes client-side (`use client`) com estados explícitos de `loading/empty/error` em Hoje, Biblioteca e Seguimento.
+- Sprint atual mantém risco técnico baixo: foco em frontend + integração com contratos existentes (sem alterar endpoints/backend).
+
+### Leitura técnica rápida (validação atual)
+- Fluxo de tracking passa por `/api/tracking` (GET/PUT) com proxy para backend e fallback `BACKEND_UNAVAILABLE` em falha de rede.
+- Ecrã de Seguimento deteta capacidades do payload (`energy`, `notes`, `% gordura`, cintura e medições) e adapta UI de forma condicional.
+- Ecrã Hoje carrega resumo de peso/energia/notas e quick actions; CTA de check-in degrada para estado desativado quando tracking não está disponível.
+- Progresso semanal apresenta estado neutro quando não há dados suficientes (sem números artificiais).
 
 ### Implementado
 - Autenticação funcional (email e Google OAuth)
@@ -31,6 +39,8 @@ FitSculpt é uma web app mobile-first de treino e nutrição, focada em UX premi
 - Nutrição:
   - Plano base
   - Integração no dashboard
+  - Meal cards no plano diário/semanal com entry points para detalhe (implementado)
+  - Modal de detalhe de refeição com macros/ingredientes/instruções (implementado)
 
 - Biblioteca de exercícios (funcional; UX premium em progresso)
   - Media viewer (GIF e vídeo) em full screen (implementado)
@@ -47,17 +57,17 @@ FitSculpt é uma web app mobile-first de treino e nutrição, focada em UX premi
   - Touch targets e sizing ajustados para estabilidade percebida (melhorado)
 
 - Tracking (peso)
-  - Tracking end-to-end via `/api/tracking` (implementado — criar → persistir → último/histórico; estados completos)
-  - Check-in semanal expandido além do peso (implementado no frontend):
+  - Tracking end-to-end via `/api/tracking` (implementado — criar → persistir → último/histórico; estados completos no frontend)
+  - Check-in semanal expandido além do peso (implementado/parcial no frontend):
     - Modo rápido e modo completo no formulário
     - Suporte condicional para cintura, % de gordura e medidas corporais quando o backend expõe campos
     - Bloco de progresso semanal com estado vazio neutro quando não há dados suficientes
     - Entradas de energia e notas com renderização condicional por capacidade detectada
 
 - Ecrã Hoje
-  - Shell do Hoje com quick actions / CTA (implementado)
+  - Shell do Hoje com quick actions / CTA (implementado no frontend)
   - Ação rápida de check-in com fallback de indisponibilidade quando tracking falha (implementado)
-  - “Resumo do dia” (treino/nutrição/peso + energia + notas) com loading/empty/error/skeleton (implementado no frontend; dependente de dados reais)
+  - “Resumo do dia” (treino/nutrição/peso + energia + notas) com loading/empty/error/skeleton (implementado no frontend; cobertura final depende da qualidade/completude dos dados reais)
 
 - Design system próprio:
   - Button, Card, Badge, Skeleton, Modal, Toast, etc.
@@ -73,7 +83,7 @@ FitSculpt é uma web app mobile-first de treino e nutrição, focada em UX premi
   - loading
   - (em progresso — cobertura avançou na Biblioteca e também no Hoje/Tracking/Dashboard; falta cobertura total e polish final em superfícies remanescentes)
 - Performance percebida (skeletons consistentes, feedback imediato) (em progresso — melhorias em Biblioteca e Hoje; falta consistência total)
-- Upload/processamento real de fotos de check-in semanal (parcial/placeholder no frontend)
+- Upload/processamento real de fotos de check-in semanal (incompleto — UI preparada, fluxo de produto ainda não fechado end-to-end)
 - Consolidação total do tracking para todos os perfis de payload legados (em progresso — UI já detecta capacidades, mas ainda depende de cobertura uniforme de dados no backend)
 
 ---
@@ -127,7 +137,11 @@ Estado do objetivo:
 - Check-in semanal utilizável no frontend: **atingido**.
 - Progresso semanal com estado neutro sem dados: **atingido**.
 - Atalho de check-in no Hoje: **atingido**.
-- Fecho final de UX premium e consistência transversal: **em progresso**.
+- Fecho final de UX premium e consistência transversal: **em progresso** (Biblioteca + Hoje + Nutrição).
+
+Riscos/dependências abertas:
+- Variação de payloads entre ambientes pode reduzir consistência visual em alguns estados avançados.
+- Cobertura de dados reais (check-ins com histórico suficiente) continua a condicionar perceção de “valor imediato” no Hoje e no Progresso.
 
 ---
 

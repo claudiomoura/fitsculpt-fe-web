@@ -1,4 +1,4 @@
-import { addDays, differenceInDays, startOfWeek } from "@/lib/calendar";
+import { addDays, differenceInDays, startOfWeek, toDateKey as toCalendarDateKey } from "@/lib/calendar";
 
 export type CalendarDayEntry<TDay> = {
   day: TDay;
@@ -21,6 +21,21 @@ export function addWeeks(date: Date, weeks: number): Date {
   return addDays(date, weeks * 7);
 }
 
+export function toDateKey(date?: Date | null): string | null {
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return toCalendarDateKey(date);
+}
+
+export function getWeekOffsetFromCurrent(selectedWeekStart: Date, currentDate = new Date()): number {
+  const currentWeekStart = getWeekStart(currentDate);
+  return Math.floor(differenceInDays(selectedWeekStart, currentWeekStart) / 7);
+}
+
+export function clampWeekOffset(weekOffset: number, maxProjectedWeeksAhead = 3): number {
+  if (!Number.isFinite(weekOffset)) return 0;
+  return Math.max(0, Math.min(maxProjectedWeeksAhead, Math.trunc(weekOffset)));
+}
+
 export function projectDaysForWeek<TDay>({
   entries,
   selectedWeekStart,
@@ -36,8 +51,7 @@ export function projectDaysForWeek<TDay>({
     return { days: directDays, isReplicated: false };
   }
 
-  const todayWeekStart = getWeekStart(new Date());
-  const weekOffset = Math.floor(differenceInDays(selectedWeekStart, todayWeekStart) / 7);
+  const weekOffset = getWeekOffsetFromCurrent(selectedWeekStart);
   if (weekOffset < 1 || weekOffset > maxProjectedWeeksAhead) {
     return { days: [], isReplicated: false };
   }

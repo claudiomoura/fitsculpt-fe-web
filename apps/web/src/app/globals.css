@@ -58,6 +58,17 @@
   --hero-bg: linear-gradient(135deg, #fff7ed 0%, #ffedd5 45%, #fef3c7 100%);
   --skeleton-base: rgba(148, 163, 184, 0.18);
   --skeleton-highlight: rgba(148, 163, 184, 0.34);
+  --tabbar-h: 64px;
+  --mobile-tab-safe-area: env(safe-area-inset-bottom, 0px);
+  --mobile-tab-bar-height: calc(var(--tabbar-h) + var(--mobile-tab-safe-area));
+  --mobile-tab-bar-offset: calc(var(--tabbar-h) + var(--mobile-tab-safe-area));
+  --vv-offset-bottom: 0px;
+  --mobile-tab-bar-offset-effective: calc(var(--mobile-tab-bar-offset) + var(--vv-offset-bottom));
+}
+
+html,
+body {
+  min-height: 100dvh;
 }
 
 html.theme-dark {
@@ -168,11 +179,19 @@ main {
   padding: 32px 20px 64px;
 }
 
+.app-frame {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
 .app-shell {
+  flex: 1;
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 24px;
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
   padding: 24px 20px 64px;
 }
@@ -1574,23 +1593,26 @@ label {
 .mobile-tab-bar {
   position: fixed;
   inset-inline: 0;
-  bottom: 0;
+  bottom: var(--vv-offset-bottom);
   width: 100%;
-  padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px);
+  height: var(--mobile-tab-bar-height);
+  padding: 8px 12px calc(var(--mobile-tab-safe-area) + 8px);
   min-height: var(--mobile-tab-bar-height, auto);
   background: color-mix(in srgb, var(--bg-card) 88%, transparent);
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   backdrop-filter: blur(16px);
-  z-index: 80;
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 45;
   box-shadow: 0 -8px 24px color-mix(in srgb, var(--text-primary) 12%, transparent);
   display: none;
 }
 
 .mobile-tab-bar-inner {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   align-items: center;
+  min-height: var(--tabbar-h);
 }
 
 .mobile-tab {
@@ -1599,13 +1621,15 @@ label {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  min-height: 44px;
+  min-height: 48px;
+  min-width: 44px;
   padding: 8px 6px;
   border-radius: 14px;
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 600;
   transition: color 0.2s ease, background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mobile-tab.is-active {
@@ -3020,10 +3044,6 @@ label {
 }
 
 @media (max-width: 900px) {
-  :root {
-    --mobile-tab-bar-height: 88px;
-  }
-
   .nav-inner {
     flex-direction: row;
     align-items: center;
@@ -3075,15 +3095,15 @@ label {
 
   .app-shell {
     grid-template-columns: 1fr;
-    padding: 16px;
+    padding: 16px 16px calc(var(--mobile-tab-bar-offset-effective) + 16px);
   }
 
   .app-content {
-    padding-bottom: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 12px);
   }
 
   .page {
-    padding-bottom: calc(var(--mobile-tab-bar-height) + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 12px);
   }
 
   .app-sidebar {
@@ -3437,13 +3457,15 @@ textarea:disabled {
 
 @media (max-width: 720px) {
   .ui-toast-viewport {
-    inset: auto 16px 16px 16px;
+    inset: auto 16px calc(var(--mobile-tab-bar-offset-effective) + 16px) 16px;
     top: auto;
   }
 }
 
-.page-with-tabbar-safe-area {
-  padding-bottom: calc(var(--mobile-tab-bar-height, 88px) + env(safe-area-inset-bottom) + 12px);
+@media (max-width: 900px) {
+  .page-with-tabbar-safe-area {
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 12px);
+  }
 }
 
 .tracking-metric-skeleton {

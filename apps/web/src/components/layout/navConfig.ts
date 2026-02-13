@@ -1,3 +1,5 @@
+import { canAccessAdmin, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
+
 export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin";
 
 export type NavItem = {
@@ -12,14 +14,12 @@ export type NavSectionGroup = {
   items: NavItem[];
 };
 
-export type MobileTabAction = "quickActions";
 
 export type MobileTab = {
   id: string;
   href?: string;
   labelKey: string;
   icon: "sparkles" | "dumbbell" | "book" | "info" | "check";
-  action?: MobileTabAction;
   badgeCount?: number;
 };
 
@@ -31,16 +31,16 @@ export const mainTabsMobile: MobileTab[] = [
     icon: "sparkles",
   },
   {
+    id: "dashboard",
+    href: "/app",
+    labelKey: "nav.dashboard",
+    icon: "info",
+  },
+  {
     id: "plan",
     href: "/app/entrenamiento",
     labelKey: "nav.plan",
     icon: "dumbbell",
-  },
-  {
-    id: "log",
-    labelKey: "nav.log",
-    icon: "check",
-    action: "quickActions",
   },
   {
     id: "library",
@@ -49,10 +49,16 @@ export const mainTabsMobile: MobileTab[] = [
     icon: "book",
   },
   {
-    id: "profile",
-    href: "/app/profile",
-    labelKey: "nav.profile",
-    icon: "info",
+    id: "nutrition",
+    href: "/app/nutricion",
+    labelKey: "nav.nutrition",
+    icon: "sparkles",
+  },
+  {
+    id: "tracking",
+    href: "/app/seguimiento",
+    labelKey: "nav.tracking",
+    icon: "check",
   },
 ];
 
@@ -72,6 +78,7 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.training",
     items: [
       { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingPlan" },
+      { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
       { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
     ],
   },
@@ -101,6 +108,33 @@ export const sidebarAdmin: NavSectionGroup[] = [
     items: [
       { id: "admin-dashboard", href: "/app/admin", labelKey: "nav.admin" },
       { id: "admin-users", href: "/app/admin/users", labelKey: "nav.adminUsers" },
+      { id: "admin-labs", href: "/app/admin/labs", labelKey: "nav.adminLabs" },
+      { id: "admin-preview", href: "/app/admin/preview", labelKey: "nav.adminPreview" },
     ],
   },
 ];
+
+export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
+  if (canAccessTrainer(input)) {
+    return sidebarUser;
+  }
+
+  return sidebarUser.map((section) => {
+    if (section.id !== "training") return section;
+
+    return {
+      ...section,
+      items: section.items.filter((item) => item.id !== "trainer-home"),
+    };
+  });
+}
+
+export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup[] {
+  const userSections = buildUserSections(input);
+
+  if (!canAccessAdmin(input)) {
+    return userSections;
+  }
+
+  return [...userSections, ...sidebarAdmin];
+}

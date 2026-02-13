@@ -1,41 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { sidebarAdmin, sidebarUser } from "./navConfig";
+import { buildNavigationSections } from "./navConfig";
 import { useLanguage } from "@/context/LanguageProvider";
-
-type AuthUser = {
-  role?: string | null;
-};
+import { useAccess } from "@/lib/useAccess";
 
 export default function AppSidebar() {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const { role, isAdmin, isCoach } = useAccess();
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const response = await fetch("/api/auth/me", { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as AuthUser;
-        if (active) setUser(data);
-      } catch {
-        // Ignore.
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const isAdmin = user?.role === "ADMIN";
-
-  const sections = useMemo(() => (isAdmin ? [...sidebarUser, ...sidebarAdmin] : sidebarUser), [isAdmin]);
+  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach }), [role, isCoach, isAdmin]);
 
   const isActive = (href: string) => {
     if (!pathname) return false;

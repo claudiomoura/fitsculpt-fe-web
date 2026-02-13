@@ -22,7 +22,10 @@
     "billing": "Billing & Pro",
     "admin": "Admin",
     "adminUsers": "Users",
-    "logout": "Log out"
+    "logout": "Log out",
+    "trainer": "Trainer",
+    "adminPreview": "Admin Preview",
+    "adminLabs": "Labs"
   },
   "navSections": {
     "summary": "Summary",
@@ -50,7 +53,18 @@
     "cancel": "Cancel",
     "closeLabel": "Close",
     "retry": "Try again",
-    "tokensLabel": "Tokens:"
+    "tokensLabel": "Tokens:",
+    "open": "Open",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search",
+    "select": "Select",
+    "clear": "Clear",
+    "continue": "Continue",
+    "optional": "Optional",
+    "required": "Required",
+    "notAvailable": "Not available"
   },
   "calendar": {
     "today": "Today",
@@ -443,7 +457,8 @@
     "adminTitle": "Admin panel",
     "adminSubtitle": "Manage users and access.",
     "adminUsersTitle": "Users",
-    "adminUsersSubtitle": "Manage users, access, and account status."
+    "adminUsersSubtitle": "Manage users, access, and account status.",
+    "mobileTabBarAriaLabel": "Main mobile navigation"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -796,7 +811,9 @@
     "generateSuccess": "Plan generated successfully.",
     "errorTitle": "We couldn't load your nutrition plan",
     "ingredientsNotAvailable": "Ingredients not available.",
-    "mealDetailsNotFound": "We could not find this meal for the selected day."
+    "mealDetailsNotFound": "We could not find this meal for the selected day.",
+    "weekLabel": "Week",
+    "instructionsTitle": "Instructions"
   },
   "training": {
     "formTitle": "Plan details",
@@ -1247,7 +1264,20 @@
       "avocado": "Avocado"
     },
     "weeklyProgressErrorTitle": "We couldn't load weekly progress",
-    "weeklyProgressErrorSubtitle": "Retry to fetch your latest tracking entries."
+    "weeklyProgressErrorSubtitle": "Retry to fetch your latest tracking entries.",
+    "adjustmentApply": "Apply adjustment",
+    "adjustmentApplyAria": "Apply recommended plan adjustment",
+    "adjustmentApplying": "Applying adjustment...",
+    "adjustmentUnavailable": "Adjustment not available at the moment.",
+    "adjustmentSuccessTitle": "Adjustment applied",
+    "adjustmentSuccessBody": "Plan updated on {date}.",
+    "adjustmentPeriod": "Affected week: {date}.",
+    "adjustmentError": "We could not apply the plan adjustment.",
+    "adjustmentRefreshError": "Adjustment was applied, but we could not refresh your data.",
+    "adjustmentRetry": "Retry",
+    "adjustmentRetryAria": "Retry applying the adjustment",
+    "adjustmentBack": "Back",
+    "adjustmentBackAria": "Go back to the check-in form"
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",
@@ -1557,6 +1587,214 @@
     "upgradePro": "Upgrade to PRO",
     "manageSubscription": "Manage subscription",
     "redirecting": "Redirecting...",
-    "opening": "Opening..."
+    "opening": "Opening...",
+    "subscriptionStatuses": {
+      "active": "Active",
+      "trialing": "Trialing",
+      "past_due": "Past due",
+      "incomplete": "Incomplete",
+      "canceled": "Canceled",
+      "unpaid": "Unpaid",
+      "unknown": "Unknown"
+    }
+  },
+  "settings": {
+    "subtitle": "Manage your account preferences and next steps.",
+    "loadingAria": "Loading settings",
+    "loadingTitle": "Loading settings...",
+    "errorTitle": "Settings unavailable",
+    "errorDescription": "We couldn't load your settings right now.",
+    "profileFallbackAction": "Go to profile",
+    "sections": {
+      "account": {
+        "title": "Account",
+        "description": "Basic information linked to your account.",
+        "empty": "No account name available yet."
+      },
+      "profile": {
+        "title": "Profile",
+        "description": "Update your goals, measurements, and preferences.",
+        "action": "Review profile"
+      },
+      "billing": {
+        "title": "Billing",
+        "description": "Review your plan and manage your subscription.",
+        "action": "Open billing"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "description": "Communication preferences are not available in this version.",
+        "emptyTitle": "Notifications will appear when options are enabled."
+      },
+      "support": {
+        "title": "Support",
+        "description": "Support channels are not available in this environment.",
+        "emptyTitle": "Support access will be shown when a channel is available."
+      }
+    }
+  },
+  "trainer": {
+    "title": "Trainer",
+    "loading": "Loading trainer mode...",
+    "error": "Unable to validate trainer permissions right now.",
+    "unauthorized": "Trainer mode is not available for this account.",
+    "modeTitle": "Trainer dashboard",
+    "notAvailable": "Trainer client list is not available in this environment yet.",
+    "notAvailableInEnvironment": "Não disponível neste ambiente",
+    "viewingAsCoach": "Viewing as coach",
+    "backToDashboard": "Back to dashboard",
+    "back": "Back",
+    "retry": "Retry",
+    "clients": {
+      "title": "Clients",
+      "loadingItem": "Loading client...",
+      "empty": "No clients available to show.",
+      "error": "Could not load the client list.",
+      "active": "Active",
+      "blocked": "Blocked",
+      "openClientAriaPrefix": "Open context for",
+      "unknownStatus": "Unknown status"
+    },
+    "clientContext": {
+      "title": "Athlete context",
+      "loading": "Loading athlete context...",
+      "error": "Could not load athlete context.",
+      "unknownClient": "Athlete",
+      "unavailable": "Unavailable with current endpoints.",
+      "today": {
+        "title": "Today",
+        "lastLoginPrefix": "Last sign-in:",
+        "subscriptionStatusPrefix": "Subscription status:"
+      },
+      "tracking": {
+        "title": "Tracking"
+      },
+      "plans": {
+        "title": "Plans"
+      },
+      "nextStep": "Athlete context will be enabled when backend impersonation support is available."
+    },
+    "planBuilder": {
+      "title": "Plan builder",
+      "subtitle": "Create and adjust plans manually.",
+      "nameLabel": "Plan name",
+      "descriptionLabel": "Description",
+      "goalLabel": "Goal",
+      "levelLabel": "Level",
+      "daysPerWeekLabel": "Days per week",
+      "sessionDurationLabel": "Session duration",
+      "focusLabel": "Focus",
+      "equipmentLabel": "Equipment",
+      "addDay": "Add day",
+      "dayTitle": "Day {index}",
+      "dayFocusLabel": "Day focus",
+      "exerciseSearchLabel": "Search exercise",
+      "addExercise": "Add exercise",
+      "setsLabel": "Sets",
+      "repsLabel": "Reps",
+      "restLabel": "Rest",
+      "saveDraft": "Save draft",
+      "publishPlan": "Publish plan"
+    },
+    "exerciseCreate": {
+      "title": "Create exercise",
+      "subtitle": "Add a custom exercise to your library.",
+      "nameLabel": "Exercise name",
+      "descriptionLabel": "Description",
+      "mainMuscleLabel": "Main muscle group",
+      "secondaryMusclesLabel": "Secondary muscle groups",
+      "equipmentLabel": "Equipment",
+      "techniqueLabel": "Technique",
+      "tipsLabel": "Tips",
+      "mediaUrlLabel": "Media URL",
+      "videoUrlLabel": "Video URL",
+      "imageUrlLabel": "Image URL",
+      "visibilityLabel": "Visibility",
+      "saveExercise": "Save exercise",
+      "cancel": "Cancel"
+    },
+    "unavailableTitle": "Not available (backend required)",
+    "unavailableDesc": "This workspace has no trainer/coach clients endpoint yet.",
+    "demoMode": "Demo/Dev preview mode",
+    "clientsEndpointPrefix": "Endpoint in use:"
+  },
+  "gym": {
+    "title": "Gym",
+    "tenant": "Tenant",
+    "tenantName": "Gym name",
+    "tenantId": "Gym ID",
+    "scope": "Scope",
+    "exerciseScope": "Exercise scope",
+    "exerciseScopeGlobal": "Global",
+    "exerciseScopeGym": "Gym exercises",
+    "exerciseScopeMixed": "Gym + Global",
+    "filterAll": "All exercises",
+    "filterGymOnly": "Gym only",
+    "filterGlobalOnly": "Global only"
+  },
+  "access": {
+    "adminPreviewTitle": "Admin Preview Mode",
+    "adminPreviewDescription": "Access in-progress screens using real permissions and neutral states.",
+    "testerModeToggle": "Enable Tester Mode (admin only)",
+    "previewBadge": "Preview / Under construction",
+    "previewCardDescription": "Review this screen in preview mode.",
+    "notAvailableTitle": "Feature unavailable",
+    "notAvailableDescription": "This area is not available for your current access level.",
+    "backCta": "Back"
+  },
+  "adminLabs": {
+    "title": "Admin Labs",
+    "subtitle": "In-progress area with real access and neutral states.",
+    "loading": "Validating admin permissions...",
+    "error": "We could not validate your permissions right now.",
+    "unauthorized": "You do not have permissions to view Labs.",
+    "statusLabel": "Status",
+    "emptyTitle": "No labs available",
+    "emptyDesc": "There are no labs routes configured yet.",
+    "badgeReadOnly": "read-only",
+    "badgeNoBackend": "no backend",
+    "badgeBeta": "beta",
+    "items": {
+      "adminUsers": {
+        "title": "Admin users",
+        "description": "User management backed by real data."
+      },
+      "adminDashboard": {
+        "title": "Admin dashboard",
+        "description": "Operational summary with available data."
+      },
+      "trainerHome": {
+        "title": "Trainer workspace",
+        "description": "Trainer view with real data or neutral states."
+      },
+      "trainerExercises": {
+        "title": "Trainer exercises",
+        "description": "Evolving exercise catalog."
+      },
+      "trainerExerciseCreate": {
+        "title": "Create exercise",
+        "description": "Beta flow for exercise creation."
+      },
+      "trainingLibrary": {
+        "title": "Training library",
+        "description": "Library exploration in read-only mode."
+      },
+      "recipeLibrary": {
+        "title": "Recipe library",
+        "description": "Recipe view connected to current backend."
+      },
+      "nutrition": {
+        "title": "Nutrition",
+        "description": "Nutrition screen with neutral states when needed."
+      },
+      "tracking": {
+        "title": "Tracking",
+        "description": "User metrics using real data."
+      },
+      "profile": {
+        "title": "Profile",
+        "description": "User profile as admin reference."
+      }
+    }
   }
 }
