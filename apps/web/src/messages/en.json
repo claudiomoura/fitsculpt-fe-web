@@ -895,7 +895,9 @@
           "description": "Milk, fruit, and protein powder."
         }
       }
-    }
+    },
+    "weeklyEmptyTitle": "Weekly view unavailable",
+    "weeklyEmptySubtitle": "There are no meals for this week with the current data yet."
   },
   "training": {
     "formTitle": "Plan details",
@@ -1723,7 +1725,12 @@
       "canceled": "Canceled",
       "unpaid": "Unpaid",
       "unknown": "Unknown"
-    }
+    },
+    "placeholderPlan": "No data",
+    "placeholderStatus": "No status available",
+    "supportDescription": "Access the support channel available for your environment.",
+    "supportAction": "Contact support",
+    "supportPlaceholder": "There is no support channel available in this environment."
   },
   "settings": {
     "subtitle": "Manage your account preferences and next steps.",
@@ -1746,7 +1753,8 @@
       "billing": {
         "title": "Billing",
         "description": "Review your plan and manage your subscription.",
-        "action": "Open billing"
+        "action": "Open billing",
+        "statusLabel": "Plan status is shown in Billing when real data is available."
       },
       "notifications": {
         "title": "Notifications",
@@ -1756,7 +1764,8 @@
       "support": {
         "title": "Support",
         "description": "Support channels are not available in this environment.",
-        "emptyTitle": "Support access will be shown when a channel is available."
+        "emptyTitle": "Support access will be shown when a channel is available.",
+        "action": "Open support"
       }
     }
   },
