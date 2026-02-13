@@ -26,6 +26,8 @@ import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Modal } from "@/components/ui/Modal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
+import { useNutritionAdherence } from "@/lib/nutritionAdherence";
+import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 
 type NutritionForm = {
   age: number;
@@ -995,6 +997,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const selectedMealInstructions = selectedMealDetails ? getMealInstructions(selectedMealDetails) : null;
   const selectedMealIngredients =
     selectedMealDetails?.ingredients?.filter((ingredient) => ingredient.name.trim().length > 0) ?? [];
+  const activeQuickLogDayKey = selectedMeal?.dayKey ?? toDateKey(selectedDate);
+  const { isConsumed, toggle, error: adherenceError } = useNutritionAdherence(activeQuickLogDayKey);
+  const {
+    favorites: quickFavorites,
+    loading: quickFavoritesLoading,
+    hasError: quickFavoritesError,
+    toggleFavorite: toggleQuickFavorite,
+  } = useNutritionQuickFavorites();
+  const [quickLogMessage, setQuickLogMessage] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const selectedMealMacros = selectedMealDetails
     ? [
         Number.isFinite(selectedMealDetails.macros?.calories)
@@ -1011,6 +1023,69 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
           : null,
       ].filter((value): value is string => Boolean(value))
     : [];
+
+  const buildQuickFavorite = (meal: NutritionMeal): NutritionQuickFavorite => {
+    const title = getMealTitle(meal, t);
+    const description = getMealDescription(meal);
+    return {
+      id: `${meal.type}:${slugifyExerciseName(`${title}-${description ?? ""}`)}`,
+      mealType: meal.type,
+      title,
+      description,
+      calories: Number.isFinite(meal.macros?.calories) ? meal.macros?.calories : null,
+      source: "device-local",
+    };
+  };
+
+  const handleQuickLogMeal = (mealKey: string, dayKey?: string | null) => {
+    if (!dayKey || adherenceError) {
+      setQuickLogMessage({ type: "error", message: t("nutrition.quickLogError") });
+      return;
+    }
+    const nextConsumed = !isConsumed(mealKey, dayKey);
+    toggle(mealKey, dayKey);
+    setQuickLogMessage({
+      type: "success",
+      message: nextConsumed ? t("nutrition.quickLogSuccess") : t("nutrition.quickLogUndo"),
+    });
+  };
+
+  const handleFavoriteAction = (meal: NutritionMeal) => {
+    const result = toggleQuickFavorite(buildQuickFavorite(meal));
+    setQuickLogMessage({
+      type: "success",
+      message: result.exists ? t("nutrition.favoriteRemoved") : t("nutrition.favoriteAdded"),
+    });
+  };
+
+  const selectedMealFavorite = selectedMealDetails ? buildQuickFavorite(selectedMealDetails) : null;
+  const isSelectedMealFavorite = selectedMealFavorite
+    ? quickFavorites.some((favorite) => favorite.id === selectedMealFavorite.id)
+    : false;
+
+  const handleUseFavorite = (favorite: NutritionQuickFavorite) => {
+    const dayKey = toDateKey(selectedDate);
+    const favoriteMeal: NutritionMeal = {
+      type: favorite.mealType,
+      title: favorite.title,
+      description: favorite.description ?? undefined,
+      macros: {
+        calories: favorite.calories ?? 0,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+      },
+      ingredients: [],
+    };
+    const favoriteMealKey = `favorite:${favorite.id}`;
+    setSelectedMeal({
+      meal: favoriteMeal,
+      dayKey,
+      dayLabel: selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" }),
+      mealKey: favoriteMealKey,
+    });
+    handleQuickLogMeal(favoriteMealKey, dayKey);
+  };
 
   useEffect(() => {
     if (urlSyncInitialized.current) return;
@@ -1566,6 +1641,47 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                   </div>
                 ) : (
                   <>
+                    <div className="feature-card mb-12">
+                      <div className="section-head section-head-actions">
+                        <div>
+                          <strong>{t("nutrition.quickLogTitle")}</strong>
+                          <p className="muted mt-4 mb-0">{t("nutrition.quickLogSubtitle")}</p>
+                        </div>
+                        <Badge variant="muted">{t("nutrition.localOnlyBadge")}</Badge>
+                      </div>
+                      {quickLogMessage ? (
+                        <p className={`muted mt-8 ${quickLogMessage.type === "error" ? "text-danger" : ""}`}>
+                          {quickLogMessage.message}
+                        </p>
+                      ) : null}
+                      {quickFavoritesLoading ? (
+                        <p className="muted mt-8">{t("nutrition.quickFavoritesLoading")}</p>
+                      ) : quickFavoritesError ? (
+                        <p className="muted mt-8">{t("nutrition.quickFavoritesError")}</p>
+                      ) : quickFavorites.length === 0 ? (
+                        <div className="empty-state mt-8">
+                          <p className="muted">{t("nutrition.quickFavoritesEmpty")}</p>
+                        </div>
+                      ) : (
+                        <div className="list-grid mt-8">
+                          {quickFavorites.map((favorite) => (
+                            <div key={favorite.id} className="feature-card">
+                              <strong>{favorite.title}</strong>
+                              <p className="muted mt-4 mb-0">{t(`nutrition.mealType${favorite.mealType.charAt(0).toUpperCase()}${favorite.mealType.slice(1)}`)}</p>
+                              <div className="inline-actions-sm mt-8">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleUseFavorite(favorite)}
+                                >
+                                  {t("nutrition.quickUseFavorite")}
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {calendarView === "day" ? (
                       <div
                         role="presentation"
@@ -1982,7 +2098,19 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         description={selectedMeal?.dayLabel ?? undefined}
         onClose={closeMealDetail}
         footer={
-          <Button onClick={closeMealDetail}>{t("ui.close")}</Button>
+          <div className="inline-actions-sm">
+            <Button variant="secondary" onClick={closeMealDetail}>{t("ui.close")}</Button>
+            {selectedMeal ? (
+              <Button
+                onClick={() => handleQuickLogMeal(selectedMeal.mealKey, selectedMeal.dayKey)}
+                disabled={adherenceError}
+              >
+                {isConsumed(selectedMeal.mealKey, selectedMeal.dayKey)
+                  ? t("nutrition.quickLogButtonConsumed")
+                  : t("nutrition.quickLogButton")}
+              </Button>
+            ) : null}
+          </div>
         }
       >
         {selectedMealDetails ? (
@@ -1992,6 +2120,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
               <p className="muted mt-4">
                 {getMealTypeLabel(selectedMealDetails, t)}
               </p>
+              <div className="inline-actions-sm mt-8">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleFavoriteAction(selectedMealDetails)}
+                >
+                  {isSelectedMealFavorite ? t("nutrition.quickRemoveFavorite") : t("nutrition.quickAddFavorite")}
+                </Button>
+                <Badge variant="muted">{t("nutrition.localOnlyBadge")}</Badge>
+              </div>
             </div>
             {getMealMediaUrl(selectedMealDetails) ? (
               <img
