@@ -1789,18 +1789,35 @@
       "title": "Contexto del atleta",
       "loading": "Cargando contexto del atleta...",
       "error": "No fue posible cargar el contexto del atleta.",
+      "empty": "No hay datos disponibles para esta pestaña.",
       "unknownClient": "Atleta",
-      "unavailable": "Indisponible con los endpoints actuales.",
-      "today": {
-        "title": "Hoy",
-        "lastLoginPrefix": "Último acceso:",
-        "subscriptionStatusPrefix": "Estado de suscripción:"
+      "unavailable": "Esta pestaña no está disponible con las fuentes de datos actuales.",
+      "stateDescriptions": {
+        "loading": "Preparando el estado de la sección...",
+        "error": "Sección no disponible por un error de carga.",
+        "empty": "No se encontraron registros para esta sección.",
+        "unavailable": "Esta sección requiere datos que no están disponibles en este entorno.",
+        "ready": "Sección cargada correctamente."
+      },
+      "summary": {
+        "title": "Resumen",
+        "clientNamePrefix": "Cliente:",
+        "emailPrefix": "Email:",
+        "accountStatusPrefix": "Estado de cuenta:"
+      },
+      "training": {
+        "title": "Entreno",
+        "subscriptionStatusPrefix": "Estado de suscripción:",
+        "subscriptionHint": "El detalle de entreno se limita al estado de cliente actualmente disponible."
+      },
+      "nutrition": {
+        "title": "Nutrición"
       },
       "tracking": {
-        "title": "Tracking"
-      },
-      "plans": {
-        "title": "Planes"
+        "title": "Seguimiento",
+        "lastLoginPrefix": "Último acceso:",
+        "noRecentActivity": "No hay actividad reciente disponible.",
+        "activityHint": "El detalle de seguimiento aparecerá cuando exista data real de check-ins."
       },
       "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend."
     },
