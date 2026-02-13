@@ -148,7 +148,7 @@ export default function TrainerClientContextClient() {
     }
 
     if (sectionState === "empty") {
-      return <p className="muted">{t("trainer.clientContext.unavailable")}</p>;
+      return <p className="muted">{t("trainer.notAvailableInEnvironment")}</p>;
     }
 
     if (activeTab === "today") {
@@ -166,7 +166,7 @@ export default function TrainerClientContextClient() {
       );
     }
 
-    return <p className="muted">{t("trainer.clientContext.unavailable")}</p>;
+    return <p className="muted">{t("trainer.notAvailableInEnvironment")}</p>;
   };
 
   if (permissionState === "loading") {

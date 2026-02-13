@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import type { ClientRow } from "@/components/trainer/types";
 import { useLanguage } from "@/context/LanguageProvider";
+import { hasTrainerClientsCapability } from "@/lib/capabilities";
 import { useAccess } from "@/lib/useAccess";
 
 type LoadState = "loading" | "ready" | "error";
@@ -16,6 +17,7 @@ export default function TrainerHomeClient() {
 
   const [clientsState, setClientsState] = useState<LoadState>("loading");
   const [clients, setClients] = useState<ClientRow[]>([]);
+  const [hasClientsCapability, setHasClientsCapability] = useState(true);
 
   const canAccessTrainer = isCoach || isAdmin;
 
@@ -29,6 +31,14 @@ export default function TrainerHomeClient() {
       }
 
       const data = (await response.json()) as ClientsResponse;
+      if (!hasTrainerClientsCapability(data)) {
+        setHasClientsCapability(false);
+        setClients([]);
+        setClientsState("ready");
+        return;
+      }
+
+      setHasClientsCapability(true);
       const users = Array.isArray(data.users) ? data.users : [];
       setClients(users.filter((user) => user.role !== "ADMIN"));
       setClientsState("ready");
@@ -67,7 +77,7 @@ export default function TrainerHomeClient() {
     if (!clients.length) {
       return (
         <div className="card" role="status" aria-live="polite">
-          <p className="muted">No clients yet</p>
+          <p className="muted">{hasClientsCapability ? t("trainer.clients.empty") : t("trainer.notAvailableInEnvironment")}</p>
         </div>
       );
     }
@@ -91,7 +101,7 @@ export default function TrainerHomeClient() {
         })}
       </ul>
     );
-  }, [clients, clientsState, loadClients, t]);
+  }, [clients, clientsState, hasClientsCapability, loadClients, t]);
 
   if (accessLoading) {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;

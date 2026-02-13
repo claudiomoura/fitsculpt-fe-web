@@ -1643,6 +1643,7 @@
     "unauthorized": "El modo entrenador no está disponible para esta cuenta.",
     "modeTitle": "Panel del entrenador",
     "notAvailable": "La lista de clientes para entrenador aún no está disponible en este entorno.",
+    "notAvailableInEnvironment": "Não disponível neste ambiente",
     "viewingAsCoach": "Viendo como entrenador",
     "backToDashboard": "Volver al panel",
     "back": "Volver",
