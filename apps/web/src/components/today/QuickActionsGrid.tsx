@@ -5,6 +5,7 @@ export type TodayQuickAction = {
   id: string;
   title: string;
   description: string;
+  outcome: string;
   ctaLabel: string;
   href?: string;
   disabledHint?: string;
@@ -25,6 +26,7 @@ export default function QuickActionsGrid({ actions }: QuickActionsGridProps) {
             <div className="stack-sm">
               <p className="today-action-title">{action.title}</p>
               <p className="today-action-description">{action.description}</p>
+              <p className="today-action-hint">{action.outcome}</p>
               {isDisabled && action.disabledHint ? <p className="today-action-hint">{action.disabledHint}</p> : null}
             </div>
             {action.href ? (

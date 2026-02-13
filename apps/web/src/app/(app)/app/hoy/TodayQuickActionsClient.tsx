@@ -1,86 +1,153 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import QuickActionsGrid, { type TodayQuickAction } from "@/components/today/QuickActionsGrid";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/states/EmptyState";
+import { ErrorState } from "@/components/states/ErrorState";
+import { LoadingState } from "@/components/states/LoadingState";
 import { useLanguage } from "@/context/LanguageProvider";
+import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
+import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 
-type TrackingStatus = "loading" | "ready" | "error";
+type ViewStatus = "loading" | "success" | "empty" | "error";
+
+type ActionAvailability = {
+  checkinReady: boolean;
+  trainingReady: boolean;
+  macrosReady: boolean;
+};
+
+const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
+  const todayKey = toDateKey(new Date());
+  const dayFromDate = days.find((day) => {
+    const parsed = parseDate(day.date);
+    return parsed ? toDateKey(parsed) === todayKey : false;
+  });
+  if (dayFromDate) return dayFromDate;
+  const start = parseDate(startDate);
+  if (!start) return null;
+  const index = differenceInDays(new Date(), start);
+  if (index < 0 || index >= days.length) return null;
+  return days[index];
+};
+
+const hasTodayTraining = (plan?: TrainingPlanData | null) => {
+  if (!plan?.days?.length) return false;
+  return Boolean(findTodayPlanDay(plan.days, plan.startDate));
+};
+
+const hasTodayNutrition = (plan?: NutritionPlanData | null) => {
+  if (!plan?.days?.length) return false;
+  const day = findTodayPlanDay(plan.days, plan.startDate);
+  return Boolean(day && day.meals.length > 0);
+};
 
 export default function TodayQuickActionsClient() {
   const { t } = useLanguage();
-  const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>("loading");
+  const [status, setStatus] = useState<ViewStatus>("loading");
+  const [availability, setAvailability] = useState<ActionAvailability>({
+    checkinReady: false,
+    trainingReady: false,
+    macrosReady: false,
+  });
 
-  useEffect(() => {
-    let active = true;
-    const loadTracking = async () => {
-      setTrackingStatus("loading");
-      try {
-        const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
-        if (!response.ok) throw new Error("TRACKING_ERROR");
-        if (active) setTrackingStatus("ready");
-      } catch {
-        if (active) setTrackingStatus("error");
+  const loadQuickActions = useCallback(async () => {
+    setStatus("loading");
+
+    try {
+      const [trackingResponse, profileResponse] = await Promise.all([
+        fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
+        fetch("/api/profile", { cache: "no-store", credentials: "include" }),
+      ]);
+
+      if (!trackingResponse.ok && !profileResponse.ok) {
+        setStatus("error");
+        return;
       }
-    };
 
-    void loadTracking();
-    return () => {
-      active = false;
-    };
+      let trainingReady = false;
+      let macrosReady = false;
+
+      if (profileResponse.ok) {
+        const profile = (await profileResponse.json()) as ProfileData;
+        trainingReady = hasTodayTraining(profile.trainingPlan);
+        macrosReady = hasTodayNutrition(profile.nutritionPlan);
+      }
+
+      const checkinReady = trackingResponse.ok;
+      const nextAvailability = { checkinReady, trainingReady, macrosReady };
+      setAvailability(nextAvailability);
+
+      const hasEnabledAction = Object.values(nextAvailability).some(Boolean);
+      setStatus(hasEnabledAction ? "success" : "empty");
+    } catch {
+      setStatus("error");
+    }
   }, []);
 
-  const actions = useMemo<TodayQuickAction[]>(() => {
-    const checkinAction: TodayQuickAction = {
-      id: "checkin",
-      title: t("quickActions.checkinTitle"),
-      description: t("quickActions.checkinDescription"),
-      ctaLabel: t("quickActions.checkinCta"),
-      href: trackingStatus === "ready" ? "/app/seguimiento#checkin-entry" : undefined,
-      disabledHint:
-        trackingStatus === "error" ? t("quickActions.checkinUnavailable") : t("quickActions.checkinLoading"),
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadQuickActions();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
     };
+  }, [loadQuickActions]);
 
+  const returnToHoy = encodeURIComponent("/app/hoy");
+  const actions = useMemo<TodayQuickAction[]>(() => {
     return [
-      checkinAction,
+      {
+        id: "checkin",
+        title: t("quickActions.checkinTitle"),
+        description: t("quickActions.checkinDescription"),
+        outcome: t("quickActions.checkinOutcome"),
+        ctaLabel: t("quickActions.checkinCta"),
+        href: availability.checkinReady ? `/app/seguimiento?from=hoy&returnTo=${returnToHoy}#checkin-entry` : undefined,
+        disabledHint: t("quickActions.checkinUnavailable"),
+      },
       {
         id: "training",
         title: t("quickActions.openTraining"),
         description: t("quickActions.openTrainingDescription"),
-        ctaLabel: t("quickActions.open"),
-        href: "/app/entrenamiento",
+        outcome: t("quickActions.trainingOutcome"),
+        ctaLabel: t("quickActions.openPlanCta"),
+        href: availability.trainingReady ? `/app/entrenamiento?from=hoy&returnTo=${returnToHoy}` : undefined,
+        disabledHint: t("quickActions.trainingUnavailable"),
       },
       {
-        id: "nutrition",
+        id: "macros",
         title: t("quickActions.openNutrition"),
         description: t("quickActions.openNutritionDescription"),
-        ctaLabel: t("quickActions.open"),
-        href: "/app/nutricion",
-      },
-      {
-        id: "library",
-        title: t("quickActions.openLibrary"),
-        description: t("quickActions.openLibraryDescription"),
-        ctaLabel: t("quickActions.open"),
-        href: "/app/biblioteca",
+        outcome: t("quickActions.macrosOutcome"),
+        ctaLabel: t("quickActions.openMacrosCta"),
+        href: availability.macrosReady ? `/app/macros?from=hoy&returnTo=${returnToHoy}` : undefined,
+        disabledHint: t("quickActions.macrosUnavailable"),
       },
     ];
-  }, [t, trackingStatus]);
+  }, [availability, returnToHoy, t]);
 
-  if (trackingStatus === "loading") {
+  if (status === "loading") {
+    return <LoadingState ariaLabel={t("quickActions.loadingAria")} lines={4} showCard={false} />;
+  }
+
+  if (status === "error") {
     return (
-      <div className="today-actions-grid" aria-busy="true" aria-live="polite">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={`quick-action-skeleton-${index}`} className="feature-card today-action-card">
-            <div className="stack-sm">
-              <Skeleton variant="line" className="w-45" />
-              <Skeleton variant="line" className="w-70" />
-              <Skeleton variant="line" className="w-60" />
-            </div>
-            <Skeleton className="today-action-button" />
-          </div>
-        ))}
-      </div>
+      <ErrorState
+        title={t("quickActions.errorTitle")}
+        description={t("quickActions.errorDescription")}
+        actions={[{ label: t("ui.retry"), onClick: () => void loadQuickActions(), variant: "secondary" }]}
+      />
+    );
+  }
+
+  if (status === "empty") {
+    return (
+      <EmptyState
+        title={t("quickActions.emptyTitle")}
+        description={t("quickActions.emptyDescription")}
+        actions={[{ label: t("ui.retry"), onClick: () => void loadQuickActions(), variant: "secondary" }]}
+      />
     );
   }
 
