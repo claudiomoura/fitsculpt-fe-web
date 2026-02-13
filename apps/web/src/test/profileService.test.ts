@@ -4,7 +4,10 @@ import { saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
 
 describe("saveCheckinAndSyncProfileMetrics", () => {
   it("updates profile metrics based on the latest check-in", async () => {
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => defaultProfile }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: false });
     // @ts-expect-error test mock
     global.fetch = fetchMock;
 
