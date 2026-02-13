@@ -1783,7 +1783,10 @@
       "active": "Activo",
       "blocked": "Bloqueado",
       "openClientAriaPrefix": "Abrir contexto de",
-      "unknownStatus": "Estado desconocido"
+      "unknownStatus": "Estado desconocido",
+      "loading": "Cargando lista de clientes...",
+      "description": "Revisa y abre contextos de atletas desde tu área de entrenador.",
+      "openList": "Abrir lista de clientes"
     },
     "clientContext": {
       "title": "Contexto del atleta",

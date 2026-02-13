@@ -1780,7 +1780,10 @@
       "active": "Active",
       "blocked": "Blocked",
       "openClientAriaPrefix": "Open context for",
-      "unknownStatus": "Unknown status"
+      "unknownStatus": "Unknown status",
+      "loading": "Loading client list...",
+      "description": "Review and open athlete contexts from your trainer area.",
+      "openList": "Open client list"
     },
     "clientContext": {
       "title": "Athlete context",
