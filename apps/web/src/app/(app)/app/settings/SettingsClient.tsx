@@ -17,6 +17,8 @@ export default function SettingsClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
+  const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
+
   useEffect(() => {
     let mounted = true;
 
@@ -65,6 +67,7 @@ export default function SettingsClient() {
         description: t("settings.sections.billing.description"),
         ctaLabel: t("settings.sections.billing.action"),
         href: "/app/settings/billing",
+        statusLabel: t("settings.sections.billing.statusLabel"),
       },
       notifications: {
         title: t("settings.sections.notifications.title"),
@@ -75,6 +78,7 @@ export default function SettingsClient() {
         title: t("settings.sections.support.title"),
         description: t("settings.sections.support.description"),
         emptyTitle: t("settings.sections.support.emptyTitle"),
+        action: t("settings.sections.support.action"),
       },
     }),
     [profileName, t]
@@ -106,8 +110,8 @@ export default function SettingsClient() {
 
       <div className="list-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
         {sectionOrder.map((sectionKey) => {
-          if (sectionKey === "notifications" || sectionKey === "support") {
-            const section = sections[sectionKey];
+          if (sectionKey === "notifications") {
+            const section = sections.notifications;
             return (
               <Card key={sectionKey}>
                 <CardHeader>
@@ -119,6 +123,29 @@ export default function SettingsClient() {
                 <CardContent>
                   <EmptyState title={section.emptyTitle} icon="info" />
                 </CardContent>
+              </Card>
+            );
+          }
+
+          if (sectionKey === "support") {
+            const section = sections.support;
+            return (
+              <Card key={sectionKey}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>{section.title}</CardTitle>
+                    <CardDescription>{section.description}</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardFooter style={{ justifyContent: "flex-start" }}>
+                  {supportUrl ? (
+                    <ButtonLink href={supportUrl} target="_blank" rel="noreferrer" variant="secondary">
+                      {section.action}
+                    </ButtonLink>
+                  ) : (
+                    <p className="muted m-0">{section.emptyTitle}</p>
+                  )}
+                </CardFooter>
               </Card>
             );
           }
@@ -151,6 +178,11 @@ export default function SettingsClient() {
                   <CardDescription>{section.description}</CardDescription>
                 </div>
               </CardHeader>
+              {sectionKey === "billing" ? (
+                <CardContent>
+                  <p className="muted m-0">{sections.billing.statusLabel}</p>
+                </CardContent>
+              ) : null}
               <CardFooter style={{ justifyContent: "flex-start" }}>
                 <ButtonLink href={section.href} variant="secondary">
                   {section.ctaLabel}

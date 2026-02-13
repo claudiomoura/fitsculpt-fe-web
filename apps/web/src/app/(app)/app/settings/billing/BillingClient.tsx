@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useLanguage } from "@/context/LanguageProvider";
 
@@ -40,7 +40,6 @@ function resolveStatusBadgeVariant(subscriptionStatus: string | null | undefined
   return "default" as const;
 }
 
-
 function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (key: string) => string) {
   const normalizedStatus = subscriptionStatus?.toLowerCase();
 
@@ -62,6 +61,8 @@ export default function BillingClient() {
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<BillingAction>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
 
   const formatDate = useMemo(() => {
     const intlLocale = locale === "es" ? "es-ES" : "en-US";
@@ -151,8 +152,11 @@ export default function BillingClient() {
   };
 
   const isPro = profile?.isPro || profile?.plan === "PRO";
+  const hasPlan = typeof profile?.plan === "string";
+  const hasSubscriptionStatus = typeof profile?.subscriptionStatus === "string" && profile.subscriptionStatus.length > 0;
+
   const checkoutDisabled = loading || action === "portal" || Boolean(isPro);
-  const portalDisabled = loading || action === "checkout" || !profile?.subscriptionStatus;
+  const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
 
   return (
     <section className="stack-md" aria-live="polite">
@@ -161,9 +165,7 @@ export default function BillingClient() {
         <p className="section-subtitle">{t("billing.subtitle")}</p>
       </header>
 
-      {loading ? (
-        <LoadingState ariaLabel={t("billing.loadingStatus")} showCard={false} />
-      ) : null}
+      {loading ? <LoadingState ariaLabel={t("billing.loadingStatus")} showCard={false} /> : null}
 
       {!loading && error && !profile ? (
         <ErrorState
@@ -200,9 +202,9 @@ export default function BillingClient() {
             </CardHeader>
             <CardContent className="stack-sm">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <Badge variant={isPro ? "success" : "muted"}>{profile.plan ?? t("ui.notAvailable")}</Badge>
-                <Badge variant={resolveStatusBadgeVariant(profile.subscriptionStatus)}>
-                  {resolveStatusLabel(profile.subscriptionStatus, t)}
+                <Badge variant={isPro ? "success" : "muted"}>{hasPlan ? profile.plan : t("billing.placeholderPlan")}</Badge>
+                <Badge variant={resolveStatusBadgeVariant(hasSubscriptionStatus ? profile.subscriptionStatus : null)}>
+                  {hasSubscriptionStatus ? resolveStatusLabel(profile.subscriptionStatus, t) : t("billing.placeholderStatus")}
                 </Badge>
               </div>
               <p className="muted">
@@ -219,6 +221,22 @@ export default function BillingClient() {
               <p style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
                 {typeof profile.tokens === "number" ? profile.tokens : t("ui.notAvailable")}
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("settings.sections.support.title")}</CardTitle>
+              <CardDescription>{t("billing.supportDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {supportUrl ? (
+                <ButtonLink href={supportUrl} target="_blank" rel="noreferrer" variant="secondary">
+                  {t("billing.supportAction")}
+                </ButtonLink>
+              ) : (
+                <p className="muted m-0">{t("billing.supportPlaceholder")}</p>
+              )}
             </CardContent>
           </Card>
 

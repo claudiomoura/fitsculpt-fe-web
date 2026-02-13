@@ -915,7 +915,9 @@
           "description": "Leche, fruta y proteína en polvo."
         }
       }
-    }
+    },
+    "weeklyEmptyTitle": "Vista semanal no disponible",
+    "weeklyEmptySubtitle": "Aún no hay comidas para esta semana con los datos actuales."
   },
   "training": {
     "formTitle": "Datos del plan",
@@ -1742,7 +1744,12 @@
       "canceled": "Cancelada",
       "unpaid": "Impaga",
       "unknown": "Desconocido"
-    }
+    },
+    "placeholderPlan": "Sin datos",
+    "placeholderStatus": "Sin estado disponible",
+    "supportDescription": "Accede al canal de soporte disponible para tu entorno.",
+    "supportAction": "Contactar soporte",
+    "supportPlaceholder": "No hay un canal de soporte disponible en este entorno."
   },
   "settings": {
     "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",
@@ -1765,7 +1772,8 @@
       "billing": {
         "title": "Facturación",
         "description": "Revisa tu plan y gestiona tu suscripción.",
-        "action": "Abrir facturación"
+        "action": "Abrir facturación",
+        "statusLabel": "El estado del plan se muestra en Facturación cuando hay datos reales."
       },
       "notifications": {
         "title": "Notificaciones",
@@ -1775,7 +1783,8 @@
       "support": {
         "title": "Soporte",
         "description": "Los canales de soporte no están disponibles en este entorno.",
-        "emptyTitle": "El acceso a soporte aparecerá cuando haya un canal disponible."
+        "emptyTitle": "El acceso a soporte aparecerá cuando haya un canal disponible.",
+        "action": "Abrir soporte"
       }
     }
   },

@@ -729,6 +729,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const selectedVisiblePlanDay = useMemo(() => visibleDayMap.get(toDateKey(selectedDate)) ?? null, [selectedDate, visibleDayMap]);
   const isSelectedDayReplicated = selectedVisiblePlanDay?.isReplicated ?? false;
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
+  const weekEntries = useMemo(() => weekDates.map((date) => visibleDayMap.get(toDateKey(date)) ?? null), [visibleDayMap, weekDates]);
+  const hasWeeklyMeals = useMemo(
+    () => weekEntries.some((entry) => Boolean(entry && entry.day.meals.length > 0)),
+    [weekEntries]
+  );
   const monthDates = useMemo(() => buildMonthGrid(selectedDate), [selectedDate]);
   const localeCode = locale === "es" ? "es-ES" : "en-US";
   const monthLabel = selectedDate.toLocaleDateString(localeCode, { month: "long", year: "numeric" });
@@ -1765,38 +1770,65 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                           >
                             {t("calendar.nextWeek")}
                           </button>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => {
+                              setSelectedDate(new Date());
+                              setCalendarView("day");
+                            }}
+                          >
+                            {t("nutrition.viewToday")}
+                          </button>
                           {projectedWeek.isReplicated ? <Badge variant="muted">{t("plan.replicatedWeekLabel")}</Badge> : null}
                         </div>
-                        <div className="calendar-week-grid">
-                          {weekDates.map((date) => {
-                            const entry = visibleDayMap.get(toDateKey(date));
-                            return (
-                              <button
-                                key={toDateKey(date)}
-                                type="button"
-                                className={`calendar-day-card ${entry ? "has-plan" : "is-empty"} ${isSameDay(date, today) ? "is-today" : ""}`}
-                                onClick={() => {
-                                  setSelectedDate(date);
-                                  setCalendarView("day");
-                                }}
-                              >
-                                <div className="calendar-day-card-header">
-                                  <span>{date.toLocaleDateString(localeCode, { weekday: "short" })}</span>
-                                  <strong>{date.getDate()}</strong>
-                                </div>
-                                {entry ? (
-                                  <div className="calendar-day-card-body">
-                                    <span className="badge">{entry.day.dayLabel}</span>
-                                    <p className="muted">{entry.day.meals.length} {t("nutrition.mealCountLabel")}</p>
-                                    <span className="calendar-dot" />
+                        {hasWeeklyMeals ? (
+                          <div className="calendar-week-grid">
+                            {weekDates.map((date) => {
+                              const entry = visibleDayMap.get(toDateKey(date));
+                              return (
+                                <button
+                                  key={toDateKey(date)}
+                                  type="button"
+                                  className={`calendar-day-card ${entry ? "has-plan" : "is-empty"} ${isSameDay(date, today) ? "is-today" : ""}`}
+                                  onClick={() => {
+                                    setSelectedDate(date);
+                                    setCalendarView("day");
+                                  }}
+                                >
+                                  <div className="calendar-day-card-header">
+                                    <span>{date.toLocaleDateString(localeCode, { weekday: "short" })}</span>
+                                    <strong>{date.getDate()}</strong>
                                   </div>
-                                ) : (
-                                  <p className="muted">{safeT("nutrition.calendarEmptyShort", t("nutrition.emptySubtitle"))}</p>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
+                                  {entry ? (
+                                    <div className="calendar-day-card-body">
+                                      <span className="badge">{entry.day.dayLabel}</span>
+                                      <p className="muted">{entry.day.meals.length} {t("nutrition.mealCountLabel")}</p>
+                                      <span className="calendar-dot" />
+                                    </div>
+                                  ) : (
+                                    <p className="muted">{safeT("nutrition.calendarEmptyShort", t("nutrition.emptySubtitle"))}</p>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="empty-state">
+                            <h3 className="m-0">{t("nutrition.weeklyEmptyTitle")}</h3>
+                            <p className="muted">{t("nutrition.weeklyEmptySubtitle")}</p>
+                            <button
+                              type="button"
+                              className="btn secondary fit-content"
+                              onClick={() => {
+                                setSelectedDate(new Date());
+                                setCalendarView("day");
+                              }}
+                            >
+                              {t("nutrition.viewToday")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : null}
 
