@@ -8,6 +8,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { extractGymMembership } from "@/lib/gymMembership";
+import { useAccess } from "@/lib/useAccess";
 
 type SettingsSection = "account" | "profile" | "billing" | "notifications" | "support";
 
@@ -15,12 +16,15 @@ const sectionOrder: SettingsSection[] = ["account", "profile", "billing", "notif
 
 export default function SettingsClient() {
   const { t } = useLanguage();
+  const { isAdmin, isDev } = useAccess();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const { entitlements } = useAuthEntitlements();
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
+  const hasGymSelectionEndpoint = false;
+  const canSeeImplementationNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
 
   useEffect(() => {
     let mounted = true;
@@ -190,6 +194,7 @@ export default function SettingsClient() {
               {sectionKey === "billing" ? (
                 <CardContent>
                   <p className="muted m-0">{sections.billing.statusLabel}</p>
+                  {canSeeImplementationNote ? <p className="muted m-0">{t("billing.gym.linkRequiresImplementation")}</p> : null}
                 </CardContent>
               ) : null}
               <CardFooter style={{ justifyContent: "flex-start" }}>

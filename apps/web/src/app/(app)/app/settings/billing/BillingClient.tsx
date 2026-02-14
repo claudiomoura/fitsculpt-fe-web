@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ErrorState, LoadingState } from "@/components/states";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
@@ -167,7 +167,8 @@ export default function BillingClient() {
 
   const checkoutDisabled = loading || action === "portal" || Boolean(isPro);
   const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
-  const canSeeDevNote = isAdmin || isDev;
+  const hasGymSelectionEndpoint = false;
+  const canSeeDevNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
 
   return (
     <section className="stack-md" aria-live="polite">
