@@ -82,40 +82,86 @@ export default function GymPageClient() {
   const [requestingJoin, setRequestingJoin] = useState(false);
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [gymsLoading, setGymsLoading] = useState(false);
+  const [gymsLoadError, setGymsLoadError] = useState(false);
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
 
   const canOpenAdmin = useMemo(
     () => membership.status === "ACTIVE" && (membership.role === "ADMIN" || membership.role === "TRAINER"),
     [membership.role, membership.status],
   );
 
+  const loadGyms = useCallback(async () => {
+    setGymsLoading(true);
+    setGymsLoadError(false);
+
+    try {
+      const gymsRes = await fetch("/api/gyms", { cache: "no-store", credentials: "include" });
+
+      if (!gymsRes.ok) {
+        if (gymsRes.status === 401) {
+          setIsSessionExpired(true);
+        }
+        setGyms([]);
+        setSelectedGymId("");
+        setGymsLoadError(gymsRes.status !== 401);
+        return;
+      }
+
+      const gymsData = readGyms(await gymsRes.json());
+      setGyms(gymsData);
+      setSelectedGymId((current) => current || gymsData[0]?.id || "");
+    } catch {
+      setGyms([]);
+      setSelectedGymId("");
+      setGymsLoadError(true);
+    } finally {
+      setGymsLoading(false);
+    }
+  }, []);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setActionError(null);
+    setIsSessionExpired(false);
 
     try {
       const membershipRes = await fetch("/api/gyms/membership", { cache: "no-store", credentials: "include" });
-      if (!membershipRes.ok) throw new Error("membership");
+
+      if (membershipRes.status === 404) {
+        setMembership({ ...defaultMembership, status: "NONE" });
+        await loadGyms();
+        return;
+      }
+
+      if (membershipRes.status === 401) {
+        setMembership(defaultMembership);
+        setGyms([]);
+        setSelectedGymId("");
+        setIsSessionExpired(true);
+        return;
+      }
+
+      if (!membershipRes.ok) {
+        throw new Error("membership");
+      }
 
       const membershipData = readMembership(await membershipRes.json());
       setMembership(membershipData);
 
       if (membershipData.status === "NONE" || membershipData.status === "REJECTED") {
-        const gymsRes = await fetch("/api/gyms", { cache: "no-store", credentials: "include" });
-        if (!gymsRes.ok) throw new Error("gyms");
-
-        const gymsData = readGyms(await gymsRes.json());
-        setGyms(gymsData);
-        setSelectedGymId((current) => current || gymsData[0]?.id || "");
+        await loadGyms();
       } else {
         setGyms([]);
         setSelectedGymId("");
       }
     } catch {
-      setError(t("gym.loadError"));
+      setError(t("gym.loadError.subtitle"));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [loadGyms, t]);
 
   useEffect(() => {
     void loadData();
@@ -182,11 +228,21 @@ export default function GymPageClient() {
   if (error) {
     return (
       <section className="card status-card status-card--warning">
-        <strong>{t("gym.loadErrorTitle")}</strong>
+        <strong>{t("gym.loadError.title")}</strong>
         <p className="muted">{error}</p>
         <Button variant="secondary" onClick={() => void loadData()}>
           {t("common.retry")}
         </Button>
+      </section>
+    );
+  }
+
+  if (isSessionExpired) {
+    return (
+      <section className="card status-card status-card--warning">
+        <strong>{t("gym.sessionExpired.title")}</strong>
+        <p className="muted">{t("gym.sessionExpired.subtitle")}</p>
+        <ButtonLink href="/login">{t("nav.login")}</ButtonLink>
       </section>
     );
   }
@@ -202,7 +258,16 @@ export default function GymPageClient() {
         <>
           <section className="card form-stack">
             <h2 className="section-title section-title-sm">{t("gym.membership.none.title")}</h2>
-            {gyms.length === 0 ? (
+            {gymsLoading ? (
+              <p className="muted">{t("common.loading")}</p>
+            ) : gymsLoadError ? (
+              <div className="form-stack">
+                <p className="muted">{t("gym.join.loadError")}</p>
+                <Button variant="secondary" onClick={() => void loadGyms()}>
+                  {t("common.retry")}
+                </Button>
+              </div>
+            ) : gyms.length === 0 ? (
               <p className="muted">{t("gym.join.empty")}</p>
             ) : (
               <label className="form-stack">
@@ -216,7 +281,7 @@ export default function GymPageClient() {
                 </select>
               </label>
             )}
-            <Button onClick={() => void requestJoin()} disabled={requestingJoin || !selectedGymId || gyms.length === 0}>
+            <Button onClick={() => void requestJoin()} disabled={requestingJoin || !selectedGymId || gyms.length === 0 || gymsLoading}>
               {requestingJoin ? t("common.loading") : t("gym.join.requestButton")}
             </Button>
           </section>

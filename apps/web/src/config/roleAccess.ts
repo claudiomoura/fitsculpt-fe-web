@@ -30,8 +30,10 @@ export function canAccessAdmin(input: RoleAccessInput): boolean {
 
 export function canAccessTrainer(input: RoleAccessInput): boolean {
   if (canAccessAdmin(input)) return true;
-  if (input.gymMembershipState && input.gymMembershipState !== "in_gym") return false;
+
   if (input.isCoach === true) return true;
+
+  if (input.gymMembershipState && input.gymMembershipState !== "in_gym") return false;
 
   return normalizeRole(input.role) === "coach";
 }

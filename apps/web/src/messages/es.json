@@ -2087,14 +2087,22 @@
       "codeLabel": "Código del gimnasio",
       "codeHelp": "Si el gimnasio te dio un código, úsalo para unirte automáticamente.",
       "codeButton": "Unirme con código",
-      "empty": "No hay gimnasios disponibles en este momento."
+      "empty": "No hay gimnasios disponibles en este momento.",
+      "loadError": "No pudimos cargar la lista de gimnasios."
     },
     "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
-    "loadError": "Inténtalo de nuevo en unos segundos.",
+    "loadError": {
+      "title": "No pudimos cargar tu estado de gimnasio",
+      "subtitle": "Inténtalo de nuevo en unos segundos."
+    },
     "actionErrorTitle": "No pudimos procesar tu solicitud",
     "actionError": "Verifica los datos e inténtalo nuevamente.",
     "unavailableTitle": "Estado de gimnasio no disponible",
-    "unavailableDescription": "No fue posible determinar tu estado de membresía por ahora."
+    "unavailableDescription": "No fue posible determinar tu estado de membresía por ahora.",
+    "sessionExpired": {
+      "title": "Tu sesión expiró",
+      "subtitle": "Inicia sesión nuevamente para consultar tu estado de gimnasio."
+    }
   },
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",
