@@ -7,10 +7,11 @@ import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
 import {
   canApplyTrainingAdjustment,
-  generateAndSaveTrainingPlan,
   getTrainingAdjustmentInput,
   hasTrainingPlanAdjustmentCapability,
 } from "@/lib/trainingPlanAdjustment";
+import { requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
+import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 type CheckinEntry = {
@@ -156,6 +157,8 @@ export default function TrackingClient() {
   const [adjustmentStatus, setAdjustmentStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
   const [adjustmentSuccess, setAdjustmentSuccess] = useState<{ at: string; period?: string } | null>(null);
+  const [adjustmentPreviewPlan, setAdjustmentPreviewPlan] = useState<ProfileData["trainingPlan"] | null>(null);
+  const [adjustmentPreviewMetadata, setAdjustmentPreviewMetadata] = useState<{ updatedAt?: string; effectiveFrom?: string; weekStart?: string } | null>(null);
   const [adjustmentCapabilityChecked, setAdjustmentCapabilityChecked] = useState(false);
   const [hasAdjustmentCapability, setHasAdjustmentCapability] = useState(false);
   const [trackingSupports, setTrackingSupports] = useState<{
@@ -192,7 +195,7 @@ export default function TrackingClient() {
     !isTrackingReady || !isWeightValid || !isDateValid || !isBodyFatValid || !isWaistValid || isSubmitting;
   const adjustmentInput = canApplyTrainingAdjustment(profile) ? getTrainingAdjustmentInput(profile) : null;
   const canApplyAdjustment = adjustmentCapabilityChecked && hasAdjustmentCapability && Boolean(adjustmentInput);
-  const isApplyAdjustmentDisabled = adjustmentStatus === "loading" || !canApplyAdjustment;
+  const isApplyAdjustmentDisabled = adjustmentStatus === "loading" || Boolean(adjustmentPreviewPlan) || !canApplyAdjustment;
 
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
@@ -838,8 +841,32 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     setAdjustmentStatus("loading");
     setAdjustmentError(null);
     setAdjustmentSuccess(null);
+    setAdjustmentPreviewPlan(null);
+    setAdjustmentPreviewMetadata(null);
     try {
-      const result = await generateAndSaveTrainingPlan(profile, adjustmentInput);
+      const result = await requestAiTrainingPlan(profile, adjustmentInput);
+      setAdjustmentPreviewPlan(result.plan);
+      setAdjustmentPreviewMetadata(result.metadata);
+      setAdjustmentStatus("idle");
+    } catch (error) {
+      if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+        setAdjustmentError(t("ai.insufficientTokens"));
+      } else if (error instanceof Error && error.message === "INVALID_AI_OUTPUT") {
+        setAdjustmentError(t("tracking.adjustmentInvalidOutput"));
+      } else {
+        setAdjustmentError(t("tracking.adjustmentError"));
+      }
+      setAdjustmentStatus("error");
+    }
+  }
+
+  async function confirmApplyAdjustment() {
+    if (!adjustmentPreviewPlan || adjustmentStatus === "loading") return;
+    setAdjustmentStatus("loading");
+    setAdjustmentError(null);
+    setAdjustmentSuccess(null);
+    try {
+      await saveAiTrainingPlan(adjustmentPreviewPlan);
       const refreshedTracking = await refreshTrackingData({ showLoading: true, showError: true });
       const refreshedProfile = await getUserProfile();
       if (!refreshedTracking) {
@@ -848,11 +875,13 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         return;
       }
       setProfile(refreshedProfile);
-      const successDate = formatLocalDate(result.metadata.updatedAt ?? new Date().toISOString()) ?? formatLocalDate(new Date().toISOString()) ?? new Date().toLocaleDateString();
+      const successDate = formatLocalDate(adjustmentPreviewMetadata?.updatedAt ?? new Date().toISOString()) ?? formatLocalDate(new Date().toISOString()) ?? new Date().toLocaleDateString();
       setAdjustmentSuccess({
         at: successDate,
-        period: resolvePeriodText(result.metadata),
+        period: resolvePeriodText(adjustmentPreviewMetadata ?? {}),
       });
+      setAdjustmentPreviewPlan(null);
+      setAdjustmentPreviewMetadata(null);
       setAdjustmentStatus("success");
       router.refresh();
     } catch (error) {
@@ -1657,6 +1686,23 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           </div>
         </div>
       )}
+
+      <AiPlanPreviewModal
+        open={Boolean(adjustmentPreviewPlan)}
+        plan={adjustmentPreviewPlan}
+        title={t("tracking.adjustmentPreviewTitle")}
+        description={t("tracking.adjustmentPreviewSubtitle")}
+        cancelLabel={t("tracking.adjustmentPreviewCancel")}
+        confirmLabel={t("tracking.adjustmentPreviewConfirm")}
+        savingLabel={t("tracking.adjustmentPreviewConfirming")}
+        durationUnit={t("training.minutesLabel")}
+        onClose={() => {
+          setAdjustmentPreviewPlan(null);
+          setAdjustmentPreviewMetadata(null);
+        }}
+        onConfirm={confirmApplyAdjustment}
+        isSaving={adjustmentStatus === "loading"}
+      />
     </div>
   );
 }
