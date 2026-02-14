@@ -2007,7 +2007,39 @@
     "exerciseScopeMixed": "Gimnasio + Global",
     "filterAll": "Todos los ejercicios",
     "filterGymOnly": "Solo gimnasio",
-    "filterGlobalOnly": "Solo globales"
+    "filterGlobalOnly": "Solo globales",
+    "member": {
+      "subtitle": "Gestiona tu experiencia del gimnasio y accede a tu entrenamiento asignado.",
+      "loading": "Cargando información del gimnasio...",
+      "planTitle": "Plan de entrenamiento asignado",
+      "planDescription": "Tu entrenador te asignó un plan. Ábrelo en tu área de entrenamiento.",
+      "planCta": "Ver tu plan asignado"
+    },
+    "admin": {
+      "members": {
+        "title": "Miembros del gimnasio",
+        "subtitle": "Asigna uno de tus planes de entrenamiento a un miembro.",
+        "loading": "Cargando miembros...",
+        "empty": "No hay miembros disponibles para asignar por ahora.",
+        "loadError": "No pudimos cargar miembros. Inténtalo de nuevo.",
+        "profileError": "No pudimos cargar tu perfil de gimnasio.",
+        "missingGymId": "Tu cuenta no está vinculada a un id de gimnasio.",
+        "assignAction": "Asignar plan",
+        "assignSuccess": "Plan asignado correctamente."
+      },
+      "assignPlan": {
+        "title": "Asignar plan de entrenamiento",
+        "description": "Elige uno de tus planes y asígnalo a {member}.",
+        "planLabel": "Plan de entrenamiento",
+        "selectPlaceholder": "Selecciona un plan",
+        "loadingPlans": "Cargando tus planes...",
+        "emptyPlans": "No tienes planes disponibles para asignar.",
+        "loadPlansError": "No pudimos cargar tus planes.",
+        "submit": "Asignar plan",
+        "cancel": "Cancelar",
+        "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio."
+      }
+    }
   },
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",

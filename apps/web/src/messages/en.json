@@ -2004,7 +2004,39 @@
     "exerciseScopeMixed": "Gym + Global",
     "filterAll": "All exercises",
     "filterGymOnly": "Gym only",
-    "filterGlobalOnly": "Global only"
+    "filterGlobalOnly": "Global only",
+    "member": {
+      "subtitle": "Manage your gym-related experience and access your assigned training.",
+      "loading": "Loading gym information...",
+      "planTitle": "Assigned training plan",
+      "planDescription": "Your coach assigned you a plan. Open it in your training area.",
+      "planCta": "View your assigned plan"
+    },
+    "admin": {
+      "members": {
+        "title": "Gym members",
+        "subtitle": "Assign one of your training plans to a member.",
+        "loading": "Loading members...",
+        "empty": "No members available to assign right now.",
+        "loadError": "We could not load members. Please try again.",
+        "profileError": "We could not load your gym profile.",
+        "missingGymId": "Your account is not linked to a gym id.",
+        "assignAction": "Assign plan",
+        "assignSuccess": "Plan assigned successfully."
+      },
+      "assignPlan": {
+        "title": "Assign training plan",
+        "description": "Choose one of your plans and assign it to {member}.",
+        "planLabel": "Training plan",
+        "selectPlaceholder": "Select a plan",
+        "loadingPlans": "Loading your plans...",
+        "emptyPlans": "You have no plans available to assign.",
+        "loadPlansError": "We could not load your plans.",
+        "submit": "Assign plan",
+        "cancel": "Cancel",
+        "submitError": "We could not assign this plan. Please verify member and gym eligibility."
+      }
+    }
   },
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",

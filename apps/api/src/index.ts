@@ -5012,6 +5012,13 @@ const trainingPlanListSchema = z.object({
 });
 
 const trainingPlanParamsSchema = z.object({ id: z.string().min(1) });
+const assignTrainingPlanParamsSchema = z.object({
+  gymId: z.string().min(1),
+  userId: z.string().min(1),
+});
+const assignTrainingPlanBodySchema = z.object({
+  templatePlanId: z.string().min(1),
+});
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -5027,6 +5034,95 @@ const nutritionPlanListSchema = z.object({
 });
 
 const nutritionPlanParamsSchema = z.object({ id: z.string().min(1) });
+
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
+function getProfileValue(profile: UnknownRecord, keys: string[]) {
+  for (const key of keys) {
+    const value = profile[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function normalizeMembershipRole(value: string | null) {
+  if (!value) return null;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "ADMIN" || normalized === "TRAINER" || normalized === "MEMBER") {
+    return normalized;
+  }
+  return null;
+}
+
+function normalizeMembershipStatus(value: string | null) {
+  if (!value) return null;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "ACTIVE") return normalized;
+  return null;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+async function resolvePlanStartDate(userId: string, daysCount: number) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let offset = 0; offset <= 365; offset += 1) {
+    const candidate = addDays(today, offset);
+    const existing = await prisma.trainingPlan.findUnique({
+      where: {
+        userId_startDate_daysCount: {
+          userId,
+          startDate: candidate,
+          daysCount,
+        },
+      },
+      select: { id: true },
+    });
+    if (!existing) {
+      return candidate;
+    }
+  }
+
+  throw createHttpError(409, "PLAN_CONFLICT");
+}
+
+async function readGymMembership(userId: string) {
+  const profile = await prisma.userProfile.findUnique({ where: { userId } });
+  if (!profile || !isRecord(profile.profile)) {
+    return null;
+  }
+
+  const profileData = profile.profile;
+  const tenant = isRecord(profileData.tenant) ? profileData.tenant : null;
+
+  const gymId =
+    getProfileValue(profileData, ["gymId", "tenantId"]) ??
+    (tenant ? getProfileValue(tenant, ["gymId", "tenantId", "id"]) : null);
+
+  const role = normalizeMembershipRole(
+    getProfileValue(profileData, ["gymRole", "membershipRole", "role"]) ??
+      (tenant ? getProfileValue(tenant, ["gymRole", "membershipRole", "role"]) : null)
+  );
+  const status = normalizeMembershipStatus(
+    getProfileValue(profileData, ["gymMembershipStatus", "membershipStatus", "status"]) ??
+      (tenant ? getProfileValue(tenant, ["gymMembershipStatus", "membershipStatus", "status"]) : null)
+  );
+
+  if (!gymId) return null;
+
+  return { gymId, role, status };
+}
 
 app.get("/exercises", async (request, reply) => {
   try {
@@ -5148,6 +5244,91 @@ app.get("/training-plans/:id", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
     return plan;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { gymId, userId } = assignTrainingPlanParamsSchema.parse(request.params);
+    const { templatePlanId } = assignTrainingPlanBodySchema.parse(request.body);
+
+    const [requesterMembership, targetMembership, templatePlan] = await Promise.all([
+      readGymMembership(requester.id),
+      readGymMembership(userId),
+      prisma.trainingPlan.findFirst({
+        where: { id: templatePlanId, userId: requester.id },
+        include: {
+          days: {
+            orderBy: { order: "asc" },
+            include: {
+              exercises: { orderBy: { id: "asc" } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    if (!requesterMembership || requesterMembership.gymId !== gymId || requesterMembership.status !== "ACTIVE") {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    if (requesterMembership.role !== "ADMIN" && requesterMembership.role !== "TRAINER") {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    if (!targetMembership || targetMembership.gymId !== gymId || targetMembership.status !== "ACTIVE") {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    if (targetMembership.role !== "MEMBER") {
+      return reply.status(400).send({ error: "INVALID_MEMBER_ROLE" });
+    }
+
+    if (!templatePlan) {
+      return reply.status(404).send({ error: "TEMPLATE_PLAN_NOT_FOUND" });
+    }
+
+    const startDate = await resolvePlanStartDate(userId, templatePlan.daysCount);
+
+    const clonedPlan = await prisma.trainingPlan.create({
+      data: {
+        userId,
+        title: templatePlan.title,
+        notes: templatePlan.notes,
+        goal: templatePlan.goal,
+        level: templatePlan.level,
+        daysPerWeek: templatePlan.daysPerWeek,
+        focus: templatePlan.focus,
+        equipment: templatePlan.equipment,
+        startDate,
+        daysCount: templatePlan.daysCount,
+        days: {
+          create: templatePlan.days.map((day, dayIndex) => ({
+            date: addDays(startDate, dayIndex),
+            label: day.label,
+            focus: day.focus,
+            duration: day.duration,
+            order: day.order,
+            exercises: {
+              create: day.exercises.map((exercise) => ({
+                name: exercise.name,
+                sets: exercise.sets,
+                reps: exercise.reps,
+                tempo: exercise.tempo,
+                rest: exercise.rest,
+                notes: exercise.notes,
+              })),
+            },
+          })),
+        },
+      },
+      select: { id: true },
+    });
+
+    return reply.status(201).send({ planId: clonedPlan.id });
   } catch (error) {
     return handleRequestError(reply, error);
   }
