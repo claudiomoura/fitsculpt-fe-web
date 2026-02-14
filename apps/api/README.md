@@ -64,10 +64,65 @@
 npm run dev
 npm run build
 npm run start
+npm run start:prod
+npm run db:deploy
+npm run db:generate
+npm run db:push:emergency   # somente para desbloqueio quando deploy estiver bloqueado por drift
 npm run prisma:generate
-npm run prisma:migrate
+npm run prisma:migrate      # local only (NUNCA no Render)
 npm run test
 ```
+
+## Workflow de migrações (seguro para Render)
+
+- **Local (desenvolvimento):** gerar novas migrations com `prisma migrate dev` usando um Postgres local.
+- **Render (deploy):** aplicar migrations existentes com `prisma migrate deploy`.
+- **Nunca rode `prisma migrate dev` no banco do Render.**
+
+### Exemplo de Postgres local (Docker Compose)
+
+Crie `apps/api/docker-compose.dev-db.yml` com:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fitsculpt_api_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - fitsculpt_api_dev_data:/var/lib/postgresql/data
+
+volumes:
+  fitsculpt_api_dev_data:
+```
+
+Suba o banco e gere migration localmente:
+
+```bash
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fitsculpt_api_dev?schema=public"
+npx prisma migrate dev --name <nome_da_migration>
+npm run db:generate
+```
+
+Deploy no Render:
+
+```bash
+npm run db:deploy
+```
+
+### Emergência (não-destrutivo, uso excepcional)
+
+Se `db:deploy` estiver bloqueado por drift e for necessário apenas desbloquear criação de tabela ausente (ex.: `GymMembership`), use:
+
+```bash
+npm run db:push:emergency
+```
+
+> Este comando **não** substitui o fluxo oficial com migrations versionadas; use apenas para desbloqueio.
 
 ## Stripe (assinaturas PRO)
 
@@ -75,7 +130,7 @@ npm run test
 2. Copie o `Price ID` e configure em `STRIPE_PRO_PRICE_ID`.
 3. Gere uma chave secreta e configure `STRIPE_SECRET_KEY`.
 4. Crie um endpoint de webhook no Stripe apontando para `POST /billing/webhook` e copie o `Signing secret` para `STRIPE_WEBHOOK_SECRET`.
-5. Após alterar o schema, rode `npm run prisma:migrate` e `npm run prisma:generate` para garantir que o banco e o Prisma Client estão atualizados.
+5. Após alterar o schema, rode `npm run prisma:migrate` e `npm run db:generate` no ambiente local; em produção/Render use `npm run db:deploy`.
 
 ## Testes manuais (curl)
 

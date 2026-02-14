@@ -391,7 +391,7 @@ model AiContent {
 model Gym {
   id          String          @id @default(cuid())
   name        String
-  joinCode    String          @unique
+  code        String          @unique
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   memberships GymMembership[]

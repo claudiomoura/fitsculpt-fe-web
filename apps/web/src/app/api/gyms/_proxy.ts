@@ -8,7 +8,7 @@ async function getAuthCookie() {
 }
 
 type ProxyOptions = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH";
   body?: unknown;
 };
 

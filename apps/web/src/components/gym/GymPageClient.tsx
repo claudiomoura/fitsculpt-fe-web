@@ -40,8 +40,9 @@ function normalize(value: string | null): string | null {
 function readMembership(payload: unknown): GymMembership {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
   const data = typeof source.data === "object" && source.data !== null ? (source.data as Record<string, unknown>) : source;
+  const gym = typeof data.gym === "object" && data.gym !== null ? (data.gym as Record<string, unknown>) : null;
 
-  const rawStatus = normalize(toStringOrNull(data.status));
+  const rawStatus = normalize(toStringOrNull(data.state) ?? toStringOrNull(data.status));
   const status: MembershipStatus =
     rawStatus === "NONE" || rawStatus === "PENDING" || rawStatus === "ACTIVE" || rawStatus === "REJECTED"
       ? rawStatus
@@ -49,8 +50,8 @@ function readMembership(payload: unknown): GymMembership {
 
   return {
     status,
-    gymId: toStringOrNull(data.gymId) ?? toStringOrNull(data.tenantId),
-    gymName: toStringOrNull(data.gymName) ?? toStringOrNull(data.tenantName),
+    gymId: toStringOrNull(data.gymId) ?? toStringOrNull(data.tenantId) ?? toStringOrNull(gym?.id),
+    gymName: toStringOrNull(data.gymName) ?? toStringOrNull(data.tenantName) ?? toStringOrNull(gym?.name),
     role: normalize(toStringOrNull(data.role)),
   };
 }
