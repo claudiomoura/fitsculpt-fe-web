@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
@@ -47,6 +48,19 @@ type ChartPoint = {
   label: string;
   value: number;
 };
+
+type WeeklyAiSummary = {
+  summary: string;
+  periodLabel?: string | null;
+  highlights?: string[];
+};
+
+type WeeklyAiSummaryState =
+  | { status: "idle" | "loading" }
+  | { status: "success"; data: WeeklyAiSummary }
+  | { status: "empty" }
+  | { status: "missing" }
+  | { status: "error" };
 
 const defaultFoodProfiles: Record<string, { labelKey: string; protein: number; carbs: number; fat: number }> = {
   salmon: { labelKey: "foods.salmon", protein: 20, carbs: 0, fat: 13 },
@@ -158,6 +172,7 @@ function ProgressRing({
 
 export default function DashboardClient() {
   const { t, locale } = useLanguage();
+  const { entitlements, loading: entitlementsLoading } = useAuthEntitlements();
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
@@ -166,6 +181,76 @@ export default function DashboardClient() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [summary, setSummary] = useState<TodaySummary | null>(null);
+  const [weeklyAiSummary, setWeeklyAiSummary] = useState<WeeklyAiSummaryState>({ status: "idle" });
+
+  useEffect(() => {
+    if (entitlementsLoading) return;
+
+    const hasAiSummaryAccess = entitlements.status === "known" && entitlements.features.hasProSupport;
+    if (!hasAiSummaryAccess) {
+      setWeeklyAiSummary({ status: "idle" });
+      return;
+    }
+
+    let active = true;
+    const loadWeeklySummary = async () => {
+      try {
+        setWeeklyAiSummary({ status: "loading" });
+        const response = await fetch("/api/ai/weekly-summary", {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (response.status === 404 || response.status === 405) {
+          if (active) setWeeklyAiSummary({ status: "missing" });
+          return;
+        }
+
+        if (!response.ok) {
+          if (active) setWeeklyAiSummary({ status: "error" });
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          summary?: string | null;
+          periodLabel?: string | null;
+          highlights?: unknown;
+        };
+        const summaryText = payload.summary?.trim();
+
+        if (!summaryText) {
+          if (active) setWeeklyAiSummary({ status: "empty" });
+          return;
+        }
+
+        const highlights = Array.isArray(payload.highlights)
+          ? payload.highlights
+              .filter((item): item is string => typeof item === "string")
+              .map((item) => item.trim())
+              .filter(Boolean)
+              .slice(0, 3)
+          : [];
+
+        if (active) {
+          setWeeklyAiSummary({
+            status: "success",
+            data: {
+              summary: summaryText,
+              periodLabel: payload.periodLabel?.trim() || null,
+              highlights,
+            },
+          });
+        }
+      } catch {
+        if (active) setWeeklyAiSummary({ status: "error" });
+      }
+    };
+
+    void loadWeeklySummary();
+    return () => {
+      active = false;
+    };
+  }, [entitlements, entitlementsLoading]);
 
   useEffect(() => {
     let active = true;
@@ -286,7 +371,7 @@ export default function DashboardClient() {
     const training = buildTrainingSummary(profile.trainingPlan);
     const nutrition = buildNutritionSummary(profile.nutritionPlan);
     setSummary({ training, nutrition });
-  }, [profile]);
+  }, [profile, profileReady]);
 
   const userFoodMap = useMemo(() => new Map(userFoods.map((food) => [food.id, food])), [userFoods]);
 
@@ -603,6 +688,63 @@ export default function DashboardClient() {
             <ButtonLink href="/app/nutricion?ai=1">
               {t("dashboard.aiNutritionCta")}
             </ButtonLink>
+          </div>
+          <div className="feature-card stack-md">
+            <div>
+              <strong>{t("dashboard.aiWeeklySummaryTitle")}</strong>
+              <p className="muted mt-6">{t("dashboard.aiWeeklySummarySubtitle")}</p>
+            </div>
+            {entitlementsLoading ? (
+              <div className="stack-sm" aria-busy="true" aria-live="polite">
+                <Skeleton variant="line" className="w-45" />
+                <Skeleton variant="line" className="w-70" />
+              </div>
+            ) : entitlements.status !== "known" || !entitlements.features.hasProSupport ? (
+              <div className="status-card">
+                <div className="inline-actions-sm">
+                  <Icon name="lock" />
+                  <strong>{t("dashboard.aiWeeklySummaryLockedTitle")}</strong>
+                </div>
+                <p className="muted">{t("dashboard.aiWeeklySummaryLockedDescription")}</p>
+              </div>
+            ) : weeklyAiSummary.status === "loading" || weeklyAiSummary.status === "idle" ? (
+              <div className="stack-sm" aria-busy="true" aria-live="polite">
+                <Skeleton variant="line" className="w-40" />
+                <Skeleton variant="line" className="w-70" />
+                <Skeleton variant="line" className="w-60" />
+              </div>
+            ) : weeklyAiSummary.status === "error" ? (
+              <div className="status-card status-card--warning">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("dashboard.aiWeeklySummaryErrorTitle")}</strong>
+                </div>
+                <p className="muted">{t("dashboard.aiWeeklySummaryErrorDescription")}</p>
+                <Button variant="secondary" onClick={handleRetry}>
+                  {t("ui.retry")}
+                </Button>
+              </div>
+            ) : weeklyAiSummary.status === "missing" || weeklyAiSummary.status === "empty" ? (
+              <div className="status-card">
+                <div className="inline-actions-sm">
+                  <Icon name="info" />
+                  <strong>{t("dashboard.aiWeeklySummaryEmptyTitle")}</strong>
+                </div>
+                <p className="muted">{t("dashboard.aiWeeklySummaryEmptyDescription")}</p>
+              </div>
+            ) : (
+              <div className="stack-sm">
+                {weeklyAiSummary.data.periodLabel ? <Badge>{weeklyAiSummary.data.periodLabel}</Badge> : null}
+                <p className="muted m-0">{weeklyAiSummary.data.summary}</p>
+                {weeklyAiSummary.data.highlights?.length ? (
+                  <ul className="muted m-0 pl-16">
+                    {weeklyAiSummary.data.highlights.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
       </section>
