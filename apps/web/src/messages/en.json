@@ -2010,7 +2010,8 @@
       "submit": "Assign plan",
       "submitting": "Assigning...",
       "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
-      "success": "Plan assigned successfully to {member}."
+      "success": "Plan assigned successfully to {member}.",
+      "guidance": "The member will see the assigned plan in Plan/Today once it is saved."
     }
   },
   "gym": {
@@ -2174,5 +2175,27 @@
   "common": {
     "loading": "Loading...",
     "retry": "Retry"
+  },
+  "adminGyms": {
+    "title": "Manage gyms",
+    "createName": "Name",
+    "createPlaceholder": "New gym",
+    "createAction": "Create gym",
+    "createdCode": "Join code: {code}",
+    "listTitle": "Gyms",
+    "empty": "No gyms yet.",
+    "joinCodeLabel": "Join code",
+    "membersCountLabel": "Members",
+    "requestsCountLabel": "Requests",
+    "membersTitle": "Active members",
+    "membersEmpty": "No active members.",
+    "promoteTrainer": "Promote to TRAINER",
+    "demoteMember": "Set as MEMBER",
+    "errors": {
+      "load": "We could not load gyms.",
+      "members": "We could not load gym members.",
+      "create": "We could not create the gym.",
+      "role": "We could not update member role."
+    }
   }
 }

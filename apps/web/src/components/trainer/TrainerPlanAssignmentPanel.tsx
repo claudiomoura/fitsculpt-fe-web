@@ -2,17 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-
-type Member = {
-  id: string;
-  name: string | null;
-  email: string;
-  role?: string;
-};
-
-type MembersResponse = {
-  users?: Member[];
-};
+import { extractTrainerClients, type TrainerClient } from "@/lib/trainerClients";
 
 type TrainingPlanListItem = {
   id: string;
@@ -62,11 +52,12 @@ function getPlanPreview(payload: PlanDetailResponse): PlanPreview {
 export default function TrainerPlanAssignmentPanel() {
   const { t } = useLanguage();
 
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<TrainerClient[]>([]);
   const [plans, setPlans] = useState<TrainingPlanListItem[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -84,9 +75,17 @@ export default function TrainerPlanAssignmentPanel() {
 
       try {
         const [membersRes, plansRes] = await Promise.all([
-          fetch("/api/admin/users?page=1", { cache: "no-store", credentials: "include" }),
+          fetch("/api/trainer/clients", { cache: "no-store", credentials: "include" }),
           fetch("/api/training-plans", { cache: "no-store", credentials: "include" }),
         ]);
+
+        if (membersRes.status === 404 || membersRes.status === 405) {
+          if (active) {
+            setUnsupported(true);
+            setLoading(false);
+          }
+          return;
+        }
 
         if (!membersRes.ok || !plansRes.ok) {
           if (active) {
@@ -96,12 +95,12 @@ export default function TrainerPlanAssignmentPanel() {
           return;
         }
 
-        const membersPayload = (await membersRes.json()) as MembersResponse;
+        const membersPayload = (await membersRes.json()) as unknown;
         const plansPayload = (await plansRes.json()) as TrainingPlansResponse;
         if (!active) return;
 
-        const nextMembers = (membersPayload.users ?? []).filter((user) => user.role !== "ADMIN");
-        setMembers(nextMembers);
+        setUnsupported(false);
+        setMembers(extractTrainerClients(membersPayload));
         setPlans(plansPayload.items ?? []);
         setLoading(false);
       } catch {
@@ -163,7 +162,7 @@ export default function TrainerPlanAssignmentPanel() {
   const selectedMemberName = useMemo(() => {
     const selectedMember = members.find((member) => member.id === selectedMemberId);
     if (!selectedMember) return "";
-    return selectedMember.name?.trim() || selectedMember.email;
+    return selectedMember.name?.trim() || selectedMember.email || selectedMember.id;
   }, [members, selectedMemberId]);
 
   const canSubmit = Boolean(selectedMemberId && selectedPlanId && !submitting);
@@ -175,14 +174,20 @@ export default function TrainerPlanAssignmentPanel() {
     setSuccess(null);
     setSubmitting(true);
     try {
-      const response = await fetch(`/api/admin/users/${selectedMemberId}/plan`, {
-        method: "PATCH",
+      const response = await fetch("/api/trainer/assign-training-plan", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         credentials: "include",
-        body: JSON.stringify({ templatePlanId: selectedPlanId }),
+        body: JSON.stringify({ clientId: selectedMemberId, sourceTrainingPlanId: selectedPlanId }),
       });
 
       setSubmitting(false);
+
+      if (response.status === 404 || response.status === 405) {
+        setUnsupported(true);
+        return;
+      }
 
       if (!response.ok) {
         setSubmitError(t("trainer.assignPlan.submitError"));
@@ -209,9 +214,10 @@ export default function TrainerPlanAssignmentPanel() {
       </p>
 
       {loading ? <p className="muted">{t("trainer.assignPlan.loading")}</p> : null}
-      {!loading && error ? <p className="muted">{error}</p> : null}
+      {!loading && unsupported ? <p className="muted">{t("access.notAvailableDescription")}</p> : null}
+      {!loading && !unsupported && error ? <p className="muted">{error}</p> : null}
 
-      {!loading && !error ? (
+      {!loading && !unsupported && !error ? (
         <>
           <label className="form-stack" style={{ gap: 8 }}>
             <span className="muted">{t("trainer.assignPlan.memberLabel")}</span>
@@ -219,7 +225,7 @@ export default function TrainerPlanAssignmentPanel() {
               <option value="">{t("trainer.assignPlan.memberPlaceholder")}</option>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
-                  {member.name?.trim() || member.email}
+                  {member.name?.trim() || member.email || member.id}
                 </option>
               ))}
             </select>
@@ -227,12 +233,15 @@ export default function TrainerPlanAssignmentPanel() {
 
           <label className="form-stack" style={{ gap: 8 }}>
             <span className="muted">{t("trainer.assignPlan.planLabel")}</span>
-            <select value={selectedPlanId} onChange={(event) => {
-              const nextPlanId = event.target.value;
-              setSelectedPlanId(nextPlanId);
-              setPreview(null);
-              setPreviewError(null);
-            }}>
+            <select
+              value={selectedPlanId}
+              onChange={(event) => {
+                const nextPlanId = event.target.value;
+                setSelectedPlanId(nextPlanId);
+                setPreview(null);
+                setPreviewError(null);
+              }}
+            >
               <option value="">{t("trainer.assignPlan.planPlaceholder")}</option>
               {plans.map((plan) => (
                 <option key={plan.id} value={plan.id}>
@@ -262,7 +271,7 @@ export default function TrainerPlanAssignmentPanel() {
           </button>
 
           {submitError ? <p className="muted">{submitError}</p> : null}
-          {success ? <p className="muted">{success}</p> : null}
+          {success ? <p className="muted">{`${success} ${t("trainer.assignPlan.guidance")}`}</p> : null}
         </>
       ) : null}
     </section>
