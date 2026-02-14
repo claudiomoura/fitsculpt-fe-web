@@ -7,10 +7,11 @@ import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
 import {
   canApplyTrainingAdjustment,
-  generateAndSaveTrainingPlan,
   getTrainingAdjustmentInput,
   hasTrainingPlanAdjustmentCapability,
 } from "@/lib/trainingPlanAdjustment";
+import { requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
+import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import TrainingAdjustmentDiffSummary, {
@@ -895,10 +896,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         return;
       }
       setProfile(refreshedProfile);
-      const successDate = formatLocalDate(result.metadata.updatedAt ?? new Date().toISOString()) ?? formatLocalDate(new Date().toISOString()) ?? new Date().toLocaleDateString();
+      const successDate = formatLocalDate(adjustmentPreviewMetadata?.updatedAt ?? new Date().toISOString()) ?? formatLocalDate(new Date().toISOString()) ?? new Date().toLocaleDateString();
       setAdjustmentSuccess({
         at: successDate,
-        period: resolvePeriodText(result.metadata),
+        period: resolvePeriodText(adjustmentPreviewMetadata ?? {}),
       });
       setAdjustmentDiff(buildTrainingAdjustmentDiff(previousPlan, result.profile.trainingPlan));
       setAdjustmentStatus("success");
@@ -1720,6 +1721,23 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           </div>
         </div>
       )}
+
+      <AiPlanPreviewModal
+        open={Boolean(adjustmentPreviewPlan)}
+        plan={adjustmentPreviewPlan}
+        title={t("tracking.adjustmentPreviewTitle")}
+        description={t("tracking.adjustmentPreviewSubtitle")}
+        cancelLabel={t("tracking.adjustmentPreviewCancel")}
+        confirmLabel={t("tracking.adjustmentPreviewConfirm")}
+        savingLabel={t("tracking.adjustmentPreviewConfirming")}
+        durationUnit={t("training.minutesLabel")}
+        onClose={() => {
+          setAdjustmentPreviewPlan(null);
+          setAdjustmentPreviewMetadata(null);
+        }}
+        onConfirm={confirmApplyAdjustment}
+        isSaving={adjustmentStatus === "loading"}
+      />
     </div>
   );
 }

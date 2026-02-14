@@ -556,7 +556,15 @@
     "bodyFatEmptySubtitle": "Log a check-in with body fat to see the trend.",
     "chartError": "We couldn't load progress.",
     "errorTitle": "We couldn't load your progress",
-    "progressEmptyHint": "Log a check-in to see your trend."
+    "progressEmptyHint": "Log a check-in to see your trend.",
+    "aiWeeklySummaryTitle": "Weekly AI summary",
+    "aiWeeklySummarySubtitle": "Pro/Gym weekly recap based on your available AI insights.",
+    "aiWeeklySummaryLockedTitle": "Pro or Gym required",
+    "aiWeeklySummaryLockedDescription": "Upgrade to Pro or Gym to unlock weekly AI summaries on your dashboard.",
+    "aiWeeklySummaryErrorTitle": "Weekly summary unavailable",
+    "aiWeeklySummaryErrorDescription": "We could not load your weekly AI summary right now.",
+    "aiWeeklySummaryEmptyTitle": "No weekly AI summary yet",
+    "aiWeeklySummaryEmptyDescription": "A weekly AI summary endpoint is not available for your account yet."
   },
   "workouts": {
     "newWorkout": "New workout",
@@ -1077,7 +1085,14 @@
       "dumbbellRomanianDeadlift": "Dumbbell Romanian deadlift",
       "swissBallLegCurl": "Swiss ball leg curl",
       "inclineDumbbellPress": "Incline dumbbell press"
-    }
+    },
+    "aiPreviewReady": "AI plan ready for review.",
+    "aiPreviewTitle": "Review AI plan before saving",
+    "aiPreviewSubtitle": "Check the suggested sessions and confirm to save this plan.",
+    "aiPreviewCancel": "Cancel",
+    "aiPreviewConfirm": "Confirm and save",
+    "aiPreviewConfirming": "Saving plan...",
+    "aiInvalidOutput": "The AI response was invalid. Please retry generation."
   },
   "profile": {
     "formTitle": "Profile and metrics",
