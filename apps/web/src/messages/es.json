@@ -2076,6 +2076,7 @@
         "title": "Solicitudes de ingreso al gimnasio",
         "description": "Revisa solicitudes pendientes de membresía de gimnasio y aprueba o rechaza cuando exista soporte de backend."
       }
-    }
+    },
+    "notAvailableYet": "No disponible todavía"
   }
 }
