@@ -3,12 +3,9 @@ export type TrainerExerciseCapabilities = {
   canUploadMedia: boolean;
 };
 
-async function supportsReadExercises(): Promise<boolean> {
+async function supportsExercisesRead(): Promise<boolean> {
   try {
-    const response = await fetch("/api/exercises?limit=1", {
-      method: "GET",
-      cache: "no-store",
-    });
+    const response = await fetch("/api/exercises?limit=1", { method: "GET", cache: "no-store" });
     return response.ok;
   } catch {
     return false;
@@ -16,13 +13,10 @@ async function supportsReadExercises(): Promise<boolean> {
 }
 
 export async function auditTrainerExerciseCapabilities(): Promise<TrainerExerciseCapabilities> {
-  const canCreateExercise = false;
-  const canUploadMedia = false;
-
-  await supportsReadExercises();
+  const canReadExercises = await supportsExercisesRead();
 
   return {
-    canCreateExercise,
-    canUploadMedia,
+    canCreateExercise: canReadExercises,
+    canUploadMedia: false,
   };
 }

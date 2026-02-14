@@ -26,9 +26,9 @@ function collectProfileCandidates(profile: unknown): UnknownRecord[] {
   const nestedKeys: Array<keyof UnknownRecord> = ["user", "data", "profile"];
 
   for (const key of nestedKeys) {
-    const value = profile[key];
-    if (isRecord(value)) {
-      candidates.push(value);
+    const candidate = profile[key];
+    if (isRecord(candidate)) {
+      candidates.push(candidate);
     }
   }
 
@@ -37,12 +37,12 @@ function collectProfileCandidates(profile: unknown): UnknownRecord[] {
 
 function collectRoleTokens(profile: unknown): string[] {
   const roleTokens: string[] = [];
+  const candidates = collectProfileCandidates(profile);
 
-  for (const candidate of collectProfileCandidates(profile)) {
+  for (const candidate of candidates) {
     if (typeof candidate.role === "string") {
       roleTokens.push(candidate.role);
     }
-
     roleTokens.push(...getStringArray(candidate.roles));
   }
 
@@ -50,13 +50,13 @@ function collectRoleTokens(profile: unknown): string[] {
 }
 
 function collectPermissionTokens(profile: unknown): string[] {
-  const permissions: string[] = [];
+  const permissionTokens: string[] = [];
 
   for (const candidate of collectProfileCandidates(profile)) {
-    permissions.push(...getStringArray(candidate.permissions));
+    permissionTokens.push(...getStringArray(candidate.permissions));
   }
 
-  return permissions.map((token) => token.toUpperCase());
+  return permissionTokens.map((token) => token.toUpperCase());
 }
 
 export function getRoleFlags(profile: unknown): RoleFlags {
