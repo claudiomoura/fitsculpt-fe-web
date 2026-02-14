@@ -1749,7 +1749,19 @@
     "placeholderStatus": "Sin estado disponible",
     "supportDescription": "Accede al canal de soporte disponible para tu entorno.",
     "supportAction": "Contactar soporte",
-    "supportPlaceholder": "No hay un canal de soporte disponible en este entorno."
+    "supportPlaceholder": "No hay un canal de soporte disponible en este entorno.",
+    "planDescription": "Funciones incluidas según tu plan actual.",
+    "planUnavailable": "La información del plan no está disponible ahora.",
+    "tier": {
+      "free": "FREE",
+      "pro": "PRO",
+      "gym": "GYM"
+    },
+    "features": {
+      "canUseAI": "Usar herramientas de IA",
+      "hasProSupport": "Soporte prioritario",
+      "hasGymAccess": "Funciones de membresía de gimnasio"
+    }
   },
   "settings": {
     "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",
@@ -1773,7 +1785,9 @@
         "title": "Facturación",
         "description": "Revisa tu plan y gestiona tu suscripción.",
         "action": "Abrir facturación",
-        "statusLabel": "El estado del plan se muestra en Facturación cuando hay datos reales."
+        "statusLabel": "El estado del plan se muestra en Facturación cuando hay datos reales.",
+        "currentTier": "Plan actual: {tier}",
+        "unavailable": "Información del plan no disponible."
       },
       "notifications": {
         "title": "Notificaciones",

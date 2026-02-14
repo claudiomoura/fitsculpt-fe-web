@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 
 type SettingsSection = "account" | "profile" | "billing" | "notifications" | "support";
@@ -16,6 +17,7 @@ export default function SettingsClient() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const { entitlements } = useAuthEntitlements();
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
 
@@ -67,7 +69,10 @@ export default function SettingsClient() {
         description: t("settings.sections.billing.description"),
         ctaLabel: t("settings.sections.billing.action"),
         href: "/app/settings/billing",
-        statusLabel: t("settings.sections.billing.statusLabel"),
+        statusLabel:
+          entitlements.status === "known"
+            ? `${t("settings.sections.billing.currentTier").replace("{tier}", t(`billing.tier.${entitlements.tier.toLowerCase()}`))}`
+            : t("settings.sections.billing.unavailable"),
       },
       notifications: {
         title: t("settings.sections.notifications.title"),
@@ -81,7 +86,7 @@ export default function SettingsClient() {
         action: t("settings.sections.support.action"),
       },
     }),
-    [profileName, t]
+    [entitlements, profileName, t]
   );
 
   if (isLoading) {
