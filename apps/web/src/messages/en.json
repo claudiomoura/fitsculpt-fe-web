@@ -34,7 +34,8 @@
     "nutritionEditor": "Nutrition editor",
     "legacyProfile": "Legacy profile",
     "workoutLibrary": "Workout library",
-    "recipeLibrary": "Recipe library"
+    "recipeLibrary": "Recipe library",
+    "gymJoinRequests": "Gym join requests"
   },
   "navSections": {
     "summary": "Summary",
@@ -1512,7 +1513,16 @@
     "tokensAdd": "+ Add",
     "tokensSub": "- Remove",
     "tokensSet": "Set",
-    "updateAllowance": "Update allowance"
+    "updateAllowance": "Update allowance",
+    "gymRequestsTitle": "Gym join requests",
+    "gymRequestsSubtitle": "Review pending membership requests for your gym.",
+    "gymRequestsLoading": "Loading gym join requests...",
+    "gymRequestsRequiresImplementation": "Requires implementation",
+    "gymRequestsError": "We could not load gym join requests.",
+    "gymRequestsRetry": "Retry",
+    "gymRequestsEmpty": "No pending gym join requests.",
+    "gymRequestsAccept": "Accept",
+    "gymRequestsReject": "Reject"
   },
   "library": {
     "loadError": "We couldn't load the exercise.",
@@ -2022,6 +2032,10 @@
       "profile": {
         "title": "Profile",
         "description": "User profile as admin reference."
+      },
+      "adminGymRequests": {
+        "title": "Gym join requests",
+        "description": "Review pending gym membership requests and approve or reject when backend support is available."
       }
     }
   }

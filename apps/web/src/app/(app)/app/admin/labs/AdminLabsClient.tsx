@@ -15,6 +15,7 @@ type LabItem = {
 const LAB_ITEMS: LabItem[] = [
   { id: "adminDashboard", href: "/app/admin", status: "read-only" },
   { id: "adminUsers", href: "/app/admin/users", status: "read-only" },
+  { id: "adminGymRequests", href: "/app/admin/gym-requests", status: "sem backend" },
   { id: "trainerHome", href: "/app/trainer", status: "beta" },
   { id: "trainerExercises", href: "/app/trainer/exercises", status: "beta" },
   { id: "trainerExerciseCreate", href: "/app/trainer/exercises/new", status: "beta" },
