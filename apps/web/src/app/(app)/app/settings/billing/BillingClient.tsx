@@ -1,11 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { Badge } from "@/components/ui/Badge";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
@@ -180,60 +178,38 @@ export default function BillingClient() {
 
       {loading ? <LoadingState ariaLabel={t("billing.loadingStatus")} showCard={false} /> : null}
 
-      {!loading && error && !profile ? (
+      {!loading && error ? (
         <ErrorState
           title={t("billing.loadError")}
           retryLabel={t("ui.retry")}
-          onRetry={() => void loadProfile()}
+          onRetry={() => void reload()}
           wrapInCard
           ariaLabel={t("billing.loadError")}
         />
       ) : null}
 
-      {!loading && !error && !profile ? (
-        <EmptyState
-          title={t("billing.title")}
-          description={t("billing.subtitle")}
-          wrapInCard
-          ariaLabel={t("billing.title")}
-          actions={[
-            {
-              label: t("billing.upgradePro"),
-              onClick: handleCheckout,
-              disabled: checkoutDisabled,
-            },
-          ]}
-        />
-      ) : null}
-
-      {!loading && profile ? (
+      {!loading && !error ? (
         <div className="stack-md">
           <Card>
             <CardHeader>
               <CardTitle>{t("billing.currentPlanLabel")}</CardTitle>
-              <CardDescription>{t("billing.stripeStatusLabel")}</CardDescription>
+              <CardDescription>{t("billing.planDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="stack-sm">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <Badge variant={isPro ? "success" : "muted"}>{hasPlan ? profile.plan : t("billing.placeholderPlan")}</Badge>
-                <Badge variant={resolveStatusBadgeVariant(hasSubscriptionStatus ? profile.subscriptionStatus : null)}>
-                  {hasSubscriptionStatus ? resolveStatusLabel(profile.subscriptionStatus, t) : t("billing.placeholderStatus")}
-                </Badge>
-              </div>
-              <p className="muted">
-                {t("billing.tokenRenewalLabel")}: {formatDate(profile.tokensExpiresAt)}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("billing.aiTokensLabel")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
-                {typeof profile.tokens === "number" ? profile.tokens : t("ui.notAvailable")}
-              </p>
+              {entitlements.status === "known" ? (
+                <>
+                  <Badge variant={entitlements.tier === "FREE" ? "muted" : "success"}>
+                    {t(`billing.tier.${entitlements.tier.toLowerCase()}`)}
+                  </Badge>
+                  <ul className="m-0" style={{ paddingLeft: 20 }}>
+                    <li>{`${t("billing.features.canUseAI")}: ${entitlements.features.canUseAI ? t("ui.yes") : t("ui.no")}`}</li>
+                    <li>{`${t("billing.features.hasProSupport")}: ${entitlements.features.hasProSupport ? t("ui.yes") : t("ui.no")}`}</li>
+                    <li>{`${t("billing.features.hasGymAccess")}: ${entitlements.features.hasGymAccess ? t("ui.yes") : t("ui.no")}`}</li>
+                  </ul>
+                </>
+              ) : (
+                <p className="muted m-0">{t("billing.planUnavailable")}</p>
+              )}
             </CardContent>
           </Card>
 
@@ -277,17 +253,6 @@ export default function BillingClient() {
               )}
             </CardContent>
           </Card>
-
-          {error ? <p className="muted">{error}</p> : null}
-
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-            <Button onClick={handleCheckout} loading={action === "checkout"} disabled={checkoutDisabled}>
-              {action === "checkout" ? t("billing.redirecting") : t("billing.upgradePro")}
-            </Button>
-            <Button variant="secondary" onClick={handlePortal} loading={action === "portal"} disabled={portalDisabled}>
-              {action === "portal" ? t("billing.opening") : t("billing.manageSubscription")}
-            </Button>
-          </div>
         </div>
       ) : null}
     </section>

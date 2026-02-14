@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 
 type Exercise = {
   id?: string;
@@ -234,7 +235,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
   const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [aiEntitled, setAiEntitled] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -304,14 +305,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       if (!response.ok) {
         return;
       }
-      const data = (await response.json()) as {
-        subscriptionPlan?: "FREE" | "PRO";
+      const data = (await response.json()) as AiEntitlementProfile & {
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
       setSubscriptionPlan(data.subscriptionPlan ?? null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
+      setAiEntitled(hasAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
     } catch {
     }
@@ -690,26 +691,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     void handleAiPlan();
   };
 
-  const handleUpgrade = async () => {
-    setCheckoutLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/billing/checkout", { method: "POST" });
-      if (!response.ok) {
-        throw new Error(t("checkoutError"));
-      }
-      const payload = (await response.json()) as { url?: string };
-      if (!payload.url) {
-        throw new Error(t("checkoutError"));
-      }
-      window.location.href = payload.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("checkoutError"));
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
-
   const handlePrevDay = () => {
     setSelectedDate((prev) => addDays(prev, -1));
   };
@@ -735,7 +716,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   const hasPlan = Boolean(visiblePlan?.days.length);
-  const isAiLocked = subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0;
+  const isAiLocked = !aiEntitled || (subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0);
   const isAiDisabled = aiLoading || isAiLocked || !form;
   const handleRetry = () => window.location.reload();
   const buildSetLines = (exercise: Exercise) => {
@@ -794,15 +775,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             {isAiLocked ? (
               <div className="feature-card mt-12">
                 <strong>{t("aiLockedTitle")}</strong>
-                <p className="muted mt-6">{t("aiLockedSubtitle")}</p>
-                <button
-                  type="button"
-                  className="btn mt-8"
-                  onClick={handleUpgrade}
-                  disabled={checkoutLoading}
-                >
-                  {checkoutLoading ? t("ui.loading") : t("aiLockedCta")}
-                </button>
+                <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
               </div>
             ) : null}
 
