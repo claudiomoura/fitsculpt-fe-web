@@ -35,7 +35,8 @@
     "legacyProfile": "Legacy profile",
     "workoutLibrary": "Workout library",
     "recipeLibrary": "Recipe library",
-    "gymJoinRequests": "Gym join requests"
+    "gymJoinRequests": "Gym join requests",
+    "gym": "Gym"
   },
   "navSections": {
     "summary": "Summary",

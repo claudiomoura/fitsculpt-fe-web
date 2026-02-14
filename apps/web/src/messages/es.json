@@ -35,7 +35,8 @@
     "legacyProfile": "Perfil legacy",
     "workoutLibrary": "Biblioteca de entrenamientos",
     "recipeLibrary": "Biblioteca de recetas",
-    "gymJoinRequests": "Solicitudes de ingreso al gimnasio"
+    "gymJoinRequests": "Solicitudes de ingreso al gimnasio",
+    "gym": "Gimnasio"
   },
   "navSections": {
     "summary": "Resumen",

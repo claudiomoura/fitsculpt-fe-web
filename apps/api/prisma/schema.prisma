@@ -42,6 +42,7 @@ model User {
   workouts                Workout[]
   nutritionPlans          NutritionPlan[]
   trainingPlans           TrainingPlan[]
+  gymMemberships          GymMembership[]
 
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
@@ -387,6 +388,33 @@ model AiContent {
   @@index([userId])
 }
 
+model Gym {
+  id          String          @id @default(cuid())
+  name        String
+  joinCode    String          @unique
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  memberships GymMembership[]
+
+  @@index([name])
+}
+
+model GymMembership {
+  id        String              @id @default(cuid())
+  gymId     String
+  userId    String
+  status    GymMembershipStatus
+  role      GymRole
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  gym       Gym                 @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gymId, userId])
+  @@index([gymId, status])
+  @@index([userId, status])
+}
+
 enum Role {
   USER
   ADMIN
@@ -395,4 +423,16 @@ enum Role {
 enum SubscriptionPlan {
   FREE
   PRO
+}
+
+enum GymMembershipStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+enum GymRole {
+  ADMIN
+  TRAINER
+  MEMBER
 }
