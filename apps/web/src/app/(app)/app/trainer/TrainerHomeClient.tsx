@@ -3,19 +3,30 @@
 import Link from "next/link";
 import { EmptyState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import { canAccessTrainerGymArea } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
+import { useGymMembership } from "@/lib/useGymMembership";
 
 export default function TrainerHomeClient() {
   const { t } = useLanguage();
   const { isCoach, isAdmin, isLoading: accessLoading } = useAccess();
+  const { membership, isLoading: gymLoading } = useGymMembership();
 
-  const canAccessTrainer = isCoach || isAdmin;
+  const canAccessTrainer = canAccessTrainerGymArea({ isCoach, isAdmin, membership });
 
-  if (accessLoading) {
+  if (accessLoading || gymLoading) {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
   }
 
   if (!canAccessTrainer) {
+    if (membership.state === "not_in_gym") {
+      return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
+    }
+
+    if (membership.state === "unknown") {
+      return <EmptyState title={t("trainer.gymUnknownTitle")} description={t("trainer.gymUnknownDesc")} wrapInCard icon="info" />;
+    }
+
     return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;
   }
 

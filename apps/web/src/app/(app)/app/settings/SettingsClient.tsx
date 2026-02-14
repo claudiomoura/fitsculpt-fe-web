@@ -6,6 +6,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
+import { extractGymMembership } from "@/lib/gymMembership";
 
 type SettingsSection = "account" | "profile" | "billing" | "notifications" | "support";
 
@@ -48,6 +49,7 @@ export default function SettingsClient() {
   }, []);
 
   const profileName = (profile?.name ?? "").trim();
+  const gymMembership = extractGymMembership(profile);
 
   const sections = useMemo(
     () => ({
@@ -67,7 +69,12 @@ export default function SettingsClient() {
         description: t("settings.sections.billing.description"),
         ctaLabel: t("settings.sections.billing.action"),
         href: "/app/settings/billing",
-        statusLabel: t("settings.sections.billing.statusLabel"),
+        statusLabel:
+          gymMembership.state === "in_gym"
+            ? t("settings.sections.billing.gymStatusYes")
+            : gymMembership.state === "not_in_gym"
+              ? t("settings.sections.billing.gymStatusNo")
+              : t("settings.sections.billing.gymStatusUnknown"),
       },
       notifications: {
         title: t("settings.sections.notifications.title"),
@@ -81,7 +88,7 @@ export default function SettingsClient() {
         action: t("settings.sections.support.action"),
       },
     }),
-    [profileName, t]
+    [gymMembership.state, profileName, t]
   );
 
   if (isLoading) {

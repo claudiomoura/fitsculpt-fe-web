@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { useLanguage } from "@/context/LanguageProvider";
+import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
+import { useAccess } from "@/lib/useAccess";
 
 type BillingProfile = {
   plan?: "FREE" | "PRO";
@@ -57,7 +59,9 @@ export default function BillingClient() {
   const searchParams = useSearchParams();
   const { t, locale } = useLanguage();
 
+  const { isAdmin, isDev } = useAccess();
   const [profile, setProfile] = useState<BillingProfile | null>(null);
+  const [gymMembership, setGymMembership] = useState<GymMembership>({ state: "unknown", gymId: null, gymName: null });
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<BillingAction>(null);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +97,14 @@ export default function BillingClient() {
 
       const data = (await response.json()) as BillingProfile;
       setProfile(data);
+
+      const meResponse = await fetch("/api/auth/me", { cache: "no-store" });
+      if (meResponse.ok) {
+        const mePayload = (await meResponse.json()) as unknown;
+        setGymMembership(extractGymMembership(mePayload));
+      } else {
+        setGymMembership({ state: "unknown", gymId: null, gymName: null });
+      }
 
       if (shouldSync) {
         router.replace("/app/settings/billing");
@@ -157,6 +169,7 @@ export default function BillingClient() {
 
   const checkoutDisabled = loading || action === "portal" || Boolean(isPro);
   const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
+  const canSeeDevNote = isAdmin || isDev;
 
   return (
     <section className="stack-md" aria-live="polite">
@@ -221,6 +234,31 @@ export default function BillingClient() {
               <p style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>
                 {typeof profile.tokens === "number" ? profile.tokens : t("ui.notAvailable")}
               </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("billing.gym.title")}</CardTitle>
+            </CardHeader>
+            <CardContent className="stack-sm">
+              {gymMembership.state === "in_gym" ? (
+                <>
+                  <Badge variant="success">{t("billing.gym.statusYes")}</Badge>
+                  {gymMembership.gymName ? <p className="muted m-0">{`${t("billing.gym.nameLabel")}: ${gymMembership.gymName}`}</p> : null}
+                  {gymMembership.gymId ? <p className="muted m-0">{`${t("billing.gym.idLabel")}: ${gymMembership.gymId}`}</p> : null}
+                </>
+              ) : null}
+
+              {gymMembership.state === "not_in_gym" ? (
+                <EmptyState title={t("billing.gym.statusNo")} description={t("billing.gym.notInGymDescription")} icon="info" />
+              ) : null}
+
+              {gymMembership.state === "unknown" ? (
+                <EmptyState title={t("billing.gym.unknownTitle")} description={t("billing.gym.unknownDescription")} icon="info" />
+              ) : null}
+
+              {canSeeDevNote ? <p className="muted m-0">{t("billing.gym.linkRequiresImplementation")}</p> : null}
             </CardContent>
           </Card>
 
