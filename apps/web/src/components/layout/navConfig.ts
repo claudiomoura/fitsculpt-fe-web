@@ -7,6 +7,8 @@ export type NavItem = {
   href: string;
   labelKey: string;
   meta?: string;
+  disabled?: boolean;
+  disabledNoteKey?: string;
 };
 
 export type NavSectionGroup = {
@@ -117,6 +119,28 @@ export const sidebarAdmin: NavSectionGroup[] = [
   },
 ];
 
+export const sidebarTrainer: NavSectionGroup[] = [
+  {
+    id: "training",
+    labelKey: "navSections.trainer",
+    items: [
+      { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
+      {
+        id: "trainer-clients",
+        href: "/app/trainer/clients",
+        labelKey: "nav.trainerClients",
+        disabled: true,
+        disabledNoteKey: "common.notAvailableYet",
+      },
+      {
+        id: "trainer-exercises",
+        href: "/app/trainer/exercises",
+        labelKey: "nav.trainerExercises",
+      },
+    ],
+  },
+];
+
 export const sidebarDevelopment: NavSectionGroup[] = [
   {
     id: "development",
@@ -185,6 +209,8 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         href: "/app/admin/gym-requests",
         labelKey: "nav.gymJoinRequests",
         meta: "/app/admin/gym-requests",
+        disabled: true,
+        disabledNoteKey: "common.notAvailableYet",
       },
       {
         id: "dev-admin-preview",
@@ -222,5 +248,5 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
     return [...userSections, ...sidebarDevelopment];
   }
 
-  return [...userSections, ...sidebarAdmin, ...sidebarDevelopment];
+  return [...userSections, ...sidebarAdmin, ...sidebarTrainer, ...sidebarDevelopment];
 }

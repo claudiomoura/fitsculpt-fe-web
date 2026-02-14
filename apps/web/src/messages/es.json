@@ -36,7 +36,8 @@
     "workoutLibrary": "Biblioteca de entrenamientos",
     "recipeLibrary": "Biblioteca de recetas",
     "gymJoinRequests": "Solicitudes de ingreso al gimnasio",
-    "gym": "Gimnasio"
+    "gym": "Gimnasio",
+    "labs": "Labs"
   },
   "navSections": {
     "summary": "Resumen",
@@ -44,7 +45,8 @@
     "nutrition": "Nutrición",
     "account": "Cuenta",
     "admin": "Admin",
-    "development": "En desarrollo"
+    "development": "En desarrollo",
+    "trainer": "Entrenador"
   },
   "ui": {
     "menu": "Menú",
