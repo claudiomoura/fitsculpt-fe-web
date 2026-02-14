@@ -66,11 +66,20 @@ export default function AdminLabsClient() {
             <span className="pill">{t(getStatusKey(item.status))}</span>
           </div>
           <p className="muted" style={{ margin: 0 }}>{t(`adminLabs.items.${item.id}.description`)}</p>
-          <div>
-            <Link href={item.href} className="btn secondary">
-              {t("adminLabs.statusLabel")}: {t(getStatusKey(item.status))}
-            </Link>
-          </div>
+          {item.status === "sem backend" ? (
+            <div className="form-stack" style={{ gap: 4 }}>
+              <button type="button" className="btn secondary" disabled>
+                {t("adminLabs.statusLabel")}: {t(getStatusKey(item.status))}
+              </button>
+              <p className="muted" style={{ margin: 0 }}>{t("adminLabs.notAvailableYet")}</p>
+            </div>
+          ) : (
+            <div>
+              <Link href={item.href} className="btn secondary">
+                {t("adminLabs.statusLabel")}: {t(getStatusKey(item.status))}
+              </Link>
+            </div>
+          )}
         </li>
       ))}
     </ul>

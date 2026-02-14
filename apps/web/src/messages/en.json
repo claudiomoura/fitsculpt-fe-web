@@ -2073,6 +2073,7 @@
         "title": "Gym join requests",
         "description": "Review pending gym membership requests and approve or reject when backend support is available."
       }
-    }
+    },
+    "notAvailableYet": "Not available yet"
   }
 }
