@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
@@ -159,7 +158,6 @@ function ProgressRing({
 
 export default function DashboardClient() {
   const { t, locale } = useLanguage();
-  const { entitlements, loading: entitlementsLoading } = useAuthEntitlements();
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
@@ -611,28 +609,13 @@ export default function DashboardClient() {
               <strong>{t("dashboard.aiWeeklySummaryTitle")}</strong>
               <p className="muted mt-6">{t("dashboard.aiWeeklySummarySubtitle")}</p>
             </div>
-            {entitlementsLoading ? (
-              <div className="stack-sm" aria-busy="true" aria-live="polite">
-                <Skeleton variant="line" className="w-45" />
-                <Skeleton variant="line" className="w-70" />
+            <div className="status-card">
+              <div className="inline-actions-sm">
+                <Icon name="info" />
+                <strong>{t("access.notAvailableTitle")}</strong>
               </div>
-            ) : entitlements.status !== "known" || !entitlements.features.hasProSupport ? (
-              <div className="status-card">
-                <div className="inline-actions-sm">
-                  <Icon name="info" />
-                  <strong>{t("dashboard.aiWeeklySummaryLockedTitle")}</strong>
-                </div>
-                <p className="muted">{t("dashboard.aiWeeklySummaryLockedDescription")}</p>
-              </div>
-            ) : (
-              <div className="status-card">
-                <div className="inline-actions-sm">
-                  <Icon name="info" />
-                  <strong>{t("dashboard.aiWeeklySummaryEmptyTitle")}</strong>
-                </div>
-                <p className="muted">{t("dashboard.aiWeeklySummaryEmptyDescription")}</p>
-              </div>
-            )}
+              <p className="muted">{t("access.notAvailableDescription")}</p>
+            </div>
           </div>
         </div>
       </section>
