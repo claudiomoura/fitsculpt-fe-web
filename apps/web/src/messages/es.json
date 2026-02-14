@@ -1442,12 +1442,16 @@
     "adjustmentRetryAria": "Reintentar aplicar el ajuste",
     "adjustmentBack": "Volver",
     "adjustmentBackAria": "Volver al formulario de check-in",
-    "adjustmentPreviewTitle": "Revisa el ajuste antes de aplicar",
-    "adjustmentPreviewSubtitle": "Confirma los cambios sugeridos antes de guardarlos.",
-    "adjustmentPreviewCancel": "Cancelar",
-    "adjustmentPreviewConfirm": "Confirmar ajuste",
-    "adjustmentPreviewConfirming": "Aplicando ajuste...",
-    "adjustmentInvalidOutput": "El formato de respuesta de IA fue inválido. Reintenta generar un nuevo ajuste."
+    "adjustmentChecking": "Comprobando disponibilidad del ajuste...",
+    "adjustmentProFeatureTitle": "Función Pro",
+    "adjustmentProFeatureBody": "Los ajustes semanales con IA están disponibles en planes Pro. Sigue registrando check-ins para preparar tu próxima actualización.",
+    "adjustmentNeedsProfile": "Completa tus preferencias de entrenamiento para desbloquear los ajustes semanales con IA.",
+    "adjustmentChangesTitle": "Qué cambió esta semana",
+    "adjustmentChangesEmpty": "No se detectaron cambios estructurales importantes en la vista previa semanal del plan.",
+    "adjustmentChangedDays": "Días actualizados: {count}",
+    "adjustmentAddedExercises": "Ejercicios añadidos: {count}",
+    "adjustmentRemovedExercises": "Ejercicios eliminados: {count}",
+    "adjustmentDurationDelta": "Cambio total de duración: {minutes} min"
   },
   "onboarding": {
     "title": "Bienvenido a FitSculpt",
@@ -1764,7 +1768,7 @@
     "tokensRemaining": "Tokens IA restantes:",
     "tokensReset": "Renueva",
     "insufficientTokens": "No tienes tokens suficientes para usar la IA.",
-    "notPro": "Necesitas PRO para usar la IA."
+    "notPro": "La generación con IA es una función Pro. Mejora a Pro para usarla."
   },
   "billing": {
     "title": "Facturación",

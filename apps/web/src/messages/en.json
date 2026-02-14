@@ -1439,12 +1439,16 @@
     "adjustmentRetryAria": "Retry applying the adjustment",
     "adjustmentBack": "Back",
     "adjustmentBackAria": "Go back to the check-in form",
-    "adjustmentPreviewTitle": "Review adjustment before applying",
-    "adjustmentPreviewSubtitle": "Please confirm the suggested plan changes before we save them.",
-    "adjustmentPreviewCancel": "Cancel",
-    "adjustmentPreviewConfirm": "Confirm adjustment",
-    "adjustmentPreviewConfirming": "Applying adjustment...",
-    "adjustmentInvalidOutput": "The AI response format was invalid. Retry to generate a new adjustment."
+    "adjustmentChecking": "Checking adjustment availability...",
+    "adjustmentProFeatureTitle": "Pro feature",
+    "adjustmentProFeatureBody": "Weekly AI adjustments are available on Pro plans. Keep logging check-ins to prepare your next update.",
+    "adjustmentNeedsProfile": "Complete your training preferences to unlock weekly AI adjustments.",
+    "adjustmentChangesTitle": "What changed this week",
+    "adjustmentChangesEmpty": "No major structural changes were detected in your weekly plan preview.",
+    "adjustmentChangedDays": "Days updated: {count}",
+    "adjustmentAddedExercises": "Exercises added: {count}",
+    "adjustmentRemovedExercises": "Exercises removed: {count}",
+    "adjustmentDurationDelta": "Total duration change: {minutes} min"
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",
@@ -1761,7 +1765,7 @@
     "tokensRemaining": "AI tokens remaining:",
     "tokensReset": "Resets",
     "insufficientTokens": "You don't have enough tokens to use AI.",
-    "notPro": "You need PRO to use AI."
+    "notPro": "AI generation is a Pro feature. Upgrade to Pro to use it."
   },
   "billing": {
     "title": "Billing",
