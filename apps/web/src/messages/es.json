@@ -1443,7 +1443,22 @@
     "sectionMetrics": "Últimas métricas",
     "finish": "Guardar y terminar",
     "saving": "Guardando...",
-    "saved": "Perfil actualizado."
+    "saved": "Perfil actualizado.",
+    "loadingState": "Cargando tus datos de onboarding...",
+    "errorTitle": "No pudimos cargar el onboarding",
+    "errorSubtitle": "Reintenta para continuar tu configuración.",
+    "retry": "Reintentar",
+    "emptyTitle": "No encontramos datos de onboarding",
+    "emptySubtitle": "Tu perfil aún no tiene una configuración guardada. Inicia el onboarding para continuar.",
+    "emptyAction": "Iniciar onboarding",
+    "objectiveTitle": "Elige tu objetivo",
+    "levelTitle": "Define tu nivel",
+    "preferencesTitle": "Define tus preferencias",
+    "stepCounter": "Paso {current} de {total}",
+    "saveError": "Todavía no pudimos guardar tu onboarding. Reintenta por favor.",
+    "successTitle": "Onboarding completado",
+    "successSubtitle": "Tu objetivo, nivel y preferencias se guardaron correctamente.",
+    "continue": "Continuar"
   },
   "admin": {
     "unauthorized": "No tienes acceso a esta sección.",
