@@ -37,7 +37,7 @@ export default function AppSidebar() {
                   const active = isActive(item.href);
                   if (item.disabled) {
                     return (
-                      <div key={item.id} className="sidebar-link" aria-disabled="true">
+                      <div key={`${section.id}:${item.id}`} className="sidebar-link" aria-disabled="true">
                         <span>{t(item.labelKey)}</span>
                         {item.disabledNoteKey ? <span className="text-xs text-[var(--text-muted)]">{t(item.disabledNoteKey)}</span> : null}
                       </div>
@@ -46,7 +46,7 @@ export default function AppSidebar() {
 
                   return (
                     <Link
-                      key={item.id}
+                      key={`${section.id}:${item.id}`}
                       href={item.href}
                       className={`sidebar-link ${active ? "is-active" : ""}`}
                       aria-current={active ? "page" : undefined}
