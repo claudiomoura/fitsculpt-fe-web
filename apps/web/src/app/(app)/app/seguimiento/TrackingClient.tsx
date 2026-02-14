@@ -1263,7 +1263,12 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
         <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
           {checkins.length === 0 ? (
-            <p className="muted">{t("profile.checkinEmpty")}</p>
+            <div className="empty-state">
+              <p className="muted">{t("profile.checkinEmpty")}</p>
+              <a className="btn secondary fit-content" href="#weight-entry">
+                {t("tracking.weightEntryCta")}
+              </a>
+            </div>
           ) : (
             checkins.map((entry) => (
               <div key={entry.id} className="feature-card">
@@ -1347,7 +1352,12 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             </button>
           </div>
         ) : checkinChart.length === 0 ? (
-          <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
+          <div className="empty-state">
+            <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
+            <a className="btn secondary fit-content" href="#weight-entry">
+              {t("tracking.weightEntryCta")}
+            </a>
+          </div>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
             {checkinChart.map((point, index) => (

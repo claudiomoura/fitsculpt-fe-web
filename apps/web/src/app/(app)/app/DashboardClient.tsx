@@ -452,6 +452,14 @@ export default function DashboardClient() {
                       <strong>{t("dashboard.todayCaloriesErrorTitle")}</strong>
                     </div>
                     <p className="muted">{t("dashboard.todayCaloriesErrorDescription")}</p>
+                    <div className="inline-actions-sm">
+                      <Button variant="secondary" onClick={handleRetry}>
+                        {t("ui.retry")}
+                      </Button>
+                      <ButtonLink variant="ghost" href="/app/seguimiento">
+                        {t("dashboard.progressCta")}
+                      </ButtonLink>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -721,9 +729,14 @@ export default function DashboardClient() {
               </div>
               <p className="muted">{error}</p>
             </div>
-            <Button variant="secondary" onClick={handleRetry}>
-              {t("ui.retry")}
-            </Button>
+            <div className="inline-actions">
+              <Button variant="secondary" onClick={handleRetry}>
+                {t("ui.retry")}
+              </Button>
+              <ButtonLink variant="ghost" href="/app/seguimiento">
+                {t("dashboard.progressCta")}
+              </ButtonLink>
+            </div>
           </div>
         ) : checkins.length === 0 ? (
           <div className="empty-state dashboard-empty">
