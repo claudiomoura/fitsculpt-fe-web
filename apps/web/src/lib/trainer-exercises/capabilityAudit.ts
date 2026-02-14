@@ -3,30 +3,20 @@ export type TrainerExerciseCapabilities = {
   canUploadMedia: boolean;
 };
 
-async function supportsMethod(path: string, method: "POST") {
+async function supportsExercisesRead(): Promise<boolean> {
   try {
-    const response = await fetch(path, { method, cache: "no-store" });
-    return response.status !== 404 && response.status !== 405;
+    const response = await fetch("/api/exercises?limit=1", { method: "GET", cache: "no-store" });
+    return response.ok;
   } catch {
     return false;
   }
 }
 
 export async function auditTrainerExerciseCapabilities(): Promise<TrainerExerciseCapabilities> {
-  const canCreateExercise = await supportsMethod("/api/exercises", "POST");
-
-  const uploadCandidates = ["/api/exercises/upload", "/api/media/upload", "/api/uploads"];
-  let canUploadMedia = false;
-
-  for (const endpoint of uploadCandidates) {
-    if (await supportsMethod(endpoint, "POST")) {
-      canUploadMedia = true;
-      break;
-    }
-  }
+  const canReadExercises = await supportsExercisesRead();
 
   return {
-    canCreateExercise,
-    canUploadMedia,
+    canCreateExercise: canReadExercises,
+    canUploadMedia: false,
   };
 }

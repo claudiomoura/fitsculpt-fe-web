@@ -146,7 +146,7 @@ export default function AppNavBar() {
                       if (item.disabled) {
                         return (
                           <div
-                            key={item.id}
+                            key={`${section.id}:${item.id}`}
                             className="nav-drawer-link"
                             aria-disabled="true"
                           >
@@ -158,7 +158,7 @@ export default function AppNavBar() {
 
                       return (
                         <Link
-                          key={item.id}
+                          key={`${section.id}:${item.id}`}
                           href={item.href}
                           className={`nav-drawer-link ${active ? "is-active" : ""}`}
                           aria-current={active ? "page" : undefined}
@@ -187,7 +187,7 @@ export default function AppNavBar() {
                     if (item.disabled) {
                       return (
                         <div
-                          key={item.id}
+                          key={`${section.id}:${item.id}`}
                           className="nav-drawer-link"
                           aria-disabled="true"
                         >
@@ -199,7 +199,7 @@ export default function AppNavBar() {
 
                     return (
                       <Link
-                        key={item.id}
+                        key={`${section.id}:${item.id}`}
                         href={item.href}
                         className={`nav-drawer-link ${active ? "is-active" : ""}`}
                         aria-current={active ? "page" : undefined}

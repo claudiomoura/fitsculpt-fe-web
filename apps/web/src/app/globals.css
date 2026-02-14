@@ -1595,7 +1595,7 @@ label {
   left: 0;
   right: 0;
   bottom: var(--vv-offset-bottom);
-  width: 100vw;
+  width: 100%;
   overflow-x: hidden;
   height: var(--mobile-tab-bar-height);
   padding: 8px 12px calc(var(--mobile-tab-safe-area) + 8px);
