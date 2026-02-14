@@ -1622,7 +1622,7 @@ label {
   align-items: center;
   gap: 4px;
   min-height: 48px;
-  min-width: 44px;
+  min-width: 0;
   padding: 8px 6px;
   border-radius: 14px;
   color: var(--text-muted);
@@ -1670,6 +1670,25 @@ label {
 
 .mobile-tab-label {
   line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 360px) {
+  .mobile-tab-bar {
+    padding-inline: 8px;
+  }
+
+  .mobile-tab-bar-inner {
+    gap: 4px;
+  }
+
+  .mobile-tab {
+    padding-inline: 4px;
+    gap: 3px;
+  }
 }
 
 .mobile-tab-badge {
