@@ -26,7 +26,8 @@ function getExerciseMuscles(exercise: Exercise | ExerciseRecent) {
   const secondary = Array.isArray(exercise.secondaryMuscleGroups) ? exercise.secondaryMuscleGroups : [];
   const legacyPrimary = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
   const legacySecondary = Array.isArray(exercise.secondaryMuscles) ? exercise.secondaryMuscles : [];
-  return [...main, ...secondary, ...legacyPrimary, ...legacySecondary].filter(Boolean);
+  const muscles = [...main, ...secondary, ...legacyPrimary, ...legacySecondary].filter(Boolean);
+  return Array.from(new Set(muscles));
 }
 
 export default function ExerciseLibraryClient() {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -169,6 +171,15 @@ export default function BillingClient() {
   const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
   const hasGymSelectionEndpoint = false;
   const canSeeDevNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
+  const entitlements = {
+    status: "known" as const,
+    tier: isPro ? ("PRO" as const) : ("FREE" as const),
+    features: {
+      canUseAI: Boolean(isPro),
+      hasProSupport: Boolean(isPro),
+      hasGymAccess: Boolean(gymMembership.gymId),
+    },
+  };
 
   return (
     <section className="stack-md" aria-live="polite">
@@ -183,7 +194,7 @@ export default function BillingClient() {
         <ErrorState
           title={t("billing.loadError")}
           retryLabel={t("ui.retry")}
-          onRetry={() => void reload()}
+          onRetry={() => void loadProfile()}
           wrapInCard
           ariaLabel={t("billing.loadError")}
         />
