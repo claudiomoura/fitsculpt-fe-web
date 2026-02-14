@@ -25,6 +25,7 @@ type ClientRow = {
 
 type ClientsResponse = {
   users?: ClientRow[];
+  clients?: ClientRow[];
 };
 
 type LoadState = "loading" | "ready" | "error";
@@ -76,6 +77,41 @@ export default function TrainerClientContextClient() {
         if (!canAccess) return;
 
         setClientState("loading");
+        const trainerClientsResponse = await fetch("/api/trainer/clients", { cache: "no-store" });
+
+        if (trainerClientsResponse.ok) {
+          const trainerData = (await trainerClientsResponse.json()) as ClientsResponse;
+          if (!active) return;
+
+          if (!hasTrainerClientsCapability(trainerData)) {
+            setClient(null);
+            setClientState("ready");
+            return;
+          }
+
+          const users = Array.isArray(trainerData.users) ? trainerData.users : Array.isArray(trainerData.clients) ? trainerData.clients : [];
+          const selectedClient = users.find((user) => user.id === clientId && user.role !== "ADMIN") ?? null;
+          setClient(selectedClient);
+          setClientState("ready");
+          return;
+        }
+
+        const trainerEndpointUnavailable =
+          trainerClientsResponse.status === 404 || trainerClientsResponse.status === 405;
+
+        if (!trainerEndpointUnavailable) {
+          if (active) setClientState("error");
+          return;
+        }
+
+        if (!roleFlags.isAdmin) {
+          if (active) {
+            setClient(null);
+            setClientState("ready");
+          }
+          return;
+        }
+
         const clientsResponse = await fetch("/api/admin/users?page=1", { cache: "no-store" });
         if (!clientsResponse.ok) {
           if (active) setClientState("error");
@@ -91,7 +127,7 @@ export default function TrainerClientContextClient() {
           return;
         }
 
-        const users = Array.isArray(data.users) ? data.users : [];
+        const users = Array.isArray(data.users) ? data.users : Array.isArray(data.clients) ? data.clients : [];
         const selectedClient = users.find((user) => user.id === clientId && user.role !== "ADMIN") ?? null;
         setClient(selectedClient);
         setClientState("ready");
