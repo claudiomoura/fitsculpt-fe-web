@@ -1746,7 +1746,19 @@
     "placeholderStatus": "No status available",
     "supportDescription": "Access the support channel available for your environment.",
     "supportAction": "Contact support",
-    "supportPlaceholder": "There is no support channel available in this environment."
+    "supportPlaceholder": "There is no support channel available in this environment.",
+    "planDescription": "Features included in your current tier.",
+    "planUnavailable": "Plan info unavailable right now.",
+    "tier": {
+      "free": "FREE",
+      "pro": "PRO",
+      "gym": "GYM"
+    },
+    "features": {
+      "canUseAI": "Use AI tools",
+      "hasProSupport": "Priority support",
+      "hasGymAccess": "Gym membership features"
+    }
   },
   "settings": {
     "subtitle": "Manage your account preferences and next steps.",
@@ -1770,7 +1782,9 @@
         "title": "Billing",
         "description": "Review your plan and manage your subscription.",
         "action": "Open billing",
-        "statusLabel": "Plan status is shown in Billing when real data is available."
+        "statusLabel": "Plan status is shown in Billing when real data is available.",
+        "currentTier": "Current tier: {tier}",
+        "unavailable": "Plan info unavailable."
       },
       "notifications": {
         "title": "Notifications",
