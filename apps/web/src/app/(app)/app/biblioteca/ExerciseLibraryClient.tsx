@@ -26,7 +26,13 @@ function getExerciseMuscles(exercise: Exercise | ExerciseRecent) {
   const secondary = Array.isArray(exercise.secondaryMuscleGroups) ? exercise.secondaryMuscleGroups : [];
   const legacyPrimary = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
   const legacySecondary = Array.isArray(exercise.secondaryMuscles) ? exercise.secondaryMuscles : [];
-  return [...main, ...secondary, ...legacyPrimary, ...legacySecondary].filter(Boolean);
+
+  const raw = [...main, ...secondary, ...legacyPrimary, ...legacySecondary]
+    .filter((muscle): muscle is string => typeof muscle === "string")
+    .map((muscle) => muscle.trim())
+    .filter((muscle) => muscle.length > 0);
+
+  return Array.from(new Set(raw));
 }
 
 export default function ExerciseLibraryClient() {

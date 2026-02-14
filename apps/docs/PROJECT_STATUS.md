@@ -1,152 +1,213 @@
-FitSculpt – Project Status
+# FitSculpt – Project Status (Atualizado)
+Data: 2026-02-14  
+Branch de referência: `work` (reportado como consolidado após PR-1A..PR-5)  
+Owner: Founder/PM (FitSculpt)
 
-> Estado atual validado no branch `work` (última revisão documental): Sprint 03 ativo com foco em check-in semanal, progresso semanal e integração no Hoje, mantendo backend/contratos sem alterações.
+> Nota de rigor: este status reflete o que foi concluído nos PRs mencionados por ti (PR-1A, PR-1B, PR-2, PR-3, PR-4, PR-5). Se quiseres que eu marque “VALIDADO” com evidência, pede-me e eu preparo um checklist de comandos e outputs para colares aqui.
 
-## 1. Visão (North Star)
-FitSculpt é uma web app mobile-first de treino e nutrição, focada em UX premium, progressão clara e experiência comparável a apps líderes como FitnessAI ou Dr. Muscle.
+---
+
+## 0) Changelog recente (o que mudou desde a última versão)
+### P0 (Release e demo)
+- Build web voltou a ficar verde ao corrigir i18n (suporte a interpolação em `t(key, values)`), desbloqueando `next build`.
+- Biblioteca: correção de keys duplicadas em badges (dedupe de músculos) para eliminar warnings e instabilidade de render.
+- Tab bar mobile: removido overflow horizontal em ecrãs pequenos (320px), melhorando demo mobile.
+- Admin/dev: neutralização de navegação para features “sem backend”, evitando páginas “broken” durante demo.
+
+### Gym Pilot (vendível ASAP)
+- Backend: adicionado suporte real a Gyms, membership, join (pedido ou código), revisão de pedidos e listagem de membros.
+- Frontend: fluxo completo de join + painel admin/trainer com estados de loading/empty/error.
+- Atribuição de plano: admin atribui plano existente a membro, e o membro passa a ver o plano na experiência “Plan/Hoy”.
+
+---
+
+## 1) Visão (North Star)
+FitSculpt é uma web app mobile-first de treino e nutrição, com UX premium, progressão clara e experiência comparável a líderes como FitnessAI ou Dr. Muscle.
 
 ### Objetivo do MVP
 - Demonstrar valor real a utilizadores finais
-- Ter qualidade visual e UX suficiente para demos a utilizadores e investidores
-- Criar uma base sólida para futura evolução para app mobile nativa
+- Ter qualidade visual e UX suficiente para demos a utilizadores, investidores e ginásios pequenos
+- Garantir base técnica sólida para evoluir para app nativa e white-label mais tarde
 
 ---
 
-## 2. Estado atual do produto
+## 2) Estado atual do produto (snapshot executivo)
 
-### Snapshot técnico (ambiente dev/web)
-- Frontend em `apps/web` com Next.js App Router e rotas protegidas em `src/app/(app)/app/*`.
-- BFF em Next (`src/app/api/*`) a fazer proxy para backend existente; tracking usa autenticação por cookie `fs_token` e `cache: no-store`.
-- UI orientada por componentes client-side (`use client`) com estados explícitos de `loading/empty/error` em Hoje, Biblioteca e Seguimento.
-- Sprint atual mantém risco técnico baixo: foco em frontend + integração com contratos existentes (sem alterar endpoints/backend).
+### Release readiness (hoje)
+- **Build web**: esperado PASS (`npm run build`) após PR-1A.
+- **DoD base (demo)**: login, `/app` protegido, tab bar mobile estável, Hoje + 1 ação rápida, tracking persistente, biblioteca lista + detalhe.
+- **Regra de ouro**: zero “unsupported” em rotas do Gym Pilot (agora substituído por fluxo real).
 
-### Leitura técnica rápida (validação atual)
-- Fluxo de tracking passa por `/api/tracking` (GET/PUT) com proxy para backend e fallback `BACKEND_UNAVAILABLE` em falha de rede.
-- Ecrã de Seguimento deteta capacidades do payload (`energy`, `notes`, `% gordura`, cintura e medições) e adapta UI de forma condicional.
-- Ecrã Hoje carrega resumo de peso/energia/notas e quick actions; CTA de check-in degrada para estado desativado quando tracking não está disponível.
-- Progresso semanal apresenta estado neutro quando não há dados suficientes (sem números artificiais).
+### Gym Pilot readiness (vendível para gym pequeno)
+**Estado**: **MVP Gym Pilot pronto para demo end-to-end**, com operação em < 2 minutos (meta de venda).
 
-### Implementado
-- Autenticação funcional (email e Google OAuth)
-- Gestão de sessão estável via cookie (fs_token)
-- Perfil de utilizador e onboarding base
-- Dashboard com secções principais
-  - Módulo de progresso de peso no Dashboard (parcial — depende de existirem registos de peso)
-- Treino:
-  - Planos
-  - Calendário
-  - Vistas de dia, agenda, semana e mês
-- Nutrição:
-  - Plano base
-  - Integração no dashboard
-  - Meal cards no plano diário/semanal com entry points para detalhe (implementado)
-  - Modal de detalhe de refeição com macros/ingredientes/instruções (implementado)
-
-- Biblioteca de exercícios (funcional; UX premium em progresso)
-  - Media viewer (GIF e vídeo) em full screen (implementado)
-  - Página de detalhe com layout avançado (implementado)
-  - Secção “overview” no detalhe (implementado)
-  - Entry points condicionais para abrir media em full screen (implementado)
-  - Fallback de erro consistente quando o exercício não existe (ID em falta/inválido) (implementado)
-  - Secções condicionais (mostrar apenas conteúdo real) (implementado/melhorado)
-  - Acessibilidade melhorada nas tabs (implementado/melhorado)
-  - Sistema de favoritos e recentes (implementado)
-    - Estados loading/empty/error consistentes + feedback de ação + disabled states (implementado)
-    - Hooks de storage expõem loading/error/refresh para estados consistentes (implementado)
-  - Skeletons mais consistentes e mais próximos do layout final (melhorado)
-  - Touch targets e sizing ajustados para estabilidade percebida (melhorado)
-
-- Tracking (peso)
-  - Tracking end-to-end via `/api/tracking` (implementado — criar → persistir → último/histórico; estados completos no frontend)
-  - Check-in semanal expandido além do peso (implementado/parcial no frontend):
-    - Modo rápido e modo completo no formulário
-    - Suporte condicional para cintura, % de gordura e medidas corporais quando o backend expõe campos
-    - Bloco de progresso semanal com estado vazio neutro quando não há dados suficientes
-    - Entradas de energia e notas com renderização condicional por capacidade detectada
-
-- Ecrã Hoje
-  - Shell do Hoje com quick actions / CTA (implementado no frontend)
-  - Ação rápida de check-in com fallback de indisponibilidade quando tracking falha (implementado)
-  - “Resumo do dia” (treino/nutrição/peso + energia + notas) com loading/empty/error/skeleton (implementado no frontend; cobertura final depende da qualidade/completude dos dados reais)
-
-- Design system próprio:
-  - Button, Card, Badge, Skeleton, Modal, Toast, etc.
-- i18n (ES e EN)
-- Dark mode
-- Layout mobile-first já implementado
-
-### Não implementado ou incompleto
-- UX premium da Biblioteca de Exercícios (em progresso — falta polish final e fechar edge cases restantes)
-- Polimento consistente de estados:
-  - empty
-  - error
-  - loading
-  - (em progresso — cobertura avançou na Biblioteca e também no Hoje/Tracking/Dashboard; falta cobertura total e polish final em superfícies remanescentes)
-- Performance percebida (skeletons consistentes, feedback imediato) (em progresso — melhorias em Biblioteca e Hoje; falta consistência total)
-- Upload/processamento real de fotos de check-in semanal (incompleto — UI preparada, fluxo de produto ainda não fechado end-to-end)
-- Consolidação total do tracking para todos os perfis de payload legados (em progresso — UI já detecta capacidades, mas ainda depende de cobertura uniforme de dados no backend)
+Fluxo vendível:
+1) Utilizador entra no gym (pedido de aprovação ou código).
+2) Admin/Trainer vê pedidos e aceita (se aplicável).
+3) Admin/Trainer atribui plano existente ao membro.
+4) Membro vê o plano no seu “Plan” (e acesso claro no “Gym/Hoy”).
 
 ---
 
-## 3. Stack técnica (não alterar sem decisão explícita)
+## 3) Estado atual do produto (detalhado por módulo)
+
+### 3.1 Autenticação e sessão
+- Login funcional, sessão via cookie `fs_token`.
+- Rotas `/app/*` protegidas.
+- Restrições mantidas: não quebrar `fs_token`, nem middleware/proxy BFF.
+
+**Estado**: Implementado, estável.
+
+---
+
+### 3.2 Onboarding e Perfil
+- Onboarding base implementado.
+- i18n: ES e EN, agora com interpolação suportada em mensagens (ex: “Passo X de Y”).
+
+**Estado**: Implementado, com melhoria crítica de build (i18n).
+
+---
+
+### 3.3 Hoje (Home)
+- “Hoje” com quick actions e estados explícitos (loading/empty/error).
+- Integração com tracking e entry points para ações essenciais.
+
+**Estado**: Implementado.  
+**Em progresso**: polish transversal e consistência total de feedback (toasts, retry).
+
+---
+
+### 3.4 Tracking (Seguimento)
+- Tracking end-to-end via BFF `/api/tracking` (GET/PUT).
+- Persistência funcional, sem dados inventados.
+- UI adaptativa por capacidades do payload (quando aplicável).
+
+**Estado**: Implementado e demo-safe.
+
+---
+
+### 3.5 Biblioteca (Exercícios, Receitas, Planos)
+- Lista e detalhe funcionais.
+- Media viewer e layout avançado em detalhe, quando disponível.
+- Seções condicionais, sem placeholders fake.
+- Correção recente: dedupe em badges para evitar keys duplicadas.
+
+**Estado**: Implementado.  
+**Em progresso**: polish final de UX premium e performance percebida (skeletons consistentes).
+
+---
+
+### 3.6 Treino (B2C)
+- Planos e vistas relacionadas existentes.
+- IA (se aplicável) permanece fora do “Gym Pilot” nesta fase de venda, mas pode coexistir.
+
+**Estado**: Implementado (base).  
+**Nota**: Gym Pilot usa atribuição manual simples de planos existentes, sem depender de IA.
+
+---
+
+### 3.7 Nutrição (B2C)
+- Plano base e integração no dashboard.
+- Meal cards, detalhe de refeição com macros e instruções (quando existe conteúdo).
+
+**Estado**: Implementado (base).  
+**Em progresso**: consistência total dos estados e loop “semana → lista compra → ajustes” (se for objetivo futuro).
+
+---
+
+## 4) Gym Pilot (novo core B2B MVP)
+
+### 4.1 Capabilities (o que existe agora)
+- Gyms e membership com estados (ex: pending/active/rejected).
+- 2 formas de entrar:
+  - pedido com aprovação
+  - código com auto-join
+- Painel admin/trainer:
+  - ver pedidos pendentes
+  - aceitar/rejeitar
+  - ver membros ativos
+- Atribuir plano existente a membro (manual e simples).
+- Visibilidade para membro: plano atribuído aparece na experiência de treino e há CTA claro no contexto do gym.
+
+**Estado**: Implementado para demo vendível.
+
+### 4.2 O que NÃO entrou de propósito (para não matar prazo)
+- White-label enterprise multi-tenant avançado (branding por tenant, temas, subdomínios)
+- Nutrição do gym como módulo completo
+- IA do gym, variantes automáticas e ajustes inteligentes
+- Billing e entitlements modulares por módulo (nutrição vs fitness) como produto final
+
+---
+
+## 5) Snapshot técnico (arquitetura real hoje)
+
 ### Frontend
-- Next.js (App Router)
-- React + TypeScript
-- Tailwind CSS
-- i18n interno baseado em ficheiros JSON
+- Next.js App Router em `apps/web`.
+- BFF via `apps/web/src/app/api/*` com proxy ao backend.
+- UI client-side com estados explícitos.
 
 ### Backend
-- Backend já existente
-- Fonte única da verdade
-- Contratos e endpoints não devem ser alterados neste momento
+- Fastify + Prisma.
+- Backend é fonte de verdade para regras e persistência.
+- Novo domínio Gym Pilot implementado no backend.
 
-### Infraestrutura
-- Monorepo
-- apps/web é o foco atual
-- apps/api não deve ser tocado neste sprint
-
----
-
-## 4. Linhas vermelhas (regras absolutas)
-- Não tocar em autenticação, fs_token, OAuth, cookies ou middleware
-- Não criar nem alterar endpoints
-- Não mudar o shape das APIs existentes
-- Frontend consome exclusivamente /api/*
-- Não inventar dados que não venham do backend
-- Todas as strings visíveis passam por i18n
-- PRs pequenos, focados e facilmente reversíveis
-
-Qualquer violação destas regras é considerada regressão.
+### i18n
+- Baseado em JSON (ES/EN).
+- Agora com interpolação de placeholders suportada por `t(key, values?)`.
 
 ---
 
-## 5. Foco atual
-Sprint 03: Check-in semanal + Progresso semanal + Ações rápidas no Hoje (MVP)
-
-Prioridade máxima:
-- Expandir tracking além do peso (medidas/gordura quando aplicável) via check-in semanal
-- Progresso semanal com estados neutros quando não há dados (sem números “fake”)
-- Hoje com ação rápida para check-in
-- Estados consistentes (loading/empty/error) e UX mobile premium
-- Zero risco técnico: sem alterações de backend
-
-Objetivo do sprint:
-> Tornar o check-in semanal utilizável e refletir progresso semanal de forma confiável, integrado no Hoje.
-
-Estado do objetivo:
-- Check-in semanal utilizável no frontend: **atingido**.
-- Progresso semanal com estado neutro sem dados: **atingido**.
-- Atalho de check-in no Hoje: **atingido**.
-- Fecho final de UX premium e consistência transversal: **em progresso** (Biblioteca + Hoje + Nutrição).
-
-Riscos/dependências abertas:
-- Variação de payloads entre ambientes pode reduzir consistência visual em alguns estados avançados.
-- Cobertura de dados reais (check-ins com histórico suficiente) continua a condicionar perceção de “valor imediato” no Hoje e no Progresso.
+## 6) Linhas vermelhas (regras absolutas)
+- Não quebrar auth/sessão (`fs_token`), cookies e rotas protegidas.
+- Frontend consome exclusivamente `/api/*` (BFF), sem chamadas diretas ao backend no browser.
+- Não inventar dados. Se faltar, esconder ou estado neutro.
+- Features incompletas não podem parecer “quase reais”. Ou ficam hidden, ou “não disponível”, sem chamadas falhadas.
+- PRs pequenos, focados, reversíveis.
+- Qualquer regressão em build ou sessão é P0.
 
 ---
 
-## 6. O que NÃO é prioridade agora
-- Novas features de backend
-- Pagamentos e billing
+## 7) Qualidade e gates (o que tem de passar sempre)
+### Obrigatório para “vendível”
+- `apps/web`: `npm run build` PASS
+- Zero erros no console em fluxos principais:
+  - Login
+  - `/app` protegido sem sessão
+  - Tab bar mobile sem overflow
+  - Hoje + 1 ação rápida
+  - Tracking persistente
+  - Biblioteca lista + detalhe
+  - Gym Pilot end-to-end (join → accept → assign plan → member view)
+
+### Recomendado (próximo passo)
+- `lint` e `typecheck` explícitos (se existirem scripts dedicados)
+- Smoke tests mínimos (web e api) e checklist de regressão
+
+---
+
+## 8) Riscos e dependências abertas
+- Modularidade comercial (Nutrição Premium vs Fitness Premium vs Bundle vs Gym) ainda não está completa como produto final. Para a venda do gym pequeno, o piloto já é suficiente, mas o pricing e packaging “limpos” virão depois.
+- Consistência i18n: novas strings devem manter chaves e placeholders alinhados entre ES e EN.
+- Dados reais e seed: demos ficam melhores se houver seed controlado para gym, planos e membros.
+
+---
+
+## 9) Foco atual (próximas 2 a 4 semanas)
+### Prioridade máxima (curto prazo)
+- Estabilizar UX do Gym Pilot e reduzir fricção (tempo < 2 minutos na demo).
+- Fechar polish mobile: estados, feedback, skeletons, acessibilidade.
+- Consolidar navegação e reduzir duplicados (rotas e variantes linguísticas), sem quebrar compatibilidade.
+
+### Objetivo de Sprint (sugestão)
+> “Gym Pilot polished” + “Core loop Today/Tracking rock-solid” para demos repetíveis.
+
+---
+
+## 10) O que NÃO é prioridade agora
+- White-label enterprise avançado
 - App mobile nativa
-- Growth, SEO ou marketing
+- Billing completo e modularidade por módulo como produto final
+- Growth, SEO, marketing profundo (após piloto vendável)
+
+---
+Fim do documento.

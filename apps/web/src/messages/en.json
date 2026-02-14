@@ -25,14 +25,28 @@
     "logout": "Log out",
     "trainer": "Trainer",
     "adminPreview": "Admin Preview",
-    "adminLabs": "Labs"
+    "adminLabs": "Labs",
+    "trainerClients": "Trainer clients",
+    "trainerExercises": "Trainer exercises",
+    "newExercise": "New exercise",
+    "onboarding": "Onboarding",
+    "trainingEditor": "Training editor",
+    "nutritionEditor": "Nutrition editor",
+    "legacyProfile": "Legacy profile",
+    "workoutLibrary": "Workout library",
+    "recipeLibrary": "Recipe library",
+    "gymJoinRequests": "Gym join requests",
+    "gym": "Gym",
+    "labs": "Labs"
   },
   "navSections": {
     "summary": "Summary",
     "training": "Training",
     "nutrition": "Nutrition",
     "account": "Account",
-    "admin": "Admin"
+    "admin": "Admin",
+    "development": "In development",
+    "trainer": "Trainer"
   },
   "ui": {
     "menu": "Menu",
@@ -101,7 +115,19 @@
     "openLibrary": "Open library",
     "openLibraryDescription": "Browse exercises and recipes.",
     "comingSoon": "Coming soon",
-    "open": "Open"
+    "open": "Open",
+    "checkinOutcome": "Opens weekly check-in with your latest tracking status.",
+    "trainingOutcome": "Opens today's training plan when available.",
+    "macrosOutcome": "Opens your macros view for food logging.",
+    "openPlanCta": "View plan",
+    "openMacrosCta": "View macros",
+    "trainingUnavailable": "No plan available for today yet.",
+    "macrosUnavailable": "No nutrition data for today yet.",
+    "loadingAria": "Loading quick actions",
+    "errorTitle": "Quick actions unavailable",
+    "errorDescription": "We could not load quick actions right now.",
+    "emptyTitle": "No quick actions available",
+    "emptyDescription": "There is no available action for today yet."
   },
   "today": {
     "title": "Today",
@@ -533,7 +559,15 @@
     "bodyFatEmptySubtitle": "Log a check-in with body fat to see the trend.",
     "chartError": "We couldn't load progress.",
     "errorTitle": "We couldn't load your progress",
-    "progressEmptyHint": "Log a check-in to see your trend."
+    "progressEmptyHint": "Log a check-in to see your trend.",
+    "aiWeeklySummaryTitle": "Weekly AI summary",
+    "aiWeeklySummarySubtitle": "Pro/Gym weekly recap based on your available AI insights.",
+    "aiWeeklySummaryLockedTitle": "Pro or Gym required",
+    "aiWeeklySummaryLockedDescription": "Upgrade to Pro or Gym to unlock weekly AI summaries on your dashboard.",
+    "aiWeeklySummaryErrorTitle": "Weekly summary unavailable",
+    "aiWeeklySummaryErrorDescription": "We could not load your weekly AI summary right now.",
+    "aiWeeklySummaryEmptyTitle": "No weekly AI summary yet",
+    "aiWeeklySummaryEmptyDescription": "A weekly AI summary endpoint is not available for your account yet."
   },
   "workouts": {
     "newWorkout": "New workout",
@@ -741,6 +775,22 @@
     "adherenceConsumedLabel": "Consumed",
     "adherenceToastTitle": "Meal marked as consumed",
     "adherenceToastDescription": "We saved this status on your device.",
+    "quickLogTitle": "Quick food log",
+    "quickLogSubtitle": "Use local favorites to log meals faster on this device.",
+    "localOnlyBadge": "Device-local",
+    "quickFavoritesLoading": "Loading local favorites...",
+    "quickFavoritesError": "We couldn't read local favorites on this device.",
+    "quickFavoritesEmpty": "No favorites yet.",
+    "quickUseFavorite": "Use & log",
+    "quickLogButton": "Log food",
+    "quickLogButtonConsumed": "Logged",
+    "quickLogSuccess": "Food logged successfully.",
+    "quickLogUndo": "Food log removed.",
+    "quickLogError": "We couldn't log this food right now.",
+    "quickAddFavorite": "Add to favorites",
+    "quickRemoveFavorite": "Remove favorite",
+    "favoriteAdded": "Saved to local favorites.",
+    "favoriteRemoved": "Removed from local favorites.",
     "viewWeek": "View week",
     "viewToday": "View today",
     "dayPrev": "Previous day",
@@ -813,7 +863,69 @@
     "ingredientsNotAvailable": "Ingredients not available.",
     "mealDetailsNotFound": "We could not find this meal for the selected day.",
     "weekLabel": "Week",
-    "instructionsTitle": "Instructions"
+    "instructionsTitle": "Instructions",
+    "ingredient": {
+      "salmon": "Salmon",
+      "chicken": "Chicken",
+      "turkey": "Turkey",
+      "eggs": "Eggs",
+      "yogurt": "Greek yogurt",
+      "oats": "Oats",
+      "rice": "Brown rice",
+      "quinoa": "Quinoa",
+      "chickpeas": "Chickpeas",
+      "potatoes": "Potato",
+      "zucchini": "Zucchini",
+      "avocado": "Avocado",
+      "oliveOil": "Olive oil",
+      "berries": "Berries",
+      "milk": "Milk",
+      "bread": "Whole-grain bread"
+    },
+    "template": {
+      "breakfast": {
+        "oatsWithFruit": {
+          "title": "Oats with fruit",
+          "description": "Oats, plain yogurt, berries, and seeds."
+        },
+        "eggToast": {
+          "title": "Egg toast",
+          "description": "Whole-grain toast, scrambled eggs, and avocado."
+        }
+      },
+      "lunch": {
+        "chickenWithRice": {
+          "title": "Chicken with rice",
+          "description": "Grilled chicken breast, brown rice, and salad."
+        },
+        "mediterraneanBowl": {
+          "title": "Mediterranean bowl",
+          "description": "Quinoa, chickpeas, veggies, and olive oil."
+        }
+      },
+      "dinner": {
+        "salmonWithVeggies": {
+          "title": "Salmon with veggies",
+          "description": "Baked salmon, zucchini, and potato."
+        },
+        "quickStirFry": {
+          "title": "Quick stir-fry",
+          "description": "Turkey, mixed veggies, and whole-grain noodles."
+        }
+      },
+      "snack": {
+        "proteinSnack": {
+          "title": "Protein snack",
+          "description": "Greek yogurt with nuts."
+        },
+        "shake": {
+          "title": "Shake",
+          "description": "Milk, fruit, and protein powder."
+        }
+      }
+    },
+    "weeklyEmptyTitle": "Weekly view unavailable",
+    "weeklyEmptySubtitle": "There are no meals for this week with the current data yet."
   },
   "training": {
     "formTitle": "Plan details",
@@ -931,7 +1043,59 @@
     "profileError": "We couldn't load your profile.",
     "emptyPlan": "Complete the form to generate your plan.",
     "generateSuccess": "Plan generated successfully.",
-    "errorTitle": "We couldn't load your plan"
+    "errorTitle": "We couldn't load your plan",
+    "dayNames": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    },
+    "exercises": {
+      "squat": "Squat",
+      "benchPress": "Bench press",
+      "barbellRow": "Barbell row",
+      "romanianDeadlift": "Romanian deadlift",
+      "overheadPress": "Overhead press",
+      "plank": "Plank",
+      "pushUps": "Push-ups",
+      "bandRow": "Band row",
+      "lunges": "Lunges",
+      "pikePushUps": "Pike push-ups",
+      "pullUps": "Pull-ups",
+      "bicepsCurl": "Biceps curl",
+      "tricepsExtension": "Triceps extension",
+      "dumbbellOverheadPress": "Dumbbell overhead press",
+      "benchDips": "Bench dips",
+      "legPress": "Leg press",
+      "calfRaise": "Calf raise",
+      "hipThrust": "Hip thrust",
+      "core": "Core",
+      "gluteBridge": "Glute bridge",
+      "goodMorning": "Good morning",
+      "inclinePress": "Incline press",
+      "dips": "Dips",
+      "lateralRaises": "Lateral raises",
+      "triceps": "Triceps",
+      "facePull": "Face pull",
+      "cableRow": "Cable row",
+      "assistedPullUps": "Assisted pull-ups",
+      "bandFacePull": "Band face pull",
+      "invertedRow": "Inverted row",
+      "hamstringCurl": "Hamstring curl",
+      "dumbbellRomanianDeadlift": "Dumbbell Romanian deadlift",
+      "swissBallLegCurl": "Swiss ball leg curl",
+      "inclineDumbbellPress": "Incline dumbbell press"
+    },
+    "aiPreviewReady": "AI plan ready for review.",
+    "aiPreviewTitle": "Review AI plan before saving",
+    "aiPreviewSubtitle": "Check the suggested sessions and confirm to save this plan.",
+    "aiPreviewCancel": "Cancel",
+    "aiPreviewConfirm": "Confirm and save",
+    "aiPreviewConfirming": "Saving plan...",
+    "aiInvalidOutput": "The AI response was invalid. Please retry generation."
   },
   "profile": {
     "formTitle": "Profile and metrics",
@@ -1277,7 +1441,17 @@
     "adjustmentRetry": "Retry",
     "adjustmentRetryAria": "Retry applying the adjustment",
     "adjustmentBack": "Back",
-    "adjustmentBackAria": "Go back to the check-in form"
+    "adjustmentBackAria": "Go back to the check-in form",
+    "adjustmentChecking": "Checking adjustment availability...",
+    "adjustmentProFeatureTitle": "Pro feature",
+    "adjustmentProFeatureBody": "Weekly AI adjustments are available on Pro plans. Keep logging check-ins to prepare your next update.",
+    "adjustmentNeedsProfile": "Complete your training preferences to unlock weekly AI adjustments.",
+    "adjustmentChangesTitle": "What changed this week",
+    "adjustmentChangesEmpty": "No major structural changes were detected in your weekly plan preview.",
+    "adjustmentChangedDays": "Days updated: {count}",
+    "adjustmentAddedExercises": "Exercises added: {count}",
+    "adjustmentRemovedExercises": "Exercises removed: {count}",
+    "adjustmentDurationDelta": "Total duration change: {minutes} min"
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",
@@ -1295,7 +1469,22 @@
     "sectionMetrics": "Latest metrics",
     "finish": "Save and finish",
     "saving": "Saving...",
-    "saved": "Profile updated."
+    "saved": "Profile updated.",
+    "loadingState": "Loading your onboarding data...",
+    "errorTitle": "We couldn't load onboarding",
+    "errorSubtitle": "Please retry to continue your setup.",
+    "retry": "Retry",
+    "emptyTitle": "No onboarding data found",
+    "emptySubtitle": "Your profile has no stored setup yet. Start onboarding to continue.",
+    "emptyAction": "Start onboarding",
+    "objectiveTitle": "Choose your objective",
+    "levelTitle": "Set your level",
+    "preferencesTitle": "Set your preferences",
+    "stepCounter": "Step {current} of {total}",
+    "saveError": "We could not save your onboarding yet. Please retry.",
+    "successTitle": "Onboarding completed",
+    "successSubtitle": "Your objective, level and preferences were saved successfully.",
+    "continue": "Continue"
   },
   "admin": {
     "unauthorized": "You don't have access to this section.",
@@ -1352,7 +1541,16 @@
     "tokensAdd": "+ Add",
     "tokensSub": "- Remove",
     "tokensSet": "Set",
-    "updateAllowance": "Update allowance"
+    "updateAllowance": "Update allowance",
+    "gymRequestsTitle": "Gym join requests",
+    "gymRequestsSubtitle": "Review pending membership requests for your gym.",
+    "gymRequestsLoading": "Loading gym join requests...",
+    "gymRequestsRequiresImplementation": "Requires implementation",
+    "gymRequestsError": "We could not load gym join requests.",
+    "gymRequestsRetry": "Retry",
+    "gymRequestsEmpty": "No pending gym join requests.",
+    "gymRequestsAccept": "Accept",
+    "gymRequestsReject": "Reject"
   },
   "library": {
     "loadError": "We couldn't load the exercise.",
@@ -1570,7 +1768,7 @@
     "tokensRemaining": "AI tokens remaining:",
     "tokensReset": "Resets",
     "insufficientTokens": "You don't have enough tokens to use AI.",
-    "notPro": "You need PRO to use AI."
+    "notPro": "AI generation is a Pro feature. Upgrade to Pro to use it."
   },
   "billing": {
     "title": "Billing",
@@ -1596,6 +1794,22 @@
       "canceled": "Canceled",
       "unpaid": "Unpaid",
       "unknown": "Unknown"
+    },
+    "placeholderPlan": "No data",
+    "placeholderStatus": "No status available",
+    "supportDescription": "Access the support channel available for your environment.",
+    "supportAction": "Contact support",
+    "supportPlaceholder": "There is no support channel available in this environment.",
+    "gym": {
+      "title": "Gym membership",
+      "statusYes": "Yes, linked to a gym",
+      "statusNo": "Not linked to a gym",
+      "unknownTitle": "Gym info unavailable",
+      "unknownDescription": "We could not determine your gym membership from the current payload.",
+      "notInGymDescription": "Your account is currently not associated with any gym tenant.",
+      "nameLabel": "Gym name",
+      "idLabel": "Gym ID",
+      "linkRequiresImplementation": "Requires implementation"
     }
   },
   "settings": {
@@ -1619,7 +1833,11 @@
       "billing": {
         "title": "Billing",
         "description": "Review your plan and manage your subscription.",
-        "action": "Open billing"
+        "action": "Open billing",
+        "statusLabel": "Plan status is shown in Billing when real data is available.",
+        "gymStatusYes": "Gym status: yes",
+        "gymStatusNo": "Gym status: no",
+        "gymStatusUnknown": "Gym status: info unavailable"
       },
       "notifications": {
         "title": "Notifications",
@@ -1629,7 +1847,8 @@
       "support": {
         "title": "Support",
         "description": "Support channels are not available in this environment.",
-        "emptyTitle": "Support access will be shown when a channel is available."
+        "emptyTitle": "Support access will be shown when a channel is available.",
+        "action": "Open support"
       }
     }
   },
@@ -1653,24 +1872,78 @@
       "active": "Active",
       "blocked": "Blocked",
       "openClientAriaPrefix": "Open context for",
-      "unknownStatus": "Unknown status"
+      "unknownStatus": "Unknown status",
+      "loading": "Loading client list...",
+      "description": "Review and open athlete contexts from your trainer area.",
+      "openList": "Open client list"
     },
     "clientContext": {
       "title": "Athlete context",
       "loading": "Loading athlete context...",
       "error": "Could not load athlete context.",
+      "empty": "No data is currently available for this tab.",
       "unknownClient": "Athlete",
-      "unavailable": "Unavailable with current endpoints.",
-      "today": {
-        "title": "Today",
-        "lastLoginPrefix": "Last sign-in:",
-        "subscriptionStatusPrefix": "Subscription status:"
+      "unavailable": "This tab is currently unavailable with the existing data sources.",
+      "stateDescriptions": {
+        "loading": "Preparing section state...",
+        "error": "Section unavailable due to a loading error.",
+        "empty": "No records found for this section.",
+        "unavailable": "This section needs data that is not available in this environment.",
+        "ready": "Section loaded successfully."
+      },
+      "summary": {
+        "title": "Summary",
+        "clientNamePrefix": "Client:",
+        "emailPrefix": "Email:",
+        "accountStatusPrefix": "Account status:"
+      },
+      "training": {
+        "title": "Training",
+        "subscriptionStatusPrefix": "Subscription status:",
+        "subscriptionHint": "Training detail is limited to currently available client status data.",
+        "dualPlans": {
+          "title": "Home + Gym plans",
+          "description": "Show assigned plans by context when available from backend data.",
+          "homeLabel": "Home context",
+          "gymLabel": "Gym context",
+          "unassigned": "No assigned plan",
+          "assignAction": "Assign plan",
+          "assignConfirmation": "Plan assignment request captured.",
+          "assignUnavailable": "Dual-plan assignment requires backend support and is unavailable in this environment.",
+          "emptyUnsupported": "No distinct Home/Gym plan data is available for this client yet."
+        }
+      },
+      "nutrition": {
+        "title": "Nutrition"
       },
       "tracking": {
-        "title": "Tracking"
+        "title": "Tracking",
+        "lastLoginPrefix": "Last sign-in:",
+        "noRecentActivity": "No recent activity is available.",
+        "activityHint": "Tracking detail will appear when client check-in data is available."
       },
-      "plans": {
-        "title": "Plans"
+      "drafts": {
+        "title": "Notes & adjustment drafts",
+        "localOnly": "Drafts are local on this device only.",
+        "storageWarning": "Local drafts are unavailable right now.",
+        "saveError": "We couldn't save this draft on this device.",
+        "noteFormTitle": "Add note",
+        "noteLabel": "Note",
+        "notePlaceholder": "Write a coaching note for this athlete...",
+        "noteSubmit": "Save note draft",
+        "noteInvalid": "Write a note before saving.",
+        "noteSaved": "Note draft saved on this device.",
+        "notesListTitle": "Saved note drafts",
+        "notesEmpty": "No note drafts saved on this device yet.",
+        "adjustmentFormTitle": "Propose adjustment",
+        "adjustmentLabel": "Adjustment proposal",
+        "adjustmentPlaceholder": "Describe the adjustment to propose...",
+        "adjustmentSubmit": "Save adjustment draft",
+        "adjustmentInvalid": "Write an adjustment proposal before saving.",
+        "adjustmentSaved": "Adjustment draft saved on this device.",
+        "adjustmentsListTitle": "Saved adjustment drafts",
+        "adjustmentsEmpty": "No adjustment drafts saved on this device yet.",
+        "pendingLocalBadge": "Pending (local)"
       },
       "nextStep": "Athlete context will be enabled when backend impersonation support is available."
     },
@@ -1716,7 +1989,29 @@
     "unavailableTitle": "Not available (backend required)",
     "unavailableDesc": "This workspace has no trainer/coach clients endpoint yet.",
     "demoMode": "Demo/Dev preview mode",
-    "clientsEndpointPrefix": "Endpoint in use:"
+    "clientsEndpointPrefix": "Endpoint in use:",
+    "gymRequiredTitle": "Gym membership required",
+    "gymRequiredDesc": "This trainer area is only available when your account is linked to a gym.",
+    "gymUnknownTitle": "Trainer gym access unavailable",
+    "gymUnknownDesc": "We could not confirm your gym membership with the current backend payload.",
+    "assignPlan": {
+      "title": "Assign training plan",
+      "subtitle": "Choose a member and a plan template to assign from trainer mode.",
+      "loading": "Loading members and plans...",
+      "loadError": "We could not load members or plans.",
+      "memberLabel": "Member",
+      "memberPlaceholder": "Select a member",
+      "planLabel": "Plan template",
+      "planPlaceholder": "Select a plan template",
+      "previewLoading": "Loading plan preview...",
+      "previewError": "We could not load plan preview.",
+      "previewDays": "Days: {count}",
+      "previewExercises": "Exercises: {count}",
+      "submit": "Assign plan",
+      "submitting": "Assigning...",
+      "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
+      "success": "Plan assigned successfully to {member}."
+    }
   },
   "gym": {
     "title": "Gym",
@@ -1730,7 +2025,81 @@
     "exerciseScopeMixed": "Gym + Global",
     "filterAll": "All exercises",
     "filterGymOnly": "Gym only",
-    "filterGlobalOnly": "Global only"
+    "filterGlobalOnly": "Global only",
+    "member": {
+      "subtitle": "Manage your gym-related experience and access your assigned training.",
+      "loading": "Loading gym information...",
+      "planTitle": "Assigned training plan",
+      "planDescription": "Your coach assigned you a plan. Open it in your training area.",
+      "planCta": "View your assigned plan"
+    },
+    "admin": {
+      "members": {
+        "title": "Gym members",
+        "subtitle": "Assign one of your training plans to a member.",
+        "loading": "Loading members...",
+        "empty": "No members available to assign right now.",
+        "loadError": "We could not load members. Please try again.",
+        "profileError": "We could not load your gym profile.",
+        "missingGymId": "Your account is not linked to a gym id.",
+        "assignAction": "Assign plan",
+        "assignSuccess": "Plan assigned successfully."
+      },
+      "assignPlan": {
+        "title": "Assign training plan",
+        "description": "Choose one of your plans and assign it to {member}.",
+        "planLabel": "Training plan",
+        "selectPlaceholder": "Select a plan",
+        "loadingPlans": "Loading your plans...",
+        "emptyPlans": "You have no plans available to assign.",
+        "loadPlansError": "We could not load your plans.",
+        "submit": "Assign plan",
+        "cancel": "Cancel",
+        "submitError": "We could not assign this plan. Please verify member and gym eligibility."
+      },
+      "goToPanel": "Go to gym panel"
+    },
+    "description": "Manage your membership status and request access to a gym.",
+    "membership": {
+      "none": {
+        "title": "You are not part of a gym yet"
+      },
+      "pending": {
+        "title": "Request pending",
+        "description": "Your request for {gymName} is pending approval."
+      },
+      "active": {
+        "title": "Active membership",
+        "description": "You are in {gymName} with role {role}.",
+        "planButton": "Go to my plan"
+      },
+      "rejected": {
+        "title": "Request rejected",
+        "description": "Your previous request was rejected. You can try joining again."
+      }
+    },
+    "join": {
+      "selectLabel": "Select a gym",
+      "requestButton": "Request access",
+      "codeLabel": "Gym code",
+      "codeHelp": "If the gym gave you a code, use it to join automatically.",
+      "codeButton": "Join with code",
+      "empty": "No gyms are available right now.",
+      "loadError": "We could not load the gym list."
+    },
+    "loadErrorTitle": "We could not load your gym status",
+    "loadError": {
+      "title": "We could not load your gym status",
+      "subtitle": "Please try again in a few seconds."
+    },
+    "actionErrorTitle": "We could not process your request",
+    "actionError": "Check your data and try again.",
+    "unavailableTitle": "Gym status unavailable",
+    "unavailableDescription": "We could not determine your membership status right now.",
+    "sessionExpired": {
+      "title": "Your session expired",
+      "subtitle": "Log in again to check your gym status."
+    }
   },
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",
@@ -1794,7 +2163,16 @@
       "profile": {
         "title": "Profile",
         "description": "User profile as admin reference."
+      },
+      "adminGymRequests": {
+        "title": "Gym join requests",
+        "description": "Review pending gym membership requests and approve or reject when backend support is available."
       }
-    }
+    },
+    "notAvailableYet": "Not available yet"
+  },
+  "common": {
+    "loading": "Loading...",
+    "retry": "Retry"
   }
 }

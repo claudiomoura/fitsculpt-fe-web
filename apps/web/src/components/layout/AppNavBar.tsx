@@ -29,7 +29,7 @@ export default function AppNavBar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const { role, isAdmin, isCoach } = useAccess();
+  const { role, isAdmin, isCoach, isDev } = useAccess();
 
   useEffect(() => {
     let active = true;
@@ -69,7 +69,7 @@ export default function AppNavBar() {
   const isPro = planLabel === "PRO";
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
 
-  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach }), [role, isCoach, isAdmin]);
+  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach, isDev }), [role, isCoach, isAdmin, isDev]);
 
   const closeMenu = () => setOpen(false);
 
@@ -143,6 +143,19 @@ export default function AppNavBar() {
                   <div className="nav-drawer-links">
                     {section.items.map((item) => {
                       const active = isActive(item.href);
+                      if (item.disabled) {
+                        return (
+                          <div
+                            key={item.id}
+                            className="nav-drawer-link"
+                            aria-disabled="true"
+                          >
+                            <span>{t(item.labelKey)}</span>
+                            <span className="text-xs text-[var(--text-muted)]">{t(item.disabledNoteKey ?? "common.notAvailableYet")}</span>
+                          </div>
+                        );
+                      }
+
                       return (
                         <Link
                           key={item.id}
@@ -151,7 +164,8 @@ export default function AppNavBar() {
                           aria-current={active ? "page" : undefined}
                           onClick={closeMenu}
                         >
-                          {t(item.labelKey)}
+                          <span>{t(item.labelKey)}</span>
+                          {item.meta ? <span className="text-xs text-[var(--text-muted)]">{item.meta}</span> : null}
                         </Link>
                       );
                     })}
@@ -170,6 +184,19 @@ export default function AppNavBar() {
                 <div className="nav-drawer-links">
                   {section.items.map((item) => {
                     const active = isActive(item.href);
+                    if (item.disabled) {
+                      return (
+                        <div
+                          key={item.id}
+                          className="nav-drawer-link"
+                          aria-disabled="true"
+                        >
+                          <span>{t(item.labelKey)}</span>
+                          <span className="text-xs text-[var(--text-muted)]">{t(item.disabledNoteKey ?? "common.notAvailableYet")}</span>
+                        </div>
+                      );
+                    }
+
                     return (
                       <Link
                         key={item.id}
@@ -178,7 +205,8 @@ export default function AppNavBar() {
                         aria-current={active ? "page" : undefined}
                         onClick={closeMenu}
                       >
-                        {t(item.labelKey)}
+                        <span>{t(item.labelKey)}</span>
+                        {item.meta ? <span className="text-xs text-[var(--text-muted)]">{item.meta}</span> : null}
                       </Link>
                     );
                   })}

@@ -5,27 +5,33 @@ import { useUserRole } from "@/hooks/useUserRole";
 
 type AccessRole = "user" | "coach" | "admin";
 
+import type { GymMembershipState } from "@/lib/gymMembership";
+
 type AccessContextValue = {
   role: AccessRole;
   isAdmin: boolean;
   isCoach: boolean;
   isTrainer: boolean;
+  isDev: boolean;
   isLoading: boolean;
   error: string | null;
+  gymMembershipState: GymMembershipState;
 };
 
 const AccessContext = createContext<AccessContextValue | undefined>(undefined);
 
 export function AccessProvider({ children }: { children: ReactNode }) {
-  const { loading, error, role, isAdmin, isTrainer } = useUserRole();
+  const { loading, error, role, isAdmin, isTrainer, isDev, gymMembershipState } = useUserRole();
 
   const value: AccessContextValue = {
     role,
     isAdmin,
     isCoach: isTrainer || isAdmin,
     isTrainer,
+    isDev,
     isLoading: loading,
     error,
+    gymMembershipState,
   };
 
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;

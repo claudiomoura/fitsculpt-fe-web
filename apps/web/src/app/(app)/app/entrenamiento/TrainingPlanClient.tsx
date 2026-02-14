@@ -18,11 +18,13 @@ import {
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
-import { generateAndSaveTrainingPlan } from "@/lib/trainingPlanAdjustment";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
+import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 
 type Exercise = {
   id?: string;
@@ -89,65 +91,42 @@ const baseExercisePool = {
   },
 };
 
-const EXERCISE_POOL: Record<Locale, typeof baseExercisePool> = {
-  es: {
-    full: {
-      gym: ["Sentadilla", "Press banca", "Remo con barra", "Peso muerto rumano", "Press militar", "Plancha"],
-      home: ["Sentadilla", "Flexiones", "Remo con banda", "Zancadas", "Pike push-ups", "Plancha"],
-    },
-    upper: {
-      gym: ["Press banca", "Remo con barra", "Press militar", "Dominadas", "Curl bíceps", "Extensión tríceps"],
-      home: ["Flexiones", "Remo con banda", "Press militar con mancuernas", "Fondos en banco", "Curl bíceps", "Plancha"],
-    },
-    lower: {
-      gym: ["Sentadilla", "Peso muerto rumano", "Prensa", "Elevación gemelos", "Hip thrust", "Core"],
-      home: ["Sentadilla", "Zancadas", "Puente de glúteo", "Elevación gemelos", "Buenos días", "Core"],
-    },
-    push: {
-      gym: ["Press banca", "Press militar", "Press inclinado", "Fondos", "Elevaciones laterales", "Tríceps"],
-      home: ["Flexiones", "Press militar con mancuernas", "Press inclinado con mancuernas", "Fondos", "Elevaciones laterales", "Tríceps"],
-    },
-    pull: {
-      gym: ["Remo con barra", "Dominadas", "Face pull", "Curl bíceps", "Remo en polea", "Core"],
-      home: ["Remo con banda", "Dominadas asistidas", "Face pull con banda", "Curl bíceps", "Remo invertido", "Core"],
-    },
-    legs: {
-      gym: ["Sentadilla", "Peso muerto rumano", "Prensa", "Curl femoral", "Elevación gemelos", "Core"],
-      home: ["Sentadilla", "Zancadas", "Peso muerto rumano con mancuerna", "Curl femoral con fitball", "Elevación gemelos", "Core"],
-    },
+const EXERCISE_POOL = {
+  full: {
+    gym: ["squat", "benchPress", "barbellRow", "romanianDeadlift", "overheadPress", "plank"],
+    home: ["squat", "pushUps", "bandRow", "lunges", "pikePushUps", "plank"],
   },
-  en: {
-    full: {
-      gym: ["Squat", "Bench press", "Barbell row", "Romanian deadlift", "Overhead press", "Plank"],
-      home: ["Squat", "Push-ups", "Band row", "Lunges", "Pike push-ups", "Plank"],
-    },
-    upper: {
-      gym: ["Bench press", "Barbell row", "Overhead press", "Pull-ups", "Biceps curl", "Triceps extension"],
-      home: ["Push-ups", "Band row", "Dumbbell overhead press", "Bench dips", "Biceps curl", "Plank"],
-    },
-    lower: {
-      gym: ["Squat", "Romanian deadlift", "Leg press", "Calf raise", "Hip thrust", "Core"],
-      home: ["Squat", "Lunges", "Glute bridge", "Calf raise", "Good morning", "Core"],
-    },
-    push: {
-      gym: ["Bench press", "Overhead press", "Incline press", "Dips", "Lateral raises", "Triceps"],
-      home: ["Push-ups", "Dumbbell overhead press", "Incline dumbbell press", "Dips", "Lateral raises", "Triceps"],
-    },
-    pull: {
-      gym: ["Barbell row", "Pull-ups", "Face pull", "Biceps curl", "Cable row", "Core"],
-      home: ["Band row", "Assisted pull-ups", "Band face pull", "Biceps curl", "Inverted row", "Core"],
-    },
-    legs: {
-      gym: ["Squat", "Romanian deadlift", "Leg press", "Hamstring curl", "Calf raise", "Core"],
-      home: ["Squat", "Lunges", "Dumbbell Romanian deadlift", "Swiss ball leg curl", "Calf raise", "Core"],
-    },
+  upper: {
+    gym: ["benchPress", "barbellRow", "overheadPress", "pullUps", "bicepsCurl", "tricepsExtension"],
+    home: ["pushUps", "bandRow", "dumbbellOverheadPress", "benchDips", "bicepsCurl", "plank"],
   },
-};
+  lower: {
+    gym: ["squat", "romanianDeadlift", "legPress", "calfRaise", "hipThrust", "core"],
+    home: ["squat", "lunges", "gluteBridge", "calfRaise", "goodMorning", "core"],
+  },
+  push: {
+    gym: ["benchPress", "overheadPress", "inclinePress", "dips", "lateralRaises", "triceps"],
+    home: ["pushUps", "dumbbellOverheadPress", "inclineDumbbellPress", "dips", "lateralRaises", "triceps"],
+  },
+  pull: {
+    gym: ["barbellRow", "pullUps", "facePull", "bicepsCurl", "cableRow", "core"],
+    home: ["bandRow", "assistedPullUps", "bandFacePull", "bicepsCurl", "invertedRow", "core"],
+  },
+  legs: {
+    gym: ["squat", "romanianDeadlift", "legPress", "hamstringCurl", "calfRaise", "core"],
+    home: ["squat", "lunges", "dumbbellRomanianDeadlift", "swissBallLegCurl", "calfRaise", "core"],
+  },
+} satisfies typeof baseExercisePool;
 
-const DAY_LABELS: Record<Locale, string[]> = {
-  es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
-  en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-};
+const DAY_LABEL_KEYS = [
+  "training.dayNames.monday",
+  "training.dayNames.tuesday",
+  "training.dayNames.wednesday",
+  "training.dayNames.thursday",
+  "training.dayNames.friday",
+  "training.dayNames.saturday",
+  "training.dayNames.sunday",
+] as const;
 
 function durationFromSessionTime(sessionTime: SessionTime) {
   switch (sessionTime) {
@@ -166,8 +145,8 @@ function setsForLevel(level: TrainingLevel, goal: Goal) {
   return goal === "cut" ? "3-4 x 8-12" : "4 x 6-10";
 }
 
-function buildExercises(list: string[], sets: string, maxItems: number): Exercise[] {
-  return list.slice(0, maxItems).map((name) => ({ name, sets }));
+function buildExercises(list: string[], sets: string, maxItems: number, t: (key: string) => string): Exercise[] {
+  return list.slice(0, maxItems).map((name) => ({ name: t(`training.exercises.${name}`), sets }));
 }
 
 function generatePlan(
@@ -177,8 +156,8 @@ function generatePlan(
 ): TrainingPlan {
   const sets = setsForLevel(form.level, form.goal);
   const duration = durationFromSessionTime(form.sessionTime);
-  const dayLabels = DAY_LABELS[locale];
-  const exercisePool = EXERCISE_POOL[locale];
+  const dayLabels = DAY_LABEL_KEYS.map((key) => t(key));
+  const exercisePool = EXERCISE_POOL;
   const days = Array.from({ length: form.daysPerWeek }).map((_, i) => {
     const label = `${dayLabels[i] ?? t("training.dayLabel")} ${i + 1}`;
     const equipmentKey = form.equipment;
@@ -191,23 +170,24 @@ function generatePlan(
       exercises = buildExercises(
         isUpper ? exercisePool.upper[equipmentKey] : exercisePool.lower[equipmentKey],
         sets,
-        6
+        6,
+        t
       );
     } else if (form.focus === "ppl") {
       const phase = i % 3;
       if (phase === 0) {
         focusLabel = t("training.focusPush");
-        exercises = buildExercises(exercisePool.push[equipmentKey], sets, 6);
+        exercises = buildExercises(exercisePool.push[equipmentKey], sets, 6, t);
       } else if (phase === 1) {
         focusLabel = t("training.focusPull");
-        exercises = buildExercises(exercisePool.pull[equipmentKey], sets, 6);
+        exercises = buildExercises(exercisePool.pull[equipmentKey], sets, 6, t);
       } else {
         focusLabel = t("training.focusLegs");
-        exercises = buildExercises(exercisePool.legs[equipmentKey], sets, 6);
+        exercises = buildExercises(exercisePool.legs[equipmentKey], sets, 6, t);
       }
     } else {
       focusLabel = t("training.focusFullBody");
-      exercises = buildExercises(exercisePool.full[equipmentKey], sets, 6);
+      exercises = buildExercises(exercisePool.full[equipmentKey], sets, 6, t);
     }
 
     return {
@@ -221,8 +201,8 @@ function generatePlan(
   return { days };
 }
 
-function createEmptyPlan(daysPerWeek: number, locale: Locale, t: (key: string) => string): TrainingPlan {
-  const dayLabels = DAY_LABELS[locale];
+function createEmptyPlan(daysPerWeek: number, _locale: Locale, t: (key: string) => string): TrainingPlan {
+  const dayLabels = DAY_LABEL_KEYS.map((key) => t(key));
   return {
     days: Array.from({ length: daysPerWeek }).map((_, index) => ({
       label: dayLabels[index] ?? `${t("training.dayLabel")} ${index + 1}`,
@@ -256,11 +236,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
   const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [aiEntitled, setAiEntitled] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiConfirmSaving, setAiConfirmSaving] = useState(false);
+  const [aiPreviewPlan, setAiPreviewPlan] = useState<TrainingPlan | null>(null);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
   const [calendarView, setCalendarView] = useState<"day" | "week" | "month" | "agenda">("day");
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -326,14 +308,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       if (!response.ok) {
         return;
       }
-      const data = (await response.json()) as {
-        subscriptionPlan?: "FREE" | "PRO";
+      const data = (await response.json()) as AiEntitlementProfile & {
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
       setSubscriptionPlan(data.subscriptionPlan ?? null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
+      setAiEntitled(hasAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
     } catch {
     }
@@ -609,7 +591,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setAiLoading(true);
     setError(null);
     try {
-      const result = await generateAndSaveTrainingPlan(profile, {
+      const result = await requestAiTrainingPlan(profile, {
         goal: form.goal,
         level: form.level,
         daysPerWeek: form.daysPerWeek,
@@ -623,12 +605,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       if (typeof result.aiTokenRenewalAt === "string" || result.aiTokenRenewalAt === null) {
         setAiTokenRenewalAt(result.aiTokenRenewalAt ?? null);
       }
-      setSavedPlan(result.profile.trainingPlan ?? null);
-      setSaveMessage(t("training.aiSuccess"));
+      setAiPreviewPlan(result.plan);
+      setSaveMessage(t("training.aiPreviewReady"));
       void refreshSubscription();
     } catch (err) {
       if (err instanceof Error && err.message === "INSUFFICIENT_TOKENS") {
         setError(t("ai.insufficientTokens"));
+      } else if (err instanceof Error && err.message === "INVALID_AI_OUTPUT") {
+        setError(t("training.aiInvalidOutput"));
       } else if (err instanceof Error && err.message && err.message !== "AI_GENERATION_FAILED") {
         setError(err.message);
       } else {
@@ -712,23 +696,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     void handleAiPlan();
   };
 
-  const handleUpgrade = async () => {
-    setCheckoutLoading(true);
+  const handleConfirmAiPlan = async () => {
+    if (!aiPreviewPlan) return;
+    setAiConfirmSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/billing/checkout", { method: "POST" });
-      if (!response.ok) {
-        throw new Error(t("checkoutError"));
-      }
-      const payload = (await response.json()) as { url?: string };
-      if (!payload.url) {
-        throw new Error(t("checkoutError"));
-      }
-      window.location.href = payload.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("checkoutError"));
+      const updated = await saveAiTrainingPlan(aiPreviewPlan);
+      setSavedPlan(updated.trainingPlan ?? aiPreviewPlan);
+      setAiPreviewPlan(null);
+      setSaveMessage(t("training.aiSuccess"));
+    } catch {
+      setError(t("training.savePlanError"));
     } finally {
-      setCheckoutLoading(false);
+      setAiConfirmSaving(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
     }
   };
 
@@ -757,7 +738,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   const hasPlan = Boolean(visiblePlan?.days.length);
-  const isAiLocked = subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0;
+  const isAiLocked = !aiEntitled || (subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0);
   const isAiDisabled = aiLoading || isAiLocked || !form;
   const handleRetry = () => window.location.reload();
   const buildSetLines = (exercise: Exercise) => {
@@ -816,15 +797,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             {isAiLocked ? (
               <div className="feature-card mt-12">
                 <strong>{t("aiLockedTitle")}</strong>
-                <p className="muted mt-6">{t("aiLockedSubtitle")}</p>
-                <button
-                  type="button"
-                  className="btn mt-8"
-                  onClick={handleUpgrade}
-                  disabled={checkoutLoading}
-                >
-                  {checkoutLoading ? t("ui.loading") : t("aiLockedCta")}
-                </button>
+                <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
               </div>
             ) : null}
 
@@ -1395,6 +1368,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           </div>
         </div>
       ) : null}
+
+      <AiPlanPreviewModal
+        open={Boolean(aiPreviewPlan)}
+        plan={aiPreviewPlan}
+        title={t("training.aiPreviewTitle")}
+        description={t("training.aiPreviewSubtitle")}
+        cancelLabel={t("training.aiPreviewCancel")}
+        confirmLabel={t("training.aiPreviewConfirm")}
+        savingLabel={t("training.aiPreviewConfirming")}
+        durationUnit={t("training.minutesLabel")}
+        onClose={() => setAiPreviewPlan(null)}
+        onConfirm={handleConfirmAiPlan}
+        isSaving={aiConfirmSaving}
+      />
     </div>
   );
 }

@@ -286,7 +286,7 @@ export default function DashboardClient() {
     const training = buildTrainingSummary(profile.trainingPlan);
     const nutrition = buildNutritionSummary(profile.nutritionPlan);
     setSummary({ training, nutrition });
-  }, [profile]);
+  }, [profile, profileReady]);
 
   const userFoodMap = useMemo(() => new Map(userFoods.map((food) => [food.id, food])), [userFoods]);
 
@@ -452,6 +452,14 @@ export default function DashboardClient() {
                       <strong>{t("dashboard.todayCaloriesErrorTitle")}</strong>
                     </div>
                     <p className="muted">{t("dashboard.todayCaloriesErrorDescription")}</p>
+                    <div className="inline-actions-sm">
+                      <Button variant="secondary" onClick={handleRetry}>
+                        {t("ui.retry")}
+                      </Button>
+                      <ButtonLink variant="ghost" href="/app/seguimiento">
+                        {t("dashboard.progressCta")}
+                      </ButtonLink>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -596,6 +604,19 @@ export default function DashboardClient() {
               {t("dashboard.aiNutritionCta")}
             </ButtonLink>
           </div>
+          <div className="feature-card stack-md">
+            <div>
+              <strong>{t("dashboard.aiWeeklySummaryTitle")}</strong>
+              <p className="muted mt-6">{t("dashboard.aiWeeklySummarySubtitle")}</p>
+            </div>
+            <div className="status-card">
+              <div className="inline-actions-sm">
+                <Icon name="info" />
+                <strong>{t("access.notAvailableTitle")}</strong>
+              </div>
+              <p className="muted">{t("access.notAvailableDescription")}</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -721,9 +742,14 @@ export default function DashboardClient() {
               </div>
               <p className="muted">{error}</p>
             </div>
-            <Button variant="secondary" onClick={handleRetry}>
-              {t("ui.retry")}
-            </Button>
+            <div className="inline-actions">
+              <Button variant="secondary" onClick={handleRetry}>
+                {t("ui.retry")}
+              </Button>
+              <ButtonLink variant="ghost" href="/app/seguimiento">
+                {t("dashboard.progressCta")}
+              </ButtonLink>
+            </div>
           </div>
         ) : checkins.length === 0 ? (
           <div className="empty-state dashboard-empty">

@@ -24,8 +24,11 @@ import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { Modal } from "@/components/ui/Modal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
+import { useNutritionAdherence } from "@/lib/nutritionAdherence";
+import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 
 type NutritionForm = {
   age: number;
@@ -90,197 +93,107 @@ type ShoppingItem = {
 };
 
 type IngredientProfile = {
-  name: string;
+  nameKey: string;
   protein: number;
   carbs: number;
   fat: number;
 };
 
 type MealTemplate = {
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   protein: IngredientProfile;
   carbs?: IngredientProfile;
   fat?: IngredientProfile;
   veg?: IngredientProfile;
 };
 
-const INGREDIENT_PROFILES: Record<Locale, Record<string, IngredientProfile>> = {
-  es: {
-    salmon: { name: "Salmón", protein: 20, carbs: 0, fat: 13 },
-    chicken: { name: "Pollo", protein: 31, carbs: 0, fat: 3.6 },
-    turkey: { name: "Pavo", protein: 29, carbs: 0, fat: 2 },
-    eggs: { name: "Huevos", protein: 13, carbs: 1.1, fat: 10 },
-    yogurt: { name: "Yogur griego", protein: 10, carbs: 4, fat: 4 },
-    oats: { name: "Avena", protein: 17, carbs: 66, fat: 7 },
-    rice: { name: "Arroz integral", protein: 2.7, carbs: 28, fat: 0.3 },
-    quinoa: { name: "Quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
-    chickpeas: { name: "Garbanzos", protein: 9, carbs: 27, fat: 2.6 },
-    potatoes: { name: "Patata", protein: 2, carbs: 17, fat: 0.1 },
-    zucchini: { name: "Calabacín", protein: 1.2, carbs: 3.1, fat: 0.3 },
-    avocado: { name: "Aguacate", protein: 2, carbs: 9, fat: 15 },
-    oliveOil: { name: "Aceite de oliva", protein: 0, carbs: 0, fat: 100 },
-    berries: { name: "Frutos rojos", protein: 1, carbs: 12, fat: 0.3 },
-    milk: { name: "Leche", protein: 3.3, carbs: 5, fat: 3.2 },
-    bread: { name: "Pan integral", protein: 13, carbs: 43, fat: 4 },
-  },
-  en: {
-    salmon: { name: "Salmon", protein: 20, carbs: 0, fat: 13 },
-    chicken: { name: "Chicken", protein: 31, carbs: 0, fat: 3.6 },
-    turkey: { name: "Turkey", protein: 29, carbs: 0, fat: 2 },
-    eggs: { name: "Eggs", protein: 13, carbs: 1.1, fat: 10 },
-    yogurt: { name: "Greek yogurt", protein: 10, carbs: 4, fat: 4 },
-    oats: { name: "Oats", protein: 17, carbs: 66, fat: 7 },
-    rice: { name: "Brown rice", protein: 2.7, carbs: 28, fat: 0.3 },
-    quinoa: { name: "Quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
-    chickpeas: { name: "Chickpeas", protein: 9, carbs: 27, fat: 2.6 },
-    potatoes: { name: "Potato", protein: 2, carbs: 17, fat: 0.1 },
-    zucchini: { name: "Zucchini", protein: 1.2, carbs: 3.1, fat: 0.3 },
-    avocado: { name: "Avocado", protein: 2, carbs: 9, fat: 15 },
-    oliveOil: { name: "Olive oil", protein: 0, carbs: 0, fat: 100 },
-    berries: { name: "Berries", protein: 1, carbs: 12, fat: 0.3 },
-    milk: { name: "Milk", protein: 3.3, carbs: 5, fat: 3.2 },
-    bread: { name: "Whole-grain bread", protein: 13, carbs: 43, fat: 4 },
-  },
+const INGREDIENT_PROFILES: Record<string, IngredientProfile> = {
+  salmon: { nameKey: "nutrition.ingredient.salmon", protein: 20, carbs: 0, fat: 13 },
+  chicken: { nameKey: "nutrition.ingredient.chicken", protein: 31, carbs: 0, fat: 3.6 },
+  turkey: { nameKey: "nutrition.ingredient.turkey", protein: 29, carbs: 0, fat: 2 },
+  eggs: { nameKey: "nutrition.ingredient.eggs", protein: 13, carbs: 1.1, fat: 10 },
+  yogurt: { nameKey: "nutrition.ingredient.yogurt", protein: 10, carbs: 4, fat: 4 },
+  oats: { nameKey: "nutrition.ingredient.oats", protein: 17, carbs: 66, fat: 7 },
+  rice: { nameKey: "nutrition.ingredient.rice", protein: 2.7, carbs: 28, fat: 0.3 },
+  quinoa: { nameKey: "nutrition.ingredient.quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
+  chickpeas: { nameKey: "nutrition.ingredient.chickpeas", protein: 9, carbs: 27, fat: 2.6 },
+  potatoes: { nameKey: "nutrition.ingredient.potatoes", protein: 2, carbs: 17, fat: 0.1 },
+  zucchini: { nameKey: "nutrition.ingredient.zucchini", protein: 1.2, carbs: 3.1, fat: 0.3 },
+  avocado: { nameKey: "nutrition.ingredient.avocado", protein: 2, carbs: 9, fat: 15 },
+  oliveOil: { nameKey: "nutrition.ingredient.oliveOil", protein: 0, carbs: 0, fat: 100 },
+  berries: { nameKey: "nutrition.ingredient.berries", protein: 1, carbs: 12, fat: 0.3 },
+  milk: { nameKey: "nutrition.ingredient.milk", protein: 3.3, carbs: 5, fat: 3.2 },
+  bread: { nameKey: "nutrition.ingredient.bread", protein: 13, carbs: 43, fat: 4 },
 };
 
-const MEAL_TEMPLATES: Record<Locale, Record<string, MealTemplate[]>> = {
-  es: {
+const MEAL_TEMPLATES: Record<string, MealTemplate[]> = {
     breakfast: [
       {
-        title: "Avena con fruta",
-        description: "Avena, yogur natural, frutos rojos y semillas.",
-        protein: INGREDIENT_PROFILES.es.yogurt,
-        carbs: INGREDIENT_PROFILES.es.oats,
-        fat: INGREDIENT_PROFILES.es.oliveOil,
-        veg: INGREDIENT_PROFILES.es.berries,
+        titleKey: "nutrition.template.breakfast.oatsWithFruit.title",
+        descriptionKey: "nutrition.template.breakfast.oatsWithFruit.description",
+        protein: INGREDIENT_PROFILES.yogurt,
+        carbs: INGREDIENT_PROFILES.oats,
+        fat: INGREDIENT_PROFILES.oliveOil,
+        veg: INGREDIENT_PROFILES.berries,
       },
       {
-        title: "Tostadas con huevo",
-        description: "Pan integral, huevos revueltos y aguacate.",
-        protein: INGREDIENT_PROFILES.es.eggs,
-        carbs: INGREDIENT_PROFILES.es.bread,
-        fat: INGREDIENT_PROFILES.es.avocado,
+        titleKey: "nutrition.template.breakfast.eggToast.title",
+        descriptionKey: "nutrition.template.breakfast.eggToast.description",
+        protein: INGREDIENT_PROFILES.eggs,
+        carbs: INGREDIENT_PROFILES.bread,
+        fat: INGREDIENT_PROFILES.avocado,
       },
     ],
     lunch: [
       {
-        title: "Pollo con arroz",
-        description: "Pechuga a la plancha, arroz integral y ensalada.",
-        protein: INGREDIENT_PROFILES.es.chicken,
-        carbs: INGREDIENT_PROFILES.es.rice,
-        veg: INGREDIENT_PROFILES.es.zucchini,
+        titleKey: "nutrition.template.lunch.chickenWithRice.title",
+        descriptionKey: "nutrition.template.lunch.chickenWithRice.description",
+        protein: INGREDIENT_PROFILES.chicken,
+        carbs: INGREDIENT_PROFILES.rice,
+        veg: INGREDIENT_PROFILES.zucchini,
       },
       {
-        title: "Bowl mediterráneo",
-        description: "Quinoa, garbanzos, verduras y aceite de oliva.",
-        protein: INGREDIENT_PROFILES.es.chickpeas,
-        carbs: INGREDIENT_PROFILES.es.quinoa,
-        fat: INGREDIENT_PROFILES.es.oliveOil,
-        veg: INGREDIENT_PROFILES.es.zucchini,
+        titleKey: "nutrition.template.lunch.mediterraneanBowl.title",
+        descriptionKey: "nutrition.template.lunch.mediterraneanBowl.description",
+        protein: INGREDIENT_PROFILES.chickpeas,
+        carbs: INGREDIENT_PROFILES.quinoa,
+        fat: INGREDIENT_PROFILES.oliveOil,
+        veg: INGREDIENT_PROFILES.zucchini,
       },
     ],
     dinner: [
       {
-        title: "Salmón con verduras",
-        description: "Salmón al horno, calabacín y patata.",
-        protein: INGREDIENT_PROFILES.es.salmon,
-        carbs: INGREDIENT_PROFILES.es.potatoes,
-        veg: INGREDIENT_PROFILES.es.zucchini,
+        titleKey: "nutrition.template.dinner.salmonWithVeggies.title",
+        descriptionKey: "nutrition.template.dinner.salmonWithVeggies.description",
+        protein: INGREDIENT_PROFILES.salmon,
+        carbs: INGREDIENT_PROFILES.potatoes,
+        veg: INGREDIENT_PROFILES.zucchini,
       },
       {
-        title: "Salteado rápido",
-        description: "Pavo, verduras mixtas y noodles integrales.",
-        protein: INGREDIENT_PROFILES.es.turkey,
-        carbs: INGREDIENT_PROFILES.es.rice,
-        veg: INGREDIENT_PROFILES.es.zucchini,
+        titleKey: "nutrition.template.dinner.quickStirFry.title",
+        descriptionKey: "nutrition.template.dinner.quickStirFry.description",
+        protein: INGREDIENT_PROFILES.turkey,
+        carbs: INGREDIENT_PROFILES.rice,
+        veg: INGREDIENT_PROFILES.zucchini,
       },
     ],
     snack: [
       {
-        title: "Snack proteico",
-        description: "Yogur griego con frutos secos.",
-        protein: INGREDIENT_PROFILES.es.yogurt,
-        fat: INGREDIENT_PROFILES.es.avocado,
-        carbs: INGREDIENT_PROFILES.es.berries,
+        titleKey: "nutrition.template.snack.proteinSnack.title",
+        descriptionKey: "nutrition.template.snack.proteinSnack.description",
+        protein: INGREDIENT_PROFILES.yogurt,
+        fat: INGREDIENT_PROFILES.avocado,
+        carbs: INGREDIENT_PROFILES.berries,
       },
       {
-        title: "Batido",
-        description: "Leche, fruta y proteína en polvo.",
-        protein: INGREDIENT_PROFILES.es.milk,
-        carbs: INGREDIENT_PROFILES.es.berries,
-        fat: INGREDIENT_PROFILES.es.oliveOil,
+        titleKey: "nutrition.template.snack.shake.title",
+        descriptionKey: "nutrition.template.snack.shake.description",
+        protein: INGREDIENT_PROFILES.milk,
+        carbs: INGREDIENT_PROFILES.berries,
+        fat: INGREDIENT_PROFILES.oliveOil,
       },
     ],
-  },
-  en: {
-    breakfast: [
-      {
-        title: "Oats with fruit",
-        description: "Oats, plain yogurt, berries, and seeds.",
-        protein: INGREDIENT_PROFILES.en.yogurt,
-        carbs: INGREDIENT_PROFILES.en.oats,
-        fat: INGREDIENT_PROFILES.en.oliveOil,
-        veg: INGREDIENT_PROFILES.en.berries,
-      },
-      {
-        title: "Egg toast",
-        description: "Whole-grain toast, scrambled eggs, and avocado.",
-        protein: INGREDIENT_PROFILES.en.eggs,
-        carbs: INGREDIENT_PROFILES.en.bread,
-        fat: INGREDIENT_PROFILES.en.avocado,
-      },
-    ],
-    lunch: [
-      {
-        title: "Chicken with rice",
-        description: "Grilled chicken breast, brown rice, and salad.",
-        protein: INGREDIENT_PROFILES.en.chicken,
-        carbs: INGREDIENT_PROFILES.en.rice,
-        veg: INGREDIENT_PROFILES.en.zucchini,
-      },
-      {
-        title: "Mediterranean bowl",
-        description: "Quinoa, chickpeas, veggies, and olive oil.",
-        protein: INGREDIENT_PROFILES.en.chickpeas,
-        carbs: INGREDIENT_PROFILES.en.quinoa,
-        fat: INGREDIENT_PROFILES.en.oliveOil,
-        veg: INGREDIENT_PROFILES.en.zucchini,
-      },
-    ],
-    dinner: [
-      {
-        title: "Salmon with veggies",
-        description: "Baked salmon, zucchini, and potato.",
-        protein: INGREDIENT_PROFILES.en.salmon,
-        carbs: INGREDIENT_PROFILES.en.potatoes,
-        veg: INGREDIENT_PROFILES.en.zucchini,
-      },
-      {
-        title: "Quick stir-fry",
-        description: "Turkey, mixed veggies, and whole-grain noodles.",
-        protein: INGREDIENT_PROFILES.en.turkey,
-        carbs: INGREDIENT_PROFILES.en.rice,
-        veg: INGREDIENT_PROFILES.en.zucchini,
-      },
-    ],
-    snack: [
-      {
-        title: "Protein snack",
-        description: "Greek yogurt with nuts.",
-        protein: INGREDIENT_PROFILES.en.yogurt,
-        fat: INGREDIENT_PROFILES.en.avocado,
-        carbs: INGREDIENT_PROFILES.en.berries,
-      },
-      {
-        title: "Shake",
-        description: "Milk, fruit, and protein powder.",
-        protein: INGREDIENT_PROFILES.en.milk,
-        carbs: INGREDIENT_PROFILES.en.berries,
-        fat: INGREDIENT_PROFILES.en.oliveOil,
-      },
-    ],
-  },
 };
 
 const getMealTypeLabel = (meal: NutritionMeal, t: (key: string) => string) => {
@@ -340,6 +253,16 @@ const getMealKey = (meal: NutritionMeal, dayKey: string, index: number) => {
   const parts = [dayKey, meal.type, safeTitle, safeDescription].filter((value) => typeof value === "string" && value.length > 0);
   return parts.length > 0 ? parts.join(":") : `meal:${dayKey}:${index}`;
 };
+
+const DAY_LABEL_KEYS = [
+  "training.dayNames.monday",
+  "training.dayNames.tuesday",
+  "training.dayNames.wednesday",
+  "training.dayNames.thursday",
+  "training.dayNames.friday",
+  "training.dayNames.saturday",
+  "training.dayNames.sunday",
+] as const;
 
 export const DAY_LABELS: Record<Locale, string[]> = {
   es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
@@ -408,7 +331,8 @@ function matchesRestrictedKeywords(text: string, keywords: string[]) {
 
 function filterMealTemplates(
   templates: MealTemplate[],
-  form: NutritionForm
+  form: NutritionForm,
+  t: (key: string) => string
 ) {
   const restrictions = [
     ...form.allergies.flatMap((allergy) => ALLERGY_KEYWORDS[allergy] ?? []),
@@ -422,12 +346,12 @@ function filterMealTemplates(
   if (restrictions.length === 0) return templates;
   const filtered = templates.filter((template) => {
     const haystack = [
-      template.title,
-      template.description,
-      template.protein.name,
-      template.carbs?.name,
-      template.fat?.name,
-      template.veg?.name,
+      t(template.titleKey),
+      t(template.descriptionKey),
+      t(template.protein.nameKey),
+      template.carbs ? t(template.carbs.nameKey) : null,
+      template.fat ? t(template.fat.nameKey) : null,
+      template.veg ? t(template.veg.nameKey) : null,
     ]
       .filter(Boolean)
       .join(" ");
@@ -440,8 +364,8 @@ function filterMealTemplates(
     .filter(Boolean);
   if (preferred.length === 0) return available;
   return [...available].sort((a, b) => {
-    const aText = `${a.title} ${a.description}`.toLowerCase();
-    const bText = `${b.title} ${b.description}`.toLowerCase();
+    const aText = `${t(a.titleKey)} ${t(a.descriptionKey)}`.toLowerCase();
+    const bText = `${t(b.titleKey)} ${t(b.descriptionKey)}`.toLowerCase();
     const aScore = preferred.reduce((acc, keyword) => acc + (aText.includes(keyword.toLowerCase()) ? 1 : 0), 0);
     const bScore = preferred.reduce((acc, keyword) => acc + (bText.includes(keyword.toLowerCase()) ? 1 : 0), 0);
     return bScore - aScore;
@@ -475,28 +399,29 @@ function buildMealIngredients(
   template: MealTemplate,
   targetProtein: number,
   targetCarbs: number,
-  targetFat: number
+  targetFat: number,
+  t: (key: string) => string
 ) {
   const ingredients: { name: string; grams: number }[] = [];
   const proteinGrams = gramsForMacro(targetProtein, template.protein.protein);
   const proteinFat = (proteinGrams * template.protein.fat) / 100;
   const proteinCarbs = (proteinGrams * template.protein.carbs) / 100;
-  ingredients.push({ name: template.protein.name, grams: proteinGrams });
+  ingredients.push({ name: t(template.protein.nameKey), grams: proteinGrams });
 
   const remainingCarbs = Math.max(0, targetCarbs - proteinCarbs);
   if (template.carbs) {
     const carbsGrams = gramsForMacro(remainingCarbs, template.carbs.carbs);
-    ingredients.push({ name: template.carbs.name, grams: carbsGrams });
+    ingredients.push({ name: t(template.carbs.nameKey), grams: carbsGrams });
   }
 
   const remainingFat = Math.max(0, targetFat - proteinFat);
   if (template.fat) {
     const fatGrams = gramsForMacro(remainingFat, template.fat.fat);
-    ingredients.push({ name: template.fat.name, grams: fatGrams });
+    ingredients.push({ name: t(template.fat.nameKey), grams: fatGrams });
   }
 
   if (template.veg) {
-    ingredients.push({ name: template.veg.name, grams: 150 });
+    ingredients.push({ name: t(template.veg.nameKey), grams: 150 });
   }
 
   return ingredients;
@@ -505,7 +430,8 @@ function buildMealIngredients(
 function calculatePlan(
   form: NutritionForm,
   mealTemplates: Record<string, MealTemplate[]>,
-  dayLabels: string[]
+  dayLabels: string[],
+  t: (key: string) => string
 ): NutritionPlan {
   const weight = clamp(form.weightKg, 35, 250);
   const height = clamp(form.heightCm, 120, 230);
@@ -541,7 +467,7 @@ function calculatePlan(
 
   const days = dayLabels.map((label, dayIndex) => {
     const meals = mealsOrder.map((slot, slotIndex) => {
-      const options = filterMealTemplates(mealTemplates[slot], form);
+      const options = filterMealTemplates(mealTemplates[slot], form, t);
       const option = options[(dayIndex + slotIndex) % options.length];
       const weight = distributionWeights[slotIndex] ?? 1 / mealsOrder.length;
       const mealProtein = proteinG * weight;
@@ -549,15 +475,15 @@ function calculatePlan(
       const mealFat = fatG * weight;
       return {
         type: slot as Meal["type"],
-        title: `${slotIndex + 1}. ${option.title}`,
-        description: option.description,
+        title: `${slotIndex + 1}. ${t(option.titleKey)}`,
+        description: t(option.descriptionKey),
         macros: {
           calories: round(mealProtein * 4 + mealCarbs * 4 + mealFat * 9),
           protein: round(mealProtein),
           carbs: round(mealCarbs),
           fats: round(mealFat),
         },
-        ingredients: buildMealIngredients(option, mealProtein, mealCarbs, mealFat),
+        ingredients: buildMealIngredients(option, mealProtein, mealCarbs, mealFat, t),
       };
     });
 
@@ -610,15 +536,15 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     const value = t(key);
     return value === key ? fallback : value;
   };
-  const mealTemplates = MEAL_TEMPLATES[locale];
-  const dayLabels = DAY_LABELS[locale];
+  const mealTemplates = MEAL_TEMPLATES;
+  const dayLabels = DAY_LABEL_KEYS.map((key) => t(key));
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
   const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [aiEntitled, setAiEntitled] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
   const [saving, setSaving] = useState(false);
@@ -678,14 +604,14 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       if (!response.ok) {
         return;
       }
-      const data = (await response.json()) as {
-        subscriptionPlan?: "FREE" | "PRO";
+      const data = (await response.json()) as AiEntitlementProfile & {
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
       setSubscriptionPlan(data.subscriptionPlan ?? null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
+      setAiEntitled(hasAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
     } catch {
     }
@@ -729,9 +655,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         mealDistribution: profile.nutritionPreferences.mealDistribution,
       },
       mealTemplates,
-      dayLabels
+      dayLabels,
+      t
     );
-  }, [profile, mealTemplates, dayLabels]);
+  }, [profile, mealTemplates, dayLabels, t]);
   const visiblePlan = useMemo(
     () => normalizeNutritionPlan(isManualView ? savedPlan ?? plan : savedPlan, dayLabels),
     [isManualView, savedPlan, plan, dayLabels]
@@ -803,6 +730,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const selectedVisiblePlanDay = useMemo(() => visibleDayMap.get(toDateKey(selectedDate)) ?? null, [selectedDate, visibleDayMap]);
   const isSelectedDayReplicated = selectedVisiblePlanDay?.isReplicated ?? false;
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
+  const weekEntries = useMemo(() => weekDates.map((date) => visibleDayMap.get(toDateKey(date)) ?? null), [visibleDayMap, weekDates]);
+  const hasWeeklyMeals = useMemo(
+    () => weekEntries.some((entry) => Boolean(entry && entry.day.meals.length > 0)),
+    [weekEntries]
+  );
   const monthDates = useMemo(() => buildMonthGrid(selectedDate), [selectedDate]);
   const localeCode = locale === "es" ? "es-ES" : "en-US";
   const monthLabel = selectedDate.toLocaleDateString(localeCode, { month: "long", year: "numeric" });
@@ -1071,6 +1003,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const selectedMealInstructions = selectedMealDetails ? getMealInstructions(selectedMealDetails) : null;
   const selectedMealIngredients =
     selectedMealDetails?.ingredients?.filter((ingredient) => ingredient.name.trim().length > 0) ?? [];
+  const activeQuickLogDayKey = selectedMeal?.dayKey ?? toDateKey(selectedDate);
+  const { isConsumed, toggle, error: adherenceError } = useNutritionAdherence(activeQuickLogDayKey);
+  const {
+    favorites: quickFavorites,
+    loading: quickFavoritesLoading,
+    hasError: quickFavoritesError,
+    toggleFavorite: toggleQuickFavorite,
+  } = useNutritionQuickFavorites();
+  const [quickLogMessage, setQuickLogMessage] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const selectedMealMacros = selectedMealDetails
     ? [
         Number.isFinite(selectedMealDetails.macros?.calories)
@@ -1087,6 +1029,69 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
           : null,
       ].filter((value): value is string => Boolean(value))
     : [];
+
+  const buildQuickFavorite = (meal: NutritionMeal): NutritionQuickFavorite => {
+    const title = getMealTitle(meal, t);
+    const description = getMealDescription(meal);
+    return {
+      id: `${meal.type}:${slugifyExerciseName(`${title}-${description ?? ""}`)}`,
+      mealType: meal.type,
+      title,
+      description,
+      calories: Number.isFinite(meal.macros?.calories) ? meal.macros?.calories : null,
+      source: "device-local",
+    };
+  };
+
+  const handleQuickLogMeal = (mealKey: string, dayKey?: string | null) => {
+    if (!dayKey || adherenceError) {
+      setQuickLogMessage({ type: "error", message: t("nutrition.quickLogError") });
+      return;
+    }
+    const nextConsumed = !isConsumed(mealKey, dayKey);
+    toggle(mealKey, dayKey);
+    setQuickLogMessage({
+      type: "success",
+      message: nextConsumed ? t("nutrition.quickLogSuccess") : t("nutrition.quickLogUndo"),
+    });
+  };
+
+  const handleFavoriteAction = (meal: NutritionMeal) => {
+    const result = toggleQuickFavorite(buildQuickFavorite(meal));
+    setQuickLogMessage({
+      type: "success",
+      message: result.exists ? t("nutrition.favoriteRemoved") : t("nutrition.favoriteAdded"),
+    });
+  };
+
+  const selectedMealFavorite = selectedMealDetails ? buildQuickFavorite(selectedMealDetails) : null;
+  const isSelectedMealFavorite = selectedMealFavorite
+    ? quickFavorites.some((favorite) => favorite.id === selectedMealFavorite.id)
+    : false;
+
+  const handleUseFavorite = (favorite: NutritionQuickFavorite) => {
+    const dayKey = toDateKey(selectedDate);
+    const favoriteMeal: NutritionMeal = {
+      type: favorite.mealType,
+      title: favorite.title,
+      description: favorite.description ?? undefined,
+      macros: {
+        calories: favorite.calories ?? 0,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+      },
+      ingredients: [],
+    };
+    const favoriteMealKey = `favorite:${favorite.id}`;
+    setSelectedMeal({
+      meal: favoriteMeal,
+      dayKey,
+      dayLabel: selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" }),
+      mealKey: favoriteMealKey,
+    });
+    handleQuickLogMeal(favoriteMealKey, dayKey);
+  };
 
   useEffect(() => {
     if (urlSyncInitialized.current) return;
@@ -1227,27 +1232,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     void handleAiPlan();
   };
 
-  const handleUpgrade = async () => {
-    setCheckoutLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/billing/checkout", { method: "POST" });
-      if (!response.ok) {
-        throw new Error(t("checkoutError"));
-      }
-      const payload = (await response.json()) as { url?: string };
-      if (!payload.url) {
-        throw new Error(t("checkoutError"));
-      }
-      window.location.href = payload.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("checkoutError"));
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
-
-  const isAiLocked = subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0;
+  const isAiLocked = !aiEntitled || (subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0);
   const isAiDisabled = aiLoading || isAiLocked || !plan;
 
   const handlePrevDay = () => {
@@ -1401,15 +1386,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
             {isAiLocked ? (
               <div className="feature-card mt-12">
                 <strong>{t("aiLockedTitle")}</strong>
-                <p className="muted mt-6">{t("aiLockedSubtitle")}</p>
-                <button
-                  type="button"
-                  className="btn mt-8"
-                  onClick={handleUpgrade}
-                  disabled={checkoutLoading}
-                >
-                  {checkoutLoading ? t("ui.loading") : t("aiLockedCta")}
-                </button>
+                <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
               </div>
             ) : null}
 
@@ -1642,6 +1619,47 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                   </div>
                 ) : (
                   <>
+                    <div className="feature-card mb-12">
+                      <div className="section-head section-head-actions">
+                        <div>
+                          <strong>{t("nutrition.quickLogTitle")}</strong>
+                          <p className="muted mt-4 mb-0">{t("nutrition.quickLogSubtitle")}</p>
+                        </div>
+                        <Badge variant="muted">{t("nutrition.localOnlyBadge")}</Badge>
+                      </div>
+                      {quickLogMessage ? (
+                        <p className={`muted mt-8 ${quickLogMessage.type === "error" ? "text-danger" : ""}`}>
+                          {quickLogMessage.message}
+                        </p>
+                      ) : null}
+                      {quickFavoritesLoading ? (
+                        <p className="muted mt-8">{t("nutrition.quickFavoritesLoading")}</p>
+                      ) : quickFavoritesError ? (
+                        <p className="muted mt-8">{t("nutrition.quickFavoritesError")}</p>
+                      ) : quickFavorites.length === 0 ? (
+                        <div className="empty-state mt-8">
+                          <p className="muted">{t("nutrition.quickFavoritesEmpty")}</p>
+                        </div>
+                      ) : (
+                        <div className="list-grid mt-8">
+                          {quickFavorites.map((favorite) => (
+                            <div key={favorite.id} className="feature-card">
+                              <strong>{favorite.title}</strong>
+                              <p className="muted mt-4 mb-0">{t(`nutrition.mealType${favorite.mealType.charAt(0).toUpperCase()}${favorite.mealType.slice(1)}`)}</p>
+                              <div className="inline-actions-sm mt-8">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleUseFavorite(favorite)}
+                                >
+                                  {t("nutrition.quickUseFavorite")}
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {calendarView === "day" ? (
                       <div
                         role="presentation"
@@ -1725,38 +1743,65 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
                           >
                             {t("calendar.nextWeek")}
                           </button>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => {
+                              setSelectedDate(new Date());
+                              setCalendarView("day");
+                            }}
+                          >
+                            {t("nutrition.viewToday")}
+                          </button>
                           {projectedWeek.isReplicated ? <Badge variant="muted">{t("plan.replicatedWeekLabel")}</Badge> : null}
                         </div>
-                        <div className="calendar-week-grid">
-                          {weekDates.map((date) => {
-                            const entry = visibleDayMap.get(toDateKey(date));
-                            return (
-                              <button
-                                key={toDateKey(date)}
-                                type="button"
-                                className={`calendar-day-card ${entry ? "has-plan" : "is-empty"} ${isSameDay(date, today) ? "is-today" : ""}`}
-                                onClick={() => {
-                                  setSelectedDate(date);
-                                  setCalendarView("day");
-                                }}
-                              >
-                                <div className="calendar-day-card-header">
-                                  <span>{date.toLocaleDateString(localeCode, { weekday: "short" })}</span>
-                                  <strong>{date.getDate()}</strong>
-                                </div>
-                                {entry ? (
-                                  <div className="calendar-day-card-body">
-                                    <span className="badge">{entry.day.dayLabel}</span>
-                                    <p className="muted">{entry.day.meals.length} {t("nutrition.mealCountLabel")}</p>
-                                    <span className="calendar-dot" />
+                        {hasWeeklyMeals ? (
+                          <div className="calendar-week-grid">
+                            {weekDates.map((date) => {
+                              const entry = visibleDayMap.get(toDateKey(date));
+                              return (
+                                <button
+                                  key={toDateKey(date)}
+                                  type="button"
+                                  className={`calendar-day-card ${entry ? "has-plan" : "is-empty"} ${isSameDay(date, today) ? "is-today" : ""}`}
+                                  onClick={() => {
+                                    setSelectedDate(date);
+                                    setCalendarView("day");
+                                  }}
+                                >
+                                  <div className="calendar-day-card-header">
+                                    <span>{date.toLocaleDateString(localeCode, { weekday: "short" })}</span>
+                                    <strong>{date.getDate()}</strong>
                                   </div>
-                                ) : (
-                                  <p className="muted">{safeT("nutrition.calendarEmptyShort", t("nutrition.emptySubtitle"))}</p>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
+                                  {entry ? (
+                                    <div className="calendar-day-card-body">
+                                      <span className="badge">{entry.day.dayLabel}</span>
+                                      <p className="muted">{entry.day.meals.length} {t("nutrition.mealCountLabel")}</p>
+                                      <span className="calendar-dot" />
+                                    </div>
+                                  ) : (
+                                    <p className="muted">{safeT("nutrition.calendarEmptyShort", t("nutrition.emptySubtitle"))}</p>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="empty-state">
+                            <h3 className="m-0">{t("nutrition.weeklyEmptyTitle")}</h3>
+                            <p className="muted">{t("nutrition.weeklyEmptySubtitle")}</p>
+                            <button
+                              type="button"
+                              className="btn secondary fit-content"
+                              onClick={() => {
+                                setSelectedDate(new Date());
+                                setCalendarView("day");
+                              }}
+                            >
+                              {t("nutrition.viewToday")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : null}
 
@@ -2058,7 +2103,19 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         description={selectedMeal?.dayLabel ?? undefined}
         onClose={closeMealDetail}
         footer={
-          <Button onClick={closeMealDetail}>{t("ui.close")}</Button>
+          <div className="inline-actions-sm">
+            <Button variant="secondary" onClick={closeMealDetail}>{t("ui.close")}</Button>
+            {selectedMeal ? (
+              <Button
+                onClick={() => handleQuickLogMeal(selectedMeal.mealKey, selectedMeal.dayKey)}
+                disabled={adherenceError}
+              >
+                {isConsumed(selectedMeal.mealKey, selectedMeal.dayKey)
+                  ? t("nutrition.quickLogButtonConsumed")
+                  : t("nutrition.quickLogButton")}
+              </Button>
+            ) : null}
+          </div>
         }
       >
         {selectedMealDetails ? (
@@ -2068,6 +2125,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
               <p className="muted mt-4">
                 {getMealTypeLabel(selectedMealDetails, t)}
               </p>
+              <div className="inline-actions-sm mt-8">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleFavoriteAction(selectedMealDetails)}
+                >
+                  {isSelectedMealFavorite ? t("nutrition.quickRemoveFavorite") : t("nutrition.quickAddFavorite")}
+                </Button>
+                <Badge variant="muted">{t("nutrition.localOnlyBadge")}</Badge>
+              </div>
             </div>
             {getMealMediaUrl(selectedMealDetails) ? (
               <img

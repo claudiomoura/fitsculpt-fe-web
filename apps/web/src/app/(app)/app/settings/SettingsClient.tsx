@@ -5,7 +5,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
+import { extractGymMembership } from "@/lib/gymMembership";
+import { useAccess } from "@/lib/useAccess";
 
 type SettingsSection = "account" | "profile" | "billing" | "notifications" | "support";
 
@@ -13,9 +16,15 @@ const sectionOrder: SettingsSection[] = ["account", "profile", "billing", "notif
 
 export default function SettingsClient() {
   const { t } = useLanguage();
+  const { isAdmin, isDev } = useAccess();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const { entitlements } = useAuthEntitlements();
+
+  const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
+  const hasGymSelectionEndpoint = false;
+  const canSeeImplementationNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
 
   useEffect(() => {
     let mounted = true;
@@ -46,6 +55,7 @@ export default function SettingsClient() {
   }, []);
 
   const profileName = (profile?.name ?? "").trim();
+  const gymMembership = extractGymMembership(profile);
 
   const sections = useMemo(
     () => ({
@@ -65,6 +75,12 @@ export default function SettingsClient() {
         description: t("settings.sections.billing.description"),
         ctaLabel: t("settings.sections.billing.action"),
         href: "/app/settings/billing",
+        statusLabel:
+          gymMembership.state === "in_gym"
+            ? t("settings.sections.billing.gymStatusYes")
+            : gymMembership.state === "not_in_gym"
+              ? t("settings.sections.billing.gymStatusNo")
+              : t("settings.sections.billing.gymStatusUnknown"),
       },
       notifications: {
         title: t("settings.sections.notifications.title"),
@@ -75,9 +91,10 @@ export default function SettingsClient() {
         title: t("settings.sections.support.title"),
         description: t("settings.sections.support.description"),
         emptyTitle: t("settings.sections.support.emptyTitle"),
+        action: t("settings.sections.support.action"),
       },
     }),
-    [profileName, t]
+    [gymMembership.state, profileName, t]
   );
 
   if (isLoading) {
@@ -106,8 +123,8 @@ export default function SettingsClient() {
 
       <div className="list-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
         {sectionOrder.map((sectionKey) => {
-          if (sectionKey === "notifications" || sectionKey === "support") {
-            const section = sections[sectionKey];
+          if (sectionKey === "notifications") {
+            const section = sections.notifications;
             return (
               <Card key={sectionKey}>
                 <CardHeader>
@@ -119,6 +136,29 @@ export default function SettingsClient() {
                 <CardContent>
                   <EmptyState title={section.emptyTitle} icon="info" />
                 </CardContent>
+              </Card>
+            );
+          }
+
+          if (sectionKey === "support") {
+            const section = sections.support;
+            return (
+              <Card key={sectionKey}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>{section.title}</CardTitle>
+                    <CardDescription>{section.description}</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardFooter style={{ justifyContent: "flex-start" }}>
+                  {supportUrl ? (
+                    <ButtonLink href={supportUrl} target="_blank" rel="noreferrer" variant="secondary">
+                      {section.action}
+                    </ButtonLink>
+                  ) : (
+                    <p className="muted m-0">{section.emptyTitle}</p>
+                  )}
+                </CardFooter>
               </Card>
             );
           }
@@ -151,6 +191,12 @@ export default function SettingsClient() {
                   <CardDescription>{section.description}</CardDescription>
                 </div>
               </CardHeader>
+              {sectionKey === "billing" ? (
+                <CardContent>
+                  <p className="muted m-0">{sections.billing.statusLabel}</p>
+                  {canSeeImplementationNote ? <p className="muted m-0">{t("billing.gym.linkRequiresImplementation")}</p> : null}
+                </CardContent>
+              ) : null}
               <CardFooter style={{ justifyContent: "flex-start" }}>
                 <ButtonLink href={section.href} variant="secondary">
                   {section.ctaLabel}

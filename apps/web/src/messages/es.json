@@ -25,14 +25,28 @@
     "logout": "Cerrar sesión",
     "trainer": "Entrenador",
     "adminPreview": "Vista previa admin",
-    "adminLabs": "Labs"
+    "adminLabs": "Labs",
+    "trainerClients": "Clientes del entrenador",
+    "trainerExercises": "Ejercicios del entrenador",
+    "newExercise": "Nuevo ejercicio",
+    "onboarding": "Onboarding",
+    "trainingEditor": "Editor de entrenamiento",
+    "nutritionEditor": "Editor de nutrición",
+    "legacyProfile": "Perfil legacy",
+    "workoutLibrary": "Biblioteca de entrenamientos",
+    "recipeLibrary": "Biblioteca de recetas",
+    "gymJoinRequests": "Solicitudes de ingreso al gimnasio",
+    "gym": "Gimnasio",
+    "labs": "Labs"
   },
   "navSections": {
     "summary": "Resumen",
     "training": "Entrenamiento",
     "nutrition": "Nutrición",
     "account": "Cuenta",
-    "admin": "Admin"
+    "admin": "Admin",
+    "development": "En desarrollo",
+    "trainer": "Entrenador"
   },
   "ui": {
     "menu": "Menú",
@@ -101,7 +115,19 @@
     "openLibrary": "Abrir biblioteca",
     "openLibraryDescription": "Explora ejercicios y recetas.",
     "comingSoon": "Próximamente",
-    "open": "Abrir"
+    "open": "Abrir",
+    "checkinOutcome": "Abre el check-in semanal con tu estado más reciente.",
+    "trainingOutcome": "Abre el plan de entrenamiento de hoy cuando esté disponible.",
+    "macrosOutcome": "Abre tu vista de macros para registrar comida.",
+    "openPlanCta": "Ver plan",
+    "openMacrosCta": "Ver macros",
+    "trainingUnavailable": "Aún no hay plan para hoy.",
+    "macrosUnavailable": "Aún no hay datos de nutrición para hoy.",
+    "loadingAria": "Cargando acciones rápidas",
+    "errorTitle": "Acciones rápidas no disponibles",
+    "errorDescription": "No pudimos cargar las acciones rápidas ahora mismo.",
+    "emptyTitle": "No hay acciones rápidas disponibles",
+    "emptyDescription": "Todavía no hay una acción disponible para hoy."
   },
   "today": {
     "title": "Hoy",
@@ -533,7 +559,15 @@
     "bodyFatEmptySubtitle": "Registra un check-in con % de grasa para ver la tendencia.",
     "chartError": "No pudimos cargar el progreso.",
     "errorTitle": "No pudimos cargar tu progreso",
-    "progressEmptyHint": "Registra un check-in para ver tu tendencia."
+    "progressEmptyHint": "Registra un check-in para ver tu tendencia.",
+    "aiWeeklySummaryTitle": "Resumen semanal con IA",
+    "aiWeeklySummarySubtitle": "Recap semanal Pro/Gym basado en tus insights de IA disponibles.",
+    "aiWeeklySummaryLockedTitle": "Requiere Pro o Gym",
+    "aiWeeklySummaryLockedDescription": "Actualiza a Pro o Gym para desbloquear el resumen semanal con IA en tu panel.",
+    "aiWeeklySummaryErrorTitle": "Resumen semanal no disponible",
+    "aiWeeklySummaryErrorDescription": "No pudimos cargar tu resumen semanal con IA en este momento.",
+    "aiWeeklySummaryEmptyTitle": "Aún no hay resumen semanal con IA",
+    "aiWeeklySummaryEmptyDescription": "Todavía no hay un endpoint de resumen semanal con IA disponible para tu cuenta."
   },
   "workouts": {
     "newWorkout": "Nuevo entrenamiento",
@@ -741,6 +775,22 @@
     "adherenceConsumedLabel": "Consumido",
     "adherenceToastTitle": "Comida marcada como consumida",
     "adherenceToastDescription": "Guardamos este estado en tu dispositivo.",
+    "quickLogTitle": "Registro rápido de comida",
+    "quickLogSubtitle": "Usa favoritos locales para registrar más rápido en este dispositivo.",
+    "localOnlyBadge": "Solo en este dispositivo",
+    "quickFavoritesLoading": "Cargando favoritos locales...",
+    "quickFavoritesError": "No pudimos leer los favoritos locales en este dispositivo.",
+    "quickFavoritesEmpty": "Aún no hay favoritos.",
+    "quickUseFavorite": "Usar y registrar",
+    "quickLogButton": "Registrar comida",
+    "quickLogButtonConsumed": "Registrado",
+    "quickLogSuccess": "Comida registrada correctamente.",
+    "quickLogUndo": "Se quitó el registro de comida.",
+    "quickLogError": "No pudimos registrar esta comida ahora mismo.",
+    "quickAddFavorite": "Añadir a favoritos",
+    "quickRemoveFavorite": "Quitar favorito",
+    "favoriteAdded": "Guardado en favoritos locales.",
+    "favoriteRemoved": "Quitado de favoritos locales.",
     "viewWeek": "Ver semana",
     "viewToday": "Ver hoy",
     "dayPrev": "Día anterior",
@@ -817,7 +867,69 @@
     "ingredientsNotAvailable": "Ingredientes no disponibles.",
     "mealDetailsNotFound": "No hemos podido encontrar este plato para el día seleccionado.",
     "weekLabel": "Semana",
-    "instructionsTitle": "Instrucciones"
+    "instructionsTitle": "Instrucciones",
+    "ingredient": {
+      "salmon": "Salmón",
+      "chicken": "Pollo",
+      "turkey": "Pavo",
+      "eggs": "Huevos",
+      "yogurt": "Yogur griego",
+      "oats": "Avena",
+      "rice": "Arroz integral",
+      "quinoa": "Quinoa",
+      "chickpeas": "Garbanzos",
+      "potatoes": "Patata",
+      "zucchini": "Calabacín",
+      "avocado": "Aguacate",
+      "oliveOil": "Aceite de oliva",
+      "berries": "Frutos rojos",
+      "milk": "Leche",
+      "bread": "Pan integral"
+    },
+    "template": {
+      "breakfast": {
+        "oatsWithFruit": {
+          "title": "Avena con fruta",
+          "description": "Avena, yogur natural, frutos rojos y semillas."
+        },
+        "eggToast": {
+          "title": "Tostadas con huevo",
+          "description": "Pan integral, huevos revueltos y aguacate."
+        }
+      },
+      "lunch": {
+        "chickenWithRice": {
+          "title": "Pollo con arroz",
+          "description": "Pechuga a la plancha, arroz integral y ensalada."
+        },
+        "mediterraneanBowl": {
+          "title": "Bowl mediterráneo",
+          "description": "Quinoa, garbanzos, verduras y aceite de oliva."
+        }
+      },
+      "dinner": {
+        "salmonWithVeggies": {
+          "title": "Salmón con verduras",
+          "description": "Salmón al horno, calabacín y patata."
+        },
+        "quickStirFry": {
+          "title": "Salteado rápido",
+          "description": "Pavo, verduras mixtas y noodles integrales."
+        }
+      },
+      "snack": {
+        "proteinSnack": {
+          "title": "Snack proteico",
+          "description": "Yogur griego con frutos secos."
+        },
+        "shake": {
+          "title": "Batido",
+          "description": "Leche, fruta y proteína en polvo."
+        }
+      }
+    },
+    "weeklyEmptyTitle": "Vista semanal no disponible",
+    "weeklyEmptySubtitle": "Aún no hay comidas para esta semana con los datos actuales."
   },
   "training": {
     "formTitle": "Datos del plan",
@@ -934,7 +1046,59 @@
     "profileError": "No pudimos cargar tu perfil.",
     "emptyPlan": "Completa el formulario para generar tu plan.",
     "generateSuccess": "Plan generado correctamente.",
-    "errorTitle": "No pudimos cargar tu plan"
+    "errorTitle": "No pudimos cargar tu plan",
+    "dayNames": {
+      "monday": "Lunes",
+      "tuesday": "Martes",
+      "wednesday": "Miércoles",
+      "thursday": "Jueves",
+      "friday": "Viernes",
+      "saturday": "Sábado",
+      "sunday": "Domingo"
+    },
+    "exercises": {
+      "squat": "Sentadilla",
+      "benchPress": "Press banca",
+      "barbellRow": "Remo con barra",
+      "romanianDeadlift": "Peso muerto rumano",
+      "overheadPress": "Press militar",
+      "plank": "Plancha",
+      "pushUps": "Flexiones",
+      "bandRow": "Remo con banda",
+      "lunges": "Zancadas",
+      "pikePushUps": "Flexiones pike",
+      "pullUps": "Dominadas",
+      "bicepsCurl": "Curl bíceps",
+      "tricepsExtension": "Extensión tríceps",
+      "dumbbellOverheadPress": "Press militar con mancuernas",
+      "benchDips": "Fondos en banco",
+      "legPress": "Prensa",
+      "calfRaise": "Elevación de gemelos",
+      "hipThrust": "Hip thrust",
+      "core": "Core",
+      "gluteBridge": "Puente de glúteo",
+      "goodMorning": "Buenos días",
+      "inclinePress": "Press inclinado",
+      "dips": "Fondos",
+      "lateralRaises": "Elevaciones laterales",
+      "triceps": "Tríceps",
+      "facePull": "Face pull",
+      "cableRow": "Remo en polea",
+      "assistedPullUps": "Dominadas asistidas",
+      "bandFacePull": "Face pull con banda",
+      "invertedRow": "Remo invertido",
+      "hamstringCurl": "Curl femoral",
+      "dumbbellRomanianDeadlift": "Peso muerto rumano con mancuerna",
+      "swissBallLegCurl": "Curl femoral con fitball",
+      "inclineDumbbellPress": "Press inclinado con mancuernas"
+    },
+    "aiPreviewReady": "Plan con IA listo para revisar.",
+    "aiPreviewTitle": "Revisa el plan de IA antes de guardar",
+    "aiPreviewSubtitle": "Verifica las sesiones sugeridas y confirma para guardar este plan.",
+    "aiPreviewCancel": "Cancelar",
+    "aiPreviewConfirm": "Confirmar y guardar",
+    "aiPreviewConfirming": "Guardando plan...",
+    "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo."
   },
   "profile": {
     "formTitle": "Perfil y métricas",
@@ -1280,7 +1444,17 @@
     "adjustmentRetry": "Reintentar",
     "adjustmentRetryAria": "Reintentar aplicar el ajuste",
     "adjustmentBack": "Volver",
-    "adjustmentBackAria": "Volver al formulario de check-in"
+    "adjustmentBackAria": "Volver al formulario de check-in",
+    "adjustmentChecking": "Comprobando disponibilidad del ajuste...",
+    "adjustmentProFeatureTitle": "Función Pro",
+    "adjustmentProFeatureBody": "Los ajustes semanales con IA están disponibles en planes Pro. Sigue registrando check-ins para preparar tu próxima actualización.",
+    "adjustmentNeedsProfile": "Completa tus preferencias de entrenamiento para desbloquear los ajustes semanales con IA.",
+    "adjustmentChangesTitle": "Qué cambió esta semana",
+    "adjustmentChangesEmpty": "No se detectaron cambios estructurales importantes en la vista previa semanal del plan.",
+    "adjustmentChangedDays": "Días actualizados: {count}",
+    "adjustmentAddedExercises": "Ejercicios añadidos: {count}",
+    "adjustmentRemovedExercises": "Ejercicios eliminados: {count}",
+    "adjustmentDurationDelta": "Cambio total de duración: {minutes} min"
   },
   "onboarding": {
     "title": "Bienvenido a FitSculpt",
@@ -1298,7 +1472,22 @@
     "sectionMetrics": "Últimas métricas",
     "finish": "Guardar y terminar",
     "saving": "Guardando...",
-    "saved": "Perfil actualizado."
+    "saved": "Perfil actualizado.",
+    "loadingState": "Cargando tus datos de onboarding...",
+    "errorTitle": "No pudimos cargar el onboarding",
+    "errorSubtitle": "Reintenta para continuar tu configuración.",
+    "retry": "Reintentar",
+    "emptyTitle": "No encontramos datos de onboarding",
+    "emptySubtitle": "Tu perfil aún no tiene una configuración guardada. Inicia el onboarding para continuar.",
+    "emptyAction": "Iniciar onboarding",
+    "objectiveTitle": "Elige tu objetivo",
+    "levelTitle": "Define tu nivel",
+    "preferencesTitle": "Define tus preferencias",
+    "stepCounter": "Paso {current} de {total}",
+    "saveError": "Todavía no pudimos guardar tu onboarding. Reintenta por favor.",
+    "successTitle": "Onboarding completado",
+    "successSubtitle": "Tu objetivo, nivel y preferencias se guardaron correctamente.",
+    "continue": "Continuar"
   },
   "admin": {
     "unauthorized": "No tienes acceso a esta sección.",
@@ -1355,7 +1544,16 @@
     "tokensAdd": "+ Sumar",
     "tokensSub": "- Restar",
     "tokensSet": "Setear",
-    "updateAllowance": "Actualizar asignación"
+    "updateAllowance": "Actualizar asignación",
+    "gymRequestsTitle": "Solicitudes de ingreso al gimnasio",
+    "gymRequestsSubtitle": "Revisa solicitudes pendientes de membresía para tu gimnasio.",
+    "gymRequestsLoading": "Cargando solicitudes de ingreso...",
+    "gymRequestsRequiresImplementation": "Requiere implementación",
+    "gymRequestsError": "No pudimos cargar las solicitudes de ingreso al gimnasio.",
+    "gymRequestsRetry": "Reintentar",
+    "gymRequestsEmpty": "No hay solicitudes pendientes de ingreso al gimnasio.",
+    "gymRequestsAccept": "Aceptar",
+    "gymRequestsReject": "Rechazar"
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",
@@ -1573,7 +1771,7 @@
     "tokensRemaining": "Tokens IA restantes:",
     "tokensReset": "Renueva",
     "insufficientTokens": "No tienes tokens suficientes para usar la IA.",
-    "notPro": "Necesitas PRO para usar la IA."
+    "notPro": "La generación con IA es una función Pro. Mejora a Pro para usarla."
   },
   "billing": {
     "title": "Facturación",
@@ -1599,6 +1797,22 @@
       "canceled": "Cancelada",
       "unpaid": "Impaga",
       "unknown": "Desconocido"
+    },
+    "placeholderPlan": "Sin datos",
+    "placeholderStatus": "Sin estado disponible",
+    "supportDescription": "Accede al canal de soporte disponible para tu entorno.",
+    "supportAction": "Contactar soporte",
+    "supportPlaceholder": "No hay un canal de soporte disponible en este entorno.",
+    "gym": {
+      "title": "Membresía de gimnasio",
+      "statusYes": "Sí, vinculado a un gimnasio",
+      "statusNo": "Sin vínculo a gimnasio",
+      "unknownTitle": "Información de gimnasio no disponible",
+      "unknownDescription": "No pudimos determinar tu membresía de gimnasio con el payload actual.",
+      "notInGymDescription": "Tu cuenta actualmente no está asociada a ningún tenant de gimnasio.",
+      "nameLabel": "Nombre del gimnasio",
+      "idLabel": "ID del gimnasio",
+      "linkRequiresImplementation": "Requiere implementación"
     }
   },
   "settings": {
@@ -1622,7 +1836,11 @@
       "billing": {
         "title": "Facturación",
         "description": "Revisa tu plan y gestiona tu suscripción.",
-        "action": "Abrir facturación"
+        "action": "Abrir facturación",
+        "statusLabel": "El estado del plan se muestra en Facturación cuando hay datos reales.",
+        "gymStatusYes": "Estado de gimnasio: sí",
+        "gymStatusNo": "Estado de gimnasio: no",
+        "gymStatusUnknown": "Estado de gimnasio: información no disponible"
       },
       "notifications": {
         "title": "Notificaciones",
@@ -1632,7 +1850,8 @@
       "support": {
         "title": "Soporte",
         "description": "Los canales de soporte no están disponibles en este entorno.",
-        "emptyTitle": "El acceso a soporte aparecerá cuando haya un canal disponible."
+        "emptyTitle": "El acceso a soporte aparecerá cuando haya un canal disponible.",
+        "action": "Abrir soporte"
       }
     }
   },
@@ -1656,24 +1875,78 @@
       "active": "Activo",
       "blocked": "Bloqueado",
       "openClientAriaPrefix": "Abrir contexto de",
-      "unknownStatus": "Estado desconocido"
+      "unknownStatus": "Estado desconocido",
+      "loading": "Cargando lista de clientes...",
+      "description": "Revisa y abre contextos de atletas desde tu área de entrenador.",
+      "openList": "Abrir lista de clientes"
     },
     "clientContext": {
       "title": "Contexto del atleta",
       "loading": "Cargando contexto del atleta...",
       "error": "No fue posible cargar el contexto del atleta.",
+      "empty": "No hay datos disponibles para esta pestaña.",
       "unknownClient": "Atleta",
-      "unavailable": "Indisponible con los endpoints actuales.",
-      "today": {
-        "title": "Hoy",
-        "lastLoginPrefix": "Último acceso:",
-        "subscriptionStatusPrefix": "Estado de suscripción:"
+      "unavailable": "Esta pestaña no está disponible con las fuentes de datos actuales.",
+      "stateDescriptions": {
+        "loading": "Preparando el estado de la sección...",
+        "error": "Sección no disponible por un error de carga.",
+        "empty": "No se encontraron registros para esta sección.",
+        "unavailable": "Esta sección requiere datos que no están disponibles en este entorno.",
+        "ready": "Sección cargada correctamente."
+      },
+      "summary": {
+        "title": "Resumen",
+        "clientNamePrefix": "Cliente:",
+        "emailPrefix": "Email:",
+        "accountStatusPrefix": "Estado de cuenta:"
+      },
+      "training": {
+        "title": "Entreno",
+        "subscriptionStatusPrefix": "Estado de suscripción:",
+        "subscriptionHint": "El detalle de entreno se limita al estado de cliente actualmente disponible.",
+        "dualPlans": {
+          "title": "Planes Casa + Gimnasio",
+          "description": "Muestra planes asignados por contexto cuando existen en los datos del backend.",
+          "homeLabel": "Contexto casa",
+          "gymLabel": "Contexto gimnasio",
+          "unassigned": "Sin plan asignado",
+          "assignAction": "Asignar plan",
+          "assignConfirmation": "Solicitud de asignación de plan registrada.",
+          "assignUnavailable": "La asignación de dos planes requiere soporte de backend y no está disponible en este entorno.",
+          "emptyUnsupported": "Aún no hay datos de planes separados Casa/Gimnasio para este cliente."
+        }
+      },
+      "nutrition": {
+        "title": "Nutrición"
       },
       "tracking": {
-        "title": "Tracking"
+        "title": "Seguimiento",
+        "lastLoginPrefix": "Último acceso:",
+        "noRecentActivity": "No hay actividad reciente disponible.",
+        "activityHint": "El detalle de seguimiento aparecerá cuando exista data real de check-ins."
       },
-      "plans": {
-        "title": "Planes"
+      "drafts": {
+        "title": "Notas y borradores de ajuste",
+        "localOnly": "Los borradores son locales solo en este dispositivo.",
+        "storageWarning": "Los borradores locales no están disponibles en este momento.",
+        "saveError": "No pudimos guardar este borrador en este dispositivo.",
+        "noteFormTitle": "Agregar nota",
+        "noteLabel": "Nota",
+        "notePlaceholder": "Escribe una nota de coaching para este atleta...",
+        "noteSubmit": "Guardar borrador de nota",
+        "noteInvalid": "Escribe una nota antes de guardar.",
+        "noteSaved": "Borrador de nota guardado en este dispositivo.",
+        "notesListTitle": "Borradores de notas guardados",
+        "notesEmpty": "Aún no hay borradores de notas guardados en este dispositivo.",
+        "adjustmentFormTitle": "Proponer ajuste",
+        "adjustmentLabel": "Propuesta de ajuste",
+        "adjustmentPlaceholder": "Describe el ajuste que quieres proponer...",
+        "adjustmentSubmit": "Guardar borrador de ajuste",
+        "adjustmentInvalid": "Escribe una propuesta de ajuste antes de guardar.",
+        "adjustmentSaved": "Borrador de ajuste guardado en este dispositivo.",
+        "adjustmentsListTitle": "Borradores de ajuste guardados",
+        "adjustmentsEmpty": "Aún no hay borradores de ajuste guardados en este dispositivo.",
+        "pendingLocalBadge": "Pendiente (local)"
       },
       "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend."
     },
@@ -1719,7 +1992,29 @@
     "unavailableTitle": "No disponible (requiere backend)",
     "unavailableDesc": "Este entorno aún no tiene un endpoint de clientes para entrenador.",
     "demoMode": "Modo Demo/Dev preview",
-    "clientsEndpointPrefix": "Endpoint en uso:"
+    "clientsEndpointPrefix": "Endpoint en uso:",
+    "gymRequiredTitle": "Se requiere membresía de gimnasio",
+    "gymRequiredDesc": "Esta área de entrenador solo está disponible cuando tu cuenta está vinculada a un gimnasio.",
+    "gymUnknownTitle": "Acceso de gimnasio para entrenador no disponible",
+    "gymUnknownDesc": "No pudimos confirmar tu membresía de gimnasio con el payload actual del backend.",
+    "assignPlan": {
+      "title": "Asignar plan de entrenamiento",
+      "subtitle": "Elige un miembro y una plantilla de plan para asignarla desde el modo entrenador.",
+      "loading": "Cargando miembros y planes...",
+      "loadError": "No pudimos cargar miembros o planes.",
+      "memberLabel": "Miembro",
+      "memberPlaceholder": "Selecciona un miembro",
+      "planLabel": "Plantilla de plan",
+      "planPlaceholder": "Selecciona una plantilla de plan",
+      "previewLoading": "Cargando vista previa del plan...",
+      "previewError": "No pudimos cargar la vista previa del plan.",
+      "previewDays": "Días: {count}",
+      "previewExercises": "Ejercicios: {count}",
+      "submit": "Asignar plan",
+      "submitting": "Asignando...",
+      "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
+      "success": "Plan asignado correctamente a {member}."
+    }
   },
   "gym": {
     "title": "Gimnasio",
@@ -1733,7 +2028,81 @@
     "exerciseScopeMixed": "Gimnasio + Global",
     "filterAll": "Todos los ejercicios",
     "filterGymOnly": "Solo gimnasio",
-    "filterGlobalOnly": "Solo globales"
+    "filterGlobalOnly": "Solo globales",
+    "member": {
+      "subtitle": "Gestiona tu experiencia del gimnasio y accede a tu entrenamiento asignado.",
+      "loading": "Cargando información del gimnasio...",
+      "planTitle": "Plan de entrenamiento asignado",
+      "planDescription": "Tu entrenador te asignó un plan. Ábrelo en tu área de entrenamiento.",
+      "planCta": "Ver tu plan asignado"
+    },
+    "admin": {
+      "members": {
+        "title": "Miembros del gimnasio",
+        "subtitle": "Asigna uno de tus planes de entrenamiento a un miembro.",
+        "loading": "Cargando miembros...",
+        "empty": "No hay miembros disponibles para asignar por ahora.",
+        "loadError": "No pudimos cargar miembros. Inténtalo de nuevo.",
+        "profileError": "No pudimos cargar tu perfil de gimnasio.",
+        "missingGymId": "Tu cuenta no está vinculada a un id de gimnasio.",
+        "assignAction": "Asignar plan",
+        "assignSuccess": "Plan asignado correctamente."
+      },
+      "assignPlan": {
+        "title": "Asignar plan de entrenamiento",
+        "description": "Elige uno de tus planes y asígnalo a {member}.",
+        "planLabel": "Plan de entrenamiento",
+        "selectPlaceholder": "Selecciona un plan",
+        "loadingPlans": "Cargando tus planes...",
+        "emptyPlans": "No tienes planes disponibles para asignar.",
+        "loadPlansError": "No pudimos cargar tus planes.",
+        "submit": "Asignar plan",
+        "cancel": "Cancelar",
+        "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio."
+      },
+      "goToPanel": "Ir al panel del gimnasio"
+    },
+    "description": "Gestiona tu estado de membresía y solicita acceso a un gimnasio.",
+    "membership": {
+      "none": {
+        "title": "Aún no perteneces a un gimnasio"
+      },
+      "pending": {
+        "title": "Solicitud pendiente",
+        "description": "Tu solicitud para {gymName} está pendiente de aprobación."
+      },
+      "active": {
+        "title": "Membresía activa",
+        "description": "Estás en {gymName} con rol {role}.",
+        "planButton": "Ir a mi plan"
+      },
+      "rejected": {
+        "title": "Solicitud rechazada",
+        "description": "Tu solicitud anterior fue rechazada. Puedes intentar unirte de nuevo."
+      }
+    },
+    "join": {
+      "selectLabel": "Selecciona un gimnasio",
+      "requestButton": "Solicitar acceso",
+      "codeLabel": "Código del gimnasio",
+      "codeHelp": "Si el gimnasio te dio un código, úsalo para unirte automáticamente.",
+      "codeButton": "Unirme con código",
+      "empty": "No hay gimnasios disponibles en este momento.",
+      "loadError": "No pudimos cargar la lista de gimnasios."
+    },
+    "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
+    "loadError": {
+      "title": "No pudimos cargar tu estado de gimnasio",
+      "subtitle": "Inténtalo de nuevo en unos segundos."
+    },
+    "actionErrorTitle": "No pudimos procesar tu solicitud",
+    "actionError": "Verifica los datos e inténtalo nuevamente.",
+    "unavailableTitle": "Estado de gimnasio no disponible",
+    "unavailableDescription": "No fue posible determinar tu estado de membresía por ahora.",
+    "sessionExpired": {
+      "title": "Tu sesión expiró",
+      "subtitle": "Inicia sesión nuevamente para consultar tu estado de gimnasio."
+    }
   },
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",
@@ -1797,7 +2166,16 @@
       "profile": {
         "title": "Perfil",
         "description": "Perfil de usuario como referencia administrativa."
+      },
+      "adminGymRequests": {
+        "title": "Solicitudes de ingreso al gimnasio",
+        "description": "Revisa solicitudes pendientes de membresía de gimnasio y aprueba o rechaza cuando exista soporte de backend."
       }
-    }
+    },
+    "notAvailableYet": "No disponible todavía"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "retry": "Reintentar"
   }
 }

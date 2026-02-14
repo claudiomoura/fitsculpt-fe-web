@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getLocaleCode } from "@/lib/i18n";
+import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 
 type FeedPost = {
   id: string;
@@ -37,7 +38,7 @@ export default function FeedClient() {
   const [error, setError] = useState<string | null>(null);
   const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [aiEntitled, setAiEntitled] = useState(false);
 
   const loadFeed = async () => {
     setLoading(true);
@@ -64,12 +65,12 @@ export default function FeedClient() {
     try {
       const response = await fetch("/api/auth/me", { cache: "no-store" });
       if (!response.ok) return;
-      const data = (await response.json()) as {
-        subscriptionPlan?: "FREE" | "PRO";
+      const data = (await response.json()) as AiEntitlementProfile & {
         aiTokenBalance?: number;
       };
       setSubscriptionPlan(data.subscriptionPlan ?? null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
+      setAiEntitled(hasAiEntitlement(data));
     } catch {
     }
   };
@@ -96,6 +97,10 @@ export default function FeedClient() {
   };
 
   const handleTip = async () => {
+    if (!aiEntitled) {
+      setError(t("ai.notPro"));
+      return;
+    }
     setTipLoading(true);
     setError(null);
     try {
@@ -125,27 +130,7 @@ export default function FeedClient() {
     }
   };
 
-  const handleUpgrade = async () => {
-    setCheckoutLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/billing/checkout", { method: "POST" });
-      if (!response.ok) {
-        throw new Error(t("checkoutError"));
-      }
-      const payload = (await response.json()) as { url?: string };
-      if (!payload.url) {
-        throw new Error(t("checkoutError"));
-      }
-      window.location.href = payload.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("checkoutError"));
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
-
-  const isAiLocked = subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0;
+  const isAiLocked = !aiEntitled || (subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0);
 
   return (
     <section className="card">
@@ -158,30 +143,25 @@ export default function FeedClient() {
           <button className="btn" type="button" onClick={handleGenerate} disabled={generating}>
             {generating ? t("feed.generating") : t("feed.generate")}
           </button>
-          <button
-            className="btn secondary"
-            type="button"
-            onClick={handleTip}
-            disabled={tipLoading || isAiLocked}
-          >
-            {tipLoading ? t("feed.tipGenerating") : t("feed.tipGenerate")}
-          </button>
+          {aiEntitled ? (
+            <button
+              className="btn secondary"
+              type="button"
+              onClick={handleTip}
+              disabled={tipLoading || isAiLocked}
+            >
+              {tipLoading ? t("feed.tipGenerating") : t("feed.tipGenerate")}
+            </button>
+          ) : null}
         </div>
       </div>
 
       {isAiLocked ? (
         <div className="feature-card" style={{ marginTop: 12 }}>
           <strong>{t("aiLockedTitle")}</strong>
-          <p className="muted" style={{ marginTop: 6 }}>{t("aiLockedSubtitle")}</p>
-          <button
-            type="button"
-            className="btn"
-            onClick={handleUpgrade}
-            disabled={checkoutLoading}
-            style={{ marginTop: 8 }}
-          >
-            {checkoutLoading ? t("ui.loading") : t("aiLockedCta")}
-          </button>
+          <p className="muted" style={{ marginTop: 6 }}>
+            {aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}
+          </p>
         </div>
       ) : null}
 

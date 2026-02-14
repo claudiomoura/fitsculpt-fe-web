@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { extractGymMembership, type GymMembershipState } from "@/lib/gymMembership";
 import { getUserCapabilities } from "@/lib/userCapabilities";
 
 type AccessRole = "user" | "coach" | "admin";
@@ -11,6 +12,8 @@ type UserRoleState = {
   role: AccessRole;
   isAdmin: boolean;
   isTrainer: boolean;
+  isDev: boolean;
+  gymMembershipState: GymMembershipState;
 };
 
 function readExplicitRole(profile: unknown): AccessRole | null {
@@ -44,7 +47,7 @@ export function useUserRole(): UserRoleState {
     setError(null);
 
     try {
-      const response = await fetch("/api/profile", {
+            const response = await fetch("/api/auth/me", {
         cache: "no-store",
         signal,
       });
@@ -87,6 +90,7 @@ export function useUserRole(): UserRoleState {
     const capabilities = getUserCapabilities(profile);
     const isAdmin = capabilities.isAdmin;
     const isTrainer = capabilities.isTrainer;
+    const isDev = capabilities.isDev;
 
     return {
       loading,
@@ -94,6 +98,8 @@ export function useUserRole(): UserRoleState {
       role: resolveRole(profile, isAdmin, isTrainer),
       isAdmin,
       isTrainer,
+      isDev,
+      gymMembershipState: extractGymMembership(profile).state,
     };
   }, [profile, loading, error]);
 }

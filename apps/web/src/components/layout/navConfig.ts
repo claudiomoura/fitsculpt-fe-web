@@ -1,11 +1,14 @@
-import { canAccessAdmin, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
+import { canAccessAdmin, canAccessDevelopment, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
 
-export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin";
+export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin" | "development";
 
 export type NavItem = {
   id: string;
   href: string;
   labelKey: string;
+  meta?: string;
+  disabled?: boolean;
+  disabledNoteKey?: string;
 };
 
 export type NavSectionGroup = {
@@ -96,6 +99,7 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.account",
     items: [
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
+      { id: "gym", href: "/app/gym", labelKey: "nav.gym" },
       { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
     ],
   },
@@ -108,8 +112,112 @@ export const sidebarAdmin: NavSectionGroup[] = [
     items: [
       { id: "admin-dashboard", href: "/app/admin", labelKey: "nav.admin" },
       { id: "admin-users", href: "/app/admin/users", labelKey: "nav.adminUsers" },
+      { id: "admin-gym-requests", href: "/app/admin/gym-requests", labelKey: "nav.gymJoinRequests" },
       { id: "admin-labs", href: "/app/admin/labs", labelKey: "nav.adminLabs" },
       { id: "admin-preview", href: "/app/admin/preview", labelKey: "nav.adminPreview" },
+    ],
+  },
+];
+
+export const sidebarTrainer: NavSectionGroup[] = [
+  {
+    id: "training",
+    labelKey: "navSections.trainer",
+    items: [
+      { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
+      {
+        id: "trainer-clients",
+        href: "/app/trainer/clients",
+        labelKey: "nav.trainerClients",
+        disabled: true,
+        disabledNoteKey: "common.notAvailableYet",
+      },
+      {
+        id: "trainer-exercises",
+        href: "/app/trainer/exercises",
+        labelKey: "nav.trainerExercises",
+      },
+    ],
+  },
+];
+
+export const sidebarDevelopment: NavSectionGroup[] = [
+  {
+    id: "development",
+    labelKey: "navSections.development",
+    items: [
+      { id: "dev-trainer-home", href: "/app/trainer", labelKey: "nav.trainer", meta: "/app/trainer" },
+      {
+        id: "dev-trainer-clients",
+        href: "/app/trainer/clients",
+        labelKey: "nav.trainerClients",
+        meta: "/app/trainer/clients",
+      },
+      {
+        id: "dev-trainer-exercises",
+        href: "/app/trainer/exercises",
+        labelKey: "nav.trainerExercises",
+        meta: "/app/trainer/exercises",
+      },
+      {
+        id: "dev-trainer-exercises-new",
+        href: "/app/trainer/exercises/new",
+        labelKey: "nav.newExercise",
+        meta: "/app/trainer/exercises/new",
+      },
+      { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
+      { id: "dev-dashboard", href: "/app/dashboard", labelKey: "nav.dashboard", meta: "/app/dashboard" },
+      { id: "dev-workouts", href: "/app/workouts", labelKey: "nav.workouts", meta: "/app/workouts" },
+      {
+        id: "dev-training-edit",
+        href: "/app/entrenamiento/editar",
+        labelKey: "nav.trainingEditor",
+        meta: "/app/entrenamiento/editar",
+      },
+      {
+        id: "dev-nutrition-edit",
+        href: "/app/nutricion/editar",
+        labelKey: "nav.nutritionEditor",
+        meta: "/app/nutricion/editar",
+      },
+      {
+        id: "dev-profile-legacy",
+        href: "/app/profile/legacy",
+        labelKey: "nav.legacyProfile",
+        meta: "/app/profile/legacy",
+      },
+      {
+        id: "dev-settings-billing",
+        href: "/app/settings/billing",
+        labelKey: "nav.billing",
+        meta: "/app/settings/billing",
+      },
+      {
+        id: "dev-library-workouts",
+        href: "/app/biblioteca/entrenamientos",
+        labelKey: "nav.workoutLibrary",
+        meta: "/app/biblioteca/entrenamientos",
+      },
+      {
+        id: "dev-library-recipes",
+        href: "/app/biblioteca/recetas",
+        labelKey: "nav.recipeLibrary",
+        meta: "/app/biblioteca/recetas",
+      },
+      {
+        id: "dev-admin-gym-requests",
+        href: "/app/admin/gym-requests",
+        labelKey: "nav.gymJoinRequests",
+        meta: "/app/admin/gym-requests",
+        disabled: true,
+        disabledNoteKey: "common.notAvailableYet",
+      },
+      {
+        id: "dev-admin-preview",
+        href: "/app/admin/preview",
+        labelKey: "nav.adminPreview",
+        meta: "/app/admin/preview",
+      },
     ],
   },
 ];
@@ -133,8 +241,12 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
   const userSections = buildUserSections(input);
 
   if (!canAccessAdmin(input)) {
-    return userSections;
+    if (!canAccessDevelopment(input)) {
+      return userSections;
+    }
+
+    return [...userSections, ...sidebarDevelopment];
   }
 
-  return [...userSections, ...sidebarAdmin];
+  return [...userSections, ...sidebarAdmin, ...sidebarTrainer, ...sidebarDevelopment];
 }

@@ -15,6 +15,7 @@ type LabItem = {
 const LAB_ITEMS: LabItem[] = [
   { id: "adminDashboard", href: "/app/admin", status: "read-only" },
   { id: "adminUsers", href: "/app/admin/users", status: "read-only" },
+  { id: "adminGymRequests", href: "/app/admin/gym-requests", status: "sem backend" },
   { id: "trainerHome", href: "/app/trainer", status: "beta" },
   { id: "trainerExercises", href: "/app/trainer/exercises", status: "beta" },
   { id: "trainerExerciseCreate", href: "/app/trainer/exercises/new", status: "beta" },
@@ -65,11 +66,20 @@ export default function AdminLabsClient() {
             <span className="pill">{t(getStatusKey(item.status))}</span>
           </div>
           <p className="muted" style={{ margin: 0 }}>{t(`adminLabs.items.${item.id}.description`)}</p>
-          <div>
-            <Link href={item.href} className="btn secondary">
-              {t("adminLabs.statusLabel")}: {t(getStatusKey(item.status))}
-            </Link>
-          </div>
+          {item.status === "sem backend" ? (
+            <div className="form-stack" style={{ gap: 4 }}>
+              <button type="button" className="btn secondary" disabled>
+                {t("adminLabs.statusLabel")}: {t(getStatusKey(item.status))}
+              </button>
+              <p className="muted" style={{ margin: 0 }}>{t("adminLabs.notAvailableYet")}</p>
+            </div>
+          ) : (
+            <div>
+              <Link href={item.href} className="btn secondary">
+                {t("adminLabs.statusLabel")}: {t(getStatusKey(item.status))}
+              </Link>
+            </div>
+          )}
         </li>
       ))}
     </ul>

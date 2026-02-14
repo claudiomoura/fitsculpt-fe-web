@@ -1592,9 +1592,11 @@ label {
 
 .mobile-tab-bar {
   position: fixed;
-  inset-inline: 0;
+  left: 0;
+  right: 0;
   bottom: var(--vv-offset-bottom);
-  width: 100%;
+  width: 100vw;
+  overflow-x: hidden;
   height: var(--mobile-tab-bar-height);
   padding: 8px 12px calc(var(--mobile-tab-safe-area) + 8px);
   min-height: var(--mobile-tab-bar-height, auto);
@@ -1609,10 +1611,11 @@ label {
 
 .mobile-tab-bar-inner {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  width: 100%;
   gap: 8px;
   align-items: center;
   min-height: var(--tabbar-h);
+  overflow-x: hidden;
 }
 
 .mobile-tab {
@@ -1622,7 +1625,8 @@ label {
   align-items: center;
   gap: 4px;
   min-height: 48px;
-  min-width: 44px;
+  min-width: 0;
+  width: 100%;
   padding: 8px 6px;
   border-radius: 14px;
   color: var(--text-muted);
@@ -1669,7 +1673,29 @@ label {
 }
 
 .mobile-tab-label {
+  display: block;
+  width: 100%;
   line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+@media (max-width: 360px) {
+  .mobile-tab-bar {
+    padding: 8px 8px calc(var(--mobile-tab-safe-area) + 8px);
+  }
+
+  .mobile-tab-bar-inner {
+    gap: 4px;
+  }
+
+  .mobile-tab {
+    padding: 8px 4px;
+    gap: 3px;
+  }
 }
 
 .mobile-tab-badge {

@@ -56,6 +56,7 @@ export default function AppUserBadge() {
     <DropdownMenu>
       <DropdownMenuTrigger className="nav-user">
         {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
         ) : (
           <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">

@@ -2,14 +2,21 @@
 
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { DEFAULT_LOCALE, type Locale, getLocaleCookie, getMessage, resolveLocale } from "@/lib/i18n";
+import {
+  DEFAULT_LOCALE,
+  type Locale,
+  type MessageValues,
+  getLocaleCookie,
+  getMessage,
+  resolveLocale,
+} from "@/lib/i18n";
 
 const STORAGE_KEY = "fs-locale";
 
 type LanguageContextValue = {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: string) => string;
+  t: (key: string, values?: MessageValues) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
@@ -32,7 +39,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: string) => getMessage(locale, key),
+    (key: string, values?: MessageValues) => getMessage(locale, key, values),
     [locale]
   );
 
