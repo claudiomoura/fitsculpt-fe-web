@@ -1085,7 +1085,14 @@
       "dumbbellRomanianDeadlift": "Dumbbell Romanian deadlift",
       "swissBallLegCurl": "Swiss ball leg curl",
       "inclineDumbbellPress": "Incline dumbbell press"
-    }
+    },
+    "aiPreviewReady": "AI plan ready for review.",
+    "aiPreviewTitle": "Review AI plan before saving",
+    "aiPreviewSubtitle": "Check the suggested sessions and confirm to save this plan.",
+    "aiPreviewCancel": "Cancel",
+    "aiPreviewConfirm": "Confirm and save",
+    "aiPreviewConfirming": "Saving plan...",
+    "aiInvalidOutput": "The AI response was invalid. Please retry generation."
   },
   "profile": {
     "formTitle": "Profile and metrics",
@@ -1431,7 +1438,13 @@
     "adjustmentRetry": "Retry",
     "adjustmentRetryAria": "Retry applying the adjustment",
     "adjustmentBack": "Back",
-    "adjustmentBackAria": "Go back to the check-in form"
+    "adjustmentBackAria": "Go back to the check-in form",
+    "adjustmentPreviewTitle": "Review adjustment before applying",
+    "adjustmentPreviewSubtitle": "Please confirm the suggested plan changes before we save them.",
+    "adjustmentPreviewCancel": "Cancel",
+    "adjustmentPreviewConfirm": "Confirm adjustment",
+    "adjustmentPreviewConfirming": "Applying adjustment...",
+    "adjustmentInvalidOutput": "The AI response format was invalid. Retry to generate a new adjustment."
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",

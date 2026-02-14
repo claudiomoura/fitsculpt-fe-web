@@ -1088,7 +1088,14 @@
       "dumbbellRomanianDeadlift": "Peso muerto rumano con mancuerna",
       "swissBallLegCurl": "Curl femoral con fitball",
       "inclineDumbbellPress": "Press inclinado con mancuernas"
-    }
+    },
+    "aiPreviewReady": "Plan con IA listo para revisar.",
+    "aiPreviewTitle": "Revisa el plan de IA antes de guardar",
+    "aiPreviewSubtitle": "Verifica las sesiones sugeridas y confirma para guardar este plan.",
+    "aiPreviewCancel": "Cancelar",
+    "aiPreviewConfirm": "Confirmar y guardar",
+    "aiPreviewConfirming": "Guardando plan...",
+    "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo."
   },
   "profile": {
     "formTitle": "Perfil y métricas",
@@ -1434,7 +1441,13 @@
     "adjustmentRetry": "Reintentar",
     "adjustmentRetryAria": "Reintentar aplicar el ajuste",
     "adjustmentBack": "Volver",
-    "adjustmentBackAria": "Volver al formulario de check-in"
+    "adjustmentBackAria": "Volver al formulario de check-in",
+    "adjustmentPreviewTitle": "Revisa el ajuste antes de aplicar",
+    "adjustmentPreviewSubtitle": "Confirma los cambios sugeridos antes de guardarlos.",
+    "adjustmentPreviewCancel": "Cancelar",
+    "adjustmentPreviewConfirm": "Confirmar ajuste",
+    "adjustmentPreviewConfirming": "Aplicando ajuste...",
+    "adjustmentInvalidOutput": "El formato de respuesta de IA fue inválido. Reintenta generar un nuevo ajuste."
   },
   "onboarding": {
     "title": "Bienvenido a FitSculpt",

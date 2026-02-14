@@ -18,12 +18,13 @@ import {
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
-import { generateAndSaveTrainingPlan } from "@/lib/trainingPlanAdjustment";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
+import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 
 type Exercise = {
   id?: string;
@@ -240,6 +241,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiConfirmSaving, setAiConfirmSaving] = useState(false);
+  const [aiPreviewPlan, setAiPreviewPlan] = useState<TrainingPlan | null>(null);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
   const [calendarView, setCalendarView] = useState<"day" | "week" | "month" | "agenda">("day");
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -588,7 +591,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setAiLoading(true);
     setError(null);
     try {
-      const result = await generateAndSaveTrainingPlan(profile, {
+      const result = await requestAiTrainingPlan(profile, {
         goal: form.goal,
         level: form.level,
         daysPerWeek: form.daysPerWeek,
@@ -602,12 +605,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       if (typeof result.aiTokenRenewalAt === "string" || result.aiTokenRenewalAt === null) {
         setAiTokenRenewalAt(result.aiTokenRenewalAt ?? null);
       }
-      setSavedPlan(result.profile.trainingPlan ?? null);
-      setSaveMessage(t("training.aiSuccess"));
+      setAiPreviewPlan(result.plan);
+      setSaveMessage(t("training.aiPreviewReady"));
       void refreshSubscription();
     } catch (err) {
       if (err instanceof Error && err.message === "INSUFFICIENT_TOKENS") {
         setError(t("ai.insufficientTokens"));
+      } else if (err instanceof Error && err.message === "INVALID_AI_OUTPUT") {
+        setError(t("training.aiInvalidOutput"));
       } else if (err instanceof Error && err.message && err.message !== "AI_GENERATION_FAILED") {
         setError(err.message);
       } else {
@@ -689,6 +694,23 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       return;
     }
     void handleAiPlan();
+  };
+
+  const handleConfirmAiPlan = async () => {
+    if (!aiPreviewPlan) return;
+    setAiConfirmSaving(true);
+    setError(null);
+    try {
+      const updated = await saveAiTrainingPlan(aiPreviewPlan);
+      setSavedPlan(updated.trainingPlan ?? aiPreviewPlan);
+      setAiPreviewPlan(null);
+      setSaveMessage(t("training.aiSuccess"));
+    } catch {
+      setError(t("training.savePlanError"));
+    } finally {
+      setAiConfirmSaving(false);
+      window.setTimeout(() => setSaveMessage(null), 2000);
+    }
   };
 
   const handlePrevDay = () => {
@@ -1346,6 +1368,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           </div>
         </div>
       ) : null}
+
+      <AiPlanPreviewModal
+        open={Boolean(aiPreviewPlan)}
+        plan={aiPreviewPlan}
+        title={t("training.aiPreviewTitle")}
+        description={t("training.aiPreviewSubtitle")}
+        cancelLabel={t("training.aiPreviewCancel")}
+        confirmLabel={t("training.aiPreviewConfirm")}
+        savingLabel={t("training.aiPreviewConfirming")}
+        durationUnit={t("training.minutesLabel")}
+        onClose={() => setAiPreviewPlan(null)}
+        onConfirm={handleConfirmAiPlan}
+        isSaving={aiConfirmSaving}
+      />
     </div>
   );
 }
