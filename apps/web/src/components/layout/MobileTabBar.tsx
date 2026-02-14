@@ -18,7 +18,10 @@ export default function MobileTabBar() {
 
   return (
     <nav className="mobile-tab-bar" aria-label={t("app.mobileTabBarAriaLabel")}>
-      <div className="mobile-tab-bar-inner">
+      <div
+        className="mobile-tab-bar-inner"
+        style={{ gridTemplateColumns: `repeat(${mainTabsMobile.length}, minmax(0, 1fr))` }}
+      >
         {mainTabsMobile.map((tab) => {
           const active = isActive(tab.href);
           const tabLabel = t(tab.labelKey);
