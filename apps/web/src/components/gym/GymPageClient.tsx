@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { useAccess } from "@/lib/useAccess";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 
-type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "UNKNOWN";
+type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
 
 type GymMembership = {
   status: MembershipStatus;
@@ -34,18 +33,25 @@ function toStringOrNull(value: unknown): string | null {
   return null;
 }
 
+function normalize(value: string | null): string | null {
+  return value ? value.trim().toUpperCase() : null;
+}
+
 function readMembership(payload: unknown): GymMembership {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
   const data = typeof source.data === "object" && source.data !== null ? (source.data as Record<string, unknown>) : source;
-  const rawStatus = toStringOrNull(data.status)?.toUpperCase();
 
-  const status: MembershipStatus = rawStatus === "NONE" || rawStatus === "PENDING" || rawStatus === "ACTIVE" ? rawStatus : "UNKNOWN";
+  const rawStatus = normalize(toStringOrNull(data.status));
+  const status: MembershipStatus =
+    rawStatus === "NONE" || rawStatus === "PENDING" || rawStatus === "ACTIVE" || rawStatus === "REJECTED"
+      ? rawStatus
+      : "UNKNOWN";
 
   return {
     status,
     gymId: toStringOrNull(data.gymId) ?? toStringOrNull(data.tenantId),
     gymName: toStringOrNull(data.gymName) ?? toStringOrNull(data.tenantName),
-    role: toStringOrNull(data.role),
+    role: normalize(toStringOrNull(data.role)),
   };
 }
 
@@ -66,48 +72,50 @@ function readGyms(payload: unknown): GymItem[] {
 
 export default function GymPageClient() {
   const { t } = useLanguage();
-  const { isAdmin, isTrainer } = useAccess();
 
   const [membership, setMembership] = useState<GymMembership>(defaultMembership);
   const [gyms, setGyms] = useState<GymItem[]>([]);
   const [selectedGymId, setSelectedGymId] = useState("");
-  const [joinCode, setJoinCode] = useState("");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [requestingJoin, setRequestingJoin] = useState(false);
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const canOpenAdmin = useMemo(() => membership.status === "ACTIVE" && (isAdmin || isTrainer), [membership.status, isAdmin, isTrainer]);
+  const canOpenAdmin = useMemo(
+    () => membership.status === "ACTIVE" && (membership.role === "ADMIN" || membership.role === "TRAINER"),
+    [membership.role, membership.status],
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
-      const [membershipRes, gymsRes] = await Promise.all([
-        fetch("/api/gyms/membership", { cache: "no-store", credentials: "include" }),
-        fetch("/api/gyms", { cache: "no-store", credentials: "include" }),
-      ]);
 
+    try {
+      const membershipRes = await fetch("/api/gyms/membership", { cache: "no-store", credentials: "include" });
       if (!membershipRes.ok) throw new Error("membership");
+
       const membershipData = readMembership(await membershipRes.json());
       setMembership(membershipData);
 
-      if (gymsRes.ok) {
+      if (membershipData.status === "NONE" || membershipData.status === "REJECTED") {
+        const gymsRes = await fetch("/api/gyms", { cache: "no-store", credentials: "include" });
+        if (!gymsRes.ok) throw new Error("gyms");
+
         const gymsData = readGyms(await gymsRes.json());
         setGyms(gymsData);
-        if (!selectedGymId && gymsData[0]) {
-          setSelectedGymId(gymsData[0].id);
-        }
+        setSelectedGymId((current) => current || gymsData[0]?.id || "");
       } else {
         setGyms([]);
+        setSelectedGymId("");
       }
     } catch {
       setError(t("gym.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [selectedGymId, t]);
+  }, [t]);
 
   useEffect(() => {
     void loadData();
@@ -115,6 +123,7 @@ export default function GymPageClient() {
 
   const requestJoin = async () => {
     if (!selectedGymId) return;
+
     setRequestingJoin(true);
     setActionError(null);
 
@@ -125,17 +134,20 @@ export default function GymPageClient() {
         credentials: "include",
         body: JSON.stringify({ gymId: selectedGymId }),
       });
+
       if (!response.ok) throw new Error("join");
       await loadData();
     } catch {
-      setActionError(t("gym.joinRequestError"));
+      setActionError(t("gym.actionError"));
     } finally {
       setRequestingJoin(false);
     }
   };
 
   const joinUsingCode = async () => {
-    if (!joinCode.trim()) return;
+    const trimmedCode = code.trim();
+    if (!trimmedCode) return;
+
     setJoiningByCode(true);
     setActionError(null);
 
@@ -144,13 +156,14 @@ export default function GymPageClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ joinCode: joinCode.trim() }),
+        body: JSON.stringify({ code: trimmedCode }),
       });
+
       if (!response.ok) throw new Error("join-by-code");
-      setJoinCode("");
+      setCode("");
       await loadData();
     } catch {
-      setActionError(t("gym.joinCodeError"));
+      setActionError(t("gym.actionError"));
     } finally {
       setJoiningByCode(false);
     }
@@ -161,7 +174,7 @@ export default function GymPageClient() {
       <section className="card">
         <Skeleton variant="line" className="w-45" />
         <Skeleton variant="line" className="w-70" />
-        <Skeleton className="h-20 mt-3" />
+        <p className="muted">{t("common.loading")}</p>
       </section>
     );
   }
@@ -171,23 +184,29 @@ export default function GymPageClient() {
       <section className="card status-card status-card--warning">
         <strong>{t("gym.loadErrorTitle")}</strong>
         <p className="muted">{error}</p>
-        <Button variant="secondary" onClick={() => void loadData()}>{t("ui.retry")}</Button>
+        <Button variant="secondary" onClick={() => void loadData()}>
+          {t("common.retry")}
+        </Button>
       </section>
     );
   }
 
   return (
-    <div className="page" style={{ gap: "0.75rem" }}>
-      {membership.status === "NONE" ? (
+    <div className="page form-stack">
+      <section className="card">
+        <h1 className="section-title">{t("gym.title")}</h1>
+        <p className="section-subtitle">{t("gym.description")}</p>
+      </section>
+
+      {(membership.status === "NONE" || membership.status === "REJECTED") && (
         <>
           <section className="card form-stack">
-            <h2 className="section-title section-title-sm">{t("gym.joinGymTitle")}</h2>
-            <p className="section-subtitle">{t("gym.joinGymSubtitle")}</p>
+            <h2 className="section-title section-title-sm">{t("gym.membership.none.title")}</h2>
             {gyms.length === 0 ? (
-              <p className="muted">{t("ui.notAvailable")}</p>
+              <p className="muted">{t("gym.join.empty")}</p>
             ) : (
               <label className="form-stack">
-                {t("gym.gymFieldLabel")}
+                {t("gym.join.selectLabel")}
                 <select value={selectedGymId} onChange={(event) => setSelectedGymId(event.target.value)}>
                   {gyms.map((gym) => (
                     <option key={gym.id} value={gym.id}>
@@ -198,54 +217,65 @@ export default function GymPageClient() {
               </label>
             )}
             <Button onClick={() => void requestJoin()} disabled={requestingJoin || !selectedGymId || gyms.length === 0}>
-              {requestingJoin ? t("gym.sending") : t("gym.requestJoin")}
+              {requestingJoin ? t("common.loading") : t("gym.join.requestButton")}
             </Button>
           </section>
 
           <section className="card form-stack">
-            <h2 className="section-title section-title-sm">{t("gym.joinByCodeTitle")}</h2>
-            <p className="section-subtitle">{t("gym.joinByCodeSubtitle")}</p>
             <label className="form-stack">
-              {t("gym.joinCodeFieldLabel")}
-              <input value={joinCode} onChange={(event) => setJoinCode(event.target.value)} placeholder={t("gym.joinCodePlaceholder")} />
+              {t("gym.join.codeLabel")}
+              <input value={code} onChange={(event) => setCode(event.target.value)} />
             </label>
-            <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || !joinCode.trim()}>
-              {joiningByCode ? t("gym.sending") : t("gym.joinByCode")}
+            <p className="section-subtitle">{t("gym.join.codeHelp")}</p>
+            <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || !code.trim()}>
+              {joiningByCode ? t("common.loading") : t("gym.join.codeButton")}
             </Button>
           </section>
         </>
-      ) : null}
+      )}
 
-      {membership.status === "PENDING" ? (
+      {membership.status === "PENDING" && (
         <section className="card status-card">
-          <strong>{t("gym.pendingTitle")}</strong>
-          <p className="muted">{t("gym.pendingDescription", { gymName: membership.gymName ?? t("ui.notAvailable") })}</p>
+          <strong>{t("gym.membership.pending.title")}</strong>
+          <p className="muted">{t("gym.membership.pending.description", { gymName: membership.gymName ?? "-" })}</p>
         </section>
-      ) : null}
+      )}
 
-      {membership.status === "ACTIVE" ? (
+      {membership.status === "ACTIVE" && (
         <section className="card status-card">
-          <strong>{t("gym.activeTitle")}</strong>
-          <p className="muted">{t("gym.activeDescription", { gymName: membership.gymName ?? t("ui.notAvailable"), role: membership.role ?? t("ui.notAvailable") })}</p>
-          {canOpenAdmin ? (
-            <Link href="/app/gym/admin" className="btn secondary fit-content">{t("gym.openAdmin")}</Link>
-          ) : null}
+          <strong>{t("gym.membership.active.title")}</strong>
+          <p className="muted">{t("gym.membership.active.description", { gymName: membership.gymName ?? "-", role: membership.role ?? "-" })}</p>
+          <div className="row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
+            <ButtonLink href="/app/entrenamiento">{t("gym.membership.active.planButton")}</ButtonLink>
+            {canOpenAdmin && (
+              <Link href="/app/gym/admin" className="btn secondary fit-content">
+                {t("gym.admin.goToPanel")}
+              </Link>
+            )}
+          </div>
         </section>
-      ) : null}
+      )}
 
-      {membership.status === "UNKNOWN" ? (
-        <section className="card status-card">
+      {membership.status === "REJECTED" && (
+        <section className="card status-card status-card--warning">
+          <strong>{t("gym.membership.rejected.title")}</strong>
+          <p className="muted">{t("gym.membership.rejected.description")}</p>
+        </section>
+      )}
+
+      {membership.status === "UNKNOWN" && (
+        <section className="card status-card status-card--warning">
           <strong>{t("gym.unavailableTitle")}</strong>
-          <p className="muted">{t("ui.notAvailable")}</p>
+          <p className="muted">{t("gym.unavailableDescription")}</p>
         </section>
-      ) : null}
+      )}
 
-      {actionError ? (
+      {actionError && (
         <section className="card status-card status-card--warning">
           <strong>{t("gym.actionErrorTitle")}</strong>
           <p className="muted">{actionError}</p>
         </section>
-      ) : null}
+      )}
     </div>
   );
 }
