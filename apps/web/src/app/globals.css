@@ -1685,7 +1685,8 @@ label {
 
 @media (max-width: 360px) {
   .mobile-tab-bar {
-    padding: 8px 8px calc(var(--mobile-tab-safe-area) + 8px);
+    padding-left: 8px;
+    padding-right: 8px;
   }
 
   .mobile-tab-bar-inner {
