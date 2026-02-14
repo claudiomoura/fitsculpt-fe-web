@@ -36,7 +36,8 @@
     "workoutLibrary": "Workout library",
     "recipeLibrary": "Recipe library",
     "gymJoinRequests": "Gym join requests",
-    "gym": "Gym"
+    "gym": "Gym",
+    "labs": "Labs"
   },
   "navSections": {
     "summary": "Summary",
@@ -44,7 +45,8 @@
     "nutrition": "Nutrition",
     "account": "Account",
     "admin": "Admin",
-    "development": "In development"
+    "development": "In development",
+    "trainer": "Trainer"
   },
   "ui": {
     "menu": "Menu",
@@ -2107,6 +2109,9 @@
         "description": "Review pending gym membership requests and approve or reject when backend support is available."
       }
     },
+    "notAvailableYet": "Not available yet"
+  },
+  "common": {
     "notAvailableYet": "Not available yet"
   }
 }

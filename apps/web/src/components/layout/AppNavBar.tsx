@@ -143,6 +143,19 @@ export default function AppNavBar() {
                   <div className="nav-drawer-links">
                     {section.items.map((item) => {
                       const active = isActive(item.href);
+                      if (item.disabled) {
+                        return (
+                          <div
+                            key={item.id}
+                            className="nav-drawer-link"
+                            aria-disabled="true"
+                          >
+                            <span>{t(item.labelKey)}</span>
+                            <span className="text-xs text-[var(--text-muted)]">{t(item.disabledNoteKey ?? "common.notAvailableYet")}</span>
+                          </div>
+                        );
+                      }
+
                       return (
                         <Link
                           key={item.id}
@@ -171,6 +184,19 @@ export default function AppNavBar() {
                 <div className="nav-drawer-links">
                   {section.items.map((item) => {
                     const active = isActive(item.href);
+                    if (item.disabled) {
+                      return (
+                        <div
+                          key={item.id}
+                          className="nav-drawer-link"
+                          aria-disabled="true"
+                        >
+                          <span>{t(item.labelKey)}</span>
+                          <span className="text-xs text-[var(--text-muted)]">{t(item.disabledNoteKey ?? "common.notAvailableYet")}</span>
+                        </div>
+                      );
+                    }
+
                     return (
                       <Link
                         key={item.id}
