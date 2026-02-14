@@ -642,10 +642,25 @@ async function requireUser(
 
 async function requireAdmin(request: FastifyRequest) {
   const user = await requireUser(request);
-  if (user.role !== "ADMIN") {
+  if (user.role !== "ADMIN" && !isBootstrapAdmin(user.email)) {
     throw createHttpError(403, "FORBIDDEN");
   }
   return user;
+}
+
+function getBootstrapAdminEmails() {
+  if (!env.BOOTSTRAP_ADMIN_EMAILS) return new Set<string>();
+  return new Set(
+    env.BOOTSTRAP_ADMIN_EMAILS.split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+const bootstrapAdminEmails = getBootstrapAdminEmails();
+
+function isBootstrapAdmin(email: string): boolean {
+  return bootstrapAdminEmails.has(email.trim().toLowerCase());
 }
 
 async function requireGymManagerForGym(userId: string, gymId: string) {
@@ -670,10 +685,10 @@ function buildJoinCode(name: string, userId: string, attempt: number) {
 
 async function generateUniqueGymJoinCode(name: string, userId: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const joinCode = buildJoinCode(name, userId, attempt);
-    const existing = await prisma.gym.findUnique({ where: { joinCode } });
+    const code = buildJoinCode(name, userId, attempt);
+    const existing = await prisma.gym.findUnique({ where: { code } });
     if (!existing) {
-      return joinCode;
+      return code;
     }
   }
   throw createHttpError(500, "JOIN_CODE_GENERATION_FAILED");
@@ -3865,6 +3880,7 @@ app.post(
 app.get("/auth/me", async (request, reply) => {
   try {
     const user = await requireUser(request);
+    const effectiveIsAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
     const activeMembership = await prisma.gymMembership.findFirst({
       where: {
         userId: user.id,
@@ -3884,7 +3900,7 @@ app.get("/auth/me", async (request, reply) => {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      role: effectiveIsAdmin ? "ADMIN" : user.role,
       emailVerifiedAt: user.emailVerifiedAt,
       lastLoginAt: user.lastLoginAt,
       subscriptionPlan: user.plan,
@@ -3895,6 +3911,9 @@ app.get("/auth/me", async (request, reply) => {
       aiTokenRenewalAt: getUserTokenExpiryAt(user),
       gymId: activeMembership?.gym.id,
       gymName: activeMembership?.gym.name,
+      isTrainer:
+        activeMembership?.status === "ACTIVE" &&
+        (activeMembership?.role === "TRAINER" || activeMembership?.role === "ADMIN"),
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -5675,6 +5694,16 @@ const gymMembersParamsSchema = z.object({
   gymId: z.string().min(1),
 });
 
+const adminUpdateGymMemberRoleParamsSchema = z.object({
+  gymId: z.string().min(1),
+  userId: z.string().min(1),
+});
+
+const adminUpdateGymMemberRoleSchema = z.object({
+  role: z.enum(["MEMBER", "TRAINER", "ADMIN"]),
+  status: z.enum(["ACTIVE", "PENDING", "REJECTED"]).optional(),
+});
+
 const adminCreateGymSchema = z.object({
   name: z.string().trim().min(2).max(120),
 });
@@ -5712,20 +5741,33 @@ app.post("/gyms/join", async (request, reply) => {
     if (!gym) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
-    const membership = await prisma.gymMembership.upsert({
+    const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId, userId: user.id } },
-      create: {
-        gymId,
-        userId: user.id,
-        status: "PENDING",
-        role: "MEMBER",
-      },
-      update: {
-        status: "PENDING",
-        role: "MEMBER",
-      },
     });
-    return reply.status(200).send({ id: membership.id, status: membership.status, role: membership.role });
+
+    const membership = existing
+      ? await prisma.gymMembership.update({
+          where: { id: existing.id },
+          data: {
+            status: existing.status === "REJECTED" ? "PENDING" : existing.status,
+          },
+          include: { gym: { select: { id: true, name: true } } },
+        })
+      : await prisma.gymMembership.create({
+          data: {
+            gymId,
+            userId: user.id,
+            status: "PENDING",
+            role: "MEMBER",
+          },
+          include: { gym: { select: { id: true, name: true } } },
+        });
+
+    return reply.status(200).send({
+      state: membership.status.toLowerCase(),
+      gym: membership.gym,
+      role: membership.role,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5735,7 +5777,7 @@ app.post("/gyms/join-by-code", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const { code } = joinGymByCodeSchema.parse(request.body);
-    const gym = await prisma.gym.findUnique({ where: { joinCode: code.toUpperCase() } });
+    const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
     if (!gym) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
@@ -5752,7 +5794,11 @@ app.post("/gyms/join-by-code", async (request, reply) => {
         role: "MEMBER",
       },
     });
-    return reply.status(200).send({ id: membership.id, status: membership.status, role: membership.role, gymId: gym.id });
+    return reply.status(200).send({
+      state: membership.status.toLowerCase(),
+      gym: { id: gym.id, name: gym.name },
+      role: membership.role,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5774,11 +5820,11 @@ app.get("/gyms/membership", async (request, reply) => {
       orderBy: { updatedAt: "desc" },
     });
     if (!membership) {
-      return reply.status(200).send(null);
+      return reply.status(200).send({ state: "none" });
     }
     return {
+      state: membership.status.toLowerCase(),
       gym: membership.gym,
-      status: membership.status,
       role: membership.role,
     };
   } catch (error) {
@@ -5865,11 +5911,10 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
 
 app.get("/admin/gyms/:gymId/members", async (request, reply) => {
   try {
-    const user = await requireUser(request);
+    const user = await requireAdmin(request);
     const { gymId } = gymMembersParamsSchema.parse(request.params);
-    await requireGymManagerForGym(user.id, gymId);
     const members = await prisma.gymMembership.findMany({
-      where: { gymId, status: "ACTIVE" },
+      where: { gymId },
       include: {
         user: {
           select: {
@@ -5883,6 +5928,7 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
     });
     return members.map((member) => ({
       user: member.user,
+      status: member.status,
       role: member.role,
     }));
   } catch (error) {
@@ -5892,14 +5938,14 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
 
 app.post("/admin/gyms", async (request, reply) => {
   try {
-    const user = await requireUser(request);
+    const user = await requireAdmin(request);
     const { name } = adminCreateGymSchema.parse(request.body);
     const created = await prisma.$transaction(async (tx) => {
-      const joinCode = await generateUniqueGymJoinCode(name, user.id);
+      const code = await generateUniqueGymJoinCode(name, user.id);
       const gym = await tx.gym.create({
         data: {
           name,
-          joinCode,
+          code,
         },
       });
       await tx.gymMembership.create({
@@ -5915,12 +5961,82 @@ app.post("/admin/gyms", async (request, reply) => {
     return reply.status(201).send({
       id: created.id,
       name: created.name,
-      joinCode: created.joinCode,
+      code: created.code,
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return reply.status(409).send({ error: "JOIN_CODE_CONFLICT" });
     }
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/admin/gyms", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+
+    const gyms = await prisma.gym.findMany({
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        _count: {
+          select: {
+            memberships: true,
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return gyms.map((gym) => ({
+      id: gym.id,
+      name: gym.name,
+      code: gym.code,
+      membersCount: gym._count.memberships,
+    }));
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/gyms/:gymId/members/:userId/role", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { gymId, userId } = adminUpdateGymMemberRoleParamsSchema.parse(request.params);
+    const { role, status } = adminUpdateGymMemberRoleSchema.parse(request.body);
+
+    const membership = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId, userId } },
+    });
+
+    if (!membership) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    const updated = await prisma.gymMembership.update({
+      where: { id: membership.id },
+      data: {
+        role,
+        ...(status ? { status } : {}),
+      },
+      include: {
+        gym: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      userId: updated.userId,
+      gym: updated.gym,
+      status: updated.status,
+      role: updated.role,
+    };
+  } catch (error) {
     return handleRequestError(reply, error);
   }
 });
