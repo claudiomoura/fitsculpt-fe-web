@@ -7,6 +7,6 @@
 
 */
 -- AlterTable
-ALTER TABLE "User" DROP COLUMN IF EXISTS "plan",
-DROP COLUMN IF EXISTS "tokenBalance",
-DROP COLUMN IF EXISTS "tokensExpireAt";
+ALTER TABLE "User" DROP COLUMN "plan",
+DROP COLUMN "tokenBalance",
+DROP COLUMN "tokensExpireAt";
