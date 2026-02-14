@@ -2084,14 +2084,22 @@
       "codeLabel": "Gym code",
       "codeHelp": "If the gym gave you a code, use it to join automatically.",
       "codeButton": "Join with code",
-      "empty": "No gyms are available right now."
+      "empty": "No gyms are available right now.",
+      "loadError": "We could not load the gym list."
     },
     "loadErrorTitle": "We could not load your gym status",
-    "loadError": "Please try again in a few seconds.",
+    "loadError": {
+      "title": "We could not load your gym status",
+      "subtitle": "Please try again in a few seconds."
+    },
     "actionErrorTitle": "We could not process your request",
     "actionError": "Check your data and try again.",
     "unavailableTitle": "Gym status unavailable",
-    "unavailableDescription": "We could not determine your membership status right now."
+    "unavailableDescription": "We could not determine your membership status right now.",
+    "sessionExpired": {
+      "title": "Your session expired",
+      "subtitle": "Log in again to check your gym status."
+    }
   },
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",
