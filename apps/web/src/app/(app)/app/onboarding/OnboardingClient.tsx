@@ -330,7 +330,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
         {saveState === "error" && (
           <div className="form-stack" role="alert">
             <p className="section-subtitle">{t("onboarding.saveError")}</p>
-            <button type="button" className="btn secondary" onClick={() => void saveProfile()} disabled={saveState === "saving"}>
+            <button type="button" className="btn secondary" onClick={() => void saveProfile()}>
               {t("onboarding.retry")}
             </button>
           </div>
