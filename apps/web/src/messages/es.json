@@ -34,7 +34,8 @@
     "nutritionEditor": "Editor de nutrición",
     "legacyProfile": "Perfil legacy",
     "workoutLibrary": "Biblioteca de entrenamientos",
-    "recipeLibrary": "Biblioteca de recetas"
+    "recipeLibrary": "Biblioteca de recetas",
+    "gymJoinRequests": "Solicitudes de ingreso al gimnasio"
   },
   "navSections": {
     "summary": "Resumen",
@@ -1515,7 +1516,16 @@
     "tokensAdd": "+ Sumar",
     "tokensSub": "- Restar",
     "tokensSet": "Setear",
-    "updateAllowance": "Actualizar asignación"
+    "updateAllowance": "Actualizar asignación",
+    "gymRequestsTitle": "Solicitudes de ingreso al gimnasio",
+    "gymRequestsSubtitle": "Revisa solicitudes pendientes de membresía para tu gimnasio.",
+    "gymRequestsLoading": "Cargando solicitudes de ingreso...",
+    "gymRequestsRequiresImplementation": "Requiere implementación",
+    "gymRequestsError": "No pudimos cargar las solicitudes de ingreso al gimnasio.",
+    "gymRequestsRetry": "Reintentar",
+    "gymRequestsEmpty": "No hay solicitudes pendientes de ingreso al gimnasio.",
+    "gymRequestsAccept": "Aceptar",
+    "gymRequestsReject": "Rechazar"
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",
@@ -2025,6 +2035,10 @@
       "profile": {
         "title": "Perfil",
         "description": "Perfil de usuario como referencia administrativa."
+      },
+      "adminGymRequests": {
+        "title": "Solicitudes de ingreso al gimnasio",
+        "description": "Revisa solicitudes pendientes de membresía de gimnasio y aprueba o rechaza cuando exista soporte de backend."
       }
     }
   }

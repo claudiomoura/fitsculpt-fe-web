@@ -109,6 +109,7 @@ export const sidebarAdmin: NavSectionGroup[] = [
     items: [
       { id: "admin-dashboard", href: "/app/admin", labelKey: "nav.admin" },
       { id: "admin-users", href: "/app/admin/users", labelKey: "nav.adminUsers" },
+      { id: "admin-gym-requests", href: "/app/admin/gym-requests", labelKey: "nav.gymJoinRequests" },
       { id: "admin-labs", href: "/app/admin/labs", labelKey: "nav.adminLabs" },
       { id: "admin-preview", href: "/app/admin/preview", labelKey: "nav.adminPreview" },
     ],
@@ -177,6 +178,12 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         href: "/app/biblioteca/recetas",
         labelKey: "nav.recipeLibrary",
         meta: "/app/biblioteca/recetas",
+      },
+      {
+        id: "dev-admin-gym-requests",
+        href: "/app/admin/gym-requests",
+        labelKey: "nav.gymJoinRequests",
+        meta: "/app/admin/gym-requests",
       },
       {
         id: "dev-admin-preview",
