@@ -556,7 +556,15 @@
     "bodyFatEmptySubtitle": "Registra un check-in con % de grasa para ver la tendencia.",
     "chartError": "No pudimos cargar el progreso.",
     "errorTitle": "No pudimos cargar tu progreso",
-    "progressEmptyHint": "Registra un check-in para ver tu tendencia."
+    "progressEmptyHint": "Registra un check-in para ver tu tendencia.",
+    "aiWeeklySummaryTitle": "Resumen semanal con IA",
+    "aiWeeklySummarySubtitle": "Recap semanal Pro/Gym basado en tus insights de IA disponibles.",
+    "aiWeeklySummaryLockedTitle": "Requiere Pro o Gym",
+    "aiWeeklySummaryLockedDescription": "Actualiza a Pro o Gym para desbloquear el resumen semanal con IA en tu panel.",
+    "aiWeeklySummaryErrorTitle": "Resumen semanal no disponible",
+    "aiWeeklySummaryErrorDescription": "No pudimos cargar tu resumen semanal con IA en este momento.",
+    "aiWeeklySummaryEmptyTitle": "Aún no hay resumen semanal con IA",
+    "aiWeeklySummaryEmptyDescription": "Todavía no hay un endpoint de resumen semanal con IA disponible para tu cuenta."
   },
   "workouts": {
     "newWorkout": "Nuevo entrenamiento",
