@@ -37,7 +37,6 @@ type MeResponse = {
 export default function AdminUsersClient() {
   const { t, locale } = useLanguage();
   const localeCode = getLocaleCode(locale);
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<UsersResponse | null>(null);
@@ -53,29 +52,14 @@ export default function AdminUsersClient() {
   const [resetUser, setResetUser] = useState<UserRow | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [resetMessage, setResetMessage] = useState<string | null>(null);
-  const [planUpdates, setPlanUpdates] = useState<Record<string, "FREE" | "PRO">>({});
-  const [planTopUpNow, setPlanTopUpNow] = useState<Record<string, boolean>>({});
-  const [allowanceUpdates, setAllowanceUpdates] = useState<Record<string, string>>({});
-  const [allowanceTopUpNow, setAllowanceTopUpNow] = useState<Record<string, boolean>>({});
-  const [balanceUpdates, setBalanceUpdates] = useState<Record<string, string>>({});
-  const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
-
-  const formatDate = (value?: string | null) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString(localeCode);
-  };
 
   async function loadUsers() {
     setLoading(true);
-    const response = await fetch(
-      `${backendUrl}/admin/users?query=${encodeURIComponent(query)}&page=${page}`,
-      {
-        cache: "no-store",
-        credentials: "include",
-      }
-    );
+    const response = await fetch(`/api/admin/users?query=${encodeURIComponent(query)}&page=${page}`, {
+      cache: "no-store",
+      credentials: "include",
+    });
     if (!response.ok) {
       setUnauthorized(true);
       setLoading(false);
@@ -110,7 +94,7 @@ export default function AdminUsersClient() {
 
   async function updateBlock(userId: string, block: boolean) {
     const endpoint = block ? "block" : "unblock";
-    await fetch(`${backendUrl}/admin/users/${userId}/${endpoint}`, {
+    await fetch(`/api/admin/users/${userId}/${endpoint}`, {
       method: "PATCH",
       credentials: "include",
     });
@@ -118,7 +102,7 @@ export default function AdminUsersClient() {
   }
 
   async function verifyEmail(userId: string) {
-    await fetch(`${backendUrl}/admin/users/${userId}/verify-email`, {
+    await fetch(`/api/admin/users/${userId}/verify-email`, {
       method: "POST",
       credentials: "include",
     });
@@ -132,7 +116,7 @@ export default function AdminUsersClient() {
     const allowance = Number(createAllowance);
     const aiTokenBalance = Number.isFinite(tokenBalance) && tokenBalance >= 0 ? tokenBalance : 0;
     const aiTokenMonthlyAllowance = Number.isFinite(allowance) && allowance >= 0 ? allowance : 0;
-    const response = await fetch(`${backendUrl}/admin/users`, {
+    const response = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -163,7 +147,7 @@ export default function AdminUsersClient() {
     event.preventDefault();
     if (!resetUser) return;
     setResetMessage(null);
-    const response = await fetch(`${backendUrl}/admin/users/${resetUser.id}/reset-password`, {
+    const response = await fetch(`/api/admin/users/${resetUser.id}/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -182,76 +166,11 @@ export default function AdminUsersClient() {
   async function removeUser(userId: string) {
     const ok = window.confirm(t("admin.confirmDelete"));
     if (!ok) return;
-    await fetch(`${backendUrl}/admin/users/${userId}`, { method: "DELETE", credentials: "include" });
+    await fetch(`/api/admin/users/${userId}`, { method: "DELETE", credentials: "include" });
     await loadUsers();
-  }
-
-  async function updatePlan(userId: string, subscriptionPlan: "FREE" | "PRO") {
-    setActionUserId(userId);
-    await fetch(`${backendUrl}/admin/users/${userId}/plan`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ subscriptionPlan, topUpNow: planTopUpNow[userId] ?? false }),
-    });
-    await loadUsers();
-    window.dispatchEvent(new Event("auth:refresh"));
-    setActionUserId(null);
-  }
-
-  async function updateAllowance(userId: string) {
-    const value = allowanceUpdates[userId];
-    const amount = Number(value);
-    if (!Number.isFinite(amount) || amount < 0) return;
-    setActionUserId(userId);
-    await fetch(`${backendUrl}/admin/users/${userId}/tokens-allowance`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        aiTokenMonthlyAllowance: amount,
-        topUpNow: allowanceTopUpNow[userId] ?? false,
-      }),
-    });
-    await loadUsers();
-    window.dispatchEvent(new Event("auth:refresh"));
-    setActionUserId(null);
-  }
-
-  async function addTokens(userId: string, amount: number) {
-    if (!Number.isFinite(amount) || amount < 0) return;
-    setActionUserId(userId);
-    await fetch(`${backendUrl}/admin/users/${userId}/tokens/add`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ amount }),
-    });
-    await loadUsers();
-    window.dispatchEvent(new Event("auth:refresh"));
-    setActionUserId(null);
-  }
-
-  async function setTokenBalance(userId: string) {
-    const value = balanceUpdates[userId];
-    const amount = Number(value);
-    if (!Number.isFinite(amount) || amount < 0) return;
-    setActionUserId(userId);
-    await fetch(`${backendUrl}/admin/users/${userId}/tokens/balance`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ aiTokenBalance: amount }),
-    });
-    await loadUsers();
-    window.dispatchEvent(new Event("auth:refresh"));
-    setActionUserId(null);
   }
 
   const openEdit = (user: UserRow) => {
-    setPlanUpdates((prev) => ({ ...prev, [user.id]: prev[user.id] ?? user.subscriptionPlan }));
-    setAllowanceUpdates((prev) => ({ ...prev, [user.id]: prev[user.id] ?? String(user.aiTokenMonthlyAllowance) }));
-    setBalanceUpdates((prev) => ({ ...prev, [user.id]: prev[user.id] ?? String(user.aiTokenBalance) }));
     setEditUser(user);
   };
 
@@ -289,19 +208,19 @@ export default function AdminUsersClient() {
             <option value="USER">{t("admin.roleUser")}</option>
             <option value="ADMIN">{t("admin.roleAdmin")}</option>
           </select>
-          <label className="muted">Plan</label>
+          <label className="muted">{t("admin.subscriptionPlanLabel")}</label>
           <select value={createPlan} onChange={(e) => setCreatePlan(e.target.value as "FREE" | "PRO")}>
             <option value="FREE">{t("admin.planFree")}</option>
             <option value="PRO">{t("admin.planPro")}</option>
           </select>
-          <label className="muted">Tokens iniciales</label>
+          <label className="muted">{t("admin.tokensBalanceLabel")}</label>
           <input
             value={createTokens}
             onChange={(e) => setCreateTokens(e.target.value)}
             type="number"
             min={0}
           />
-          <label className="muted">Allowance mensual</label>
+          <label className="muted">{t("admin.tokensAllowanceLabel")}</label>
           <input
             value={createAllowance}
             onChange={(e) => setCreateAllowance(e.target.value)}
@@ -349,7 +268,7 @@ export default function AdminUsersClient() {
                   </div>
                 </div>
                 <button type="button" className="btn secondary" onClick={() => openEdit(user)}>
-                  Editar
+                  {t("ui.edit")}
                 </button>
               </div>
               <div className="muted" style={{ marginTop: 8 }}>
@@ -362,10 +281,10 @@ export default function AdminUsersClient() {
                 {t("admin.subscriptionPlanLabel")}: {user.subscriptionPlan} · {user.subscriptionStatus ?? "-"}
               </div>
               <div className="muted">
-                Tokens: {user.aiTokenBalance} · Allowance: {user.aiTokenMonthlyAllowance}
+                {t("admin.tokensBalanceLabel")}: {user.aiTokenBalance} · {t("admin.tokensAllowanceLabel")}: {user.aiTokenMonthlyAllowance}
               </div>
               <div className="muted">
-                Renovación cuenta: {formatDate(user.currentPeriodEnd)} · Renovación tokens: {formatDate(user.aiTokenRenewalAt)}
+                {t("ui.notAvailable")}
               </div>
             </div>
           ))}
@@ -424,112 +343,20 @@ export default function AdminUsersClient() {
         <dialog open style={{ padding: 20, borderRadius: 12, border: "1px solid var(--border)", maxWidth: 640 }}>
           <div className="form-stack">
             <div>
-              <strong>Editar usuario</strong>
+              <strong>{t("ui.edit")}</strong>
               <p className="muted">{editUser.email}</p>
             </div>
 
-            <div>
+            <div className="feature-card" style={{ gap: 8 }}>
               <div className="muted" style={{ fontSize: 12 }}>{t("admin.subscriptionPlanLabel")}</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <select
-                  value={planUpdates[editUser.id] ?? editUser.subscriptionPlan}
-                  onChange={(e) => setPlanUpdates((prev) => ({
-                    ...prev,
-                    [editUser.id]: e.target.value as "FREE" | "PRO",
-                  }))}
-                >
-                  <option value="FREE">{t("admin.planFree")}</option>
-                  <option value="PRO">{t("admin.planPro")}</option>
-                </select>
-                <label className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={planTopUpNow[editUser.id] ?? false}
-                    onChange={(e) =>
-                      setPlanTopUpNow((prev) => ({ ...prev, [editUser.id]: e.target.checked }))
-                    }
-                  />
-                  Recargar ahora
-                </label>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => updatePlan(editUser.id, planUpdates[editUser.id] ?? editUser.subscriptionPlan)}
-                  disabled={actionUserId === editUser.id}
-                >
-                  {t("admin.updatePlan")}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensAllowanceLabel")}</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <input
-                  value={allowanceUpdates[editUser.id] ?? String(editUser.aiTokenMonthlyAllowance)}
-                  onChange={(e) => setAllowanceUpdates((prev) => ({ ...prev, [editUser.id]: e.target.value }))}
-                  type="number"
-                  min={0}
-                />
-                <label className="muted" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={allowanceTopUpNow[editUser.id] ?? false}
-                    onChange={(e) =>
-                      setAllowanceTopUpNow((prev) => ({ ...prev, [editUser.id]: e.target.checked }))
-                    }
-                  />
-                  Recargar ahora
-                </label>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => updateAllowance(editUser.id)}
-                  disabled={actionUserId === editUser.id}
-                >
-                  {t("admin.updateAllowance")}
-                </button>
-              </div>
-            </div>
-
-            <div>
+              <div>{editUser.subscriptionPlan}</div>
               <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensBalanceLabel")}</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => addTokens(editUser.id, 100)}
-                  disabled={actionUserId === editUser.id}
-                >
-                  +100
-                </button>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => addTokens(editUser.id, 500)}
-                  disabled={actionUserId === editUser.id}
-                >
-                  +500
-                </button>
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
-                <input
-                  value={balanceUpdates[editUser.id] ?? String(editUser.aiTokenBalance)}
-                  onChange={(e) => setBalanceUpdates((prev) => ({ ...prev, [editUser.id]: e.target.value }))}
-                  type="number"
-                  min={0}
-                />
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => setTokenBalance(editUser.id)}
-                  disabled={actionUserId === editUser.id}
-                >
-                  {t("admin.tokensSet")}
-                </button>
-              </div>
-              <div className="muted" style={{ marginTop: 6 }}>
-                {t("admin.tokensCurrent")}: {editUser.aiTokenBalance}
+              <div>{editUser.aiTokenBalance}</div>
+              <div className="muted" style={{ fontSize: 12 }}>{t("admin.tokensAllowanceLabel")}</div>
+              <div>{editUser.aiTokenMonthlyAllowance}</div>
+              <div className="status-card">
+                <strong>{t("access.notAvailableTitle")}</strong>
+                <p className="muted">{t("access.notAvailableDescription")}</p>
               </div>
             </div>
 
