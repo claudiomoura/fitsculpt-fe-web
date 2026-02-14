@@ -1872,7 +1872,18 @@
       "training": {
         "title": "Training",
         "subscriptionStatusPrefix": "Subscription status:",
-        "subscriptionHint": "Training detail is limited to currently available client status data."
+        "subscriptionHint": "Training detail is limited to currently available client status data.",
+        "dualPlans": {
+          "title": "Home + Gym plans",
+          "description": "Show assigned plans by context when available from backend data.",
+          "homeLabel": "Home context",
+          "gymLabel": "Gym context",
+          "unassigned": "No assigned plan",
+          "assignAction": "Assign plan",
+          "assignConfirmation": "Plan assignment request captured.",
+          "assignUnavailable": "Dual-plan assignment requires backend support and is unavailable in this environment.",
+          "emptyUnsupported": "No distinct Home/Gym plan data is available for this client yet."
+        }
       },
       "nutrition": {
         "title": "Nutrition"
