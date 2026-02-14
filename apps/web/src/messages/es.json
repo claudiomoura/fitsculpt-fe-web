@@ -1996,7 +1996,25 @@
     "gymRequiredTitle": "Se requiere membresía de gimnasio",
     "gymRequiredDesc": "Esta área de entrenador solo está disponible cuando tu cuenta está vinculada a un gimnasio.",
     "gymUnknownTitle": "Acceso de gimnasio para entrenador no disponible",
-    "gymUnknownDesc": "No pudimos confirmar tu membresía de gimnasio con el payload actual del backend."
+    "gymUnknownDesc": "No pudimos confirmar tu membresía de gimnasio con el payload actual del backend.",
+    "assignPlan": {
+      "title": "Asignar plan de entrenamiento",
+      "subtitle": "Elige un miembro y una plantilla de plan para asignarla desde el modo entrenador.",
+      "loading": "Cargando miembros y planes...",
+      "loadError": "No pudimos cargar miembros o planes.",
+      "memberLabel": "Miembro",
+      "memberPlaceholder": "Selecciona un miembro",
+      "planLabel": "Plantilla de plan",
+      "planPlaceholder": "Selecciona una plantilla de plan",
+      "previewLoading": "Cargando vista previa del plan...",
+      "previewError": "No pudimos cargar la vista previa del plan.",
+      "previewDays": "Días: {count}",
+      "previewExercises": "Ejercicios: {count}",
+      "submit": "Asignar plan",
+      "submitting": "Asignando...",
+      "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
+      "success": "Plan asignado correctamente a {member}."
+    }
   },
   "gym": {
     "title": "Gimnasio",
