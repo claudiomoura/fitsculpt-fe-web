@@ -1,16 +1,9 @@
-import { getServerT } from "@/lib/serverI18n";
-import GymAdminClient from "@/components/gym/GymAdminClient";
+import { GymAdminMembersClient } from "@/components/gym/GymAdminMembersClient";
 
-export default async function GymAdminPage() {
-  const { t } = await getServerT();
-
+export default function GymAdminPage() {
   return (
     <div className="page">
-      <section className="card">
-        <h1 className="section-title">{t("gym.adminTitle")}</h1>
-        <p className="section-subtitle">{t("gym.adminSubtitle")}</p>
-      </section>
-      <GymAdminClient />
+      <GymAdminMembersClient />
     </div>
   );
 }
