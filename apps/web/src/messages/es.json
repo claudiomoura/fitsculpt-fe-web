@@ -2039,8 +2039,42 @@
         "submit": "Asignar plan",
         "cancel": "Cancelar",
         "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio."
+      },
+      "goToPanel": "Ir al panel del gimnasio"
+    },
+    "description": "Gestiona tu estado de membresía y solicita acceso a un gimnasio.",
+    "membership": {
+      "none": {
+        "title": "Aún no perteneces a un gimnasio"
+      },
+      "pending": {
+        "title": "Solicitud pendiente",
+        "description": "Tu solicitud para {gymName} está pendiente de aprobación."
+      },
+      "active": {
+        "title": "Membresía activa",
+        "description": "Estás en {gymName} con rol {role}.",
+        "planButton": "Ir a mi plan"
+      },
+      "rejected": {
+        "title": "Solicitud rechazada",
+        "description": "Tu solicitud anterior fue rechazada. Puedes intentar unirte de nuevo."
       }
-    }
+    },
+    "join": {
+      "selectLabel": "Selecciona un gimnasio",
+      "requestButton": "Solicitar acceso",
+      "codeLabel": "Código del gimnasio",
+      "codeHelp": "Si el gimnasio te dio un código, úsalo para unirte automáticamente.",
+      "codeButton": "Unirme con código",
+      "empty": "No hay gimnasios disponibles en este momento."
+    },
+    "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
+    "loadError": "Inténtalo de nuevo en unos segundos.",
+    "actionErrorTitle": "No pudimos procesar tu solicitud",
+    "actionError": "Verifica los datos e inténtalo nuevamente.",
+    "unavailableTitle": "Estado de gimnasio no disponible",
+    "unavailableDescription": "No fue posible determinar tu estado de membresía por ahora."
   },
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",
@@ -2111,5 +2145,9 @@
       }
     },
     "notAvailableYet": "No disponible todavía"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "retry": "Reintentar"
   }
 }

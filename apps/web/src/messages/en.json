@@ -2036,8 +2036,42 @@
         "submit": "Assign plan",
         "cancel": "Cancel",
         "submitError": "We could not assign this plan. Please verify member and gym eligibility."
+      },
+      "goToPanel": "Go to gym panel"
+    },
+    "description": "Manage your membership status and request access to a gym.",
+    "membership": {
+      "none": {
+        "title": "You are not part of a gym yet"
+      },
+      "pending": {
+        "title": "Request pending",
+        "description": "Your request for {gymName} is pending approval."
+      },
+      "active": {
+        "title": "Active membership",
+        "description": "You are in {gymName} with role {role}.",
+        "planButton": "Go to my plan"
+      },
+      "rejected": {
+        "title": "Request rejected",
+        "description": "Your previous request was rejected. You can try joining again."
       }
-    }
+    },
+    "join": {
+      "selectLabel": "Select a gym",
+      "requestButton": "Request access",
+      "codeLabel": "Gym code",
+      "codeHelp": "If the gym gave you a code, use it to join automatically.",
+      "codeButton": "Join with code",
+      "empty": "No gyms are available right now."
+    },
+    "loadErrorTitle": "We could not load your gym status",
+    "loadError": "Please try again in a few seconds.",
+    "actionErrorTitle": "We could not process your request",
+    "actionError": "Check your data and try again.",
+    "unavailableTitle": "Gym status unavailable",
+    "unavailableDescription": "We could not determine your membership status right now."
   },
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",
@@ -2108,5 +2142,9 @@
       }
     },
     "notAvailableYet": "Not available yet"
+  },
+  "common": {
+    "loading": "Loading...",
+    "retry": "Retry"
   }
 }
