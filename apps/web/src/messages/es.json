@@ -1750,17 +1750,16 @@
     "supportDescription": "Accede al canal de soporte disponible para tu entorno.",
     "supportAction": "Contactar soporte",
     "supportPlaceholder": "No hay un canal de soporte disponible en este entorno.",
-    "planDescription": "Funciones incluidas según tu plan actual.",
-    "planUnavailable": "La información del plan no está disponible ahora.",
-    "tier": {
-      "free": "FREE",
-      "pro": "PRO",
-      "gym": "GYM"
-    },
-    "features": {
-      "canUseAI": "Usar herramientas de IA",
-      "hasProSupport": "Soporte prioritario",
-      "hasGymAccess": "Funciones de membresía de gimnasio"
+    "gym": {
+      "title": "Membresía de gimnasio",
+      "statusYes": "Sí, vinculado a un gimnasio",
+      "statusNo": "Sin vínculo a gimnasio",
+      "unknownTitle": "Información de gimnasio no disponible",
+      "unknownDescription": "No pudimos determinar tu membresía de gimnasio con el payload actual.",
+      "notInGymDescription": "Tu cuenta actualmente no está asociada a ningún tenant de gimnasio.",
+      "nameLabel": "Nombre del gimnasio",
+      "idLabel": "ID del gimnasio",
+      "linkRequiresImplementation": "Requiere implementación"
     }
   },
   "settings": {
@@ -1786,8 +1785,9 @@
         "description": "Revisa tu plan y gestiona tu suscripción.",
         "action": "Abrir facturación",
         "statusLabel": "El estado del plan se muestra en Facturación cuando hay datos reales.",
-        "currentTier": "Plan actual: {tier}",
-        "unavailable": "Información del plan no disponible."
+        "gymStatusYes": "Estado de gimnasio: sí",
+        "gymStatusNo": "Estado de gimnasio: no",
+        "gymStatusUnknown": "Estado de gimnasio: información no disponible"
       },
       "notifications": {
         "title": "Notificaciones",
@@ -1928,7 +1928,11 @@
     "unavailableTitle": "No disponible (requiere backend)",
     "unavailableDesc": "Este entorno aún no tiene un endpoint de clientes para entrenador.",
     "demoMode": "Modo Demo/Dev preview",
-    "clientsEndpointPrefix": "Endpoint en uso:"
+    "clientsEndpointPrefix": "Endpoint en uso:",
+    "gymRequiredTitle": "Se requiere membresía de gimnasio",
+    "gymRequiredDesc": "Esta área de entrenador solo está disponible cuando tu cuenta está vinculada a un gimnasio.",
+    "gymUnknownTitle": "Acceso de gimnasio para entrenador no disponible",
+    "gymUnknownDesc": "No pudimos confirmar tu membresía de gimnasio con el payload actual del backend."
   },
   "gym": {
     "title": "Gimnasio",

@@ -1,10 +1,13 @@
 export type RoleName = "admin" | "coach" | "developer" | "user";
 
+import type { GymMembershipState } from "@/lib/gymMembership";
+
 export type RoleAccessInput = {
   role?: string | null;
   isAdmin?: boolean;
   isCoach?: boolean;
   isDev?: boolean;
+  gymMembershipState?: GymMembershipState;
 };
 
 function normalizeRole(role: string | null | undefined): RoleName | null {
@@ -26,6 +29,7 @@ export function canAccessAdmin(input: RoleAccessInput): boolean {
 }
 
 export function canAccessTrainer(input: RoleAccessInput): boolean {
+  if (input.gymMembershipState && input.gymMembershipState !== "in_gym") return false;
   if (canAccessAdmin(input)) return true;
   if (input.isCoach === true) return true;
 

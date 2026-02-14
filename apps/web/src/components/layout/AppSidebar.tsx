@@ -10,9 +10,9 @@ import { useAccess } from "@/lib/useAccess";
 export default function AppSidebar() {
   const { t } = useLanguage();
   const pathname = usePathname();
-  const { role, isAdmin, isCoach, isDev } = useAccess();
+  const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
 
-  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach, isDev }), [role, isCoach, isAdmin, isDev]);
+  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach, isDev, gymMembershipState }), [role, isCoach, isAdmin, isDev, gymMembershipState]);
 
   const isActive = (href: string) => {
     if (!pathname) return false;

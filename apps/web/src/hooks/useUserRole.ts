@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { extractGymMembership, type GymMembershipState } from "@/lib/gymMembership";
 import { getUserCapabilities } from "@/lib/userCapabilities";
 
 type AccessRole = "user" | "coach" | "admin";
@@ -12,6 +13,7 @@ type UserRoleState = {
   isAdmin: boolean;
   isTrainer: boolean;
   isDev: boolean;
+  gymMembershipState: GymMembershipState;
 };
 
 function readExplicitRole(profile: unknown): AccessRole | null {
@@ -97,6 +99,7 @@ export function useUserRole(): UserRoleState {
       isAdmin,
       isTrainer,
       isDev,
+      gymMembershipState: extractGymMembership(profile).state,
     };
   }, [profile, loading, error]);
 }

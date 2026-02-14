@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { hasTrainerClientContextCapability, hasTrainerClientsCapability } from "@/lib/capabilities";
+import { canAccessTrainerGymArea, extractGymMembership } from "@/lib/gymMembership";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
 
@@ -38,6 +39,7 @@ export default function TrainerClientContextClient() {
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [client, setClient] = useState<ClientRow | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("summary");
+  const [gymMembershipState, setGymMembershipState] = useState<"in_gym" | "not_in_gym" | "unknown">("unknown");
 
   const handleRetry = () => {
     window.location.reload();
@@ -56,10 +58,16 @@ export default function TrainerClientContextClient() {
 
         const meData = (await meResponse.json()) as AuthUser;
         const roleFlags = getRoleFlags(meData);
+        const gymMembership = extractGymMembership(meData);
 
         if (!active) return;
 
-        const canAccess = roleFlags.isTrainer || roleFlags.isAdmin;
+        setGymMembershipState(gymMembership.state);
+        const canAccess = canAccessTrainerGymArea({
+          isCoach: roleFlags.isTrainer,
+          isAdmin: roleFlags.isAdmin,
+          membership: gymMembership,
+        });
         setCanAccessTrainer(canAccess);
         setPermissionState("ready");
 
@@ -128,11 +136,7 @@ export default function TrainerClientContextClient() {
       return { summary: "empty", training: "empty", nutrition: "empty", tracking: "empty" };
     }
 
-    return {
-      today: "ready",
-      tracking: "empty",
-      plans: "empty",
-    };
+    return { summary: "ready", training: "ready", nutrition: "empty", tracking: "ready" };
   }, [client, clientState]);
 
   const renderSectionBody = (sectionState: SectionState) => {
@@ -271,9 +275,17 @@ export default function TrainerClientContextClient() {
   }
 
   if (!canAccessTrainer) {
+    const noGymMessage =
+      gymMembershipState === "not_in_gym"
+        ? { title: t("trainer.gymRequiredTitle"), description: t("trainer.gymRequiredDesc") }
+        : gymMembershipState === "unknown"
+          ? { title: t("trainer.gymUnknownTitle"), description: t("trainer.gymUnknownDesc") }
+          : null;
+
     return (
       <div className="card form-stack" role="status">
-        <p className="muted">{t("trainer.unauthorized")}</p>
+        <p className="muted">{noGymMessage?.title ?? t("trainer.unauthorized")}</p>
+        {noGymMessage?.description ? <p className="muted">{noGymMessage.description}</p> : null}
         <Link href="/app" className="btn secondary" style={{ width: "fit-content" }}>
           {t("trainer.backToDashboard")}
         </Link>

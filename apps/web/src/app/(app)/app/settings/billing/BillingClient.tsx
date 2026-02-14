@@ -5,13 +5,169 @@ import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
-import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
+import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
+import { useAccess } from "@/lib/useAccess";
+
+type BillingProfile = {
+  plan?: "FREE" | "PRO";
+  isPro?: boolean;
+  tokens?: number;
+  tokensExpiresAt?: string | null;
+  subscriptionStatus?: string | null;
+};
+
+type BillingAction = "checkout" | "portal" | null;
+
+function resolveStatusBadgeVariant(subscriptionStatus: string | null | undefined) {
+  const normalizedStatus = subscriptionStatus?.toLowerCase();
+
+  if (!normalizedStatus) {
+    return "muted" as const;
+  }
+
+  if (normalizedStatus === "active" || normalizedStatus === "trialing") {
+    return "success" as const;
+  }
+
+  if (normalizedStatus === "past_due" || normalizedStatus === "incomplete") {
+    return "warning" as const;
+  }
+
+  if (normalizedStatus === "canceled" || normalizedStatus === "unpaid") {
+    return "danger" as const;
+  }
+
+  return "default" as const;
+}
+
+function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (key: string) => string) {
+  const normalizedStatus = subscriptionStatus?.toLowerCase();
+
+  if (!normalizedStatus) {
+    return t("ui.notAvailable");
+  }
+
+  return t(`billing.subscriptionStatuses.${normalizedStatus}`) === `billing.subscriptionStatuses.${normalizedStatus}`
+    ? t("billing.subscriptionStatuses.unknown")
+    : t(`billing.subscriptionStatuses.${normalizedStatus}`);
+}
 
 export default function BillingClient() {
-  const { t } = useLanguage();
-  const { entitlements, loading, error, reload } = useAuthEntitlements();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { t, locale } = useLanguage();
+
+  const { isAdmin, isDev } = useAccess();
+  const [profile, setProfile] = useState<BillingProfile | null>(null);
+  const [gymMembership, setGymMembership] = useState<GymMembership>({ state: "unknown", gymId: null, gymName: null });
+  const [loading, setLoading] = useState(true);
+  const [action, setAction] = useState<BillingAction>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
+
+  const formatDate = useMemo(() => {
+    const intlLocale = locale === "es" ? "es-ES" : "en-US";
+    const formatter = new Intl.DateTimeFormat(intlLocale, { day: "2-digit", month: "2-digit", year: "numeric" });
+
+    return (value?: string | null) => {
+      if (!value) {
+        return t("ui.notAvailable");
+      }
+
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? t("ui.notAvailable") : formatter.format(date);
+    };
+  }, [locale, t]);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const shouldSync = searchParams.get("checkout") === "success";
+      const response = await fetch(`/api/billing/status${shouldSync ? "?sync=1" : ""}`, { cache: "no-store" });
+
+      if (!response.ok) {
+        setError(t("billing.loadError"));
+        setProfile(null);
+        return;
+      }
+
+      const data = (await response.json()) as BillingProfile;
+      setProfile(data);
+
+      const meResponse = await fetch("/api/auth/me", { cache: "no-store" });
+      if (meResponse.ok) {
+        const mePayload = (await meResponse.json()) as unknown;
+        setGymMembership(extractGymMembership(mePayload));
+      } else {
+        setGymMembership({ state: "unknown", gymId: null, gymName: null });
+      }
+
+      if (shouldSync) {
+        router.replace("/app/settings/billing");
+      }
+    } catch {
+      setError(t("billing.loadError"));
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [router, searchParams, t]);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
+
+  const handleCheckout = async () => {
+    setAction("checkout");
+    setError(null);
+
+    try {
+      const response = await fetch("/api/billing/checkout", { method: "POST" });
+      const data = (await response.json()) as { url?: string };
+
+      if (!response.ok || !data.url) {
+        setError(t("billing.checkoutError"));
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch {
+      setError(t("billing.checkoutError"));
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const handlePortal = async () => {
+    setAction("portal");
+    setError(null);
+
+    try {
+      const response = await fetch("/api/billing/portal", { method: "POST" });
+      const data = (await response.json()) as { url?: string };
+
+      if (!response.ok || !data.url) {
+        setError(t("billing.portalError"));
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch {
+      setError(t("billing.portalError"));
+    } finally {
+      setAction(null);
+    }
+  };
+
+  const isPro = profile?.isPro || profile?.plan === "PRO";
+  const hasPlan = typeof profile?.plan === "string";
+  const hasSubscriptionStatus = typeof profile?.subscriptionStatus === "string" && profile.subscriptionStatus.length > 0;
+
+  const checkoutDisabled = loading || action === "portal" || Boolean(isPro);
+  const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
+  const canSeeDevNote = isAdmin || isDev;
 
   return (
     <section className="stack-md" aria-live="polite">
@@ -54,6 +210,31 @@ export default function BillingClient() {
               ) : (
                 <p className="muted m-0">{t("billing.planUnavailable")}</p>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("billing.gym.title")}</CardTitle>
+            </CardHeader>
+            <CardContent className="stack-sm">
+              {gymMembership.state === "in_gym" ? (
+                <>
+                  <Badge variant="success">{t("billing.gym.statusYes")}</Badge>
+                  {gymMembership.gymName ? <p className="muted m-0">{`${t("billing.gym.nameLabel")}: ${gymMembership.gymName}`}</p> : null}
+                  {gymMembership.gymId ? <p className="muted m-0">{`${t("billing.gym.idLabel")}: ${gymMembership.gymId}`}</p> : null}
+                </>
+              ) : null}
+
+              {gymMembership.state === "not_in_gym" ? (
+                <EmptyState title={t("billing.gym.statusNo")} description={t("billing.gym.notInGymDescription")} icon="info" />
+              ) : null}
+
+              {gymMembership.state === "unknown" ? (
+                <EmptyState title={t("billing.gym.unknownTitle")} description={t("billing.gym.unknownDescription")} icon="info" />
+              ) : null}
+
+              {canSeeDevNote ? <p className="muted m-0">{t("billing.gym.linkRequiresImplementation")}</p> : null}
             </CardContent>
           </Card>
 

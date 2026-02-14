@@ -1747,17 +1747,16 @@
     "supportDescription": "Access the support channel available for your environment.",
     "supportAction": "Contact support",
     "supportPlaceholder": "There is no support channel available in this environment.",
-    "planDescription": "Features included in your current tier.",
-    "planUnavailable": "Plan info unavailable right now.",
-    "tier": {
-      "free": "FREE",
-      "pro": "PRO",
-      "gym": "GYM"
-    },
-    "features": {
-      "canUseAI": "Use AI tools",
-      "hasProSupport": "Priority support",
-      "hasGymAccess": "Gym membership features"
+    "gym": {
+      "title": "Gym membership",
+      "statusYes": "Yes, linked to a gym",
+      "statusNo": "Not linked to a gym",
+      "unknownTitle": "Gym info unavailable",
+      "unknownDescription": "We could not determine your gym membership from the current payload.",
+      "notInGymDescription": "Your account is currently not associated with any gym tenant.",
+      "nameLabel": "Gym name",
+      "idLabel": "Gym ID",
+      "linkRequiresImplementation": "Requires implementation"
     }
   },
   "settings": {
@@ -1783,8 +1782,9 @@
         "description": "Review your plan and manage your subscription.",
         "action": "Open billing",
         "statusLabel": "Plan status is shown in Billing when real data is available.",
-        "currentTier": "Current tier: {tier}",
-        "unavailable": "Plan info unavailable."
+        "gymStatusYes": "Gym status: yes",
+        "gymStatusNo": "Gym status: no",
+        "gymStatusUnknown": "Gym status: info unavailable"
       },
       "notifications": {
         "title": "Notifications",
@@ -1925,7 +1925,11 @@
     "unavailableTitle": "Not available (backend required)",
     "unavailableDesc": "This workspace has no trainer/coach clients endpoint yet.",
     "demoMode": "Demo/Dev preview mode",
-    "clientsEndpointPrefix": "Endpoint in use:"
+    "clientsEndpointPrefix": "Endpoint in use:",
+    "gymRequiredTitle": "Gym membership required",
+    "gymRequiredDesc": "This trainer area is only available when your account is linked to a gym.",
+    "gymUnknownTitle": "Trainer gym access unavailable",
+    "gymUnknownDesc": "We could not confirm your gym membership with the current backend payload."
   },
   "gym": {
     "title": "Gym",

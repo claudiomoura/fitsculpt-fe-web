@@ -4,16 +4,19 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import { canAccessTrainerGymArea } from "@/lib/gymMembership";
 import { probeTrainerClientsCapability, type TrainerClientsCapability } from "@/lib/trainerCapability";
 import { useAccess } from "@/lib/useAccess";
+import { useGymMembership } from "@/lib/useGymMembership";
 
 type ListState = "loading" | "ready";
 
 export default function TrainerClientsList() {
   const { t } = useLanguage();
   const { isCoach, isAdmin, isLoading: accessLoading } = useAccess();
+  const { membership, isLoading: gymLoading } = useGymMembership();
 
-  const canAccessTrainer = isCoach || isAdmin;
+  const canAccessTrainer = canAccessTrainerGymArea({ isCoach, isAdmin, membership });
 
   const [listState, setListState] = useState<ListState>("loading");
   const [capability, setCapability] = useState<TrainerClientsCapability>({ status: "unavailable" });
@@ -89,11 +92,19 @@ export default function TrainerClientsList() {
     );
   }, [capability, listState, loadClients, t]);
 
-  if (accessLoading) {
+  if (accessLoading || gymLoading) {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
   }
 
   if (!canAccessTrainer) {
+    if (membership.state === "not_in_gym") {
+      return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
+    }
+
+    if (membership.state === "unknown") {
+      return <EmptyState title={t("trainer.gymUnknownTitle")} description={t("trainer.gymUnknownDesc")} wrapInCard icon="info" />;
+    }
+
     return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;
   }
 
