@@ -12,6 +12,11 @@ import {
   hasTrainingPlanAdjustmentCapability,
 } from "@/lib/trainingPlanAdjustment";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import TrainingAdjustmentDiffSummary, {
+  buildTrainingAdjustmentDiff,
+  type TrainingAdjustmentDiff,
+} from "@/components/tracking/TrainingAdjustmentDiffSummary";
 
 type CheckinEntry = {
   id: string;
@@ -156,8 +161,13 @@ export default function TrackingClient() {
   const [adjustmentStatus, setAdjustmentStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
   const [adjustmentSuccess, setAdjustmentSuccess] = useState<{ at: string; period?: string } | null>(null);
+  const [adjustmentDiff, setAdjustmentDiff] = useState<TrainingAdjustmentDiff | null>(null);
   const [adjustmentCapabilityChecked, setAdjustmentCapabilityChecked] = useState(false);
   const [hasAdjustmentCapability, setHasAdjustmentCapability] = useState(false);
+  const [adjustmentEntitlementChecked, setAdjustmentEntitlementChecked] = useState(false);
+  const [hasAdjustmentEntitlement, setHasAdjustmentEntitlement] = useState(false);
+  const [adjustmentTokenBalance, setAdjustmentTokenBalance] = useState<number | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
   const [trackingSupports, setTrackingSupports] = useState<{
     energy: boolean | null;
     notes: boolean | null;
@@ -191,7 +201,14 @@ export default function TrackingClient() {
   const isCheckinSubmitDisabled =
     !isTrackingReady || !isWeightValid || !isDateValid || !isBodyFatValid || !isWaistValid || isSubmitting;
   const adjustmentInput = canApplyTrainingAdjustment(profile) ? getTrainingAdjustmentInput(profile) : null;
-  const canApplyAdjustment = adjustmentCapabilityChecked && hasAdjustmentCapability && Boolean(adjustmentInput);
+  const hasAdjustmentTokens = subscriptionPlan !== "FREE" || (adjustmentTokenBalance ?? 0) > 0;
+  const canApplyAdjustment =
+    adjustmentCapabilityChecked &&
+    adjustmentEntitlementChecked &&
+    hasAdjustmentCapability &&
+    hasAdjustmentEntitlement &&
+    hasAdjustmentTokens &&
+    Boolean(adjustmentInput);
   const isApplyAdjustmentDisabled = adjustmentStatus === "loading" || !canApplyAdjustment;
 
   useEffect(() => {
@@ -207,6 +224,34 @@ export default function TrackingClient() {
       setAdjustmentCapabilityChecked(true);
     };
     void detectCapability();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadEntitlement = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        const data = (await response.json()) as AiEntitlementProfile & {
+          aiTokenBalance?: number;
+          subscriptionPlan?: "FREE" | "PRO" | null;
+        };
+        if (!active) return;
+        setHasAdjustmentEntitlement(hasAiEntitlement(data));
+        setSubscriptionPlan(data.subscriptionPlan ?? null);
+        setAdjustmentTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
+      } catch {
+        if (!active) return;
+        setHasAdjustmentEntitlement(false);
+        setSubscriptionPlan(null);
+        setAdjustmentTokenBalance(null);
+      } finally {
+        if (active) setAdjustmentEntitlementChecked(true);
+      }
+    };
+    void loadEntitlement();
     return () => {
       active = false;
     };
@@ -838,7 +883,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     setAdjustmentStatus("loading");
     setAdjustmentError(null);
     setAdjustmentSuccess(null);
+    setAdjustmentDiff(null);
     try {
+      const previousPlan = profile.trainingPlan;
       const result = await generateAndSaveTrainingPlan(profile, adjustmentInput);
       const refreshedTracking = await refreshTrackingData({ showLoading: true, showError: true });
       const refreshedProfile = await getUserProfile();
@@ -853,6 +900,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         at: successDate,
         period: resolvePeriodText(result.metadata),
       });
+      setAdjustmentDiff(buildTrainingAdjustmentDiff(previousPlan, result.profile.trainingPlan));
       setAdjustmentStatus("success");
       router.refresh();
     } catch (error) {
@@ -1220,6 +1268,17 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 t("tracking.adjustmentApply")
               )}
             </button>
+          ) : !adjustmentCapabilityChecked || !adjustmentEntitlementChecked ? (
+            <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentChecking")}</p>
+          ) : !hasAdjustmentCapability ? (
+            <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentUnavailable")}</p>
+          ) : !hasAdjustmentEntitlement || !hasAdjustmentTokens ? (
+            <div className="feature-card" role="status" aria-live="polite" style={{ marginTop: 8 }}>
+              <strong>{t("tracking.adjustmentProFeatureTitle")}</strong>
+              <p className="muted" style={{ marginTop: 6 }}>{t("tracking.adjustmentProFeatureBody")}</p>
+            </div>
+          ) : !adjustmentInput ? (
+            <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentNeedsProfile")}</p>
           ) : (
             <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentUnavailable")}</p>
           )}
@@ -1236,6 +1295,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 </p>
               ) : null}
             </div>
+          ) : null}
+
+          {adjustmentStatus === "success" && adjustmentSuccess && adjustmentDiff ? (
+            <TrainingAdjustmentDiffSummary diff={adjustmentDiff} />
           ) : null}
 
           {adjustmentStatus === "error" && adjustmentError ? (
