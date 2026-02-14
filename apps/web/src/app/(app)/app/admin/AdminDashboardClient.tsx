@@ -85,6 +85,12 @@ export default function AdminDashboardClient() {
         <div className="info-label">{t("admin.actions")}</div>
         <p className="muted">{t("admin.actionsHint")}</p>
       </div>
+      <div className="feature-card">
+        <div className="info-label">Gym Pilot</div>
+        <Link href="/app/admin/gyms" className="btn secondary">
+          Gestionar gimnasios
+        </Link>
+      </div>
     </div>
   );
 }
