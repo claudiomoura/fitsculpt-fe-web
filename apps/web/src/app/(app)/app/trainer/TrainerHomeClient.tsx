@@ -6,6 +6,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { canAccessTrainerGymArea } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 import { useGymMembership } from "@/lib/useGymMembership";
+import TrainerPlanAssignmentPanel from "@/components/trainer/TrainerPlanAssignmentPanel";
 
 export default function TrainerHomeClient() {
   const { t } = useLanguage();
@@ -57,6 +58,8 @@ export default function TrainerHomeClient() {
           {t("trainer.clientContext.nextStep")}
         </p>
       </section>
+
+      <TrainerPlanAssignmentPanel />
     </div>
   );
 }

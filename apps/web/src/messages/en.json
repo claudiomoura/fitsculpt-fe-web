@@ -1993,7 +1993,25 @@
     "gymRequiredTitle": "Gym membership required",
     "gymRequiredDesc": "This trainer area is only available when your account is linked to a gym.",
     "gymUnknownTitle": "Trainer gym access unavailable",
-    "gymUnknownDesc": "We could not confirm your gym membership with the current backend payload."
+    "gymUnknownDesc": "We could not confirm your gym membership with the current backend payload.",
+    "assignPlan": {
+      "title": "Assign training plan",
+      "subtitle": "Choose a member and a plan template to assign from trainer mode.",
+      "loading": "Loading members and plans...",
+      "loadError": "We could not load members or plans.",
+      "memberLabel": "Member",
+      "memberPlaceholder": "Select a member",
+      "planLabel": "Plan template",
+      "planPlaceholder": "Select a plan template",
+      "previewLoading": "Loading plan preview...",
+      "previewError": "We could not load plan preview.",
+      "previewDays": "Days: {count}",
+      "previewExercises": "Exercises: {count}",
+      "submit": "Assign plan",
+      "submitting": "Assigning...",
+      "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
+      "success": "Plan assigned successfully to {member}."
+    }
   },
   "gym": {
     "title": "Gym",
