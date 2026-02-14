@@ -1440,7 +1440,22 @@
     "sectionMetrics": "Latest metrics",
     "finish": "Save and finish",
     "saving": "Saving...",
-    "saved": "Profile updated."
+    "saved": "Profile updated.",
+    "loadingState": "Loading your onboarding data...",
+    "errorTitle": "We couldn't load onboarding",
+    "errorSubtitle": "Please retry to continue your setup.",
+    "retry": "Retry",
+    "emptyTitle": "No onboarding data found",
+    "emptySubtitle": "Your profile has no stored setup yet. Start onboarding to continue.",
+    "emptyAction": "Start onboarding",
+    "objectiveTitle": "Choose your objective",
+    "levelTitle": "Set your level",
+    "preferencesTitle": "Set your preferences",
+    "stepCounter": "Step {current} of {total}",
+    "saveError": "We could not save your onboarding yet. Please retry.",
+    "successTitle": "Onboarding completed",
+    "successSubtitle": "Your objective, level and preferences were saved successfully.",
+    "continue": "Continue"
   },
   "admin": {
     "unauthorized": "You don't have access to this section.",
