@@ -1865,7 +1865,18 @@
       "training": {
         "title": "Entreno",
         "subscriptionStatusPrefix": "Estado de suscripción:",
-        "subscriptionHint": "El detalle de entreno se limita al estado de cliente actualmente disponible."
+        "subscriptionHint": "El detalle de entreno se limita al estado de cliente actualmente disponible.",
+        "dualPlans": {
+          "title": "Planes Casa + Gimnasio",
+          "description": "Muestra planes asignados por contexto cuando existen en los datos del backend.",
+          "homeLabel": "Contexto casa",
+          "gymLabel": "Contexto gimnasio",
+          "unassigned": "Sin plan asignado",
+          "assignAction": "Asignar plan",
+          "assignConfirmation": "Solicitud de asignación de plan registrada.",
+          "assignUnavailable": "La asignación de dos planes requiere soporte de backend y no está disponible en este entorno.",
+          "emptyUnsupported": "Aún no hay datos de planes separados Casa/Gimnasio para este cliente."
+        }
       },
       "nutrition": {
         "title": "Nutrición"
