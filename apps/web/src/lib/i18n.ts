@@ -4,7 +4,7 @@ import en from "@/messages/en.json";
 export const messages = { es, en } as const;
 
 export type Locale = keyof typeof messages;
-export type MessageValues = Record<string, string | number>;
+export type MessageValues = Record<string, string | number | boolean | null | undefined>;
 
 export const DEFAULT_LOCALE: Locale = "es";
 
