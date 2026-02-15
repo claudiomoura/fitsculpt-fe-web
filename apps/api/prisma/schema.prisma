@@ -427,6 +427,8 @@ enum Role {
 
 enum SubscriptionPlan {
   FREE
+  STRENGTH_AI
+  NUTRI_AI
   PRO
 }
 

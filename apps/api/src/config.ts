@@ -28,6 +28,8 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PRO_PRICE_ID: z.string().optional(),
+  STRIPE_PRICE_STRENGTH_AI_MONTHLY: z.string().optional(),
+  STRIPE_PRICE_NUTRI_AI_MONTHLY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -60,5 +62,7 @@ export function getEnv(): Env {
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     STRIPE_PRO_PRICE_ID: process.env.STRIPE_PRO_PRICE_ID,
+    STRIPE_PRICE_STRENGTH_AI_MONTHLY: process.env.STRIPE_PRICE_STRENGTH_AI_MONTHLY,
+    STRIPE_PRICE_NUTRI_AI_MONTHLY: process.env.STRIPE_PRICE_NUTRI_AI_MONTHLY,
   });
 }

@@ -5,7 +5,7 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { PrismaClient, Prisma, type User } from "@prisma/client";
+import { PrismaClient, Prisma, type SubscriptionPlan, type User } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -164,11 +164,22 @@ function requireStripeSecret() {
   return env.STRIPE_SECRET_KEY;
 }
 
-function requireStripePriceId() {
-  if (!env.STRIPE_PRO_PRICE_ID) {
-    throw createHttpError(500, "STRIPE_PRICE_NOT_CONFIGURED");
+function getStripePricePlanMap(): Array<{ priceId: string; plan: SubscriptionPlan }> {
+  const prices = [
+    { priceId: env.STRIPE_PRO_PRICE_ID, plan: "PRO" as const },
+    { priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY, plan: "STRENGTH_AI" as const },
+    { priceId: env.STRIPE_PRICE_NUTRI_AI_MONTHLY, plan: "NUTRI_AI" as const },
+  ];
+  const missing = prices.filter((entry) => !entry.priceId).map((entry) => entry.plan);
+  if (missing.length > 0) {
+    throw createHttpError(500, "STRIPE_PRICE_NOT_CONFIGURED", { missingPlans: missing });
   }
-  return env.STRIPE_PRO_PRICE_ID;
+  return prices.map((entry) => ({ priceId: entry.priceId!, plan: entry.plan }));
+}
+
+function resolvePlanByPriceId(priceId: string): SubscriptionPlan | null {
+  const match = getStripePricePlanMap().find((entry) => entry.priceId === priceId);
+  return match?.plan ?? null;
 }
 
 function requireStripeWebhookSecret() {
@@ -283,7 +294,7 @@ function getUserTokenBalance(user: { aiTokenBalance?: number | null }) {
 async function applyBillingStateForCustomer(
   stripeCustomerId: string,
   data: {
-    plan: "FREE" | "PRO";
+    plan: SubscriptionPlan;
     aiTokenBalance: number;
     aiTokenResetAt: Date | null;
     aiTokenRenewalAt: Date | null;
@@ -312,7 +323,7 @@ async function applyBillingStateForCustomer(
 async function updateUserSubscriptionForCustomer(
   stripeCustomerId: string,
   data: {
-    plan: "FREE" | "PRO";
+    plan: SubscriptionPlan;
     subscriptionStatus?: string | null;
     stripeSubscriptionId?: string | null;
     currentPeriodEnd?: Date | null;
@@ -336,12 +347,19 @@ function isActiveSubscriptionStatus(status?: string | null) {
   return status === "active" || status === "trialing";
 }
 
-function subscriptionHasPrice(subscription: StripeSubscription, priceId: string) {
+function getPlanFromSubscription(subscription?: StripeSubscription | null): SubscriptionPlan | null {
+  if (!subscription) return null;
   const items = subscription.items?.data ?? [];
-  return items.some((item) => item.price?.id === priceId);
+  for (const item of items) {
+    const priceId = item.price?.id;
+    if (!priceId) continue;
+    const plan = resolvePlanByPriceId(priceId);
+    if (plan) return plan;
+  }
+  return null;
 }
 
-async function getLatestActiveSubscription(customerId: string, priceId?: string) {
+async function getLatestActiveSubscription(customerId: string) {
   const subscriptions = await stripeRequest<StripeSubscriptionList>(
     "subscriptions",
     { customer: customerId, status: "all", limit: 100, "expand[0]": "data.items.data.price" },
@@ -349,8 +367,7 @@ async function getLatestActiveSubscription(customerId: string, priceId?: string)
   );
   const activeSubscriptions = subscriptions.data.filter((subscription) => {
     if (!isActiveSubscriptionStatus(subscription.status)) return false;
-    if (!priceId) return true;
-    return subscriptionHasPrice(subscription, priceId);
+    return getPlanFromSubscription(subscription) !== null;
   });
   if (activeSubscriptions.length === 0) {
     return null;
@@ -363,9 +380,16 @@ function getSubscriptionPeriodEnd(subscription?: StripeSubscription | null) {
   return new Date(subscription.current_period_end * 1000);
 }
 
-function invoiceHasPrice(invoice: StripeInvoice, priceId: string) {
+function getPlanFromInvoice(invoice?: StripeInvoice | null): SubscriptionPlan | null {
+  if (!invoice) return null;
   const lines = invoice.lines?.data ?? [];
-  return lines.some((line) => line.price?.id === priceId);
+  for (const line of lines) {
+    const priceId = line.price?.id;
+    if (!priceId) continue;
+    const plan = resolvePlanByPriceId(priceId);
+    if (plan) return plan;
+  }
+  return null;
 }
 
 async function findLatestCustomerByEmail(email: string) {
@@ -383,7 +407,6 @@ async function findLatestCustomerByEmail(email: string) {
 }
 
 async function syncUserBillingFromStripe(user: User) {
-  const priceId = requireStripePriceId();
   let stripeCustomerId = user.stripeCustomerId ?? null;
   if (!stripeCustomerId && user.email) {
     const latestCustomer = await findLatestCustomerByEmail(user.email);
@@ -412,7 +435,7 @@ async function syncUserBillingFromStripe(user: User) {
     return;
   }
 
-  const activeSubscription = await getLatestActiveSubscription(stripeCustomerId, priceId);
+  const activeSubscription = await getLatestActiveSubscription(stripeCustomerId);
   if (!activeSubscription) {
     await prisma.user.update({
       where: { id: user.id },
@@ -441,7 +464,7 @@ async function syncUserBillingFromStripe(user: User) {
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      plan: "PRO",
+      plan: getPlanFromSubscription(activeSubscription) ?? "FREE",
       subscriptionStatus: activeSubscription.status,
       stripeSubscriptionId: activeSubscription.id,
       currentPeriodEnd: currentPeriodEnd ?? null,
@@ -1207,7 +1230,7 @@ function applyPersonalization<T>(payload: T, vars: Record<string, string | undef
 
 async function enforceAiQuota(user: { id: string; plan: string }) {
   const dateKey = toDateKey();
-  const limit = user.plan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+  const limit = user.plan !== "FREE" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
   const usage = await prisma.aiUsage.findUnique({
     where: { userId_date: { userId: user.id, date: dateKey } },
   });
@@ -3564,7 +3587,11 @@ app.get("/auth/verify-email", async (request, reply) => {
 app.post("/billing/checkout", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const priceId = requireStripePriceId();
+    const checkoutSchema = z.object({ priceId: z.string().min(1) });
+    const { priceId } = checkoutSchema.parse(request.body);
+    if (!resolvePlanByPriceId(priceId)) {
+      return reply.status(400).send({ error: "INVALID_PRICE_ID" });
+    }
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
     let customerId = user.stripeCustomerId ?? null;
     if (!customerId && user.email) {
@@ -3589,7 +3616,7 @@ app.post("/billing/checkout", async (request, reply) => {
     }
 
     if (customerId) {
-      const activeSubscription = await getLatestActiveSubscription(customerId, priceId);
+      const activeSubscription = await getLatestActiveSubscription(customerId);
       if (activeSubscription && isActiveSubscriptionStatus(activeSubscription.status)) {
         let portalUrl: string | null = null;
         try {
@@ -3739,13 +3766,13 @@ app.post(
         const subscription = payload as StripeSubscription;
         const customerId = subscription?.customer ?? null;
         if (customerId) {
-          const priceId = requireStripePriceId();
-          const activeSubscription = await getLatestActiveSubscription(customerId, priceId);
+          const activeSubscription = await getLatestActiveSubscription(customerId);
           const cancellationStatuses = new Set(["canceled", "unpaid", "incomplete_expired"]);
           if (activeSubscription) {
+            const activePlan = getPlanFromSubscription(activeSubscription) ?? "FREE";
             const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
             await updateUserSubscriptionForCustomer(customerId, {
-              plan: "PRO",
+              plan: activePlan,
               subscriptionStatus: activeSubscription.status,
               stripeSubscriptionId: activeSubscription.id,
               currentPeriodEnd,
@@ -3753,7 +3780,7 @@ app.post(
             app.log.info(
               {
                 stripeCustomerId: customerId,
-                plan: "PRO",
+                plan: activePlan,
                 subscriptionStatus: activeSubscription.status,
                 currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
               },
@@ -3785,7 +3812,6 @@ app.post(
 
       if (eventType === "invoice.paid") {
         const invoice = payload as StripeInvoice;
-        const priceId = requireStripePriceId();
         let fullInvoice = invoice;
         if (!invoice?.lines?.data?.length) {
           fullInvoice = await stripeRequest<StripeInvoice>(
@@ -3797,7 +3823,8 @@ app.post(
             { method: "GET" }
           );
         }
-        if (invoiceHasPrice(fullInvoice, priceId)) {
+        const invoicePlan = getPlanFromInvoice(fullInvoice);
+        if (invoicePlan) {
           const customerId = fullInvoice.customer ?? null;
           const subscriptionId = fullInvoice.subscription ?? null;
           let subscription: StripeSubscription | null = null;
@@ -3808,7 +3835,7 @@ app.post(
           const nextRenewalAt = nextResetAt;
           if (customerId) {
             await applyBillingStateForCustomer(customerId, {
-              plan: "PRO",
+              plan: invoicePlan,
               aiTokenBalance: 5000,
               aiTokenResetAt: nextResetAt,
               aiTokenRenewalAt: nextRenewalAt,
@@ -3819,7 +3846,7 @@ app.post(
             app.log.info(
               {
                 stripeCustomerId: customerId,
-                plan: "PRO",
+                plan: invoicePlan,
                 aiTokenBalance: 5000,
                 aiTokenResetAt: nextResetAt?.toISOString() ?? null,
               },
@@ -3831,7 +3858,6 @@ app.post(
 
       if (eventType === "invoice.payment_failed") {
         const invoice = payload as StripeInvoice;
-        const priceId = requireStripePriceId();
         let fullInvoice = invoice;
         if (!invoice?.lines?.data?.length) {
           fullInvoice = await stripeRequest<StripeInvoice>(
@@ -3843,10 +3869,11 @@ app.post(
             { method: "GET" }
           );
         }
-        if (invoiceHasPrice(fullInvoice, priceId)) {
+        const invoicePlan = getPlanFromInvoice(fullInvoice);
+        if (invoicePlan) {
           const customerId = fullInvoice.customer ?? null;
           if (customerId) {
-            const activeSubscription = await getLatestActiveSubscription(customerId, priceId);
+            const activeSubscription = await getLatestActiveSubscription(customerId);
             if (!activeSubscription) {
               await applyBillingStateForCustomer(customerId, {
                 plan: "FREE",
@@ -4219,10 +4246,12 @@ app.get("/billing/status", async (request, reply) => {
     const tokenExpiryAt = getUserTokenExpiryAt(refreshedUser);
     const tokensExpired = tokenExpiryAt ? tokenExpiryAt.getTime() < Date.now() : false;
     const tokens = tokensExpired ? 0 : getEffectiveTokenBalance(refreshedUser);
-    const plan = syncError ? "FREE" : rawPlan === "PRO" && isActive ? "PRO" : "FREE";
+    const plan: SubscriptionPlan = syncError || !isActive ? "FREE" : rawPlan;
+    const isPaid = plan !== "FREE";
     const response = {
       plan,
-      isPro: plan === "PRO",
+      isPaid,
+      isPro: isPaid,
       tokens,
       tokensExpiresAt: tokenExpiryAt ? tokenExpiryAt.toISOString() : null,
       subscriptionStatus,
@@ -4360,7 +4389,7 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     const user = (request as AuthenticatedRequest).currentUser ?? (await requireUser(request));
     const dateKey = toDateKey();
-    const limit = user.plan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+    const limit = user.plan !== "FREE" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
     const usage = await prisma.aiUsage.findUnique({
       where: { userId_date: { userId: user.id, date: dateKey } },
     });
@@ -4373,8 +4402,8 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
       usedToday,
       remainingToday,
       retryAfterSec: getSecondsUntilNextUtcDay(),
-      aiTokenBalance: user.plan === "PRO" ? getEffectiveTokenBalance(user) : null,
-      aiTokenRenewalAt: user.plan === "PRO" ? getUserTokenExpiryAt(user) : null,
+      aiTokenBalance: user.plan !== "FREE" ? getEffectiveTokenBalance(user) : null,
+      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
     });
   } catch (error) {
     return handleRequestError(reply, error);
@@ -4395,7 +4424,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const template = buildTrainingTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.plan === "PRO"
+      user.plan !== "FREE"
         ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
@@ -4448,7 +4477,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
 
     const fetchTrainingPayload = async (attempt: number) => {
       const prompt = buildTrainingPrompt(data, attempt > 0);
-      if (user.plan === "PRO") {
+      if (user.plan !== "FREE") {
         const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
 
           responseFormat: {
@@ -4510,7 +4539,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
     await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
     await storeAiContent(user.id, "training", "ai", personalized);
-    if (user.plan === "PRO" && aiResult) {
+    if (user.plan !== "FREE" && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
         prisma,
@@ -4550,7 +4579,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         },
         "ai charge complete"
       );
-    } else if (user.plan === "PRO") {
+    } else if (user.plan !== "FREE") {
       app.log.info(
         { userId: user.id, feature: "training", charged: false, failureReason: "missing_ai_result" },
         "ai charge skipped"
@@ -4558,9 +4587,9 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     }
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan === "PRO" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
+      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -4594,7 +4623,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const template = buildNutritionTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.plan === "PRO"
+      user.plan !== "FREE"
         ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
@@ -4698,7 +4727,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         })),
         attempt > 0
       );
-      if (user.plan === "PRO") {
+      if (user.plan !== "FREE") {
         const result = await callOpenAi(promptAttempt, attempt, extractTopLevelJson, {
        
           responseFormat: {
@@ -4779,7 +4808,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     await saveCachedAiPayload(cacheKey, "nutrition", normalizedMeals);
     const personalized = applyPersonalization(normalizedMeals, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
-    if (user.plan === "PRO" && aiResult) {
+    if (user.plan !== "FREE" && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
         prisma,
@@ -4819,7 +4848,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         },
         "ai charge complete"
       );
-    } else if (user.plan === "PRO") {
+    } else if (user.plan !== "FREE") {
       app.log.info(
         { userId: user.id, feature: "nutrition", charged: false, failureReason: "missing_ai_result" },
         "ai charge skipped"
@@ -4827,9 +4856,9 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     }
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan === "PRO" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
+      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -4847,7 +4876,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     const template = buildTipTemplate();
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.plan === "PRO"
+      user.plan !== "FREE"
         ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
@@ -4884,7 +4913,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.plan === "PRO") {
+    if (user.plan !== "FREE") {
       const balanceBefore = effectiveTokens;
       app.log.info(
         { userId: user.id, feature: "tip", plan: user.plan, balanceBefore },
@@ -4948,9 +4977,9 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
     return reply.status(200).send({
       tip: personalized,
-      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan === "PRO" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
+      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -5726,7 +5755,7 @@ const adminCreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(["USER", "ADMIN"]).optional(),
-  subscriptionPlan: z.enum(["FREE", "PRO"]).optional(),
+  subscriptionPlan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]).optional(),
   aiTokenBalance: z.number().int().min(0).optional(),
   aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
 });
@@ -6297,9 +6326,9 @@ app.post("/admin/users", async (request, reply) => {
         plan: data.subscriptionPlan ?? "FREE",
         aiTokenBalance: data.aiTokenBalance ?? 0,
         aiTokenResetAt:
-          data.subscriptionPlan === "PRO" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
+          data.subscriptionPlan !== "FREE" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
         aiTokenRenewalAt:
-          data.subscriptionPlan === "PRO" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
+          data.subscriptionPlan !== "FREE" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
         aiTokenMonthlyAllowance: data.aiTokenMonthlyAllowance ?? 0,
         provider: "email",
       },
