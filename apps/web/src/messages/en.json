@@ -2155,7 +2155,9 @@
       "codeButton": "Join with code",
       "invalidCode": "The code is invalid. Check it and try again.",
       "empty": "No gyms are available right now.",
-      "loadError": "We could not load the gym list."
+      "loadError": "We could not load the gym list.",
+      "requestSuccess": "Your request was sent. You can check the status below.",
+      "codeSuccess": "Code accepted. Your membership has been updated."
     },
     "loadErrorTitle": "We could not load your gym status",
     "loadError": {
@@ -2169,7 +2171,8 @@
     "sessionExpired": {
       "title": "Your session expired",
       "subtitle": "Log in again to check your gym status."
-    }
+    },
+    "actionSuccessTitle": "Request sent"
   },
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",

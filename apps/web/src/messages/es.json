@@ -2158,7 +2158,9 @@
       "codeButton": "Unirme con código",
       "invalidCode": "El código es inválido. Revísalo e inténtalo nuevamente.",
       "empty": "No hay gimnasios disponibles en este momento.",
-      "loadError": "No pudimos cargar la lista de gimnasios."
+      "loadError": "No pudimos cargar la lista de gimnasios.",
+      "requestSuccess": "Tu solicitud fue enviada. Puedes revisar el estado abajo.",
+      "codeSuccess": "Código aceptado. Tu membresía fue actualizada."
     },
     "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
     "loadError": {
@@ -2172,7 +2174,8 @@
     "sessionExpired": {
       "title": "Tu sesión expiró",
       "subtitle": "Inicia sesión nuevamente para consultar tu estado de gimnasio."
-    }
+    },
+    "actionSuccessTitle": "Solicitud enviada"
   },
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",
