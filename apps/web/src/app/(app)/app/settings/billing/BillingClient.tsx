@@ -10,7 +10,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 
-type BillingPlan = "FREE" | "PRO" | "STRENGTHAI" | "NUTRIAI" | "ULTRA" | (string & {});
+type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | "ULTRA" | (string & {});
 
 type BillingProfile = {
   plan?: BillingPlan;
@@ -22,7 +22,7 @@ type BillingProfile = {
 
 type BillingAction = "checkout" | "portal" | null;
 
-type PlanKey = "strengthai" | "nutriai" | "pro";
+type PlanKey = "strengthAi" | "nutriAi" | "pro";
 
 type PlanCard = {
   key: PlanKey;
@@ -31,9 +31,9 @@ type PlanCard = {
 };
 
 const PLAN_CARDS: PlanCard[] = [
-  { key: "strengthai", planValues: ["STRENGTHAI"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_STRENGTHAI ?? "" },
-  { key: "nutriai", planValues: ["NUTRIAI"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_NUTRIAI ?? "" },
-  { key: "pro", planValues: ["ULTRA", "PRO"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ULTRA ?? "" },
+  { key: "strengthAi", planValues: ["STRENGTH_AI"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_STRENGTH_AI ?? "" },
+  { key: "nutriAi", planValues: ["NUTRI_AI"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_NUTRI_AI ?? "" },
+  { key: "pro", planValues: ["PRO"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_ULTRA ?? "" },
 ];
 
 function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (key: string) => string) {
@@ -231,13 +231,14 @@ export default function BillingClient() {
                       </div>
                       <p className="muted m-0">{t(`billing.plans.${plan.key}.description`)}</p>
                     </div>
+                    <p className="muted m-0">{t(`billing.plans.${plan.key}.price`)}</p>
                     <Button
                       variant={isCurrent ? "secondary" : "primary"}
                       loading={action === "checkout"}
                       disabled={checkoutDisabled}
                       onClick={() => void handleCheckout(plan.priceId)}
                     >
-                      {t("billing.choosePlan")}
+                      {t("billing.subscribe")}
                     </Button>
                   </div>
                 );
