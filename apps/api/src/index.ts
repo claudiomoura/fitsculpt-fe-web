@@ -677,16 +677,16 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
   return managerMembership;
 }
 
-function buildJoinCode(name: string, userId: string, attempt: number) {
+function buildActivationCode(name: string, userId: string, attempt: number) {
   const seed = `${name}:${userId}:${Date.now().toString(36)}:${attempt}`;
   const hash = crypto.createHash("sha256").update(seed).digest("hex").toUpperCase();
   return hash.slice(0, 8);
 }
 
-async function generateUniqueGymJoinCode(name: string, userId: string) {
+async function generateUniqueGymActivationCode(name: string, userId: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = buildJoinCode(name, userId, attempt);
-    const existing = await prisma.gym.findUnique({ where: { code } });
+    const code = buildActivationCode(name, userId, attempt);
+    const existing = await prisma.gym.findUnique({ where: { activationCode: code } });
     if (!existing) {
       return code;
     }
@@ -5727,7 +5727,7 @@ app.get("/gyms", async (request, reply) => {
       },
       orderBy: { name: "asc" },
     });
-    return gyms;
+    return { gyms };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5941,11 +5941,12 @@ app.post("/admin/gyms", async (request, reply) => {
     const user = await requireAdmin(request);
     const { name } = adminCreateGymSchema.parse(request.body);
     const created = await prisma.$transaction(async (tx) => {
-      const code = await generateUniqueGymJoinCode(name, user.id);
+      const activationCode = await generateUniqueGymActivationCode(name, user.id);
       const gym = await tx.gym.create({
         data: {
           name,
-          code,
+          code: activationCode,
+          activationCode,
         },
       });
       await tx.gymMembership.create({
@@ -5962,6 +5963,7 @@ app.post("/admin/gyms", async (request, reply) => {
       id: created.id,
       name: created.name,
       code: created.code,
+      activationCode: created.activationCode,
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -5980,6 +5982,7 @@ app.get("/admin/gyms", async (request, reply) => {
         id: true,
         name: true,
         code: true,
+        activationCode: true,
         _count: {
           select: {
             memberships: true,
@@ -5993,6 +5996,7 @@ app.get("/admin/gyms", async (request, reply) => {
       id: gym.id,
       name: gym.name,
       code: gym.code,
+      activationCode: gym.activationCode,
       membersCount: gym._count.memberships,
     }));
   } catch (error) {

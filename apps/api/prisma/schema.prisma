@@ -392,6 +392,7 @@ model Gym {
   id          String          @id @default(cuid())
   name        String
   code        String          @unique
+  activationCode String       @unique
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   memberships GymMembership[]
