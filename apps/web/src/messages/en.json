@@ -2085,6 +2085,7 @@
       "codeLabel": "Gym code",
       "codeHelp": "If the gym gave you a code, use it to join automatically.",
       "codeButton": "Join with code",
+      "invalidCode": "The code is invalid. Check it and try again.",
       "empty": "No gyms are available right now.",
       "loadError": "We could not load the gym list."
     },

@@ -2088,6 +2088,7 @@
       "codeLabel": "Código del gimnasio",
       "codeHelp": "Si el gimnasio te dio un código, úsalo para unirte automáticamente.",
       "codeButton": "Unirme con código",
+      "invalidCode": "El código es inválido. Revísalo e inténtalo nuevamente.",
       "empty": "No hay gimnasios disponibles en este momento.",
       "loadError": "No pudimos cargar la lista de gimnasios."
     },

@@ -234,7 +234,14 @@ export default function GymPageClient() {
         return;
       }
 
-      if (!response.ok) throw new Error("join-by-code");
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (payload?.error === "INVALID_GYM_CODE") {
+          setActionError(t("gym.join.invalidCode"));
+          return;
+        }
+        throw new Error("join-by-code");
+      }
       setCode("");
       await loadData();
     } catch {
