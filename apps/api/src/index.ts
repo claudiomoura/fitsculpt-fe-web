@@ -164,7 +164,7 @@ function requireStripeSecret() {
   return env.STRIPE_SECRET_KEY;
 }
 
-function getStripePricePlanMap(): Array<{ priceId: string; plan: SubscriptionPlan }> {
+function getStripePricePlanMap(): Map<string, SubscriptionPlan> {
   const prices = [
     { priceId: env.STRIPE_PRO_PRICE_ID, plan: "PRO" as const },
     { priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY, plan: "STRENGTH_AI" as const },
@@ -174,12 +174,11 @@ function getStripePricePlanMap(): Array<{ priceId: string; plan: SubscriptionPla
   if (missing.length > 0) {
     throw createHttpError(500, "STRIPE_PRICE_NOT_CONFIGURED", { missingPlans: missing });
   }
-  return prices.map((entry) => ({ priceId: entry.priceId!, plan: entry.plan }));
+  return new Map(prices.map((entry) => [entry.priceId!, entry.plan]));
 }
 
 function resolvePlanByPriceId(priceId: string): SubscriptionPlan | null {
-  const match = getStripePricePlanMap().find((entry) => entry.priceId === priceId);
-  return match?.plan ?? null;
+  return getStripePricePlanMap().get(priceId) ?? null;
 }
 
 function requireStripeWebhookSecret() {
@@ -3669,8 +3668,7 @@ app.post("/billing/checkout", async (request, reply) => {
       },
       "billing checkout failed"
     );
-
-    return reply.code(502).send({ error: "checkout_failed" });
+    return handleRequestError(reply, err);
   }
 });
 
@@ -3873,24 +3871,21 @@ app.post(
         if (invoicePlan) {
           const customerId = fullInvoice.customer ?? null;
           if (customerId) {
-            const activeSubscription = await getLatestActiveSubscription(customerId);
-            if (!activeSubscription) {
-              await applyBillingStateForCustomer(customerId, {
+            await applyBillingStateForCustomer(customerId, {
+              plan: "FREE",
+              aiTokenBalance: 0,
+              aiTokenResetAt: null,
+              aiTokenRenewalAt: null,
+            });
+            app.log.info(
+              {
+                stripeCustomerId: customerId,
                 plan: "FREE",
                 aiTokenBalance: 0,
                 aiTokenResetAt: null,
-                aiTokenRenewalAt: null,
-              });
-              app.log.info(
-                {
-                  stripeCustomerId: customerId,
-                  plan: "FREE",
-                  aiTokenBalance: 0,
-                  aiTokenResetAt: null,
-                },
-                "invoice payment failed"
-              );
-            }
+              },
+              "invoice payment failed"
+            );
           }
         }
       }
@@ -4248,10 +4243,11 @@ app.get("/billing/status", async (request, reply) => {
     const tokens = tokensExpired ? 0 : getEffectiveTokenBalance(refreshedUser);
     const plan: SubscriptionPlan = syncError || !isActive ? "FREE" : rawPlan;
     const isPaid = plan !== "FREE";
+    const isPro = plan === "PRO";
     const response = {
       plan,
       isPaid,
-      isPro: isPaid,
+      isPro,
       tokens,
       tokensExpiresAt: tokenExpiryAt ? tokenExpiryAt.toISOString() : null,
       subscriptionStatus,
