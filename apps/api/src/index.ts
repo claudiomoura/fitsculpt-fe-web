@@ -6018,10 +6018,15 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
 
 app.get("/admin/gyms/:gymId/members", async (request, reply) => {
   try {
-    const user = await requireAdmin(request);
+    const user = await requireUser(request);
     const { gymId } = gymMembersParamsSchema.parse(request.params);
+    await requireGymManagerForGym(user.id, gymId);
+
     const members = await prisma.gymMembership.findMany({
-      where: { gymId },
+      where: {
+        gymId,
+        status: "ACTIVE",
+      },
       include: {
         user: {
           select: {
@@ -6034,10 +6039,67 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
       orderBy: { createdAt: "asc" },
     });
     return members.map((member) => ({
+      id: member.user.id,
+      name: member.user.name,
+      email: member.user.email,
       user: member.user,
       status: member.status,
       role: member.role,
     }));
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/clients", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+
+    const managerMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        role: { in: ["ADMIN", "TRAINER"] },
+      },
+      select: { gymId: true },
+    });
+
+    if (!managerMembership) {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const clients = await prisma.gymMembership.findMany({
+      where: {
+        gymId: managerMembership.gymId,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            isBlocked: true,
+            subscriptionStatus: true,
+            lastLoginAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return {
+      clients: clients.map((membership) => ({
+        id: membership.user.id,
+        name: membership.user.name,
+        email: membership.user.email,
+        role: membership.role,
+        isBlocked: membership.user.isBlocked,
+        subscriptionStatus: membership.user.subscriptionStatus,
+        lastLoginAt: membership.user.lastLoginAt,
+      })),
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }
