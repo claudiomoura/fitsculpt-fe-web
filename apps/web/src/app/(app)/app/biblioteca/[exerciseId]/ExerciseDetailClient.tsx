@@ -221,8 +221,8 @@ export default function ExerciseDetailClient({
         <div className="exercise-detail-overview">
           <h2 className="section-title">{t("exerciseDetail.summaryTitle")}</h2>
           <div className="info-grid mt-16">
-            {overviewItems.map((item) => (
-              <div key={item.label} className="info-item">
+            {overviewItems.map((item, index) => (
+              <div key={`${item.label}-${index}`} className="info-item">
                 <p className="info-label">{item.label}</p>
                 <p className="info-value">{item.value}</p>
               </div>

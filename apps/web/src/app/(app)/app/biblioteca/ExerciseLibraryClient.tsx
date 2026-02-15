@@ -147,7 +147,7 @@ export default function ExerciseLibraryClient() {
     [exercises, favorites]
   );
 
-  const renderExerciseCard = (exercise: Exercise | ExerciseRecent) => {
+  const renderExerciseCard = (exercise: Exercise | ExerciseRecent, fallbackKey: string) => {
     const muscles = getExerciseMuscles(exercise);
     const exerciseId = exercise.id;
     const coverUrl = getExerciseCoverUrl(exercise) || "/placeholders/exercise-cover.svg";
@@ -183,7 +183,7 @@ export default function ExerciseLibraryClient() {
 
     if (!exerciseId) {
       return (
-        <div key={exercise.name} className="feature-card">
+        <div key={fallbackKey} className="feature-card">
           {content}
         </div>
       );
@@ -296,7 +296,7 @@ export default function ExerciseLibraryClient() {
             </div>
           ) : (
             <div className="list-grid mt-12">
-              {favoriteExercises.map((exercise) => renderExerciseCard(exercise))}
+              {favoriteExercises.map((exercise, index) => renderExerciseCard(exercise, `favorite:${exercise.id ?? exercise.name}:${index}`))}
             </div>
           )}
         </div>
@@ -350,7 +350,7 @@ export default function ExerciseLibraryClient() {
             </div>
           ) : (
             <div className="list-grid mt-12">
-              {recents.map((exercise) => renderExerciseCard(exercise))}
+              {recents.map((exercise, index) => renderExerciseCard(exercise, `recent:${exercise.id ?? exercise.name}:${index}`))}
             </div>
           )}
         </div>
@@ -391,7 +391,7 @@ export default function ExerciseLibraryClient() {
         />
       ) : (
         <div className="list-grid mt-16">
-          {exercises.map((exercise) => renderExerciseCard(exercise))}
+          {exercises.map((exercise, index) => renderExerciseCard(exercise, `exercise:${exercise.id ?? exercise.name}:${index}`))}
         </div>
       )}
     </section>

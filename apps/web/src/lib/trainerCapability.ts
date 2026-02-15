@@ -1,6 +1,6 @@
 import { extractTrainerClients, type TrainerClient } from "@/lib/trainerClients";
 
-export const TRAINER_CLIENT_ENDPOINT_CANDIDATES = ["/api/trainer/clients", "/api/coach/clients"] as const;
+export const TRAINER_CLIENT_ENDPOINT_CANDIDATES = ["/api/trainer/clients"] as const;
 
 export type TrainerClientsCapability =
   | { status: "supported"; endpoint: string; clients: TrainerClient[] }
@@ -12,7 +12,7 @@ export async function probeTrainerClientsCapability(): Promise<TrainerClientsCap
     try {
       const response = await fetch(endpoint, { cache: "no-store" });
 
-      if (response.status === 404) {
+      if (response.status === 404 || response.status === 405) {
         continue;
       }
 
