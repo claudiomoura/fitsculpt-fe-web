@@ -45,7 +45,7 @@ type ActiveTrainingPlanPayload = {
 };
 
 type NutritionPlansPayload = {
-  items?: NutritionPlanListItem[];
+  items?: Array<Pick<NutritionPlanListItem, "id">>;
 };
 
 type SectionStatus = "loading" | "error" | "empty" | "ready";
