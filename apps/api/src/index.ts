@@ -3909,6 +3909,7 @@ app.get("/auth/me", async (request, reply) => {
       currentPeriodEnd: user.currentPeriodEnd,
       aiTokenBalance: getEffectiveTokenBalance(user),
       aiTokenRenewalAt: getUserTokenExpiryAt(user),
+      gymMembershipState: activeMembership ? "active" : "none",
       gymId: activeMembership?.gym.id,
       gymName: activeMembership?.gym.name,
       isTrainer:
@@ -5779,7 +5780,7 @@ app.post("/gyms/join-by-code", async (request, reply) => {
     const { code } = joinGymByCodeSchema.parse(request.body);
     const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
     if (!gym) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(400).send({ error: "INVALID_GYM_CODE" });
     }
     const membership = await prisma.gymMembership.upsert({
       where: { gymId_userId: { gymId: gym.id, userId: user.id } },
@@ -5827,6 +5828,112 @@ app.get("/gyms/membership", async (request, reply) => {
       gym: membership.gym,
       role: membership.role,
     };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/gym/me", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const membership = await prisma.gymMembership.findFirst({
+      where: { userId: user.id },
+      include: {
+        gym: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!membership) {
+      return reply.status(200).send({ state: "none" });
+    }
+
+    return reply.status(200).send({
+      state: membership.status.toLowerCase(),
+      gym: membership.gym,
+      role: membership.role,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/gym/join-request", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { gymId } = joinGymSchema.parse(request.body);
+    const gym = await prisma.gym.findUnique({ where: { id: gymId }, select: { id: true } });
+
+    if (!gym) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    const existing = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId, userId: user.id } },
+    });
+
+    const membership = existing
+      ? await prisma.gymMembership.update({
+          where: { id: existing.id },
+          data: {
+            status: existing.status === "REJECTED" ? "PENDING" : existing.status,
+          },
+          include: { gym: { select: { id: true, name: true } } },
+        })
+      : await prisma.gymMembership.create({
+          data: {
+            gymId,
+            userId: user.id,
+            status: "PENDING",
+            role: "MEMBER",
+          },
+          include: { gym: { select: { id: true, name: true } } },
+        });
+
+    return reply.status(200).send({
+      state: membership.status.toLowerCase(),
+      gym: membership.gym,
+      role: membership.role,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/gym/join-code", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { code } = joinGymByCodeSchema.parse(request.body);
+    const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
+
+    if (!gym) {
+      return reply.status(400).send({ error: "INVALID_GYM_CODE" });
+    }
+
+    const membership = await prisma.gymMembership.upsert({
+      where: { gymId_userId: { gymId: gym.id, userId: user.id } },
+      create: {
+        gymId: gym.id,
+        userId: user.id,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      update: {
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+    });
+
+    return reply.status(200).send({
+      state: membership.status.toLowerCase(),
+      gym: { id: gym.id, name: gym.name },
+      role: membership.role,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
