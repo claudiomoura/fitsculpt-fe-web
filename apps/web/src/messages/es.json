@@ -1840,6 +1840,9 @@
         "statusLabel": "El estado del plan se muestra en Facturación cuando hay datos reales.",
         "gymStatusYes": "Estado de gimnasio: sí",
         "gymStatusNo": "Estado de gimnasio: no",
+        "gymStatusPending": "Solicitud de gimnasio pendiente para {gymName}.",
+        "gymStatusActive": "Membresía de gimnasio activa en {gymName}.",
+        "gymStatusRejected": "Tu última solicitud de gimnasio fue rechazada.",
         "gymStatusUnknown": "Estado de gimnasio: información no disponible"
       },
       "notifications": {

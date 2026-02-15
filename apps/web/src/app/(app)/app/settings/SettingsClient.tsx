@@ -5,12 +5,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
-import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { extractGymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 
 type SettingsSection = "account" | "profile" | "billing" | "notifications" | "support";
+type MembershipState = "none" | "pending" | "active" | "rejected" | "unknown";
 
 const sectionOrder: SettingsSection[] = ["account", "profile", "billing", "notifications", "support"];
 
@@ -20,7 +20,8 @@ export default function SettingsClient() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const { entitlements } = useAuthEntitlements();
+  const [membershipState, setMembershipState] = useState<MembershipState>("unknown");
+  const [membershipGymName, setMembershipGymName] = useState<string | null>(null);
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
   const hasGymSelectionEndpoint = false;
@@ -32,13 +33,35 @@ export default function SettingsClient() {
     const loadProfile = async () => {
       try {
         setHasError(false);
-        const response = await fetch("/api/profile", { cache: "no-store" });
+        const [response, membershipResponse] = await Promise.all([
+          fetch("/api/profile", { cache: "no-store" }),
+          fetch("/api/gym/me", { cache: "no-store", credentials: "include" }),
+        ]);
         if (!response.ok) {
           throw new Error("profile-load-failed");
         }
         const data = (await response.json()) as Partial<ProfileData> | null;
+        let membershipPayload: Record<string, unknown> | null = null;
+
+        if (membershipResponse.ok) {
+          membershipPayload = (await membershipResponse.json()) as Record<string, unknown>;
+        } else if (membershipResponse.status === 404 || membershipResponse.status === 405) {
+          const legacyMembershipResponse = await fetch("/api/gyms/membership", { cache: "no-store", credentials: "include" });
+          if (legacyMembershipResponse.ok) {
+            membershipPayload = (await legacyMembershipResponse.json()) as Record<string, unknown>;
+          }
+        }
+
+        const rawState = String(membershipPayload?.state ?? "").trim().toLowerCase();
+        const nextState: MembershipState =
+          rawState === "none" || rawState === "pending" || rawState === "active" || rawState === "rejected" ? rawState : "unknown";
+        const gym = membershipPayload?.gym;
+        const gymName = typeof gym === "object" && gym !== null ? String((gym as { name?: unknown }).name ?? "").trim() || null : null;
+
         if (!mounted) return;
         setProfile({ ...defaultProfile, ...data });
+        setMembershipState(nextState);
+        setMembershipGymName(gymName);
       } catch {
         if (!mounted) return;
         setHasError(true);
@@ -76,11 +99,19 @@ export default function SettingsClient() {
         ctaLabel: t("settings.sections.billing.action"),
         href: "/app/settings/billing",
         statusLabel:
-          gymMembership.state === "in_gym"
-            ? t("settings.sections.billing.gymStatusYes")
-            : gymMembership.state === "not_in_gym"
-              ? t("settings.sections.billing.gymStatusNo")
-              : t("settings.sections.billing.gymStatusUnknown"),
+          membershipState === "pending"
+            ? t("settings.sections.billing.gymStatusPending", { gymName: membershipGymName ?? "-" })
+            : membershipState === "active"
+              ? t("settings.sections.billing.gymStatusActive", { gymName: membershipGymName ?? "-" })
+              : membershipState === "rejected"
+                ? t("settings.sections.billing.gymStatusRejected")
+                : membershipState === "none"
+                  ? t("settings.sections.billing.gymStatusNo")
+                  : gymMembership.state === "in_gym"
+                    ? t("settings.sections.billing.gymStatusYes")
+                    : gymMembership.state === "not_in_gym"
+                      ? t("settings.sections.billing.gymStatusNo")
+                      : t("settings.sections.billing.gymStatusUnknown"),
       },
       notifications: {
         title: t("settings.sections.notifications.title"),
@@ -94,7 +125,7 @@ export default function SettingsClient() {
         action: t("settings.sections.support.action"),
       },
     }),
-    [gymMembership.state, profileName, t]
+    [gymMembership.state, membershipGymName, membershipState, profileName, t]
   );
 
   if (isLoading) {
