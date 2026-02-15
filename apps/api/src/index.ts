@@ -5790,37 +5790,12 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
 };
 
 app.get("/gyms/membership", getGymMembership);
-app.get("/gym/me", getGymMembership);
 
-app.get("/gym/me", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const membership = await prisma.gymMembership.findFirst({
-      where: { userId: user.id },
-      include: {
-        gym: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    if (!membership) {
-      return reply.status(200).send({ state: "none" });
-    }
-
-    return reply.status(200).send({
-      state: membership.status.toLowerCase(),
-      gym: membership.gym,
-      role: membership.role,
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
+if (!app.hasRoute({ method: "GET", url: "/gym/me" })) {
+  app.get("/gym/me", getGymMembership);
+} else {
+  app.log.warn("Skipping duplicate GET /gym/me registration");
+}
 
 app.post("/gym/join-request", async (request, reply) => {
   try {
