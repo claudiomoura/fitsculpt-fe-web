@@ -42,6 +42,16 @@ describe("navigation section gating", () => {
     expect(allItemIds).toContain("admin-labs");
   });
 
+  it("marks admin gym requests as unavailable to avoid broken flows", () => {
+    const sections = buildNavigationSections({ role: "admin" });
+    const adminSection = sections.find((section) => section.id === "admin");
+
+    expect(adminSection).toBeDefined();
+    const gymRequestsItem = adminSection?.items.find((item) => item.id === "admin-gym-requests");
+    expect(gymRequestsItem?.disabled).toBe(true);
+    expect(gymRequestsItem?.disabledNoteKey).toBe("common.notAvailableYet");
+  });
+
   it("shows development section for dev users without admin section", () => {
     const sections = buildNavigationSections({ role: "dev" });
     const allItemIds = sections.flatMap((section) => section.items.map((item) => item.id));
