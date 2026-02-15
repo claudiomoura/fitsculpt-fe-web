@@ -2445,7 +2445,7 @@ function buildExerciseFilters(params: {
 
   const whereClause =
     filters.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
+      ? Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`
       : Prisma.sql``;
 
   return whereClause;
@@ -5365,20 +5365,21 @@ app.get("/training-plans/active", async (request, reply) => {
       }
     }
 
-    const ownPlan = await prisma.trainingPlan.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-      include: includeDays
-        ? {
+    const ownPlanArgs: Prisma.TrainingPlanFindFirstArgs = includeDays
+      ? {
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          include: {
             days: {
               orderBy: { order: "asc" },
-              include: { exercises: { orderBy: { id: "asc" } }, },
+              include: { exercises: { orderBy: { id: "asc" } } },
             },
-          }
-        : undefined,
-      select: includeDays
-        ? undefined
-        : {
+          },
+        }
+      : {
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          select: {
             id: true,
             title: true,
             notes: true,
@@ -5391,7 +5392,9 @@ app.get("/training-plans/active", async (request, reply) => {
             daysCount: true,
             createdAt: true,
           },
-    });
+        };
+
+    const ownPlan = await prisma.trainingPlan.findFirst(ownPlanArgs);
 
     if (!ownPlan) {
       return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
