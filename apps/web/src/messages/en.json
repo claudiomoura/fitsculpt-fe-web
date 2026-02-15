@@ -1796,10 +1796,36 @@
     "stripeStatusLabel": "Stripe status",
     "tokenRenewalLabel": "Token renewal",
     "aiTokensLabel": "AI tokens available",
+    "planSelectionTitle": "Choose your plan",
+    "planSelectionDescription": "Select the subscription that best fits your goals.",
+    "currentPlanBadge": "Current",
     "upgradePro": "Upgrade to PRO",
+    "choosePlan": "Choose plan",
     "manageSubscription": "Manage subscription",
     "redirecting": "Redirecting...",
     "opening": "Opening...",
+    "planLabels": {
+      "free": "Free",
+      "pro": "Pro",
+      "strengthai": "StrengthAI",
+      "nutriai": "NutriAI",
+      "ultra": "Pro",
+      "unknown": "Unknown plan"
+    },
+    "plans": {
+      "strengthai": {
+        "name": "StrengthAI",
+        "description": "Training-focused plan with AI-powered progression."
+      },
+      "nutriai": {
+        "name": "NutriAI",
+        "description": "Nutrition-focused plan with AI guidance for meals and macros."
+      },
+      "pro": {
+        "name": "Pro",
+        "description": "Ultra experience with combined training and nutrition AI features."
+      }
+    },
     "subscriptionStatuses": {
       "active": "Active",
       "trialing": "Trialing",

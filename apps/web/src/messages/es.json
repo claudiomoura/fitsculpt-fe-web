@@ -1827,6 +1827,32 @@
       "nameLabel": "Nombre del gimnasio",
       "idLabel": "ID del gimnasio",
       "linkRequiresImplementation": "Requiere implementación"
+    },
+    "planSelectionTitle": "Elige tu plan",
+    "planSelectionDescription": "Selecciona la suscripción que mejor se adapta a tus objetivos.",
+    "currentPlanBadge": "Actual",
+    "choosePlan": "Elegir plan",
+    "planLabels": {
+      "free": "Free",
+      "pro": "Pro",
+      "strengthai": "StrengthAI",
+      "nutriai": "NutriAI",
+      "ultra": "Pro",
+      "unknown": "Plan desconocido"
+    },
+    "plans": {
+      "strengthai": {
+        "name": "StrengthAI",
+        "description": "Plan centrado en entrenamiento con progresión impulsada por IA."
+      },
+      "nutriai": {
+        "name": "NutriAI",
+        "description": "Plan centrado en nutrición con guía de IA para comidas y macros."
+      },
+      "pro": {
+        "name": "Pro",
+        "description": "Experiencia Ultra con funciones de IA combinadas para entrenamiento y nutrición."
+      }
     }
   },
   "settings": {
