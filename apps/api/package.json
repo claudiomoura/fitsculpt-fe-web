@@ -17,7 +17,10 @@
     "test": "tsx src/tests/authUtils.test.ts src/tests/aiParsing.test.ts",
     "verify-email": "tsx scripts/verify-email.ts",
     "db:seed": "prisma db seed",
-    "db:bootstrap": "prisma migrate deploy && prisma db seed"
+    "db:bootstrap": "prisma migrate deploy && prisma db seed",
+    "db:migrate:render": "node scripts/prisma-runner.mjs migrate deploy",
+    "db:seed:safe": "node scripts/prisma-runner.mjs seed:safe",
+    "db:bootstrap:render": "node scripts/prisma-runner.mjs generate && node scripts/prisma-runner.mjs migrate deploy && node scripts/prisma-runner.mjs seed:safe"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
