@@ -699,6 +699,18 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
   return managerMembership;
 }
 
+async function requireGymAdminForGym(userId: string, gymId: string) {
+  const adminMembership = await prisma.gymMembership.findUnique({
+    where: { gymId_userId: { gymId, userId } },
+  });
+
+  if (!adminMembership || adminMembership.status !== "ACTIVE" || adminMembership.role !== "ADMIN") {
+    throw createHttpError(403, "FORBIDDEN");
+  }
+
+  return adminMembership;
+}
+
 function buildActivationCode(name: string, userId: string, attempt: number) {
   const seed = `${name}:${userId}:${Date.now().toString(36)}:${attempt}`;
   const hash = crypto.createHash("sha256").update(seed).digest("hex").toUpperCase();
@@ -5968,7 +5980,7 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
             some: {
               userId: user.id,
               status: "ACTIVE",
-              role: { in: ["ADMIN", "TRAINER"] },
+              role: "ADMIN",
             },
           },
         },
@@ -6002,12 +6014,17 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     if (membership.status !== "PENDING") {
       return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
     }
-    await requireGymManagerForGym(user.id, membership.gymId);
-    const updated = await prisma.gymMembership.update({
-      where: { id: membership.id },
+    await requireGymAdminForGym(user.id, membership.gymId);
+    const updateResult = await prisma.gymMembership.updateMany({
+      where: { id: membership.id, status: "PENDING" },
       data: { status: "ACTIVE" },
     });
-    return { membershipId: updated.id, status: updated.status };
+
+    if (updateResult.count === 0) {
+      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+    }
+
+    return { membershipId: membership.id, status: "ACTIVE" };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6024,12 +6041,17 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
     if (membership.status !== "PENDING") {
       return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
     }
-    await requireGymManagerForGym(user.id, membership.gymId);
-    const updated = await prisma.gymMembership.update({
-      where: { id: membership.id },
+    await requireGymAdminForGym(user.id, membership.gymId);
+    const updateResult = await prisma.gymMembership.updateMany({
+      where: { id: membership.id, status: "PENDING" },
       data: { status: "REJECTED" },
     });
-    return { membershipId: updated.id, status: updated.status };
+
+    if (updateResult.count === 0) {
+      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+    }
+
+    return { membershipId: membership.id, status: "REJECTED" };
   } catch (error) {
     return handleRequestError(reply, error);
   }

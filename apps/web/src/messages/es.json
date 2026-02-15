@@ -1556,7 +1556,10 @@
     "gymRequestsRetry": "Reintentar",
     "gymRequestsEmpty": "No hay solicitudes pendientes de ingreso al gimnasio.",
     "gymRequestsAccept": "Aceptar",
-    "gymRequestsReject": "Rechazar"
+    "gymRequestsReject": "Rechazar",
+    "gymRequestsConfirmAccept": "¿Aprobar esta solicitud de ingreso al gimnasio?",
+    "gymRequestsConfirmReject": "¿Rechazar esta solicitud de ingreso al gimnasio?",
+    "gymRequestsActionError": "No pudimos procesar esta solicitud. Inténtalo de nuevo."
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",
