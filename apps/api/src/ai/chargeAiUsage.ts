@@ -196,7 +196,7 @@ async function debitAiTokensTx(
 export async function chargeAiUsage(params: ChargeAiUsageParams) {
   const { prisma, pricing, user, feature, execute, createHttpError } = params;
 
-  if (user.plan !== "PRO") {
+  if (user.plan === "FREE") {
     throw createHttpError(403, "NOT_PRO");
   }
 
@@ -243,7 +243,7 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
 export async function chargeAiUsageForResult(params: ChargeAiUsageForResultParams) {
   const { prisma, pricing, user, feature, result, meta, createHttpError } = params;
 
-  if (user.plan !== "PRO") {
+  if (user.plan === "FREE") {
     throw createHttpError(403, "NOT_PRO");
   }
 
