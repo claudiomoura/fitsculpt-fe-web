@@ -112,6 +112,7 @@ export const sidebarAdmin: NavSectionGroup[] = [
     items: [
       { id: "admin-dashboard", href: "/app/admin", labelKey: "nav.admin" },
       { id: "admin-users", href: "/app/admin/users", labelKey: "nav.adminUsers" },
+      { id: "admin-gyms", href: "/app/admin/gyms", labelKey: "nav.adminGyms" },
       {
         id: "admin-gym-requests",
         href: "/app/admin/gym-requests",
