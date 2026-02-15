@@ -5733,7 +5733,7 @@ app.get("/gyms", async (request, reply) => {
   }
 });
 
-app.post("/gyms/join", async (request, reply) => {
+const createGymJoinRequest = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
     const { gymId } = joinGymSchema.parse(request.body);
@@ -5771,7 +5771,10 @@ app.post("/gyms/join", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
+
+app.post("/gyms/join", createGymJoinRequest);
+app.post("/gym/join-request", createGymJoinRequest);
 
 app.post("/gyms/join-by-code", async (request, reply) => {
   try {
@@ -5804,7 +5807,7 @@ app.post("/gyms/join-by-code", async (request, reply) => {
   }
 });
 
-app.get("/gyms/membership", async (request, reply) => {
+const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
     const membership = await prisma.gymMembership.findFirst({
@@ -5830,7 +5833,10 @@ app.get("/gyms/membership", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
+
+app.get("/gyms/membership", getGymMembership);
+app.get("/gym/me", getGymMembership);
 
 app.get("/admin/gym-join-requests", async (request, reply) => {
   try {
@@ -5855,6 +5861,7 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
       orderBy: { createdAt: "asc" },
     });
     return requests.map((membership) => ({
+      id: membership.id,
       membershipId: membership.id,
       gym: membership.gym,
       user: membership.user,

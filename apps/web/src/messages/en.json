@@ -1837,6 +1837,9 @@
         "statusLabel": "Plan status is shown in Billing when real data is available.",
         "gymStatusYes": "Gym status: yes",
         "gymStatusNo": "Gym status: no",
+        "gymStatusPending": "Gym request pending for {gymName}.",
+        "gymStatusActive": "Gym membership active in {gymName}.",
+        "gymStatusRejected": "Your latest gym request was rejected.",
         "gymStatusUnknown": "Gym status: info unavailable"
       },
       "notifications": {

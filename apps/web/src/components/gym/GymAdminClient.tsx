@@ -46,7 +46,7 @@ function parseJoinRequests(payload: unknown): JoinRequest[] {
   return rows
     .map((row) => {
       const item = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
-      const id = asString(item.id) ?? asString(item.requestId);
+      const id = asString(item.id) ?? asString(item.requestId) ?? asString(item.membershipId);
       const userName = asString(item.userName) ?? asString(item.name) ?? asString(item.email) ?? "-";
       if (!id) return null;
       return { id, userName };

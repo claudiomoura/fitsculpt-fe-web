@@ -35,7 +35,7 @@ function readRequests(payload: unknown): JoinRequest[] {
     const row = entry as Record<string, unknown>;
     const gym = (row.gym as Record<string, unknown> | undefined) ?? undefined;
     const user = (row.user as Record<string, unknown> | undefined) ?? undefined;
-    const id = String(row.id ?? "").trim();
+    const id = String(row.id ?? row.membershipId ?? "").trim();
     if (!id) continue;
 
     parsed.push({
