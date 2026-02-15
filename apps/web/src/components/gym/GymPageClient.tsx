@@ -83,6 +83,7 @@ export default function GymPageClient() {
   const [requestingJoin, setRequestingJoin] = useState(false);
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [gymsLoading, setGymsLoading] = useState(false);
   const [gymsLoadError, setGymsLoadError] = useState(false);
   const [gymsUnsupported, setGymsUnsupported] = useState(false);
@@ -135,6 +136,7 @@ export default function GymPageClient() {
     setLoading(true);
     setError(null);
     setActionError(null);
+    setActionSuccess(null);
     setIsSessionExpired(false);
 
     try {
@@ -191,6 +193,7 @@ export default function GymPageClient() {
 
     setRequestingJoin(true);
     setActionError(null);
+    setActionSuccess(null);
 
     try {
       const response = await fetch("/api/gym/join-request", {
@@ -206,6 +209,7 @@ export default function GymPageClient() {
       }
 
       if (!response.ok) throw new Error("join");
+      setActionSuccess(t("gym.join.requestSuccess"));
       await loadData();
     } catch {
       setActionError(t("gym.actionError"));
@@ -220,6 +224,7 @@ export default function GymPageClient() {
 
     setJoiningByCode(true);
     setActionError(null);
+    setActionSuccess(null);
 
     try {
       const response = await fetch("/api/gym/join-code", {
@@ -243,6 +248,7 @@ export default function GymPageClient() {
         throw new Error("join-by-code");
       }
       setCode("");
+      setActionSuccess(t("gym.join.codeSuccess"));
       await loadData();
     } catch {
       setActionError(t("gym.actionError"));
@@ -379,6 +385,13 @@ export default function GymPageClient() {
         <section className="card status-card status-card--warning">
           <strong>{t("gym.actionErrorTitle")}</strong>
           <p className="muted">{actionError}</p>
+        </section>
+      )}
+
+      {actionSuccess && (
+        <section className="card status-card">
+          <strong>{t("gym.actionSuccessTitle")}</strong>
+          <p className="muted">{actionSuccess}</p>
         </section>
       )}
     </div>
