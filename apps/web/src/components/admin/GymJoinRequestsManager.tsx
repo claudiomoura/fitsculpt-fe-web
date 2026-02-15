@@ -59,12 +59,14 @@ export default function GymJoinRequestsManager() {
   const [loading, setLoading] = useState(true);
   const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [actingId, setActingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
     setError(false);
+    setActionError(null);
     try {
       const response = await fetch("/api/admin/gym-join-requests", { cache: "no-store", credentials: "include" });
       if (response.status === 404 || response.status === 405) {
@@ -95,8 +97,12 @@ export default function GymJoinRequestsManager() {
   }, [isAdmin, isDev]);
 
   const act = async (id: string, action: "accept" | "reject") => {
+    const confirmed = window.confirm(action === "accept" ? t("admin.gymRequestsConfirmAccept") : t("admin.gymRequestsConfirmReject"));
+    if (!confirmed) return;
+
     setActingId(id);
     setError(false);
+    setActionError(null);
     try {
       const response = await fetch(`/api/admin/gym-join-requests/${id}/${action}`, {
         method: "POST",
@@ -104,7 +110,7 @@ export default function GymJoinRequestsManager() {
         credentials: "include",
       });
       if (!response.ok) {
-        setError(true);
+        setActionError(`HTTP_${response.status}`);
         setActingId(null);
         return;
       }
@@ -143,6 +149,7 @@ export default function GymJoinRequestsManager() {
 
   return (
     <div className="form-stack">
+      {actionError ? <p className="muted">{t("admin.gymRequestsActionError")}</p> : null}
       {requests.map((request) => (
         <div key={request.id} className="status-card">
           <strong>{request.userName ?? request.userEmail ?? request.id}</strong>
