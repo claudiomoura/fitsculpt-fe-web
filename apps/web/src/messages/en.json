@@ -1608,13 +1608,18 @@
     "favoriteToastDescription": "Your favorites list is up to date.",
     "recentsClearedToastTitle": "Recents cleared",
     "recentsClearedToastDescription": "Your recent exercises have been removed.",
-    "searchDebounceHelper": "Type to search. Results update automatically.",
-    "emptyTryAnotherSearch": "No exercises match this search. Try another term.",
-    "loadMore": "Load more exercises",
-    "addActionLabel": "Add to plan",
-    "addActionModalTitle": "Add to plan",
-    "addActionModalDescription": "{name} will be available to add in the next step.",
-    "addActionPendingDescription": "This action is ready in the UI and will be connected in the next PR."
+    "addToPlanModalTitle": "Add exercise to plan",
+    "addToPlanModalDescription": "Choose the day for {exercise}.",
+    "addToPlanDayLabel": "Plan day",
+    "addToPlanDayPlaceholder": "Select a day",
+    "addToPlanConfirm": "Add to day",
+    "addToPlanLoading": "Loading available plan days...",
+    "addToPlanLoadError": "We couldn't load plan days.",
+    "addToPlanNoPlan": "No active training plan available.",
+    "addToPlanNoPlanCta": "Create or select a plan",
+    "addToPlanSubmitError": "We couldn't add the exercise. Please retry.",
+    "addToPlanSuccessTitle": "Exercise added",
+    "addToPlanSuccessDescription": "{exercise} was added to your selected day."
   },
   "recipes": {
     "loading": "Loading recipes...",
@@ -1939,7 +1944,8 @@
           "submitting": "Assigning...",
           "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
           "success": "Assigned {plan} to {member} successfully.",
-          "unknownPlan": "Selected plan"
+          "unknownPlan": "Selected plan",
+          "addExerciseCta": "Add exercise from library"
         }
       },
       "nutrition": {

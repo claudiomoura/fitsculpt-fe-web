@@ -5080,6 +5080,14 @@ const trainingPlanListSchema = z.object({
 });
 
 const trainingPlanParamsSchema = z.object({ id: z.string().min(1) });
+const trainingDayParamsSchema = z.object({
+  planId: z.string().min(1),
+  dayId: z.string().min(1),
+});
+const addTrainingExerciseBodySchema = z.object({
+  exerciseId: z.string().min(1),
+  athleteUserId: z.string().min(1).optional(),
+});
 const assignTrainingPlanParamsSchema = z.object({
   gymId: z.string().min(1),
   userId: z.string().min(1),
@@ -5248,6 +5256,93 @@ app.get("/training-plans/:id", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
     return plan;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/training-plans/:planId/days/:dayId/exercises", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId } = trainingDayParamsSchema.parse(request.params);
+    const { exerciseId, athleteUserId } = addTrainingExerciseBodySchema.parse(request.body);
+
+    const exercise = await prisma.exercise.findUnique({
+      where: { id: exerciseId },
+      select: { id: true, name: true },
+    });
+
+    if (!exercise) {
+      return reply.status(404).send({ error: "EXERCISE_NOT_FOUND" });
+    }
+
+    const plan = await prisma.trainingPlan.findUnique({
+      where: { id: planId },
+      select: { id: true, userId: true },
+    });
+
+    if (!plan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    const isOwnPlan = plan.userId === requester.id;
+
+    if (athleteUserId) {
+      if (isOwnPlan === false) {
+        return reply.status(403).send({ error: "FORBIDDEN" });
+      }
+
+      const membership = await prisma.gymMembership.findFirst({
+        where: {
+          userId: athleteUserId,
+          status: "ACTIVE",
+          role: "MEMBER",
+          assignedTrainingPlanId: planId,
+          gym: {
+            memberships: {
+              some: {
+                userId: requester.id,
+                status: "ACTIVE",
+                role: { in: ["ADMIN", "TRAINER"] },
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!membership) {
+        return reply.status(404).send({ error: "MEMBER_PLAN_NOT_FOUND" });
+      }
+    } else if (!isOwnPlan) {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const day = await prisma.trainingDay.findFirst({
+      where: { id: dayId, planId },
+      select: { id: true },
+    });
+
+    if (!day) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    const created = await prisma.trainingExercise.create({
+      data: {
+        dayId,
+        name: exercise.name,
+        sets: 3,
+        reps: "10-12",
+      },
+    });
+
+    return reply.status(201).send({
+      exercise: created,
+      sourceExercise: exercise,
+      planId,
+      dayId,
+      athleteUserId: athleteUserId ?? null,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }

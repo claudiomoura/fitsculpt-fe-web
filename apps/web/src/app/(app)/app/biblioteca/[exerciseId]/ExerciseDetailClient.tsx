@@ -5,10 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { addExerciseRecent } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
-import type { Exercise } from "@/lib/types";
+import type { Exercise, TrainingPlanDetail } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
+import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
 import {
   ExerciseDetailErrorState,
   ExerciseDetailHeader,
@@ -55,9 +56,16 @@ export default function ExerciseDetailClient({
   const searchParams = useSearchParams();
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
   const [isFavoritePending, setIsFavoritePending] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [targetPlan, setTargetPlan] = useState<TrainingPlanDetail | null>(null);
+  const [planLoading, setPlanLoading] = useState(true);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [planRetryKey, setPlanRetryKey] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [addingExercise, setAddingExercise] = useState(false);
+  const [addExerciseError, setAddExerciseError] = useState<string | null>(null);
   const { favorites, toggleFavorite } = useExerciseFavorites();
   const { notify } = useToast();
+  const athleteUserId = searchParams.get("athleteUserId")?.trim() || "";
   const fromPlan = searchParams.get("from") === "plan";
   const returnToParam = searchParams.get("returnTo");
   const safeReturnTo = returnToParam && returnToParam.startsWith("/app/") ? returnToParam : null;
@@ -141,6 +149,66 @@ export default function ExerciseDetailClient({
     }
   }, [exercise]);
 
+  useEffect(() => {
+    let active = true;
+    const loadTargetPlan = async () => {
+      setPlanLoading(true);
+      setPlanError(null);
+      setTargetPlan(null);
+
+      try {
+        if (athleteUserId) {
+          const assignmentResponse = await fetch(`/api/trainer/members/${athleteUserId}/training-plan-assignment`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (!assignmentResponse.ok) throw new Error("ASSIGNMENT_ERROR");
+          const assignmentData = (await assignmentResponse.json()) as { assignedPlan?: { id?: string } | null };
+          const assignedPlanId = assignmentData.assignedPlan?.id;
+          if (!assignedPlanId) {
+            if (!active) return;
+            setPlanLoading(false);
+            return;
+          }
+          const detailResponse = await fetch(`/api/training-plans/${assignedPlanId}`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (!detailResponse.ok) throw new Error("PLAN_DETAIL_ERROR");
+          const detail = (await detailResponse.json()) as TrainingPlanDetail;
+          if (!active) return;
+          setTargetPlan(detail);
+          setPlanLoading(false);
+          return;
+        }
+
+        const listResponse = await fetch("/api/training-plans?limit=1", { cache: "no-store", credentials: "include" });
+        if (!listResponse.ok) throw new Error("PLAN_LIST_ERROR");
+        const listData = (await listResponse.json()) as { items?: Array<{ id: string }> };
+        const ownPlanId = listData.items?.[0]?.id;
+        if (!ownPlanId) {
+          if (!active) return;
+          setPlanLoading(false);
+          return;
+        }
+        const detailResponse = await fetch(`/api/training-plans/${ownPlanId}`, { cache: "no-store", credentials: "include" });
+        if (!detailResponse.ok) throw new Error("PLAN_DETAIL_ERROR");
+        const detail = (await detailResponse.json()) as TrainingPlanDetail;
+        if (!active) return;
+        setTargetPlan(detail);
+        setPlanLoading(false);
+      } catch {
+        if (!active) return;
+        setPlanError(t("library.addToPlanLoadError"));
+        setPlanLoading(false);
+      }
+    };
+    void loadTargetPlan();
+    return () => {
+      active = false;
+    };
+  }, [athleteUserId, planRetryKey, t]);
+
   if (error) {
     return (
       <ExerciseDetailErrorState
@@ -194,6 +262,35 @@ export default function ExerciseDetailClient({
     router.push(backHref);
   };
 
+  const addExerciseToPlanDay = async (dayId: string) => {
+    if (!exercise.id || !targetPlan?.id || !dayId || addingExercise) return;
+    setAddingExercise(true);
+    setAddExerciseError(null);
+    try {
+      const response = await fetch(`/api/training-plans/${targetPlan.id}/days/${dayId}/exercises`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ exerciseId: exercise.id, ...(athleteUserId ? { athleteUserId } : {}) }),
+      });
+      setAddingExercise(false);
+      if (!response.ok) {
+        setAddExerciseError(t("library.addToPlanSubmitError"));
+        return;
+      }
+      notify({
+        title: t("library.addToPlanSuccessTitle"),
+        description: t("library.addToPlanSuccessDescription").replace("{exercise}", exercise.name),
+        variant: "success",
+      });
+      setPickerOpen(false);
+    } catch {
+      setAddingExercise(false);
+      setAddExerciseError(t("library.addToPlanSubmitError"));
+    }
+  };
+
   return (
     <section className="card centered-card">
       <ExerciseDetailHeader
@@ -219,6 +316,7 @@ export default function ExerciseDetailClient({
             <Button variant="secondary" onClick={handleBackNavigation}>
               {backLabel}
             </Button>
+            <Button onClick={() => setPickerOpen(true)}>+</Button>
           </>
         }
       />
@@ -319,6 +417,24 @@ export default function ExerciseDetailClient({
         mediaAlt={`${t("library.mediaAlt")} ${exercise.name}`}
         fallbackTitle={t("exerciseDetail.mediaViewerFallbackTitle")}
         fallbackDescription={t("exerciseDetail.mediaViewerFallbackDescription")}
+      />
+
+      <AddExerciseDayPickerModal
+        open={pickerOpen}
+        onClose={() => {
+          setPickerOpen(false);
+          setAddExerciseError(null);
+        }}
+        exerciseName={exercise.name}
+        days={(targetPlan?.days ?? []).map((day) => ({ id: day.id, label: day.label, focus: day.focus }))}
+        loadingPlan={planLoading}
+        loadError={planError}
+        isSubmitting={addingExercise}
+        submitError={addExerciseError}
+        canSubmit={Boolean(targetPlan?.id)}
+        onConfirm={addExerciseToPlanDay}
+        onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
+        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"}
       />
     </section>
   );
