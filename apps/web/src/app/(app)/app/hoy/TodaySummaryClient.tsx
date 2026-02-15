@@ -24,8 +24,9 @@ import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import { useExerciseRecents } from "@/lib/exerciseRecents";
-import type { NutritionPlanData, NutritionMeal, ProfileData, TrainingPlanData } from "@/lib/profile";
+import type { NutritionPlanData, NutritionMeal, ProfileData } from "@/lib/profile";
 import { slugifyExerciseName } from "@/lib/slugify";
+import type { TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 
 type CheckinEntry = {
   date?: string | null;
@@ -36,6 +37,10 @@ type CheckinEntry = {
 
 type TrackingPayload = {
   checkins?: CheckinEntry[];
+};
+
+type TrainingPlansPayload = {
+  items?: TrainingPlanListItem[];
 };
 
 type SectionStatus = "loading" | "error" | "empty" | "ready";
@@ -72,7 +77,17 @@ const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: st
   return days[index];
 };
 
-const buildTrainingSummary = (plan?: TrainingPlanData | null): TodayTrainingSummaryData | null => {
+type TrainingSummarySource = {
+  startDate?: string | null;
+  days: Array<{
+    date?: string;
+    label: string;
+    focus: string;
+    duration: number;
+  }>;
+};
+
+const buildTrainingSummary = (plan?: TrainingSummarySource | null): TodayTrainingSummaryData | null => {
   if (!plan?.days?.length) return null;
   const day = findTodayPlanDay(plan.days, plan.startDate);
   if (!day) return null;
@@ -181,6 +196,7 @@ export default function TodaySummaryClient() {
   const [notesState, setNotesState] = useState<SectionState<TodayNotesSummaryData>>({ status: "loading" });
   const [energySupported, setEnergySupported] = useState(false);
   const [notesSupported, setNotesSupported] = useState(false);
+  const [assignedPlanId, setAssignedPlanId] = useState<string | null>(null);
   const {
     favorites,
     loading: favoritesLoading,
@@ -195,7 +211,6 @@ export default function TodaySummaryClient() {
   } = useExerciseRecents();
 
   const loadProfile = useCallback(async () => {
-    setTrainingState({ status: "loading" });
     setNutritionState({ status: "loading" });
 
     try {
@@ -204,15 +219,44 @@ export default function TodaySummaryClient() {
       const data = (await response.json()) as ProfileData;
       if (!mountedRef.current) return;
 
-      const trainingSummary = buildTrainingSummary(data.trainingPlan);
       const nutritionSummary = buildNutritionSummary(data.nutritionPlan);
 
-      setTrainingState(trainingSummary ? { status: "ready", data: trainingSummary } : { status: "empty" });
       setNutritionState(nutritionSummary ? { status: "ready", data: nutritionSummary } : { status: "empty" });
     } catch {
       if (!mountedRef.current) return;
-      setTrainingState({ status: "error" });
       setNutritionState({ status: "error" });
+    }
+  }, []);
+
+  const loadAssignedTrainingPlan = useCallback(async () => {
+    setTrainingState({ status: "loading" });
+    setAssignedPlanId(null);
+
+    try {
+      const listResponse = await fetch("/api/training-plans?limit=1", { cache: "no-store" });
+      if (!listResponse.ok) throw new Error("TRAINING_PLAN_LIST_ERROR");
+
+      const listData = (await listResponse.json()) as TrainingPlansPayload;
+      const latestPlan = listData.items?.[0];
+
+      if (!latestPlan) {
+        if (!mountedRef.current) return;
+        setTrainingState({ status: "empty" });
+        return;
+      }
+
+      const planResponse = await fetch(`/api/training-plans/${latestPlan.id}`, { cache: "no-store" });
+      if (!planResponse.ok) throw new Error("TRAINING_PLAN_DETAIL_ERROR");
+
+      const planDetail = (await planResponse.json()) as TrainingPlanDetail;
+      if (!mountedRef.current) return;
+
+      const trainingSummary = buildTrainingSummary(planDetail);
+      setAssignedPlanId(latestPlan.id);
+      setTrainingState(trainingSummary ? { status: "ready", data: trainingSummary } : { status: "empty" });
+    } catch {
+      if (!mountedRef.current) return;
+      setTrainingState({ status: "error" });
     }
   }, []);
 
@@ -248,19 +292,24 @@ export default function TodaySummaryClient() {
   useEffect(() => {
     mountedRef.current = true;
     void loadProfile();
+    void loadAssignedTrainingPlan();
     void loadTracking();
     return () => {
       mountedRef.current = false;
     };
-  }, [loadProfile, loadTracking]);
+  }, [loadAssignedTrainingPlan, loadProfile, loadTracking]);
 
   const trainingAction = useMemo(
     () => (
-      <ButtonLink variant="secondary" href="/app/entrenamiento" size="lg">
+      <ButtonLink
+        variant="secondary"
+        href={assignedPlanId ? `/app/biblioteca/entrenamientos/${assignedPlanId}?from=hoy` : "/app/entrenamiento"}
+        size="lg"
+      >
         {t("today.trainingCta")}
       </ButtonLink>
     ),
-    [t]
+    [assignedPlanId, t]
   );
 
   const nutritionAction = useMemo(
@@ -412,13 +461,14 @@ const notesErrorActions: ErrorAction[] = [
           <ErrorState
             title={t("today.trainingErrorTitle")}
             description={t("today.trainingErrorDescription")}
-            actions={[{ label: t("ui.retry"), onClick: loadProfile, variant: "secondary" }]}
+            actions={[{ label: t("ui.retry"), onClick: loadAssignedTrainingPlan, variant: "secondary" }]}
           />
         }
         empty={
           <EmptyState
             title={t("today.trainingEmptyTitle")}
-            description={t("today.trainingEmptyDescription")}
+            description={t("today.trainingAssignedEmptyDescription")}
+            actions={[{ label: t("today.trainingCta"), href: "/app/entrenamiento", variant: "secondary" }]}
           />
         }
       >

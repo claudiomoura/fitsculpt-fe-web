@@ -212,7 +212,9 @@
     "shortcutsRecentsErrorTitle": "Recents unavailable",
     "shortcutsRecentsErrorDescription": "We couldn't load your recents right now.",
     "shortcutsExerciseFallback": "Exercise",
-    "shortcutsExerciseIdLabel": "ID"
+    "shortcutsExerciseIdLabel": "ID",
+    "backToToday": "Back to Today",
+    "trainingAssignedEmptyDescription": "Your coach has not assigned a plan yet. You will see it here once available."
   },
   "foods": {
     "salmon": "Salmon",
