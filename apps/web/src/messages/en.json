@@ -1607,7 +1607,14 @@
     "favoriteRemovedToastTitle": "Removed from favorites",
     "favoriteToastDescription": "Your favorites list is up to date.",
     "recentsClearedToastTitle": "Recents cleared",
-    "recentsClearedToastDescription": "Your recent exercises have been removed."
+    "recentsClearedToastDescription": "Your recent exercises have been removed.",
+    "searchDebounceHelper": "Type to search. Results update automatically.",
+    "emptyTryAnotherSearch": "No exercises match this search. Try another term.",
+    "loadMore": "Load more exercises",
+    "addActionLabel": "Add to plan",
+    "addActionModalTitle": "Add to plan",
+    "addActionModalDescription": "{name} will be available to add in the next step.",
+    "addActionPendingDescription": "This action is ready in the UI and will be connected in the next PR."
   },
   "recipes": {
     "loading": "Loading recipes...",

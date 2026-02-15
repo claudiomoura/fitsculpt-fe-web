@@ -1610,7 +1610,14 @@
     "favoriteRemovedToastTitle": "Quitado de favoritos",
     "favoriteToastDescription": "Tu lista de favoritos está actualizada.",
     "recentsClearedToastTitle": "Recientes eliminados",
-    "recentsClearedToastDescription": "Se eliminaron tus ejercicios recientes."
+    "recentsClearedToastDescription": "Se eliminaron tus ejercicios recientes.",
+    "searchDebounceHelper": "Escribe para buscar. Los resultados se actualizan automáticamente.",
+    "emptyTryAnotherSearch": "No hay ejercicios para esta búsqueda. Prueba otro término.",
+    "loadMore": "Cargar más ejercicios",
+    "addActionLabel": "Agregar al plan",
+    "addActionModalTitle": "Agregar al plan",
+    "addActionModalDescription": "{name} estará disponible para agregar en el siguiente paso.",
+    "addActionPendingDescription": "Esta acción ya está lista en la UI y se conectará en el próximo PR."
   },
   "recipes": {
     "loading": "Cargando recetas...",
