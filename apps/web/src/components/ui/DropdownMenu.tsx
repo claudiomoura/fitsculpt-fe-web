@@ -66,22 +66,37 @@ export function DropdownMenuTrigger({ children, className }: { children: ReactNo
 export function DropdownMenuContent({ children, className }: { children: ReactNode; className?: string }) {
   const context = useDropdownContext();
   const contentStyle = useMemo<CSSProperties>(() => {
-    if (!context.triggerEl) return {};
+    if (!context.triggerEl || typeof window === "undefined") return {};
+
     const rect = context.triggerEl.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
     const gutter = 8;
+
     const maxWidth = Math.min(320, viewportWidth - gutter * 2);
-    const alignedLeft = Math.max(gutter, rect.right - maxWidth);
-    const alignedTop = rect.bottom + 8;
+    const alignedLeft = Math.min(
+      Math.max(gutter, rect.right - maxWidth),
+      Math.max(gutter, viewportWidth - maxWidth - gutter),
+    );
+
+    const availableBelow = Math.max(0, viewportHeight - rect.bottom - gutter);
+    const availableAbove = Math.max(0, rect.top - gutter);
+    const prefersAbove = availableBelow < 220 && availableAbove > availableBelow;
+    const preferredSpace = prefersAbove ? availableAbove : availableBelow;
+    const maxHeight = Math.min(420, Math.max(160, preferredSpace));
+    const top = prefersAbove ? Math.max(gutter, rect.top - maxHeight - gutter) : rect.bottom + gutter;
+
     return {
       position: "fixed",
-      top: `${alignedTop}px`,
+      top: `${top}px`,
       left: `${alignedLeft}px`,
       width: `${maxWidth}px`,
       maxWidth: `calc(100vw - ${gutter * 2}px)`,
-      maxHeight: "min(60dvh, 420px)",
+      maxHeight: `${maxHeight}px`,
       overflowY: "auto",
-      zIndex: 200,
+      overscrollBehavior: "contain",
+      WebkitOverflowScrolling: "touch",
+      zIndex: 120,
     };
   }, [context.triggerEl]);
 

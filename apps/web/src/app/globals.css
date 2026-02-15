@@ -1570,6 +1570,8 @@ label {
   padding: 12px;
   gap: 6px;
   pointer-events: auto;
+  max-height: min(70dvh, 420px);
+  overflow-y: auto;
 }
 
 .nav-user-link {
@@ -3440,7 +3442,7 @@ textarea:disabled {
   padding: 8px;
   display: grid;
   gap: 4px;
-  z-index: 90;
+  z-index: 120;
   pointer-events: auto;
 }
 
