@@ -1832,26 +1832,32 @@
     "planSelectionDescription": "Selecciona la suscripción que mejor se adapta a tus objetivos.",
     "currentPlanBadge": "Actual",
     "choosePlan": "Elegir plan",
+    "subscribe": "Suscribirme",
     "planLabels": {
       "free": "Free",
       "pro": "Pro",
+      "strength_ai": "StrengthAI",
+      "nutri_ai": "NutriAI",
       "strengthai": "StrengthAI",
       "nutriai": "NutriAI",
       "ultra": "Pro",
       "unknown": "Plan desconocido"
     },
     "plans": {
-      "strengthai": {
+      "strengthAi": {
         "name": "StrengthAI",
-        "description": "Plan centrado en entrenamiento con progresión impulsada por IA."
+        "description": "Plan centrado en entrenamiento con progresión impulsada por IA.",
+        "price": "US$19/mes"
       },
-      "nutriai": {
+      "nutriAi": {
         "name": "NutriAI",
-        "description": "Plan centrado en nutrición con guía de IA para comidas y macros."
+        "description": "Plan centrado en nutrición con guía de IA para comidas y macros.",
+        "price": "US$19/mes"
       },
       "pro": {
         "name": "Pro",
-        "description": "Experiencia Ultra con funciones de IA combinadas para entrenamiento y nutrición."
+        "description": "Bundle con StrengthAI + NutriAI en un solo plan.",
+        "price": "US$29/mes"
       }
     }
   },

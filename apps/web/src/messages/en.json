@@ -1801,29 +1801,35 @@
     "currentPlanBadge": "Current",
     "upgradePro": "Upgrade to PRO",
     "choosePlan": "Choose plan",
+    "subscribe": "Subscribe",
     "manageSubscription": "Manage subscription",
     "redirecting": "Redirecting...",
     "opening": "Opening...",
     "planLabels": {
       "free": "Free",
       "pro": "Pro",
+      "strength_ai": "StrengthAI",
+      "nutri_ai": "NutriAI",
       "strengthai": "StrengthAI",
       "nutriai": "NutriAI",
       "ultra": "Pro",
       "unknown": "Unknown plan"
     },
     "plans": {
-      "strengthai": {
+      "strengthAi": {
         "name": "StrengthAI",
-        "description": "Training-focused plan with AI-powered progression."
+        "description": "Training-focused plan with AI-powered progression.",
+        "price": "$19/month"
       },
-      "nutriai": {
+      "nutriAi": {
         "name": "NutriAI",
-        "description": "Nutrition-focused plan with AI guidance for meals and macros."
+        "description": "Nutrition-focused plan with AI guidance for meals and macros.",
+        "price": "$19/month"
       },
       "pro": {
         "name": "Pro",
-        "description": "Ultra experience with combined training and nutrition AI features."
+        "description": "Bundle with StrengthAI + NutriAI in one plan.",
+        "price": "$29/month"
       }
     },
     "subscriptionStatuses": {
