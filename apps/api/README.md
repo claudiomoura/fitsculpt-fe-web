@@ -67,10 +67,78 @@ npm run start
 npm run start:prod
 npm run db:deploy
 npm run db:generate
+npm run db:dump             # backup manual (Postgres via pg_dump)
 npm run db:push:emergency   # somente para desbloqueio quando deploy estiver bloqueado por drift
 npm run prisma:generate
 npm run prisma:migrate      # local only (NUNCA no Render)
 npm run test
+```
+
+
+## Backups diarios (sin tocar producto)
+
+### Opción recomendada (Render)
+
+Si tu plan de Render ofrece backups automáticos de Postgres, habilítalos en el servicio de base de datos. Es la vía más simple (cero mantenimiento) para restaurar o migrar sin estrés.
+
+### Opción repo (`db:dump`)
+
+Este repo incluye un comando para exportar un dump de Postgres sin agregar dependencias nuevas:
+
+```bash
+npm run db:dump
+```
+
+Detalles:
+- Requiere `DATABASE_URL` apuntando al Postgres objetivo.
+- Requiere `pg_dump` disponible en `PATH`.
+- Guarda archivos `.dump` (formato custom de Postgres) en `apps/api/backups/`.
+
+#### Programación diaria (Windows Task Scheduler)
+
+Ejemplo de script PowerShell (`C:\scripts\fitsculpt-db-dump.ps1`):
+
+```powershell
+$env:DATABASE_URL="postgresql://user:pass@host:5432/dbname"
+Set-Location "C:\ruta\fitsculpt-fe-web\apps\api"
+npm run db:dump
+```
+
+Luego en Task Scheduler:
+1. Create Task -> Trigger: Daily.
+2. Action: `powershell.exe`
+3. Arguments: `-ExecutionPolicy Bypass -File C:\scripts\fitsculpt-db-dump.ps1`
+
+#### Programación diaria (GitHub Actions)
+
+> Requiere agregar `DATABASE_URL` como secret del repo.
+
+```yaml
+name: Daily DB dump
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Create dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:dump
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-dump
+          path: apps/api/backups/*.dump
 ```
 
 ## Workflow de migrações (seguro para Render)
