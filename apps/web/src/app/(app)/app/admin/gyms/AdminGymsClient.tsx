@@ -11,6 +11,7 @@ type Gym = {
   name: string;
   joinCode?: string;
   code?: string;
+  activationCode?: string;
   membersCount?: number;
   requestsCount?: number;
 };
@@ -95,8 +96,8 @@ export default function AdminGymsClient() {
         body: JSON.stringify({ name: name.trim() }),
       });
       if (!res.ok) throw new Error("create");
-      const created = (await res.json()) as { id: string; joinCode?: string; code?: string };
-      setCreatedCode(created.joinCode ?? created.code ?? null);
+      const created = (await res.json()) as { id: string; joinCode?: string; code?: string; activationCode?: string };
+      setCreatedCode(created.activationCode ?? created.joinCode ?? created.code ?? null);
       setName("");
       await loadGyms();
       setSelectedGymId(created.id);
@@ -162,7 +163,7 @@ export default function AdminGymsClient() {
             </select>
             {gyms.map((gym) => (
               <p className="muted" style={{ margin: 0 }} key={`${gym.id}-meta`}>
-                {`${gym.name} · ${t("adminGyms.joinCodeLabel")}: ${gym.joinCode ?? gym.code ?? "-"} · ${t("adminGyms.membersCountLabel")}: ${gym.membersCount ?? 0} · ${t("adminGyms.requestsCountLabel")}: ${gym.requestsCount ?? 0}`}
+                {`${gym.name} · ${t("adminGyms.joinCodeLabel")}: ${gym.activationCode ?? gym.joinCode ?? gym.code ?? "-"} · ${t("adminGyms.membersCountLabel")}: ${gym.membersCount ?? 0} · ${t("adminGyms.requestsCountLabel")}: ${gym.requestsCount ?? 0}`}
               </p>
             ))}
           </>
