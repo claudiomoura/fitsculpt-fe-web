@@ -5116,6 +5116,12 @@ const trainingPlanListSchema = z.object({
   }, z.number().int().min(0).default(0)),
 });
 
+const trainingPlanCreateSchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  notes: z.string().trim().min(1).max(600).optional(),
+  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+});
+
 const trainingPlanParamsSchema = z.object({ id: z.string().min(1) });
 const trainingDayParamsSchema = z.object({
   planId: z.string().min(1),
@@ -5293,6 +5299,55 @@ app.get("/training-plans/:id", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
     return plan;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/training-plans", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const data = trainingPlanCreateSchema.parse(request.body ?? {});
+    const daysPerWeek = data.daysPerWeek ?? 7;
+    const startDate = new Date();
+
+    const createdPlan = await prisma.trainingPlan.create({
+      data: {
+        userId: user.id,
+        title: data.title ?? "Plan semanal",
+        notes: data.notes ?? null,
+        goal: "general",
+        level: "intermediate",
+        daysPerWeek,
+        focus: "full",
+        equipment: "mixed",
+        startDate,
+        daysCount: 7,
+        days: {
+          create: Array.from({ length: 7 }, (_, index) => {
+            const dayDate = new Date(startDate);
+            dayDate.setDate(startDate.getDate() + index);
+            return {
+              date: dayDate,
+              label: `Día ${index + 1}`,
+              focus: "General",
+              duration: 45,
+              order: index,
+            };
+          }),
+        },
+      },
+      include: {
+        days: {
+          orderBy: { order: "asc" },
+          include: {
+            exercises: { orderBy: { id: "asc" } },
+          },
+        },
+      },
+    });
+
+    return reply.status(201).send(createdPlan);
   } catch (error) {
     return handleRequestError(reply, error);
   }
