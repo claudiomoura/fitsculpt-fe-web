@@ -2132,7 +2132,8 @@
         "loadPlansError": "We could not load your plans.",
         "submit": "Assign plan",
         "cancel": "Cancel",
-        "submitError": "We could not assign this plan. Please verify member and gym eligibility."
+        "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
+        "unavailable": "This action is not available in the current environment."
       },
       "goToPanel": "Go to gym panel"
     },
@@ -2269,6 +2270,8 @@
     "requestsCountLabel": "Requests",
     "membersTitle": "Active members",
     "membersEmpty": "No active members.",
+    "membersUnavailable": "Member listing is not available in this environment.",
+    "memberRoleUnavailable": "Role updates are not available in this environment.",
     "promoteTrainer": "Promote to TRAINER",
     "demoteMember": "Set as MEMBER",
     "errors": {

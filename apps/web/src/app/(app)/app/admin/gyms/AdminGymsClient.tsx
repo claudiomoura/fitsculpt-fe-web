@@ -33,6 +33,8 @@ export default function AdminGymsClient() {
   const [loading, setLoading] = useState(true);
   const [unsupported, setUnsupported] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [membersUnsupported, setMembersUnsupported] = useState(false);
+  const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadGyms = async () => {
@@ -63,8 +65,14 @@ export default function AdminGymsClient() {
     setMembersLoading(true);
     try {
       const res = await fetch(`/api/admin/gyms/${gymId}/members`, { cache: "no-store", credentials: "include" });
+      if (res.status === 404 || res.status === 405) {
+        setMembersUnsupported(true);
+        setMembers([]);
+        return;
+      }
       if (!res.ok) throw new Error("members");
       const data = (await res.json()) as Member[];
+      setMembersUnsupported(false);
       setMembers(data.filter((member) => member.status === "ACTIVE"));
     } catch {
       setMembers([]);
@@ -117,7 +125,12 @@ export default function AdminGymsClient() {
         credentials: "include",
         body: JSON.stringify({ role, status: "ACTIVE" }),
       });
+      if (res.status === 404 || res.status === 405) {
+        setRoleUpdateUnsupported(true);
+        return;
+      }
       if (!res.ok) throw new Error("role");
+      setRoleUpdateUnsupported(false);
       await loadMembers(selectedGymId);
     } catch {
       setError(t("adminGyms.errors.role"));
@@ -177,17 +190,19 @@ export default function AdminGymsClient() {
 
       <section className="card form-stack">
         <h2 className="section-title section-title-sm">{t("adminGyms.membersTitle")}</h2>
+        {membersUnsupported ? <p className="muted">{t("adminGyms.membersUnavailable")}</p> : null}
         {membersLoading ? <p className="muted">{t("common.loading")}</p> : null}
-        {!membersLoading && members.length === 0 ? <p className="muted">{t("adminGyms.membersEmpty")}</p> : null}
-        {!membersLoading && members.length > 0
+        {!membersUnsupported && !membersLoading && members.length === 0 ? <p className="muted">{t("adminGyms.membersEmpty")}</p> : null}
+        {!membersUnsupported && !membersLoading && members.length > 0
           ? members.map((member) => (
               <div key={member.user.id} className="status-card" style={{ marginTop: 8 }}>
                 <strong>{member.user.name ?? member.user.email}</strong>
                 <p className="muted" style={{ margin: 0 }}>{`${member.user.email} · ${member.role}`}</p>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <Button onClick={() => void setMemberRole(member.user.id, "TRAINER")} disabled={member.role === "TRAINER"}>{t("adminGyms.promoteTrainer")}</Button>
-                  <Button variant="secondary" onClick={() => void setMemberRole(member.user.id, "MEMBER")} disabled={member.role === "MEMBER"}>{t("adminGyms.demoteMember")}</Button>
+                  <Button onClick={() => void setMemberRole(member.user.id, "TRAINER")} disabled={member.role === "TRAINER" || roleUpdateUnsupported}>{t("adminGyms.promoteTrainer")}</Button>
+                  <Button variant="secondary" onClick={() => void setMemberRole(member.user.id, "MEMBER")} disabled={member.role === "MEMBER" || roleUpdateUnsupported}>{t("adminGyms.demoteMember")}</Button>
                 </div>
+                {roleUpdateUnsupported ? <p className="muted" style={{ margin: 0 }}>{t("adminGyms.memberRoleUnavailable")}</p> : null}
               </div>
             ))
           : null}
