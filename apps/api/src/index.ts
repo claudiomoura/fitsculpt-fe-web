@@ -5791,11 +5791,9 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
 
 app.get("/gyms/membership", getGymMembership);
 
-if (!app.hasRoute({ method: "GET", url: "/gym/me" })) {
-  app.get("/gym/me", getGymMembership);
-} else {
-  app.log.warn("Skipping duplicate GET /gym/me registration");
-}
+await app.register(async (gymRoutes) => {
+  gymRoutes.get("/me", getGymMembership);
+}, { prefix: "/gym" });
 
 app.post("/gym/join-request", async (request, reply) => {
   try {
