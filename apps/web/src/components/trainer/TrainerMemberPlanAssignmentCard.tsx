@@ -142,6 +142,9 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
             <div className="feature-card form-stack" role="status">
               <strong>{t("trainer.clientContext.training.assignment.currentLabel")}</strong>
               <p className="muted" style={{ margin: 0 }}>{assignedPlan.title}</p>
+              <Link className="btn secondary" href={`/app/biblioteca?athleteUserId=${memberId}`} style={{ width: "fit-content" }}>
+                {t("trainer.clientContext.training.assignment.addExerciseCta")}
+              </Link>
             </div>
           ) : (
             <p className="muted">{t("trainer.clientContext.training.assignment.noneAssigned")}</p>

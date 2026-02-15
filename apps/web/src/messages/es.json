@@ -1610,7 +1610,19 @@
     "favoriteRemovedToastTitle": "Quitado de favoritos",
     "favoriteToastDescription": "Tu lista de favoritos está actualizada.",
     "recentsClearedToastTitle": "Recientes eliminados",
-    "recentsClearedToastDescription": "Se eliminaron tus ejercicios recientes."
+    "recentsClearedToastDescription": "Se eliminaron tus ejercicios recientes.",
+    "addToPlanModalTitle": "Agregar ejercicio al plan",
+    "addToPlanModalDescription": "Selecciona el día para {exercise}.",
+    "addToPlanDayLabel": "Día del plan",
+    "addToPlanDayPlaceholder": "Selecciona un día",
+    "addToPlanConfirm": "Añadir al día",
+    "addToPlanLoading": "Cargando días disponibles del plan...",
+    "addToPlanLoadError": "No pudimos cargar los días del plan.",
+    "addToPlanNoPlan": "No hay un plan de entrenamiento activo.",
+    "addToPlanNoPlanCta": "Crear o seleccionar un plan",
+    "addToPlanSubmitError": "No pudimos añadir el ejercicio. Reintenta.",
+    "addToPlanSuccessTitle": "Ejercicio añadido",
+    "addToPlanSuccessDescription": "{exercise} se añadió al día seleccionado."
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -1935,7 +1947,8 @@
           "submitting": "Asignando...",
           "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
           "success": "{plan} fue asignado correctamente a {member}.",
-          "unknownPlan": "Plan seleccionado"
+          "unknownPlan": "Plan seleccionado",
+          "addExerciseCta": "Agregar ejercicio desde biblioteca"
         }
       },
       "nutrition": {
