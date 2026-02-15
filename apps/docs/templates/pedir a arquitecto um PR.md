@@ -1,4 +1,4 @@
-# TEMPLATE — Prompt para el Arquitecto Jefe (FitSculpt)  
+# TPrompt para el Arquitecto Jefe (FitSculpt)  
 **Objetivo:** coordinar 3 equipos de desarrollo (agentes IA tipo Codex) en paralelo, por sprints, con PRs independientes y prompts “copy/paste” listos.
 
 ---
@@ -102,4 +102,4 @@ Al final de tu respuesta, añade SIEMPRE:
 - “¿Se puede empezar el siguiente sprint sin mergear todo?” → Sí/No (y por qué)
 - “Orden recomendado de merges” → A→B→C (o el que aplique)
 
-Fin del template.
+
