@@ -1984,7 +1984,12 @@
           "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
           "success": "{plan} fue asignado correctamente a {member}.",
           "unknownPlan": "Plan seleccionado",
-          "addExerciseCta": "Agregar ejercicio desde biblioteca"
+          "addExerciseCta": "Agregar ejercicio desde biblioteca",
+          "createCta": "Crear plan mínimo (7 días)",
+          "creating": "Creando plan...",
+          "createSuccess": "Plan mínimo creado correctamente. Ya puedes asignarlo o agregar ejercicios desde biblioteca.",
+          "createError": "No pudimos crear un plan mínimo. Reintenta.",
+          "defaultPlanTitle": "Plan semanal mínimo"
         }
       },
       "nutrition": {
