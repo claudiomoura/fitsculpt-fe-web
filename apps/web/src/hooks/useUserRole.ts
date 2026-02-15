@@ -16,6 +16,59 @@ type UserRoleState = {
   gymMembershipState: GymMembershipState;
 };
 
+type UnknownRecord = Record<string, unknown>;
+
+const ADMIN_TOKENS = ["ADMIN", "ROLE_ADMIN", "ADMINISTRATOR"];
+const TRAINER_TOKENS = ["TRAINER", "COACH", "ROLE_TRAINER", "ROLE_COACH", "TRAINER_READ"];
+const DEV_TOKENS = ["DEV", "DEVELOPER", "ROLE_DEV", "ROLE_DEVELOPER"];
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
+function getStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function collectProfileCandidates(profile: unknown): UnknownRecord[] {
+  if (!isRecord(profile)) return [];
+
+  const candidates: UnknownRecord[] = [profile];
+  for (const key of ["user", "data", "profile"] as const) {
+    const candidate = profile[key];
+    if (isRecord(candidate)) {
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates;
+}
+
+function hasAnyToken(tokens: string[], allowedTokens: string[]): boolean {
+  const normalized = tokens.map((token) => token.trim().toUpperCase());
+  return allowedTokens.some((token) => normalized.includes(token));
+}
+
+function inferCapabilityFlagsFromMe(profile: unknown): Pick<UserRoleState, "isAdmin" | "isTrainer" | "isDev"> {
+  const candidates = collectProfileCandidates(profile);
+  const roleTokens = candidates.flatMap((candidate) => {
+    const tokens = getStringArray(candidate.roles);
+    if (typeof candidate.role === "string") {
+      tokens.push(candidate.role);
+    }
+    return tokens;
+  });
+  const permissionTokens = candidates.flatMap((candidate) => getStringArray(candidate.permissions));
+  const combinedTokens = [...roleTokens, ...permissionTokens];
+
+  const isAdmin = hasAnyToken(combinedTokens, ADMIN_TOKENS);
+  const isTrainer = hasAnyToken(combinedTokens, TRAINER_TOKENS);
+  const isDev = hasAnyToken(combinedTokens, DEV_TOKENS);
+
+  return { isAdmin, isTrainer, isDev };
+}
+
 function readExplicitRole(profile: unknown): AccessRole | null {
   if (typeof profile !== "object" || profile === null) return null;
 
@@ -88,9 +141,10 @@ export function useUserRole(): UserRoleState {
 
   return useMemo(() => {
     const capabilities = getUserCapabilities(profile);
-    const isAdmin = capabilities.isAdmin;
-    const isTrainer = capabilities.isTrainer;
-    const isDev = capabilities.isDev;
+    const inferredCapabilities = inferCapabilityFlagsFromMe(profile);
+    const isAdmin = capabilities.isAdmin || inferredCapabilities.isAdmin;
+    const isTrainer = capabilities.isTrainer || inferredCapabilities.isTrainer;
+    const isDev = capabilities.isDev || inferredCapabilities.isDev;
 
     return {
       loading,
