@@ -26,7 +26,7 @@ import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import { useExerciseRecents } from "@/lib/exerciseRecents";
 import type { NutritionMeal } from "@/lib/profile";
 import { slugifyExerciseName } from "@/lib/slugify";
-import type { TrainingPlanDetail } from "@/lib/types";
+import type { NutritionPlanDetail, NutritionPlanDetailMeal, NutritionPlanListItem, TrainingPlanDetail } from "@/lib/types";
 
 type CheckinEntry = {
   date?: string | null;
@@ -108,7 +108,7 @@ const buildNutritionSummary = (plan?: NutritionPlanDetail | null): TodayNutritio
   const day = findTodayPlanDay(plan.days, plan.startDate);
   if (!day || day.meals.length === 0) return null;
   const todayKey = toDateKey(new Date());
-const meals = day.meals.map((meal: NutritionMeal, index: number) => {
+const meals = day.meals.map((meal: NutritionPlanDetailMeal, index: number) => {
   const title = meal.title?.trim() ?? "";
   const description = meal.description?.trim() ?? "";
 
@@ -122,11 +122,16 @@ const meals = day.meals.map((meal: NutritionMeal, index: number) => {
   // key MUST be a string (avoid null) to satisfy TS and React keys
   const key = parts.length > 0 ? parts.join(":") : `meal:${todayKey}:${index}`;
 
+  const mealType: NutritionMeal["type"] | undefined =
+    meal.type === "breakfast" || meal.type === "lunch" || meal.type === "dinner" || meal.type === "snack"
+      ? meal.type
+      : undefined;
+
   return {
     key,
     title: meal.title,
-    description: meal.description,
-    type: meal.type,
+    description: meal.description ?? undefined,
+    type: mealType,
   };
 });
   return {
