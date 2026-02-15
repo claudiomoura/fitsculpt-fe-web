@@ -18,13 +18,13 @@ export function resolveDatabaseUrl() {
   }
 
   const normalizedUrl = normalizeDatabaseUrl(rawUrl);
-  const host = safeHostFromUrl(rawUrl);
+  const diagnostics = getDatabaseDiagnostics(normalizedUrl);
 
-  return { source, normalizedUrl, host };
+  return { source, normalizedUrl, ...diagnostics };
 }
 
 export async function createPrismaClientWithRetry(logger?: FastifyLikeLogger) {
-  const { normalizedUrl, source, host } = resolveDatabaseUrl();
+  const { normalizedUrl, source, host, database } = resolveDatabaseUrl();
 
   for (let attempt = 1; attempt <= MAX_CONNECT_ATTEMPTS; attempt += 1) {
     const prisma = new PrismaClient({
@@ -35,19 +35,20 @@ export async function createPrismaClientWithRetry(logger?: FastifyLikeLogger) {
 
     try {
       await prisma.$connect();
-      logger?.info({ attempt, source, host }, "Prisma connected");
+      logInfo(logger, { attempt, source, host, database }, "Prisma connected");
       return prisma;
     } catch (error) {
       await prisma.$disconnect().catch(() => undefined);
 
       if (!isTransientConnectionError(error) || attempt === MAX_CONNECT_ATTEMPTS) {
-        logger?.error({ attempt, source, host, err: error }, "Prisma failed to connect");
+        logError(logger, { attempt, source, host, database, err: error }, "Prisma failed to connect");
         throw error;
       }
 
       const delayMs = BASE_BACKOFF_MS * attempt;
-      logger?.warn(
-        { attempt, maxAttempts: MAX_CONNECT_ATTEMPTS, delayMs, source, host },
+      logWarn(
+        logger,
+        { attempt, maxAttempts: MAX_CONNECT_ATTEMPTS, delayMs, source, host, database },
         "Transient Prisma connection error, retrying",
       );
       await wait(delayMs);
@@ -57,18 +58,23 @@ export async function createPrismaClientWithRetry(logger?: FastifyLikeLogger) {
   throw new Error("Prisma connection retries exhausted");
 }
 
-function normalizeDatabaseUrl(rawUrl: string) {
+export function normalizeDatabaseUrl(rawUrl: string) {
   try {
     const parsed = new URL(rawUrl);
-    const isRenderHost = parsed.hostname.endsWith(".render.com") || parsed.hostname.includes("render.com");
 
-    if (!isRenderHost) {
+    if (!parsed.hostname.includes("render.com")) {
       return rawUrl;
     }
 
-    parsed.searchParams.set("sslmode", "require");
-    parsed.searchParams.set("connection_limit", "1");
-    parsed.searchParams.set("pool_timeout", "0");
+    if (!parsed.searchParams.has("sslmode")) {
+      parsed.searchParams.set("sslmode", "require");
+    }
+    if (!parsed.searchParams.has("connection_limit")) {
+      parsed.searchParams.set("connection_limit", "1");
+    }
+    if (!parsed.searchParams.has("pool_timeout")) {
+      parsed.searchParams.set("pool_timeout", "0");
+    }
 
     return parsed.toString();
   } catch {
@@ -88,12 +94,44 @@ function isTransientConnectionError(error: unknown) {
   return false;
 }
 
-function safeHostFromUrl(rawUrl: string) {
+function getDatabaseDiagnostics(rawUrl: string) {
   try {
-    return new URL(rawUrl).host;
+    const parsed = new URL(rawUrl);
+    const database = parsed.pathname.replace(/^\//, "") || "unknown";
+    return {
+      host: parsed.host || "unknown",
+      database,
+    };
   } catch {
-    return "unknown";
+    return {
+      host: "unknown",
+      database: "unknown",
+    };
   }
+}
+
+function logInfo(logger: FastifyLikeLogger | undefined, obj: Record<string, unknown>, msg: string) {
+  if (logger) {
+    logger.info(obj, msg);
+    return;
+  }
+  console.info(msg, obj);
+}
+
+function logWarn(logger: FastifyLikeLogger | undefined, obj: Record<string, unknown>, msg: string) {
+  if (logger) {
+    logger.warn(obj, msg);
+    return;
+  }
+  console.warn(msg, obj);
+}
+
+function logError(logger: FastifyLikeLogger | undefined, obj: Record<string, unknown>, msg: string) {
+  if (logger) {
+    logger.error(obj, msg);
+    return;
+  }
+  console.error(msg, obj);
 }
 
 function wait(ms: number) {
