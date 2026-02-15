@@ -7,7 +7,6 @@ import { addExerciseRecent } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise, TrainingPlanDetail } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
 import {
@@ -299,9 +298,6 @@ export default function ExerciseDetailClient({
         badges={badgeItems}
         actions={
           <>
-            <Button variant="secondary" size="sm" aria-label={addLabel} onClick={() => setIsAddModalOpen(true)}>
-              +
-            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -316,7 +312,9 @@ export default function ExerciseDetailClient({
             <Button variant="secondary" onClick={handleBackNavigation}>
               {backLabel}
             </Button>
-            <Button onClick={() => setPickerOpen(true)}>+</Button>
+            <Button variant="secondary" size="sm" aria-label={addLabel} onClick={() => setPickerOpen(true)}>
+              +
+            </Button>
           </>
         }
       />
@@ -391,21 +389,6 @@ export default function ExerciseDetailClient({
           noMusclesFallback: t("library.noMuscleData"),
         }}
       />
-
-
-      <Modal
-        open={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title={t("library.addActionModalTitle")}
-        description={t("library.addActionModalDescription", { name: exercise.name })}
-        footer={
-          <Button variant="secondary" onClick={() => setIsAddModalOpen(false)}>
-            {t("ui.close")}
-          </Button>
-        }
-      >
-        <p className="muted">{t("library.addActionPendingDescription")}</p>
-      </Modal>
 
       <ExerciseMediaViewer
         open={isMediaViewerOpen}
