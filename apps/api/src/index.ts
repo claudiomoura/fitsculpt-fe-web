@@ -2389,55 +2389,53 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
 
 
 function buildExerciseFilters(params: {
-  query?: string;
-  muscle?: string;
+  q?: string;
+  primaryMuscle?: string;
   equipment?: string;
 }): Prisma.Sql {
   const filters: Prisma.Sql[] = [];
 
-  if (params.query) {
-    filters.push(Prisma.sql`name ILIKE ${`%${params.query}%`}`);
+  if (params.q) {
+    filters.push(Prisma.sql`name ILIKE ${`%${params.q}%`}`);
   }
 
   if (params.equipment && params.equipment !== "all") {
     filters.push(Prisma.sql`equipment = ${params.equipment}`);
   }
 
-  if (params.muscle && params.muscle !== "all") {
+  if (params.primaryMuscle && params.primaryMuscle !== "all") {
     filters.push(
-      Prisma.sql`("mainMuscleGroup" = ${params.muscle} OR "secondaryMuscleGroups" @> ARRAY[${params.muscle}]::text[])`
+      Prisma.sql`("mainMuscleGroup" = ${params.primaryMuscle} OR "secondaryMuscleGroups" @> ARRAY[${params.primaryMuscle}]::text[])`
     );
   }
 
   const whereClause =
     filters.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(filters)}`
+      ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
       : Prisma.sql``;
 
   return whereClause;
 }
 
-
-
 async function listExercises(params: {
-  query?: string;
-  muscle?: string;
+  q?: string;
+  primaryMuscle?: string;
   equipment?: string;
   limit: number;
   offset: number;
 }) {
   if (hasExerciseClient()) {
     const where: Prisma.ExerciseWhereInput = {};
-    if (params.query) {
-      where.name = { contains: params.query, mode: "insensitive" };
+    if (params.q) {
+      where.name = { contains: params.q, mode: "insensitive" };
     }
     if (params.equipment && params.equipment !== "all") {
       where.equipment = params.equipment;
     }
-    if (params.muscle && params.muscle !== "all") {
+    if (params.primaryMuscle && params.primaryMuscle !== "all") {
       where.OR = [
-        { mainMuscleGroup: params.muscle },
-        { secondaryMuscleGroups: { has: params.muscle } },
+        { mainMuscleGroup: params.primaryMuscle },
+        { secondaryMuscleGroups: { has: params.primaryMuscle } },
       ];
     }
     const [items, total] = await prisma.$transaction([
@@ -5034,7 +5032,9 @@ const workoutSessionUpdateSchema = z.object({
 });
 
 const exerciseListSchema = z.object({
+  q: z.string().min(1).optional(),
   query: z.string().min(1).optional(),
+  primaryMuscle: z.string().min(1).optional(),
   muscle: z.string().min(1).optional(),
   equipment: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -5123,9 +5123,17 @@ function isRecord(value: unknown): value is UnknownRecord {
 app.get("/exercises", async (request, reply) => {
   try {
     await requireUser(request);
-    const { query, muscle, equipment, limit, offset } = exerciseListSchema.parse(request.query);
-    const { items, total } = await listExercises({ query, muscle, equipment, limit, offset });
-    return { items, total, limit, offset };
+    const parsed = exerciseListSchema.parse(request.query);
+    const q = parsed.q ?? parsed.query;
+    const primaryMuscle = parsed.primaryMuscle ?? parsed.muscle;
+    const { items, total } = await listExercises({
+      q,
+      primaryMuscle,
+      equipment: parsed.equipment,
+      limit: parsed.limit,
+      offset: parsed.offset,
+    });
+    return { items, total, limit: parsed.limit, offset: parsed.offset };
   } catch (error) {
     return handleRequestError(reply, error);
   }
