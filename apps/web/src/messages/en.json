@@ -1914,6 +1914,23 @@
           "assignConfirmation": "Plan assignment request captured.",
           "assignUnavailable": "Dual-plan assignment requires backend support and is unavailable in this environment.",
           "emptyUnsupported": "No distinct Home/Gym plan data is available for this client yet."
+        },
+        "assignment": {
+          "title": "Assign training plan",
+          "description": "Choose one of your existing plans and assign it to {member}.",
+          "loading": "Loading plans and current assignment...",
+          "loadError": "We could not load plan assignment data.",
+          "currentLabel": "Currently assigned plan",
+          "noneAssigned": "No plan assigned to this member yet.",
+          "emptyPlans": "You do not have training plans available to assign.",
+          "emptyPlansCta": "Create or generate a training plan",
+          "planLabel": "Available plans",
+          "planPlaceholder": "Select a plan",
+          "submit": "Assign plan",
+          "submitting": "Assigning...",
+          "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
+          "success": "Assigned {plan} to {member} successfully.",
+          "unknownPlan": "Selected plan"
         }
       },
       "nutrition": {

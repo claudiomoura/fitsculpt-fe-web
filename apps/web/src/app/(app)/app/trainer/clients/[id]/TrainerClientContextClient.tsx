@@ -8,7 +8,7 @@ import { hasTrainerClientContextCapability, hasTrainerClientsCapability } from "
 import { canAccessTrainerGymArea, extractGymMembership } from "@/lib/gymMembership";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
-import TrainerDualPlanAssignment from "@/components/trainer/TrainerDualPlanAssignment";
+import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
 
 type AuthUser = Record<string, unknown>;
 
@@ -252,7 +252,7 @@ export default function TrainerClientContextClient() {
           <p className="muted" style={{ margin: 0 }}>
             {t("trainer.clientContext.training.subscriptionHint")}
           </p>
-          <TrainerDualPlanAssignment clientPlans={client?.plans} canAssignDualPlans={false} />
+          {client ? <TrainerMemberPlanAssignmentCard memberId={client.id} memberName={clientName} /> : null}
           {client ? <TrainerClientDraftActions clientId={client.id} /> : null}
         </div>
       );

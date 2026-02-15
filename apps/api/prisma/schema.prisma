@@ -204,6 +204,7 @@ model TrainingPlan {
   updatedAt   DateTime       @updatedAt
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   days        TrainingDay[]
+  gymAssignments GymMembership[] @relation("GymMemberAssignedTrainingPlan")
 
   @@index([userId])
   @@unique([userId, startDate, daysCount])
@@ -406,14 +407,17 @@ model GymMembership {
   userId    String
   status    GymMembershipStatus
   role      GymRole
+  assignedTrainingPlanId String?
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
   gym       Gym                 @relation(fields: [gymId], references: [id], onDelete: Cascade)
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedTrainingPlan TrainingPlan? @relation("GymMemberAssignedTrainingPlan", fields: [assignedTrainingPlanId], references: [id], onDelete: SetNull)
 
   @@unique([gymId, userId])
   @@index([gymId, status])
   @@index([userId, status])
+  @@index([assignedTrainingPlanId])
 }
 
 enum Role {

@@ -5084,8 +5084,16 @@ const assignTrainingPlanParamsSchema = z.object({
   gymId: z.string().min(1),
   userId: z.string().min(1),
 });
-const assignTrainingPlanBodySchema = z.object({
-  templatePlanId: z.string().min(1),
+const assignTrainingPlanBodySchema = z
+  .object({
+    trainingPlanId: z.string().min(1).optional(),
+    templatePlanId: z.string().min(1).optional(),
+  })
+  .refine((value) => Boolean(value.trainingPlanId || value.templatePlanId), {
+    message: "trainingPlanId is required",
+  });
+const trainerMemberParamsSchema = z.object({
+  userId: z.string().min(1),
 });
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
@@ -5109,88 +5117,8 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null;
 }
 
-function getProfileValue(profile: UnknownRecord, keys: string[]) {
-  for (const key of keys) {
-    const value = profile[key];
-    if (typeof value === "string" && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return null;
-}
 
-function normalizeMembershipRole(value: string | null) {
-  if (!value) return null;
-  const normalized = value.trim().toUpperCase();
-  if (normalized === "ADMIN" || normalized === "TRAINER" || normalized === "MEMBER") {
-    return normalized;
-  }
-  return null;
-}
 
-function normalizeMembershipStatus(value: string | null) {
-  if (!value) return null;
-  const normalized = value.trim().toUpperCase();
-  if (normalized === "ACTIVE") return normalized;
-  return null;
-}
-
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-async function resolvePlanStartDate(userId: string, daysCount: number) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  for (let offset = 0; offset <= 365; offset += 1) {
-    const candidate = addDays(today, offset);
-    const existing = await prisma.trainingPlan.findUnique({
-      where: {
-        userId_startDate_daysCount: {
-          userId,
-          startDate: candidate,
-          daysCount,
-        },
-      },
-      select: { id: true },
-    });
-    if (!existing) {
-      return candidate;
-    }
-  }
-
-  throw createHttpError(409, "PLAN_CONFLICT");
-}
-
-async function readGymMembership(userId: string) {
-  const profile = await prisma.userProfile.findUnique({ where: { userId } });
-  if (!profile || !isRecord(profile.profile)) {
-    return null;
-  }
-
-  const profileData = profile.profile;
-  const tenant = isRecord(profileData.tenant) ? profileData.tenant : null;
-
-  const gymId =
-    getProfileValue(profileData, ["gymId", "tenantId"]) ??
-    (tenant ? getProfileValue(tenant, ["gymId", "tenantId", "id"]) : null);
-
-  const role = normalizeMembershipRole(
-    getProfileValue(profileData, ["gymRole", "membershipRole", "role"]) ??
-      (tenant ? getProfileValue(tenant, ["gymRole", "membershipRole", "role"]) : null)
-  );
-  const status = normalizeMembershipStatus(
-    getProfileValue(profileData, ["gymMembershipStatus", "membershipStatus", "status"]) ??
-      (tenant ? getProfileValue(tenant, ["gymMembershipStatus", "membershipStatus", "status"]) : null)
-  );
-
-  if (!gymId) return null;
-
-  return { gymId, role, status };
-}
 
 app.get("/exercises", async (request, reply) => {
   try {
@@ -5321,33 +5249,32 @@ app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (reque
   try {
     const requester = await requireUser(request);
     const { gymId, userId } = assignTrainingPlanParamsSchema.parse(request.params);
-    const { templatePlanId } = assignTrainingPlanBodySchema.parse(request.body);
+    const { trainingPlanId, templatePlanId } = assignTrainingPlanBodySchema.parse(request.body);
+    const selectedPlanId = trainingPlanId ?? templatePlanId;
 
-    const [requesterMembership, targetMembership, templatePlan] = await Promise.all([
-      readGymMembership(requester.id),
-      readGymMembership(userId),
+    await requireGymManagerForGym(requester.id, gymId);
+
+    const [targetMembership, selectedPlan] = await Promise.all([
+      prisma.gymMembership.findUnique({
+        where: { gymId_userId: { gymId, userId } },
+      }),
       prisma.trainingPlan.findFirst({
-        where: { id: templatePlanId, userId: requester.id },
-        include: {
-          days: {
-            orderBy: { order: "asc" },
-            include: {
-              exercises: { orderBy: { id: "asc" } },
-            },
-          },
+        where: { id: selectedPlanId, userId: requester.id },
+        select: {
+          id: true,
+          title: true,
+          goal: true,
+          level: true,
+          daysPerWeek: true,
+          focus: true,
+          equipment: true,
+          startDate: true,
+          daysCount: true,
         },
       }),
     ]);
 
-    if (!requesterMembership || requesterMembership.gymId !== gymId || requesterMembership.status !== "ACTIVE") {
-      return reply.status(403).send({ error: "FORBIDDEN" });
-    }
-
-    if (requesterMembership.role !== "ADMIN" && requesterMembership.role !== "TRAINER") {
-      return reply.status(403).send({ error: "FORBIDDEN" });
-    }
-
-    if (!targetMembership || targetMembership.gymId !== gymId || targetMembership.status !== "ACTIVE") {
+    if (!targetMembership || targetMembership.status !== "ACTIVE") {
       return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
     }
 
@@ -5355,48 +5282,74 @@ app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (reque
       return reply.status(400).send({ error: "INVALID_MEMBER_ROLE" });
     }
 
-    if (!templatePlan) {
-      return reply.status(404).send({ error: "TEMPLATE_PLAN_NOT_FOUND" });
+    if (!selectedPlan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
     }
 
-    const startDate = await resolvePlanStartDate(userId, templatePlan.daysCount);
-
-    const clonedPlan = await prisma.trainingPlan.create({
-      data: {
-        userId,
-        title: templatePlan.title,
-        notes: templatePlan.notes,
-        goal: templatePlan.goal,
-        level: templatePlan.level,
-        daysPerWeek: templatePlan.daysPerWeek,
-        focus: templatePlan.focus,
-        equipment: templatePlan.equipment,
-        startDate,
-        daysCount: templatePlan.daysCount,
-        days: {
-          create: templatePlan.days.map((day, dayIndex) => ({
-            date: addDays(startDate, dayIndex),
-            label: day.label,
-            focus: day.focus,
-            duration: day.duration,
-            order: day.order,
-            exercises: {
-              create: day.exercises.map((exercise) => ({
-                name: exercise.name,
-                sets: exercise.sets,
-                reps: exercise.reps,
-                tempo: exercise.tempo,
-                rest: exercise.rest,
-                notes: exercise.notes,
-              })),
-            },
-          })),
-        },
-      },
-      select: { id: true },
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: selectedPlan.id },
     });
 
-    return reply.status(201).send({ planId: clonedPlan.id });
+    return reply.status(200).send({
+      planId: selectedPlan.id,
+      assignedPlan: selectedPlan,
+      memberId: userId,
+      gymId,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/members/:userId/training-plan-assignment", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { userId } = trainerMemberParamsSchema.parse(request.params);
+
+    const targetMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId,
+        status: "ACTIVE",
+        role: "MEMBER",
+        gym: {
+          memberships: {
+            some: {
+              userId: requester.id,
+              status: "ACTIVE",
+              role: { in: ["ADMIN", "TRAINER"] },
+            },
+          },
+        },
+      },
+      include: {
+        gym: { select: { id: true, name: true } },
+        assignedTrainingPlan: {
+          select: {
+            id: true,
+            title: true,
+            goal: true,
+            level: true,
+            daysPerWeek: true,
+            focus: true,
+            equipment: true,
+            startDate: true,
+            daysCount: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!targetMembership) {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    return {
+      memberId: userId,
+      gym: targetMembership.gym,
+      assignedPlan: targetMembership.assignedTrainingPlan,
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }
