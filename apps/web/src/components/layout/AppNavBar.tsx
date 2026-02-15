@@ -29,7 +29,7 @@ export default function AppNavBar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const { role, isAdmin, isCoach, isDev } = useAccess();
+  const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
 
   useEffect(() => {
     let active = true;
@@ -74,7 +74,10 @@ export default function AppNavBar() {
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance;
   const hasTokenBalance = typeof tokenBalance === "number";
 
-  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach, isDev }), [role, isCoach, isAdmin, isDev]);
+  const sections = useMemo(
+    () => buildNavigationSections({ role, isAdmin, isCoach, isDev, gymMembershipState }),
+    [role, isCoach, isAdmin, isDev, gymMembershipState],
+  );
 
   const closeMenu = () => setOpen(false);
 
