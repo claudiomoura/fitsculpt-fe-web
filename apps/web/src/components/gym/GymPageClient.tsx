@@ -86,7 +86,6 @@ export default function GymPageClient() {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [gymsLoading, setGymsLoading] = useState(false);
   const [gymsLoadError, setGymsLoadError] = useState(false);
-  const [gymsUnsupported, setGymsUnsupported] = useState(false);
   const [joinRequestUnsupported, setJoinRequestUnsupported] = useState(false);
   const [joinCodeUnsupported, setJoinCodeUnsupported] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
@@ -99,18 +98,11 @@ export default function GymPageClient() {
   const loadGyms = useCallback(async () => {
     setGymsLoading(true);
     setGymsLoadError(false);
-    setGymsUnsupported(false);
 
     try {
       const gymsRes = await fetch("/api/gyms", { cache: "no-store", credentials: "include" });
 
       if (!gymsRes.ok) {
-        if (gymsRes.status === 404 || gymsRes.status === 405) {
-          setGymsUnsupported(true);
-          setGyms([]);
-          setSelectedGymId("");
-          return;
-        }
         if (gymsRes.status === 401) {
           setIsSessionExpired(true);
         }
@@ -141,20 +133,6 @@ export default function GymPageClient() {
 
     try {
       const membershipRes = await fetch("/api/gym/me", { cache: "no-store", credentials: "include" });
-
-      if (membershipRes.status === 404 || membershipRes.status === 405) {
-        const legacyMembershipRes = await fetch("/api/gyms/membership", { cache: "no-store", credentials: "include" });
-        if (legacyMembershipRes.ok) {
-          const membershipData = readMembership(await legacyMembershipRes.json());
-          setMembership(membershipData);
-          if (membershipData.status === "NONE" || membershipData.status === "REJECTED") {
-            await loadGyms();
-          }
-          return;
-        }
-        setMembership(defaultMembership);
-        return;
-      }
 
       if (membershipRes.status === 401) {
         setMembership(defaultMembership);
@@ -309,8 +287,6 @@ export default function GymPageClient() {
                   {t("common.retry")}
                 </Button>
               </div>
-            ) : gymsUnsupported ? (
-              <p className="muted">{t("gym.unavailableDescription")}</p>
             ) : gyms.length === 0 ? (
               <p className="muted">{t("gym.join.empty")}</p>
             ) : (
