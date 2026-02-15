@@ -71,27 +71,30 @@ async function seedDemoAdmin(email: string, password: string) {
 }
 
 async function seedDemoGym(name: string, code: string) {
-  const existingGymByName = await prisma.gym.findFirst({ where: { name } });
   const gymCode = code.trim().toUpperCase();
   const activationCode = `${gymCode}-ACT`;
+  const existingGym = await prisma.gym.findFirst({
+    where: {
+      OR: [{ code: gymCode }, { name }],
+    },
+  });
 
-  if (existingGymByName && existingGymByName.code !== gymCode) {
+  if (existingGym) {
     await prisma.gym.update({
-      where: { id: existingGymByName.id },
-      data: { code: gymCode, activationCode },
+      where: { id: existingGym.id },
+      data: {
+        name,
+        code: gymCode,
+        activationCode,
+      },
     });
     return;
   }
 
-  await prisma.gym.upsert({
-    where: { code: gymCode },
-    create: {
+  await prisma.gym.create({
+    data: {
       name,
       code: gymCode,
-      activationCode,
-    },
-    update: {
-      name,
       activationCode,
     },
   });
