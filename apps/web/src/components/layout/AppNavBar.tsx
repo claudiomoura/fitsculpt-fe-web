@@ -92,7 +92,7 @@ export default function AppNavBar() {
         </Link>
 
         <div className="nav-actions">
-  <AppUserBadge />
+  <AppUserBadge mobileMenuOpen={open} onMobileMenuToggle={() => setOpen((prev) => !prev)} />
 
   <div className={`account-pill ${isPaidPlan ? "is-pro" : "is-free"}`}>
     <span className="account-pill-label">{planLabel}</span>
