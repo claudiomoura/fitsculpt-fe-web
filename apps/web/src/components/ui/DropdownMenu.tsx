@@ -2,7 +2,8 @@
 
 /* eslint-disable react-hooks/refs */
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/lib/classNames";
 
 type DropdownContextValue = {
@@ -23,7 +24,7 @@ export function DropdownMenu({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!open) return;
-    const handleClick = (event: MouseEvent) => {
+    const handleClick = (event: MouseEvent | PointerEvent) => {
       const target = event.target as Node;
       if (contentEl?.contains(target) || triggerEl?.contains(target)) return;
       setOpen(false);
@@ -31,13 +32,13 @@ export function DropdownMenu({ children }: { children: ReactNode }) {
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
-    window.addEventListener("mousedown", handleClick);
+    window.addEventListener("pointerdown", handleClick);
     window.addEventListener("keydown", handleKey);
     return () => {
-      window.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("pointerdown", handleClick);
       window.removeEventListener("keydown", handleKey);
     };
-  }, [open]);
+  }, [open, contentEl, triggerEl]);
 
   return (
     <DropdownContext.Provider value={{ open, setOpen, triggerEl, contentEl, setTriggerEl, setContentEl }}>
@@ -64,9 +65,29 @@ export function DropdownMenuTrigger({ children, className }: { children: ReactNo
 
 export function DropdownMenuContent({ children, className }: { children: ReactNode; className?: string }) {
   const context = useDropdownContext();
+  const contentStyle = useMemo<CSSProperties>(() => {
+    if (!context.triggerEl) return {};
+    const rect = context.triggerEl.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const gutter = 8;
+    const maxWidth = Math.min(320, viewportWidth - gutter * 2);
+    const alignedLeft = Math.max(gutter, rect.right - maxWidth);
+    const alignedTop = rect.bottom + 8;
+    return {
+      position: "fixed",
+      top: `${alignedTop}px`,
+      left: `${alignedLeft}px`,
+      width: `${maxWidth}px`,
+      maxWidth: `calc(100vw - ${gutter * 2}px)`,
+      maxHeight: "min(60dvh, 420px)",
+      overflowY: "auto",
+      zIndex: 200,
+    };
+  }, [context.triggerEl]);
+
   if (!context.open) return null;
   return (
-    <div className={cn("ui-dropdown-content", className)} role="menu" ref={context.setContentEl}>
+    <div className={cn("ui-dropdown-content", className)} role="menu" ref={context.setContentEl} style={contentStyle}>
       {children}
     </div>
   );
@@ -98,6 +119,30 @@ export function DropdownMenuItem({
     >
       {children}
     </button>
+  );
+}
+
+export function DropdownMenuLink({
+  href,
+  children,
+  className,
+}: {
+  href: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const context = useDropdownContext();
+  return (
+    <Link
+      href={href}
+      className={cn("ui-dropdown-item", className)}
+      role="menuitem"
+      onClick={() => {
+        context.setOpen(false);
+      }}
+    >
+      {children}
+    </Link>
   );
 }
 

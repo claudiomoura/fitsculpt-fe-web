@@ -1569,6 +1569,7 @@ label {
   min-width: 220px;
   padding: 12px;
   gap: 6px;
+  pointer-events: auto;
 }
 
 .nav-user-link {
@@ -3440,13 +3441,12 @@ textarea:disabled {
   display: grid;
   gap: 4px;
   z-index: 90;
+  pointer-events: auto;
 }
 
 @media (max-width: 900px) {
   .nav-user-dropdown {
-    left: 0;
-    right: auto;
-    max-width: min(92vw, 320px);
+    min-width: min(92vw, 320px);
   }
 }
 
