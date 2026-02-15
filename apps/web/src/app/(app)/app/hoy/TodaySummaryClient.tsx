@@ -24,7 +24,7 @@ import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import { useExerciseRecents } from "@/lib/exerciseRecents";
-import type { NutritionPlanData, NutritionMeal, ProfileData } from "@/lib/profile";
+import type { NutritionMeal } from "@/lib/profile";
 import { slugifyExerciseName } from "@/lib/slugify";
 import type { TrainingPlanDetail } from "@/lib/types";
 
@@ -42,6 +42,10 @@ type TrackingPayload = {
 type ActiveTrainingPlanPayload = {
   source?: "assigned" | "own";
   plan?: TrainingPlanDetail | null;
+};
+
+type NutritionPlansPayload = {
+  items?: NutritionPlanListItem[];
 };
 
 type SectionStatus = "loading" | "error" | "empty" | "ready";
@@ -99,7 +103,7 @@ const buildTrainingSummary = (plan?: TrainingSummarySource | null): TodayTrainin
   };
 };
 
-const buildNutritionSummary = (plan?: NutritionPlanData | null): TodayNutritionSummaryData | null => {
+const buildNutritionSummary = (plan?: NutritionPlanDetail | null): TodayNutritionSummaryData | null => {
   if (!plan?.days?.length) return null;
   const day = findTodayPlanDay(plan.days, plan.startDate);
   if (!day || day.meals.length === 0) return null;
@@ -198,6 +202,7 @@ export default function TodaySummaryClient() {
   const [energySupported, setEnergySupported] = useState(false);
   const [notesSupported, setNotesSupported] = useState(false);
   const [assignedPlanId, setAssignedPlanId] = useState<string | null>(null);
+  const [assignedNutritionPlanId, setAssignedNutritionPlanId] = useState<string | null>(null);
   const {
     favorites,
     loading: favoritesLoading,
@@ -211,17 +216,31 @@ export default function TodaySummaryClient() {
     refresh: refreshRecents,
   } = useExerciseRecents();
 
-  const loadProfile = useCallback(async () => {
+  const loadAssignedNutritionPlan = useCallback(async () => {
     setNutritionState({ status: "loading" });
+    setAssignedNutritionPlanId(null);
 
     try {
-      const response = await fetch("/api/profile", { cache: "no-store" });
-      if (!response.ok) throw new Error("PROFILE_ERROR");
-      const data = (await response.json()) as ProfileData;
+      const listResponse = await fetch("/api/nutrition-plans?limit=1", { cache: "no-store" });
+      if (!listResponse.ok) throw new Error("NUTRITION_PLAN_LIST_ERROR");
+
+      const listData = (await listResponse.json()) as NutritionPlansPayload;
+      const latestPlan = listData.items?.[0];
+
+      if (!latestPlan) {
+        if (!mountedRef.current) return;
+        setNutritionState({ status: "empty" });
+        return;
+      }
+
+      const detailResponse = await fetch(`/api/nutrition-plans/${latestPlan.id}`, { cache: "no-store" });
+      if (!detailResponse.ok) throw new Error("NUTRITION_PLAN_DETAIL_ERROR");
+
+      const planDetail = (await detailResponse.json()) as NutritionPlanDetail;
       if (!mountedRef.current) return;
 
-      const nutritionSummary = buildNutritionSummary(data.nutritionPlan);
-
+      const nutritionSummary = buildNutritionSummary(planDetail);
+      setAssignedNutritionPlanId(latestPlan.id);
       setNutritionState(nutritionSummary ? { status: "ready", data: nutritionSummary } : { status: "empty" });
     } catch {
       if (!mountedRef.current) return;
@@ -287,19 +306,19 @@ export default function TodaySummaryClient() {
 
   useEffect(() => {
     mountedRef.current = true;
-    void loadProfile();
+    void loadAssignedNutritionPlan();
     void loadAssignedTrainingPlan();
     void loadTracking();
     return () => {
       mountedRef.current = false;
     };
-  }, [loadAssignedTrainingPlan, loadProfile, loadTracking]);
+  }, [loadAssignedNutritionPlan, loadAssignedTrainingPlan, loadTracking]);
 
   const trainingAction = useMemo(
     () => (
       <ButtonLink
         variant="secondary"
-        href={assignedPlanId ? `/app/biblioteca/entrenamientos/${assignedPlanId}?from=hoy` : "/app/entrenamiento"}
+        href={assignedPlanId ? `/app/biblioteca/entrenamientos/${assignedPlanId}?from=hoy` : "/app/biblioteca/entrenamientos"}
         size="lg"
       >
         {t("today.trainingCta")}
@@ -310,11 +329,15 @@ export default function TodaySummaryClient() {
 
   const nutritionAction = useMemo(
     () => (
-      <ButtonLink variant="secondary" href="/app/nutricion" size="lg">
+      <ButtonLink
+        variant="secondary"
+        href={assignedNutritionPlanId ? `/app/dietas/${assignedNutritionPlanId}?from=hoy` : "/app/dietas"}
+        size="lg"
+      >
         {t("today.nutritionCta")}
       </ButtonLink>
     ),
-    [t]
+    [assignedNutritionPlanId, t]
   );
 
   const weightAction = useMemo(
@@ -345,12 +368,19 @@ export default function TodaySummaryClient() {
   }, [notesSupported, t]);
 
 const nutritionEmptyActions: EmptyAction[] = [
-  { label: t("today.nutritionCta"), href: "/app/nutricion", variant: "secondary" },
+  {
+    label: t("today.nutritionCta"),
+    href: assignedNutritionPlanId ? `/app/dietas/${assignedNutritionPlanId}?from=hoy` : "/app/dietas",
+    variant: "secondary",
+  },
 ];
 
 const nutritionErrorActions: ErrorAction[] = [
-  { label: t("today.nutritionCta"), href: "/app/nutricion" },
-  { label: t("ui.retry"), onClick: loadProfile, variant: "secondary" },
+  {
+    label: t("today.nutritionCta"),
+    href: assignedNutritionPlanId ? `/app/dietas/${assignedNutritionPlanId}?from=hoy` : "/app/dietas",
+  },
+  { label: t("ui.retry"), onClick: loadAssignedNutritionPlan, variant: "secondary" },
 ];
 
 const energyEmptyActions: EmptyAction[] | undefined = energySupported
@@ -464,7 +494,7 @@ const notesErrorActions: ErrorAction[] = [
           <EmptyState
             title={t("today.trainingEmptyTitle")}
             description={t("today.trainingAssignedEmptyDescription")}
-            actions={[{ label: t("today.trainingCta"), href: "/app/entrenamiento", variant: "secondary" }]}
+            actions={[{ label: t("today.trainingCta"), href: "/app/biblioteca/entrenamientos", variant: "secondary" }]}
           />
         }
       >

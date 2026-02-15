@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
 
@@ -37,11 +37,32 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [creatingPlan, setCreatingPlan] = useState(false);
 
   const selectedPlanTitle = useMemo(
     () => plans.find((plan) => plan.id === selectedPlanId)?.title ?? "",
     [plans, selectedPlanId],
   );
+
+  const loadAssignmentData = useCallback(async () => {
+    const [plansRes, assignmentRes] = await Promise.all([
+      fetch("/api/training-plans", { cache: "no-store", credentials: "include" }),
+      fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+        cache: "no-store",
+        credentials: "include",
+      }),
+    ]);
+
+    if (!plansRes.ok || !assignmentRes.ok) {
+      throw new Error("ASSIGNMENT_LOAD_ERROR");
+    }
+
+    const plansPayload = (await plansRes.json()) as TrainingPlansResponse;
+    const assignmentPayload = (await assignmentRes.json()) as AssignmentResponse;
+
+    setPlans(plansPayload.items ?? []);
+    setAssignedPlan(assignmentPayload.assignedPlan ?? null);
+  }, [memberId]);
 
   useEffect(() => {
     let active = true;
@@ -51,29 +72,8 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       setError(null);
 
       try {
-        const [plansRes, assignmentRes] = await Promise.all([
-          fetch("/api/training-plans", { cache: "no-store", credentials: "include" }),
-          fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
-            cache: "no-store",
-            credentials: "include",
-          }),
-        ]);
-
-        if (!plansRes.ok || !assignmentRes.ok) {
-          if (active) {
-            setError(t("trainer.clientContext.training.assignment.loadError"));
-            setLoading(false);
-          }
-          return;
-        }
-
-        const plansPayload = (await plansRes.json()) as TrainingPlansResponse;
-        const assignmentPayload = (await assignmentRes.json()) as AssignmentResponse;
-
+        await loadAssignmentData();
         if (!active) return;
-
-        setPlans(plansPayload.items ?? []);
-        setAssignedPlan(assignmentPayload.assignedPlan ?? null);
         setLoading(false);
       } catch {
         if (!active) return;
@@ -86,7 +86,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     return () => {
       active = false;
     };
-  }, [memberId, t]);
+  }, [loadAssignmentData, t]);
 
   const canAssign = Boolean(selectedPlanId && !submitting);
 
@@ -126,6 +126,38 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     }
   };
 
+
+  const onCreateMinimalPlan = async () => {
+    if (creatingPlan || submitting) return;
+
+    setCreatingPlan(true);
+    setSubmitError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch("/api/training-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ title: t("trainer.clientContext.training.assignment.defaultPlanTitle") }),
+      });
+
+      if (!response.ok) {
+        setSubmitError(t("trainer.clientContext.training.assignment.createError"));
+        setCreatingPlan(false);
+        return;
+      }
+
+      await loadAssignmentData();
+      setSuccess(t("trainer.clientContext.training.assignment.createSuccess"));
+      setCreatingPlan(false);
+    } catch {
+      setSubmitError(t("trainer.clientContext.training.assignment.createError"));
+      setCreatingPlan(false);
+    }
+  };
+
   return (
     <section className="card form-stack" aria-live="polite">
       <h4 style={{ margin: 0 }}>{t("trainer.clientContext.training.assignment.title")}</h4>
@@ -153,12 +185,31 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
           {plans.length === 0 ? (
             <div className="feature-card form-stack">
               <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.training.assignment.emptyPlans")}</p>
-              <Link className="btn secondary" href="/app/entrenamiento" style={{ width: "fit-content" }}>
-                {t("trainer.clientContext.training.assignment.emptyPlansCta")}
-              </Link>
+              <button
+                type="button"
+                className="btn"
+                disabled={creatingPlan || submitting}
+                onClick={() => void onCreateMinimalPlan()}
+                style={{ width: "fit-content" }}
+              >
+                {creatingPlan
+                  ? t("trainer.clientContext.training.assignment.creating")
+                  : t("trainer.clientContext.training.assignment.createCta")}
+              </button>
             </div>
           ) : (
             <>
+              <button
+                type="button"
+                className="btn secondary"
+                disabled={creatingPlan || submitting}
+                onClick={() => void onCreateMinimalPlan()}
+                style={{ width: "fit-content" }}
+              >
+                {creatingPlan
+                  ? t("trainer.clientContext.training.assignment.creating")
+                  : t("trainer.clientContext.training.assignment.createCta")}
+              </button>
               <label className="form-stack" style={{ gap: 8 }}>
                 <span className="muted">{t("trainer.clientContext.training.assignment.planLabel")}</span>
                 <select value={selectedPlanId} onChange={(event) => setSelectedPlanId(event.target.value)}>
