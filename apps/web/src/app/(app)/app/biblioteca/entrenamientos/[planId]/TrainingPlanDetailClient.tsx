@@ -7,9 +7,16 @@ import { Icon } from "@/components/ui/Icon";
 type TrainingPlanDetailClientProps = {
   plan: TrainingPlanDetail | null;
   error: string | null;
+  backHref?: string;
+  backLabel?: string;
 };
 
-export default function TrainingPlanDetailClient({ plan, error }: TrainingPlanDetailClientProps) {
+export default function TrainingPlanDetailClient({
+  plan,
+  error,
+  backHref = "/app/biblioteca/entrenamientos",
+  backLabel,
+}: TrainingPlanDetailClientProps) {
   const { t, locale } = useLanguage();
 
   const goalLabel = (goal: string) =>
@@ -52,8 +59,8 @@ export default function TrainingPlanDetailClient({ plan, error }: TrainingPlanDe
             <h3 className="m-0">{t("trainingPlans.errorTitle")}</h3>
             <p className="muted">{error ?? t("trainingPlans.loadError")}</p>
           </div>
-          <ButtonLink variant="secondary" href="/app/biblioteca/entrenamientos">
-            {t("trainingPlans.backToTrainingPlans")}
+          <ButtonLink variant="secondary" href={backHref}>
+            {backLabel ?? t("trainingPlans.backToTrainingPlans")}
           </ButtonLink>
         </div>
       </section>
@@ -68,8 +75,8 @@ export default function TrainingPlanDetailClient({ plan, error }: TrainingPlanDe
           <p className="section-subtitle">{t("trainingPlans.detailSubtitle")}</p>
         </div>
         <div className="page-header-actions">
-          <ButtonLink variant="secondary" href="/app/biblioteca/entrenamientos">
-            {t("trainingPlans.backToTrainingPlans")}
+          <ButtonLink variant="secondary" href={backHref}>
+            {backLabel ?? t("trainingPlans.backToTrainingPlans")}
           </ButtonLink>
         </div>
       </div>

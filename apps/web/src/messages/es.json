@@ -212,7 +212,9 @@
     "shortcutsRecentsErrorTitle": "Recientes no disponibles",
     "shortcutsRecentsErrorDescription": "No pudimos cargar tus recientes ahora mismo.",
     "shortcutsExerciseFallback": "Ejercicio",
-    "shortcutsExerciseIdLabel": "ID"
+    "shortcutsExerciseIdLabel": "ID",
+    "backToToday": "Volver a Hoy",
+    "trainingAssignedEmptyDescription": "Tu entrenador aún no te asignó un plan. Cuando esté listo lo verás aquí."
   },
   "foods": {
     "salmon": "Salmón",
