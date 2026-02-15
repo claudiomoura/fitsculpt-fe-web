@@ -5788,6 +5788,10 @@ const gymMembersParamsSchema = z.object({
   gymId: z.string().min(1),
 });
 
+const trainerClientParamsSchema = z.object({
+  userId: z.string().min(1),
+});
+
 const adminUpdateGymMemberRoleParamsSchema = z.object({
   gymId: z.string().min(1),
   userId: z.string().min(1),
@@ -6140,6 +6144,63 @@ app.get("/trainer/clients", async (request, reply) => {
         subscriptionStatus: membership.user.subscriptionStatus,
         lastLoginAt: membership.user.lastLoginAt,
       })),
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/clients/:userId", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+
+    const managerMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        role: { in: ["ADMIN", "TRAINER"] },
+      },
+      select: { gymId: true },
+    });
+
+    if (!managerMembership) {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const membership = await prisma.gymMembership.findFirst({
+      where: {
+        gymId: managerMembership.gymId,
+        userId,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            isBlocked: true,
+            subscriptionStatus: true,
+            lastLoginAt: true,
+          },
+        },
+      },
+    });
+
+    if (!membership) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    return {
+      id: membership.user.id,
+      name: membership.user.name,
+      email: membership.user.email,
+      role: membership.role,
+      isBlocked: membership.user.isBlocked,
+      subscriptionStatus: membership.user.subscriptionStatus,
+      lastLoginAt: membership.user.lastLoginAt,
     };
   } catch (error) {
     return handleRequestError(reply, error);
