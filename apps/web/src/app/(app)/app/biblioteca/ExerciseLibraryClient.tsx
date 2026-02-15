@@ -15,11 +15,11 @@ import type { TrainingPlanDetail } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { EmptyState, ErrorState, SkeletonExerciseList } from "@/components/exercise-library";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
+import { fetchExercisesList } from "@/services/exercises";
 
 const PAGE_SIZE = 24;
 
@@ -56,7 +56,6 @@ export default function ExerciseLibraryClient() {
   const [retryKey, setRetryKey] = useState(0);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
   const [isClearingRecents, setIsClearingRecents] = useState(false);
-  const [selectedForPlan, setSelectedForPlan] = useState<Exercise | ExerciseRecent | null>(null);
   const {
     recents,
     clearRecents,
@@ -71,11 +70,6 @@ export default function ExerciseLibraryClient() {
     hasError: favoritesError,
     refresh: refreshFavorites,
   } = useExerciseFavorites();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
-  const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
-  const [isClearingRecents, setIsClearingRecents] = useState(false);
   const [targetPlan, setTargetPlan] = useState<TrainingPlanDetail | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
   const [planError, setPlanError] = useState<string | null>(null);
@@ -195,42 +189,6 @@ export default function ExerciseLibraryClient() {
     });
     window.setTimeout(() => setIsClearingRecents(false), 400);
   };
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const loadExercises = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const params = new URLSearchParams();
-        if (query.trim()) params.set("query", query.trim());
-        if (equipmentFilter !== "all") params.set("equipment", equipmentFilter);
-        if (muscleFilter !== "all") params.set("muscle", muscleFilter);
-        params.set("limit", "200");
-        const response = await fetch(`/api/exercises?${params.toString()}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          setError(t("library.loadErrorList"));
-          setExercises([]);
-          setLoading(false);
-          return;
-        }
-        const data = (await response.json()) as ExerciseResponse;
-        setExercises(data.items ?? []);
-        setLoading(false);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(t("library.loadErrorList"));
-        setExercises([]);
-        setLoading(false);
-      }
-    };
-
-    void loadExercises();
-    return () => controller.abort();
-  }, [equipmentFilter, muscleFilter, query, retryKey, t]);
 
   useEffect(() => {
     let active = true;
@@ -360,17 +318,6 @@ export default function ExerciseLibraryClient() {
     }
   };
 
-  const equipmentOptions = useMemo(() => {
-    const options = Array.from(new Set(exercises.map((ex) => ex.equipment).filter(Boolean)));
-    return ["all", ...options];
-  }, [exercises]);
-
-  const muscleOptions = useMemo(() => {
-    const all = exercises.flatMap((ex) => getExerciseMuscles(ex));
-    const unique = Array.from(new Set(all)).filter(Boolean);
-    return ["all", ...unique];
-  }, [exercises]);
-
   const favoriteExercises = useMemo(
     () => exercises.filter((exercise) => Boolean(exercise.id && favorites.includes(exercise.id))),
     [exercises, favorites]
@@ -419,7 +366,7 @@ export default function ExerciseLibraryClient() {
         <div key={fallbackKey} className="feature-card">
           {content}
           <div className="inline-actions-sm">
-            <Button variant="secondary" size="sm" aria-label={addLabel} onClick={() => setSelectedForPlan(exercise)}>
+            <Button variant="secondary" size="sm" aria-label={addLabel} onClick={() => openDayPicker(exercise)}>
               +
             </Button>
           </div>
