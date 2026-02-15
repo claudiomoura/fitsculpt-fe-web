@@ -26,7 +26,7 @@ import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import { useExerciseRecents } from "@/lib/exerciseRecents";
 import type { NutritionMeal } from "@/lib/profile";
 import { slugifyExerciseName } from "@/lib/slugify";
-import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
+import type { TrainingPlanDetail } from "@/lib/types";
 
 type CheckinEntry = {
   date?: string | null;
@@ -39,8 +39,9 @@ type TrackingPayload = {
   checkins?: CheckinEntry[];
 };
 
-type TrainingPlansPayload = {
-  items?: TrainingPlanListItem[];
+type ActiveTrainingPlanPayload = {
+  source?: "assigned" | "own";
+  plan?: TrainingPlanDetail | null;
 };
 
 type NutritionPlansPayload = {
@@ -252,26 +253,21 @@ export default function TodaySummaryClient() {
     setAssignedPlanId(null);
 
     try {
-      const listResponse = await fetch("/api/training-plans?limit=1", { cache: "no-store" });
-      if (!listResponse.ok) throw new Error("TRAINING_PLAN_LIST_ERROR");
+      const activeResponse = await fetch("/api/training-plans/active?includeDays=1", { cache: "no-store" });
+      if (!activeResponse.ok) throw new Error("TRAINING_PLAN_ACTIVE_ERROR");
 
-      const listData = (await listResponse.json()) as TrainingPlansPayload;
-      const latestPlan = listData.items?.[0];
+      const activePayload = (await activeResponse.json()) as ActiveTrainingPlanPayload;
+      const planDetail = activePayload.plan;
 
-      if (!latestPlan) {
+      if (!planDetail) {
         if (!mountedRef.current) return;
         setTrainingState({ status: "empty" });
         return;
       }
-
-      const planResponse = await fetch(`/api/training-plans/${latestPlan.id}`, { cache: "no-store" });
-      if (!planResponse.ok) throw new Error("TRAINING_PLAN_DETAIL_ERROR");
-
-      const planDetail = (await planResponse.json()) as TrainingPlanDetail;
       if (!mountedRef.current) return;
 
       const trainingSummary = buildTrainingSummary(planDetail);
-      setAssignedPlanId(latestPlan.id);
+      setAssignedPlanId(planDetail.id);
       setTrainingState(trainingSummary ? { status: "ready", data: trainingSummary } : { status: "empty" });
     } catch {
       if (!mountedRef.current) return;

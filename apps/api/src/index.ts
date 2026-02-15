@@ -5123,6 +5123,14 @@ const trainingPlanCreateSchema = z.object({
 });
 
 const trainingPlanParamsSchema = z.object({ id: z.string().min(1) });
+const trainingPlanActiveQuerySchema = z.object({
+  includeDays: z
+    .preprocess((value) => {
+      if (typeof value !== "string") return false;
+      return value === "1" || value.toLowerCase() === "true";
+    }, z.boolean())
+    .default(false),
+});
 const trainingDayParamsSchema = z.object({
   planId: z.string().min(1),
   dayId: z.string().min(1),
@@ -5285,7 +5293,21 @@ app.get("/training-plans/:id", async (request, reply) => {
     const user = await requireUser(request);
     const { id } = trainingPlanParamsSchema.parse(request.params);
     const plan = await prisma.trainingPlan.findFirst({
-      where: { id, userId: user.id },
+      where: {
+        id,
+        OR: [
+          { userId: user.id },
+          {
+            gymAssignments: {
+              some: {
+                userId: user.id,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
       include: {
         days: {
           orderBy: { order: "asc" },
@@ -5304,50 +5326,81 @@ app.get("/training-plans/:id", async (request, reply) => {
   }
 });
 
-app.post("/training-plans", async (request, reply) => {
+app.get("/training-plans/active", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const data = trainingPlanCreateSchema.parse(request.body ?? {});
-    const daysPerWeek = data.daysPerWeek ?? 7;
-    const startDate = new Date();
+    const { includeDays } = trainingPlanActiveQuerySchema.parse(request.query);
 
-    const createdPlan = await prisma.trainingPlan.create({
-      data: {
+    const assignedMembership = await prisma.gymMembership.findFirst({
+      where: {
         userId: user.id,
-        title: data.title ?? "Plan semanal",
-        notes: data.notes ?? null,
-        goal: "general",
-        level: "intermediate",
-        daysPerWeek,
-        focus: "full",
-        equipment: "mixed",
-        startDate,
-        daysCount: 7,
-        days: {
-          create: Array.from({ length: 7 }, (_, index) => {
-            const dayDate = new Date(startDate);
-            dayDate.setDate(startDate.getDate() + index);
-            return {
-              date: dayDate,
-              label: `Día ${index + 1}`,
-              focus: "General",
-              duration: 45,
-              order: index,
-            };
-          }),
-        },
+        status: "ACTIVE",
+        role: "MEMBER",
+        assignedTrainingPlanId: { not: null },
       },
-      include: {
-        days: {
-          orderBy: { order: "asc" },
-          include: {
-            exercises: { orderBy: { id: "asc" } },
-          },
-        },
-      },
+      select: { assignedTrainingPlanId: true },
+      orderBy: { updatedAt: "desc" },
     });
 
-    return reply.status(201).send(createdPlan);
+    const activePlanId = assignedMembership?.assignedTrainingPlanId;
+
+    if (activePlanId) {
+      const assignedPlan = await prisma.trainingPlan.findUnique({
+        where: { id: activePlanId },
+        include: includeDays
+          ? {
+              days: {
+                orderBy: { order: "asc" },
+                include: { exercises: { orderBy: { id: "asc" } }, },
+              },
+            }
+          : undefined,
+      });
+
+      if (assignedPlan) {
+        return reply.status(200).send({
+          source: "assigned",
+          plan: assignedPlan,
+        });
+      }
+    }
+
+    const ownPlan = await prisma.trainingPlan.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      include: includeDays
+        ? {
+            days: {
+              orderBy: { order: "asc" },
+              include: { exercises: { orderBy: { id: "asc" } }, },
+            },
+          }
+        : undefined,
+      select: includeDays
+        ? undefined
+        : {
+            id: true,
+            title: true,
+            notes: true,
+            goal: true,
+            level: true,
+            daysPerWeek: true,
+            focus: true,
+            equipment: true,
+            startDate: true,
+            daysCount: true,
+            createdAt: true,
+          },
+    });
+
+    if (!ownPlan) {
+      return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
+    }
+
+    return reply.status(200).send({
+      source: "own",
+      plan: ownPlan,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
