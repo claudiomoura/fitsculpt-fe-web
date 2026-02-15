@@ -1917,6 +1917,23 @@
           "assignConfirmation": "Solicitud de asignación de plan registrada.",
           "assignUnavailable": "La asignación de dos planes requiere soporte de backend y no está disponible en este entorno.",
           "emptyUnsupported": "Aún no hay datos de planes separados Casa/Gimnasio para este cliente."
+        },
+        "assignment": {
+          "title": "Asignar plan de entrenamiento",
+          "description": "Elige uno de tus planes existentes y asígnalo a {member}.",
+          "loading": "Cargando planes y asignación actual...",
+          "loadError": "No pudimos cargar los datos de asignación de planes.",
+          "currentLabel": "Plan asignado actualmente",
+          "noneAssigned": "Este miembro aún no tiene un plan asignado.",
+          "emptyPlans": "No tienes planes de entrenamiento disponibles para asignar.",
+          "emptyPlansCta": "Crear o generar un plan de entrenamiento",
+          "planLabel": "Planes disponibles",
+          "planPlaceholder": "Selecciona un plan",
+          "submit": "Asignar plan",
+          "submitting": "Asignando...",
+          "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
+          "success": "{plan} fue asignado correctamente a {member}.",
+          "unknownPlan": "Plan seleccionado"
         }
       },
       "nutrition": {
