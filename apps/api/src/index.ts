@@ -5,7 +5,7 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { PrismaClient, Prisma, type SubscriptionPlan, type User } from "@prisma/client";
+import { Prisma, type SubscriptionPlan, type User } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -15,12 +15,10 @@ import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
-
-
-
+import { createPrismaClientWithRetry } from "./prismaClient.js";
 
 const env = getEnv();
-const prisma = new PrismaClient();
+const prisma = await createPrismaClientWithRetry();
 const aiPricing = loadAiPricing(env);
 
 const app = Fastify({ logger: true });

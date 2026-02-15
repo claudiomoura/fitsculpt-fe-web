@@ -41,13 +41,19 @@ function loadEnv() {
 
 function createPatchedEnv(baseEnv) {
   const nextEnv = { ...baseEnv };
-  const originalUrl = baseEnv.DATABASE_URL;
+  const selectedUrl = baseEnv.DIRECT_URL || baseEnv.DATABASE_URL;
 
-  if (!originalUrl) {
+  if (!selectedUrl) {
     return nextEnv;
   }
 
-  nextEnv.DATABASE_URL = patchDatabaseUrl(originalUrl);
+  const patchedUrl = patchDatabaseUrl(selectedUrl);
+  nextEnv.DATABASE_URL = patchedUrl;
+
+  if (baseEnv.DIRECT_URL) {
+    nextEnv.DIRECT_URL = patchDatabaseUrl(baseEnv.DIRECT_URL);
+  }
+
   return nextEnv;
 }
 
