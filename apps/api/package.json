@@ -20,11 +20,13 @@
     "test": "tsx src/tests/authUtils.test.ts src/tests/aiParsing.test.ts",
     "verify-email": "tsx scripts/verify-email.ts",
     "db:seed": "prisma db seed",
-    "db:bootstrap": "prisma migrate deploy && prisma db seed",
+    "db:bootstrap": "node scripts/db-bootstrap.mjs",
     "db:migrate:render": "node scripts/prisma-runner.mjs migrate deploy",
     "db:seed:safe": "node scripts/prisma-runner.mjs seed:safe",
     "db:bootstrap:render": "node scripts/prisma-runner.mjs generate && node scripts/prisma-runner.mjs migrate deploy && node scripts/prisma-runner.mjs seed:safe",
-    "db:studio": "node scripts/prisma-runner.mjs studio --schema prisma/schema.prisma"
+    "db:studio": "node scripts/prisma-runner.mjs studio --schema prisma/schema.prisma",
+    "db:doctor": "node scripts/db-doctor.mjs",
+    "db:repair": "node scripts/db-repair.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
