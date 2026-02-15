@@ -7,7 +7,7 @@ import { ErrorState } from "@/components/states/ErrorState";
 import { LoadingState } from "@/components/states/LoadingState";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
-import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
+import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 
 type ViewStatus = "loading" | "success" | "empty" | "error";
 
@@ -15,6 +15,14 @@ type ActionAvailability = {
   checkinReady: boolean;
   trainingReady: boolean;
   macrosReady: boolean;
+};
+
+type TrainingPlansPayload = {
+  items?: TrainingPlanListItem[];
+};
+
+type NutritionPlansPayload = {
+  items?: NutritionPlanListItem[];
 };
 
 const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
@@ -31,12 +39,12 @@ const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: st
   return days[index];
 };
 
-const hasTodayTraining = (plan?: TrainingPlanData | null) => {
+const hasTodayTraining = (plan?: TrainingPlanDetail | null) => {
   if (!plan?.days?.length) return false;
   return Boolean(findTodayPlanDay(plan.days, plan.startDate));
 };
 
-const hasTodayNutrition = (plan?: NutritionPlanData | null) => {
+const hasTodayNutrition = (plan?: NutritionPlanDetail | null) => {
   if (!plan?.days?.length) return false;
   const day = findTodayPlanDay(plan.days, plan.startDate);
   return Boolean(day && day.meals.length > 0);
@@ -55,12 +63,13 @@ export default function TodayQuickActionsClient() {
     setStatus("loading");
 
     try {
-      const [trackingResponse, profileResponse] = await Promise.all([
+      const [trackingResponse, trainingListResponse, nutritionListResponse] = await Promise.all([
         fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
-        fetch("/api/profile", { cache: "no-store", credentials: "include" }),
+        fetch("/api/training-plans?limit=1", { cache: "no-store", credentials: "include" }),
+        fetch("/api/nutrition-plans?limit=1", { cache: "no-store", credentials: "include" }),
       ]);
 
-      if (!trackingResponse.ok && !profileResponse.ok) {
+      if (!trackingResponse.ok && !trainingListResponse.ok && !nutritionListResponse.ok) {
         setStatus("error");
         return;
       }
@@ -68,10 +77,34 @@ export default function TodayQuickActionsClient() {
       let trainingReady = false;
       let macrosReady = false;
 
-      if (profileResponse.ok) {
-        const profile = (await profileResponse.json()) as ProfileData;
-        trainingReady = hasTodayTraining(profile.trainingPlan);
-        macrosReady = hasTodayNutrition(profile.nutritionPlan);
+      if (trainingListResponse.ok) {
+        const trainingList = (await trainingListResponse.json()) as TrainingPlansPayload;
+        const trainingPlanId = trainingList.items?.[0]?.id;
+        if (trainingPlanId) {
+          const trainingDetailResponse = await fetch(`/api/training-plans/${trainingPlanId}`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (trainingDetailResponse.ok) {
+            const trainingDetail = (await trainingDetailResponse.json()) as TrainingPlanDetail;
+            trainingReady = hasTodayTraining(trainingDetail);
+          }
+        }
+      }
+
+      if (nutritionListResponse.ok) {
+        const nutritionList = (await nutritionListResponse.json()) as NutritionPlansPayload;
+        const nutritionPlanId = nutritionList.items?.[0]?.id;
+        if (nutritionPlanId) {
+          const nutritionDetailResponse = await fetch(`/api/nutrition-plans/${nutritionPlanId}`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (nutritionDetailResponse.ok) {
+            const nutritionDetail = (await nutritionDetailResponse.json()) as NutritionPlanDetail;
+            macrosReady = hasTodayNutrition(nutritionDetail);
+          }
+        }
       }
 
       const checkinReady = trackingResponse.ok;
