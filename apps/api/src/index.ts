@@ -2445,7 +2445,7 @@ function buildExerciseFilters(params: {
 
   const whereClause =
     filters.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`
+      ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
       : Prisma.sql``;
 
   return whereClause;
@@ -5365,8 +5365,8 @@ app.get("/training-plans/active", async (request, reply) => {
       }
     }
 
-    const ownPlanArgs: Prisma.TrainingPlanFindFirstArgs = includeDays
-      ? {
+    const ownPlan = includeDays
+      ? await prisma.trainingPlan.findFirst({
           where: { userId: user.id },
           orderBy: { createdAt: "desc" },
           include: {
@@ -5375,8 +5375,8 @@ app.get("/training-plans/active", async (request, reply) => {
               include: { exercises: { orderBy: { id: "asc" } } },
             },
           },
-        }
-      : {
+        })
+      : await prisma.trainingPlan.findFirst({
           where: { userId: user.id },
           orderBy: { createdAt: "desc" },
           select: {
@@ -5392,9 +5392,7 @@ app.get("/training-plans/active", async (request, reply) => {
             daysCount: true,
             createdAt: true,
           },
-        };
-
-    const ownPlan = await prisma.trainingPlan.findFirst(ownPlanArgs);
+        });
 
     if (!ownPlan) {
       return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
@@ -6045,10 +6043,7 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
 };
 
 app.get("/gyms/membership", getGymMembership);
-
-await app.register(async (gymRoutes) => {
-  gymRoutes.get("/me", getGymMembership);
-}, { prefix: "/gym" });
+app.get("/gym/me", getGymMembership);
 
 app.post("/gym/join-code", async (request, reply) => {
   try {
