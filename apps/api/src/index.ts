@@ -6142,6 +6142,14 @@ const adminUpdateGymMemberRoleSchema = z.object({
   status: z.enum(["ACTIVE", "PENDING", "REJECTED"]).optional(),
 });
 
+const gymAdminUpdateMemberRoleParamsSchema = z.object({
+  userId: z.string().min(1),
+});
+
+const gymAdminUpdateMemberRoleSchema = z.object({
+  role: z.enum(["MEMBER", "TRAINER"]),
+});
+
 const adminCreateGymSchema = z.object({
   name: z.string().trim().min(2).max(120),
   code: z
@@ -6735,6 +6743,62 @@ app.patch("/admin/gyms/:gymId/members/:userId/role", async (request, reply) => {
       userId: updated.userId,
       gym: updated.gym,
       status: updated.status,
+      role: updated.role,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/gym/admin/members/:userId/role", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { userId } = gymAdminUpdateMemberRoleParamsSchema.parse(request.params);
+    const { role } = gymAdminUpdateMemberRoleSchema.parse(request.body);
+
+    const adminMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: requester.id,
+        status: "ACTIVE",
+        role: "ADMIN",
+      },
+      select: {
+        gymId: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    if (!adminMembership) {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId: adminMembership.gymId, userId } },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!targetMembership) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    const updated = await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { role },
+      select: {
+        gymId: true,
+        userId: true,
+        role: true,
+      },
+    });
+
+    return {
+      ok: true,
+      userId: updated.userId,
+      gymId: updated.gymId,
       role: updated.role,
     };
   } catch (error) {
