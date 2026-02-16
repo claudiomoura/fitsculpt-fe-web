@@ -5299,9 +5299,15 @@ const trainingPlanListSchema = z.object({
 });
 
 const trainingPlanCreateSchema = z.object({
-  title: z.string().trim().min(1).max(120).optional(),
+  title: z.string().trim().min(1).max(120),
   notes: z.string().trim().min(1).max(600).optional(),
-  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+  goal: z.string().trim().min(1).max(80).default("general_fitness"),
+  level: z.string().trim().min(1).max(80).default("beginner"),
+  focus: z.string().trim().min(1).max(120).default("full_body"),
+  equipment: z.string().trim().min(1).max(120).default("bodyweight"),
+  daysPerWeek: z.coerce.number().int().min(1).max(7),
+  startDate: z.string().trim().min(1),
+  daysCount: z.coerce.number().int().min(1).max(14),
 });
 
 const trainingPlanParamsSchema = z.object({ id: z.string().min(1) });
@@ -5502,6 +5508,60 @@ app.get("/training-plans", async (request, reply) => {
       prisma.trainingPlan.count({ where }),
     ]);
     return { items, total, limit, offset };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/training-plans", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const data = trainingPlanCreateSchema.parse(request.body);
+    const startDate = parseDateInput(data.startDate);
+
+    if (!startDate) {
+      return reply.status(400).send({ error: "INVALID_START_DATE" });
+    }
+
+    const dates = buildDateRange(startDate, data.daysCount);
+    const plan = await prisma.trainingPlan.create({
+      data: {
+        userId: user.id,
+        title: data.title,
+        notes: data.notes ?? null,
+        goal: data.goal,
+        level: data.level,
+        daysPerWeek: data.daysPerWeek,
+        focus: data.focus,
+        equipment: data.equipment,
+        startDate,
+        daysCount: data.daysCount,
+        days: {
+          create: dates.map((date, index) => ({
+            date: new Date(`${date}T00:00:00.000Z`),
+            label: `Día ${index + 1}`,
+            focus: data.focus,
+            duration: 45,
+            order: index + 1,
+          })),
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        notes: true,
+        goal: true,
+        level: true,
+        daysPerWeek: true,
+        focus: true,
+        equipment: true,
+        startDate: true,
+        daysCount: true,
+        createdAt: true,
+      },
+    });
+
+    return reply.status(201).send(plan);
   } catch (error) {
     return handleRequestError(reply, error);
   }
