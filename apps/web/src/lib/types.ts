@@ -1,5 +1,6 @@
 export type Exercise = {
   id: string;
+  sourceId?: string | null;
   slug?: string | null;
   name: string;
   equipment?: string | null;

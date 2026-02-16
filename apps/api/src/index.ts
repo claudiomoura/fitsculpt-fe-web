@@ -11,6 +11,7 @@ import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLevelJsonFromText } from "./aiParsing.js";
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
+import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
@@ -177,6 +178,18 @@ function getStripePricePlanMap(): Map<string, SubscriptionPlan> {
 
 function resolvePlanByPriceId(priceId: string): SubscriptionPlan | null {
   return getStripePricePlanMap().get(priceId) ?? null;
+}
+
+function getAvailableBillingPlans() {
+  const plans = [
+    { plan: "PRO" as const, priceId: env.STRIPE_PRO_PRICE_ID },
+    { plan: "STRENGTH_AI" as const, priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY },
+    { plan: "NUTRI_AI" as const, priceId: env.STRIPE_PRICE_NUTRI_AI_MONTHLY },
+  ];
+
+  return plans.filter(
+    (entry): entry is (typeof plans)[number] & { priceId: string } => typeof entry.priceId === "string"
+  );
 }
 
 function requireStripeWebhookSecret() {
@@ -603,7 +616,6 @@ async function requireUser(
         hasBearerPrefix,
         segments,
         hasPercent,
-        tokenPreview: token.slice(0, 20),
         tokenDecodeFailed: normalized?.decodeFailed ?? false,
         tokenHasSpace: token.includes(" "),
         tokenHasCookieLabel: token.includes("fs_token="),
@@ -628,7 +640,6 @@ async function requireUser(
   } catch (error) {
     if (options?.logContext && process.env.NODE_ENV !== "production") {
       const typed = error as { message?: string; code?: string; name?: string };
-      const tokenPreview = token.slice(0, 20);
       app.log.warn(
         {
           route,
@@ -637,7 +648,6 @@ async function requireUser(
           hasBearerPrefix,
           segments,
           hasPercent,
-          tokenPreview,
           tokenDecodeFailed: normalized?.decodeFailed ?? false,
           tokenHasSpace: token.includes(" "),
           tokenHasCookieLabel: token.includes("fs_token="),
@@ -686,6 +696,13 @@ function isBootstrapAdmin(email: string): boolean {
 async function requireGymManagerForGym(userId: string, gymId: string) {
   const managerMembership = await prisma.gymMembership.findUnique({
     where: { gymId_userId: { gymId, userId } },
+    select: {
+      id: true,
+      gymId: true,
+      userId: true,
+      status: true,
+      role: true,
+    },
   });
   if (
     !managerMembership ||
@@ -700,6 +717,13 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
 async function requireGymAdminForGym(userId: string, gymId: string) {
   const adminMembership = await prisma.gymMembership.findUnique({
     where: { gymId_userId: { gymId, userId } },
+    select: {
+      id: true,
+      gymId: true,
+      userId: true,
+      status: true,
+      role: true,
+    },
   });
 
   if (!adminMembership || adminMembership.status !== "ACTIVE" || adminMembership.role !== "ADMIN") {
@@ -707,23 +731,6 @@ async function requireGymAdminForGym(userId: string, gymId: string) {
   }
 
   return adminMembership;
-}
-
-function buildActivationCode(name: string, userId: string, attempt: number) {
-  const seed = `${name}:${userId}:${Date.now().toString(36)}:${attempt}`;
-  const hash = crypto.createHash("sha256").update(seed).digest("hex").toUpperCase();
-  return hash.slice(0, 8);
-}
-
-async function generateUniqueGymActivationCode(name: string, userId: string) {
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = buildActivationCode(name, userId, attempt);
-    const existing = await prisma.gym.findUnique({ where: { activationCode: code } });
-    if (!existing) {
-      return code;
-    }
-  }
-  throw createHttpError(500, "JOIN_CODE_GENERATION_FAILED");
 }
 
 async function getOrCreateProfile(userId: string) {
@@ -865,15 +872,46 @@ async function requireCompleteProfile(userId: string) {
   }
 }
 
-type AuthenticatedRequest = FastifyRequest & { currentUser?: User };
+type AuthenticatedRequest = FastifyRequest & { currentUser?: User; currentEntitlements?: EffectiveEntitlements };
+
+function getUserEntitlements(user: User) {
+  return buildEffectiveEntitlements({
+    plan: user.plan,
+    isAdmin: user.role === "ADMIN" || isBootstrapAdmin(user.email),
+  });
+}
+
+function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
+  if (!entitlements.modules.ai.enabled) {
+    return { aiTokenBalance: null, aiTokenRenewalAt: null };
+  }
+
+  if (entitlements.role.adminOverride) {
+    return { aiTokenBalance: null, aiTokenRenewalAt: null };
+  }
+
+  return {
+    aiTokenBalance: getEffectiveTokenBalance(user),
+    aiTokenRenewalAt: getUserTokenExpiryAt(user),
+  };
+}
 
 async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
   const user = await requireUser(request, { logContext: request.routeOptions?.url ?? "ai" });
-  const effectiveTokens = getEffectiveTokenBalance(user);
-  if (effectiveTokens <= 0) {
+  const entitlements = getUserEntitlements(user);
+  if (!entitlements.modules.ai.enabled) {
     return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
   }
+
+  if (!entitlements.role.adminOverride) {
+    const effectiveTokens = getEffectiveTokenBalance(user);
+    if (effectiveTokens <= 0) {
+      return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
+    }
+  }
+
   (request as AuthenticatedRequest).currentUser = user;
+  (request as AuthenticatedRequest).currentEntitlements = entitlements;
 }
 
 const checkinSchema = z.object({
@@ -2273,10 +2311,15 @@ function getExerciseMetadata(name: string) {
 
 type ExerciseRow = {
   id: string;
+  sourceId?: string | null;
   slug?: string | null;
   name: string;
+  source?: string | null;
   equipment: string | null;
+  imageUrls?: string[] | null;
   description: string | null;
+  imageUrl?: string | null;
+  mediaUrl?: string | null;
   technique?: string | null;
   tips?: string | null;
   mainMuscleGroup?: string | null;
@@ -2291,10 +2334,14 @@ type ExerciseApiDto = {
   id: string;
   slug: string;
   name: string;
+  sourceId: string | null;
   equipment: string | null;
+  imageUrls: string[];
+  imageUrl: string | null;
   mainMuscleGroup: string | null;
   secondaryMuscleGroups: string[];
   description: string | null;
+  mediaUrl: string | null;
   technique: string | null;
   tips: string | null;
 };
@@ -2334,8 +2381,13 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
     id: exercise.id,
     slug: exercise.slug ?? slugifyName(exercise.name),
     name: exercise.name,
+    sourceId: exercise.sourceId ?? null,
     equipment: exercise.equipment ?? null,
+    imageUrls: (exercise.imageUrls ?? []).filter((url): url is string => typeof url === "string" && url.trim().length > 0),
+    imageUrl:
+      (exercise.imageUrls ?? []).find((url): url is string => typeof url === "string" && url.trim().length > 0) ?? null,
     description: exercise.description ?? null,
+    mediaUrl: exercise.mediaUrl ?? null,
     technique: exercise.technique ?? null,
     tips: exercise.tips ?? null,
     mainMuscleGroup: main ?? null,
@@ -2344,7 +2396,7 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
 }
 
 
-async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
+async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata, options?: { source?: string; sourceId?: string; imageUrls?: string[] }) {
   const now = new Date();
   const slug = slugifyName(name);
 
@@ -2360,9 +2412,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
       create: {
         slug,
         name,
+        source: options?.source?.trim() || null,
+        sourceId: options?.sourceId?.trim() || null,
         mainMuscleGroup,
         secondaryMuscleGroups,
         equipment: metadata?.equipment ?? null,
+        imageUrls: options?.imageUrls ?? [],
         description: metadata?.description ?? null,
         technique: null,
         tips: null,
@@ -2370,9 +2425,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
       },
       update: {
         name,
+        source: options?.source?.trim() || undefined,
+        sourceId: options?.sourceId?.trim() || undefined,
         mainMuscleGroup,
         secondaryMuscleGroups,
         equipment: metadata?.equipment ?? undefined,
+        imageUrls: options?.imageUrls ?? undefined,
         description: metadata?.description ?? undefined,
       },
     });
@@ -2385,9 +2443,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
       "id",
       "slug",
       "name",
+      "source",
+      "sourceId",
       "mainMuscleGroup",
       "secondaryMuscleGroups",
       "equipment",
+      "imageUrls",
       "description",
       "technique",
       "tips",
@@ -2399,9 +2460,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
       ${crypto.randomUUID()},
       ${slug},
       ${name},
+      ${options?.source?.trim() || null},
+      ${options?.sourceId?.trim() || null},
       ${mainMuscleGroup},
       ${secondaryMuscleGroups},
       ${metadata?.equipment ?? null},
+      ${options?.imageUrls ?? []},
       ${metadata?.description ?? null},
       ${null},
       ${null},
@@ -2411,9 +2475,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
     )
     ON CONFLICT ("slug") DO UPDATE SET
       "name" = EXCLUDED."name",
+      "source" = COALESCE(EXCLUDED."source", "Exercise"."source"),
+      "sourceId" = COALESCE(EXCLUDED."sourceId", "Exercise"."sourceId"),
       "mainMuscleGroup" = EXCLUDED."mainMuscleGroup",
       "secondaryMuscleGroups" = EXCLUDED."secondaryMuscleGroups",
       "equipment" = EXCLUDED."equipment",
+      "imageUrls" = EXCLUDED."imageUrls",
       "description" = EXCLUDED."description",
       "updatedAt" = EXCLUDED."updatedAt"
   `);
@@ -2456,6 +2523,8 @@ async function listExercises(params: {
   equipment?: string;
   limit: number;
   offset: number;
+  cursor?: string;
+  take?: number;
 }) {
   if (hasExerciseClient()) {
     const where: Prisma.ExerciseWhereInput = {};
@@ -2471,15 +2540,48 @@ async function listExercises(params: {
         { secondaryMuscleGroups: { has: params.primaryMuscle } },
       ];
     }
+
+    const take = params.take ?? params.limit;
+    const findManyArgs: Prisma.ExerciseFindManyArgs = {
+      where,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        source: true,
+        equipment: true,
+        imageUrls: true,
+        description: true,
+        technique: true,
+        tips: true,
+        mainMuscleGroup: true,
+        secondaryMuscleGroups: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { id: "asc" },
+      take,
+    };
+
+    if (params.cursor) {
+      findManyArgs.cursor = { id: params.cursor };
+      findManyArgs.skip = 1;
+    } else {
+      findManyArgs.skip = params.offset;
+    }
+
     const [items, total] = await prisma.$transaction([
       prisma.exercise.findMany({
         where,
         select: {
           id: true,
+          sourceId: true,
           slug: true,
           name: true,
           equipment: true,
           description: true,
+          imageUrl: true,
+          mediaUrl: true,
           technique: true,
           tips: true,
           mainMuscleGroup: true,
@@ -2493,6 +2595,7 @@ async function listExercises(params: {
       }),
       prisma.exercise.count({ where }),
     ]);
+
     return {
       items: items.map((item) =>
         normalizeExercisePayload({
@@ -2506,13 +2609,21 @@ async function listExercises(params: {
   }
 
   const whereSql = buildExerciseFilters(params);
+  const take = params.take ?? params.limit;
+  const hasFilters = Boolean(params.q || (params.equipment && params.equipment !== "all") || (params.primaryMuscle && params.primaryMuscle !== "all"));
+
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
-    ORDER BY "name" ASC
-    LIMIT ${params.limit}
-    OFFSET ${params.offset}
+    ${params.cursor
+      ? hasFilters
+        ? Prisma.sql`AND "id" > ${params.cursor}`
+        : Prisma.sql`WHERE "id" > ${params.cursor}`
+      : Prisma.sql``}
+    ORDER BY "id" ASC
+    LIMIT ${take}
+    OFFSET ${params.cursor ? 0 : params.offset}
   `);
   const totalRows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
     SELECT COUNT(*)::bigint as count
@@ -2530,10 +2641,15 @@ async function getExerciseById(id: string) {
       where: { id },
       select: {
         id: true,
+        sourceId: true,
         slug: true,
         name: true,
+        source: true,
         equipment: true,
+        imageUrls: true,
         description: true,
+        imageUrl: true,
+        mediaUrl: true,
         technique: true,
         tips: true,
         mainMuscleGroup: true,
@@ -2552,12 +2668,66 @@ async function getExerciseById(id: string) {
   }
 
   const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     WHERE "id" = ${id}
     LIMIT 1
   `);
   return rows[0] ? normalizeExercisePayload(rows[0]) : null;
+}
+
+
+async function createExercise(input: z.infer<typeof createExerciseSchema>) {
+  const normalizedName = normalizeExerciseName(input.name);
+  const slugBase = slugifyName(normalizedName) || `exercise-${Date.now()}`;
+  const mainMuscleGroup = input.mainMuscleGroup?.trim() || "General";
+  const secondaryMuscleGroups = Array.from(
+    new Set(
+      (input.secondaryMuscleGroups ?? [])
+        .map((muscle) => muscle.trim())
+        .filter((muscle) => muscle.length > 0)
+    )
+  );
+
+  if (!hasExerciseClient()) {
+    throw new Error("EXERCISE_CREATE_NOT_SUPPORTED");
+  }
+
+  const created = await prisma.exercise.create({
+    data: {
+      name: normalizedName,
+      slug: `${slugBase}-${Math.random().toString(36).slice(2, 8)}`,
+      description: input.description?.trim() || null,
+      equipment: input.equipment?.trim() || null,
+      mainMuscleGroup,
+      secondaryMuscleGroups,
+      technique: input.technique?.trim() || null,
+      tips: input.tips?.trim() || null,
+      isUserCreated: true,
+    },
+    select: {
+      id: true,
+      sourceId: true,
+      slug: true,
+      name: true,
+      equipment: true,
+      description: true,
+      imageUrl: true,
+      mediaUrl: true,
+      technique: true,
+      tips: true,
+      mainMuscleGroup: true,
+      secondaryMuscleGroups: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return normalizeExercisePayload({
+    ...created,
+    createdAt: created.createdAt,
+    updatedAt: created.updatedAt,
+  });
 }
 
 async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
@@ -3917,7 +4087,9 @@ app.get("/auth/me", async (request, reply) => {
         userId: user.id,
         status: "ACTIVE",
       },
-      include: {
+      select: {
+        status: true,
+        role: true,
         gym: {
           select: {
             id: true,
@@ -3927,6 +4099,8 @@ app.get("/auth/me", async (request, reply) => {
       },
       orderBy: { updatedAt: "desc" },
     });
+    const entitlements = getUserEntitlements(user);
+    const aiTokenPayload = getAiTokenPayload(user, entitlements);
     return {
       id: user.id,
       email: user.email,
@@ -3934,12 +4108,13 @@ app.get("/auth/me", async (request, reply) => {
       role: effectiveIsAdmin ? "ADMIN" : user.role,
       emailVerifiedAt: user.emailVerifiedAt,
       lastLoginAt: user.lastLoginAt,
-      subscriptionPlan: user.plan,
-      plan: user.plan,
+      subscriptionPlan: entitlements.legacy.tier,
+      plan: entitlements.legacy.tier,
       subscriptionStatus: user.subscriptionStatus,
       currentPeriodEnd: user.currentPeriodEnd,
-      aiTokenBalance: getEffectiveTokenBalance(user),
-      aiTokenRenewalAt: getUserTokenExpiryAt(user),
+      aiTokenBalance: aiTokenPayload.aiTokenBalance,
+      aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
+      entitlements,
       gymMembershipState: activeMembership ? "active" : "none",
       gymId: activeMembership?.gym.id,
       gymName: activeMembership?.gym.name,
@@ -4255,6 +4430,7 @@ app.get("/billing/status", async (request, reply) => {
     const plan: SubscriptionPlan = syncError || !isActive ? "FREE" : rawPlan;
     const isPaid = plan !== "FREE";
     const isPro = plan === "PRO";
+    const availablePlans = getAvailableBillingPlans();
     const response = {
       plan,
       isPaid,
@@ -4262,6 +4438,7 @@ app.get("/billing/status", async (request, reply) => {
       tokens,
       tokensExpiresAt: tokenExpiryAt ? tokenExpiryAt.toISOString() : null,
       subscriptionStatus,
+      availablePlans,
     };
     app.log.info({ userId: refreshedUser.id, plan: response.plan, tokens: response.tokens }, "billing status");
     return reply.status(200).send(response);
@@ -4394,23 +4571,27 @@ app.delete("/user-foods/:id", async (request, reply) => {
 
 app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
-    const user = (request as AuthenticatedRequest).currentUser ?? (await requireUser(request));
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     const dateKey = toDateKey();
-    const limit = user.plan !== "FREE" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+    const limit = entitlements.modules.ai.enabled ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
     const usage = await prisma.aiUsage.findUnique({
       where: { userId_date: { userId: user.id, date: dateKey } },
     });
     const usedToday = usage?.count ?? 0;
     const remainingToday = limit > 0 ? Math.max(0, limit - usedToday) : 0;
+    const aiTokenPayload = getAiTokenPayload(user, entitlements);
     return reply.status(200).send({
-      subscriptionPlan: user.plan,
-      plan: user.plan,
+      subscriptionPlan: entitlements.legacy.tier,
+      plan: entitlements.legacy.tier,
       dailyLimit: limit,
       usedToday,
       remainingToday,
       retryAfterSec: getSecondsUntilNextUtcDay(),
-      aiTokenBalance: user.plan !== "FREE" ? getEffectiveTokenBalance(user) : null,
-      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
+      aiTokenBalance: aiTokenPayload.aiTokenBalance,
+      aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
+      entitlements,
     });
   } catch (error) {
     return handleRequestError(reply, error);
@@ -4420,8 +4601,9 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
 app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
-    const user =
-      (request as AuthenticatedRequest).currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
     const data = aiTrainingSchema.parse(request.body);
     const expectedDays = Math.min(data.daysPerWeek, 7);
@@ -4430,10 +4612,8 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta =
-      user.plan !== "FREE"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
-        : { aiTokenBalance: null, aiTokenRenewalAt: null };
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
 
     if (template) {
       const normalized = normalizeTrainingPlanDays(template, startDate, daysCount, expectedDays);
@@ -4466,7 +4646,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       }
     }
 
-    await enforceAiQuota({ id: user.id, plan: user.plan });
+    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -4484,41 +4664,23 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
 
     const fetchTrainingPayload = async (attempt: number) => {
       const prompt = buildTrainingPrompt(data, attempt > 0);
-      if (user.plan !== "FREE") {
-        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-
-          responseFormat: {
+      const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+        responseFormat: {
           type: "json_schema",
           json_schema: {
             name: "training_plan",
             schema: trainingPlanJsonSchema as any,
             strict: true,
-              },
-            },
-            model: "gpt-4o-mini",
-              maxTokens: 9000,
-              retryOnParseError: false,
-            });
-
-            payload = result.payload;
-            aiResult = result;
-            aiAttemptUsed = attempt;
-          } else {
-            const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-            
-              responseFormat: {
-              type: "json_schema",
-              json_schema: {
-              name: "training_plan",
-              schema: trainingPlanJsonSchema as any,
-              strict: true,
-            },
           },
-          model: "gpt-4o-mini",
-          maxTokens: 9000,
-          retryOnParseError: false,
-        });
-        payload = result.payload;
+        },
+        model: "gpt-4o-mini",
+        maxTokens: 9000,
+        retryOnParseError: false,
+      });
+      payload = result.payload;
+      if (shouldChargeAi) {
+        aiResult = result;
+        aiAttemptUsed = attempt;
       }
       return parseTrainingPlanPayload(payload, startDate, daysCount, expectedDays);
     };
@@ -4546,7 +4708,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
     await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
     await storeAiContent(user.id, "training", "ai", personalized);
-    if (user.plan !== "FREE" && aiResult) {
+    if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
         prisma,
@@ -4586,7 +4748,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         },
         "ai charge complete"
       );
-    } else if (user.plan !== "FREE") {
+    } else if (shouldChargeAi) {
       app.log.info(
         { userId: user.id, feature: "training", charged: false, failureReason: "missing_ai_result" },
         "ai charge skipped"
@@ -4594,9 +4756,9 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     }
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -4607,9 +4769,10 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
 app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
-    const user =
-      (request as AuthenticatedRequest).currentUser ??
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ??
       (await requireUser(request, { logContext: "/ai/nutrition-plan" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
     const data = aiNutritionSchema.parse(request.body);
     const expectedMealsPerDay = Math.min(data.mealsPerDay, 6);
@@ -4629,10 +4792,8 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const cacheKey = buildCacheKey("nutrition:v2", data);
     const template = buildNutritionTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta =
-      user.plan !== "FREE"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
-        : { aiTokenBalance: null, aiTokenRenewalAt: null };
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
 
     if (template) {
       const normalized = normalizeNutritionPlanDays(template, startDate, daysCount);
@@ -4701,7 +4862,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       }
     }
 
-    await enforceAiQuota({ id: user.id, plan: user.plan });
+    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -4734,7 +4895,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         })),
         attempt > 0
       );
-      if (user.plan !== "FREE") {
+      if (shouldChargeAi) {
         const result = await callOpenAi(promptAttempt, attempt, extractTopLevelJson, {
        
           responseFormat: {
@@ -4815,7 +4976,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     await saveCachedAiPayload(cacheKey, "nutrition", normalizedMeals);
     const personalized = applyPersonalization(normalizedMeals, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
-    if (user.plan !== "FREE" && aiResult) {
+    if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
         prisma,
@@ -4855,7 +5016,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         },
         "ai charge complete"
       );
-    } else if (user.plan !== "FREE") {
+    } else if (shouldChargeAi) {
       app.log.info(
         { userId: user.id, feature: "nutrition", charged: false, failureReason: "missing_ai_result" },
         "ai charge skipped"
@@ -4863,9 +5024,9 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     }
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -4876,16 +5037,15 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
 app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/daily-tip");
-    const user =
-      (request as AuthenticatedRequest).currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();
     const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta =
-      user.plan !== "FREE"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
-        : { aiTokenBalance: null, aiTokenRenewalAt: null };
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
@@ -4906,7 +5066,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
       });
     }
 
-    await enforceAiQuota({ id: user.id, plan: user.plan });
+    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
     const prompt = buildTipPrompt(data);
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
@@ -4920,7 +5080,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.plan !== "FREE") {
+    if (shouldChargeAi) {
       const balanceBefore = effectiveTokens;
       app.log.info(
         { userId: user.id, feature: "tip", plan: user.plan, balanceBefore },
@@ -4984,9 +5144,9 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
     return reply.status(200).send({
       tip: personalized,
-      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -5073,19 +5233,42 @@ const exerciseListSchema = z.object({
   primaryMuscle: z.string().min(1).optional(),
   muscle: z.string().min(1).optional(),
   equipment: z.string().min(1).optional(),
+  cursor: z.string().min(1).optional(),
+  take: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(1).max(200).optional()),
+  page: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(1).optional()),
   limit: z.preprocess((value) => {
     if (value === undefined || value === null || value === "") return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
-  }, z.number().int().min(1).max(200).default(200)),
+  }, z.number().int().min(1).max(200).default(50)),
   offset: z.preprocess((value) => {
     if (value === undefined || value === null || value === "") return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
-  }, z.number().int().min(0).default(0)),
+  }, z.number().int().min(0).optional()),
 });
 
 const exerciseParamsSchema = z.object({ id: z.string().min(1) });
+const createExerciseSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(2000).optional(),
+  equipment: z.string().trim().max(80).optional(),
+  mainMuscleGroup: z.string().trim().max(80).optional(),
+  secondaryMuscleGroups: z.array(z.string().trim().min(1).max(80)).max(8).optional(),
+  technique: z.string().trim().max(3000).optional(),
+  tips: z.string().trim().max(3000).optional(),
+  mediaUrl: z.string().trim().url().optional(),
+  imageUrl: z.string().trim().url().optional(),
+  videoUrl: z.string().trim().url().optional(),
+});
 const recipeListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -5184,14 +5367,35 @@ app.get("/exercises", async (request, reply) => {
     const parsed = exerciseListSchema.parse(request.query);
     const q = parsed.q ?? parsed.query;
     const primaryMuscle = parsed.primaryMuscle ?? parsed.muscle;
+    const page = parsed.page ?? 1;
+    const limit = parsed.take ?? parsed.limit;
+    const offset = parsed.cursor ? 0 : parsed.offset ?? (page - 1) * limit;
+
     const { items, total } = await listExercises({
       q,
       primaryMuscle,
       equipment: parsed.equipment,
-      limit: parsed.limit,
-      offset: parsed.offset,
+      cursor: parsed.cursor,
+      take: parsed.take,
+      limit,
+      offset,
     });
-    return { items, total, limit: parsed.limit, offset: parsed.offset };
+
+    const nextCursor = parsed.cursor || parsed.take
+      ? items.length === limit
+        ? items[items.length - 1]?.id ?? null
+        : null
+      : null;
+
+    return {
+      items,
+      total,
+      limit,
+      offset,
+      page,
+      nextCursor,
+      hasMore: offset + items.length < total,
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5206,6 +5410,22 @@ app.get("/exercises/:id", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
     return exercise;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/exercises", async (request, reply) => {
+  try {
+    await requireUser(request);
+    const payload = createExerciseSchema.parse(request.body);
+
+    if (payload.mediaUrl || payload.imageUrl || payload.videoUrl) {
+      return reply.status(400).send({ error: "MEDIA_UPLOAD_NOT_SUPPORTED" });
+    }
+
+    const exercise = await createExercise(payload);
+    return reply.status(201).send(exercise);
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5505,6 +5725,13 @@ app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (reque
     const [targetMembership, selectedPlan] = await Promise.all([
       prisma.gymMembership.findUnique({
         where: { gymId_userId: { gymId, userId } },
+        select: {
+          id: true,
+          gymId: true,
+          userId: true,
+          status: true,
+          role: true,
+        },
       }),
       prisma.trainingPlan.findFirst({
         where: { id: selectedPlanId, userId: requester.id },
@@ -5570,7 +5797,12 @@ app.get("/trainer/members/:userId/training-plan-assignment", async (request, rep
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        gymId: true,
+        userId: true,
+        status: true,
+        role: true,
         gym: { select: { id: true, name: true } },
         assignedTrainingPlan: {
           select: {
@@ -5912,6 +6144,17 @@ const adminUpdateGymMemberRoleSchema = z.object({
 
 const adminCreateGymSchema = z.object({
   name: z.string().trim().min(2).max(120),
+  code: z
+    .string()
+    .trim()
+    .min(4)
+    .max(24)
+    .regex(/^[A-Za-z0-9_-]+$/, "Gym code can only contain letters, numbers, hyphens and underscores")
+    .transform((value) => value.toUpperCase()),
+});
+
+const adminDeleteGymParamsSchema = z.object({
+  gymId: z.string().min(1),
 });
 
 app.get("/gyms", async (request, reply) => {
@@ -5945,7 +6188,7 @@ const createGymJoinRequest = async (request: FastifyRequest, reply: FastifyReply
     const { gymId } = joinGymSchema.parse(request.body);
     const gym = await prisma.gym.findUnique({ where: { id: gymId }, select: { id: true } });
     if (!gym) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(404).send({ error: "NOT_FOUND", message: "Gym not found." });
     }
     const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId, userId: user.id } },
@@ -5986,23 +6229,32 @@ app.post("/gyms/join-by-code", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const { code } = joinGymByCodeSchema.parse(request.body);
-    const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
+    const normalizedCode = code.toUpperCase();
+    const gym = await prisma.gym.findUnique({ where: { code: normalizedCode } });
     if (!gym) {
-      return reply.status(400).send({ error: "INVALID_GYM_CODE" });
+      return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
     }
-    const membership = await prisma.gymMembership.upsert({
+
+    const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId: gym.id, userId: user.id } },
-      create: {
-        gymId: gym.id,
-        userId: user.id,
-        status: "ACTIVE",
-        role: "MEMBER",
-      },
-      update: {
-        status: "ACTIVE",
-        role: "MEMBER",
-      },
     });
+    const membership = existing
+      ? await prisma.gymMembership.update({
+          where: { id: existing.id },
+          data: {
+            status: existing.status === "REJECTED" ? "PENDING" : existing.status,
+            role: "MEMBER",
+          },
+        })
+      : await prisma.gymMembership.create({
+          data: {
+            gymId: gym.id,
+            userId: user.id,
+            status: "PENDING",
+            role: "MEMBER",
+          },
+        });
+
     return reply.status(200).send({
       state: membership.status.toLowerCase(),
       gym: { id: gym.id, name: gym.name },
@@ -6018,7 +6270,9 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
     const user = await requireUser(request);
     const membership = await prisma.gymMembership.findFirst({
       where: { userId: user.id },
-      include: {
+      select: {
+        status: true,
+        role: true,
         gym: {
           select: {
             id: true,
@@ -6048,25 +6302,33 @@ app.post("/gym/join-code", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const { code } = joinGymByCodeSchema.parse(request.body);
-    const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
+    const normalizedCode = code.toUpperCase();
+    const gym = await prisma.gym.findUnique({ where: { code: normalizedCode } });
 
     if (!gym) {
-      return reply.status(400).send({ error: "INVALID_GYM_CODE" });
+      return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
     }
 
-    const membership = await prisma.gymMembership.upsert({
+    const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId: gym.id, userId: user.id } },
-      create: {
-        gymId: gym.id,
-        userId: user.id,
-        status: "ACTIVE",
-        role: "MEMBER",
-      },
-      update: {
-        status: "ACTIVE",
-        role: "MEMBER",
-      },
     });
+
+    const membership = existing
+      ? await prisma.gymMembership.update({
+          where: { id: existing.id },
+          data: {
+            status: existing.status === "REJECTED" ? "PENDING" : existing.status,
+            role: "MEMBER",
+          },
+        })
+      : await prisma.gymMembership.create({
+          data: {
+            gymId: gym.id,
+            userId: user.id,
+            status: "PENDING",
+            role: "MEMBER",
+          },
+        });
 
     return reply.status(200).send({
       state: membership.status.toLowerCase(),
@@ -6094,7 +6356,9 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
         gym: { select: { id: true, name: true } },
         user: { select: { id: true, name: true, email: true } },
       },
@@ -6116,12 +6380,15 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
   try {
     const user = await requireUser(request);
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
-    const membership = await prisma.gymMembership.findUnique({ where: { id: membershipId } });
+    const membership = await prisma.gymMembership.findUnique({
+      where: { id: membershipId },
+      select: { id: true, gymId: true, status: true },
+    });
     if (!membership) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(404).send({ error: "NOT_FOUND", message: "Membership request not found." });
     }
     if (membership.status !== "PENDING") {
-      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+      return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be accepted." });
     }
     await requireGymAdminForGym(user.id, membership.gymId);
     const updateResult = await prisma.gymMembership.updateMany({
@@ -6130,7 +6397,9 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     });
 
     if (updateResult.count === 0) {
-      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+      return reply
+        .status(400)
+        .send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be accepted." });
     }
 
     return { membershipId: membership.id, status: "ACTIVE" };
@@ -6143,12 +6412,15 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
   try {
     const user = await requireUser(request);
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
-    const membership = await prisma.gymMembership.findUnique({ where: { id: membershipId } });
+    const membership = await prisma.gymMembership.findUnique({
+      where: { id: membershipId },
+      select: { id: true, gymId: true, status: true },
+    });
     if (!membership) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(404).send({ error: "NOT_FOUND", message: "Membership request not found." });
     }
     if (membership.status !== "PENDING") {
-      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+      return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be rejected." });
     }
     await requireGymAdminForGym(user.id, membership.gymId);
     const updateResult = await prisma.gymMembership.updateMany({
@@ -6157,7 +6429,9 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
     });
 
     if (updateResult.count === 0) {
-      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+      return reply
+        .status(400)
+        .send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be rejected." });
     }
 
     return { membershipId: membership.id, status: "REJECTED" };
@@ -6177,7 +6451,11 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
         gymId,
         status: "ACTIVE",
       },
-      include: {
+      select: {
+        id: true,
+        status: true,
+        role: true,
+        createdAt: true,
         user: {
           select: {
             id: true,
@@ -6224,7 +6502,8 @@ app.get("/trainer/clients", async (request, reply) => {
         status: "ACTIVE",
         role: "MEMBER",
       },
-      include: {
+      select: {
+        role: true,
         user: {
           select: {
             id: true,
@@ -6280,7 +6559,8 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
         status: "ACTIVE",
         role: "MEMBER",
       },
-      include: {
+      select: {
+        role: true,
         user: {
           select: {
             id: true,
@@ -6315,14 +6595,13 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
 app.post("/admin/gyms", async (request, reply) => {
   try {
     const user = await requireAdmin(request);
-    const { name } = adminCreateGymSchema.parse(request.body);
+    const { name, code } = adminCreateGymSchema.parse(request.body);
     const created = await prisma.$transaction(async (tx) => {
-      const activationCode = await generateUniqueGymActivationCode(name, user.id);
       const gym = await tx.gym.create({
         data: {
           name,
-          code: activationCode,
-          activationCode,
+          code,
+          activationCode: code,
         },
       });
       await tx.gymMembership.create({
@@ -6343,7 +6622,7 @@ app.post("/admin/gyms", async (request, reply) => {
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return reply.status(409).send({ error: "JOIN_CODE_CONFLICT" });
+      return reply.status(400).send({ error: "GYM_CODE_ALREADY_EXISTS", message: "Gym code already exists." });
     }
     return handleRequestError(reply, error);
   }
@@ -6380,6 +6659,42 @@ app.get("/admin/gyms", async (request, reply) => {
   }
 });
 
+app.delete("/admin/gyms/:gymId", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { gymId } = adminDeleteGymParamsSchema.parse(request.params);
+
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            memberships: true,
+          },
+        },
+      },
+    });
+
+    if (!gym) {
+      return reply.status(404).send({ error: "NOT_FOUND", message: "Gym not found." });
+    }
+
+    if (gym._count.memberships > 0) {
+      return reply.status(400).send({
+        error: "GYM_DELETE_BLOCKED",
+        message: "Gym cannot be deleted while it still has memberships.",
+      });
+    }
+
+    await prisma.gym.delete({ where: { id: gymId } });
+
+    return reply.status(200).send({ ok: true, gymId });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.patch("/admin/gyms/:gymId/members/:userId/role", async (request, reply) => {
   try {
     await requireAdmin(request);
@@ -6388,6 +6703,9 @@ app.patch("/admin/gyms/:gymId/members/:userId/role", async (request, reply) => {
 
     const membership = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId, userId } },
+      select: {
+        id: true,
+      },
     });
 
     if (!membership) {
@@ -6400,7 +6718,10 @@ app.patch("/admin/gyms/:gymId/members/:userId/role", async (request, reply) => {
         role,
         ...(status ? { status } : {}),
       },
-      include: {
+      select: {
+        userId: true,
+        status: true,
+        role: true,
         gym: {
           select: {
             id: true,

@@ -7,6 +7,7 @@ import { addExerciseRecent } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise, TrainingPlanDetail } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
 import {
@@ -33,6 +34,10 @@ type ExerciseOverviewItem = {
   value: string;
 };
 
+function isNotNull<T>(value: T | null): value is T {
+  return value !== null;
+}
+
 function getMuscleGroups(exercise: Exercise): MuscleGroups {
   const primaryFromMain = exercise.mainMuscleGroup ? [exercise.mainMuscleGroup] : [];
   const primaryFromLegacy = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
@@ -54,6 +59,7 @@ export default function ExerciseDetailClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [isFavoritePending, setIsFavoritePending] = useState(false);
   const [targetPlan, setTargetPlan] = useState<TrainingPlanDetail | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
@@ -74,34 +80,36 @@ export default function ExerciseDetailClient({
     () => (exercise ? getMuscleGroups(exercise) : { primary: [], secondary: [] }),
     [exercise]
   );
-  const media = useMemo(() => {
-    if (!exercise) return null;
-    const videoUrl = exercise.mediaUrl ?? exercise.videoUrl;
-    if (videoUrl) {
-      return {
-        kind: "video" as const,
-        url: videoUrl,
-        poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined,
-      };
-    }
+  const mediaItems = useMemo(() => {
+    type MediaItem = { kind: "image" | "video"; url: string; poster?: string };
+    if (!exercise) return [] as MediaItem[];
 
-    const imageUrl = exercise.imageUrl ?? exercise.posterUrl;
-    if (imageUrl) {
-      return {
-        kind: "image" as const,
-        url: imageUrl,
-      };
-    }
+    const source: Array<MediaItem | null> = [
+      exercise.mediaUrl ? { kind: "video", url: exercise.mediaUrl, poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined } : null,
+      exercise.videoUrl ? { kind: "video", url: exercise.videoUrl, poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined } : null,
+      exercise.imageUrl ? { kind: "image", url: exercise.imageUrl } : null,
+      exercise.posterUrl ? { kind: "image", url: exercise.posterUrl } : null,
+    ];
+    const filtered = source.filter((item): item is MediaItem => item !== null);
 
-    return null;
+    const unique: MediaItem[] = [];
+    const seen = new Set<string>();
+    for (const item of filtered) {
+      const key = `${item.kind}:${item.url}`;
+      if (!item.url || seen.has(key)) continue;
+      seen.add(key);
+      unique.push(item);
+    }
+    return unique;
   }, [exercise]);
+  const media = mediaItems[activeMediaIndex] ?? null;
   const primary = muscleGroups.primary;
   const secondary = muscleGroups.secondary;
   const equipmentLabel = exercise?.equipment ?? null;
   const hasDescription = Boolean(exercise?.description);
   const hasTechnique = Boolean(exercise?.technique);
   const hasTips = Boolean(exercise?.tips);
-  const hasMedia = Boolean(media);
+  const hasMedia = mediaItems.length > 0;
   const hasPrimaryMuscles = primary.length > 0;
   const hasSecondaryMuscles = secondary.length > 0;
   const badgeItems = useMemo(
@@ -140,13 +148,22 @@ export default function ExerciseDetailClient({
     }
     return items;
   }, [equipmentLabel, hasPrimaryMuscles, hasSecondaryMuscles, primary, secondary, t]);
-  const mediaKey = `${exercise?.id ?? "exercise"}-${media?.kind ?? "none"}-${media?.url ?? "none"}`;
+  const mediaKey = `${exercise?.id ?? "exercise"}-${activeMediaIndex}-${media?.kind ?? "none"}-${media?.url ?? "none"}`;
 
   useEffect(() => {
     if (exercise) {
       addExerciseRecent(exercise);
     }
   }, [exercise]);
+
+  useEffect(() => {
+    setActiveMediaIndex(0);
+  }, [exercise?.id]);
+
+  useEffect(() => {
+    if (activeMediaIndex < mediaItems.length) return;
+    setActiveMediaIndex(0);
+  }, [activeMediaIndex, mediaItems.length]);
 
   useEffect(() => {
     let active = true;
@@ -363,6 +380,17 @@ export default function ExerciseDetailClient({
               />
             </button>
           </div>
+          {mediaItems.length > 1 ? (
+            <div className="inline-actions mt-12">
+              <Button variant="ghost" size="sm" onClick={() => setActiveMediaIndex((prev) => (prev - 1 + mediaItems.length) % mediaItems.length)}>
+                {t("exerciseDetail.previousMedia")}
+              </Button>
+              <Badge variant="muted">{activeMediaIndex + 1}/{mediaItems.length}</Badge>
+              <Button variant="ghost" size="sm" onClick={() => setActiveMediaIndex((prev) => (prev + 1) % mediaItems.length)}>
+                {t("exerciseDetail.nextMedia")}
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -394,12 +422,15 @@ export default function ExerciseDetailClient({
         open={isMediaViewerOpen}
         onClose={() => setIsMediaViewerOpen(false)}
         media={media}
+        mediaItems={mediaItems}
         title={t("exerciseDetail.mediaViewerTitle")}
         description={t("exerciseDetail.mediaViewerDescription")}
         closeLabel={t("ui.close")}
         mediaAlt={`${t("library.mediaAlt")} ${exercise.name}`}
         fallbackTitle={t("exerciseDetail.mediaViewerFallbackTitle")}
         fallbackDescription={t("exerciseDetail.mediaViewerFallbackDescription")}
+        previousLabel={t("exerciseDetail.previousMedia")}
+        nextLabel={t("exerciseDetail.nextMedia")}
       />
 
       <AddExerciseDayPickerModal

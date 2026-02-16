@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useLanguage } from "@/context/LanguageProvider";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { AssignTrainingPlanModal } from "@/components/gym/AssignTrainingPlanModal";
+import { useLanguage } from "@/context/LanguageProvider";
 import { Button } from "@/components/ui/Button";
 
 type UserRow = {
@@ -21,6 +22,8 @@ type ProfilePayload = {
   tenant?: { id?: string; gymId?: string; tenantId?: string } | string;
 };
 
+type MembersState = "loading" | "ready";
+
 function resolveGymId(profile: ProfilePayload | null): string | null {
   if (!profile) return null;
   const tenant = typeof profile.tenant === "object" && profile.tenant ? profile.tenant : null;
@@ -31,63 +34,62 @@ export function GymAdminMembersClient() {
   const { t } = useLanguage();
   const [gymId, setGymId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<MembersState>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [isUnavailable, setIsUnavailable] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    const loadData = async () => {
-      setLoading(true);
-      setError(null);
-      setSuccessMessage(null);
+  const loadData = useCallback(async () => {
+    setState("loading");
+    setError(null);
+    setIsUnavailable(false);
+    setSuccessMessage(null);
 
+    try {
       const [profileRes, usersRes] = await Promise.all([
         fetch("/api/profile", { cache: "no-store", credentials: "include" }),
         fetch("/api/admin/users?page=1", { cache: "no-store", credentials: "include" }),
       ]);
 
       if (!profileRes.ok) {
-        if (active) {
-          setError(t("gym.admin.members.profileError"));
-          setLoading(false);
-        }
+        setError(t("gym.admin.members.profileError"));
         return;
       }
 
       const profile = (await profileRes.json()) as ProfilePayload;
       const nextGymId = resolveGymId(profile);
       if (!nextGymId) {
-        if (active) {
-          setError(t("gym.admin.members.missingGymId"));
-          setLoading(false);
-        }
+        setError(t("gym.admin.members.missingGymId"));
+        return;
+      }
+
+      if (usersRes.status === 404 || usersRes.status === 405) {
+        setGymId(nextGymId);
+        setUsers([]);
+        setIsUnavailable(true);
         return;
       }
 
       if (!usersRes.ok) {
-        if (active) {
-          setGymId(nextGymId);
-          setError(t("gym.admin.members.loadError"));
-          setLoading(false);
-        }
+        setGymId(nextGymId);
+        setError(t("gym.admin.members.loadError"));
         return;
       }
 
       const usersPayload = (await usersRes.json()) as UsersResponse;
-      if (active) {
-        setGymId(nextGymId);
-        setUsers(usersPayload.users ?? []);
-        setLoading(false);
-      }
-    };
-
-    void loadData();
-    return () => {
-      active = false;
-    };
+      setGymId(nextGymId);
+      setUsers(usersPayload.users ?? []);
+    } catch {
+      setError(t("gym.admin.members.loadError"));
+    } finally {
+      setState("ready");
+    }
   }, [t]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const hasUsers = useMemo(() => users.length > 0, [users]);
 
@@ -99,11 +101,32 @@ export function GymAdminMembersClient() {
       </section>
 
       {successMessage ? <p className="muted">{successMessage}</p> : null}
-      {loading ? <p className="muted">{t("gym.admin.members.loading")}</p> : null}
-      {!loading && error ? <p className="muted">{error}</p> : null}
-      {!loading && !error && !hasUsers ? <p className="muted">{t("gym.admin.members.empty")}</p> : null}
 
-      {!loading && !error && hasUsers
+      {state === "loading" ? <LoadingState ariaLabel={t("gym.admin.members.loading")} lines={3} /> : null}
+
+      {state === "ready" && error ? (
+        <ErrorState
+          title={error}
+          retryLabel={t("ui.retry")}
+          onRetry={() => void loadData()}
+          wrapInCard
+        />
+      ) : null}
+
+      {state === "ready" && !error && isUnavailable ? (
+        <EmptyState
+          title={t("common.comingSoon")}
+          description={t("gym.admin.members.unavailable")}
+          wrapInCard
+          actions={[{ label: t("ui.retry"), onClick: () => void loadData(), variant: "secondary" }]}
+        />
+      ) : null}
+
+      {state === "ready" && !error && !isUnavailable && !hasUsers ? (
+        <EmptyState title={t("gym.admin.members.empty")} wrapInCard icon="info" />
+      ) : null}
+
+      {state === "ready" && !error && !isUnavailable && hasUsers
         ? users.map((user) => (
             <section key={user.id} className="feature-card" style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <div>

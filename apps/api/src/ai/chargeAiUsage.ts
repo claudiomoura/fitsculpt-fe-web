@@ -7,6 +7,7 @@ type AiUsageUser = {
   aiTokenBalance: number;
   aiTokenResetAt: Date | null;
   aiTokenRenewalAt: Date | null;
+  isAdminOverride?: boolean;
 };
 
 type OpenAiUsage = {
@@ -196,11 +197,11 @@ async function debitAiTokensTx(
 export async function chargeAiUsage(params: ChargeAiUsageParams) {
   const { prisma, pricing, user, feature, execute, createHttpError } = params;
 
-  if (user.plan === "FREE") {
+  if (!user.isAdminOverride && user.plan === "FREE") {
     throw createHttpError(403, "NOT_PRO");
   }
 
-  if (getEffectiveTokens(user) <= 0) {
+  if (!user.isAdminOverride && getEffectiveTokens(user) <= 0) {
     throw createHttpError(402, "INSUFFICIENT_TOKENS");
   }
 
@@ -243,11 +244,11 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
 export async function chargeAiUsageForResult(params: ChargeAiUsageForResultParams) {
   const { prisma, pricing, user, feature, result, meta, createHttpError } = params;
 
-  if (user.plan === "FREE") {
+  if (!user.isAdminOverride && user.plan === "FREE") {
     throw createHttpError(403, "NOT_PRO");
   }
 
-  if (getEffectiveTokens(user) <= 0) {
+  if (!user.isAdminOverride && getEffectiveTokens(user) <= 0) {
     throw createHttpError(402, "INSUFFICIENT_TOKENS");
   }
 

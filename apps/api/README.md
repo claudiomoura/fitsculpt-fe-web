@@ -28,6 +28,13 @@
 | `STRIPE_WEBHOOK_SECRET` | Segredo do webhook do Stripe. | `whsec_...` |
 | `STRIPE_PRO_PRICE_ID` | Price ID do plano PRO (assinatura). | `price_...` |
 
+## Configuração segura de ambiente
+
+- Copie `apps/api/.env.example` para `.env` apenas no ambiente local/servidor.
+- Nunca commite valores reais de segredos (`JWT_SECRET`, `COOKIE_SECRET`, `DATABASE_URL`, `*_API_KEY`, `*_SECRET`).
+- Gere segredos longos e aleatórios para produção (mínimo recomendado: 32 caracteres).
+- Dumps de banco (`*.dump`, `*.sql`, `*.db`) e arquivos de credenciais devem ficar fora do versionamento.
+
 ## Fluxo de autenticação
 
 ### Signup (com promo code)
@@ -219,6 +226,79 @@ curl -i -b /tmp/fs_cookie.txt \\
 curl -i -b /tmp/fs_cookie.txt http://localhost:4000/feed
 ```
 
+## Gym flows (Sprint 23 / PR-A)
+
+### Endpoints
+
+- `POST /admin/gyms` (admin): cria gym com `name` e `code`.
+- `GET /admin/gyms` (admin): lista gyms.
+- `DELETE /admin/gyms/:gymId` (admin): remove gym sem memberships.
+- `GET /gyms` (usuário autenticado): lista gyms para solicitação de entrada.
+- `POST /gyms/join` (usuário autenticado): cria/reativa solicitação `PENDING`.
+- `POST /gyms/join-by-code` (usuário autenticado): solicita entrada usando `code`.
+- `GET /admin/gym-join-requests` (gym admin): lista solicitações pendentes da gym.
+- `POST /admin/gym-join-requests/:membershipId/accept` (gym admin): `PENDING -> ACTIVE`.
+- `POST /admin/gym-join-requests/:membershipId/reject` (gym admin): `PENDING -> REJECTED`.
+- `GET /admin/gyms/:gymId/members` (gym admin/trainer): lista membros `ACTIVE`.
+
+### Regras de negócio
+
+- Estado de join request: somente `PENDING` pode ser aceito/rejeitado.
+- Delete gym: bloqueado com `400 GYM_DELETE_BLOCKED` quando existem memberships.
+- Erros esperados de fluxo: `400`, `403`, `404` com `error` e `message` claros.
+
+### Como testar localmente
+
+```bash
+# 1) iniciar API
+npm run dev
+
+# 2) login admin (cookie)
+curl -i -c /tmp/fs_admin_cookie.txt \
+  -X POST http://localhost:4000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"password"}'
+
+# 3) criar gym (admin)
+curl -i -b /tmp/fs_admin_cookie.txt \
+  -X POST http://localhost:4000/admin/gyms \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Iron Temple","code":"IRON01"}'
+
+# 4) listar gyms admin
+curl -i -b /tmp/fs_admin_cookie.txt http://localhost:4000/admin/gyms
+
+# 5) login user comum (cookie)
+curl -i -c /tmp/fs_user_cookie.txt \
+  -X POST http://localhost:4000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"password"}'
+
+# 6) user lista gyms
+curl -i -b /tmp/fs_user_cookie.txt http://localhost:4000/gyms
+
+# 7) user solicita entrada por code (retorna pending)
+curl -i -b /tmp/fs_user_cookie.txt \
+  -X POST http://localhost:4000/gyms/join-by-code \
+  -H "Content-Type: application/json" \
+  -d '{"code":"IRON01"}'
+
+# 8) gym admin lista requests pendentes
+curl -i -b /tmp/fs_admin_cookie.txt http://localhost:4000/admin/gym-join-requests
+
+# 9) gym admin aceita request
+curl -i -b /tmp/fs_admin_cookie.txt \
+  -X POST http://localhost:4000/admin/gym-join-requests/<membershipId>/accept
+
+# 10) membros ativos refletem aceite
+curl -i -b /tmp/fs_admin_cookie.txt \
+  http://localhost:4000/admin/gyms/<gymId>/members
+
+# 11) delete bloqueado quando há membros
+curl -i -b /tmp/fs_admin_cookie.txt \
+  -X DELETE http://localhost:4000/admin/gyms/<gymId>
+```
+
 ## Troubleshooting
 
 - Se aparecer `Can't reach database server at \`localhost:5432\``, verifique se o Postgres está rodando e se `DATABASE_URL` aponta para a instância correta.
@@ -271,3 +351,26 @@ $sql | npx prisma db execute --schema prisma/schema.prisma --stdin
 ##  mudar pass de  usuario na BD
 cd apps\api
 node -e "const b=require('cmkh4tvhr0000kxq8os6qhids'); b.hash('Password1234',12).then(h=>console.log(h))"
+
+## Importador `free-exercise-db`
+
+Comando principal (idempotente por `Exercise.sourceId`):
+
+```bash
+npm run db:import:free-exercise-db
+```
+
+Con `npm --prefix` desde la raíz del monorepo:
+
+```bash
+npm run db:import:free-exercise-db --prefix apps/api
+```
+
+Guard de seguridad:
+- en `NODE_ENV=production` no corre salvo que `ALLOW_IMPORT=1`.
+
+Bootstrap opcional:
+
+```bash
+IMPORT_EXERCISES=1 npm run db:bootstrap
+```

@@ -69,13 +69,23 @@ export default function AppNavBar() {
   const normalizedPlan = planValue.toLowerCase();
   const planKey = `billing.planLabels.${normalizedPlan}`;
   const translatedPlan = t(planKey);
-  const planLabel = translatedPlan === planKey ? t("billing.planLabels.unknown") : translatedPlan;
+  const planLabel =
+    translatedPlan === planKey
+      ? t("billing.planLabels.unknown")
+      : translatedPlan;
   const isPaidPlan = planValue !== "FREE";
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance;
   const hasTokenBalance = typeof tokenBalance === "number";
 
   const sections = useMemo(
-    () => buildNavigationSections({ role, isAdmin, isCoach, isDev, gymMembershipState }),
+    () =>
+      buildNavigationSections({
+        role,
+        isAdmin,
+        isCoach,
+        isDev,
+        gymMembershipState,
+      }),
     [role, isCoach, isAdmin, isDev, gymMembershipState],
   );
 
@@ -95,30 +105,39 @@ export default function AppNavBar() {
         </Link>
 
         <div className="nav-actions">
-  <AppUserBadge mobileMenuOpen={open} onMobileMenuToggle={() => setOpen((prev) => !prev)} />
+          <AppUserBadge
+            mobileMenuOpen={open}
+            onMobileMenuOpen={() => setOpen(true)}
+          />
 
-  <div className={`account-pill ${isPaidPlan ? "is-pro" : "is-free"}`}>
-    <span className="account-pill-label">{planLabel}</span>
-    {isPaidPlan && hasTokenBalance ? <span className="account-pill-meta">{t("ui.tokensLabel")} {tokenBalance}</span> : null}
-  </div>
+          <div className={`account-pill ${isPaidPlan ? "is-pro" : "is-free"}`}>
+            <span className="account-pill-label">{planLabel}</span>
+            {isPaidPlan && hasTokenBalance ? (
+              <span className="account-pill-meta">
+                {t("ui.tokensLabel")} {tokenBalance}
+              </span>
+            ) : null}
+          </div>
 
-  <div className="nav-utility">
-    <ThemeToggle />
-    <LanguageSwitcher />
-  </div>
+          <div className="nav-utility">
+            <ThemeToggle />
+            <LanguageSwitcher />
+          </div>
 
-  <button
-    type="button"
-    className="nav-toggle"
-    aria-expanded={open}
-    aria-controls="app-nav-drawer"
-    aria-label={open ? t("ui.close") : t("ui.menu")}
-    onClick={() => setOpen((prev) => !prev)}
-  >
-    <span aria-hidden="true">{open ? "✕" : "☰"}</span>
-    <span className="nav-toggle-label">{open ? t("ui.close") : t("ui.menu")}</span>
-  </button>
-</div>
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-expanded={open}
+            aria-controls="app-nav-drawer"
+            aria-label={open ? t("ui.close") : t("ui.menu")}
+            onClick={() => setOpen((prev) => !prev)}
+          >
+            <span aria-hidden="true">{open ? "✕" : "☰"}</span>
+            <span className="nav-toggle-label">
+              {open ? t("ui.close") : t("ui.menu")}
+            </span>
+          </button>
+        </div>
       </div>
 
       <div
@@ -134,10 +153,19 @@ export default function AppNavBar() {
         <div className="nav-drawer-header">
           <div>
             <p className="nav-drawer-title">{t("appName")}</p>
-            <p className="nav-drawer-user">{user?.name || t("ui.userFallback")}</p>
-            {userMeta ? <p className="nav-drawer-user-meta">{userMeta}</p> : null}
+            <p className="nav-drawer-user">
+              {user?.name || t("ui.userFallback")}
+            </p>
+            {userMeta ? (
+              <p className="nav-drawer-user-meta">{userMeta}</p>
+            ) : null}
           </div>
-          <button type="button" className="nav-toggle" onClick={closeMenu}>
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-label={t("ui.close")}
+            onClick={closeMenu}
+          >
             {t("ui.close")}
           </button>
         </div>
@@ -147,7 +175,9 @@ export default function AppNavBar() {
             if (section.id === "account") {
               return (
                 <div key={section.id} className="nav-drawer-section">
-                  <p className="nav-drawer-section-title">{t(section.labelKey)}</p>
+                  <p className="nav-drawer-section-title">
+                    {t(section.labelKey)}
+                  </p>
                   <div className="nav-drawer-links">
                     {section.items.map((item) => {
                       const active = isActive(item.href);
@@ -159,7 +189,12 @@ export default function AppNavBar() {
                             aria-disabled="true"
                           >
                             <span>{t(item.labelKey)}</span>
-                            <span className="text-xs text-[var(--text-muted)]">{t(item.disabledNoteKey ?? "common.notAvailableYet")}</span>
+                            <span className="text-xs text-[var(--text-muted)]">
+                              {t(
+                                item.disabledNoteKey ??
+                                  "common.notAvailableYet",
+                              )}
+                            </span>
                           </div>
                         );
                       }
@@ -173,7 +208,11 @@ export default function AppNavBar() {
                           onClick={closeMenu}
                         >
                           <span>{t(item.labelKey)}</span>
-                          {item.meta ? <span className="text-xs text-[var(--text-muted)]">{item.meta}</span> : null}
+                          {item.meta ? (
+                            <span className="text-xs text-[var(--text-muted)]">
+                              {item.meta}
+                            </span>
+                          ) : null}
                         </Link>
                       );
                     })}
@@ -188,7 +227,9 @@ export default function AppNavBar() {
 
             return (
               <div key={section.id} className="nav-drawer-section">
-                <p className="nav-drawer-section-title">{t(section.labelKey)}</p>
+                <p className="nav-drawer-section-title">
+                  {t(section.labelKey)}
+                </p>
                 <div className="nav-drawer-links">
                   {section.items.map((item) => {
                     const active = isActive(item.href);
@@ -200,7 +241,11 @@ export default function AppNavBar() {
                           aria-disabled="true"
                         >
                           <span>{t(item.labelKey)}</span>
-                          <span className="text-xs text-[var(--text-muted)]">{t(item.disabledNoteKey ?? "common.notAvailableYet")}</span>
+                          <span className="text-xs text-[var(--text-muted)]">
+                            {t(
+                              item.disabledNoteKey ?? "common.notAvailableYet",
+                            )}
+                          </span>
                         </div>
                       );
                     }
@@ -214,7 +259,11 @@ export default function AppNavBar() {
                         onClick={closeMenu}
                       >
                         <span>{t(item.labelKey)}</span>
-                        {item.meta ? <span className="text-xs text-[var(--text-muted)]">{item.meta}</span> : null}
+                        {item.meta ? (
+                          <span className="text-xs text-[var(--text-muted)]">
+                            {item.meta}
+                          </span>
+                        ) : null}
                       </Link>
                     );
                   })}

@@ -118,7 +118,7 @@ export const sidebarAdmin: NavSectionGroup[] = [
         href: "/app/admin/gym-requests",
         labelKey: "nav.gymJoinRequests",
         disabled: true,
-        disabledNoteKey: "common.notAvailableYet",
+        disabledNoteKey: "common.comingSoon",
       },
       { id: "admin-labs", href: "/app/admin/labs", labelKey: "nav.adminLabs" },
       { id: "admin-preview", href: "/app/admin/preview", labelKey: "nav.adminPreview" },
@@ -137,7 +137,7 @@ export const sidebarTrainer: NavSectionGroup[] = [
         href: "/app/trainer/clients",
         labelKey: "nav.trainerClients",
         disabled: true,
-        disabledNoteKey: "common.notAvailableYet",
+        disabledNoteKey: "common.comingSoon",
       },
       {
         id: "trainer-exercises",
@@ -217,7 +217,7 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         labelKey: "nav.gymJoinRequests",
         meta: "/app/admin/gym-requests",
         disabled: true,
-        disabledNoteKey: "common.notAvailableYet",
+        disabledNoteKey: "common.comingSoon",
       },
       {
         id: "dev-admin-preview",
@@ -249,6 +249,10 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
 
   if (!canAccessAdmin(input)) {
     return userSections;
+  }
+
+  if (!input.isDev) {
+    return [...userSections, ...sidebarAdmin, ...sidebarTrainer];
   }
 
   return [...userSections, ...sidebarAdmin, ...sidebarTrainer, ...sidebarDevelopment];

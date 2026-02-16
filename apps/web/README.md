@@ -26,7 +26,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
 NEXT_PUBLIC_API_BASE_URL=http://localhost:4000
 ```
 
-Use o ficheiro `.env.example` na raiz do repositório como referência e mantenha os valores reais apenas no seu ambiente local.
+Use o ficheiro `.env.example` na raiz do repositório como referência e mantenha os valores reais apenas no seu ambiente local. Nunca comite `.env`, `.env.local` ou credenciais.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

@@ -168,7 +168,7 @@ export default function TrackingClient() {
   const [adjustmentEntitlementChecked, setAdjustmentEntitlementChecked] = useState(false);
   const [hasAdjustmentEntitlement, setHasAdjustmentEntitlement] = useState(false);
   const [adjustmentTokenBalance, setAdjustmentTokenBalance] = useState<number | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<AiEntitlementProfile["subscriptionPlan"]>(null);
   const [trackingSupports, setTrackingSupports] = useState<{
     energy: boolean | null;
     notes: boolean | null;
@@ -241,7 +241,7 @@ export default function TrackingClient() {
         };
         if (!active) return;
         setHasAdjustmentEntitlement(hasAiEntitlement(data));
-        setSubscriptionPlan(data.subscriptionPlan ?? null);
+        setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
         setAdjustmentTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       } catch {
         if (!active) return;

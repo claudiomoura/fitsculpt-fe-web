@@ -1,24 +1,8 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getBackendUrl } from "@/lib/backend";
-
-async function getAuthCookie() {
-  const token = (await cookies()).get("fs_token")?.value;
-  return token ? `fs_token=${token}` : null;
-}
+import { proxyToBackend } from "../../gyms/_proxy";
 
 export async function GET(request: Request) {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-
   const url = new URL(request.url);
-  const response = await fetch(`${getBackendUrl()}/training-plans/active?${url.searchParams.toString()}`, {
-    headers: { cookie: authCookie },
-    cache: "no-store",
-  });
-
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+  const query = url.searchParams.toString();
+  const path = query ? `/training-plans/active?${query}` : "/training-plans/active";
+  return proxyToBackend(path);
 }

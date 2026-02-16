@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import {
@@ -41,6 +41,16 @@ export default function ExerciseLibraryClient() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
   const athleteUserId = searchParams.get("athleteUserId")?.trim() || "";
+  const detailParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (athleteUserId) {
+      params.set("athleteUserId", athleteUserId);
+    }
+    params.set("from", "plan");
+    const returnTo = athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento";
+    params.set("returnTo", returnTo);
+    return params.toString();
+  }, [athleteUserId]);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [equipmentFilter, setEquipmentFilter] = useState("all");
@@ -55,6 +65,7 @@ export default function ExerciseLibraryClient() {
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
+  const infiniteScrollRef = useRef<HTMLDivElement | null>(null);
   const [isClearingRecents, setIsClearingRecents] = useState(false);
   const {
     recents,
@@ -155,6 +166,24 @@ export default function ExerciseLibraryClient() {
       setMuscleFilter("all");
     }
   }, [muscleFilter, muscleOptions]);
+
+  useEffect(() => {
+    if (!hasMore || loading || loadingMore) return;
+    const element = infiniteScrollRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const shouldLoad = entries.some((entry) => entry.isIntersecting);
+        if (!shouldLoad) return;
+        setActivePage((prev) => prev + 1);
+      },
+      { rootMargin: "240px 0px" }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore]);
 
   const handleResetFilters = () => {
     setQuery("");
@@ -376,7 +405,7 @@ export default function ExerciseLibraryClient() {
 
     return (
       <div key={exerciseId} className="feature-card library-card">
-        <Link href={`/app/biblioteca/${exerciseId}`} className="library-card-link">
+        <Link href={`/app/biblioteca/${exerciseId}?${detailParams}`} className="library-card-link">
           {content}
         </Link>
         <Button
@@ -611,6 +640,7 @@ export default function ExerciseLibraryClient() {
               <Button variant="secondary" onClick={() => setActivePage((prev) => prev + 1)} loading={loadingMore}>
                 {t("library.loadMore")}
               </Button>
+              <div ref={infiniteScrollRef} aria-hidden="true" className="library-infinite-scroll-sentinel" />
             </div>
           ) : null}
         </>

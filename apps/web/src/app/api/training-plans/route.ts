@@ -1,45 +1,13 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getBackendUrl } from "@/lib/backend";
-
-async function getAuthCookie() {
-  const token = (await cookies()).get("fs_token")?.value;
-  return token ? `fs_token=${token}` : null;
-}
+import { proxyToBackend } from "../gyms/_proxy";
 
 export async function GET(request: Request) {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-
   const url = new URL(request.url);
-  const response = await fetch(`${getBackendUrl()}/training-plans?${url.searchParams.toString()}`, {
-    headers: { cookie: authCookie },
-    cache: "no-store",
-  });
-
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+  const query = url.searchParams.toString();
+  const path = query ? `/training-plans?${query}` : "/training-plans";
+  return proxyToBackend(path);
 }
 
 export async function POST(request: Request) {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-
   const payload = await request.json().catch(() => ({}));
-  const response = await fetch(`${getBackendUrl()}/training-plans`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      cookie: authCookie,
-    },
-    cache: "no-store",
-    body: JSON.stringify(payload),
-  });
-
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+  return proxyToBackend("/training-plans", { method: "POST", body: payload });
 }

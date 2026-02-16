@@ -543,7 +543,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<AiEntitlementProfile["subscriptionPlan"]>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
@@ -608,7 +608,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
-      setSubscriptionPlan(data.subscriptionPlan ?? null);
+      setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       setAiEntitled(hasAiEntitlement(data));
