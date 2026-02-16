@@ -22,6 +22,11 @@ export default function TrainerExerciseCreateForm() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [mainMuscleGroup, setMainMuscleGroup] = useState("");
+  const [secondaryMuscles, setSecondaryMuscles] = useState("");
+  const [equipment, setEquipment] = useState("");
+  const [technique, setTechnique] = useState("");
+  const [tips, setTips] = useState("");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [canCreateExercise, setCanCreateExercise] = useState(false);
   const [accessState, setAccessState] = useState<"loading" | "ready" | "error">("loading");
@@ -62,7 +67,7 @@ export default function TrainerExerciseCreateForm() {
     };
   }, []);
 
-  const isValid = useMemo(() => name.trim().length > 0, [name]);
+  const isValid = useMemo(() => name.trim().length > 0 && mainMuscleGroup.trim().length > 0, [mainMuscleGroup, name]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -77,6 +82,14 @@ export default function TrainerExerciseCreateForm() {
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim() || undefined,
+          mainMuscleGroup: mainMuscleGroup.trim(),
+          secondaryMuscleGroups: secondaryMuscles
+            .split(",")
+            .map((muscle) => muscle.trim())
+            .filter((muscle) => muscle.length > 0),
+          equipment: equipment.trim() || undefined,
+          technique: technique.trim() || undefined,
+          tips: tips.trim() || undefined,
         }),
       });
 
@@ -136,7 +149,7 @@ export default function TrainerExerciseCreateForm() {
   return (
     <form className="card form-stack" onSubmit={onSubmit}>
       <label className="form-field">
-        <span>{t("workouts.name")}</span>
+        <span>{t("training.exerciseCreate.nameLabel")}</span>
         <input
           className="input"
           value={name}
@@ -147,13 +160,67 @@ export default function TrainerExerciseCreateForm() {
       </label>
 
       <label className="form-field">
-        <span>{t("ui.description")}</span>
+        <span>{t("training.exerciseCreate.descriptionLabel")}</span>
         <textarea
           className="textarea"
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           disabled={submitting}
           rows={4}
+        />
+      </label>
+
+      <label className="form-field">
+        <span>{t("training.exerciseCreate.mainMuscleLabel")}</span>
+        <input
+          className="input"
+          value={mainMuscleGroup}
+          onChange={(event) => setMainMuscleGroup(event.target.value)}
+          disabled={submitting}
+          required
+        />
+      </label>
+
+      <label className="form-field">
+        <span>{t("training.exerciseCreate.secondaryMusclesLabel")}</span>
+        <input
+          className="input"
+          value={secondaryMuscles}
+          onChange={(event) => setSecondaryMuscles(event.target.value)}
+          disabled={submitting}
+          placeholder="Core, Triceps"
+        />
+      </label>
+
+      <label className="form-field">
+        <span>{t("training.exerciseCreate.equipmentLabel")}</span>
+        <input
+          className="input"
+          value={equipment}
+          onChange={(event) => setEquipment(event.target.value)}
+          disabled={submitting}
+        />
+      </label>
+
+      <label className="form-field">
+        <span>{t("training.exerciseCreate.techniqueLabel")}</span>
+        <textarea
+          className="textarea"
+          value={technique}
+          onChange={(event) => setTechnique(event.target.value)}
+          disabled={submitting}
+          rows={3}
+        />
+      </label>
+
+      <label className="form-field">
+        <span>{t("training.exerciseCreate.tipsLabel")}</span>
+        <textarea
+          className="textarea"
+          value={tips}
+          onChange={(event) => setTips(event.target.value)}
+          disabled={submitting}
+          rows={3}
         />
       </label>
 
