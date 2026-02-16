@@ -38,8 +38,12 @@ export default function AppSidebar() {
                   if (item.disabled) {
                     return (
                       <div key={`${section.id}:${item.id}`} className="sidebar-link" aria-disabled="true">
-                        <span>{t(item.labelKey)}</span>
-                        {item.disabledNoteKey ? <span className="text-xs text-[var(--text-muted)]">{t(item.disabledNoteKey)}</span> : null}
+                        <span>
+                          {t(item.labelKey)}
+                          {item.disabledNoteKey ? (
+                            <span className="text-xs text-[var(--text-muted)]"> {t(item.disabledNoteKey)}</span>
+                          ) : null}
+                        </span>
                       </div>
                     );
                   }

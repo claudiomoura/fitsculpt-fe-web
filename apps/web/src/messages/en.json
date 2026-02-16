@@ -2315,7 +2315,8 @@
   },
   "common": {
     "loading": "Loading...",
-    "retry": "Retry"
+    "retry": "Retry",
+    "comingSoon": "Coming soon"
   },
   "adminGyms": {
     "title": "Manage gyms",

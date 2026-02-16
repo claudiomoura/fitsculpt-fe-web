@@ -18,19 +18,21 @@ function parsePlans(payload: unknown): Plan[] {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
   const rows = Array.isArray(source.items) ? source.items : Array.isArray(source.data) ? source.data : Array.isArray(payload) ? payload : [];
 
-  return rows
-    .map((item) => {
-      const row = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
-      const id = typeof row.id === "string" ? row.id : null;
-      const title = typeof row.title === "string" ? row.title : null;
-      if (!id || !title) return null;
-      return {
-        id,
-        title,
-        description: typeof row.description === "string" ? row.description : null,
-      };
-    })
-    .filter((item): item is Plan => Boolean(item));
+  const plans: Plan[] = [];
+  rows.forEach((item) => {
+    const row = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+    const id = typeof row.id === "string" ? row.id : null;
+    const title = typeof row.title === "string" ? row.title : null;
+    if (!id || !title) return;
+
+    plans.push({
+      id,
+      title,
+      description: typeof row.description === "string" ? row.description : null,
+    });
+  });
+
+  return plans;
 }
 
 export default function TrainerPlansClient() {
