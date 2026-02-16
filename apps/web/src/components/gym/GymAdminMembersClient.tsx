@@ -96,7 +96,7 @@ export function GymAdminMembersClient() {
       setRequestActionPending(`${membershipId}:${action}`);
       try {
         const response = await reviewGymJoinRequest(membershipId, action);
-        if (response.status === 404 || response.status === 405) {
+        if (!response.ok && response.reason === "unsupported") {
           setRequestsUnsupported(true);
           return;
         }
