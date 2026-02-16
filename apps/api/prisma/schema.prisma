@@ -69,7 +69,6 @@ model Exercise {
   sourceId              String?  @unique
   name                  String
   source                String?
-  sourceId              String?
   equipment             String?
   imageUrls             String[] @default([])
   description           String?
