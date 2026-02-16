@@ -18,15 +18,7 @@ type ProfileSummary = {
   avatarDataUrl?: string | null;
 };
 
-type AppUserBadgeProps = {
-  mobileMenuOpen?: boolean;
-  onMobileMenuOpen?: () => void;
-};
-
-export default function AppUserBadge({
-  mobileMenuOpen = false,
-  onMobileMenuOpen,
-}: AppUserBadgeProps) {
+export default function AppUserBadge() {
   const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
@@ -47,7 +39,7 @@ export default function AppUserBadge({
           });
         }
       } catch {
-        // Ignore fetch errors.
+        // ignore
       }
     };
     void loadProfile();
@@ -80,46 +72,42 @@ export default function AppUserBadge({
       .join("");
   }, [profile?.name]);
 
-const badgeContent = (
-  <>
-    {avatarUrl ? (
-      <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
-    ) : (
-      <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">
-        {initials}
-      </div>
-    )}
-
-    {!isMobileViewport && (
+  const badgeContent = (
+    <>
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
+      ) : (
+        <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">
+          {initials}
+        </div>
+      )}
       <span className="nav-user-name">
         {profile?.name || t("ui.userFallback")}
       </span>
-    )}
-  </>
-);
-
-
-
-
+    </>
+  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="nav-user">
         {badgeContent}
       </DropdownMenuTrigger>
+
       <DropdownMenuContent className="nav-user-dropdown">
         <DropdownMenuLink href="/app/profile" className="nav-user-link">
           {t("nav.profile")}
         </DropdownMenuLink>
+
         <DropdownMenuLink href="/app/settings" className="nav-user-link">
           {t("nav.settings")}
         </DropdownMenuLink>
-        <DropdownMenuLink
-          href="/app/settings/billing"
-          className="nav-user-link"
-        >
+
+        <DropdownMenuLink href="/app/settings/billing" className="nav-user-link">
           {t("nav.billing")}
         </DropdownMenuLink>
+
         <DropdownMenuSeparator />
+
         <form action={logoutAction} className="nav-user-logout">
           <button type="submit" className="nav-user-link ui-dropdown-item">
             {t("nav.logout")}
