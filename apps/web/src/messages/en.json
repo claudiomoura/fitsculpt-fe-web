@@ -2149,16 +2149,21 @@
       },
       "pending": {
         "title": "Request pending",
-        "description": "Your request for {gymName} is pending approval."
+        "description": "Your request for {gymName} is pending approval.",
+        "badge": "PENDING"
       },
       "active": {
         "title": "Active membership",
         "description": "You are in {gymName} with role {role}.",
-        "planButton": "Go to my plan"
+        "planButton": "Go to my plan",
+        "badge": "ACTIVE"
       },
       "rejected": {
         "title": "Request rejected",
         "description": "Your previous request was rejected. You can try joining again."
+      },
+      "unknown": {
+        "badge": "UNKNOWN"
       }
     },
     "join": {
@@ -2171,7 +2176,13 @@
       "empty": "No gyms are available right now.",
       "loadError": "We could not load the gym list.",
       "requestSuccess": "Your request was sent. You can check the status below.",
-      "codeSuccess": "Code accepted. Your membership has been updated."
+      "codeSuccess": "Code accepted. Your membership has been updated.",
+      "directoryTitle": "Gym directory",
+      "loadErrorTitle": "Gym directory unavailable",
+      "emptyTitle": "No gyms available",
+      "selectButton": "Select",
+      "requestPending": "Request pending",
+      "codeTitle": "Join with gym code"
     },
     "loadErrorTitle": "We could not load your gym status",
     "loadError": {
