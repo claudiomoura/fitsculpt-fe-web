@@ -5,7 +5,7 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { Prisma, type SubscriptionPlan, type User } from "@prisma/client";
+import { Prisma, PrismaClient, type SubscriptionPlan, type User } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -2443,7 +2443,8 @@ function buildExerciseFilters(params: {
 
   const whereClause =
     filters.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(filters, Prisma.sql` AND `)}`
+      ? Prisma.sql`WHERE ${Prisma.join(filters, " AND ")
+}`
       : Prisma.sql``;
 
   return whereClause;
