@@ -1,6 +1,15 @@
 export type AuthMePayload = {
   subscriptionPlan?: string | null;
+  plan?: string | null;
   entitlements?: {
+    plan?: {
+      base?: string;
+      effective?: string;
+    };
+    role?: {
+      isAdmin?: boolean;
+      adminOverride?: boolean;
+    };
     modules?: {
       ai?: { enabled?: boolean };
       strength?: { enabled?: boolean };
@@ -48,7 +57,9 @@ function normalizeTier(plan?: string | null): EntitlementTier | null {
 }
 
 export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
-  const tier = normalizeTier(payload.entitlements?.legacy?.tier ?? payload.subscriptionPlan);
+  const tier = normalizeTier(
+    payload.entitlements?.legacy?.tier ?? payload.entitlements?.plan?.effective ?? payload.plan ?? payload.subscriptionPlan,
+  );
 
   if (!tier) {
     return { status: "unknown" };
@@ -56,6 +67,7 @@ export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
 
   const modules = payload.entitlements?.modules;
   const canUseAI = typeof modules?.ai?.enabled === "boolean" ? modules.ai.enabled : tier === "PRO";
+  const hasGymAccess = typeof modules?.strength?.enabled === "boolean" ? modules.strength.enabled && tier === "GYM" : tier === "GYM";
 
   return {
     status: "known",
@@ -63,7 +75,7 @@ export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
     features: {
       canUseAI,
       hasProSupport: tier === "PRO" || tier === "GYM",
-      hasGymAccess: tier === "GYM",
+      hasGymAccess,
     },
   };
 }

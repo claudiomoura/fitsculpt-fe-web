@@ -2126,6 +2126,7 @@
         "loadError": "No pudimos cargar miembros. Inténtalo de nuevo.",
         "profileError": "No pudimos cargar tu perfil de gimnasio.",
         "missingGymId": "Tu cuenta no está vinculada a un id de gimnasio.",
+        "unavailable": "Esta sección estará disponible próximamente cuando el backend habilite la gestión de miembros.",
         "assignAction": "Asignar plan",
         "assignSuccess": "Plan asignado correctamente."
       },
