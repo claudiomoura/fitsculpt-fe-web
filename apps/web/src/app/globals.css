@@ -2903,6 +2903,11 @@ label {
   position: relative;
 }
 
+.library-infinite-scroll-sentinel {
+  width: 100%;
+  height: 1px;
+}
+
 .skeleton-favorite {
   position: absolute;
   top: 12px;

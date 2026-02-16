@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
 import {
@@ -65,6 +65,7 @@ export default function ExerciseLibraryClient() {
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([]);
+  const infiniteScrollRef = useRef<HTMLDivElement | null>(null);
   const [isClearingRecents, setIsClearingRecents] = useState(false);
   const {
     recents,
@@ -165,6 +166,24 @@ export default function ExerciseLibraryClient() {
       setMuscleFilter("all");
     }
   }, [muscleFilter, muscleOptions]);
+
+  useEffect(() => {
+    if (!hasMore || loading || loadingMore) return;
+    const element = infiniteScrollRef.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const shouldLoad = entries.some((entry) => entry.isIntersecting);
+        if (!shouldLoad) return;
+        setActivePage((prev) => prev + 1);
+      },
+      { rootMargin: "240px 0px" }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore]);
 
   const handleResetFilters = () => {
     setQuery("");
@@ -621,6 +640,7 @@ export default function ExerciseLibraryClient() {
               <Button variant="secondary" onClick={() => setActivePage((prev) => prev + 1)} loading={loadingMore}>
                 {t("library.loadMore")}
               </Button>
+              <div ref={infiniteScrollRef} aria-hidden="true" className="library-infinite-scroll-sentinel" />
             </div>
           ) : null}
         </>
