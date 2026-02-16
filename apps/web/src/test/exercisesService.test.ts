@@ -17,7 +17,7 @@ describe("fetchExercisesList", () => {
 
     const result = await fetchExercisesList({});
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/exercises?page=1&limit=24", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/exercises?offset=0&page=1&limit=24", {
       cache: "no-store",
       signal: undefined,
     });
@@ -43,5 +43,28 @@ describe("fetchExercisesList", () => {
 
     expect(result.items).toEqual([{ id: "ex_2", name: "Squat" }]);
     expect(result.hasMore).toBe(true);
+  });
+
+  it("derives filter metadata from payload items when filters are not returned", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [
+          { id: "ex_3", name: "Bench Press", equipment: "Barbell", mainMuscleGroup: "Chest" },
+          { id: "ex_4", name: "Row", equipment: "Cable", mainMuscleGroup: "Back" },
+        ],
+        total: 4,
+        limit: 2,
+        offset: 2,
+      }),
+    });
+    // @ts-expect-error test mock
+    global.fetch = fetchMock;
+
+    const result = await fetchExercisesList({ page: 2, limit: 2 });
+
+    expect(result.page).toBe(2);
+    expect(result.filters.equipment).toEqual(["Barbell", "Cable"]);
+    expect(result.filters.primaryMuscle).toEqual(["Chest", "Back"]);
   });
 });
