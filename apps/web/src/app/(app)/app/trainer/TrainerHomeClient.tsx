@@ -7,17 +7,9 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { canAccessTrainerGymArea, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 import TrainerPlanAssignmentPanel from "@/components/trainer/TrainerPlanAssignmentPanel";
-import { fetchGymMembershipStatus, parseGymMembership, type GymMembership } from "@/services/gym";
 
 type MembershipViewState = "loading" | "ready";
 type MembershipGate = "in_gym" | "not_in_gym" | "unknown" | "no_permission";
-
-const unknownMembership: GymMembership = {
-  status: "UNKNOWN",
-  gymId: null,
-  gymName: null,
-  role: null,
-};
 
 type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
 
@@ -97,6 +89,15 @@ export default function TrainerHomeClient() {
     () => canAccessTrainerGymArea({ isCoach, isAdmin, membership }),
     [isAdmin, isCoach, membership],
   );
+
+  const membershipViewState: MembershipViewState = gymLoading ? "loading" : "ready";
+
+  const membershipGate: MembershipGate = useMemo(() => {
+    if (!(isCoach || isAdmin)) return "no_permission";
+    if (membership.state === "in_gym") return "in_gym";
+    if (membership.state === "not_in_gym") return "not_in_gym";
+    return "unknown";
+  }, [isAdmin, isCoach, membership.state]);
 
   if (accessLoading || membershipViewState === "loading") {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
