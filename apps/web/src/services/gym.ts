@@ -1,18 +1,3 @@
-export type ServiceErrorReason = "unauthorized" | "unsupported" | "http_error" | "network_error";
-
-export type ServiceSuccess<T> = {
-  ok: true;
-  data: T;
-};
-
-export type ServiceFailure = {
-  ok: false;
-  reason: ServiceErrorReason;
-  status?: number;
-};
-
-export type ServiceResult<T> = ServiceSuccess<T> | ServiceFailure;
-
 export type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
 
 export type GymMembership = {
@@ -22,22 +7,18 @@ export type GymMembership = {
   role: string | null;
 };
 
-export type GymListItem = {
+export type GymMember = {
   id: string;
   name: string;
+  email: string | null;
+  role: string | null;
 };
 
-export type JoinRequestListItem = {
+export type GymJoinRequest = {
   id: string;
-  gymId?: string;
-  gymName?: string;
-  userId?: string;
-  userName?: string;
-  userEmail?: string;
-  createdAt?: string;
+  userName: string;
+  email: string | null;
 };
-
-const JSON_HEADERS = { "Content-Type": "application/json" };
 
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
@@ -49,26 +30,7 @@ function normalize(value: string | null): string | null {
   return value ? value.trim().toUpperCase() : null;
 }
 
-async function readJsonResponse<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<ServiceResult<T>> {
-  try {
-    const response = await fetch(path, { cache: "no-store", credentials: "include", ...init });
-    if (!response.ok) {
-      if (response.status === 401) return { ok: false, reason: "unauthorized", status: 401 };
-      if (response.status === 404 || response.status === 405) return { ok: false, reason: "unsupported", status: response.status };
-      return { ok: false, reason: "http_error", status: response.status };
-    }
-
-    const data = (await response.json()) as T;
-    return { ok: true, data };
-  } catch {
-    return { ok: false, reason: "network_error" };
-  }
-}
-
-function parseMembership(payload: unknown): GymMembership {
+export function parseMembership(payload: unknown): GymMembership {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
   const data = typeof source.data === "object" && source.data !== null ? (source.data as Record<string, unknown>) : source;
   const gym = typeof data.gym === "object" && data.gym !== null ? (data.gym as Record<string, unknown>) : null;
@@ -85,110 +47,68 @@ function parseMembership(payload: unknown): GymMembership {
   };
 }
 
-function parseGymList(payload: unknown): GymListItem[] {
+export function parseMembers(payload: unknown): GymMember[] {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const items = Array.isArray(source.data) ? source.data : Array.isArray(source.gyms) ? source.gyms : Array.isArray(payload) ? payload : [];
+  const data = Array.isArray(source.data) ? source.data : Array.isArray(source.members) ? source.members : Array.isArray(payload) ? payload : [];
 
-  return items
+  return data
     .map((entry) => {
       const row = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {};
-      const id = asString(row.id) ?? asString(row.gymId);
-      const name = asString(row.name) ?? asString(row.gymName);
-      if (!id || !name) return null;
-      return { id, name };
+      const id = asString(row.id) ?? asString(row.userId);
+      if (!id) return null;
+      return {
+        id,
+        name: asString(row.name) ?? asString(row.userName) ?? asString(row.email) ?? "-",
+        email: asString(row.email),
+        role: asString(row.role),
+      };
     })
-    .filter((entry): entry is GymListItem => Boolean(entry));
+    .filter((entry): entry is GymMember => Boolean(entry));
 }
 
-function parseJoinRequestList(payload: unknown): JoinRequestListItem[] {
-  if (!payload || typeof payload !== "object") return [];
-
-  const source = payload as Record<string, unknown>;
-  const items = Array.isArray(source.items)
-    ? source.items
+export function parseJoinRequests(payload: unknown): GymJoinRequest[] {
+  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
+  const data = Array.isArray(source.data)
+    ? source.data
     : Array.isArray(source.requests)
       ? source.requests
-      : Array.isArray(source.data)
-        ? source.data
-        : Array.isArray(payload)
-          ? payload
-          : [];
+      : Array.isArray(payload)
+        ? payload
+        : [];
 
-  const parsed: JoinRequestListItem[] = [];
-
-  for (const entry of items) {
-    if (!entry || typeof entry !== "object") continue;
-
-    const row = entry as Record<string, unknown>;
-    const gym = (row.gym as Record<string, unknown> | undefined) ?? undefined;
-    const user = (row.user as Record<string, unknown> | undefined) ?? undefined;
-    const id = asString(row.id) ?? asString(row.membershipId);
-    if (!id) continue;
-
-    parsed.push({
-      id,
-      gymId: asString(row.gymId) ?? asString(gym?.id) ?? undefined,
-      gymName: asString(row.gymName) ?? asString(gym?.name) ?? undefined,
-      userId: asString(row.userId) ?? asString(user?.id) ?? undefined,
-      userName: asString(row.userName) ?? asString(user?.name) ?? undefined,
-      userEmail: asString(row.userEmail) ?? asString(user?.email) ?? undefined,
-      createdAt: asString(row.createdAt) ?? undefined,
-    });
-  }
-
-  return parsed;
+  return data
+    .map((entry) => {
+      const row = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {};
+      const id = asString(row.id) ?? asString(row.membershipId);
+      if (!id) return null;
+      return {
+        id,
+        userName: asString(row.userName) ?? asString(row.name) ?? asString(row.email) ?? "-",
+        email: asString(row.email),
+      };
+    })
+    .filter((entry): entry is GymJoinRequest => Boolean(entry));
 }
 
-export async function fetchMyGymMembership(): Promise<ServiceResult<GymMembership>> {
-  const response = await readJsonResponse<unknown>("/api/gym/me");
-  if (!response.ok) return response;
-
-  return { ok: true, data: parseMembership(response.data) };
+export async function fetchGymMembership(signal?: AbortSignal) {
+  const response = await fetch("/api/gym/me", { cache: "no-store", credentials: "include", signal });
+  return response;
 }
 
-export async function fetchGymsList(): Promise<ServiceResult<GymListItem[]>> {
-  const response = await readJsonResponse<unknown>("/api/gyms");
-  if (!response.ok) return response;
-
-  return { ok: true, data: parseGymList(response.data) };
+export async function fetchGymMembers(gymId: string, signal?: AbortSignal) {
+  const response = await fetch(`/api/admin/gyms/${gymId}/members`, { cache: "no-store", credentials: "include", signal });
+  return response;
 }
 
-export async function requestGymJoin(gymId: string): Promise<ServiceResult<null>> {
-  const payload = JSON.stringify({ gymId });
-  const primary = await readJsonResponse<unknown>("/api/gym/join-request", {
+export async function fetchGymJoinRequests(signal?: AbortSignal) {
+  const response = await fetch("/api/admin/gym-join-requests", { cache: "no-store", credentials: "include", signal });
+  return response;
+}
+
+export async function reviewGymJoinRequest(membershipId: string, action: "accept" | "reject") {
+  const response = await fetch(`/api/admin/gym-join-requests/${membershipId}/${action}`, {
     method: "POST",
-    headers: JSON_HEADERS,
-    body: payload,
+    credentials: "include",
   });
-
-  if (primary.ok) return { ok: true, data: null };
-  if (primary.reason !== "unsupported") return primary;
-
-  const legacy = await readJsonResponse<unknown>("/api/gyms/join", {
-    method: "POST",
-    headers: JSON_HEADERS,
-    body: payload,
-  });
-
-  if (!legacy.ok) return legacy;
-  return { ok: true, data: null };
-}
-
-export async function fetchPendingGymJoinRequests(): Promise<ServiceResult<JoinRequestListItem[]>> {
-  const response = await readJsonResponse<unknown>("/api/admin/gym-join-requests");
-  if (!response.ok) return response;
-
-  return { ok: true, data: parseJoinRequestList(response.data) };
-}
-
-export async function reviewGymJoinRequest(
-  membershipId: string,
-  action: "accept" | "reject",
-): Promise<ServiceResult<null>> {
-  const response = await readJsonResponse<unknown>(`/api/admin/gym-join-requests/${membershipId}/${action}`, {
-    method: "POST",
-  });
-
-  if (!response.ok) return response;
-  return { ok: true, data: null };
+  return response;
 }
