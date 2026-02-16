@@ -344,3 +344,26 @@ $sql | npx prisma db execute --schema prisma/schema.prisma --stdin
 ##  mudar pass de  usuario na BD
 cd apps\api
 node -e "const b=require('cmkh4tvhr0000kxq8os6qhids'); b.hash('Password1234',12).then(h=>console.log(h))"
+
+## Importador `free-exercise-db`
+
+Comando principal (idempotente por `Exercise.sourceId`):
+
+```bash
+npm run db:import:free-exercise-db
+```
+
+Con `npm --prefix` desde la raíz del monorepo:
+
+```bash
+npm run db:import:free-exercise-db --prefix apps/api
+```
+
+Guard de seguridad:
+- en `NODE_ENV=production` no corre salvo que `ALLOW_IMPORT=1`.
+
+Bootstrap opcional:
+
+```bash
+IMPORT_EXERCISES=1 npm run db:bootstrap
+```

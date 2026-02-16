@@ -2264,10 +2264,13 @@ function getExerciseMetadata(name: string) {
 
 type ExerciseRow = {
   id: string;
+  sourceId?: string | null;
   slug?: string | null;
   name: string;
   equipment: string | null;
   description: string | null;
+  imageUrl?: string | null;
+  mediaUrl?: string | null;
   technique?: string | null;
   tips?: string | null;
   mainMuscleGroup?: string | null;
@@ -2282,10 +2285,13 @@ type ExerciseApiDto = {
   id: string;
   slug: string;
   name: string;
+  sourceId: string | null;
   equipment: string | null;
   mainMuscleGroup: string | null;
   secondaryMuscleGroups: string[];
   description: string | null;
+  imageUrl: string | null;
+  mediaUrl: string | null;
   technique: string | null;
   tips: string | null;
 };
@@ -2325,8 +2331,11 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
     id: exercise.id,
     slug: exercise.slug ?? slugifyName(exercise.name),
     name: exercise.name,
+    sourceId: exercise.sourceId ?? null,
     equipment: exercise.equipment ?? null,
     description: exercise.description ?? null,
+    imageUrl: exercise.imageUrl ?? null,
+    mediaUrl: exercise.mediaUrl ?? null,
     technique: exercise.technique ?? null,
     tips: exercise.tips ?? null,
     mainMuscleGroup: main ?? null,
@@ -2467,10 +2476,13 @@ async function listExercises(params: {
         where,
         select: {
           id: true,
+          sourceId: true,
           slug: true,
           name: true,
           equipment: true,
           description: true,
+          imageUrl: true,
+          mediaUrl: true,
           technique: true,
           tips: true,
           mainMuscleGroup: true,
@@ -2498,7 +2510,7 @@ async function listExercises(params: {
 
   const whereSql = buildExerciseFilters(params);
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
     ORDER BY "name" ASC
@@ -2521,10 +2533,13 @@ async function getExerciseById(id: string) {
       where: { id },
       select: {
         id: true,
+        sourceId: true,
         slug: true,
         name: true,
         equipment: true,
         description: true,
+        imageUrl: true,
+        mediaUrl: true,
         technique: true,
         tips: true,
         mainMuscleGroup: true,
@@ -2543,7 +2558,7 @@ async function getExerciseById(id: string) {
   }
 
   const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     WHERE "id" = ${id}
     LIMIT 1
@@ -2582,10 +2597,13 @@ async function createExercise(input: z.infer<typeof createExerciseSchema>) {
     },
     select: {
       id: true,
+      sourceId: true,
       slug: true,
       name: true,
       equipment: true,
       description: true,
+      imageUrl: true,
+      mediaUrl: true,
       technique: true,
       tips: true,
       mainMuscleGroup: true,

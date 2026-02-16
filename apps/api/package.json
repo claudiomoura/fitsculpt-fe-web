@@ -25,7 +25,8 @@
     "db:seed:safe": "node scripts/prisma-runner.mjs seed:safe",
     "db:bootstrap:render": "node scripts/prisma-runner.mjs generate && node scripts/prisma-runner.mjs migrate deploy && node scripts/prisma-runner.mjs seed:safe",
     "db:studio": "node scripts/prisma-runner.mjs studio --schema prisma/schema.prisma",
-    "db:dump": "node scripts/db-dump.mjs"
+    "db:dump": "node scripts/db-dump.mjs",
+    "db:import:free-exercise-db": "tsx scripts/import-free-exercise-db.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
