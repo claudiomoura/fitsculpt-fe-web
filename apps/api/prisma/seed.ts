@@ -1,1228 +1,24 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+const DEMO_EXERCISE_COUNT = 20;
+const PASSWORD_SALT_ROUNDS = 10;
 
 type ExerciseSeed = {
   name: string;
   mainMuscleGroup: string;
   secondaryMuscleGroups: string[];
-  equipment: string | null;
-  description: string;
-  technique: string;
-  tips: string;
 };
 
-type RecipeSeed = {
-  name: string;
-  description: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  photoUrl?: string | null;
-  steps: string[];
-  ingredients: Array<{ name: string; grams: number }>;
-};
-
-const exercises: ExerciseSeed[] = [
-  {
-    name: "Sentadilla con barra",
-    mainMuscleGroup: "Piernas",
-    secondaryMuscleGroups: ["Glúteos", "Core"],
-    equipment: "Barra",
-    description: "Baja con control manteniendo el pecho abierto.",
-    technique: "Apoya el peso en el medio del pie y alinea rodillas con puntas.",
-    tips: "Respira profundo antes de descender y mantén la mirada al frente.",
-  },
-  {
-    name: "Sentadilla frontal",
-    mainMuscleGroup: "Cuádriceps",
-    secondaryMuscleGroups: ["Core", "Glúteos"],
-    equipment: "Barra",
-    description: "Mantén los codos altos para estabilizar la barra.",
-    technique: "Desciende verticalmente sin perder la posición del torso.",
-    tips: "Usa una base de pies a la anchura de hombros.",
-  },
-  {
-    name: "Prensa de piernas",
-    mainMuscleGroup: "Cuádriceps",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Máquina",
-    description: "Empuja la plataforma sin despegar la cadera del respaldo.",
-    technique: "Controla el recorrido completo sin bloquear rodillas.",
-    tips: "Coloca los pies a media altura para énfasis en cuádriceps.",
-  },
-  {
-    name: "Zancadas con mancuernas",
-    mainMuscleGroup: "Piernas",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Mancuernas",
-    description: "Da un paso largo y baja la rodilla trasera.",
-    technique: "Mantén el torso erguido y el core activo.",
-    tips: "Empuja con el talón delantero para estabilizarte.",
-  },
-  {
-    name: "Zancadas caminando",
-    mainMuscleGroup: "Piernas",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Peso corporal",
-    description: "Alterna pasos manteniendo la misma distancia.",
-    technique: "Evita que la rodilla sobrepase la punta del pie.",
-    tips: "Haz pasos suaves para conservar equilibrio.",
-  },
-  {
-    name: "Extensión de cuádriceps en máquina",
-    mainMuscleGroup: "Cuádriceps",
-    secondaryMuscleGroups: [],
-    equipment: "Máquina",
-    description: "Eleva la carga sin despegar la cadera del asiento.",
-    technique: "Pausa arriba y baja en dos tiempos.",
-    tips: "Ajusta el respaldo para alinear la rodilla con el eje.",
-  },
-  {
-    name: "Curl femoral tumbado",
-    mainMuscleGroup: "Isquios",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Máquina",
-    description: "Flexiona las rodillas sin levantar la pelvis.",
-    technique: "Mantén los pies relajados y el core firme.",
-    tips: "Detén un segundo al acercar los talones.",
-  },
-  {
-    name: "Curl femoral sentado",
-    mainMuscleGroup: "Isquios",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Máquina",
-    description: "Controla el descenso evitando balanceos.",
-    technique: "Ajusta el respaldo para que el muslo quede apoyado.",
-    tips: "Inicia con poca carga para sentir el músculo.",
-  },
-  {
-    name: "Peso muerto rumano",
-    mainMuscleGroup: "Isquios",
-    secondaryMuscleGroups: ["Glúteos", "Espalda"],
-    equipment: "Barra",
-    description: "Desliza la barra cerca de las piernas.",
-    technique: "Envía la cadera atrás con rodillas apenas flexionadas.",
-    tips: "Mantén la espalda neutra durante todo el recorrido.",
-  },
-  {
-    name: "Peso muerto convencional",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Piernas", "Glúteos"],
-    equipment: "Barra",
-    description: "Levanta la barra con el torso firme.",
-    technique: "Empuja el suelo con las piernas antes de tirar con la espalda.",
-    tips: "Inicia con la barra pegada a las tibias.",
-  },
-  {
-    name: "Hip thrust con barra",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: ["Isquios"],
-    equipment: "Barra",
-    description: "Eleva la cadera hasta alinear rodillas y hombros.",
-    technique: "Mantén la barbilla recogida y la espalda neutra.",
-    tips: "Pausa un segundo arriba para mayor activación.",
-  },
-  {
-    name: "Puente de glúteos",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: ["Core"],
-    equipment: "Peso corporal",
-    description: "Eleva la cadera apretando los glúteos.",
-    technique: "Apoya bien los talones y evita arquear la espalda.",
-    tips: "Haz el recorrido lento para sentir la contracción.",
-  },
-  {
-    name: "Abducción de cadera en máquina",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: [],
-    equipment: "Máquina",
-    description: "Separa las piernas manteniendo el tronco estable.",
-    technique: "No rebotes, controla el retorno.",
-    tips: "Inclina levemente el torso para mayor activación.",
-  },
-  {
-    name: "Aductores en máquina",
-    mainMuscleGroup: "Piernas",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Máquina",
-    description: "Cierra las piernas sin perder la postura.",
-    technique: "Aprieta al centro y baja en dos tiempos.",
-    tips: "Ajusta el rango de movimiento a tu comodidad.",
-  },
-  {
-    name: "Elevaciones de talones de pie",
-    mainMuscleGroup: "Gemelos",
-    secondaryMuscleGroups: [],
-    equipment: "Máquina",
-    description: "Eleva los talones con control total.",
-    technique: "Mantén las rodillas estiradas pero sin bloquear.",
-    tips: "Pausa arriba para activar el gemelo.",
-  },
-  {
-    name: "Elevaciones de talones sentado",
-    mainMuscleGroup: "Gemelos",
-    secondaryMuscleGroups: [],
-    equipment: "Máquina",
-    description: "Sube y baja los talones en un rango completo.",
-    technique: "Mantén la espalda apoyada en el respaldo.",
-    tips: "Evita rebotes para proteger el tendón.",
-  },
-  {
-    name: "Elevaciones de talones en prensa",
-    mainMuscleGroup: "Gemelos",
-    secondaryMuscleGroups: [],
-    equipment: "Máquina",
-    description: "Empuja la plataforma solo con los tobillos.",
-    technique: "Controla la bajada hasta estirar el gemelo.",
-    tips: "No pierdas el apoyo de los metatarsos.",
-  },
-  {
-    name: "Saltos en puntas",
-    mainMuscleGroup: "Gemelos",
-    secondaryMuscleGroups: ["Core"],
-    equipment: "Peso corporal",
-    description: "Realiza pequeños saltos sobre las puntas.",
-    technique: "Mantén el tronco estable y las rodillas suaves.",
-    tips: "Haz series cortas para conservar la técnica.",
-  },
-  {
-    name: "Press banca con barra",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Tríceps", "Hombros"],
-    equipment: "Barra",
-    description: "Baja la barra al centro del pecho con control.",
-    technique: "Retracta escápulas y planta bien los pies.",
-    tips: "Mantén muñecas neutras para una mejor línea de empuje.",
-  },
-  {
-    name: "Press banca con mancuernas",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Mancuernas",
-    description: "Empuja las mancuernas hacia arriba sin chocar.",
-    technique: "Desciende hasta que los codos queden a 90 grados.",
-    tips: "Usa un agarre neutro si hay molestias en el hombro.",
-  },
-  {
-    name: "Press inclinado con mancuernas",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Hombros", "Tríceps"],
-    equipment: "Mancuernas",
-    description: "Impulsa en diagonal siguiendo el ángulo del banco.",
-    technique: "Controla la bajada sin colapsar los hombros.",
-    tips: "Ajusta el banco a 30-45 grados.",
-  },
-  {
-    name: "Press inclinado con barra",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Hombros", "Tríceps"],
-    equipment: "Barra",
-    description: "Mantén la barra estable en el plano inclinado.",
-    technique: "Baja la barra al pecho alto con control.",
-    tips: "No arquees en exceso la espalda.",
-  },
-  {
-    name: "Press declinado en máquina",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Máquina",
-    description: "Empuja hacia delante sin despegar la espalda.",
-    technique: "Alínea los codos con las manijas.",
-    tips: "Ajusta el asiento para que el agarre quede a media altura.",
-  },
-  {
-    name: "Aperturas con mancuernas",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Hombros"],
-    equipment: "Mancuernas",
-    description: "Abre los brazos en arco hasta sentir estiramiento.",
-    technique: "Mantén una ligera flexión de codos.",
-    tips: "No bajes más allá de tu rango cómodo.",
-  },
-  {
-    name: "Aperturas en polea",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Hombros"],
-    equipment: "Polea",
-    description: "Junta las manos al frente con control.",
-    technique: "Mantén el pecho alto durante todo el recorrido.",
-    tips: "Cruza ligeramente las manos para mayor contracción.",
-  },
-  {
-    name: "Fondos en paralelas",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Peso corporal",
-    description: "Inclina el torso para enfatizar el pecho.",
-    technique: "Baja hasta que el brazo quede paralelo al suelo.",
-    tips: "Mantén los hombros lejos de las orejas.",
-  },
-  {
-    name: "Flexiones clásicas",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Tríceps", "Core"],
-    equipment: "Peso corporal",
-    description: "Baja con el cuerpo alineado y empuja firme.",
-    technique: "Mantén abdomen activo para evitar arqueo lumbar.",
-    tips: "Apoya las manos un poco más ancho que los hombros.",
-  },
-  {
-    name: "Pullover con mancuerna",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Espalda"],
-    equipment: "Mancuernas",
-    description: "Lleva la mancuerna atrás en un arco controlado.",
-    technique: "Mantén los brazos casi estirados y el core activo.",
-    tips: "No bajes más allá de donde puedas controlar el hombro.",
-  },
-  {
-    name: "Press en máquina convergente",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Máquina",
-    description: "Empuja las manijas hasta juntar los brazos.",
-    technique: "Apoya la espalda completa en el respaldo.",
-    tips: "Usa un ritmo constante sin golpes.",
-  },
-  {
-    name: "Press con pausa en banco",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Barra",
-    description: "Haz una pausa breve al tocar el pecho.",
-    technique: "Mantén tensión en la espalda y pies firmes.",
-    tips: "Usa una carga moderada para controlar la pausa.",
-  },
-  {
-    name: "Dominadas pronas",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Barra fija",
-    description: "Tira hasta llevar el pecho hacia la barra.",
-    technique: "Inicia el movimiento con la retracción escapular.",
-    tips: "Evita balanceos para mantener la técnica.",
-  },
-  {
-    name: "Dominadas supinas",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Barra fija",
-    description: "Sube con el agarre supino y controlado.",
-    technique: "Mantén el core firme durante la subida.",
-    tips: "No encorves el cuello al final del recorrido.",
-  },
-  {
-    name: "Jalón al pecho en polea",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Polea",
-    description: "Lleva la barra al pecho sin inclinar demasiado el torso.",
-    technique: "Conduce los codos hacia abajo y atrás.",
-    tips: "Controla la subida para no perder tensión.",
-  },
-  {
-    name: "Jalón con agarre estrecho",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Polea",
-    description: "Tira de la manija hacia el esternón.",
-    technique: "Mantén los codos cerca del cuerpo.",
-    tips: "Evita redondear la espalda al finalizar.",
-  },
-  {
-    name: "Remo con barra",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Barra",
-    description: "Inclina el torso y rema hacia el abdomen.",
-    technique: "Mantén la espalda neutra y el core firme.",
-    tips: "No dejes caer la barra al bajar.",
-  },
-  {
-    name: "Remo con mancuerna a una mano",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Mancuernas",
-    description: "Apoya una rodilla en el banco para estabilidad.",
-    technique: "Remo en línea con la cadera sin girar el tronco.",
-    tips: "Aprieta la escápula al final del movimiento.",
-  },
-  {
-    name: "Remo en polea baja",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Polea",
-    description: "Tira de la manija hacia el ombligo.",
-    technique: "Mantén el torso erguido y los hombros abajo.",
-    tips: "Evita balancear el cuerpo al final.",
-  },
-  {
-    name: "Remo en máquina",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Máquina",
-    description: "Empuja el pecho contra el soporte y rema.",
-    technique: "Controla la fase excéntrica.",
-    tips: "Ajusta la máquina para alinear los codos.",
-  },
-  {
-    name: "Remo en T",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps"],
-    equipment: "Barra",
-    description: "Remo en posición inclinada con agarre neutro.",
-    technique: "Saca el pecho y mantén el core firme.",
-    tips: "No redondees la espalda al subir.",
-  },
-  {
-    name: "Hiperextensiones en banco",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Banco",
-    description: "Extiende el torso hasta quedar alineado.",
-    technique: "Evita hiperextender en la parte alta.",
-    tips: "Aprieta glúteos al final para proteger la zona lumbar.",
-  },
-  {
-    name: "Face pull en polea",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: ["Espalda"],
-    equipment: "Polea",
-    description: "Tira de la cuerda hacia la cara con codos altos.",
-    technique: "Mantén el pecho abierto y la espalda recta.",
-    tips: "Enfócate en la parte posterior del hombro.",
-  },
-  {
-    name: "Remo invertido",
-    mainMuscleGroup: "Espalda",
-    secondaryMuscleGroups: ["Bíceps", "Core"],
-    equipment: "Peso corporal",
-    description: "Tira del pecho hacia la barra con el cuerpo recto.",
-    technique: "Activa el core para no hundir la cadera.",
-    tips: "Ajusta la altura para regular la dificultad.",
-  },
-  {
-    name: "Press militar con barra",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Barra",
-    description: "Empuja la barra por encima de la cabeza.",
-    technique: "Contrae el core para mantener la espalda estable.",
-    tips: "Lleva la barra cerca de la cara al subir.",
-  },
-  {
-    name: "Press Arnold",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Mancuernas",
-    description: "Gira las mancuernas al subir en un movimiento fluido.",
-    technique: "Mantén los codos delante del torso al iniciar.",
-    tips: "Controla la rotación para no perder equilibrio.",
-  },
-  {
-    name: "Elevaciones laterales",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: [],
-    equipment: "Mancuernas",
-    description: "Eleva los brazos hasta la altura de los hombros.",
-    technique: "Mantén una ligera flexión en los codos.",
-    tips: "Evita encoger los hombros al subir.",
-  },
-  {
-    name: "Elevaciones frontales",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: [],
-    equipment: "Mancuernas",
-    description: "Eleva las mancuernas al frente con control.",
-    technique: "Mantén el tronco estable y sin balanceo.",
-    tips: "Alterna brazos para mejorar la estabilidad.",
-  },
-  {
-    name: "Pájaros con mancuernas",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: ["Espalda"],
-    equipment: "Mancuernas",
-    description: "Inclina el torso y abre los brazos en cruz.",
-    technique: "Mantén la espalda plana y el core activo.",
-    tips: "Usa poco peso para sentir el deltoide posterior.",
-  },
-  {
-    name: "Remo al mentón con barra",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: ["Trapecio"],
-    equipment: "Barra",
-    description: "Lleva la barra hasta el pecho superior.",
-    technique: "Mantén los codos por encima de las muñecas.",
-    tips: "Evita elevar demasiado la barra si molesta el hombro.",
-  },
-  {
-    name: "Press militar sentado con mancuernas",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Mancuernas",
-    description: "Empuja desde el nivel del oído hacia arriba.",
-    technique: "Apoya la espalda para mantener la postura.",
-    tips: "No cierres los codos al finalizar.",
-  },
-  {
-    name: "Elevaciones laterales en polea",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: [],
-    equipment: "Polea",
-    description: "Eleva el brazo con tensión constante.",
-    technique: "Mantén el hombro abajo y la muñeca neutra.",
-    tips: "Hazlo de lado para aislar mejor.",
-  },
-  {
-    name: "Curl con barra recta",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: [],
-    equipment: "Barra",
-    description: "Flexiona los codos manteniendo los brazos pegados.",
-    technique: "Evita balancear el torso en la subida.",
-    tips: "Controla el descenso para mantener la tensión.",
-  },
-  {
-    name: "Curl con barra Z",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: ["Antebrazos"],
-    equipment: "Barra",
-    description: "Sube la barra en un recorrido completo.",
-    technique: "Mantén las muñecas alineadas con el antebrazo.",
-    tips: "Usa un agarre cómodo para proteger las muñecas.",
-  },
-  {
-    name: "Curl alterno con mancuernas",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: [],
-    equipment: "Mancuernas",
-    description: "Alterna brazos con un giro controlado.",
-    technique: "Mantén los codos fijos al costado.",
-    tips: "Evita mover el hombro al finalizar.",
-  },
-  {
-    name: "Curl martillo",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: ["Antebrazos"],
-    equipment: "Mancuernas",
-    description: "Sube las mancuernas con agarre neutro.",
-    technique: "Mantén los codos pegados al cuerpo.",
-    tips: "Controla la bajada para activar braquial.",
-  },
-  {
-    name: "Curl concentrado",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: [],
-    equipment: "Mancuernas",
-    description: "Apoya el codo en el muslo para aislar.",
-    technique: "Sube lentamente y aprieta arriba.",
-    tips: "Evita balancear el hombro al levantar.",
-  },
-  {
-    name: "Curl inclinado en banco",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: [],
-    equipment: "Mancuernas",
-    description: "Extiende bien los brazos al inicio.",
-    technique: "Mantén los codos detrás del torso.",
-    tips: "No balances el tronco al subir.",
-  },
-  {
-    name: "Curl predicador",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: [],
-    equipment: "Banco",
-    description: "Flexiona desde el apoyo sin despegar el brazo.",
-    technique: "Desciende hasta estirar sin bloquear.",
-    tips: "Usa un rango controlado para cuidar el codo.",
-  },
-  {
-    name: "Curl en polea baja",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: [],
-    equipment: "Polea",
-    description: "Sube la manija manteniendo tensión continua.",
-    technique: "Evita adelantar los codos.",
-    tips: "Pausa arriba para sentir el pico.",
-  },
-  {
-    name: "Curl Zottman",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: ["Antebrazos"],
-    equipment: "Mancuernas",
-    description: "Gira las mancuernas al bajar para trabajar antebrazo.",
-    technique: "Sube en supinación y baja en pronación.",
-    tips: "Usa un peso moderado para controlar el giro.",
-  },
-  {
-    name: "Curl araña",
-    mainMuscleGroup: "Bíceps",
-    secondaryMuscleGroups: [],
-    equipment: "Banco",
-    description: "Apoya el pecho en el banco y flexiona los codos.",
-    technique: "Mantén los brazos perpendiculares al suelo.",
-    tips: "No subas los hombros al final.",
-  },
-  {
-    name: "Extensión de tríceps en polea",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: [],
-    equipment: "Polea",
-    description: "Empuja la barra hacia abajo sin mover los codos.",
-    technique: "Mantén los codos pegados al cuerpo.",
-    tips: "Extiende completamente sin bloquear.",
-  },
-  {
-    name: "Extensión con cuerda",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: [],
-    equipment: "Polea",
-    description: "Separa las cuerdas al final del recorrido.",
-    technique: "Controla la vuelta para no perder tensión.",
-    tips: "Mantén el pecho alto y los hombros estables.",
-  },
-  {
-    name: "Press francés con barra Z",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: [],
-    equipment: "Barra",
-    description: "Baja la barra hacia la frente lentamente.",
-    technique: "Mantén los codos apuntando al techo.",
-    tips: "Usa un banco estable para apoyar la espalda.",
-  },
-  {
-    name: "Fondos en banco",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: ["Pecho"],
-    equipment: "Banco",
-    description: "Desciende controlado con los codos atrás.",
-    technique: "Mantén la espalda cerca del banco.",
-    tips: "No bajes más allá de un ángulo cómodo.",
-  },
-  {
-    name: "Extensión por encima de la cabeza con mancuerna",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: [],
-    equipment: "Mancuernas",
-    description: "Extiende desde atrás de la cabeza hacia arriba.",
-    technique: "Mantén los codos cerrados y apuntando al frente.",
-    tips: "Contrae el abdomen para evitar arquear la espalda.",
-  },
-  {
-    name: "Rompecráneos con barra",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: [],
-    equipment: "Barra",
-    description: "Flexiona los codos llevando la barra cerca de la frente.",
-    technique: "Mantén los hombros fijos durante el movimiento.",
-    tips: "Usa un agarre cómodo para proteger los codos.",
-  },
-  {
-    name: "Patada de tríceps",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: [],
-    equipment: "Mancuernas",
-    description: "Extiende el brazo atrás con el torso inclinado.",
-    technique: "Mantén el brazo paralelo al suelo.",
-    tips: "No balancees el hombro en la subida.",
-  },
-  {
-    name: "Press cerrado con barra",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: ["Pecho"],
-    equipment: "Barra",
-    description: "Empuja con agarre estrecho para activar tríceps.",
-    technique: "Baja la barra al esternón con codos cerca.",
-    tips: "Mantén las muñecas alineadas con el antebrazo.",
-  },
-  {
-    name: "Extensión en máquina",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: [],
-    equipment: "Máquina",
-    description: "Extiende los codos con un ritmo constante.",
-    technique: "Apoya la espalda para estabilidad.",
-    tips: "Ajusta el asiento para alinear los codos.",
-  },
-  {
-    name: "Flexiones diamante",
-    mainMuscleGroup: "Tríceps",
-    secondaryMuscleGroups: ["Pecho", "Core"],
-    equipment: "Peso corporal",
-    description: "Coloca las manos juntas formando un diamante.",
-    technique: "Mantén el cuerpo en línea recta.",
-    tips: "Si es difícil, apoya las rodillas.",
-  },
-  {
-    name: "Plancha frontal",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: [],
-    equipment: "Peso corporal",
-    description: "Sostén el cuerpo alineado sobre antebrazos.",
-    technique: "Aprieta glúteos y abdomen para estabilidad.",
-    tips: "No dejes caer la cadera al sostener.",
-  },
-  {
-    name: "Plancha lateral",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: [],
-    equipment: "Peso corporal",
-    description: "Apoya el antebrazo y eleva la cadera.",
-    technique: "Mantén el cuerpo en línea recta.",
-    tips: "Coloca el pie superior delante si necesitas apoyo.",
-  },
-  {
-    name: "Crunch en suelo",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: [],
-    equipment: "Peso corporal",
-    description: "Eleva el torso sin despegar la zona lumbar.",
-    technique: "Mira al techo y no tires del cuello.",
-    tips: "Exhala al subir para activar mejor.",
-  },
-  {
-    name: "Crunch en máquina",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: [],
-    equipment: "Máquina",
-    description: "Flexiona el torso contra la resistencia.",
-    technique: "Mantén la espalda baja apoyada.",
-    tips: "Ajusta el asiento para un rango cómodo.",
-  },
-  {
-    name: "Elevación de piernas colgado",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: ["Flexores de cadera"],
-    equipment: "Barra fija",
-    description: "Eleva las piernas sin balancear el cuerpo.",
-    technique: "Bloquea los hombros y controla la bajada.",
-    tips: "Comienza con rodillas flexionadas si es necesario.",
-  },
-  {
-    name: "Elevación de rodillas en paralelas",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: ["Flexores de cadera"],
-    equipment: "Paralelas",
-    description: "Lleva las rodillas al pecho con control.",
-    technique: "Mantén el torso estable y sin balanceos.",
-    tips: "Exhala al subir para activar el abdomen.",
-  },
-  {
-    name: "Russian twist con kettlebell",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: ["Oblicuos"],
-    equipment: "Kettlebell",
-    description: "Gira el torso llevando la pesa a cada lado.",
-    technique: "Mantén la espalda recta y el pecho abierto.",
-    tips: "Apoya los talones si necesitas más estabilidad.",
-  },
-  {
-    name: "Pallof press",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: ["Oblicuos"],
-    equipment: "Polea",
-    description: "Empuja la manija al frente resistiendo la rotación.",
-    technique: "Mantén la cadera fija y el core activo.",
-    tips: "No bloquees los codos al extender.",
-  },
-  {
-    name: "Ab wheel",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: ["Hombros"],
-    equipment: "Peso corporal",
-    description: "Rueda hacia adelante manteniendo la espalda neutra.",
-    technique: "Evita que la cadera se hunda al avanzar.",
-    tips: "Empieza con recorridos cortos.",
-  },
-  {
-    name: "Hollow hold",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: [],
-    equipment: "Peso corporal",
-    description: "Sostén la postura en forma de cuenco.",
-    technique: "Mantén la zona lumbar pegada al suelo.",
-    tips: "Flexiona rodillas si pierdes la postura.",
-  },
-  {
-    name: "Bird dog",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: ["Espalda"],
-    equipment: "Peso corporal",
-    description: "Extiende brazo y pierna opuestos en cuadrupedia.",
-    technique: "Mantén la cadera nivelada durante la extensión.",
-    tips: "Realiza pausas cortas en cada repetición.",
-  },
-  {
-    name: "Dead bug",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: [],
-    equipment: "Peso corporal",
-    description: "Extiende brazo y pierna contrarios sin despegar la espalda.",
-    technique: "Mantén la zona lumbar pegada al suelo.",
-    tips: "Mueve de forma lenta para controlar.",
-  },
-  {
-    name: "Superman en suelo",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: ["Espalda"],
-    equipment: "Peso corporal",
-    description: "Eleva brazos y piernas a la vez.",
-    technique: "Contrae glúteos y espalda baja sin hiperextender.",
-    tips: "Mantén la mirada al suelo para cuidar el cuello.",
-  },
-  {
-    name: "Sentadilla búlgara",
-    mainMuscleGroup: "Piernas",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Mancuernas",
-    description: "Apoya un pie atrás y baja en vertical.",
-    technique: "Mantén el torso estable y la rodilla alineada.",
-    tips: "Inicia con poco peso para cuidar el equilibrio.",
-  },
-  {
-    name: "Step up con mancuernas",
-    mainMuscleGroup: "Piernas",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Mancuernas",
-    description: "Sube al banco empujando con la pierna de apoyo.",
-    technique: "Evita impulsarte con la pierna trasera.",
-    tips: "Usa un banco estable a la altura de la rodilla.",
-  },
-  {
-    name: "Hack squat en máquina",
-    mainMuscleGroup: "Cuádriceps",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Máquina",
-    description: "Desciende con la espalda apoyada en el respaldo.",
-    technique: "Mantén los pies firmes y rodillas alineadas.",
-    tips: "No bloquees las rodillas al subir.",
-  },
-  {
-    name: "Peso muerto sumo",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: ["Piernas"],
-    equipment: "Barra",
-    description: "Abre la base y empuja el suelo hacia afuera.",
-    technique: "Mantén el pecho alto y la espalda neutra.",
-    tips: "Coloca los pies más abiertos que los hombros.",
-  },
-  {
-    name: "Buenos días con barra",
-    mainMuscleGroup: "Isquios",
-    secondaryMuscleGroups: ["Espalda"],
-    equipment: "Barra",
-    description: "Inclina el torso hacia adelante con control.",
-    technique: "Envía la cadera atrás sin curvar la espalda.",
-    tips: "Usa cargas ligeras para priorizar técnica.",
-  },
-  {
-    name: "Curl nórdico",
-    mainMuscleGroup: "Isquios",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Peso corporal",
-    description: "Desciende lentamente controlando la fase excéntrica.",
-    technique: "Mantén la cadera extendida y el torso alineado.",
-    tips: "Usa una banda de asistencia si es necesario.",
-  },
-  {
-    name: "Hip thrust a una pierna",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: ["Isquios"],
-    equipment: "Banco",
-    description: "Eleva la cadera con una pierna apoyada.",
-    technique: "Mantén la pelvis nivelada durante el movimiento.",
-    tips: "Apoya la espalda alta en el banco.",
-  },
-  {
-    name: "Abducción con banda",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: [],
-    equipment: "Banda",
-    description: "Separa las piernas manteniendo la tensión de la banda.",
-    technique: "Mantén las rodillas ligeramente flexionadas.",
-    tips: "Haz pasos cortos para controlar el movimiento.",
-  },
-  {
-    name: "Monster walk con banda",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: ["Core"],
-    equipment: "Banda",
-    description: "Camina lateral manteniendo la banda tensa.",
-    technique: "Mantén el torso estable y las rodillas alineadas.",
-    tips: "No dejes que las rodillas colapsen hacia adentro.",
-  },
-  {
-    name: "Prensa inclinada a una pierna",
-    mainMuscleGroup: "Piernas",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Máquina",
-    description: "Empuja la plataforma con una sola pierna.",
-    technique: "Mantén la cadera estable y el pie centrado.",
-    tips: "Reduce la carga para controlar el movimiento.",
-  },
-  {
-    name: "Sentadilla goblet",
-    mainMuscleGroup: "Piernas",
-    secondaryMuscleGroups: ["Glúteos"],
-    equipment: "Kettlebell",
-    description: "Sostén la kettlebell al pecho y desciende.",
-    technique: "Mantén el pecho alto y las rodillas abiertas.",
-    tips: "Usa los codos para empujar suavemente las rodillas.",
-  },
-  {
-    name: "Kettlebell swing",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: ["Core", "Espalda"],
-    equipment: "Kettlebell",
-    description: "Balancea la kettlebell con la fuerza de la cadera.",
-    technique: "Mantén la espalda neutra y el cuello alineado.",
-    tips: "La potencia viene de la cadera, no de los brazos.",
-  },
-  {
-    name: "Farmer walk con mancuernas",
-    mainMuscleGroup: "Core",
-    secondaryMuscleGroups: ["Espalda", "Antebrazos"],
-    equipment: "Mancuernas",
-    description: "Camina con peso manteniendo el torso erguido.",
-    technique: "Aprieta el abdomen y los hombros hacia atrás.",
-    tips: "Da pasos cortos para mantener la estabilidad.",
-  },
-  {
-    name: "Press de pecho en suelo",
-    mainMuscleGroup: "Pecho",
-    secondaryMuscleGroups: ["Tríceps"],
-    equipment: "Mancuernas",
-    description: "Empuja desde el suelo controlando el recorrido.",
-    technique: "Mantén los codos a 45 grados del torso.",
-    tips: "Pausa breve al tocar el suelo para controlar.",
-  },
-  {
-    name: "Elevaciones de talones en escalón",
-    mainMuscleGroup: "Gemelos",
-    secondaryMuscleGroups: [],
-    equipment: "Peso corporal",
-    description: "Sube y baja los talones usando un escalón.",
-    technique: "Baja hasta sentir estiramiento sin perder control.",
-    tips: "Sujétate a una pared si necesitas equilibrio.",
-  },
-  {
-    name: "Extensión de cadera en polea",
-    mainMuscleGroup: "Glúteos",
-    secondaryMuscleGroups: ["Isquios"],
-    equipment: "Polea",
-    description: "Empuja la pierna hacia atrás con control.",
-    technique: "Mantén la pelvis estable y el core activo.",
-    tips: "No arquees la espalda al final del recorrido.",
-  },
-  {
-    name: "Clean con kettlebell",
-    mainMuscleGroup: "Hombros",
-    secondaryMuscleGroups: ["Core", "Piernas"],
-    equipment: "Kettlebell",
-    description: "Lleva la kettlebell al rack con un tirón fluido.",
-    technique: "Usa el impulso de la cadera para subir.",
-    tips: "Mantén la muñeca neutra para un rack cómodo.",
-  },
-];
-
-const recipes: RecipeSeed[] = [
-  {
-    name: "Salmón con espárragos y arroz",
-    description: "Plato completo con proteína y carbohidratos complejos.",
-    calories: 620,
-    protein: 42,
-    carbs: 55,
-    fat: 22,
-    steps: ["Cocina el arroz", "Saltea espárragos", "Marca el salmón a la plancha"],
-    ingredients: [
-      { name: "Salmón", grams: 160 },
-      { name: "Arroz integral cocido", grams: 180 },
-      { name: "Espárragos", grams: 120 },
-    ],
-  },
-  {
-    name: "Pollo con patata y verduras",
-    description: "Comida clásica alta en proteína.",
-    calories: 680,
-    protein: 50,
-    carbs: 60,
-    fat: 18,
-    steps: ["Asa la patata", "Cocina el pollo a la plancha", "Saltea las verduras"],
-    ingredients: [
-      { name: "Pechuga de pollo", grams: 180 },
-      { name: "Patata", grams: 220 },
-      { name: "Verduras mixtas", grams: 150 },
-    ],
-  },
-  {
-    name: "Avena con yogur y frutos rojos",
-    description: "Desayuno rápido con buena saciedad.",
-    calories: 430,
-    protein: 24,
-    carbs: 55,
-    fat: 12,
-    steps: ["Mezcla avena y yogur", "Añade frutos rojos"],
-    ingredients: [
-      { name: "Avena", grams: 60 },
-      { name: "Yogur griego", grams: 180 },
-      { name: "Frutos rojos", grams: 100 },
-    ],
-  },
-  {
-    name: "Tortilla de claras con espinacas",
-    description: "Desayuno alto en proteína.",
-    calories: 320,
-    protein: 30,
-    carbs: 15,
-    fat: 10,
-    steps: ["Saltea espinacas", "Añade claras y cocina a fuego medio"],
-    ingredients: [
-      { name: "Claras de huevo", grams: 200 },
-      { name: "Espinacas", grams: 80 },
-      { name: "Aceite de oliva", grams: 5 },
-    ],
-  },
-  {
-    name: "Ensalada de quinoa y garbanzos",
-    description: "Opción vegetal con proteína completa.",
-    calories: 520,
-    protein: 22,
-    carbs: 70,
-    fat: 14,
-    steps: ["Cuece quinoa", "Mezcla con garbanzos y verduras"],
-    ingredients: [
-      { name: "Quinoa cocida", grams: 180 },
-      { name: "Garbanzos cocidos", grams: 120 },
-      { name: "Verduras mixtas", grams: 120 },
-    ],
-  },
-  {
-    name: "Ternera salteada con arroz",
-    description: "Comida energética para volumen.",
-    calories: 720,
-    protein: 45,
-    carbs: 75,
-    fat: 22,
-    steps: ["Saltea la ternera", "Añade verduras", "Sirve con arroz"],
-    ingredients: [
-      { name: "Ternera magra", grams: 170 },
-      { name: "Arroz jazmín cocido", grams: 200 },
-      { name: "Pimiento y cebolla", grams: 100 },
-    ],
-  },
-  {
-    name: "Pavo con boniato al horno",
-    description: "Combinación dulce-salada rica en fibra.",
-    calories: 640,
-    protein: 46,
-    carbs: 65,
-    fat: 16,
-    steps: ["Asa boniato", "Cocina el pavo a la plancha"],
-    ingredients: [
-      { name: "Pavo", grams: 180 },
-      { name: "Boniato", grams: 220 },
-      { name: "Aceite de oliva", grams: 6 },
-    ],
-  },
-  {
-    name: "Bowl de tofu y verduras",
-    description: "Opción vegana con proteína vegetal.",
-    calories: 540,
-    protein: 28,
-    carbs: 55,
-    fat: 20,
-    steps: ["Dora el tofu", "Saltea verduras", "Sirve con arroz"],
-    ingredients: [
-      { name: "Tofu", grams: 180 },
-      { name: "Arroz integral cocido", grams: 160 },
-      { name: "Verduras mixtas", grams: 150 },
-    ],
-  },
-  {
-    name: "Pasta integral con atún",
-    description: "Comida rápida post entrenamiento.",
-    calories: 650,
-    protein: 40,
-    carbs: 80,
-    fat: 12,
-    steps: ["Cuece pasta", "Mezcla con atún y tomate"],
-    ingredients: [
-      { name: "Pasta integral cocida", grams: 200 },
-      { name: "Atún al natural", grams: 120 },
-      { name: "Tomate triturado", grams: 100 },
-    ],
-  },
-  {
-    name: "Wrap de pollo y aguacate",
-    description: "Almuerzo práctico para llevar.",
-    calories: 560,
-    protein: 35,
-    carbs: 45,
-    fat: 22,
-    steps: ["Cocina el pollo", "Rellena el wrap con aguacate y verduras"],
-    ingredients: [
-      { name: "Tortilla integral", grams: 60 },
-      { name: "Pechuga de pollo", grams: 140 },
-      { name: "Aguacate", grams: 60 },
-    ],
-  },
-  {
-    name: "Merluza al horno con verduras",
-    description: "Cena ligera y rica en omega 3.",
-    calories: 480,
-    protein: 38,
-    carbs: 35,
-    fat: 14,
-    steps: ["Hornea la merluza", "Asa verduras"],
-    ingredients: [
-      { name: "Merluza", grams: 180 },
-      { name: "Verduras al horno", grams: 200 },
-      { name: "Aceite de oliva", grams: 6 },
-    ],
-  },
-  {
-    name: "Lentejas con verduras",
-    description: "Plato vegetariano completo.",
-    calories: 560,
-    protein: 28,
-    carbs: 78,
-    fat: 10,
-    steps: ["Cuece lentejas", "Añade verduras y especias"],
-    ingredients: [
-      { name: "Lentejas cocidas", grams: 220 },
-      { name: "Zanahoria y apio", grams: 120 },
-      { name: "Tomate", grams: 80 },
-    ],
-  },
-  {
-    name: "Arroz con huevo y verduras",
-    description: "Opción rápida con proteínas mixtas.",
-    calories: 520,
-    protein: 22,
-    carbs: 70,
-    fat: 12,
-    steps: ["Saltea verduras", "Añade arroz y huevo"],
-    ingredients: [
-      { name: "Arroz cocido", grams: 180 },
-      { name: "Huevo", grams: 100 },
-      { name: "Verduras mixtas", grams: 120 },
-    ],
-  },
-  {
-    name: "Yogur con granola y plátano",
-    description: "Snack energético con fibra.",
-    calories: 390,
-    protein: 18,
-    carbs: 55,
-    fat: 10,
-    steps: ["Sirve yogur", "Añade granola y plátano"],
-    ingredients: [
-      { name: "Yogur natural", grams: 180 },
-      { name: "Granola", grams: 40 },
-      { name: "Plátano", grams: 100 },
-    ],
-  },
-  {
-    name: "Filete de cerdo con couscous",
-    description: "Comida completa y saciante.",
-    calories: 670,
-    protein: 42,
-    carbs: 68,
-    fat: 20,
-    steps: ["Cocina el couscous", "Sella el filete", "Sirve con verduras"],
-    ingredients: [
-      { name: "Lomo de cerdo", grams: 180 },
-      { name: "Couscous cocido", grams: 180 },
-      { name: "Verduras mixtas", grams: 120 },
-    ],
-  },
-  {
-    name: "Buddha bowl mediterráneo",
-    description: "Bowl vegetal con grasas saludables.",
-    calories: 590,
-    protein: 24,
-    carbs: 68,
-    fat: 20,
-    steps: ["Cuece arroz", "Añade garbanzos y verduras", "Aliña con aceite"],
-    ingredients: [
-      { name: "Arroz integral cocido", grams: 160 },
-      { name: "Garbanzos cocidos", grams: 120 },
-      { name: "Verduras mixtas", grams: 140 },
-    ],
-  },
-  {
-    name: "Poke de atún",
-    description: "Opción fresca con carbohidratos moderados.",
-    calories: 560,
-    protein: 38,
-    carbs: 55,
-    fat: 16,
-    steps: ["Prepara arroz", "Mezcla atún y verduras", "Añade salsa ligera"],
-    ingredients: [
-      { name: "Atún fresco", grams: 160 },
-      { name: "Arroz sushi cocido", grams: 160 },
-      { name: "Pepino y zanahoria", grams: 120 },
-    ],
-  },
-  {
-    name: "Hamburguesa de pavo con ensalada",
-    description: "Cena alta en proteína y ligera.",
-    calories: 510,
-    protein: 40,
-    carbs: 30,
-    fat: 18,
-    steps: ["Cocina la hamburguesa", "Sirve con ensalada fresca"],
-    ingredients: [
-      { name: "Hamburguesa de pavo", grams: 160 },
-      { name: "Ensalada mixta", grams: 180 },
-      { name: "Aceite de oliva", grams: 6 },
-    ],
-  },
-  {
-    name: "Sopa de verduras con pollo",
-    description: "Cena reconfortante y ligera.",
-    calories: 420,
-    protein: 30,
-    carbs: 35,
-    fat: 12,
-    steps: ["Cocina verduras en caldo", "Añade pollo desmenuzado"],
-    ingredients: [
-      { name: "Pollo cocido", grams: 140 },
-      { name: "Verduras variadas", grams: 200 },
-      { name: "Caldo", grams: 300 },
-    ],
-  },
-  {
-    name: "Tacos de pescado",
-    description: "Comida ligera con proteína de mar.",
-    calories: 570,
-    protein: 35,
-    carbs: 60,
-    fat: 18,
-    steps: ["Cocina el pescado", "Sirve en tortillas con verduras"],
-    ingredients: [
-      { name: "Pescado blanco", grams: 160 },
-      { name: "Tortillas de maíz", grams: 80 },
-      { name: "Col y tomate", grams: 120 },
-    ],
-  },
-  {
-    name: "Batido de proteína y fruta",
-    description: "Snack post entreno.",
-    calories: 350,
-    protein: 30,
-    carbs: 35,
-    fat: 6,
-    steps: ["Licua proteína con fruta y leche"],
-    ingredients: [
-      { name: "Proteína en polvo", grams: 30 },
-      { name: "Leche", grams: 200 },
-      { name: "Fruta", grams: 120 },
-    ],
-  },
-];
+const seedDir = dirname(fileURLToPath(import.meta.url));
+const exerciseDataset = JSON.parse(
+  readFileSync(join(seedDir, "data/exercises.json"), "utf8")
+) as ExerciseSeed[];
 
 function slugify(name: string) {
   return name
@@ -1233,94 +29,120 @@ function slugify(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-async function main() {
-  if (exercises.length < 100) {
-    throw new Error(`Expected at least 100 exercises, got ${exercises.length}`);
+function getEnvConfig() {
+  return {
+    demoAdminEmail: process.env.DEMO_ADMIN_EMAIL ?? "demo-admin@fitsculpt.local",
+    demoAdminPassword: process.env.DEMO_ADMIN_PASSWORD ?? "DemoAdmin123!",
+    demoGymName: process.env.DEMO_GYM_NAME ?? "FitSculpt Demo Gym",
+    demoGymCode: process.env.DEMO_GYM_CODE ?? "DEMO-GYM",
+  };
+}
+
+function assertSeedAllowed() {
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const allowSeed = process.env.ALLOW_SEED === "1";
+  if (nodeEnv === "production" && !allowSeed) {
+    throw new Error(
+      "Seed blocked in production. Set ALLOW_SEED=1 to run intentionally."
+    );
   }
-  if (recipes.length < 20) {
-    throw new Error(`Expected at least 20 recipes, got ${recipes.length}`);
+}
+
+async function seedDemoAdmin(email: string, password: string) {
+  const passwordHash = await bcrypt.hash(password, PASSWORD_SALT_ROUNDS);
+  await prisma.user.upsert({
+    where: { email },
+    create: {
+      email,
+      passwordHash,
+      provider: "email",
+      role: "ADMIN",
+      emailVerifiedAt: new Date(),
+    },
+    update: {
+      passwordHash,
+      provider: "email",
+      role: "ADMIN",
+      emailVerifiedAt: new Date(),
+      deletedAt: null,
+      isBlocked: false,
+    },
+  });
+}
+
+async function seedDemoGym(name: string, code: string) {
+  const gymCode = code.trim().toUpperCase();
+  const activationCode = `${gymCode}-ACT`;
+  const existingGym = await prisma.gym.findFirst({
+    where: {
+      OR: [{ code: gymCode }, { name }],
+    },
+  });
+
+  if (existingGym) {
+    await prisma.gym.update({
+      where: { id: existingGym.id },
+      data: {
+        name,
+        code: gymCode,
+        activationCode,
+      },
+    });
+    return;
   }
 
-  let seeded = 0;
+  await prisma.gym.create({
+    data: {
+      name,
+      code: gymCode,
+      activationCode,
+    },
+  });
+}
 
-  for (const exercise of exercises) {
+async function seedDemoExercises() {
+  const demoExercises = exerciseDataset.slice(0, DEMO_EXERCISE_COUNT);
+  if (demoExercises.length < DEMO_EXERCISE_COUNT) {
+    throw new Error(
+      `Expected at least ${DEMO_EXERCISE_COUNT} exercises in dataset, got ${demoExercises.length}`
+    );
+  }
+
+  for (const exercise of demoExercises) {
     const slug = slugify(exercise.name);
     await prisma.exercise.upsert({
       where: { slug },
       create: {
         slug,
         name: exercise.name,
-        equipment: exercise.equipment,
-        description: exercise.description,
         mainMuscleGroup: exercise.mainMuscleGroup,
         secondaryMuscleGroups: exercise.secondaryMuscleGroups,
-        technique: exercise.technique,
-        tips: exercise.tips,
-        isUserCreated: false,
       },
       update: {
         name: exercise.name,
-        equipment: exercise.equipment,
-        description: exercise.description,
         mainMuscleGroup: exercise.mainMuscleGroup,
         secondaryMuscleGroups: exercise.secondaryMuscleGroups,
-        technique: exercise.technique,
-        tips: exercise.tips,
-        isUserCreated: false,
       },
     });
-    seeded += 1;
   }
+}
 
-  const total = await prisma.exercise.count();
-  console.log(`Seeded ${seeded} exercises`);
-  if (total < 100) {
-    throw new Error(`Seeded ${total} exercises, expected at least 100`);
-  }
+async function main() {
+  assertSeedAllowed();
 
-  let recipesSeeded = 0;
-  for (const recipe of recipes) {
-    const record = await prisma.recipe.upsert({
-      where: { name: recipe.name },
-      create: {
-        name: recipe.name,
-        description: recipe.description,
-        calories: recipe.calories,
-        protein: recipe.protein,
-        carbs: recipe.carbs,
-        fat: recipe.fat,
-        photoUrl: recipe.photoUrl ?? null,
-        steps: recipe.steps,
-      },
-      update: {
-        description: recipe.description,
-        calories: recipe.calories,
-        protein: recipe.protein,
-        carbs: recipe.carbs,
-        fat: recipe.fat,
-        photoUrl: recipe.photoUrl ?? null,
-        steps: recipe.steps,
-      },
-    });
+  const { demoAdminEmail, demoAdminPassword, demoGymName, demoGymCode } = getEnvConfig();
 
-    await prisma.recipeIngredient.deleteMany({ where: { recipeId: record.id } });
-    if (recipe.ingredients.length > 0) {
-      await prisma.recipeIngredient.createMany({
-        data: recipe.ingredients.map((ingredient) => ({
-          recipeId: record.id,
-          name: ingredient.name,
-          grams: ingredient.grams,
-        })),
-      });
-    }
-    recipesSeeded += 1;
-  }
+  await seedDemoAdmin(demoAdminEmail, demoAdminPassword);
+  await seedDemoGym(demoGymName, demoGymCode);
+  await seedDemoExercises();
 
-  const recipeTotal = await prisma.recipe.count();
-  console.log(`Seeded ${recipesSeeded} recipes`);
-  if (recipeTotal < 20) {
-    throw new Error(`Seeded ${recipeTotal} recipes, expected at least 20`);
-  }
+  const [users, gyms, exercises] = await Promise.all([
+    prisma.user.count({ where: { email: demoAdminEmail } }),
+    prisma.gym.count({ where: { OR: [{ code: demoGymCode.trim().toUpperCase() }, { name: demoGymName }] } }),
+    prisma.exercise.count(),
+  ]);
+
+  console.log(`Demo seed complete: users=${users}, gyms=${gyms}, exercises=${exercises}`);
 }
 
 main()

@@ -13,12 +13,12 @@ import { useAccess } from "@/lib/useAccess";
 type AuthUser = {
   name?: string | null;
   email?: string | null;
-  subscriptionPlan?: "FREE" | "PRO";
+  subscriptionPlan?: "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI";
   aiTokenBalance?: number;
 } & Record<string, unknown>;
 
 type BillingStatus = {
-  plan?: "FREE" | "PRO";
+  plan?: "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI";
   isPro?: boolean;
   tokens?: number;
 };
@@ -29,7 +29,7 @@ export default function AppNavBar() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const { role, isAdmin, isCoach, isDev } = useAccess();
+  const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
 
   useEffect(() => {
     let active = true;
@@ -65,11 +65,19 @@ export default function AppNavBar() {
 
   const userRole = typeof user?.role === "string" ? user.role : "";
   const userMeta = user?.email || userRole || "";
-  const planLabel = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
-  const isPro = planLabel === "PRO";
-  const tokenBalance = billing?.tokens ?? user?.aiTokenBalance ?? 0;
+  const planValue = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
+  const normalizedPlan = planValue.toLowerCase();
+  const planKey = `billing.planLabels.${normalizedPlan}`;
+  const translatedPlan = t(planKey);
+  const planLabel = translatedPlan === planKey ? t("billing.planLabels.unknown") : translatedPlan;
+  const isPaidPlan = planValue !== "FREE";
+  const tokenBalance = billing?.tokens ?? user?.aiTokenBalance;
+  const hasTokenBalance = typeof tokenBalance === "number";
 
-  const sections = useMemo(() => buildNavigationSections({ role, isAdmin, isCoach, isDev }), [role, isCoach, isAdmin, isDev]);
+  const sections = useMemo(
+    () => buildNavigationSections({ role, isAdmin, isCoach, isDev, gymMembershipState }),
+    [role, isCoach, isAdmin, isDev, gymMembershipState],
+  );
 
   const closeMenu = () => setOpen(false);
 
@@ -87,11 +95,11 @@ export default function AppNavBar() {
         </Link>
 
         <div className="nav-actions">
-  <AppUserBadge />
+  <AppUserBadge mobileMenuOpen={open} onMobileMenuToggle={() => setOpen((prev) => !prev)} />
 
-  <div className={`account-pill ${isPro ? "is-pro" : "is-free"}`}>
+  <div className={`account-pill ${isPaidPlan ? "is-pro" : "is-free"}`}>
     <span className="account-pill-label">{planLabel}</span>
-    {isPro ? <span className="account-pill-meta">{t("ui.tokensLabel")} {tokenBalance}</span> : null}
+    {isPaidPlan && hasTokenBalance ? <span className="account-pill-meta">{t("ui.tokensLabel")} {tokenBalance}</span> : null}
   </div>
 
   <div className="nav-utility">
@@ -146,7 +154,7 @@ export default function AppNavBar() {
                       if (item.disabled) {
                         return (
                           <div
-                            key={item.id}
+                            key={`${section.id}:${item.id}`}
                             className="nav-drawer-link"
                             aria-disabled="true"
                           >
@@ -158,7 +166,7 @@ export default function AppNavBar() {
 
                       return (
                         <Link
-                          key={item.id}
+                          key={`${section.id}:${item.id}`}
                           href={item.href}
                           className={`nav-drawer-link ${active ? "is-active" : ""}`}
                           aria-current={active ? "page" : undefined}
@@ -187,7 +195,7 @@ export default function AppNavBar() {
                     if (item.disabled) {
                       return (
                         <div
-                          key={item.id}
+                          key={`${section.id}:${item.id}`}
                           className="nav-drawer-link"
                           aria-disabled="true"
                         >
@@ -199,7 +207,7 @@ export default function AppNavBar() {
 
                     return (
                       <Link
-                        key={item.id}
+                        key={`${section.id}:${item.id}`}
                         href={item.href}
                         className={`nav-drawer-link ${active ? "is-active" : ""}`}
                         aria-current={active ? "page" : undefined}

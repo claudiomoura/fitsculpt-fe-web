@@ -22,6 +22,7 @@
     "billing": "Billing & Pro",
     "admin": "Admin",
     "adminUsers": "Users",
+    "adminGyms": "Gyms",
     "logout": "Log out",
     "trainer": "Trainer",
     "adminPreview": "Admin Preview",
@@ -212,7 +213,9 @@
     "shortcutsRecentsErrorTitle": "Recents unavailable",
     "shortcutsRecentsErrorDescription": "We couldn't load your recents right now.",
     "shortcutsExerciseFallback": "Exercise",
-    "shortcutsExerciseIdLabel": "ID"
+    "shortcutsExerciseIdLabel": "ID",
+    "backToToday": "Back to Today",
+    "trainingAssignedEmptyDescription": "Your coach has not assigned a plan yet. You will see it here once available."
   },
   "foods": {
     "salmon": "Salmon",
@@ -1550,7 +1553,10 @@
     "gymRequestsRetry": "Retry",
     "gymRequestsEmpty": "No pending gym join requests.",
     "gymRequestsAccept": "Accept",
-    "gymRequestsReject": "Reject"
+    "gymRequestsReject": "Reject",
+    "gymRequestsConfirmAccept": "Approve this gym join request?",
+    "gymRequestsConfirmReject": "Reject this gym join request?",
+    "gymRequestsActionError": "We could not process this request. Please retry."
   },
   "library": {
     "loadError": "We couldn't load the exercise.",
@@ -1605,7 +1611,19 @@
     "favoriteRemovedToastTitle": "Removed from favorites",
     "favoriteToastDescription": "Your favorites list is up to date.",
     "recentsClearedToastTitle": "Recents cleared",
-    "recentsClearedToastDescription": "Your recent exercises have been removed."
+    "recentsClearedToastDescription": "Your recent exercises have been removed.",
+    "addToPlanModalTitle": "Add exercise to plan",
+    "addToPlanModalDescription": "Choose the day for {exercise}.",
+    "addToPlanDayLabel": "Plan day",
+    "addToPlanDayPlaceholder": "Select a day",
+    "addToPlanConfirm": "Add to day",
+    "addToPlanLoading": "Loading available plan days...",
+    "addToPlanLoadError": "We couldn't load plan days.",
+    "addToPlanNoPlan": "No active training plan available.",
+    "addToPlanNoPlanCta": "Create or select a plan",
+    "addToPlanSubmitError": "We couldn't add the exercise. Please retry.",
+    "addToPlanSuccessTitle": "Exercise added",
+    "addToPlanSuccessDescription": "{exercise} was added to your selected day."
   },
   "recipes": {
     "loading": "Loading recipes...",
@@ -1782,10 +1800,42 @@
     "stripeStatusLabel": "Stripe status",
     "tokenRenewalLabel": "Token renewal",
     "aiTokensLabel": "AI tokens available",
+    "planSelectionTitle": "Choose your plan",
+    "planSelectionDescription": "Select the subscription that best fits your goals.",
+    "currentPlanBadge": "Current",
     "upgradePro": "Upgrade to PRO",
+    "choosePlan": "Choose plan",
+    "subscribe": "Subscribe",
     "manageSubscription": "Manage subscription",
     "redirecting": "Redirecting...",
     "opening": "Opening...",
+    "planLabels": {
+      "free": "Free",
+      "pro": "Pro",
+      "strength_ai": "StrengthAI",
+      "nutri_ai": "NutriAI",
+      "strengthai": "StrengthAI",
+      "nutriai": "NutriAI",
+      "ultra": "Pro",
+      "unknown": "Unknown plan"
+    },
+    "plans": {
+      "strengthAi": {
+        "name": "StrengthAI",
+        "description": "Training-focused plan with AI-powered progression.",
+        "price": "$19/month"
+      },
+      "nutriAi": {
+        "name": "NutriAI",
+        "description": "Nutrition-focused plan with AI guidance for meals and macros.",
+        "price": "$19/month"
+      },
+      "pro": {
+        "name": "Pro",
+        "description": "Bundle with StrengthAI + NutriAI in one plan.",
+        "price": "$29/month"
+      }
+    },
     "subscriptionStatuses": {
       "active": "Active",
       "trialing": "Trialing",
@@ -1837,6 +1887,9 @@
         "statusLabel": "Plan status is shown in Billing when real data is available.",
         "gymStatusYes": "Gym status: yes",
         "gymStatusNo": "Gym status: no",
+        "gymStatusPending": "Gym request pending for {gymName}.",
+        "gymStatusActive": "Gym membership active in {gymName}.",
+        "gymStatusRejected": "Your latest gym request was rejected.",
         "gymStatusUnknown": "Gym status: info unavailable"
       },
       "notifications": {
@@ -1911,6 +1964,29 @@
           "assignConfirmation": "Plan assignment request captured.",
           "assignUnavailable": "Dual-plan assignment requires backend support and is unavailable in this environment.",
           "emptyUnsupported": "No distinct Home/Gym plan data is available for this client yet."
+        },
+        "assignment": {
+          "title": "Assign training plan",
+          "description": "Choose one of your existing plans and assign it to {member}.",
+          "loading": "Loading plans and current assignment...",
+          "loadError": "We could not load plan assignment data.",
+          "currentLabel": "Currently assigned plan",
+          "noneAssigned": "No plan assigned to this member yet.",
+          "emptyPlans": "You do not have training plans available to assign.",
+          "emptyPlansCta": "Create or generate a training plan",
+          "planLabel": "Available plans",
+          "planPlaceholder": "Select a plan",
+          "submit": "Assign plan",
+          "submitting": "Assigning...",
+          "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
+          "success": "Assigned {plan} to {member} successfully.",
+          "unknownPlan": "Selected plan",
+          "addExerciseCta": "Add exercise from library",
+          "createCta": "Create minimal plan (7 days)",
+          "creating": "Creating plan...",
+          "createSuccess": "Minimal plan created successfully. You can now assign it or add exercises from the library.",
+          "createError": "We could not create a minimal plan. Please retry.",
+          "defaultPlanTitle": "Minimal weekly plan"
         }
       },
       "nutrition": {
@@ -2010,7 +2086,8 @@
       "submit": "Assign plan",
       "submitting": "Assigning...",
       "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
-      "success": "Plan assigned successfully to {member}."
+      "success": "Plan assigned successfully to {member}.",
+      "guidance": "The member will see the assigned plan in Plan/Today once it is saved."
     }
   },
   "gym": {
@@ -2055,7 +2132,8 @@
         "loadPlansError": "We could not load your plans.",
         "submit": "Assign plan",
         "cancel": "Cancel",
-        "submitError": "We could not assign this plan. Please verify member and gym eligibility."
+        "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
+        "unavailable": "This action is not available in the current environment."
       },
       "goToPanel": "Go to gym panel"
     },
@@ -2084,8 +2162,11 @@
       "codeLabel": "Gym code",
       "codeHelp": "If the gym gave you a code, use it to join automatically.",
       "codeButton": "Join with code",
+      "invalidCode": "The code is invalid. Check it and try again.",
       "empty": "No gyms are available right now.",
-      "loadError": "We could not load the gym list."
+      "loadError": "We could not load the gym list.",
+      "requestSuccess": "Your request was sent. You can check the status below.",
+      "codeSuccess": "Code accepted. Your membership has been updated."
     },
     "loadErrorTitle": "We could not load your gym status",
     "loadError": {
@@ -2099,7 +2180,8 @@
     "sessionExpired": {
       "title": "Your session expired",
       "subtitle": "Log in again to check your gym status."
-    }
+    },
+    "actionSuccessTitle": "Request sent"
   },
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",
@@ -2174,5 +2256,29 @@
   "common": {
     "loading": "Loading...",
     "retry": "Retry"
+  },
+  "adminGyms": {
+    "title": "Manage gyms",
+    "createName": "Name",
+    "createPlaceholder": "New gym",
+    "createAction": "Create gym",
+    "createdCode": "Join code: {code}",
+    "listTitle": "Gyms",
+    "empty": "No gyms yet.",
+    "joinCodeLabel": "Join code",
+    "membersCountLabel": "Members",
+    "requestsCountLabel": "Requests",
+    "membersTitle": "Active members",
+    "membersEmpty": "No active members.",
+    "membersUnavailable": "Member listing is not available in this environment.",
+    "memberRoleUnavailable": "Role updates are not available in this environment.",
+    "promoteTrainer": "Promote to TRAINER",
+    "demoteMember": "Set as MEMBER",
+    "errors": {
+      "load": "We could not load gyms.",
+      "members": "We could not load gym members.",
+      "create": "We could not create the gym.",
+      "role": "We could not update member role."
+    }
   }
 }

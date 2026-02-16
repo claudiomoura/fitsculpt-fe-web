@@ -31,6 +31,7 @@ export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClos
   const [plansError, setPlansError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [assignUnsupported, setAssignUnsupported] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -38,6 +39,7 @@ export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClos
     const loadPlans = async () => {
       setLoadingPlans(true);
       setPlansError(null);
+      setAssignUnsupported(false);
       setSelectedPlanId("");
       const response = await fetch("/api/training-plans", {
         cache: "no-store",
@@ -74,10 +76,16 @@ export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClos
       body: JSON.stringify({ templatePlanId: selectedPlanId }),
     });
     setSubmitting(false);
+    if (response.status === 404 || response.status === 405) {
+      setAssignUnsupported(true);
+      setSubmitError(t("gym.admin.assignPlan.unavailable"));
+      return;
+    }
     if (!response.ok) {
       setSubmitError(t("gym.admin.assignPlan.submitError"));
       return;
     }
+    setAssignUnsupported(false);
     onAssigned();
     onClose();
   }
@@ -91,7 +99,7 @@ export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClos
       footer={(
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Button variant="secondary" onClick={onClose}>{t("gym.admin.assignPlan.cancel")}</Button>
-          <Button onClick={() => void submitAssign()} loading={submitting} disabled={!selectedPlanId || loadingPlans}>
+          <Button onClick={() => void submitAssign()} loading={submitting} disabled={!selectedPlanId || loadingPlans || assignUnsupported}>
             {t("gym.admin.assignPlan.submit")}
           </Button>
         </div>
@@ -113,6 +121,7 @@ export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClos
           </label>
         ) : null}
         {submitError ? <p className="muted">{submitError}</p> : null}
+        {assignUnsupported ? <p className="muted">{t("gym.admin.assignPlan.unavailable")}</p> : null}
       </div>
     </Modal>
   );

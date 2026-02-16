@@ -22,3 +22,24 @@ export async function GET(request: Request) {
   const data = await response.json();
   return NextResponse.json(data, { status: response.status });
 }
+
+export async function POST(request: Request) {
+  const authCookie = await getAuthCookie();
+  if (!authCookie) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const payload = await request.json().catch(() => ({}));
+  const response = await fetch(`${getBackendUrl()}/training-plans`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      cookie: authCookie,
+    },
+    cache: "no-store",
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
+}

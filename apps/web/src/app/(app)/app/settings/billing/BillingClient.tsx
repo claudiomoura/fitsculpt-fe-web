@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
-import { ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 
+type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | "ULTRA" | (string & {});
+
 type BillingProfile = {
-  plan?: "FREE" | "PRO";
+  plan?: BillingPlan;
   isPro?: boolean;
   tokens?: number;
   tokensExpiresAt?: string | null;
@@ -20,27 +22,19 @@ type BillingProfile = {
 
 type BillingAction = "checkout" | "portal" | null;
 
-function resolveStatusBadgeVariant(subscriptionStatus: string | null | undefined) {
-  const normalizedStatus = subscriptionStatus?.toLowerCase();
+type PlanKey = "strengthAi" | "nutriAi" | "pro";
 
-  if (!normalizedStatus) {
-    return "muted" as const;
-  }
+type PlanCard = {
+  key: PlanKey;
+  planValues: BillingPlan[];
+  priceId: string;
+};
 
-  if (normalizedStatus === "active" || normalizedStatus === "trialing") {
-    return "success" as const;
-  }
-
-  if (normalizedStatus === "past_due" || normalizedStatus === "incomplete") {
-    return "warning" as const;
-  }
-
-  if (normalizedStatus === "canceled" || normalizedStatus === "unpaid") {
-    return "danger" as const;
-  }
-
-  return "default" as const;
-}
+const PLAN_CARDS: PlanCard[] = [
+  { key: "strengthAi", planValues: ["STRENGTH_AI"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_STRENGTH_AI ?? "" },
+  { key: "nutriAi", planValues: ["NUTRI_AI"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_NUTRI_AI ?? "" },
+  { key: "pro", planValues: ["PRO"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_ULTRA ?? "" },
+];
 
 function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (key: string) => string) {
   const normalizedStatus = subscriptionStatus?.toLowerCase();
@@ -52,6 +46,17 @@ function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (k
   return t(`billing.subscriptionStatuses.${normalizedStatus}`) === `billing.subscriptionStatuses.${normalizedStatus}`
     ? t("billing.subscriptionStatuses.unknown")
     : t(`billing.subscriptionStatuses.${normalizedStatus}`);
+}
+
+function resolvePlanLabel(plan: BillingPlan | null | undefined, t: (key: string) => string) {
+  if (!plan) {
+    return t("billing.planLabels.unknown");
+  }
+
+  const normalized = plan.toLowerCase();
+  const messageKey = `billing.planLabels.${normalized}`;
+
+  return t(messageKey) === messageKey ? t("billing.planLabels.unknown") : t(messageKey);
 }
 
 export default function BillingClient() {
@@ -121,12 +126,16 @@ export default function BillingClient() {
     void loadProfile();
   }, [loadProfile]);
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (priceId: string) => {
     setAction("checkout");
     setError(null);
 
     try {
-      const response = await fetch("/api/billing/checkout", { method: "POST" });
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ priceId }),
+      });
       const data = (await response.json()) as { url?: string };
 
       if (!response.ok || !data.url) {
@@ -163,23 +172,11 @@ export default function BillingClient() {
     }
   };
 
-  const isPro = profile?.isPro || profile?.plan === "PRO";
-  const hasPlan = typeof profile?.plan === "string";
+  const currentPlan = profile?.plan;
   const hasSubscriptionStatus = typeof profile?.subscriptionStatus === "string" && profile.subscriptionStatus.length > 0;
-
-  const checkoutDisabled = loading || action === "portal" || Boolean(isPro);
   const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
   const hasGymSelectionEndpoint = false;
   const canSeeDevNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
-  const entitlements = {
-    status: "known" as const,
-    tier: isPro ? ("PRO" as const) : ("FREE" as const),
-    features: {
-      canUseAI: Boolean(isPro),
-      hasProSupport: Boolean(isPro),
-      hasGymAccess: Boolean(gymMembership.gymId),
-    },
-  };
 
   return (
     <section className="stack-md" aria-live="polite">
@@ -205,23 +202,51 @@ export default function BillingClient() {
           <Card>
             <CardHeader>
               <CardTitle>{t("billing.currentPlanLabel")}</CardTitle>
-              <CardDescription>{t("billing.planDescription")}</CardDescription>
+              <CardDescription>{t("billing.stripeStatusLabel")}</CardDescription>
             </CardHeader>
             <CardContent className="stack-sm">
-              {entitlements.status === "known" ? (
-                <>
-                  <Badge variant={entitlements.tier === "FREE" ? "muted" : "success"}>
-                    {t(`billing.tier.${entitlements.tier.toLowerCase()}`)}
-                  </Badge>
-                  <ul className="m-0" style={{ paddingLeft: 20 }}>
-                    <li>{`${t("billing.features.canUseAI")}: ${entitlements.features.canUseAI ? t("ui.yes") : t("ui.no")}`}</li>
-                    <li>{`${t("billing.features.hasProSupport")}: ${entitlements.features.hasProSupport ? t("ui.yes") : t("ui.no")}`}</li>
-                    <li>{`${t("billing.features.hasGymAccess")}: ${entitlements.features.hasGymAccess ? t("ui.yes") : t("ui.no")}`}</li>
-                  </ul>
-                </>
-              ) : (
-                <p className="muted m-0">{t("billing.planUnavailable")}</p>
-              )}
+              <Badge variant={currentPlan ? "success" : "muted"}>{resolvePlanLabel(currentPlan, t)}</Badge>
+              <p className="muted m-0">{`${t("billing.stripeStatusLabel")}: ${resolveStatusLabel(profile?.subscriptionStatus, t)}`}</p>
+              <p className="muted m-0">{`${t("billing.tokenRenewalLabel")}: ${formatDate(profile?.tokensExpiresAt)}`}</p>
+              <p className="muted m-0">{`${t("billing.aiTokensLabel")}: ${profile?.tokens ?? t("ui.notAvailable")}`}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("billing.planSelectionTitle")}</CardTitle>
+              <CardDescription>{t("billing.planSelectionDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent className="stack-md">
+              {PLAN_CARDS.map((plan) => {
+                const isCurrent = plan.planValues.some((value) => value === currentPlan);
+                const checkoutDisabled = loading || action === "portal" || action === "checkout" || isCurrent || !plan.priceId;
+
+                return (
+                  <div key={plan.key} className="stack-sm border border-border-subtle rounded-lg p-4 bg-surface-2">
+                    <div className="stack-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="m-0">{t(`billing.plans.${plan.key}.name`)}</h3>
+                        {isCurrent ? <Badge variant="success">{t("billing.currentPlanBadge")}</Badge> : null}
+                      </div>
+                      <p className="muted m-0">{t(`billing.plans.${plan.key}.description`)}</p>
+                    </div>
+                    <p className="muted m-0">{t(`billing.plans.${plan.key}.price`)}</p>
+                    <Button
+                      variant={isCurrent ? "secondary" : "primary"}
+                      loading={action === "checkout"}
+                      disabled={checkoutDisabled}
+                      onClick={() => void handleCheckout(plan.priceId)}
+                    >
+                      {t("billing.subscribe")}
+                    </Button>
+                  </div>
+                );
+              })}
+              <Button variant="secondary" loading={action === "portal"} disabled={portalDisabled} onClick={() => void handlePortal()}>
+                {t("billing.manageSubscription")}
+              </Button>
+              {error ? <p className="muted m-0">{error}</p> : null}
             </CardContent>
           </Card>
 

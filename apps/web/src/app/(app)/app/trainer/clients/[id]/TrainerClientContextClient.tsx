@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
-import { hasTrainerClientContextCapability, hasTrainerClientsCapability } from "@/lib/capabilities";
+import { hasTrainerClientContextCapability } from "@/lib/capabilities";
 import { canAccessTrainerGymArea, extractGymMembership } from "@/lib/gymMembership";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
-import TrainerDualPlanAssignment from "@/components/trainer/TrainerDualPlanAssignment";
+import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
 
 type AuthUser = Record<string, unknown>;
 
@@ -21,10 +21,6 @@ type ClientRow = {
   lastLoginAt: string | null;
   subscriptionStatus: string | null;
   plans?: unknown;
-};
-
-type ClientsResponse = {
-  users?: ClientRow[];
 };
 
 type LoadState = "loading" | "ready" | "error";
@@ -76,24 +72,25 @@ export default function TrainerClientContextClient() {
         if (!canAccess) return;
 
         setClientState("loading");
-        const clientsResponse = await fetch("/api/admin/users?page=1", { cache: "no-store" });
-        if (!clientsResponse.ok) {
+        const trainerClientResponse = await fetch(`/api/trainer/clients/${clientId}`, { cache: "no-store" });
+
+        if (trainerClientResponse.status === 404) {
+          if (active) {
+            setClient(null);
+            setClientState("ready");
+          }
+          return;
+        }
+
+        if (!trainerClientResponse.ok) {
           if (active) setClientState("error");
           return;
         }
 
-        const data = (await clientsResponse.json()) as ClientsResponse;
+        const trainerClient = (await trainerClientResponse.json()) as ClientRow;
         if (!active) return;
 
-        if (!hasTrainerClientsCapability(data)) {
-          setClient(null);
-          setClientState("ready");
-          return;
-        }
-
-        const users = Array.isArray(data.users) ? data.users : [];
-        const selectedClient = users.find((user) => user.id === clientId && user.role !== "ADMIN") ?? null;
-        setClient(selectedClient);
+        setClient(trainerClient);
         setClientState("ready");
       } catch {
         if (active) {
@@ -216,7 +213,7 @@ export default function TrainerClientContextClient() {
           <p className="muted" style={{ margin: 0 }}>
             {t("trainer.clientContext.training.subscriptionHint")}
           </p>
-          <TrainerDualPlanAssignment clientPlans={client?.plans} canAssignDualPlans={false} />
+          {client ? <TrainerMemberPlanAssignmentCard memberId={client.id} memberName={clientName} /> : null}
           {client ? <TrainerClientDraftActions clientId={client.id} /> : null}
         </div>
       );

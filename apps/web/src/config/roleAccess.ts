@@ -14,9 +14,9 @@ function normalizeRole(role: string | null | undefined): RoleName | null {
   if (typeof role !== "string") return null;
   const normalized = role.trim().toLowerCase();
 
-  if (normalized === "admin") return "admin";
-  if (normalized === "coach" || normalized === "trainer") return "coach";
-  if (normalized === "dev" || normalized === "developer") return "developer";
+  if (["admin", "role_admin", "administrator"].includes(normalized)) return "admin";
+  if (["coach", "trainer", "role_coach", "role_trainer"].includes(normalized)) return "coach";
+  if (["dev", "developer", "role_dev", "role_developer"].includes(normalized)) return "developer";
   if (normalized === "user") return "user";
 
   return null;

@@ -19,21 +19,44 @@ function hasValue(values: string[], target: string) {
   return values.some((item) => item.toUpperCase() === target);
 }
 
-function collectRoleTokens(profile: unknown): string[] {
+function collectProfileCandidates(profile: unknown): UnknownRecord[] {
   if (!isRecord(profile)) return [];
 
-  const roleTokens: string[] = [];
-  if (typeof profile.role === "string") {
-    roleTokens.push(profile.role);
+  const candidates: UnknownRecord[] = [profile];
+  const nestedKeys: Array<keyof UnknownRecord> = ["user", "data", "profile"];
+
+  for (const key of nestedKeys) {
+    const candidate = profile[key];
+    if (isRecord(candidate)) {
+      candidates.push(candidate);
+    }
   }
 
-  roleTokens.push(...getStringArray(profile.roles));
+  return candidates;
+}
+
+function collectRoleTokens(profile: unknown): string[] {
+  const roleTokens: string[] = [];
+  const candidates = collectProfileCandidates(profile);
+
+  for (const candidate of candidates) {
+    if (typeof candidate.role === "string") {
+      roleTokens.push(candidate.role);
+    }
+    roleTokens.push(...getStringArray(candidate.roles));
+  }
+
   return roleTokens.map((token) => token.toUpperCase());
 }
 
 function collectPermissionTokens(profile: unknown): string[] {
-  if (!isRecord(profile)) return [];
-  return getStringArray(profile.permissions).map((token) => token.toUpperCase());
+  const permissionTokens: string[] = [];
+
+  for (const candidate of collectProfileCandidates(profile)) {
+    permissionTokens.push(...getStringArray(candidate.permissions));
+  }
+
+  return permissionTokens.map((token) => token.toUpperCase());
 }
 
 export function getRoleFlags(profile: unknown): RoleFlags {

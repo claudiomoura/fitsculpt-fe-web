@@ -24,9 +24,12 @@ async function fetchTrainingPlan(planId: string) {
 
 export default async function TrainingPlanDetailPage(props: {
   params: Promise<{ planId: string }>;
+  searchParams?: Promise<{ from?: string }>;
 }) {
   const { t } = await getServerT();
   const { planId } = await props.params;
+  const searchParams = props.searchParams ? await props.searchParams : undefined;
+  const fromToday = searchParams?.from === "hoy";
 
   if (!planId) {
     return (
@@ -43,7 +46,12 @@ export default async function TrainingPlanDetailPage(props: {
 
   return (
     <div className="page">
-      <TrainingPlanDetailClient plan={plan} error={error} />
+      <TrainingPlanDetailClient
+        plan={plan}
+        error={error}
+        backHref={fromToday ? "/app/hoy" : "/app/biblioteca/entrenamientos"}
+        backLabel={fromToday ? t("today.backToToday") : t("trainingPlans.backToTrainingPlans")}
+      />
     </div>
   );
 }

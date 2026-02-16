@@ -1,6 +1,6 @@
-import { canAccessAdmin, canAccessDevelopment, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
+import { canAccessAdmin, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
 
-export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin" | "development";
+export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin" | "trainer" | "development";
 
 export type NavItem = {
   id: string;
@@ -112,7 +112,14 @@ export const sidebarAdmin: NavSectionGroup[] = [
     items: [
       { id: "admin-dashboard", href: "/app/admin", labelKey: "nav.admin" },
       { id: "admin-users", href: "/app/admin/users", labelKey: "nav.adminUsers" },
-      { id: "admin-gym-requests", href: "/app/admin/gym-requests", labelKey: "nav.gymJoinRequests" },
+      { id: "admin-gyms", href: "/app/admin/gyms", labelKey: "nav.adminGyms" },
+      {
+        id: "admin-gym-requests",
+        href: "/app/admin/gym-requests",
+        labelKey: "nav.gymJoinRequests",
+        disabled: true,
+        disabledNoteKey: "common.notAvailableYet",
+      },
       { id: "admin-labs", href: "/app/admin/labs", labelKey: "nav.adminLabs" },
       { id: "admin-preview", href: "/app/admin/preview", labelKey: "nav.adminPreview" },
     ],
@@ -121,7 +128,7 @@ export const sidebarAdmin: NavSectionGroup[] = [
 
 export const sidebarTrainer: NavSectionGroup[] = [
   {
-    id: "training",
+    id: "trainer",
     labelKey: "navSections.trainer",
     items: [
       { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
@@ -241,11 +248,7 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
   const userSections = buildUserSections(input);
 
   if (!canAccessAdmin(input)) {
-    if (!canAccessDevelopment(input)) {
-      return userSections;
-    }
-
-    return [...userSections, ...sidebarDevelopment];
+    return userSections;
   }
 
   return [...userSections, ...sidebarAdmin, ...sidebarTrainer, ...sidebarDevelopment];

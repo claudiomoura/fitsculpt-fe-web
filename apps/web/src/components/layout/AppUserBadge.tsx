@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getUserProfile } from "@/lib/profileService";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLink,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
 
 type ProfileSummary = {
   name?: string;
@@ -13,10 +18,18 @@ type ProfileSummary = {
   avatarDataUrl?: string | null;
 };
 
-export default function AppUserBadge() {
+type AppUserBadgeProps = {
+  mobileMenuOpen?: boolean;
+  onMobileMenuToggle?: () => void;
+};
+
+export default function AppUserBadge({ mobileMenuOpen = false, onMobileMenuToggle }: AppUserBadgeProps) {
   const { t } = useLanguage();
-  const router = useRouter();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 900px)").matches;
+  });
 
   useEffect(() => {
     let active = true;
@@ -40,6 +53,18 @@ export default function AppUserBadge() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobileViewport(event.matches);
+    };
+    mediaQuery.addEventListener("change", handleChange);
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  }, []);
+
   const avatarUrl = profile?.profilePhotoUrl ?? profile?.avatarDataUrl ?? null;
   const initials = useMemo(() => {
     const name = profile?.name?.trim();
@@ -52,29 +77,50 @@ export default function AppUserBadge() {
       .join("");
   }, [profile?.name]);
 
+  const badgeContent = (
+    <>
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
+      ) : (
+        <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">
+          {initials}
+        </div>
+      )}
+      <span className="nav-user-name">{profile?.name || t("ui.userFallback")}</span>
+    </>
+  );
+
+  if (isMobileViewport && onMobileMenuToggle) {
+    return (
+      <button
+        type="button"
+        className="ui-button ui-button--ghost nav-user"
+        aria-expanded={mobileMenuOpen}
+        aria-controls="app-nav-drawer"
+        aria-label={mobileMenuOpen ? t("ui.close") : t("ui.menu")}
+        onClick={onMobileMenuToggle}
+      >
+        {badgeContent}
+      </button>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="nav-user">
-        {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
-        ) : (
-          <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">
-            {initials}
-          </div>
-        )}
-        <span className="nav-user-name">{profile?.name || t("ui.userFallback")}</span>
+        {badgeContent}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="nav-user-dropdown">
-        <DropdownMenuItem className="nav-user-link" onClick={() => router.push("/app/profile")}>
+        <DropdownMenuLink href="/app/profile" className="nav-user-link">
           {t("nav.profile")}
-        </DropdownMenuItem>
-        <DropdownMenuItem className="nav-user-link" onClick={() => router.push("/app/settings")}>
+        </DropdownMenuLink>
+        <DropdownMenuLink href="/app/settings" className="nav-user-link">
           {t("nav.settings")}
-        </DropdownMenuItem>
-        <DropdownMenuItem className="nav-user-link" onClick={() => router.push("/app/settings/billing")}>
+        </DropdownMenuLink>
+        <DropdownMenuLink href="/app/settings/billing" className="nav-user-link">
           {t("nav.billing")}
-        </DropdownMenuItem>
+        </DropdownMenuLink>
         <DropdownMenuSeparator />
         <form action={logoutAction} className="nav-user-logout">
           <button type="submit" className="nav-user-link ui-dropdown-item">

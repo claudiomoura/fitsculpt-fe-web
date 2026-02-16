@@ -22,6 +22,7 @@
     "billing": "Pro y pagos",
     "admin": "Admin",
     "adminUsers": "Usuarios",
+    "adminGyms": "Gimnasios",
     "logout": "Cerrar sesión",
     "trainer": "Entrenador",
     "adminPreview": "Vista previa admin",
@@ -212,7 +213,9 @@
     "shortcutsRecentsErrorTitle": "Recientes no disponibles",
     "shortcutsRecentsErrorDescription": "No pudimos cargar tus recientes ahora mismo.",
     "shortcutsExerciseFallback": "Ejercicio",
-    "shortcutsExerciseIdLabel": "ID"
+    "shortcutsExerciseIdLabel": "ID",
+    "backToToday": "Volver a Hoy",
+    "trainingAssignedEmptyDescription": "Tu entrenador aún no te asignó un plan. Cuando esté listo lo verás aquí."
   },
   "foods": {
     "salmon": "Salmón",
@@ -1553,7 +1556,10 @@
     "gymRequestsRetry": "Reintentar",
     "gymRequestsEmpty": "No hay solicitudes pendientes de ingreso al gimnasio.",
     "gymRequestsAccept": "Aceptar",
-    "gymRequestsReject": "Rechazar"
+    "gymRequestsReject": "Rechazar",
+    "gymRequestsConfirmAccept": "¿Aprobar esta solicitud de ingreso al gimnasio?",
+    "gymRequestsConfirmReject": "¿Rechazar esta solicitud de ingreso al gimnasio?",
+    "gymRequestsActionError": "No pudimos procesar esta solicitud. Inténtalo de nuevo."
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",
@@ -1608,7 +1614,19 @@
     "favoriteRemovedToastTitle": "Quitado de favoritos",
     "favoriteToastDescription": "Tu lista de favoritos está actualizada.",
     "recentsClearedToastTitle": "Recientes eliminados",
-    "recentsClearedToastDescription": "Se eliminaron tus ejercicios recientes."
+    "recentsClearedToastDescription": "Se eliminaron tus ejercicios recientes.",
+    "addToPlanModalTitle": "Agregar ejercicio al plan",
+    "addToPlanModalDescription": "Selecciona el día para {exercise}.",
+    "addToPlanDayLabel": "Día del plan",
+    "addToPlanDayPlaceholder": "Selecciona un día",
+    "addToPlanConfirm": "Añadir al día",
+    "addToPlanLoading": "Cargando días disponibles del plan...",
+    "addToPlanLoadError": "No pudimos cargar los días del plan.",
+    "addToPlanNoPlan": "No hay un plan de entrenamiento activo.",
+    "addToPlanNoPlanCta": "Crear o seleccionar un plan",
+    "addToPlanSubmitError": "No pudimos añadir el ejercicio. Reintenta.",
+    "addToPlanSuccessTitle": "Ejercicio añadido",
+    "addToPlanSuccessDescription": "{exercise} se añadió al día seleccionado."
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -1813,6 +1831,38 @@
       "nameLabel": "Nombre del gimnasio",
       "idLabel": "ID del gimnasio",
       "linkRequiresImplementation": "Requiere implementación"
+    },
+    "planSelectionTitle": "Elige tu plan",
+    "planSelectionDescription": "Selecciona la suscripción que mejor se adapta a tus objetivos.",
+    "currentPlanBadge": "Actual",
+    "choosePlan": "Elegir plan",
+    "subscribe": "Suscribirme",
+    "planLabels": {
+      "free": "Free",
+      "pro": "Pro",
+      "strength_ai": "StrengthAI",
+      "nutri_ai": "NutriAI",
+      "strengthai": "StrengthAI",
+      "nutriai": "NutriAI",
+      "ultra": "Pro",
+      "unknown": "Plan desconocido"
+    },
+    "plans": {
+      "strengthAi": {
+        "name": "StrengthAI",
+        "description": "Plan centrado en entrenamiento con progresión impulsada por IA.",
+        "price": "US$19/mes"
+      },
+      "nutriAi": {
+        "name": "NutriAI",
+        "description": "Plan centrado en nutrición con guía de IA para comidas y macros.",
+        "price": "US$19/mes"
+      },
+      "pro": {
+        "name": "Pro",
+        "description": "Bundle con StrengthAI + NutriAI en un solo plan.",
+        "price": "US$29/mes"
+      }
     }
   },
   "settings": {
@@ -1840,6 +1890,9 @@
         "statusLabel": "El estado del plan se muestra en Facturación cuando hay datos reales.",
         "gymStatusYes": "Estado de gimnasio: sí",
         "gymStatusNo": "Estado de gimnasio: no",
+        "gymStatusPending": "Solicitud de gimnasio pendiente para {gymName}.",
+        "gymStatusActive": "Membresía de gimnasio activa en {gymName}.",
+        "gymStatusRejected": "Tu última solicitud de gimnasio fue rechazada.",
         "gymStatusUnknown": "Estado de gimnasio: información no disponible"
       },
       "notifications": {
@@ -1914,6 +1967,29 @@
           "assignConfirmation": "Solicitud de asignación de plan registrada.",
           "assignUnavailable": "La asignación de dos planes requiere soporte de backend y no está disponible en este entorno.",
           "emptyUnsupported": "Aún no hay datos de planes separados Casa/Gimnasio para este cliente."
+        },
+        "assignment": {
+          "title": "Asignar plan de entrenamiento",
+          "description": "Elige uno de tus planes existentes y asígnalo a {member}.",
+          "loading": "Cargando planes y asignación actual...",
+          "loadError": "No pudimos cargar los datos de asignación de planes.",
+          "currentLabel": "Plan asignado actualmente",
+          "noneAssigned": "Este miembro aún no tiene un plan asignado.",
+          "emptyPlans": "No tienes planes de entrenamiento disponibles para asignar.",
+          "emptyPlansCta": "Crear o generar un plan de entrenamiento",
+          "planLabel": "Planes disponibles",
+          "planPlaceholder": "Selecciona un plan",
+          "submit": "Asignar plan",
+          "submitting": "Asignando...",
+          "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
+          "success": "{plan} fue asignado correctamente a {member}.",
+          "unknownPlan": "Plan seleccionado",
+          "addExerciseCta": "Agregar ejercicio desde biblioteca",
+          "createCta": "Crear plan mínimo (7 días)",
+          "creating": "Creando plan...",
+          "createSuccess": "Plan mínimo creado correctamente. Ya puedes asignarlo o agregar ejercicios desde biblioteca.",
+          "createError": "No pudimos crear un plan mínimo. Reintenta.",
+          "defaultPlanTitle": "Plan semanal mínimo"
         }
       },
       "nutrition": {
@@ -2013,7 +2089,8 @@
       "submit": "Asignar plan",
       "submitting": "Asignando...",
       "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
-      "success": "Plan asignado correctamente a {member}."
+      "success": "Plan asignado correctamente a {member}.",
+      "guidance": "El miembro verá el plan asignado en Plan/Hoy cuando se guarde."
     }
   },
   "gym": {
@@ -2058,7 +2135,8 @@
         "loadPlansError": "No pudimos cargar tus planes.",
         "submit": "Asignar plan",
         "cancel": "Cancelar",
-        "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio."
+        "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
+        "unavailable": "Esta acción no está disponible en el entorno actual."
       },
       "goToPanel": "Ir al panel del gimnasio"
     },
@@ -2087,8 +2165,11 @@
       "codeLabel": "Código del gimnasio",
       "codeHelp": "Si el gimnasio te dio un código, úsalo para unirte automáticamente.",
       "codeButton": "Unirme con código",
+      "invalidCode": "El código es inválido. Revísalo e inténtalo nuevamente.",
       "empty": "No hay gimnasios disponibles en este momento.",
-      "loadError": "No pudimos cargar la lista de gimnasios."
+      "loadError": "No pudimos cargar la lista de gimnasios.",
+      "requestSuccess": "Tu solicitud fue enviada. Puedes revisar el estado abajo.",
+      "codeSuccess": "Código aceptado. Tu membresía fue actualizada."
     },
     "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
     "loadError": {
@@ -2102,7 +2183,8 @@
     "sessionExpired": {
       "title": "Tu sesión expiró",
       "subtitle": "Inicia sesión nuevamente para consultar tu estado de gimnasio."
-    }
+    },
+    "actionSuccessTitle": "Solicitud enviada"
   },
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",
@@ -2177,5 +2259,29 @@
   "common": {
     "loading": "Cargando...",
     "retry": "Reintentar"
+  },
+  "adminGyms": {
+    "title": "Administrar gimnasios",
+    "createName": "Nombre",
+    "createPlaceholder": "Nuevo gimnasio",
+    "createAction": "Crear gimnasio",
+    "createdCode": "Código de acceso: {code}",
+    "listTitle": "Gimnasios",
+    "empty": "No hay gimnasios.",
+    "joinCodeLabel": "Código",
+    "membersCountLabel": "Miembros",
+    "requestsCountLabel": "Solicitudes",
+    "membersTitle": "Miembros activos",
+    "membersEmpty": "No hay miembros activos.",
+    "membersUnavailable": "El listado de miembros no está disponible en este entorno.",
+    "memberRoleUnavailable": "La actualización de roles no está disponible en este entorno.",
+    "promoteTrainer": "Promover a TRAINER",
+    "demoteMember": "Definir como MEMBER",
+    "errors": {
+      "load": "No pudimos cargar gimnasios.",
+      "members": "No pudimos cargar miembros del gimnasio.",
+      "create": "No pudimos crear el gimnasio.",
+      "role": "No pudimos actualizar el rol del miembro."
+    }
   }
 }

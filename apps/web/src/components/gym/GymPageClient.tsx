@@ -83,8 +83,11 @@ export default function GymPageClient() {
   const [requestingJoin, setRequestingJoin] = useState(false);
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [gymsLoading, setGymsLoading] = useState(false);
   const [gymsLoadError, setGymsLoadError] = useState(false);
+  const [joinRequestUnsupported, setJoinRequestUnsupported] = useState(false);
+  const [joinCodeUnsupported, setJoinCodeUnsupported] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
 
   const canOpenAdmin = useMemo(
@@ -125,16 +128,11 @@ export default function GymPageClient() {
     setLoading(true);
     setError(null);
     setActionError(null);
+    setActionSuccess(null);
     setIsSessionExpired(false);
 
     try {
-      const membershipRes = await fetch("/api/gyms/membership", { cache: "no-store", credentials: "include" });
-
-      if (membershipRes.status === 404) {
-        setMembership({ ...defaultMembership, status: "NONE" });
-        await loadGyms();
-        return;
-      }
+      const membershipRes = await fetch("/api/gym/me", { cache: "no-store", credentials: "include" });
 
       if (membershipRes.status === 401) {
         setMembership(defaultMembership);
@@ -173,16 +171,23 @@ export default function GymPageClient() {
 
     setRequestingJoin(true);
     setActionError(null);
+    setActionSuccess(null);
 
     try {
-      const response = await fetch("/api/gyms/join", {
+      const response = await fetch("/api/gym/join-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ gymId: selectedGymId }),
       });
 
+      if (response.status === 404 || response.status === 405) {
+        setJoinRequestUnsupported(true);
+        return;
+      }
+
       if (!response.ok) throw new Error("join");
+      setActionSuccess(t("gym.join.requestSuccess"));
       await loadData();
     } catch {
       setActionError(t("gym.actionError"));
@@ -197,17 +202,31 @@ export default function GymPageClient() {
 
     setJoiningByCode(true);
     setActionError(null);
+    setActionSuccess(null);
 
     try {
-      const response = await fetch("/api/gyms/join-by-code", {
+      const response = await fetch("/api/gym/join-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ code: trimmedCode }),
       });
 
-      if (!response.ok) throw new Error("join-by-code");
+      if (response.status === 404 || response.status === 405) {
+        setJoinCodeUnsupported(true);
+        return;
+      }
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (payload?.error === "INVALID_GYM_CODE") {
+          setActionError(t("gym.join.invalidCode"));
+          return;
+        }
+        throw new Error("join-by-code");
+      }
       setCode("");
+      setActionSuccess(t("gym.join.codeSuccess"));
       await loadData();
     } catch {
       setActionError(t("gym.actionError"));
@@ -282,9 +301,10 @@ export default function GymPageClient() {
                 </select>
               </label>
             )}
-            <Button onClick={() => void requestJoin()} disabled={requestingJoin || !selectedGymId || gyms.length === 0 || gymsLoading}>
+            <Button onClick={() => void requestJoin()} disabled={requestingJoin || joinRequestUnsupported || !selectedGymId || gyms.length === 0 || gymsLoading}>
               {requestingJoin ? t("common.loading") : t("gym.join.requestButton")}
             </Button>
+            {joinRequestUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
           </section>
 
           <section className="card form-stack">
@@ -293,9 +313,10 @@ export default function GymPageClient() {
               <input value={code} onChange={(event) => setCode(event.target.value)} />
             </label>
             <p className="section-subtitle">{t("gym.join.codeHelp")}</p>
-            <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || !code.trim()}>
+            <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || joinCodeUnsupported || !code.trim()}>
               {joiningByCode ? t("common.loading") : t("gym.join.codeButton")}
             </Button>
+            {joinCodeUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
           </section>
         </>
       )}
@@ -340,6 +361,13 @@ export default function GymPageClient() {
         <section className="card status-card status-card--warning">
           <strong>{t("gym.actionErrorTitle")}</strong>
           <p className="muted">{actionError}</p>
+        </section>
+      )}
+
+      {actionSuccess && (
+        <section className="card status-card">
+          <strong>{t("gym.actionSuccessTitle")}</strong>
+          <p className="muted">{actionSuccess}</p>
         </section>
       )}
     </div>

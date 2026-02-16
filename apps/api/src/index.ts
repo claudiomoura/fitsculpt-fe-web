@@ -5,7 +5,7 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { PrismaClient, Prisma, type User } from "@prisma/client";
+import { Prisma, PrismaClient, type SubscriptionPlan, type User } from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -15,12 +15,10 @@ import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
-
-
-
+import { createPrismaClientWithRetry } from "./prismaClient.js";
 
 const env = getEnv();
-const prisma = new PrismaClient();
+const prisma = await createPrismaClientWithRetry();
 const aiPricing = loadAiPricing(env);
 
 const app = Fastify({ logger: true });
@@ -164,11 +162,21 @@ function requireStripeSecret() {
   return env.STRIPE_SECRET_KEY;
 }
 
-function requireStripePriceId() {
-  if (!env.STRIPE_PRO_PRICE_ID) {
-    throw createHttpError(500, "STRIPE_PRICE_NOT_CONFIGURED");
+function getStripePricePlanMap(): Map<string, SubscriptionPlan> {
+  const prices = [
+    { priceId: env.STRIPE_PRO_PRICE_ID, plan: "PRO" as const },
+    { priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY, plan: "STRENGTH_AI" as const },
+    { priceId: env.STRIPE_PRICE_NUTRI_AI_MONTHLY, plan: "NUTRI_AI" as const },
+  ];
+  const missing = prices.filter((entry) => !entry.priceId).map((entry) => entry.plan);
+  if (missing.length > 0) {
+    throw createHttpError(500, "STRIPE_PRICE_NOT_CONFIGURED", { missingPlans: missing });
   }
-  return env.STRIPE_PRO_PRICE_ID;
+  return new Map(prices.map((entry) => [entry.priceId!, entry.plan]));
+}
+
+function resolvePlanByPriceId(priceId: string): SubscriptionPlan | null {
+  return getStripePricePlanMap().get(priceId) ?? null;
 }
 
 function requireStripeWebhookSecret() {
@@ -283,7 +291,7 @@ function getUserTokenBalance(user: { aiTokenBalance?: number | null }) {
 async function applyBillingStateForCustomer(
   stripeCustomerId: string,
   data: {
-    plan: "FREE" | "PRO";
+    plan: SubscriptionPlan;
     aiTokenBalance: number;
     aiTokenResetAt: Date | null;
     aiTokenRenewalAt: Date | null;
@@ -312,7 +320,7 @@ async function applyBillingStateForCustomer(
 async function updateUserSubscriptionForCustomer(
   stripeCustomerId: string,
   data: {
-    plan: "FREE" | "PRO";
+    plan: SubscriptionPlan;
     subscriptionStatus?: string | null;
     stripeSubscriptionId?: string | null;
     currentPeriodEnd?: Date | null;
@@ -336,12 +344,19 @@ function isActiveSubscriptionStatus(status?: string | null) {
   return status === "active" || status === "trialing";
 }
 
-function subscriptionHasPrice(subscription: StripeSubscription, priceId: string) {
+function getPlanFromSubscription(subscription?: StripeSubscription | null): SubscriptionPlan | null {
+  if (!subscription) return null;
   const items = subscription.items?.data ?? [];
-  return items.some((item) => item.price?.id === priceId);
+  for (const item of items) {
+    const priceId = item.price?.id;
+    if (!priceId) continue;
+    const plan = resolvePlanByPriceId(priceId);
+    if (plan) return plan;
+  }
+  return null;
 }
 
-async function getLatestActiveSubscription(customerId: string, priceId?: string) {
+async function getLatestActiveSubscription(customerId: string) {
   const subscriptions = await stripeRequest<StripeSubscriptionList>(
     "subscriptions",
     { customer: customerId, status: "all", limit: 100, "expand[0]": "data.items.data.price" },
@@ -349,8 +364,7 @@ async function getLatestActiveSubscription(customerId: string, priceId?: string)
   );
   const activeSubscriptions = subscriptions.data.filter((subscription) => {
     if (!isActiveSubscriptionStatus(subscription.status)) return false;
-    if (!priceId) return true;
-    return subscriptionHasPrice(subscription, priceId);
+    return getPlanFromSubscription(subscription) !== null;
   });
   if (activeSubscriptions.length === 0) {
     return null;
@@ -363,9 +377,16 @@ function getSubscriptionPeriodEnd(subscription?: StripeSubscription | null) {
   return new Date(subscription.current_period_end * 1000);
 }
 
-function invoiceHasPrice(invoice: StripeInvoice, priceId: string) {
+function getPlanFromInvoice(invoice?: StripeInvoice | null): SubscriptionPlan | null {
+  if (!invoice) return null;
   const lines = invoice.lines?.data ?? [];
-  return lines.some((line) => line.price?.id === priceId);
+  for (const line of lines) {
+    const priceId = line.price?.id;
+    if (!priceId) continue;
+    const plan = resolvePlanByPriceId(priceId);
+    if (plan) return plan;
+  }
+  return null;
 }
 
 async function findLatestCustomerByEmail(email: string) {
@@ -383,7 +404,6 @@ async function findLatestCustomerByEmail(email: string) {
 }
 
 async function syncUserBillingFromStripe(user: User) {
-  const priceId = requireStripePriceId();
   let stripeCustomerId = user.stripeCustomerId ?? null;
   if (!stripeCustomerId && user.email) {
     const latestCustomer = await findLatestCustomerByEmail(user.email);
@@ -412,7 +432,7 @@ async function syncUserBillingFromStripe(user: User) {
     return;
   }
 
-  const activeSubscription = await getLatestActiveSubscription(stripeCustomerId, priceId);
+  const activeSubscription = await getLatestActiveSubscription(stripeCustomerId);
   if (!activeSubscription) {
     await prisma.user.update({
       where: { id: user.id },
@@ -441,7 +461,7 @@ async function syncUserBillingFromStripe(user: User) {
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      plan: "PRO",
+      plan: getPlanFromSubscription(activeSubscription) ?? "FREE",
       subscriptionStatus: activeSubscription.status,
       stripeSubscriptionId: activeSubscription.id,
       currentPeriodEnd: currentPeriodEnd ?? null,
@@ -677,16 +697,28 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
   return managerMembership;
 }
 
-function buildJoinCode(name: string, userId: string, attempt: number) {
+async function requireGymAdminForGym(userId: string, gymId: string) {
+  const adminMembership = await prisma.gymMembership.findUnique({
+    where: { gymId_userId: { gymId, userId } },
+  });
+
+  if (!adminMembership || adminMembership.status !== "ACTIVE" || adminMembership.role !== "ADMIN") {
+    throw createHttpError(403, "FORBIDDEN");
+  }
+
+  return adminMembership;
+}
+
+function buildActivationCode(name: string, userId: string, attempt: number) {
   const seed = `${name}:${userId}:${Date.now().toString(36)}:${attempt}`;
   const hash = crypto.createHash("sha256").update(seed).digest("hex").toUpperCase();
   return hash.slice(0, 8);
 }
 
-async function generateUniqueGymJoinCode(name: string, userId: string) {
+async function generateUniqueGymActivationCode(name: string, userId: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = buildJoinCode(name, userId, attempt);
-    const existing = await prisma.gym.findUnique({ where: { code } });
+    const code = buildActivationCode(name, userId, attempt);
+    const existing = await prisma.gym.findUnique({ where: { activationCode: code } });
     if (!existing) {
       return code;
     }
@@ -1207,7 +1239,7 @@ function applyPersonalization<T>(payload: T, vars: Record<string, string | undef
 
 async function enforceAiQuota(user: { id: string; plan: string }) {
   const dateKey = toDateKey();
-  const limit = user.plan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+  const limit = user.plan !== "FREE" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
   const usage = await prisma.aiUsage.findUnique({
     where: { userId_date: { userId: user.id, date: dateKey } },
   });
@@ -2389,55 +2421,54 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
 
 
 function buildExerciseFilters(params: {
-  query?: string;
-  muscle?: string;
+  q?: string;
+  primaryMuscle?: string;
   equipment?: string;
 }): Prisma.Sql {
   const filters: Prisma.Sql[] = [];
 
-  if (params.query) {
-    filters.push(Prisma.sql`name ILIKE ${`%${params.query}%`}`);
+  if (params.q) {
+    filters.push(Prisma.sql`name ILIKE ${`%${params.q}%`}`);
   }
 
   if (params.equipment && params.equipment !== "all") {
     filters.push(Prisma.sql`equipment = ${params.equipment}`);
   }
 
-  if (params.muscle && params.muscle !== "all") {
+  if (params.primaryMuscle && params.primaryMuscle !== "all") {
     filters.push(
-      Prisma.sql`("mainMuscleGroup" = ${params.muscle} OR "secondaryMuscleGroups" @> ARRAY[${params.muscle}]::text[])`
+      Prisma.sql`("mainMuscleGroup" = ${params.primaryMuscle} OR "secondaryMuscleGroups" @> ARRAY[${params.primaryMuscle}]::text[])`
     );
   }
 
   const whereClause =
     filters.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(filters)}`
+      ? Prisma.sql`WHERE ${Prisma.join(filters, " AND ")
+}`
       : Prisma.sql``;
 
   return whereClause;
 }
 
-
-
 async function listExercises(params: {
-  query?: string;
-  muscle?: string;
+  q?: string;
+  primaryMuscle?: string;
   equipment?: string;
   limit: number;
   offset: number;
 }) {
   if (hasExerciseClient()) {
     const where: Prisma.ExerciseWhereInput = {};
-    if (params.query) {
-      where.name = { contains: params.query, mode: "insensitive" };
+    if (params.q) {
+      where.name = { contains: params.q, mode: "insensitive" };
     }
     if (params.equipment && params.equipment !== "all") {
       where.equipment = params.equipment;
     }
-    if (params.muscle && params.muscle !== "all") {
+    if (params.primaryMuscle && params.primaryMuscle !== "all") {
       where.OR = [
-        { mainMuscleGroup: params.muscle },
-        { secondaryMuscleGroups: { has: params.muscle } },
+        { mainMuscleGroup: params.primaryMuscle },
+        { secondaryMuscleGroups: { has: params.primaryMuscle } },
       ];
     }
     const [items, total] = await prisma.$transaction([
@@ -3566,7 +3597,11 @@ app.get("/auth/verify-email", async (request, reply) => {
 app.post("/billing/checkout", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const priceId = requireStripePriceId();
+    const checkoutSchema = z.object({ priceId: z.string().min(1) });
+    const { priceId } = checkoutSchema.parse(request.body);
+    if (!resolvePlanByPriceId(priceId)) {
+      return reply.status(400).send({ error: "INVALID_PRICE_ID" });
+    }
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
     let customerId = user.stripeCustomerId ?? null;
     if (!customerId && user.email) {
@@ -3591,7 +3626,7 @@ app.post("/billing/checkout", async (request, reply) => {
     }
 
     if (customerId) {
-      const activeSubscription = await getLatestActiveSubscription(customerId, priceId);
+      const activeSubscription = await getLatestActiveSubscription(customerId);
       if (activeSubscription && isActiveSubscriptionStatus(activeSubscription.status)) {
         let portalUrl: string | null = null;
         try {
@@ -3644,8 +3679,7 @@ app.post("/billing/checkout", async (request, reply) => {
       },
       "billing checkout failed"
     );
-
-    return reply.code(502).send({ error: "checkout_failed" });
+    return handleRequestError(reply, err);
   }
 });
 
@@ -3741,13 +3775,13 @@ app.post(
         const subscription = payload as StripeSubscription;
         const customerId = subscription?.customer ?? null;
         if (customerId) {
-          const priceId = requireStripePriceId();
-          const activeSubscription = await getLatestActiveSubscription(customerId, priceId);
+          const activeSubscription = await getLatestActiveSubscription(customerId);
           const cancellationStatuses = new Set(["canceled", "unpaid", "incomplete_expired"]);
           if (activeSubscription) {
+            const activePlan = getPlanFromSubscription(activeSubscription) ?? "FREE";
             const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
             await updateUserSubscriptionForCustomer(customerId, {
-              plan: "PRO",
+              plan: activePlan,
               subscriptionStatus: activeSubscription.status,
               stripeSubscriptionId: activeSubscription.id,
               currentPeriodEnd,
@@ -3755,7 +3789,7 @@ app.post(
             app.log.info(
               {
                 stripeCustomerId: customerId,
-                plan: "PRO",
+                plan: activePlan,
                 subscriptionStatus: activeSubscription.status,
                 currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
               },
@@ -3787,7 +3821,6 @@ app.post(
 
       if (eventType === "invoice.paid") {
         const invoice = payload as StripeInvoice;
-        const priceId = requireStripePriceId();
         let fullInvoice = invoice;
         if (!invoice?.lines?.data?.length) {
           fullInvoice = await stripeRequest<StripeInvoice>(
@@ -3799,7 +3832,8 @@ app.post(
             { method: "GET" }
           );
         }
-        if (invoiceHasPrice(fullInvoice, priceId)) {
+        const invoicePlan = getPlanFromInvoice(fullInvoice);
+        if (invoicePlan) {
           const customerId = fullInvoice.customer ?? null;
           const subscriptionId = fullInvoice.subscription ?? null;
           let subscription: StripeSubscription | null = null;
@@ -3810,7 +3844,7 @@ app.post(
           const nextRenewalAt = nextResetAt;
           if (customerId) {
             await applyBillingStateForCustomer(customerId, {
-              plan: "PRO",
+              plan: invoicePlan,
               aiTokenBalance: 5000,
               aiTokenResetAt: nextResetAt,
               aiTokenRenewalAt: nextRenewalAt,
@@ -3821,7 +3855,7 @@ app.post(
             app.log.info(
               {
                 stripeCustomerId: customerId,
-                plan: "PRO",
+                plan: invoicePlan,
                 aiTokenBalance: 5000,
                 aiTokenResetAt: nextResetAt?.toISOString() ?? null,
               },
@@ -3833,7 +3867,6 @@ app.post(
 
       if (eventType === "invoice.payment_failed") {
         const invoice = payload as StripeInvoice;
-        const priceId = requireStripePriceId();
         let fullInvoice = invoice;
         if (!invoice?.lines?.data?.length) {
           fullInvoice = await stripeRequest<StripeInvoice>(
@@ -3845,27 +3878,25 @@ app.post(
             { method: "GET" }
           );
         }
-        if (invoiceHasPrice(fullInvoice, priceId)) {
+        const invoicePlan = getPlanFromInvoice(fullInvoice);
+        if (invoicePlan) {
           const customerId = fullInvoice.customer ?? null;
           if (customerId) {
-            const activeSubscription = await getLatestActiveSubscription(customerId, priceId);
-            if (!activeSubscription) {
-              await applyBillingStateForCustomer(customerId, {
+            await applyBillingStateForCustomer(customerId, {
+              plan: "FREE",
+              aiTokenBalance: 0,
+              aiTokenResetAt: null,
+              aiTokenRenewalAt: null,
+            });
+            app.log.info(
+              {
+                stripeCustomerId: customerId,
                 plan: "FREE",
                 aiTokenBalance: 0,
                 aiTokenResetAt: null,
-                aiTokenRenewalAt: null,
-              });
-              app.log.info(
-                {
-                  stripeCustomerId: customerId,
-                  plan: "FREE",
-                  aiTokenBalance: 0,
-                  aiTokenResetAt: null,
-                },
-                "invoice payment failed"
-              );
-            }
+              },
+              "invoice payment failed"
+            );
           }
         }
       }
@@ -3909,6 +3940,7 @@ app.get("/auth/me", async (request, reply) => {
       currentPeriodEnd: user.currentPeriodEnd,
       aiTokenBalance: getEffectiveTokenBalance(user),
       aiTokenRenewalAt: getUserTokenExpiryAt(user),
+      gymMembershipState: activeMembership ? "active" : "none",
       gymId: activeMembership?.gym.id,
       gymName: activeMembership?.gym.name,
       isTrainer:
@@ -4220,10 +4252,13 @@ app.get("/billing/status", async (request, reply) => {
     const tokenExpiryAt = getUserTokenExpiryAt(refreshedUser);
     const tokensExpired = tokenExpiryAt ? tokenExpiryAt.getTime() < Date.now() : false;
     const tokens = tokensExpired ? 0 : getEffectiveTokenBalance(refreshedUser);
-    const plan = syncError ? "FREE" : rawPlan === "PRO" && isActive ? "PRO" : "FREE";
+    const plan: SubscriptionPlan = syncError || !isActive ? "FREE" : rawPlan;
+    const isPaid = plan !== "FREE";
+    const isPro = plan === "PRO";
     const response = {
       plan,
-      isPro: plan === "PRO",
+      isPaid,
+      isPro,
       tokens,
       tokensExpiresAt: tokenExpiryAt ? tokenExpiryAt.toISOString() : null,
       subscriptionStatus,
@@ -4361,7 +4396,7 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     const user = (request as AuthenticatedRequest).currentUser ?? (await requireUser(request));
     const dateKey = toDateKey();
-    const limit = user.plan === "PRO" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+    const limit = user.plan !== "FREE" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
     const usage = await prisma.aiUsage.findUnique({
       where: { userId_date: { userId: user.id, date: dateKey } },
     });
@@ -4374,8 +4409,8 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
       usedToday,
       remainingToday,
       retryAfterSec: getSecondsUntilNextUtcDay(),
-      aiTokenBalance: user.plan === "PRO" ? getEffectiveTokenBalance(user) : null,
-      aiTokenRenewalAt: user.plan === "PRO" ? getUserTokenExpiryAt(user) : null,
+      aiTokenBalance: user.plan !== "FREE" ? getEffectiveTokenBalance(user) : null,
+      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
     });
   } catch (error) {
     return handleRequestError(reply, error);
@@ -4396,7 +4431,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const template = buildTrainingTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.plan === "PRO"
+      user.plan !== "FREE"
         ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
@@ -4449,7 +4484,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
 
     const fetchTrainingPayload = async (attempt: number) => {
       const prompt = buildTrainingPrompt(data, attempt > 0);
-      if (user.plan === "PRO") {
+      if (user.plan !== "FREE") {
         const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
 
           responseFormat: {
@@ -4511,7 +4546,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
     await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
     await storeAiContent(user.id, "training", "ai", personalized);
-    if (user.plan === "PRO" && aiResult) {
+    if (user.plan !== "FREE" && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
         prisma,
@@ -4551,7 +4586,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         },
         "ai charge complete"
       );
-    } else if (user.plan === "PRO") {
+    } else if (user.plan !== "FREE") {
       app.log.info(
         { userId: user.id, feature: "training", charged: false, failureReason: "missing_ai_result" },
         "ai charge skipped"
@@ -4559,9 +4594,9 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     }
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan === "PRO" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
+      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -4595,7 +4630,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const template = buildNutritionTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.plan === "PRO"
+      user.plan !== "FREE"
         ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
@@ -4699,7 +4734,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         })),
         attempt > 0
       );
-      if (user.plan === "PRO") {
+      if (user.plan !== "FREE") {
         const result = await callOpenAi(promptAttempt, attempt, extractTopLevelJson, {
        
           responseFormat: {
@@ -4780,7 +4815,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     await saveCachedAiPayload(cacheKey, "nutrition", normalizedMeals);
     const personalized = applyPersonalization(normalizedMeals, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
-    if (user.plan === "PRO" && aiResult) {
+    if (user.plan !== "FREE" && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
         prisma,
@@ -4820,7 +4855,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         },
         "ai charge complete"
       );
-    } else if (user.plan === "PRO") {
+    } else if (user.plan !== "FREE") {
       app.log.info(
         { userId: user.id, feature: "nutrition", charged: false, failureReason: "missing_ai_result" },
         "ai charge skipped"
@@ -4828,9 +4863,9 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     }
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan === "PRO" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
+      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -4848,7 +4883,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     const template = buildTipTemplate();
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta =
-      user.plan === "PRO"
+      user.plan !== "FREE"
         ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
         : { aiTokenBalance: null, aiTokenRenewalAt: null };
 
@@ -4885,7 +4920,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.plan === "PRO") {
+    if (user.plan !== "FREE") {
       const balanceBefore = effectiveTokens;
       app.log.info(
         { userId: user.id, feature: "tip", plan: user.plan, balanceBefore },
@@ -4949,9 +4984,9 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
     return reply.status(200).send({
       tip: personalized,
-      aiTokenBalance: user.plan === "PRO" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan === "PRO" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan === "PRO" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
+      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
+      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -5033,7 +5068,9 @@ const workoutSessionUpdateSchema = z.object({
 });
 
 const exerciseListSchema = z.object({
+  q: z.string().min(1).optional(),
   query: z.string().min(1).optional(),
+  primaryMuscle: z.string().min(1).optional(),
   muscle: z.string().min(1).optional(),
   equipment: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -5078,13 +5115,43 @@ const trainingPlanListSchema = z.object({
   }, z.number().int().min(0).default(0)),
 });
 
+const trainingPlanCreateSchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  notes: z.string().trim().min(1).max(600).optional(),
+  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+});
+
 const trainingPlanParamsSchema = z.object({ id: z.string().min(1) });
+const trainingPlanActiveQuerySchema = z.object({
+  includeDays: z
+    .preprocess((value) => {
+      if (typeof value !== "string") return false;
+      return value === "1" || value.toLowerCase() === "true";
+    }, z.boolean())
+    .default(false),
+});
+const trainingDayParamsSchema = z.object({
+  planId: z.string().min(1),
+  dayId: z.string().min(1),
+});
+const addTrainingExerciseBodySchema = z.object({
+  exerciseId: z.string().min(1),
+  athleteUserId: z.string().min(1).optional(),
+});
 const assignTrainingPlanParamsSchema = z.object({
   gymId: z.string().min(1),
   userId: z.string().min(1),
 });
-const assignTrainingPlanBodySchema = z.object({
-  templatePlanId: z.string().min(1),
+const assignTrainingPlanBodySchema = z
+  .object({
+    trainingPlanId: z.string().min(1).optional(),
+    templatePlanId: z.string().min(1).optional(),
+  })
+  .refine((value) => Boolean(value.trainingPlanId || value.templatePlanId), {
+    message: "trainingPlanId is required",
+  });
+const trainerMemberParamsSchema = z.object({
+  userId: z.string().min(1),
 });
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
@@ -5108,95 +5175,23 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null;
 }
 
-function getProfileValue(profile: UnknownRecord, keys: string[]) {
-  for (const key of keys) {
-    const value = profile[key];
-    if (typeof value === "string" && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return null;
-}
 
-function normalizeMembershipRole(value: string | null) {
-  if (!value) return null;
-  const normalized = value.trim().toUpperCase();
-  if (normalized === "ADMIN" || normalized === "TRAINER" || normalized === "MEMBER") {
-    return normalized;
-  }
-  return null;
-}
 
-function normalizeMembershipStatus(value: string | null) {
-  if (!value) return null;
-  const normalized = value.trim().toUpperCase();
-  if (normalized === "ACTIVE") return normalized;
-  return null;
-}
-
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-async function resolvePlanStartDate(userId: string, daysCount: number) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  for (let offset = 0; offset <= 365; offset += 1) {
-    const candidate = addDays(today, offset);
-    const existing = await prisma.trainingPlan.findUnique({
-      where: {
-        userId_startDate_daysCount: {
-          userId,
-          startDate: candidate,
-          daysCount,
-        },
-      },
-      select: { id: true },
-    });
-    if (!existing) {
-      return candidate;
-    }
-  }
-
-  throw createHttpError(409, "PLAN_CONFLICT");
-}
-
-async function readGymMembership(userId: string) {
-  const profile = await prisma.userProfile.findUnique({ where: { userId } });
-  if (!profile || !isRecord(profile.profile)) {
-    return null;
-  }
-
-  const profileData = profile.profile;
-  const tenant = isRecord(profileData.tenant) ? profileData.tenant : null;
-
-  const gymId =
-    getProfileValue(profileData, ["gymId", "tenantId"]) ??
-    (tenant ? getProfileValue(tenant, ["gymId", "tenantId", "id"]) : null);
-
-  const role = normalizeMembershipRole(
-    getProfileValue(profileData, ["gymRole", "membershipRole", "role"]) ??
-      (tenant ? getProfileValue(tenant, ["gymRole", "membershipRole", "role"]) : null)
-  );
-  const status = normalizeMembershipStatus(
-    getProfileValue(profileData, ["gymMembershipStatus", "membershipStatus", "status"]) ??
-      (tenant ? getProfileValue(tenant, ["gymMembershipStatus", "membershipStatus", "status"]) : null)
-  );
-
-  if (!gymId) return null;
-
-  return { gymId, role, status };
-}
 
 app.get("/exercises", async (request, reply) => {
   try {
     await requireUser(request);
-    const { query, muscle, equipment, limit, offset } = exerciseListSchema.parse(request.query);
-    const { items, total } = await listExercises({ query, muscle, equipment, limit, offset });
-    return { items, total, limit, offset };
+    const parsed = exerciseListSchema.parse(request.query);
+    const q = parsed.q ?? parsed.query;
+    const primaryMuscle = parsed.primaryMuscle ?? parsed.muscle;
+    const { items, total } = await listExercises({
+      q,
+      primaryMuscle,
+      equipment: parsed.equipment,
+      limit: parsed.limit,
+      offset: parsed.offset,
+    });
+    return { items, total, limit: parsed.limit, offset: parsed.offset };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5297,7 +5292,21 @@ app.get("/training-plans/:id", async (request, reply) => {
     const user = await requireUser(request);
     const { id } = trainingPlanParamsSchema.parse(request.params);
     const plan = await prisma.trainingPlan.findFirst({
-      where: { id, userId: user.id },
+      where: {
+        id,
+        OR: [
+          { userId: user.id },
+          {
+            gymAssignments: {
+              some: {
+                userId: user.id,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
       include: {
         days: {
           orderBy: { order: "asc" },
@@ -5316,37 +5325,204 @@ app.get("/training-plans/:id", async (request, reply) => {
   }
 });
 
+app.get("/training-plans/active", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { includeDays } = trainingPlanActiveQuerySchema.parse(request.query);
+
+    const assignedMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        role: "MEMBER",
+        assignedTrainingPlanId: { not: null },
+      },
+      select: { assignedTrainingPlanId: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    const activePlanId = assignedMembership?.assignedTrainingPlanId;
+
+    if (activePlanId) {
+      const assignedPlan = await prisma.trainingPlan.findUnique({
+        where: { id: activePlanId },
+        include: includeDays
+          ? {
+              days: {
+                orderBy: { order: "asc" },
+                include: { exercises: { orderBy: { id: "asc" } }, },
+              },
+            }
+          : undefined,
+      });
+
+      if (assignedPlan) {
+        return reply.status(200).send({
+          source: "assigned",
+          plan: assignedPlan,
+        });
+      }
+    }
+
+    const ownPlan = includeDays
+      ? await prisma.trainingPlan.findFirst({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          include: {
+            days: {
+              orderBy: { order: "asc" },
+              include: { exercises: { orderBy: { id: "asc" } } },
+            },
+          },
+        })
+      : await prisma.trainingPlan.findFirst({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            title: true,
+            notes: true,
+            goal: true,
+            level: true,
+            daysPerWeek: true,
+            focus: true,
+            equipment: true,
+            startDate: true,
+            daysCount: true,
+            createdAt: true,
+          },
+        });
+
+    if (!ownPlan) {
+      return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
+    }
+
+    return reply.status(200).send({
+      source: "own",
+      plan: ownPlan,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/training-plans/:planId/days/:dayId/exercises", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId } = trainingDayParamsSchema.parse(request.params);
+    const { exerciseId, athleteUserId } = addTrainingExerciseBodySchema.parse(request.body);
+
+    const exercise = await prisma.exercise.findUnique({
+      where: { id: exerciseId },
+      select: { id: true, name: true },
+    });
+
+    if (!exercise) {
+      return reply.status(404).send({ error: "EXERCISE_NOT_FOUND" });
+    }
+
+    const plan = await prisma.trainingPlan.findUnique({
+      where: { id: planId },
+      select: { id: true, userId: true },
+    });
+
+    if (!plan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    const isOwnPlan = plan.userId === requester.id;
+
+    if (athleteUserId) {
+      if (isOwnPlan === false) {
+        return reply.status(403).send({ error: "FORBIDDEN" });
+      }
+
+      const membership = await prisma.gymMembership.findFirst({
+        where: {
+          userId: athleteUserId,
+          status: "ACTIVE",
+          role: "MEMBER",
+          assignedTrainingPlanId: planId,
+          gym: {
+            memberships: {
+              some: {
+                userId: requester.id,
+                status: "ACTIVE",
+                role: { in: ["ADMIN", "TRAINER"] },
+              },
+            },
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!membership) {
+        return reply.status(404).send({ error: "MEMBER_PLAN_NOT_FOUND" });
+      }
+    } else if (!isOwnPlan) {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const day = await prisma.trainingDay.findFirst({
+      where: { id: dayId, planId },
+      select: { id: true },
+    });
+
+    if (!day) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    const created = await prisma.trainingExercise.create({
+      data: {
+        dayId,
+        name: exercise.name,
+        sets: 3,
+        reps: "10-12",
+      },
+    });
+
+    return reply.status(201).send({
+      exercise: created,
+      sourceExercise: exercise,
+      planId,
+      dayId,
+      athleteUserId: athleteUserId ?? null,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (request, reply) => {
   try {
     const requester = await requireUser(request);
     const { gymId, userId } = assignTrainingPlanParamsSchema.parse(request.params);
-    const { templatePlanId } = assignTrainingPlanBodySchema.parse(request.body);
+    const { trainingPlanId, templatePlanId } = assignTrainingPlanBodySchema.parse(request.body);
+    const selectedPlanId = trainingPlanId ?? templatePlanId;
 
-    const [requesterMembership, targetMembership, templatePlan] = await Promise.all([
-      readGymMembership(requester.id),
-      readGymMembership(userId),
+    await requireGymManagerForGym(requester.id, gymId);
+
+    const [targetMembership, selectedPlan] = await Promise.all([
+      prisma.gymMembership.findUnique({
+        where: { gymId_userId: { gymId, userId } },
+      }),
       prisma.trainingPlan.findFirst({
-        where: { id: templatePlanId, userId: requester.id },
-        include: {
-          days: {
-            orderBy: { order: "asc" },
-            include: {
-              exercises: { orderBy: { id: "asc" } },
-            },
-          },
+        where: { id: selectedPlanId, userId: requester.id },
+        select: {
+          id: true,
+          title: true,
+          goal: true,
+          level: true,
+          daysPerWeek: true,
+          focus: true,
+          equipment: true,
+          startDate: true,
+          daysCount: true,
         },
       }),
     ]);
 
-    if (!requesterMembership || requesterMembership.gymId !== gymId || requesterMembership.status !== "ACTIVE") {
-      return reply.status(403).send({ error: "FORBIDDEN" });
-    }
-
-    if (requesterMembership.role !== "ADMIN" && requesterMembership.role !== "TRAINER") {
-      return reply.status(403).send({ error: "FORBIDDEN" });
-    }
-
-    if (!targetMembership || targetMembership.gymId !== gymId || targetMembership.status !== "ACTIVE") {
+    if (!targetMembership || targetMembership.status !== "ACTIVE") {
       return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
     }
 
@@ -5354,48 +5530,74 @@ app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (reque
       return reply.status(400).send({ error: "INVALID_MEMBER_ROLE" });
     }
 
-    if (!templatePlan) {
-      return reply.status(404).send({ error: "TEMPLATE_PLAN_NOT_FOUND" });
+    if (!selectedPlan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
     }
 
-    const startDate = await resolvePlanStartDate(userId, templatePlan.daysCount);
-
-    const clonedPlan = await prisma.trainingPlan.create({
-      data: {
-        userId,
-        title: templatePlan.title,
-        notes: templatePlan.notes,
-        goal: templatePlan.goal,
-        level: templatePlan.level,
-        daysPerWeek: templatePlan.daysPerWeek,
-        focus: templatePlan.focus,
-        equipment: templatePlan.equipment,
-        startDate,
-        daysCount: templatePlan.daysCount,
-        days: {
-          create: templatePlan.days.map((day, dayIndex) => ({
-            date: addDays(startDate, dayIndex),
-            label: day.label,
-            focus: day.focus,
-            duration: day.duration,
-            order: day.order,
-            exercises: {
-              create: day.exercises.map((exercise) => ({
-                name: exercise.name,
-                sets: exercise.sets,
-                reps: exercise.reps,
-                tempo: exercise.tempo,
-                rest: exercise.rest,
-                notes: exercise.notes,
-              })),
-            },
-          })),
-        },
-      },
-      select: { id: true },
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: selectedPlan.id },
     });
 
-    return reply.status(201).send({ planId: clonedPlan.id });
+    return reply.status(200).send({
+      planId: selectedPlan.id,
+      assignedPlan: selectedPlan,
+      memberId: userId,
+      gymId,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/members/:userId/training-plan-assignment", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { userId } = trainerMemberParamsSchema.parse(request.params);
+
+    const targetMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId,
+        status: "ACTIVE",
+        role: "MEMBER",
+        gym: {
+          memberships: {
+            some: {
+              userId: requester.id,
+              status: "ACTIVE",
+              role: { in: ["ADMIN", "TRAINER"] },
+            },
+          },
+        },
+      },
+      include: {
+        gym: { select: { id: true, name: true } },
+        assignedTrainingPlan: {
+          select: {
+            id: true,
+            title: true,
+            goal: true,
+            level: true,
+            daysPerWeek: true,
+            focus: true,
+            equipment: true,
+            startDate: true,
+            daysCount: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!targetMembership) {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    return {
+      memberId: userId,
+      gym: targetMembership.gym,
+      assignedPlan: targetMembership.assignedTrainingPlan,
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5669,7 +5871,7 @@ const adminCreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(["USER", "ADMIN"]).optional(),
-  subscriptionPlan: z.enum(["FREE", "PRO"]).optional(),
+  subscriptionPlan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]).optional(),
   aiTokenBalance: z.number().int().min(0).optional(),
   aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
 });
@@ -5692,6 +5894,10 @@ const gymJoinRequestParamsSchema = z.object({
 
 const gymMembersParamsSchema = z.object({
   gymId: z.string().min(1),
+});
+
+const trainerClientParamsSchema = z.object({
+  userId: z.string().min(1),
 });
 
 const adminUpdateGymMemberRoleParamsSchema = z.object({
@@ -5727,13 +5933,13 @@ app.get("/gyms", async (request, reply) => {
       },
       orderBy: { name: "asc" },
     });
-    return gyms;
+    return { gyms };
   } catch (error) {
     return handleRequestError(reply, error);
   }
 });
 
-app.post("/gyms/join", async (request, reply) => {
+const createGymJoinRequest = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
     const { gymId } = joinGymSchema.parse(request.body);
@@ -5771,7 +5977,10 @@ app.post("/gyms/join", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
+
+app.post("/gyms/join", createGymJoinRequest);
+app.post("/gym/join-request", createGymJoinRequest);
 
 app.post("/gyms/join-by-code", async (request, reply) => {
   try {
@@ -5779,7 +5988,7 @@ app.post("/gyms/join-by-code", async (request, reply) => {
     const { code } = joinGymByCodeSchema.parse(request.body);
     const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
     if (!gym) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(400).send({ error: "INVALID_GYM_CODE" });
     }
     const membership = await prisma.gymMembership.upsert({
       where: { gymId_userId: { gymId: gym.id, userId: user.id } },
@@ -5804,7 +6013,7 @@ app.post("/gyms/join-by-code", async (request, reply) => {
   }
 });
 
-app.get("/gyms/membership", async (request, reply) => {
+const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
     const membership = await prisma.gymMembership.findFirst({
@@ -5830,6 +6039,43 @@ app.get("/gyms/membership", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
+};
+
+app.get("/gyms/membership", getGymMembership);
+app.get("/gym/me", getGymMembership);
+
+app.post("/gym/join-code", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { code } = joinGymByCodeSchema.parse(request.body);
+    const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
+
+    if (!gym) {
+      return reply.status(400).send({ error: "INVALID_GYM_CODE" });
+    }
+
+    const membership = await prisma.gymMembership.upsert({
+      where: { gymId_userId: { gymId: gym.id, userId: user.id } },
+      create: {
+        gymId: gym.id,
+        userId: user.id,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      update: {
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+    });
+
+    return reply.status(200).send({
+      state: membership.status.toLowerCase(),
+      gym: { id: gym.id, name: gym.name },
+      role: membership.role,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
 });
 
 app.get("/admin/gym-join-requests", async (request, reply) => {
@@ -5843,7 +6089,7 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
             some: {
               userId: user.id,
               status: "ACTIVE",
-              role: { in: ["ADMIN", "TRAINER"] },
+              role: "ADMIN",
             },
           },
         },
@@ -5855,6 +6101,7 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
       orderBy: { createdAt: "asc" },
     });
     return requests.map((membership) => ({
+      id: membership.id,
       membershipId: membership.id,
       gym: membership.gym,
       user: membership.user,
@@ -5876,12 +6123,17 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     if (membership.status !== "PENDING") {
       return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
     }
-    await requireGymManagerForGym(user.id, membership.gymId);
-    const updated = await prisma.gymMembership.update({
-      where: { id: membership.id },
+    await requireGymAdminForGym(user.id, membership.gymId);
+    const updateResult = await prisma.gymMembership.updateMany({
+      where: { id: membership.id, status: "PENDING" },
       data: { status: "ACTIVE" },
     });
-    return { membershipId: updated.id, status: updated.status };
+
+    if (updateResult.count === 0) {
+      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+    }
+
+    return { membershipId: membership.id, status: "ACTIVE" };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5898,12 +6150,17 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
     if (membership.status !== "PENDING") {
       return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
     }
-    await requireGymManagerForGym(user.id, membership.gymId);
-    const updated = await prisma.gymMembership.update({
-      where: { id: membership.id },
+    await requireGymAdminForGym(user.id, membership.gymId);
+    const updateResult = await prisma.gymMembership.updateMany({
+      where: { id: membership.id, status: "PENDING" },
       data: { status: "REJECTED" },
     });
-    return { membershipId: updated.id, status: updated.status };
+
+    if (updateResult.count === 0) {
+      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+    }
+
+    return { membershipId: membership.id, status: "REJECTED" };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5911,10 +6168,15 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
 
 app.get("/admin/gyms/:gymId/members", async (request, reply) => {
   try {
-    const user = await requireAdmin(request);
+    const user = await requireUser(request);
     const { gymId } = gymMembersParamsSchema.parse(request.params);
+    await requireGymManagerForGym(user.id, gymId);
+
     const members = await prisma.gymMembership.findMany({
-      where: { gymId },
+      where: {
+        gymId,
+        status: "ACTIVE",
+      },
       include: {
         user: {
           select: {
@@ -5927,10 +6189,124 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
       orderBy: { createdAt: "asc" },
     });
     return members.map((member) => ({
+      id: member.user.id,
+      name: member.user.name,
+      email: member.user.email,
       user: member.user,
       status: member.status,
       role: member.role,
     }));
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/clients", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+
+    const managerMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        role: { in: ["ADMIN", "TRAINER"] },
+      },
+      select: { gymId: true },
+    });
+
+    if (!managerMembership) {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const clients = await prisma.gymMembership.findMany({
+      where: {
+        gymId: managerMembership.gymId,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            isBlocked: true,
+            subscriptionStatus: true,
+            lastLoginAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return {
+      clients: clients.map((membership) => ({
+        id: membership.user.id,
+        name: membership.user.name,
+        email: membership.user.email,
+        role: membership.role,
+        isBlocked: membership.user.isBlocked,
+        subscriptionStatus: membership.user.subscriptionStatus,
+        lastLoginAt: membership.user.lastLoginAt,
+      })),
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/clients/:userId", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+
+    const managerMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        role: { in: ["ADMIN", "TRAINER"] },
+      },
+      select: { gymId: true },
+    });
+
+    if (!managerMembership) {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const membership = await prisma.gymMembership.findFirst({
+      where: {
+        gymId: managerMembership.gymId,
+        userId,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            isBlocked: true,
+            subscriptionStatus: true,
+            lastLoginAt: true,
+          },
+        },
+      },
+    });
+
+    if (!membership) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    return {
+      id: membership.user.id,
+      name: membership.user.name,
+      email: membership.user.email,
+      role: membership.role,
+      isBlocked: membership.user.isBlocked,
+      subscriptionStatus: membership.user.subscriptionStatus,
+      lastLoginAt: membership.user.lastLoginAt,
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5941,11 +6317,12 @@ app.post("/admin/gyms", async (request, reply) => {
     const user = await requireAdmin(request);
     const { name } = adminCreateGymSchema.parse(request.body);
     const created = await prisma.$transaction(async (tx) => {
-      const code = await generateUniqueGymJoinCode(name, user.id);
+      const activationCode = await generateUniqueGymActivationCode(name, user.id);
       const gym = await tx.gym.create({
         data: {
           name,
-          code,
+          code: activationCode,
+          activationCode,
         },
       });
       await tx.gymMembership.create({
@@ -5962,6 +6339,7 @@ app.post("/admin/gyms", async (request, reply) => {
       id: created.id,
       name: created.name,
       code: created.code,
+      activationCode: created.activationCode,
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -5980,6 +6358,7 @@ app.get("/admin/gyms", async (request, reply) => {
         id: true,
         name: true,
         code: true,
+        activationCode: true,
         _count: {
           select: {
             memberships: true,
@@ -5993,6 +6372,7 @@ app.get("/admin/gyms", async (request, reply) => {
       id: gym.id,
       name: gym.name,
       code: gym.code,
+      activationCode: gym.activationCode,
       membersCount: gym._count.memberships,
     }));
   } catch (error) {
@@ -6130,9 +6510,9 @@ app.post("/admin/users", async (request, reply) => {
         plan: data.subscriptionPlan ?? "FREE",
         aiTokenBalance: data.aiTokenBalance ?? 0,
         aiTokenResetAt:
-          data.subscriptionPlan === "PRO" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
+          data.subscriptionPlan !== "FREE" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
         aiTokenRenewalAt:
-          data.subscriptionPlan === "PRO" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
+          data.subscriptionPlan !== "FREE" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
         aiTokenMonthlyAllowance: data.aiTokenMonthlyAllowance ?? 0,
         provider: "email",
       },
@@ -6321,4 +6701,9 @@ app.post("/dev/seed-recipes", async (_request, reply) => {
 });
 
 await seedAdmin();
+
+if (process.env.NODE_ENV !== "production") {
+  app.log.info("Registered routes\n%s", app.printRoutes());
+}
+
 await app.listen({ port: env.PORT, host: env.HOST });

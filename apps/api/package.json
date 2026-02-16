@@ -8,15 +8,24 @@
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
     "start:prod": "npm run db:deploy && npm run start",
-    "db:deploy": "prisma migrate deploy",
+    "db:deploy": "node scripts/prisma-runner.mjs migrate deploy --schema prisma/schema.prisma",
+    "db:doctor": "node scripts/prisma-runner.mjs doctor",
+    "db:repair": "node scripts/prisma-runner.mjs repair",
+    "db:reset": "node scripts/prisma-runner.mjs reset:safe --force --skip-seed --schema prisma/schema.prisma",
     "db:generate": "prisma generate",
     "db:push:emergency": "prisma db push",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "repair:user-columns": "tsx scripts/repair-user-columns.ts",
-    "seed": "prisma db seed",
     "test": "tsx src/tests/authUtils.test.ts src/tests/aiParsing.test.ts",
-    "verify-email": "tsx scripts/verify-email.ts"
+    "verify-email": "tsx scripts/verify-email.ts",
+    "db:seed": "prisma db seed",
+    "db:bootstrap": "node scripts/db-bootstrap.mjs",
+    "db:migrate:render": "node scripts/prisma-runner.mjs migrate deploy",
+    "db:seed:safe": "node scripts/prisma-runner.mjs seed:safe",
+    "db:bootstrap:render": "node scripts/prisma-runner.mjs generate && node scripts/prisma-runner.mjs migrate deploy && node scripts/prisma-runner.mjs seed:safe",
+    "db:studio": "node scripts/prisma-runner.mjs studio --schema prisma/schema.prisma",
+    "db:dump": "node scripts/db-dump.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

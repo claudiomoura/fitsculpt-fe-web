@@ -31,6 +31,7 @@ describe("navigation section gating", () => {
     expect(allItemIds).not.toContain("trainer-home");
     expect(sections.find((section) => section.id === "admin")).toBeUndefined();
     expect(sections.find((section) => section.id === "development")).toBeUndefined();
+    expect(sections.find((section) => section.id === "trainer")).toBeUndefined();
   });
 
   it("shows admin section and trainer entry for admin users", () => {
@@ -39,15 +40,28 @@ describe("navigation section gating", () => {
 
     expect(allItemIds).toContain("trainer-home");
     expect(sections.find((section) => section.id === "admin")).toBeDefined();
+    expect(sections.find((section) => section.id === "trainer")).toBeDefined();
+    expect(sections.find((section) => section.id === "development")).toBeDefined();
     expect(allItemIds).toContain("admin-labs");
   });
 
-  it("shows development section for dev users without admin section", () => {
+  it("marks admin gym requests as unavailable to avoid broken flows", () => {
+    const sections = buildNavigationSections({ role: "admin" });
+    const adminSection = sections.find((section) => section.id === "admin");
+
+    expect(adminSection).toBeDefined();
+    const gymRequestsItem = adminSection?.items.find((item) => item.id === "admin-gym-requests");
+    expect(gymRequestsItem?.disabled).toBe(true);
+    expect(gymRequestsItem?.disabledNoteKey).toBe("common.notAvailableYet");
+  });
+
+  it("hides development section for non-admin dev users", () => {
     const sections = buildNavigationSections({ role: "dev" });
     const allItemIds = sections.flatMap((section) => section.items.map((item) => item.id));
 
-    expect(sections.find((section) => section.id === "development")).toBeDefined();
+    expect(sections.find((section) => section.id === "development")).toBeUndefined();
     expect(sections.find((section) => section.id === "admin")).toBeUndefined();
-    expect(allItemIds).toContain("dev-trainer-home");
+    expect(sections.find((section) => section.id === "trainer")).toBeUndefined();
+    expect(allItemIds).not.toContain("dev-trainer-home");
   });
 });
