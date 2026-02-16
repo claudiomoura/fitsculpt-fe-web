@@ -694,6 +694,13 @@ function isBootstrapAdmin(email: string): boolean {
 async function requireGymManagerForGym(userId: string, gymId: string) {
   const managerMembership = await prisma.gymMembership.findUnique({
     where: { gymId_userId: { gymId, userId } },
+    select: {
+      id: true,
+      gymId: true,
+      userId: true,
+      status: true,
+      role: true,
+    },
   });
   if (
     !managerMembership ||
@@ -708,6 +715,13 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
 async function requireGymAdminForGym(userId: string, gymId: string) {
   const adminMembership = await prisma.gymMembership.findUnique({
     where: { gymId_userId: { gymId, userId } },
+    select: {
+      id: true,
+      gymId: true,
+      userId: true,
+      status: true,
+      role: true,
+    },
   });
 
   if (!adminMembership || adminMembership.status !== "ACTIVE" || adminMembership.role !== "ADMIN") {
@@ -4045,7 +4059,9 @@ app.get("/auth/me", async (request, reply) => {
         userId: user.id,
         status: "ACTIVE",
       },
-      include: {
+      select: {
+        status: true,
+        role: true,
         gym: {
           select: {
             id: true,
@@ -5695,6 +5711,13 @@ app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (reque
     const [targetMembership, selectedPlan] = await Promise.all([
       prisma.gymMembership.findUnique({
         where: { gymId_userId: { gymId, userId } },
+        select: {
+          id: true,
+          gymId: true,
+          userId: true,
+          status: true,
+          role: true,
+        },
       }),
       prisma.trainingPlan.findFirst({
         where: { id: selectedPlanId, userId: requester.id },
@@ -5760,7 +5783,12 @@ app.get("/trainer/members/:userId/training-plan-assignment", async (request, rep
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        gymId: true,
+        userId: true,
+        status: true,
+        role: true,
         gym: { select: { id: true, name: true } },
         assignedTrainingPlan: {
           select: {
@@ -6228,7 +6256,9 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
     const user = await requireUser(request);
     const membership = await prisma.gymMembership.findFirst({
       where: { userId: user.id },
-      include: {
+      select: {
+        status: true,
+        role: true,
         gym: {
           select: {
             id: true,
@@ -6312,7 +6342,9 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
           },
         },
       },
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
         gym: { select: { id: true, name: true } },
         user: { select: { id: true, name: true, email: true } },
       },
@@ -6334,7 +6366,10 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
   try {
     const user = await requireUser(request);
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
-    const membership = await prisma.gymMembership.findUnique({ where: { id: membershipId } });
+    const membership = await prisma.gymMembership.findUnique({
+      where: { id: membershipId },
+      select: { id: true, gymId: true, status: true },
+    });
     if (!membership) {
       return reply.status(404).send({ error: "NOT_FOUND", message: "Membership request not found." });
     }
@@ -6363,7 +6398,10 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
   try {
     const user = await requireUser(request);
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
-    const membership = await prisma.gymMembership.findUnique({ where: { id: membershipId } });
+    const membership = await prisma.gymMembership.findUnique({
+      where: { id: membershipId },
+      select: { id: true, gymId: true, status: true },
+    });
     if (!membership) {
       return reply.status(404).send({ error: "NOT_FOUND", message: "Membership request not found." });
     }
@@ -6399,7 +6437,11 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
         gymId,
         status: "ACTIVE",
       },
-      include: {
+      select: {
+        id: true,
+        status: true,
+        role: true,
+        createdAt: true,
         user: {
           select: {
             id: true,
@@ -6446,7 +6488,8 @@ app.get("/trainer/clients", async (request, reply) => {
         status: "ACTIVE",
         role: "MEMBER",
       },
-      include: {
+      select: {
+        role: true,
         user: {
           select: {
             id: true,
@@ -6502,7 +6545,8 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
         status: "ACTIVE",
         role: "MEMBER",
       },
-      include: {
+      select: {
+        role: true,
         user: {
           select: {
             id: true,
@@ -6645,6 +6689,9 @@ app.patch("/admin/gyms/:gymId/members/:userId/role", async (request, reply) => {
 
     const membership = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId, userId } },
+      select: {
+        id: true,
+      },
     });
 
     if (!membership) {
@@ -6657,7 +6704,10 @@ app.patch("/admin/gyms/:gymId/members/:userId/role", async (request, reply) => {
         role,
         ...(status ? { status } : {}),
       },
-      include: {
+      select: {
+        userId: true,
+        status: true,
+        role: true,
         gym: {
           select: {
             id: true,
