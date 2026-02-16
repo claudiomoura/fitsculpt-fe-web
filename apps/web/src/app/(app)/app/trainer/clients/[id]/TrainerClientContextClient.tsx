@@ -7,7 +7,6 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { hasTrainerClientContextCapability } from "@/lib/capabilities";
 import { canAccessTrainerGymArea, type GymMembership } from "@/lib/gymMembership";
 import { getRoleFlags } from "@/lib/roles";
-import { fetchGymMembershipStatus, parseGymMembership } from "@/services/gym";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
 
@@ -89,8 +88,9 @@ export default function TrainerClientContextClient() {
 
         if (!active) return;
 
-        setGymMembershipState(membershipState);
-        const canAccess = (roleFlags.isTrainer || roleFlags.isAdmin) && membershipState === "in_gym";
+        const nextMembershipState = gymMembership.state;
+        setGymMembershipState(nextMembershipState);
+        const canAccess = (roleFlags.isTrainer || roleFlags.isAdmin) && nextMembershipState === "in_gym";
         setCanAccessTrainer(canAccess);
         setPermissionState("ready");
 

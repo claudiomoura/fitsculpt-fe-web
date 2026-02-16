@@ -37,6 +37,19 @@ export type JoinRequestListItem = {
   createdAt?: string;
 };
 
+export type GymJoinRequest = {
+  id: string;
+  userName: string;
+  email?: string;
+};
+
+export type GymMember = {
+  id: string;
+  name: string;
+  email?: string;
+  role?: string | null;
+};
+
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 function asString(value: unknown): string | null {
@@ -68,7 +81,7 @@ async function readJsonResponse<T>(
   }
 }
 
-function parseMembership(payload: unknown): GymMembership {
+export function parseMembership(payload: unknown): GymMembership {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
   const data = typeof source.data === "object" && source.data !== null ? (source.data as Record<string, unknown>) : source;
   const gym = typeof data.gym === "object" && data.gym !== null ? (data.gym as Record<string, unknown>) : null;
@@ -84,6 +97,49 @@ function parseMembership(payload: unknown): GymMembership {
     role: normalize(asString(data.role)),
   };
 }
+
+function parseGymMembers(payload: unknown): GymMember[] {
+  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
+  const rows = Array.isArray(source.data) ? source.data : Array.isArray(payload) ? payload : [];
+
+  const parsed: GymMember[] = [];
+
+  for (const row of rows) {
+    const item = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
+    const id = asString(item.id) ?? asString(item.userId);
+    if (!id) continue;
+
+    const email = asString(item.email) ?? asString(item.userEmail) ?? null;
+    parsed.push({
+      id,
+      name: asString(item.name) ?? asString(item.userName) ?? email ?? "-",
+      ...(email ? { email } : {}),
+      role: asString(item.role),
+    });
+  }
+
+  return parsed;
+}
+
+
+function parseGymJoinRequests(payload: unknown): GymJoinRequest[] {
+  const parsed: GymJoinRequest[] = [];
+
+  for (const item of parseJoinRequestList(payload)) {
+    const id = asString(item.id);
+    if (!id) continue;
+
+    const email = asString(item.userEmail) ?? null;
+    parsed.push({
+      id,
+      userName: asString(item.userName) ?? email ?? "-",
+      ...(email ? { email } : {}),
+    });
+  }
+
+  return parsed;
+}
+
 
 function parseGymList(payload: unknown): GymListItem[] {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
@@ -179,6 +235,27 @@ export async function fetchPendingGymJoinRequests(): Promise<ServiceResult<JoinR
   if (!response.ok) return response;
 
   return { ok: true, data: parseJoinRequestList(response.data) };
+}
+
+// Compatibility exports used by gym/trainer client components.
+export const parseGymMembership = parseMembership;
+export const parseMembers = parseGymMembers;
+export const parseJoinRequests = parseGymJoinRequests;
+
+export async function fetchGymMembershipStatus(): Promise<Response> {
+  return fetch("/api/gym/me", { cache: "no-store", credentials: "include" });
+}
+
+export async function fetchGymMembership(): Promise<Response> {
+  return fetchGymMembershipStatus();
+}
+
+export async function fetchGymJoinRequests(): Promise<Response> {
+  return fetch("/api/admin/gym-join-requests", { cache: "no-store", credentials: "include" });
+}
+
+export async function fetchGymMembers(gymId: string): Promise<Response> {
+  return fetch(`/api/admin/gyms/${gymId}/members`, { cache: "no-store", credentials: "include" });
 }
 
 export async function reviewGymJoinRequest(

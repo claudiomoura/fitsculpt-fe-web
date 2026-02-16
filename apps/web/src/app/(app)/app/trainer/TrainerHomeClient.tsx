@@ -8,12 +8,9 @@ import { canAccessTrainerGymArea, type GymMembership } from "@/lib/gymMembership
 import { useAccess } from "@/lib/useAccess";
 import TrainerPlanAssignmentPanel from "@/components/trainer/TrainerPlanAssignmentPanel";
 
-type MembershipViewState = "loading" | "ready";
-type MembershipGate = "in_gym" | "not_in_gym" | "unknown" | "no_permission";
+const UNKNOWN_MEMBERSHIP: GymMembership = { state: "unknown", gymId: null, gymName: null };
 
 type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
-
-const UNKNOWN_MEMBERSHIP: GymMembership = { state: "unknown", gymId: null, gymName: null };
 
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
@@ -90,25 +87,16 @@ export default function TrainerHomeClient() {
     [isAdmin, isCoach, membership],
   );
 
-  const membershipViewState: MembershipViewState = gymLoading ? "loading" : "ready";
-
-  const membershipGate: MembershipGate = useMemo(() => {
-    if (!(isCoach || isAdmin)) return "no_permission";
-    if (membership.state === "in_gym") return "in_gym";
-    if (membership.state === "not_in_gym") return "not_in_gym";
-    return "unknown";
-  }, [isAdmin, isCoach, membership.state]);
-
-  if (accessLoading || membershipViewState === "loading") {
+  if (accessLoading || gymLoading) {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
   }
 
   if (!canAccessTrainer) {
-    if (membershipGate === "not_in_gym") {
+    if (membership.state === "not_in_gym") {
       return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
     }
 
-    if (membershipGate === "unknown") {
+    if (membership.state === "unknown") {
       return <EmptyState title={t("trainer.gymUnknownTitle")} description={t("trainer.gymUnknownDesc")} wrapInCard icon="info" />;
     }
 

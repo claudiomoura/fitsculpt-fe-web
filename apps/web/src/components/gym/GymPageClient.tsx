@@ -3,13 +3,18 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
-import { ErrorState } from "@/components/gym/ErrorState";
-import { EmptyState } from "@/components/gym/EmptyState";
+import { EmptyState, ErrorState } from "@/components/states";
 import { GymCard } from "@/components/gym/GymCard";
 import { GymListSkeleton } from "@/components/gym/GymListSkeleton";
 import { MembershipStatusBadge } from "@/components/gym/MembershipStatusBadge";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/Card";
 import {
   fetchGymsList,
   fetchMyGymMembership,
@@ -18,6 +23,8 @@ import {
   type GymMembership,
   type MembershipStatus,
 } from "@/services/gym";
+
+type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
 
 const defaultMembership: GymMembership = {
   status: "UNKNOWN",
