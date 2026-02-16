@@ -246,12 +246,27 @@ Password123
 ##  acceder a BD 
 
 Tem de serr onde esta o eschema  em C:\Users\Moura\Documents\Work\FitSculpt\fitsculpt-fe-web\apps\api>
-$env:DATABASE_URL="postgresql://fitsculpt_db_user:msSBNoxfDrfB1FpoSiZUaUa53X6bEXJj@dpg-d5l5q04mrvns739nfrf0-a.virginia-postgres.render.com/fitsculpt_db" 
+$env:DATABASE_URL="postgresql://bd2_ukh7_user:pkY5rjnC78bP4CR13yzFTLDqFTb0Kk6O@dpg-d694rj75r7bs73f2vsqg-a.virginia-postgres.render.com/bd2_ukh7"
+ 
 
 npx prisma studio
 
 ##  crear usuario na BD
 node scripts/create-user.mjs tu@email.com TuPassword123 "Tu Nombre" ADMIN
+
+
+$env:ALLOW_SEED='1'
+$env:DEMO_ADMIN_EMAIL='claudio.moura@sapo.pt'
+$env:DEMO_ADMIN_PASSWORD='Password1234'
+$env:DEMO_GYM_NAME='Demo Gym'
+$env:DEMO_GYM_CODE='DEMO123'
+
+npx prisma db seed --schema prisma/schema.prisma
+
+
+$sql = 'UPDATE "User" SET "role" = ''ADMIN'' WHERE "email" = ''claudio.moura@sapo.pt'';'
+$sql | npx prisma db execute --schema prisma/schema.prisma --stdin
+
 
 ##  mudar pass de  usuario na BD
 cd apps\api
