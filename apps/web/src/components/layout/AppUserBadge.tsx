@@ -80,36 +80,26 @@ export default function AppUserBadge({
       .join("");
   }, [profile?.name]);
 
-  const badgeContent = (
-    <>
-      {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
-      ) : (
-        <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">
-          {initials}
-        </div>
-      )}
+const badgeContent = (
+  <>
+    {avatarUrl ? (
+      <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
+    ) : (
+      <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">
+        {initials}
+      </div>
+    )}
+
+    {!isMobileViewport && (
       <span className="nav-user-name">
         {profile?.name || t("ui.userFallback")}
       </span>
-    </>
-  );
+    )}
+  </>
+);
 
-  if (isMobileViewport && onMobileMenuOpen) {
-    return (
-      <button
-        type="button"
-        className="ui-button ui-button--ghost nav-user"
-        aria-expanded={mobileMenuOpen}
-        aria-controls="app-nav-drawer"
-        aria-label={t("ui.menu")}
-        onClick={onMobileMenuOpen}
-      >
-        {badgeContent}
-      </button>
-    );
-  }
+
+
 
   return (
     <DropdownMenu>
