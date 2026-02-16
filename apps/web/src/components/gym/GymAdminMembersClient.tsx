@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { AssignTrainingPlanModal } from "@/components/gym/AssignTrainingPlanModal";
 import { useLanguage } from "@/context/LanguageProvider";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
   fetchGymJoinRequests,
@@ -13,15 +14,25 @@ import {
   parseMembers,
   parseMembership,
   reviewGymJoinRequest,
+  updateGymMemberRole,
   type GymJoinRequest,
   type GymMember,
 } from "@/services/gym";
 
 type MembersState = "loading" | "ready";
 
+type RoleUpdateTarget = "TRAINER" | "MEMBER";
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "ADMIN",
+  TRAINER: "TRAINER",
+  MEMBER: "MEMBER",
+};
+
 export function GymAdminMembersClient() {
   const { t } = useLanguage();
   const [gymId, setGymId] = useState<string | null>(null);
+  const [membershipRole, setMembershipRole] = useState<string | null>(null);
   const [members, setMembers] = useState<GymMember[]>([]);
   const [joinRequests, setJoinRequests] = useState<GymJoinRequest[]>([]);
   const [state, setState] = useState<MembersState>("loading");
@@ -31,6 +42,7 @@ export function GymAdminMembersClient() {
   const [selectedUser, setSelectedUser] = useState<GymMember | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [requestActionPending, setRequestActionPending] = useState<string | null>(null);
+  const [roleActionPendingUserId, setRoleActionPendingUserId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setState("loading");
@@ -52,6 +64,7 @@ export function GymAdminMembersClient() {
         return;
       }
       setGymId(membership.gymId);
+      setMembershipRole(membership.role);
 
       const [requestsRes, membersRes] = await Promise.all([
         fetchGymJoinRequests(),
@@ -90,6 +103,47 @@ export function GymAdminMembersClient() {
 
   const hasMembers = useMemo(() => members.length > 0, [members]);
   const hasJoinRequests = useMemo(() => joinRequests.length > 0, [joinRequests]);
+  const canManageMemberRole = membershipRole === "ADMIN";
+
+  const getRoleLabel = useCallback((role: string | null | undefined) => {
+    const normalizedRole = role?.toUpperCase() ?? "MEMBER";
+    return ROLE_LABELS[normalizedRole] ?? normalizedRole;
+  }, []);
+
+  const getRoleVariant = useCallback((role: string | null | undefined) => {
+    const normalizedRole = role?.toUpperCase();
+    if (normalizedRole === "ADMIN") return "warning" as const;
+    if (normalizedRole === "TRAINER") return "success" as const;
+    return "muted" as const;
+  }, []);
+
+  const handleRoleChange = useCallback(
+    async (user: GymMember, role: RoleUpdateTarget) => {
+      setError(null);
+      setRoleActionPendingUserId(user.id);
+      try {
+        const response = await updateGymMemberRole(user.id, role);
+        if (!response.ok && response.reason === "unsupported") {
+          setMembersUnsupported(true);
+          return;
+        }
+        if (!response.ok) {
+          setError(t("gym.admin.members.roleChangeError"));
+          return;
+        }
+
+        setSuccessMessage(
+          t(role === "TRAINER" ? "gym.admin.members.promoteSuccess" : "gym.admin.members.demoteSuccess"),
+        );
+        await loadData();
+      } catch {
+        setError(t("gym.admin.members.roleChangeError"));
+      } finally {
+        setRoleActionPendingUserId(null);
+      }
+    },
+    [loadData, t],
+  );
 
   const handleJoinRequestAction = useCallback(
     async (membershipId: string, action: "accept" | "reject") => {
@@ -182,15 +236,38 @@ export function GymAdminMembersClient() {
       ) : null}
 
       {state === "ready" && !error && !membersUnsupported && hasMembers
-        ? members.map((user) => (
-            <section key={user.id} className="feature-card" style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <div>
-                <strong>{user.name || user.email || "-"}</strong>
-                {user.email ? <p className="muted">{user.email}</p> : null}
-              </div>
-              <Button onClick={() => setSelectedUser(user)}>{t("gym.admin.members.assignAction")}</Button>
-            </section>
-          ))
+        ? members.map((user) => {
+            const userRole = user.role?.toUpperCase() ?? "MEMBER";
+            const userRoleLabel = getRoleLabel(userRole);
+            const isRoleActionPending = roleActionPendingUserId === user.id;
+            const shouldShowPromote = userRole === "MEMBER";
+            const shouldShowDemote = userRole === "TRAINER";
+
+            return (
+              <section key={user.id} className="feature-card" style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <strong>{user.name || user.email || "-"}</strong>
+                  {user.email ? <p className="muted">{user.email}</p> : null}
+                  <p style={{ margin: "8px 0 0" }}>
+                    <Badge variant={getRoleVariant(userRole)}>{userRoleLabel}</Badge>
+                  </p>
+                </div>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
+                  {canManageMemberRole && shouldShowPromote ? (
+                    <Button onClick={() => void handleRoleChange(user, "TRAINER")} disabled={isRoleActionPending}>
+                      {isRoleActionPending ? t("gym.admin.members.roleChanging") : t("gym.admin.members.promoteTrainer")}
+                    </Button>
+                  ) : null}
+                  {canManageMemberRole && shouldShowDemote ? (
+                    <Button variant="secondary" onClick={() => void handleRoleChange(user, "MEMBER")} disabled={isRoleActionPending}>
+                      {isRoleActionPending ? t("gym.admin.members.roleChanging") : t("gym.admin.members.removeTrainer")}
+                    </Button>
+                  ) : null}
+                  <Button onClick={() => setSelectedUser(user)}>{t("gym.admin.members.assignAction")}</Button>
+                </div>
+              </section>
+            );
+          })
         : null}
 
       {gymId && selectedUser ? (

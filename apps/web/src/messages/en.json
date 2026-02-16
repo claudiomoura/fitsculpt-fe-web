@@ -2125,7 +2125,13 @@
         "missingGymId": "Your account is not linked to a gym id.",
         "unavailable": "This section will be available soon when the backend enables member management.",
         "assignAction": "Assign plan",
-        "assignSuccess": "Plan assigned successfully."
+        "assignSuccess": "Plan assigned successfully.",
+        "promoteTrainer": "Promote to trainer",
+        "removeTrainer": "Remove trainer",
+        "roleChanging": "Updating role...",
+        "promoteSuccess": "Member promoted to TRAINER.",
+        "demoteSuccess": "Trainer changed to MEMBER.",
+        "roleChangeError": "We could not update this member role. Please retry."
       },
       "assignPlan": {
         "title": "Assign training plan",

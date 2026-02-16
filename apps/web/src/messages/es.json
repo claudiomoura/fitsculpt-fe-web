@@ -2128,7 +2128,13 @@
         "missingGymId": "Tu cuenta no está vinculada a un id de gimnasio.",
         "unavailable": "Esta sección estará disponible próximamente cuando el backend habilite la gestión de miembros.",
         "assignAction": "Asignar plan",
-        "assignSuccess": "Plan asignado correctamente."
+        "assignSuccess": "Plan asignado correctamente.",
+        "promoteTrainer": "Promover a entrenador",
+        "removeTrainer": "Quitar entrenador",
+        "roleChanging": "Actualizando rol...",
+        "promoteSuccess": "Miembro promovido a TRAINER.",
+        "demoteSuccess": "Entrenador cambiado a MEMBER.",
+        "roleChangeError": "No pudimos actualizar el rol de este miembro. Reintenta."
       },
       "assignPlan": {
         "title": "Asignar plan de entrenamiento",

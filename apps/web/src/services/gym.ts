@@ -50,6 +50,8 @@ export type GymMember = {
   role?: string | null;
 };
 
+export type GymRole = "ADMIN" | "TRAINER" | "MEMBER";
+
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 function asString(value: unknown): string | null {
@@ -264,6 +266,20 @@ export async function reviewGymJoinRequest(
 ): Promise<ServiceResult<null>> {
   const response = await readJsonResponse<unknown>(`/api/admin/gym-join-requests/${membershipId}/${action}`, {
     method: "POST",
+  });
+
+  if (!response.ok) return response;
+  return { ok: true, data: null };
+}
+
+export async function updateGymMemberRole(
+  userId: string,
+  role: Extract<GymRole, "TRAINER" | "MEMBER">,
+): Promise<ServiceResult<null>> {
+  const response = await readJsonResponse<unknown>(`/api/gym/admin/members/${userId}/role`, {
+    method: "PATCH",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ role }),
   });
 
   if (!response.ok) return response;
