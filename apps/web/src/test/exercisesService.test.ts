@@ -12,8 +12,7 @@ describe("fetchExercisesList", () => {
         limit: 24,
       }),
     });
-    // @ts-expect-error test mock
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const result = await fetchExercisesList({});
 
@@ -36,8 +35,7 @@ describe("fetchExercisesList", () => {
         limit: 1,
       }),
     });
-    // @ts-expect-error test mock
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const result = await fetchExercisesList({ limit: 1 });
 
@@ -58,8 +56,7 @@ describe("fetchExercisesList", () => {
         offset: 2,
       }),
     });
-    // @ts-expect-error test mock
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const result = await fetchExercisesList({ page: 2, limit: 2 });
 

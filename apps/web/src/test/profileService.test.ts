@@ -8,8 +8,7 @@ describe("saveCheckinAndSyncProfileMetrics", () => {
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
       .mockResolvedValueOnce({ ok: false });
-    // @ts-expect-error test mock
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const updated = await saveCheckinAndSyncProfileMetrics(
       { checkins: [], foodLog: [], workoutLog: [] },
