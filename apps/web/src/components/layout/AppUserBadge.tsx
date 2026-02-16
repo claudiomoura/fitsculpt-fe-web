@@ -23,7 +23,7 @@ type AppUserBadgeProps = {
   onMobileMenuOpen?: () => void;
 };
 
-export default function AppUserBadge(_props: AppUserBadgeProps) {
+export default function AppUserBadge({ mobileMenuOpen, onMobileMenuOpen }: AppUserBadgeProps) {
   const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
@@ -76,6 +76,9 @@ export default function AppUserBadge(_props: AppUserBadgeProps) {
       .map((part) => part[0]?.toUpperCase())
       .join("");
   }, [profile?.name]);
+
+  void mobileMenuOpen;
+  void onMobileMenuOpen;
 
   const badgeContent = (
     <>
