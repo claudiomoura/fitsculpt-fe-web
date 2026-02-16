@@ -34,6 +34,10 @@ type ExerciseOverviewItem = {
   value: string;
 };
 
+function isNotNull<T>(value: T | null): value is T {
+  return value !== null;
+}
+
 function getMuscleGroups(exercise: Exercise): MuscleGroups {
   const primaryFromMain = exercise.mainMuscleGroup ? [exercise.mainMuscleGroup] : [];
   const primaryFromLegacy = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
