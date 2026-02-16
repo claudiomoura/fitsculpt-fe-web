@@ -2267,7 +2267,10 @@ type ExerciseRow = {
   sourceId?: string | null;
   slug?: string | null;
   name: string;
+  source?: string | null;
+  sourceId?: string | null;
   equipment: string | null;
+  imageUrls?: string[] | null;
   description: string | null;
   imageUrl?: string | null;
   mediaUrl?: string | null;
@@ -2287,6 +2290,8 @@ type ExerciseApiDto = {
   name: string;
   sourceId: string | null;
   equipment: string | null;
+  imageUrls: string[];
+  imageUrl: string | null;
   mainMuscleGroup: string | null;
   secondaryMuscleGroups: string[];
   description: string | null;
@@ -2333,6 +2338,9 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
     name: exercise.name,
     sourceId: exercise.sourceId ?? null,
     equipment: exercise.equipment ?? null,
+    imageUrls: (exercise.imageUrls ?? []).filter((url): url is string => typeof url === "string" && url.trim().length > 0),
+    imageUrl:
+      (exercise.imageUrls ?? []).find((url): url is string => typeof url === "string" && url.trim().length > 0) ?? null,
     description: exercise.description ?? null,
     imageUrl: exercise.imageUrl ?? null,
     mediaUrl: exercise.mediaUrl ?? null,
@@ -2344,7 +2352,7 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
 }
 
 
-async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
+async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata, options?: { source?: string; sourceId?: string; imageUrls?: string[] }) {
   const now = new Date();
   const slug = slugifyName(name);
 
@@ -2360,9 +2368,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
       create: {
         slug,
         name,
+        source: options?.source?.trim() || null,
+        sourceId: options?.sourceId?.trim() || null,
         mainMuscleGroup,
         secondaryMuscleGroups,
         equipment: metadata?.equipment ?? null,
+        imageUrls: options?.imageUrls ?? [],
         description: metadata?.description ?? null,
         technique: null,
         tips: null,
@@ -2370,9 +2381,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
       },
       update: {
         name,
+        source: options?.source?.trim() || undefined,
+        sourceId: options?.sourceId?.trim() || undefined,
         mainMuscleGroup,
         secondaryMuscleGroups,
         equipment: metadata?.equipment ?? undefined,
+        imageUrls: options?.imageUrls ?? undefined,
         description: metadata?.description ?? undefined,
       },
     });
@@ -2385,9 +2399,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
       "id",
       "slug",
       "name",
+      "source",
+      "sourceId",
       "mainMuscleGroup",
       "secondaryMuscleGroups",
       "equipment",
+      "imageUrls",
       "description",
       "technique",
       "tips",
@@ -2399,9 +2416,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
       ${crypto.randomUUID()},
       ${slug},
       ${name},
+      ${options?.source?.trim() || null},
+      ${options?.sourceId?.trim() || null},
       ${mainMuscleGroup},
       ${secondaryMuscleGroups},
       ${metadata?.equipment ?? null},
+      ${options?.imageUrls ?? []},
       ${metadata?.description ?? null},
       ${null},
       ${null},
@@ -2411,9 +2431,12 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata) {
     )
     ON CONFLICT ("slug") DO UPDATE SET
       "name" = EXCLUDED."name",
+      "source" = COALESCE(EXCLUDED."source", "Exercise"."source"),
+      "sourceId" = COALESCE(EXCLUDED."sourceId", "Exercise"."sourceId"),
       "mainMuscleGroup" = EXCLUDED."mainMuscleGroup",
       "secondaryMuscleGroups" = EXCLUDED."secondaryMuscleGroups",
       "equipment" = EXCLUDED."equipment",
+      "imageUrls" = EXCLUDED."imageUrls",
       "description" = EXCLUDED."description",
       "updatedAt" = EXCLUDED."updatedAt"
   `);
@@ -2456,6 +2479,8 @@ async function listExercises(params: {
   equipment?: string;
   limit: number;
   offset: number;
+  cursor?: string;
+  take?: number;
 }) {
   if (hasExerciseClient()) {
     const where: Prisma.ExerciseWhereInput = {};
@@ -2471,6 +2496,37 @@ async function listExercises(params: {
         { secondaryMuscleGroups: { has: params.primaryMuscle } },
       ];
     }
+
+    const take = params.take ?? params.limit;
+    const findManyArgs: Prisma.ExerciseFindManyArgs = {
+      where,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        source: true,
+        sourceId: true,
+        equipment: true,
+        imageUrls: true,
+        description: true,
+        technique: true,
+        tips: true,
+        mainMuscleGroup: true,
+        secondaryMuscleGroups: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { id: "asc" },
+      take,
+    };
+
+    if (params.cursor) {
+      findManyArgs.cursor = { id: params.cursor };
+      findManyArgs.skip = 1;
+    } else {
+      findManyArgs.skip = params.offset;
+    }
+
     const [items, total] = await prisma.$transaction([
       prisma.exercise.findMany({
         where,
@@ -2496,6 +2552,7 @@ async function listExercises(params: {
       }),
       prisma.exercise.count({ where }),
     ]);
+
     return {
       items: items.map((item) =>
         normalizeExercisePayload({
@@ -2509,13 +2566,21 @@ async function listExercises(params: {
   }
 
   const whereSql = buildExerciseFilters(params);
+  const take = params.take ?? params.limit;
+  const hasFilters = Boolean(params.q || (params.equipment && params.equipment !== "all") || (params.primaryMuscle && params.primaryMuscle !== "all"));
+
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
     SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
-    ORDER BY "name" ASC
-    LIMIT ${params.limit}
-    OFFSET ${params.offset}
+    ${params.cursor
+      ? hasFilters
+        ? Prisma.sql`AND "id" > ${params.cursor}`
+        : Prisma.sql`WHERE "id" > ${params.cursor}`
+      : Prisma.sql``}
+    ORDER BY "id" ASC
+    LIMIT ${take}
+    OFFSET ${params.cursor ? 0 : params.offset}
   `);
   const totalRows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
     SELECT COUNT(*)::bigint as count
@@ -2536,7 +2601,10 @@ async function getExerciseById(id: string) {
         sourceId: true,
         slug: true,
         name: true,
+        source: true,
+        sourceId: true,
         equipment: true,
+        imageUrls: true,
         description: true,
         imageUrl: true,
         mediaUrl: true,
@@ -5135,16 +5203,27 @@ const exerciseListSchema = z.object({
   primaryMuscle: z.string().min(1).optional(),
   muscle: z.string().min(1).optional(),
   equipment: z.string().min(1).optional(),
+  cursor: z.string().min(1).optional(),
+  take: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(1).max(200).optional()),
+  page: z.preprocess((value) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }, z.number().int().min(1).optional()),
   limit: z.preprocess((value) => {
     if (value === undefined || value === null || value === "") return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
-  }, z.number().int().min(1).max(200).default(200)),
+  }, z.number().int().min(1).max(200).default(50)),
   offset: z.preprocess((value) => {
     if (value === undefined || value === null || value === "") return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
-  }, z.number().int().min(0).default(0)),
+  }, z.number().int().min(0).optional()),
 });
 
 const exerciseParamsSchema = z.object({ id: z.string().min(1) });
@@ -5258,14 +5337,35 @@ app.get("/exercises", async (request, reply) => {
     const parsed = exerciseListSchema.parse(request.query);
     const q = parsed.q ?? parsed.query;
     const primaryMuscle = parsed.primaryMuscle ?? parsed.muscle;
+    const page = parsed.page ?? 1;
+    const limit = parsed.take ?? parsed.limit;
+    const offset = parsed.cursor ? 0 : parsed.offset ?? (page - 1) * limit;
+
     const { items, total } = await listExercises({
       q,
       primaryMuscle,
       equipment: parsed.equipment,
-      limit: parsed.limit,
-      offset: parsed.offset,
+      cursor: parsed.cursor,
+      take: parsed.take,
+      limit,
+      offset,
     });
-    return { items, total, limit: parsed.limit, offset: parsed.offset };
+
+    const nextCursor = parsed.cursor || parsed.take
+      ? items.length === limit
+        ? items[items.length - 1]?.id ?? null
+        : null
+      : null;
+
+    return {
+      items,
+      total,
+      limit,
+      offset,
+      page,
+      nextCursor,
+      hasMore: offset + items.length < total,
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }

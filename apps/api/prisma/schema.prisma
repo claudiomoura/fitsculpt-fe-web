@@ -68,7 +68,10 @@ model Exercise {
   id                    String   @id @default(cuid())
   sourceId              String?  @unique
   name                  String
+  source                String?
+  sourceId              String?
   equipment             String?
+  imageUrls             String[] @default([])
   description           String?
   imageUrl              String?
   mediaUrl              String?
@@ -80,6 +83,10 @@ model Exercise {
   slug                  String   @unique
   technique             String?
   tips                  String?
+
+  @@unique([source, sourceId])
+  @@index([name])
+  @@index([source, sourceId])
 }
 
 model UserProfile {
