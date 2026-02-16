@@ -611,7 +611,6 @@ async function requireUser(
         hasBearerPrefix,
         segments,
         hasPercent,
-        tokenPreview: token.slice(0, 20),
         tokenDecodeFailed: normalized?.decodeFailed ?? false,
         tokenHasSpace: token.includes(" "),
         tokenHasCookieLabel: token.includes("fs_token="),
@@ -636,7 +635,6 @@ async function requireUser(
   } catch (error) {
     if (options?.logContext && process.env.NODE_ENV !== "production") {
       const typed = error as { message?: string; code?: string; name?: string };
-      const tokenPreview = token.slice(0, 20);
       app.log.warn(
         {
           route,
@@ -645,7 +643,6 @@ async function requireUser(
           hasBearerPrefix,
           segments,
           hasPercent,
-          tokenPreview,
           tokenDecodeFailed: normalized?.decodeFailed ?? false,
           tokenHasSpace: token.includes(" "),
           tokenHasCookieLabel: token.includes("fs_token="),

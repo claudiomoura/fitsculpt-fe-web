@@ -28,6 +28,13 @@
 | `STRIPE_WEBHOOK_SECRET` | Segredo do webhook do Stripe. | `whsec_...` |
 | `STRIPE_PRO_PRICE_ID` | Price ID do plano PRO (assinatura). | `price_...` |
 
+## Configuração segura de ambiente
+
+- Copie `apps/api/.env.example` para `.env` apenas no ambiente local/servidor.
+- Nunca commite valores reais de segredos (`JWT_SECRET`, `COOKIE_SECRET`, `DATABASE_URL`, `*_API_KEY`, `*_SECRET`).
+- Gere segredos longos e aleatórios para produção (mínimo recomendado: 32 caracteres).
+- Dumps de banco (`*.dump`, `*.sql`, `*.db`) e arquivos de credenciais devem ficar fora do versionamento.
+
 ## Fluxo de autenticação
 
 ### Signup (com promo code)

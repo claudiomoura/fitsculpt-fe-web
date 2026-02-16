@@ -78,6 +78,20 @@ web_modules/
 !.env.example
 !.env*.example
 
+# Local database / dump artifacts
+*.dump
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+
+# Private keys / local credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
