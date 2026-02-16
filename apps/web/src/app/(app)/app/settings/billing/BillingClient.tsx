@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
+import { postBillingCheckout, postBillingPortal, type BillingRedirectResponse } from "@/services/billing";
 
 type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | "ULTRA" | (string & {});
 
@@ -136,12 +137,8 @@ export default function BillingClient() {
     setError(null);
 
     try {
-      const response = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ priceId }),
-      });
-      const data = (await response.json()) as { url?: string };
+      const response = await postBillingCheckout(priceId);
+      const data = (await response.json()) as BillingRedirectResponse;
 
       if (!response.ok || !data.url) {
         setError(t("billing.checkoutError"));
@@ -161,8 +158,8 @@ export default function BillingClient() {
     setError(null);
 
     try {
-      const response = await fetch("/api/billing/portal", { method: "POST" });
-      const data = (await response.json()) as { url?: string };
+      const response = await postBillingPortal();
+      const data = (await response.json()) as BillingRedirectResponse;
 
       if (!response.ok || !data.url) {
         setError(t("billing.portalError"));
