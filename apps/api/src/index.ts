@@ -181,11 +181,15 @@ function resolvePlanByPriceId(priceId: string): SubscriptionPlan | null {
 }
 
 function getAvailableBillingPlans() {
-  return [
+  const plans = [
     { plan: "PRO" as const, priceId: env.STRIPE_PRO_PRICE_ID },
     { plan: "STRENGTH_AI" as const, priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY },
     { plan: "NUTRI_AI" as const, priceId: env.STRIPE_PRICE_NUTRI_AI_MONTHLY },
-  ].filter((entry): entry is { plan: SubscriptionPlan; priceId: string } => Boolean(entry.priceId));
+  ];
+
+  return plans.filter(
+    (entry): entry is (typeof plans)[number] & { priceId: string } => typeof entry.priceId === "string"
+  );
 }
 
 function requireStripeWebhookSecret() {
@@ -2311,7 +2315,6 @@ type ExerciseRow = {
   slug?: string | null;
   name: string;
   source?: string | null;
-  sourceId?: string | null;
   equipment: string | null;
   imageUrls?: string[] | null;
   description: string | null;
@@ -2338,7 +2341,6 @@ type ExerciseApiDto = {
   mainMuscleGroup: string | null;
   secondaryMuscleGroups: string[];
   description: string | null;
-  imageUrl: string | null;
   mediaUrl: string | null;
   technique: string | null;
   tips: string | null;
@@ -2385,7 +2387,6 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
     imageUrl:
       (exercise.imageUrls ?? []).find((url): url is string => typeof url === "string" && url.trim().length > 0) ?? null,
     description: exercise.description ?? null,
-    imageUrl: exercise.imageUrl ?? null,
     mediaUrl: exercise.mediaUrl ?? null,
     technique: exercise.technique ?? null,
     tips: exercise.tips ?? null,
@@ -2548,7 +2549,6 @@ async function listExercises(params: {
         slug: true,
         name: true,
         source: true,
-        sourceId: true,
         equipment: true,
         imageUrls: true,
         description: true,
@@ -2645,7 +2645,6 @@ async function getExerciseById(id: string) {
         slug: true,
         name: true,
         source: true,
-        sourceId: true,
         equipment: true,
         imageUrls: true,
         description: true,
