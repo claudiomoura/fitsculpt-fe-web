@@ -24,8 +24,6 @@ import {
   type MembershipStatus,
 } from "@/services/gym";
 
-type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
-
 const defaultMembership: GymMembership = {
   status: "UNKNOWN",
   gymId: null,

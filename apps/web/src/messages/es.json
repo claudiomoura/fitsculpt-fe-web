@@ -2318,7 +2318,8 @@
   },
   "common": {
     "loading": "Cargando...",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "comingSoon": "Próximamente"
   },
   "adminGyms": {
     "title": "Administrar gimnasios",
