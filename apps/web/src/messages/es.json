@@ -2152,16 +2152,21 @@
       },
       "pending": {
         "title": "Solicitud pendiente",
-        "description": "Tu solicitud para {gymName} está pendiente de aprobación."
+        "description": "Tu solicitud para {gymName} está pendiente de aprobación.",
+        "badge": "PENDIENTE"
       },
       "active": {
         "title": "Membresía activa",
         "description": "Estás en {gymName} con rol {role}.",
-        "planButton": "Ir a mi plan"
+        "planButton": "Ir a mi plan",
+        "badge": "ACTIVA"
       },
       "rejected": {
         "title": "Solicitud rechazada",
         "description": "Tu solicitud anterior fue rechazada. Puedes intentar unirte de nuevo."
+      },
+      "unknown": {
+        "badge": "DESCONOCIDO"
       }
     },
     "join": {
@@ -2174,7 +2179,13 @@
       "empty": "No hay gimnasios disponibles en este momento.",
       "loadError": "No pudimos cargar la lista de gimnasios.",
       "requestSuccess": "Tu solicitud fue enviada. Puedes revisar el estado abajo.",
-      "codeSuccess": "Código aceptado. Tu membresía fue actualizada."
+      "codeSuccess": "Código aceptado. Tu membresía fue actualizada.",
+      "directoryTitle": "Directorio de gimnasios",
+      "loadErrorTitle": "Directorio no disponible",
+      "emptyTitle": "No hay gimnasios disponibles",
+      "selectButton": "Seleccionar",
+      "requestPending": "Solicitud pendiente",
+      "codeTitle": "Unirme con código del gimnasio"
     },
     "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
     "loadError": {
