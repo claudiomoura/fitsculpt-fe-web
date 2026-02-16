@@ -41,6 +41,16 @@ export default function ExerciseLibraryClient() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
   const athleteUserId = searchParams.get("athleteUserId")?.trim() || "";
+  const detailParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (athleteUserId) {
+      params.set("athleteUserId", athleteUserId);
+    }
+    params.set("from", "plan");
+    const returnTo = athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento";
+    params.set("returnTo", returnTo);
+    return params.toString();
+  }, [athleteUserId]);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [equipmentFilter, setEquipmentFilter] = useState("all");
@@ -376,7 +386,7 @@ export default function ExerciseLibraryClient() {
 
     return (
       <div key={exerciseId} className="feature-card library-card">
-        <Link href={`/app/biblioteca/${exerciseId}`} className="library-card-link">
+        <Link href={`/app/biblioteca/${exerciseId}?${detailParams}`} className="library-card-link">
           {content}
         </Link>
         <Button
