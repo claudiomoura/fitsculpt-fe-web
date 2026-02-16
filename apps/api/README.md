@@ -331,6 +331,7 @@ $env:DATABASE_URL="postgresql://bd2_ukh7_user:pkY5rjnC78bP4CR13yzFTLDqFTb0Kk6O@d
 
 npx prisma studio
 
+
 ##  crear usuario na BD
 node scripts/create-user.mjs tu@email.com TuPassword123 "Tu Nombre" ADMIN
 
