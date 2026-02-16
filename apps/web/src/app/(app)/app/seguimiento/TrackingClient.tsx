@@ -241,7 +241,7 @@ export default function TrackingClient() {
         };
         if (!active) return;
         setHasAdjustmentEntitlement(hasAiEntitlement(data));
-        setSubscriptionPlan(data.subscriptionPlan ?? null);
+        setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
         setAdjustmentTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       } catch {
         if (!active) return;

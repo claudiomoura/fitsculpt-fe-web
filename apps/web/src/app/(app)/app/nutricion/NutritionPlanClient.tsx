@@ -608,7 +608,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
-      setSubscriptionPlan(data.subscriptionPlan ?? null);
+      setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       setAiEntitled(hasAiEntitlement(data));
