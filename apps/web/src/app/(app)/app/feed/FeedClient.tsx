@@ -36,7 +36,7 @@ export default function FeedClient() {
   const [generating, setGenerating] = useState(false);
   const [tipLoading, setTipLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<AiEntitlementProfile["subscriptionPlan"]>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
 

@@ -18,7 +18,12 @@ type ProfileSummary = {
   avatarDataUrl?: string | null;
 };
 
-export default function AppUserBadge() {
+type AppUserBadgeProps = {
+  mobileMenuOpen?: boolean;
+  onMobileMenuOpen?: () => void;
+};
+
+export default function AppUserBadge({ mobileMenuOpen, onMobileMenuOpen }: AppUserBadgeProps) {
   const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => {
@@ -71,6 +76,9 @@ export default function AppUserBadge() {
       .map((part) => part[0]?.toUpperCase())
       .join("");
   }, [profile?.name]);
+
+  void mobileMenuOpen;
+  void onMobileMenuOpen;
 
   const badgeContent = (
     <>

@@ -77,18 +77,20 @@ export default function ExerciseDetailClient({
     [exercise]
   );
   const mediaItems = useMemo(() => {
-    if (!exercise) return [] as Array<{ kind: "image" | "video"; url: string; poster?: string }>;
+    type MediaItem = { kind: "image" | "video"; url: string; poster?: string };
+    if (!exercise) return [] as MediaItem[];
 
-    const source = [
-      exercise.mediaUrl ? { kind: "video" as const, url: exercise.mediaUrl, poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined } : null,
-      exercise.videoUrl ? { kind: "video" as const, url: exercise.videoUrl, poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined } : null,
-      exercise.imageUrl ? { kind: "image" as const, url: exercise.imageUrl } : null,
-      exercise.posterUrl ? { kind: "image" as const, url: exercise.posterUrl } : null,
-    ].filter((item): item is { kind: "image" | "video"; url: string; poster?: string } => Boolean(item));
+    const source: Array<MediaItem | null> = [
+      exercise.mediaUrl ? { kind: "video", url: exercise.mediaUrl, poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined } : null,
+      exercise.videoUrl ? { kind: "video", url: exercise.videoUrl, poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined } : null,
+      exercise.imageUrl ? { kind: "image", url: exercise.imageUrl } : null,
+      exercise.posterUrl ? { kind: "image", url: exercise.posterUrl } : null,
+    ];
+    const filtered = source.filter((item): item is MediaItem => item !== null);
 
-    const unique: Array<{ kind: "image" | "video"; url: string; poster?: string }> = [];
+    const unique: MediaItem[] = [];
     const seen = new Set<string>();
-    for (const item of source) {
+    for (const item of filtered) {
       const key = `${item.kind}:${item.url}`;
       if (!item.url || seen.has(key)) continue;
       seen.add(key);
