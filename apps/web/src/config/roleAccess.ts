@@ -1,6 +1,7 @@
 export type RoleName = "admin" | "coach" | "developer" | "user";
 
 import type { GymMembershipState } from "@/lib/gymMembership";
+import { getPrimaryRole } from "@/lib/roles";
 
 export type RoleAccessInput = {
   role?: string | null;
@@ -12,14 +13,8 @@ export type RoleAccessInput = {
 
 function normalizeRole(role: string | null | undefined): RoleName | null {
   if (typeof role !== "string") return null;
-  const normalized = role.trim().toLowerCase();
 
-  if (["admin", "role_admin", "administrator"].includes(normalized)) return "admin";
-  if (["coach", "trainer", "role_coach", "role_trainer"].includes(normalized)) return "coach";
-  if (["dev", "developer", "role_dev", "role_developer"].includes(normalized)) return "developer";
-  if (normalized === "user") return "user";
-
-  return null;
+  return getPrimaryRole({ role });
 }
 
 export function canAccessAdmin(input: RoleAccessInput): boolean {
