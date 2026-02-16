@@ -174,12 +174,21 @@ export default function GymPageClient() {
     setActionSuccess(null);
 
     try {
-      const response = await fetch("/api/gym/join-request", {
+      let response = await fetch("/api/gym/join-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ gymId: selectedGymId }),
       });
+
+      if (response.status === 404 || response.status === 405) {
+        response = await fetch("/api/gyms/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ gymId: selectedGymId }),
+        });
+      }
 
       if (response.status === 404 || response.status === 405) {
         setJoinRequestUnsupported(true);
@@ -205,12 +214,21 @@ export default function GymPageClient() {
     setActionSuccess(null);
 
     try {
-      const response = await fetch("/api/gym/join-code", {
+      let response = await fetch("/api/gym/join-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ code: trimmedCode }),
       });
+
+      if (response.status === 404 || response.status === 405) {
+        response = await fetch("/api/gyms/join-by-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ code: trimmedCode }),
+        });
+      }
 
       if (response.status === 404 || response.status === 405) {
         setJoinCodeUnsupported(true);
