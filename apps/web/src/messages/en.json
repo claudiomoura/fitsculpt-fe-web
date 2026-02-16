@@ -2123,6 +2123,7 @@
         "loadError": "We could not load members. Please try again.",
         "profileError": "We could not load your gym profile.",
         "missingGymId": "Your account is not linked to a gym id.",
+        "unavailable": "This section will be available soon when the backend enables member management.",
         "assignAction": "Assign plan",
         "assignSuccess": "Plan assigned successfully."
       },

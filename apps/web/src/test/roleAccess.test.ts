@@ -41,7 +41,7 @@ describe("navigation section gating", () => {
     expect(allItemIds).toContain("trainer-home");
     expect(sections.find((section) => section.id === "admin")).toBeDefined();
     expect(sections.find((section) => section.id === "trainer")).toBeDefined();
-    expect(sections.find((section) => section.id === "development")).toBeDefined();
+    expect(sections.find((section) => section.id === "development")).toBeUndefined();
     expect(allItemIds).toContain("admin-labs");
   });
 
@@ -52,7 +52,14 @@ describe("navigation section gating", () => {
     expect(adminSection).toBeDefined();
     const gymRequestsItem = adminSection?.items.find((item) => item.id === "admin-gym-requests");
     expect(gymRequestsItem?.disabled).toBe(true);
-    expect(gymRequestsItem?.disabledNoteKey).toBe("common.notAvailableYet");
+    expect(gymRequestsItem?.disabledNoteKey).toBe("common.comingSoon");
+  });
+
+
+  it("shows development section only for admin dev users", () => {
+    const sections = buildNavigationSections({ role: "admin", isDev: true });
+
+    expect(sections.find((section) => section.id === "development")).toBeDefined();
   });
 
   it("hides development section for non-admin dev users", () => {
