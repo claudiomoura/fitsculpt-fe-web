@@ -11,6 +11,7 @@ import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLevelJsonFromText } from "./aiParsing.js";
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
+import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import "dotenv/config";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
@@ -856,15 +857,46 @@ async function requireCompleteProfile(userId: string) {
   }
 }
 
-type AuthenticatedRequest = FastifyRequest & { currentUser?: User };
+type AuthenticatedRequest = FastifyRequest & { currentUser?: User; currentEntitlements?: EffectiveEntitlements };
+
+function getUserEntitlements(user: User) {
+  return buildEffectiveEntitlements({
+    plan: user.plan,
+    isAdmin: user.role === "ADMIN" || isBootstrapAdmin(user.email),
+  });
+}
+
+function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
+  if (!entitlements.modules.ai.enabled) {
+    return { aiTokenBalance: null, aiTokenRenewalAt: null };
+  }
+
+  if (entitlements.role.adminOverride) {
+    return { aiTokenBalance: null, aiTokenRenewalAt: null };
+  }
+
+  return {
+    aiTokenBalance: getEffectiveTokenBalance(user),
+    aiTokenRenewalAt: getUserTokenExpiryAt(user),
+  };
+}
 
 async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
   const user = await requireUser(request, { logContext: request.routeOptions?.url ?? "ai" });
-  const effectiveTokens = getEffectiveTokenBalance(user);
-  if (effectiveTokens <= 0) {
+  const entitlements = getUserEntitlements(user);
+  if (!entitlements.modules.ai.enabled) {
     return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
   }
+
+  if (!entitlements.role.adminOverride) {
+    const effectiveTokens = getEffectiveTokenBalance(user);
+    if (effectiveTokens <= 0) {
+      return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
+    }
+  }
+
   (request as AuthenticatedRequest).currentUser = user;
+  (request as AuthenticatedRequest).currentEntitlements = entitlements;
 }
 
 const checkinSchema = z.object({
@@ -4055,6 +4087,8 @@ app.get("/auth/me", async (request, reply) => {
       },
       orderBy: { updatedAt: "desc" },
     });
+    const entitlements = getUserEntitlements(user);
+    const aiTokenPayload = getAiTokenPayload(user, entitlements);
     return {
       id: user.id,
       email: user.email,
@@ -4062,12 +4096,13 @@ app.get("/auth/me", async (request, reply) => {
       role: effectiveIsAdmin ? "ADMIN" : user.role,
       emailVerifiedAt: user.emailVerifiedAt,
       lastLoginAt: user.lastLoginAt,
-      subscriptionPlan: user.plan,
-      plan: user.plan,
+      subscriptionPlan: entitlements.legacy.tier,
+      plan: entitlements.legacy.tier,
       subscriptionStatus: user.subscriptionStatus,
       currentPeriodEnd: user.currentPeriodEnd,
-      aiTokenBalance: getEffectiveTokenBalance(user),
-      aiTokenRenewalAt: getUserTokenExpiryAt(user),
+      aiTokenBalance: aiTokenPayload.aiTokenBalance,
+      aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
+      entitlements,
       gymMembershipState: activeMembership ? "active" : "none",
       gymId: activeMembership?.gym.id,
       gymName: activeMembership?.gym.name,
@@ -4524,23 +4559,27 @@ app.delete("/user-foods/:id", async (request, reply) => {
 
 app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
-    const user = (request as AuthenticatedRequest).currentUser ?? (await requireUser(request));
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     const dateKey = toDateKey();
-    const limit = user.plan !== "FREE" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+    const limit = entitlements.modules.ai.enabled ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
     const usage = await prisma.aiUsage.findUnique({
       where: { userId_date: { userId: user.id, date: dateKey } },
     });
     const usedToday = usage?.count ?? 0;
     const remainingToday = limit > 0 ? Math.max(0, limit - usedToday) : 0;
+    const aiTokenPayload = getAiTokenPayload(user, entitlements);
     return reply.status(200).send({
-      subscriptionPlan: user.plan,
-      plan: user.plan,
+      subscriptionPlan: entitlements.legacy.tier,
+      plan: entitlements.legacy.tier,
       dailyLimit: limit,
       usedToday,
       remainingToday,
       retryAfterSec: getSecondsUntilNextUtcDay(),
-      aiTokenBalance: user.plan !== "FREE" ? getEffectiveTokenBalance(user) : null,
-      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
+      aiTokenBalance: aiTokenPayload.aiTokenBalance,
+      aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
+      entitlements,
     });
   } catch (error) {
     return handleRequestError(reply, error);
@@ -4550,8 +4589,9 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
 app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
-    const user =
-      (request as AuthenticatedRequest).currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
     const data = aiTrainingSchema.parse(request.body);
     const expectedDays = Math.min(data.daysPerWeek, 7);
@@ -4560,10 +4600,8 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const cacheKey = buildCacheKey("training", data);
     const template = buildTrainingTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta =
-      user.plan !== "FREE"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
-        : { aiTokenBalance: null, aiTokenRenewalAt: null };
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
 
     if (template) {
       const normalized = normalizeTrainingPlanDays(template, startDate, daysCount, expectedDays);
@@ -4596,7 +4634,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       }
     }
 
-    await enforceAiQuota({ id: user.id, plan: user.plan });
+    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -4614,41 +4652,23 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
 
     const fetchTrainingPayload = async (attempt: number) => {
       const prompt = buildTrainingPrompt(data, attempt > 0);
-      if (user.plan !== "FREE") {
-        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-
-          responseFormat: {
+      const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+        responseFormat: {
           type: "json_schema",
           json_schema: {
             name: "training_plan",
             schema: trainingPlanJsonSchema as any,
             strict: true,
-              },
-            },
-            model: "gpt-4o-mini",
-              maxTokens: 9000,
-              retryOnParseError: false,
-            });
-
-            payload = result.payload;
-            aiResult = result;
-            aiAttemptUsed = attempt;
-          } else {
-            const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-            
-              responseFormat: {
-              type: "json_schema",
-              json_schema: {
-              name: "training_plan",
-              schema: trainingPlanJsonSchema as any,
-              strict: true,
-            },
           },
-          model: "gpt-4o-mini",
-          maxTokens: 9000,
-          retryOnParseError: false,
-        });
-        payload = result.payload;
+        },
+        model: "gpt-4o-mini",
+        maxTokens: 9000,
+        retryOnParseError: false,
+      });
+      payload = result.payload;
+      if (shouldChargeAi) {
+        aiResult = result;
+        aiAttemptUsed = attempt;
       }
       return parseTrainingPlanPayload(payload, startDate, daysCount, expectedDays);
     };
@@ -4676,7 +4696,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
     await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
     await storeAiContent(user.id, "training", "ai", personalized);
-    if (user.plan !== "FREE" && aiResult) {
+    if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
         prisma,
@@ -4716,7 +4736,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         },
         "ai charge complete"
       );
-    } else if (user.plan !== "FREE") {
+    } else if (shouldChargeAi) {
       app.log.info(
         { userId: user.id, feature: "training", charged: false, failureReason: "missing_ai_result" },
         "ai charge skipped"
@@ -4724,9 +4744,9 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     }
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -4737,9 +4757,10 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
 app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
-    const user =
-      (request as AuthenticatedRequest).currentUser ??
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ??
       (await requireUser(request, { logContext: "/ai/nutrition-plan" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
     const data = aiNutritionSchema.parse(request.body);
     const expectedMealsPerDay = Math.min(data.mealsPerDay, 6);
@@ -4759,10 +4780,8 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const cacheKey = buildCacheKey("nutrition:v2", data);
     const template = buildNutritionTemplate(data);
     const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta =
-      user.plan !== "FREE"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
-        : { aiTokenBalance: null, aiTokenRenewalAt: null };
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
 
     if (template) {
       const normalized = normalizeNutritionPlanDays(template, startDate, daysCount);
@@ -4831,7 +4850,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       }
     }
 
-    await enforceAiQuota({ id: user.id, plan: user.plan });
+    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -4864,7 +4883,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         })),
         attempt > 0
       );
-      if (user.plan !== "FREE") {
+      if (shouldChargeAi) {
         const result = await callOpenAi(promptAttempt, attempt, extractTopLevelJson, {
        
           responseFormat: {
@@ -4945,7 +4964,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     await saveCachedAiPayload(cacheKey, "nutrition", normalizedMeals);
     const personalized = applyPersonalization(normalizedMeals, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
-    if (user.plan !== "FREE" && aiResult) {
+    if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
         prisma,
@@ -4985,7 +5004,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         },
         "ai charge complete"
       );
-    } else if (user.plan !== "FREE") {
+    } else if (shouldChargeAi) {
       app.log.info(
         { userId: user.id, feature: "nutrition", charged: false, failureReason: "missing_ai_result" },
         "ai charge skipped"
@@ -4993,9 +5012,9 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     }
     return reply.status(200).send({
       plan: personalized,
-      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
@@ -5006,16 +5025,15 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
 app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/daily-tip");
-    const user =
-      (request as AuthenticatedRequest).currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     const data = aiTipSchema.parse(request.body);
     const cacheKey = buildCacheKey("tip", data);
     const template = buildTipTemplate();
     const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta =
-      user.plan !== "FREE"
-        ? { aiTokenBalance: effectiveTokens, aiTokenRenewalAt: getUserTokenExpiryAt(user) }
-        : { aiTokenBalance: null, aiTokenRenewalAt: null };
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
 
     if (template) {
       const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
@@ -5036,7 +5054,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
       });
     }
 
-    await enforceAiQuota({ id: user.id, plan: user.plan });
+    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
     const prompt = buildTipPrompt(data);
     let payload: Record<string, unknown>;
     let aiTokenBalance: number | null = null;
@@ -5050,7 +5068,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
           usage: { promptTokens: number; completionTokens: number; totalTokens: number };
         }
       | undefined;
-    if (user.plan !== "FREE") {
+    if (shouldChargeAi) {
       const balanceBefore = effectiveTokens;
       app.log.info(
         { userId: user.id, feature: "tip", plan: user.plan, balanceBefore },
@@ -5114,9 +5132,9 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
     await safeStoreAiContent(user.id, "tip", "ai", personalized);
     return reply.status(200).send({
       tip: personalized,
-      aiTokenBalance: user.plan !== "FREE" ? aiTokenBalance : null,
-      aiTokenRenewalAt: user.plan !== "FREE" ? getUserTokenExpiryAt(user) : null,
-      ...(user.plan !== "FREE" ? { nextBalance: aiTokenBalance } : {}),
+      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
