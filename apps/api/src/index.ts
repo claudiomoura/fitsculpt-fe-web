@@ -179,6 +179,14 @@ function resolvePlanByPriceId(priceId: string): SubscriptionPlan | null {
   return getStripePricePlanMap().get(priceId) ?? null;
 }
 
+function getAvailableBillingPlans() {
+  return [
+    { plan: "PRO" as const, priceId: env.STRIPE_PRO_PRICE_ID },
+    { plan: "STRENGTH_AI" as const, priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY },
+    { plan: "NUTRI_AI" as const, priceId: env.STRIPE_PRICE_NUTRI_AI_MONTHLY },
+  ].filter((entry): entry is { plan: SubscriptionPlan; priceId: string } => Boolean(entry.priceId));
+}
+
 function requireStripeWebhookSecret() {
   if (!env.STRIPE_WEBHOOK_SECRET) {
     throw createHttpError(500, "STRIPE_WEBHOOK_NOT_CONFIGURED");
@@ -4238,6 +4246,7 @@ app.get("/billing/status", async (request, reply) => {
     const plan: SubscriptionPlan = syncError || !isActive ? "FREE" : rawPlan;
     const isPaid = plan !== "FREE";
     const isPro = plan === "PRO";
+    const availablePlans = getAvailableBillingPlans();
     const response = {
       plan,
       isPaid,
@@ -4245,6 +4254,7 @@ app.get("/billing/status", async (request, reply) => {
       tokens,
       tokensExpiresAt: tokenExpiryAt ? tokenExpiryAt.toISOString() : null,
       subscriptionStatus,
+      availablePlans,
     };
     app.log.info({ userId: refreshedUser.id, plan: response.plan, tokens: response.tokens }, "billing status");
     return reply.status(200).send(response);

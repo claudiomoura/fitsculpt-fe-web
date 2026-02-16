@@ -12,12 +12,18 @@ import { useAccess } from "@/lib/useAccess";
 
 type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | "ULTRA" | (string & {});
 
+type AvailablePlan = {
+  plan: BillingPlan;
+  priceId: string;
+};
+
 type BillingProfile = {
   plan?: BillingPlan;
   isPro?: boolean;
   tokens?: number;
   tokensExpiresAt?: string | null;
   subscriptionStatus?: string | null;
+  availablePlans?: AvailablePlan[];
 };
 
 type BillingAction = "checkout" | "portal" | null;
@@ -27,13 +33,12 @@ type PlanKey = "strengthAi" | "nutriAi" | "pro";
 type PlanCard = {
   key: PlanKey;
   planValues: BillingPlan[];
-  priceId: string;
 };
 
 const PLAN_CARDS: PlanCard[] = [
-  { key: "strengthAi", planValues: ["STRENGTH_AI"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_STRENGTH_AI ?? "" },
-  { key: "nutriAi", planValues: ["NUTRI_AI"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_NUTRI_AI ?? "" },
-  { key: "pro", planValues: ["PRO"], priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_ULTRA ?? "" },
+  { key: "strengthAi", planValues: ["STRENGTH_AI"] },
+  { key: "nutriAi", planValues: ["NUTRI_AI"] },
+  { key: "pro", planValues: ["PRO"] },
 ];
 
 function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (key: string) => string) {
@@ -173,6 +178,14 @@ export default function BillingClient() {
   };
 
   const currentPlan = profile?.plan;
+  const availablePlanPrices = useMemo(() => {
+    const map = new Map<BillingPlan, string>();
+    for (const entry of profile?.availablePlans ?? []) {
+      if (!entry?.plan || !entry?.priceId) continue;
+      map.set(entry.plan, entry.priceId);
+    }
+    return map;
+  }, [profile?.availablePlans]);
   const hasSubscriptionStatus = typeof profile?.subscriptionStatus === "string" && profile.subscriptionStatus.length > 0;
   const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
   const hasGymSelectionEndpoint = false;
@@ -219,8 +232,13 @@ export default function BillingClient() {
             </CardHeader>
             <CardContent className="stack-md">
               {PLAN_CARDS.map((plan) => {
+                const matchedPlan = plan.planValues.find((value) => availablePlanPrices.has(value));
+                if (!matchedPlan) {
+                  return null;
+                }
+                const priceId = availablePlanPrices.get(matchedPlan) ?? "";
                 const isCurrent = plan.planValues.some((value) => value === currentPlan);
-                const checkoutDisabled = loading || action === "portal" || action === "checkout" || isCurrent || !plan.priceId;
+                const checkoutDisabled = loading || action === "portal" || action === "checkout" || isCurrent || !priceId;
 
                 return (
                   <div key={plan.key} className="stack-sm border border-border-subtle rounded-lg p-4 bg-surface-2">
@@ -236,7 +254,7 @@ export default function BillingClient() {
                       variant={isCurrent ? "secondary" : "primary"}
                       loading={action === "checkout"}
                       disabled={checkoutDisabled}
-                      onClick={() => void handleCheckout(plan.priceId)}
+                      onClick={() => void handleCheckout(priceId)}
                     >
                       {t("billing.subscribe")}
                     </Button>
