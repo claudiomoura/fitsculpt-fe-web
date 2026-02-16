@@ -30,28 +30,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INVALID_PAYLOAD" }, { status: 400 });
   }
 
-  const membershipResponse = await fetch(`${getBackendUrl()}/gyms/membership`, {
-    headers: { cookie: authCookie },
-    cache: "no-store",
-  });
+  try {
+    const response = await fetch(`${getBackendUrl()}/trainer/members/${clientId}/training-plan-assignment`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: authCookie,
+      },
+      body: JSON.stringify({ trainingPlanId: sourceTrainingPlanId }),
+      cache: "no-store",
+    });
 
-  const membershipData = (await membershipResponse.json()) as { gym?: { id?: string } };
-  const gymId = membershipData?.gym?.id;
+    const text = await response.text();
+    let data: unknown = null;
+    if (text) {
+      try {
+        data = JSON.parse(text) as unknown;
+      } catch {
+        data = { message: text };
+      }
+    }
 
-  if (!membershipResponse.ok || !gymId) {
-    return NextResponse.json({ error: "GYM_REQUIRED" }, { status: membershipResponse.status || 400 });
+    return NextResponse.json(data, { status: response.status });
+  } catch {
+    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
-
-  const response = await fetch(`${getBackendUrl()}/admin/gyms/${gymId}/members/${clientId}/assign-training-plan`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      cookie: authCookie,
-    },
-    body: JSON.stringify({ trainingPlanId: sourceTrainingPlanId }),
-    cache: "no-store",
-  });
-
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
 }
