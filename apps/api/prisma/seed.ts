@@ -10,9 +10,16 @@ const DEMO_EXERCISE_COUNT = 20;
 const PASSWORD_SALT_ROUNDS = 10;
 
 type ExerciseSeed = {
+  id?: string;
   name: string;
   mainMuscleGroup: string;
   secondaryMuscleGroups: string[];
+  equipment?: string;
+  description?: string;
+  technique?: string;
+  tips?: string;
+  images?: string[];
+  imageUrls?: string[];
 };
 
 const seedDir = dirname(fileURLToPath(import.meta.url));
@@ -115,13 +122,27 @@ async function seedDemoExercises() {
       create: {
         slug,
         name: exercise.name,
+        source: "free-exercise-db",
+        sourceId: exercise.id ?? slug,
         mainMuscleGroup: exercise.mainMuscleGroup,
         secondaryMuscleGroups: exercise.secondaryMuscleGroups,
+        equipment: exercise.equipment ?? null,
+        description: exercise.description ?? null,
+        technique: exercise.technique ?? null,
+        tips: exercise.tips ?? null,
+        imageUrls: exercise.imageUrls ?? exercise.images ?? [],
       },
       update: {
         name: exercise.name,
+        source: "free-exercise-db",
+        sourceId: exercise.id ?? slug,
         mainMuscleGroup: exercise.mainMuscleGroup,
         secondaryMuscleGroups: exercise.secondaryMuscleGroups,
+        equipment: exercise.equipment ?? null,
+        description: exercise.description ?? null,
+        technique: exercise.technique ?? null,
+        tips: exercise.tips ?? null,
+        imageUrls: exercise.imageUrls ?? exercise.images ?? [],
       },
     });
   }
