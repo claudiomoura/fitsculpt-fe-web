@@ -2264,6 +2264,7 @@ function getExerciseMetadata(name: string) {
 
 type ExerciseRow = {
   id: string;
+  sourceId?: string | null;
   slug?: string | null;
   name: string;
   source?: string | null;
@@ -2271,6 +2272,8 @@ type ExerciseRow = {
   equipment: string | null;
   imageUrls?: string[] | null;
   description: string | null;
+  imageUrl?: string | null;
+  mediaUrl?: string | null;
   technique?: string | null;
   tips?: string | null;
   mainMuscleGroup?: string | null;
@@ -2285,7 +2288,6 @@ type ExerciseApiDto = {
   id: string;
   slug: string;
   name: string;
-  source: string | null;
   sourceId: string | null;
   equipment: string | null;
   imageUrls: string[];
@@ -2293,6 +2295,8 @@ type ExerciseApiDto = {
   mainMuscleGroup: string | null;
   secondaryMuscleGroups: string[];
   description: string | null;
+  imageUrl: string | null;
+  mediaUrl: string | null;
   technique: string | null;
   tips: string | null;
 };
@@ -2332,13 +2336,14 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
     id: exercise.id,
     slug: exercise.slug ?? slugifyName(exercise.name),
     name: exercise.name,
-    source: exercise.source ?? null,
     sourceId: exercise.sourceId ?? null,
     equipment: exercise.equipment ?? null,
     imageUrls: (exercise.imageUrls ?? []).filter((url): url is string => typeof url === "string" && url.trim().length > 0),
     imageUrl:
       (exercise.imageUrls ?? []).find((url): url is string => typeof url === "string" && url.trim().length > 0) ?? null,
     description: exercise.description ?? null,
+    imageUrl: exercise.imageUrl ?? null,
+    mediaUrl: exercise.mediaUrl ?? null,
     technique: exercise.technique ?? null,
     tips: exercise.tips ?? null,
     mainMuscleGroup: main ?? null,
@@ -2523,7 +2528,28 @@ async function listExercises(params: {
     }
 
     const [items, total] = await prisma.$transaction([
-      prisma.exercise.findMany(findManyArgs),
+      prisma.exercise.findMany({
+        where,
+        select: {
+          id: true,
+          sourceId: true,
+          slug: true,
+          name: true,
+          equipment: true,
+          description: true,
+          imageUrl: true,
+          mediaUrl: true,
+          technique: true,
+          tips: true,
+          mainMuscleGroup: true,
+          secondaryMuscleGroups: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { name: "asc" },
+        skip: params.offset,
+        take: params.limit,
+      }),
       prisma.exercise.count({ where }),
     ]);
 
@@ -2544,7 +2570,7 @@ async function listExercises(params: {
   const hasFilters = Boolean(params.q || (params.equipment && params.equipment !== "all") || (params.primaryMuscle && params.primaryMuscle !== "all"));
 
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "slug", "name", "source", "sourceId", "equipment", "imageUrls", "mainMuscleGroup", "secondaryMuscleGroups", "description", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
     ${params.cursor
@@ -2572,6 +2598,7 @@ async function getExerciseById(id: string) {
       where: { id },
       select: {
         id: true,
+        sourceId: true,
         slug: true,
         name: true,
         source: true,
@@ -2579,6 +2606,8 @@ async function getExerciseById(id: string) {
         equipment: true,
         imageUrls: true,
         description: true,
+        imageUrl: true,
+        mediaUrl: true,
         technique: true,
         tips: true,
         mainMuscleGroup: true,
@@ -2597,7 +2626,7 @@ async function getExerciseById(id: string) {
   }
 
   const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "slug", "name", "source", "sourceId", "equipment", "imageUrls", "mainMuscleGroup", "secondaryMuscleGroups", "description", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     WHERE "id" = ${id}
     LIMIT 1
@@ -2636,10 +2665,13 @@ async function createExercise(input: z.infer<typeof createExerciseSchema>) {
     },
     select: {
       id: true,
+      sourceId: true,
       slug: true,
       name: true,
       equipment: true,
       description: true,
+      imageUrl: true,
+      mediaUrl: true,
       technique: true,
       tips: true,
       mainMuscleGroup: true,

@@ -66,12 +66,15 @@ model Workout {
 
 model Exercise {
   id                    String   @id @default(cuid())
+  sourceId              String?  @unique
   name                  String
   source                String?
   sourceId              String?
   equipment             String?
   imageUrls             String[] @default([])
   description           String?
+  imageUrl              String?
+  mediaUrl              String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   isUserCreated         Boolean  @default(false)

@@ -9,10 +9,14 @@ async function main() {
 
   if (nodeEnv === 'production' && !allowSeed) {
     console.log('Skipping seed in production. Set ALLOW_SEED=1 to seed intentionally.');
-    return;
+  } else {
+    await runStep('prisma db seed', ['node', ['scripts/prisma-runner.mjs', 'db', 'seed']]);
   }
 
-  await runStep('prisma db seed', ['node', ['scripts/prisma-runner.mjs', 'db', 'seed']]);
+  const importExercises = process.env.IMPORT_EXERCISES === '1';
+  if (importExercises) {
+    await runStep('db:import:free-exercise-db', ['npm', ['run', 'db:import:free-exercise-db']]);
+  }
 }
 
 function runStep(label, [command, args]) {
