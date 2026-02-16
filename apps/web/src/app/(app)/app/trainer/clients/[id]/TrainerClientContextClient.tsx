@@ -7,6 +7,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { hasTrainerClientContextCapability } from "@/lib/capabilities";
 import { canAccessTrainerGymArea, type GymMembership } from "@/lib/gymMembership";
 import { getRoleFlags } from "@/lib/roles";
+import { fetchGymMembershipStatus, parseGymMembership } from "@/services/gym";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
 
@@ -61,7 +62,7 @@ export default function TrainerClientContextClient() {
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [client, setClient] = useState<ClientRow | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("summary");
-  const [gymMembershipState, setGymMembershipState] = useState<"in_gym" | "not_in_gym" | "unknown">("unknown");
+  const [gymMembershipState, setGymMembershipState] = useState<"in_gym" | "not_in_gym" | "unknown" | "no_permission">("unknown");
 
   const handleRetry = () => {
     window.location.reload();
@@ -88,12 +89,8 @@ export default function TrainerClientContextClient() {
 
         if (!active) return;
 
-        setGymMembershipState(gymMembership.state);
-        const canAccess = canAccessTrainerGymArea({
-          isCoach: roleFlags.isTrainer,
-          isAdmin: roleFlags.isAdmin,
-          membership: gymMembership,
-        });
+        setGymMembershipState(membershipState);
+        const canAccess = (roleFlags.isTrainer || roleFlags.isAdmin) && membershipState === "in_gym";
         setCanAccessTrainer(canAccess);
         setPermissionState("ready");
 
@@ -308,7 +305,9 @@ export default function TrainerClientContextClient() {
         ? { title: t("trainer.gymRequiredTitle"), description: t("trainer.gymRequiredDesc") }
         : gymMembershipState === "unknown"
           ? { title: t("trainer.gymUnknownTitle"), description: t("trainer.gymUnknownDesc") }
-          : null;
+          : gymMembershipState === "no_permission"
+            ? { title: t("trainer.unauthorized"), description: t("trainer.unavailableDesc") }
+            : null;
 
     return (
       <div className="card form-stack" role="status">

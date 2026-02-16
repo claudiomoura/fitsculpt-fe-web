@@ -6,6 +6,7 @@ import Link from "next/link";
 import FeatureUnavailableState from "@/components/trainer/FeatureUnavailableState";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getUserRoleFlags } from "@/lib/userCapabilities";
+import { fetchGymMembershipStatus, parseGymMembership } from "@/services/gym";
 import { findTrainerClient, hasClientContextData, type TrainerClient } from "@/lib/trainerClients";
 
 type LoadState = "loading" | "ready" | "error";
@@ -18,6 +19,7 @@ export default function TrainerClientContextClient() {
   const [permissionState, setPermissionState] = useState<LoadState>("loading");
   const [clientState, setClientState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
+  const [membershipState, setMembershipState] = useState<"in_gym" | "not_in_gym" | "unknown" | "no_permission">("unknown");
   const [client, setClient] = useState<TrainerClient | null>(null);
 
   useEffect(() => {
@@ -34,9 +36,26 @@ export default function TrainerClientContextClient() {
         const meData = (await meResponse.json()) as Record<string, unknown>;
         const roleFlags = getUserRoleFlags(meData);
 
+        const membershipResponse = await fetchGymMembershipStatus();
+        let nextMembershipState: "in_gym" | "not_in_gym" | "unknown" | "no_permission" = "unknown";
+
+        if (membershipResponse.status === 403) {
+          nextMembershipState = "no_permission";
+        } else if (!membershipResponse.ok) {
+          nextMembershipState = membershipResponse.status === 401 ? "no_permission" : "unknown";
+        } else {
+          const membership = parseGymMembership(await membershipResponse.json());
+          if (membership.status === "ACTIVE") {
+            nextMembershipState = "in_gym";
+          } else if (membership.status === "NONE" || membership.status === "REJECTED") {
+            nextMembershipState = "not_in_gym";
+          }
+        }
+
         if (!active) return;
 
-        const canAccess = roleFlags.isTrainer || roleFlags.isAdmin;
+        setMembershipState(nextMembershipState);
+        const canAccess = (roleFlags.isTrainer || roleFlags.isAdmin) && nextMembershipState === "in_gym";
         setCanAccessTrainer(canAccess);
         setPermissionState("ready");
 
@@ -83,9 +102,17 @@ export default function TrainerClientContextClient() {
   }
 
   if (!canAccessTrainer) {
+    const message =
+      membershipState === "not_in_gym"
+        ? { title: t("trainer.gymRequiredTitle"), description: t("trainer.gymRequiredDesc") }
+        : membershipState === "unknown"
+          ? { title: t("trainer.gymUnknownTitle"), description: t("trainer.gymUnknownDesc") }
+          : { title: t("trainer.unauthorized"), description: t("trainer.unavailableDesc") };
+
     return (
       <div className="card form-stack" role="status">
-        <p className="muted">{t("trainer.unauthorized")}</p>
+        <p className="muted">{message.title}</p>
+        <p className="muted">{message.description}</p>
         <Link href="/app" className="btn secondary" style={{ width: "fit-content", minHeight: 44 }}>
           {t("trainer.backToDashboard")}
         </Link>

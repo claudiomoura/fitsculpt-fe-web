@@ -7,6 +7,17 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { canAccessTrainerGymArea, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 import TrainerPlanAssignmentPanel from "@/components/trainer/TrainerPlanAssignmentPanel";
+import { fetchGymMembershipStatus, parseGymMembership, type GymMembership } from "@/services/gym";
+
+type MembershipViewState = "loading" | "ready";
+type MembershipGate = "in_gym" | "not_in_gym" | "unknown" | "no_permission";
+
+const unknownMembership: GymMembership = {
+  status: "UNKNOWN",
+  gymId: null,
+  gymName: null,
+  role: null,
+};
 
 type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
 
@@ -87,16 +98,16 @@ export default function TrainerHomeClient() {
     [isAdmin, isCoach, membership],
   );
 
-  if (accessLoading || gymLoading) {
+  if (accessLoading || membershipViewState === "loading") {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
   }
 
   if (!canAccessTrainer) {
-    if (membership.state === "not_in_gym") {
+    if (membershipGate === "not_in_gym") {
       return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
     }
 
-    if (membership.state === "unknown") {
+    if (membershipGate === "unknown") {
       return <EmptyState title={t("trainer.gymUnknownTitle")} description={t("trainer.gymUnknownDesc")} wrapInCard icon="info" />;
     }
 
@@ -108,6 +119,7 @@ export default function TrainerHomeClient() {
       <div className="feature-card form-stack">
         <h2 style={{ margin: 0 }}>{t("trainer.modeTitle")}</h2>
         <p className="muted" style={{ margin: 0 }}>{t("trainer.viewingAsCoach")}</p>
+        {membership.gymName ? <p className="muted" style={{ margin: 0 }}>{membership.gymName}</p> : null}
       </div>
 
       <section className="card form-stack" aria-labelledby="trainer-clients-title">
