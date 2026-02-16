@@ -28,6 +28,7 @@
     "adminPreview": "Vista previa admin",
     "adminLabs": "Labs",
     "trainerClients": "Clientes del entrenador",
+    "trainerPlans": "Planes del entrenador",
     "trainerExercises": "Ejercicios del entrenador",
     "newExercise": "Nuevo ejercicio",
     "onboarding": "Onboarding",
@@ -1937,6 +1938,33 @@
       "description": "Revisa y abre contextos de atletas desde tu área de entrenador.",
       "openList": "Abrir lista de clientes"
     },
+    "requests": {
+      "title": "Solicitudes de ingreso al gimnasio",
+      "description": "Revisa y responde solicitudes pendientes de ingreso a tu gimnasio.",
+      "openList": "Abrir solicitudes",
+      "loading": "Cargando solicitudes...",
+      "empty": "No hay solicitudes pendientes.",
+      "error": "No fue posible cargar las solicitudes.",
+      "accept": "Aceptar",
+      "reject": "Rechazar",
+      "accepting": "Aceptando...",
+      "rejecting": "Rechazando..."
+    },
+    "plans": {
+      "title": "Planes del entrenador",
+      "description": "Crea y revisa los planes manuales disponibles para asignar.",
+      "openList": "Abrir planes",
+      "createTitle": "Crear plan manual",
+      "titleLabel": "Nombre del plan",
+      "descriptionLabel": "Descripción",
+      "create": "Crear plan",
+      "creating": "Creando...",
+      "createError": "No fue posible crear el plan.",
+      "listTitle": "Planes disponibles",
+      "loading": "Cargando planes...",
+      "empty": "No hay planes disponibles.",
+      "error": "No fue posible cargar los planes."
+    },
     "clientContext": {
       "title": "Contexto del atleta",
       "loading": "Cargando contexto del atleta...",
@@ -2077,6 +2105,16 @@
     "gymRequiredDesc": "Esta área de entrenador solo está disponible cuando tu cuenta está vinculada a un gimnasio.",
     "gymUnknownTitle": "Acceso de gimnasio para entrenador no disponible",
     "gymUnknownDesc": "No pudimos confirmar tu membresía de gimnasio con el payload actual del backend.",
+    "adminNoGym": {
+      "title": "Panel admin sin membresía de gimnasio",
+      "description": "Como admin global puedes gestionar gimnasios y solicitudes sin una membresía activa.",
+      "goToGyms": "Ir a /app/admin/gyms",
+      "goToGymRequests": "Ir a /app/admin/gym-requests",
+      "membersByGymTitle": "Miembros por gimnasio",
+      "selectGym": "Selecciona un gimnasio",
+      "noGyms": "No hay gimnasios disponibles.",
+      "noMembers": "No hay miembros para este gimnasio."
+    },
     "assignPlan": {
       "title": "Asignar plan de entrenamiento",
       "subtitle": "Elige un miembro y una plantilla de plan para asignarla desde el modo entrenador.",
