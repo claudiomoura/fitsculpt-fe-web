@@ -28,6 +28,7 @@
     "adminPreview": "Vista previa admin",
     "adminLabs": "Labs",
     "trainerClients": "Clientes del entrenador",
+    "trainerPlans": "Planes del entrenador",
     "trainerExercises": "Ejercicios del entrenador",
     "newExercise": "Nuevo ejercicio",
     "onboarding": "Onboarding",
@@ -1937,6 +1938,33 @@
       "description": "Revisa y abre contextos de atletas desde tu área de entrenador.",
       "openList": "Abrir lista de clientes"
     },
+    "requests": {
+      "title": "Solicitudes de ingreso al gimnasio",
+      "description": "Revisa y responde solicitudes pendientes de ingreso a tu gimnasio.",
+      "openList": "Abrir solicitudes",
+      "loading": "Cargando solicitudes...",
+      "empty": "No hay solicitudes pendientes.",
+      "error": "No fue posible cargar las solicitudes.",
+      "accept": "Aceptar",
+      "reject": "Rechazar",
+      "accepting": "Aceptando...",
+      "rejecting": "Rechazando..."
+    },
+    "plans": {
+      "title": "Planes del entrenador",
+      "description": "Crea y revisa los planes manuales disponibles para asignar.",
+      "openList": "Abrir planes",
+      "createTitle": "Crear plan manual",
+      "titleLabel": "Nombre del plan",
+      "descriptionLabel": "Descripción",
+      "create": "Crear plan",
+      "creating": "Creando...",
+      "createError": "No fue posible crear el plan.",
+      "listTitle": "Planes disponibles",
+      "loading": "Cargando planes...",
+      "empty": "No hay planes disponibles.",
+      "error": "No fue posible cargar los planes."
+    },
     "clientContext": {
       "title": "Contexto del atleta",
       "loading": "Cargando contexto del atleta...",
@@ -2077,6 +2105,16 @@
     "gymRequiredDesc": "Esta área de entrenador solo está disponible cuando tu cuenta está vinculada a un gimnasio.",
     "gymUnknownTitle": "Acceso de gimnasio para entrenador no disponible",
     "gymUnknownDesc": "No pudimos confirmar tu membresía de gimnasio con el payload actual del backend.",
+    "adminNoGym": {
+      "title": "Panel admin sin membresía de gimnasio",
+      "description": "Como admin global puedes gestionar gimnasios y solicitudes sin una membresía activa.",
+      "goToGyms": "Ir a /app/admin/gyms",
+      "goToGymRequests": "Ir a /app/admin/gym-requests",
+      "membersByGymTitle": "Miembros por gimnasio",
+      "selectGym": "Selecciona un gimnasio",
+      "noGyms": "No hay gimnasios disponibles.",
+      "noMembers": "No hay miembros para este gimnasio."
+    },
     "assignPlan": {
       "title": "Asignar plan de entrenamiento",
       "subtitle": "Elige un miembro y una plantilla de plan para asignarla desde el modo entrenador.",
@@ -2128,7 +2166,13 @@
         "missingGymId": "Tu cuenta no está vinculada a un id de gimnasio.",
         "unavailable": "Esta sección estará disponible próximamente cuando el backend habilite la gestión de miembros.",
         "assignAction": "Asignar plan",
-        "assignSuccess": "Plan asignado correctamente."
+        "assignSuccess": "Plan asignado correctamente.",
+        "promoteTrainer": "Promover a entrenador",
+        "removeTrainer": "Quitar entrenador",
+        "roleChanging": "Actualizando rol...",
+        "promoteSuccess": "Miembro promovido a TRAINER.",
+        "demoteSuccess": "Entrenador cambiado a MEMBER.",
+        "roleChangeError": "No pudimos actualizar el rol de este miembro. Reintenta."
       },
       "assignPlan": {
         "title": "Asignar plan de entrenamiento",
@@ -2152,16 +2196,21 @@
       },
       "pending": {
         "title": "Solicitud pendiente",
-        "description": "Tu solicitud para {gymName} está pendiente de aprobación."
+        "description": "Tu solicitud para {gymName} está pendiente de aprobación.",
+        "badge": "PENDIENTE"
       },
       "active": {
         "title": "Membresía activa",
         "description": "Estás en {gymName} con rol {role}.",
-        "planButton": "Ir a mi plan"
+        "planButton": "Ir a mi plan",
+        "badge": "ACTIVA"
       },
       "rejected": {
         "title": "Solicitud rechazada",
         "description": "Tu solicitud anterior fue rechazada. Puedes intentar unirte de nuevo."
+      },
+      "unknown": {
+        "badge": "DESCONOCIDO"
       }
     },
     "join": {
@@ -2174,7 +2223,13 @@
       "empty": "No hay gimnasios disponibles en este momento.",
       "loadError": "No pudimos cargar la lista de gimnasios.",
       "requestSuccess": "Tu solicitud fue enviada. Puedes revisar el estado abajo.",
-      "codeSuccess": "Código aceptado. Tu membresía fue actualizada."
+      "codeSuccess": "Código aceptado. Tu membresía fue actualizada.",
+      "directoryTitle": "Directorio de gimnasios",
+      "loadErrorTitle": "Directorio no disponible",
+      "emptyTitle": "No hay gimnasios disponibles",
+      "selectButton": "Seleccionar",
+      "requestPending": "Solicitud pendiente",
+      "codeTitle": "Unirme con código del gimnasio"
     },
     "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
     "loadError": {
@@ -2263,7 +2318,8 @@
   },
   "common": {
     "loading": "Cargando...",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "comingSoon": "Próximamente"
   },
   "adminGyms": {
     "title": "Administrar gimnasios",

@@ -5299,9 +5299,15 @@ const trainingPlanListSchema = z.object({
 });
 
 const trainingPlanCreateSchema = z.object({
-  title: z.string().trim().min(1).max(120).optional(),
+  title: z.string().trim().min(1).max(120),
   notes: z.string().trim().min(1).max(600).optional(),
-  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+  goal: z.string().trim().min(1).max(80).default("general_fitness"),
+  level: z.string().trim().min(1).max(80).default("beginner"),
+  focus: z.string().trim().min(1).max(120).default("full_body"),
+  equipment: z.string().trim().min(1).max(120).default("bodyweight"),
+  daysPerWeek: z.coerce.number().int().min(1).max(7),
+  startDate: z.string().trim().min(1),
+  daysCount: z.coerce.number().int().min(1).max(14),
 });
 
 const trainingPlanParamsSchema = z.object({ id: z.string().min(1) });
@@ -5502,6 +5508,60 @@ app.get("/training-plans", async (request, reply) => {
       prisma.trainingPlan.count({ where }),
     ]);
     return { items, total, limit, offset };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/training-plans", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const data = trainingPlanCreateSchema.parse(request.body);
+    const startDate = parseDateInput(data.startDate);
+
+    if (!startDate) {
+      return reply.status(400).send({ error: "INVALID_START_DATE" });
+    }
+
+    const dates = buildDateRange(startDate, data.daysCount);
+    const plan = await prisma.trainingPlan.create({
+      data: {
+        userId: user.id,
+        title: data.title,
+        notes: data.notes ?? null,
+        goal: data.goal,
+        level: data.level,
+        daysPerWeek: data.daysPerWeek,
+        focus: data.focus,
+        equipment: data.equipment,
+        startDate,
+        daysCount: data.daysCount,
+        days: {
+          create: dates.map((date, index) => ({
+            date: new Date(`${date}T00:00:00.000Z`),
+            label: `Día ${index + 1}`,
+            focus: data.focus,
+            duration: 45,
+            order: index + 1,
+          })),
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        notes: true,
+        goal: true,
+        level: true,
+        daysPerWeek: true,
+        focus: true,
+        equipment: true,
+        startDate: true,
+        daysCount: true,
+        createdAt: true,
+      },
+    });
+
+    return reply.status(201).send(plan);
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6142,6 +6202,14 @@ const adminUpdateGymMemberRoleSchema = z.object({
   status: z.enum(["ACTIVE", "PENDING", "REJECTED"]).optional(),
 });
 
+const gymAdminUpdateMemberRoleParamsSchema = z.object({
+  userId: z.string().min(1),
+});
+
+const gymAdminUpdateMemberRoleSchema = z.object({
+  role: z.enum(["MEMBER", "TRAINER"]),
+});
+
 const adminCreateGymSchema = z.object({
   name: z.string().trim().min(2).max(120),
   code: z
@@ -6343,18 +6411,24 @@ app.post("/gym/join-code", async (request, reply) => {
 app.get("/admin/gym-join-requests", async (request, reply) => {
   try {
     const user = await requireUser(request);
+    const isGlobalAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
     const requests = await prisma.gymMembership.findMany({
       where: {
         status: "PENDING",
-        gym: {
-          memberships: {
-            some: {
-              userId: user.id,
-              status: "ACTIVE",
-              role: "ADMIN",
-            },
-          },
-        },
+        ...(isGlobalAdmin
+          ? {}
+          : {
+              gym: {
+                memberships: {
+                  some: {
+                    userId: user.id,
+                    status: "ACTIVE",
+                    role: { in: ["ADMIN", "TRAINER"] },
+                  },
+                },
+              },
+            }
+          ),
       },
       select: {
         id: true,
@@ -6379,6 +6453,7 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
 app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply) => {
   try {
     const user = await requireUser(request);
+    const isGlobalAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
     const membership = await prisma.gymMembership.findUnique({
       where: { id: membershipId },
@@ -6390,7 +6465,9 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     if (membership.status !== "PENDING") {
       return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be accepted." });
     }
-    await requireGymAdminForGym(user.id, membership.gymId);
+    if (!isGlobalAdmin) {
+      await requireGymManagerForGym(user.id, membership.gymId);
+    }
     const updateResult = await prisma.gymMembership.updateMany({
       where: { id: membership.id, status: "PENDING" },
       data: { status: "ACTIVE" },
@@ -6411,6 +6488,7 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
 app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply) => {
   try {
     const user = await requireUser(request);
+    const isGlobalAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
     const membership = await prisma.gymMembership.findUnique({
       where: { id: membershipId },
@@ -6422,7 +6500,9 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
     if (membership.status !== "PENDING") {
       return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be rejected." });
     }
-    await requireGymAdminForGym(user.id, membership.gymId);
+    if (!isGlobalAdmin) {
+      await requireGymManagerForGym(user.id, membership.gymId);
+    }
     const updateResult = await prisma.gymMembership.updateMany({
       where: { id: membership.id, status: "PENDING" },
       data: { status: "REJECTED" },
@@ -6735,6 +6815,62 @@ app.patch("/admin/gyms/:gymId/members/:userId/role", async (request, reply) => {
       userId: updated.userId,
       gym: updated.gym,
       status: updated.status,
+      role: updated.role,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/gym/admin/members/:userId/role", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { userId } = gymAdminUpdateMemberRoleParamsSchema.parse(request.params);
+    const { role } = gymAdminUpdateMemberRoleSchema.parse(request.body);
+
+    const adminMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: requester.id,
+        status: "ACTIVE",
+        role: "ADMIN",
+      },
+      select: {
+        gymId: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    if (!adminMembership) {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId: adminMembership.gymId, userId } },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!targetMembership) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    const updated = await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { role },
+      select: {
+        gymId: true,
+        userId: true,
+        role: true,
+      },
+    });
+
+    return {
+      ok: true,
+      userId: updated.userId,
+      gymId: updated.gymId,
       role: updated.role,
     };
   } catch (error) {

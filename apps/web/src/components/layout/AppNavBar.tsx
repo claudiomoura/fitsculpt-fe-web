@@ -188,12 +188,15 @@ export default function AppNavBar() {
                             className="nav-drawer-link"
                             aria-disabled="true"
                           >
-                            <span>{t(item.labelKey)}</span>
-                            <span className="text-xs text-[var(--text-muted)]">
-                              {t(
-                                item.disabledNoteKey ??
-                                  "common.notAvailableYet",
-                              )}
+                            <span>
+                              {t(item.labelKey)}
+                              <span className="text-xs text-[var(--text-muted)]">
+                                {" "}
+                                {t(
+                                  item.disabledNoteKey ??
+                                    "common.notAvailableYet",
+                                )}
+                              </span>
                             </span>
                           </div>
                         );
@@ -240,11 +243,14 @@ export default function AppNavBar() {
                           className="nav-drawer-link"
                           aria-disabled="true"
                         >
-                          <span>{t(item.labelKey)}</span>
-                          <span className="text-xs text-[var(--text-muted)]">
-                            {t(
-                              item.disabledNoteKey ?? "common.notAvailableYet",
-                            )}
+                          <span>
+                            {t(item.labelKey)}
+                            <span className="text-xs text-[var(--text-muted)]">
+                              {" "}
+                              {t(
+                                item.disabledNoteKey ?? "common.notAvailableYet",
+                              )}
+                            </span>
                           </span>
                         </div>
                       );
