@@ -34,6 +34,10 @@ type ExerciseOverviewItem = {
   value: string;
 };
 
+function isNotNull<T>(value: T | null): value is T {
+  return value !== null;
+}
+
 function getMuscleGroups(exercise: Exercise): MuscleGroups {
   const primaryFromMain = exercise.mainMuscleGroup ? [exercise.mainMuscleGroup] : [];
   const primaryFromLegacy = Array.isArray(exercise.primaryMuscles) ? exercise.primaryMuscles : [];
@@ -84,7 +88,7 @@ export default function ExerciseDetailClient({
       exercise.videoUrl ? { kind: "video" as const, url: exercise.videoUrl, poster: exercise.posterUrl ?? exercise.imageUrl ?? undefined } : null,
       exercise.imageUrl ? { kind: "image" as const, url: exercise.imageUrl } : null,
       exercise.posterUrl ? { kind: "image" as const, url: exercise.posterUrl } : null,
-    ].filter((item): item is { kind: "image" | "video"; url: string; poster?: string } => Boolean(item));
+    ].filter(isNotNull);
 
     const unique: Array<{ kind: "image" | "video"; url: string; poster?: string }> = [];
     const seen = new Set<string>();
