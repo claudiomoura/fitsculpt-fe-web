@@ -4,53 +4,13 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 import { Button } from "@/components/ui/Button";
+import {
+  fetchPendingGymJoinRequests,
+  reviewGymJoinRequest,
+  type JoinRequestListItem,
+} from "@/services/gym";
 
-type JoinRequest = {
-  id: string;
-  gymId?: string;
-  gymName?: string;
-  userId?: string;
-  userName?: string;
-  userEmail?: string;
-  createdAt?: string;
-};
-
-function readRequests(payload: unknown): JoinRequest[] {
-  if (!payload || typeof payload !== "object") return [];
-  const source = payload as Record<string, unknown>;
-  const items = Array.isArray(source.items)
-    ? source.items
-    : Array.isArray(source.requests)
-      ? source.requests
-      : Array.isArray(source.data)
-        ? source.data
-        : Array.isArray(payload)
-          ? payload
-          : [];
-
-  const parsed: JoinRequest[] = [];
-
-  for (const entry of items) {
-    if (!entry || typeof entry !== "object") continue;
-    const row = entry as Record<string, unknown>;
-    const gym = (row.gym as Record<string, unknown> | undefined) ?? undefined;
-    const user = (row.user as Record<string, unknown> | undefined) ?? undefined;
-    const id = String(row.id ?? row.membershipId ?? "").trim();
-    if (!id) continue;
-
-    parsed.push({
-      id,
-      gymId: String(row.gymId ?? gym?.id ?? "").trim() || undefined,
-      gymName: String(row.gymName ?? gym?.name ?? "").trim() || undefined,
-      userId: String(row.userId ?? user?.id ?? "").trim() || undefined,
-      userName: String(row.userName ?? user?.name ?? "").trim() || undefined,
-      userEmail: String(row.userEmail ?? user?.email ?? "").trim() || undefined,
-      createdAt: String(row.createdAt ?? "").trim() || undefined,
-    });
-  }
-
-  return parsed;
-}
+type JoinRequest = JoinRequestListItem;
 
 export default function GymJoinRequestsManager() {
   const { t } = useLanguage();
@@ -68,8 +28,8 @@ export default function GymJoinRequestsManager() {
     setError(false);
     setActionError(null);
     try {
-      const response = await fetch("/api/admin/gym-join-requests", { cache: "no-store", credentials: "include" });
-      if (response.status === 404 || response.status === 405) {
+      const response = await fetchPendingGymJoinRequests();
+      if (!response.ok && response.reason === "unsupported") {
         setUnsupported(true);
         setRequests([]);
         setLoading(false);
@@ -81,9 +41,8 @@ export default function GymJoinRequestsManager() {
         return;
       }
 
-      const payload = (await response.json()) as unknown;
       setUnsupported(false);
-      setRequests(readRequests(payload));
+      setRequests(response.data);
       setLoading(false);
     } catch {
       setError(true);
@@ -104,13 +63,9 @@ export default function GymJoinRequestsManager() {
     setError(false);
     setActionError(null);
     try {
-      const response = await fetch(`/api/admin/gym-join-requests/${id}/${action}`, {
-        method: "POST",
-        cache: "no-store",
-        credentials: "include",
-      });
+      const response = await reviewGymJoinRequest(id, action);
       if (!response.ok) {
-        setActionError(`HTTP_${response.status}`);
+        setActionError(`HTTP_${response.status ?? "UNKNOWN"}`);
         setActingId(null);
         return;
       }

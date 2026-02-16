@@ -4,26 +4,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { EmptyState } from "@/components/gym/EmptyState";
-import { ErrorState } from "@/components/gym/ErrorState";
-import { GymCard } from "@/components/gym/GymCard";
-import { GymListSkeleton } from "@/components/gym/GymListSkeleton";
-import { MembershipStatusBadge } from "@/components/gym/MembershipStatusBadge";
-
-type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
-
-type GymMembership = {
-  status: MembershipStatus;
-  gymId: string | null;
-  gymName: string | null;
-  role: string | null;
-};
-
-type GymItem = {
-  id: string;
-  name: string;
-};
+import { Skeleton } from "@/components/ui/Skeleton";
+import {
+  fetchGymsList,
+  fetchMyGymMembership,
+  requestGymJoin,
+  type GymListItem,
+  type GymMembership,
+} from "@/services/gym";
 
 const defaultMembership: GymMembership = {
   status: "UNKNOWN",
@@ -32,55 +20,11 @@ const defaultMembership: GymMembership = {
   role: null,
 };
 
-function toStringOrNull(value: unknown): string | null {
-  if (typeof value === "string" && value.trim().length) return value;
-  if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  return null;
-}
-
-function normalize(value: string | null): string | null {
-  return value ? value.trim().toUpperCase() : null;
-}
-
-function readMembership(payload: unknown): GymMembership {
-  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const data = typeof source.data === "object" && source.data !== null ? (source.data as Record<string, unknown>) : source;
-  const gym = typeof data.gym === "object" && data.gym !== null ? (data.gym as Record<string, unknown>) : null;
-
-  const rawStatus = normalize(toStringOrNull(data.state) ?? toStringOrNull(data.status));
-  const status: MembershipStatus =
-    rawStatus === "NONE" || rawStatus === "PENDING" || rawStatus === "ACTIVE" || rawStatus === "REJECTED"
-      ? rawStatus
-      : "UNKNOWN";
-
-  return {
-    status,
-    gymId: toStringOrNull(data.gymId) ?? toStringOrNull(data.tenantId) ?? toStringOrNull(gym?.id),
-    gymName: toStringOrNull(data.gymName) ?? toStringOrNull(data.tenantName) ?? toStringOrNull(gym?.name),
-    role: normalize(toStringOrNull(data.role)),
-  };
-}
-
-function readGyms(payload: unknown): GymItem[] {
-  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const items = Array.isArray(source.data) ? source.data : Array.isArray(source.gyms) ? source.gyms : Array.isArray(payload) ? payload : [];
-
-  return items
-    .map((entry) => {
-      const row = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {};
-      const id = toStringOrNull(row.id) ?? toStringOrNull(row.gymId);
-      const name = toStringOrNull(row.name) ?? toStringOrNull(row.gymName);
-      if (!id || !name) return null;
-      return { id, name };
-    })
-    .filter((entry): entry is GymItem => Boolean(entry));
-}
-
 export default function GymPageClient() {
   const { t } = useLanguage();
 
   const [membership, setMembership] = useState<GymMembership>(defaultMembership);
-  const [gyms, setGyms] = useState<GymItem[]>([]);
+  const [gyms, setGyms] = useState<GymListItem[]>([]);
   const [selectedGymId, setSelectedGymId] = useState("");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
@@ -105,25 +49,24 @@ export default function GymPageClient() {
     setGymsLoadError(false);
 
     try {
-      const gymsRes = await fetch("/api/gyms", { cache: "no-store", credentials: "include" });
-
-      if (!gymsRes.ok) {
-        if (gymsRes.status === 401) {
+      const gymsResponse = await fetchGymsList();
+      if (!gymsResponse.ok) {
+        if (gymsResponse.reason === "unauthorized") {
           setIsSessionExpired(true);
+          setGyms([]);
+          setSelectedGymId("");
+          setGymsLoadError(false);
+          return;
         }
+
         setGyms([]);
         setSelectedGymId("");
-        setGymsLoadError(gymsRes.status !== 401);
+        setGymsLoadError(true);
         return;
       }
 
-      const gymsData = readGyms(await gymsRes.json());
-      setGyms(gymsData);
-      setSelectedGymId((current) => current || gymsData[0]?.id || "");
-    } catch {
-      setGyms([]);
-      setSelectedGymId("");
-      setGymsLoadError(true);
+      setGyms(gymsResponse.data);
+      setSelectedGymId((current) => current || gymsResponse.data[0]?.id || "");
     } finally {
       setGymsLoading(false);
     }
@@ -137,9 +80,9 @@ export default function GymPageClient() {
     setIsSessionExpired(false);
 
     try {
-      const membershipRes = await fetch("/api/gym/me", { cache: "no-store", credentials: "include" });
+      const membershipRes = await fetchMyGymMembership();
 
-      if (membershipRes.status === 401) {
+      if (!membershipRes.ok && membershipRes.reason === "unauthorized") {
         setMembership(defaultMembership);
         setGyms([]);
         setSelectedGymId("");
@@ -151,7 +94,7 @@ export default function GymPageClient() {
         throw new Error("membership");
       }
 
-      const membershipData = readMembership(await membershipRes.json());
+      const membershipData = membershipRes.data;
       setMembership(membershipData);
 
       if (membershipData.status === "NONE" || membershipData.status === "REJECTED") {
@@ -179,23 +122,9 @@ export default function GymPageClient() {
     setActionSuccess(null);
 
     try {
-      let response = await fetch("/api/gym/join-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ gymId: selectedGymId }),
-      });
+      const response = await requestGymJoin(selectedGymId);
 
-      if (response.status === 404 || response.status === 405) {
-        response = await fetch("/api/gyms/join", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ gymId: selectedGymId }),
-        });
-      }
-
-      if (response.status === 404 || response.status === 405) {
+      if (!response.ok && response.reason === "unsupported") {
         setJoinRequestUnsupported(true);
         return;
       }

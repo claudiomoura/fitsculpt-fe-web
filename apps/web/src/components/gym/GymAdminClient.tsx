@@ -5,16 +5,17 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
+import {
+  fetchMyGymMembership,
+  fetchPendingGymJoinRequests,
+  reviewGymJoinRequest,
+  type GymMembership,
+  type JoinRequestListItem,
+} from "@/services/gym";
 
-type Membership = {
-  status: "NONE" | "PENDING" | "ACTIVE" | "UNKNOWN";
-  gymId: string | null;
-};
+type Membership = Pick<GymMembership, "status" | "gymId">;
 
-type JoinRequest = {
-  id: string;
-  userName: string;
-};
+type JoinRequest = Pick<JoinRequestListItem, "id"> & { userName: string };
 
 type GymMember = {
   id: string;
@@ -28,28 +29,16 @@ function asString(value: unknown): string | null {
   return null;
 }
 
-function parseMembership(payload: unknown): Membership {
-  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const data = typeof source.data === "object" && source.data !== null ? (source.data as Record<string, unknown>) : source;
-  const status = asString(data.status)?.toUpperCase();
-
-  return {
-    status: status === "NONE" || status === "PENDING" || status === "ACTIVE" ? status : "UNKNOWN",
-    gymId: asString(data.gymId) ?? asString(data.tenantId),
-  };
-}
-
-function parseJoinRequests(payload: unknown): JoinRequest[] {
-  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const rows = Array.isArray(source.data) ? source.data : Array.isArray(payload) ? payload : [];
-
-  return rows
-    .map((row) => {
-      const item = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
-      const id = asString(item.id) ?? asString(item.requestId) ?? asString(item.membershipId);
-      const userName = asString(item.userName) ?? asString(item.name) ?? asString(item.email) ?? "-";
+function parseJoinRequests(items: JoinRequestListItem[]): JoinRequest[] {
+  return items
+    .map((item) => {
+      const id = asString(item.id);
       if (!id) return null;
-      return { id, userName };
+
+      return {
+        id,
+        userName: asString(item.userName) ?? asString(item.userEmail) ?? "-",
+      };
     })
     .filter((row): row is JoinRequest => Boolean(row));
 }
@@ -89,10 +78,10 @@ export default function GymAdminClient() {
     setError(null);
 
     try {
-      const membershipRes = await fetch("/api/gyms/membership", { cache: "no-store", credentials: "include" });
+      const membershipRes = await fetchMyGymMembership();
       if (!membershipRes.ok) throw new Error("membership");
 
-      const nextMembership = parseMembership(await membershipRes.json());
+      const nextMembership: Membership = { status: membershipRes.data.status, gymId: membershipRes.data.gymId };
       setMembership(nextMembership);
 
       if (nextMembership.status !== "ACTIVE" || !nextMembership.gymId || (!isAdmin && !isTrainer)) {
@@ -102,13 +91,13 @@ export default function GymAdminClient() {
       }
 
       const [requestsRes, membersRes] = await Promise.all([
-        fetch("/api/admin/gym-join-requests", { cache: "no-store", credentials: "include" }),
+        fetchPendingGymJoinRequests(),
         fetch(`/api/admin/gyms/${nextMembership.gymId}/members`, { cache: "no-store", credentials: "include" }),
       ]);
 
       if (!requestsRes.ok || !membersRes.ok) throw new Error("data");
 
-      setRequests(parseJoinRequests(await requestsRes.json()));
+      setRequests(parseJoinRequests(requestsRes.data));
       setMembers(parseMembers(await membersRes.json()));
     } catch {
       setError(t("gym.adminLoadError"));
@@ -124,10 +113,7 @@ export default function GymAdminClient() {
   const handleRequest = async (id: string, action: "accept" | "reject") => {
     setActionPending(`${id}:${action}`);
     try {
-      const response = await fetch(`/api/admin/gym-join-requests/${id}/${action}`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const response = await reviewGymJoinRequest(id, action);
       if (!response.ok) throw new Error(action);
       await loadAdminData();
     } catch {
