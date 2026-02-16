@@ -4,19 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { EmptyState } from "@/components/gym/EmptyState";
-import { ErrorState } from "@/components/gym/ErrorState";
-import { GymCard } from "@/components/gym/GymCard";
-import { GymListSkeleton } from "@/components/gym/GymListSkeleton";
-import { MembershipStatusBadge } from "@/components/gym/MembershipStatusBadge";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   fetchGymsList,
   fetchMyGymMembership,
   requestGymJoin,
   type GymListItem,
   type GymMembership,
-  type MembershipStatus,
 } from "@/services/gym";
 
 const defaultMembership: GymMembership = {
