@@ -29,24 +29,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  let payload: unknown;
-
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
-  }
-
+  const body = await request.json();
   const response = await fetch(`${getBackendUrl()}/exercises`, {
     method: "POST",
     headers: {
       cookie: authCookie,
       "content-type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
     cache: "no-store",
   });
 
-  const data = await response.json().catch(() => null);
+  const data = await response.json();
   return NextResponse.json(data, { status: response.status });
 }

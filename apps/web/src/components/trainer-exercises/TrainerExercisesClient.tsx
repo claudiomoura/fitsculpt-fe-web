@@ -13,6 +13,7 @@ type AuthUser = Record<string, unknown>;
 
 type ExercisesResponse = {
   exercises?: Exercise[];
+  items?: Exercise[];
 };
 
 export default function TrainerExercisesClient() {
@@ -35,7 +36,7 @@ export default function TrainerExercisesClient() {
       }
 
       const data = (await response.json()) as ExercisesResponse;
-      setExercises(Array.isArray(data.exercises) ? data.exercises : []);
+      setExercises(Array.isArray(data.exercises) ? data.exercises : Array.isArray(data.items) ? data.items : []);
       setExercisesState("ready");
     } catch {
       setExercisesState("error");
