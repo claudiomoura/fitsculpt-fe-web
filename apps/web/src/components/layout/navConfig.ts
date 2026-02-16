@@ -132,13 +132,9 @@ export const sidebarTrainer: NavSectionGroup[] = [
     labelKey: "navSections.trainer",
     items: [
       { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
-      {
-        id: "trainer-clients",
-        href: "/app/trainer/clients",
-        labelKey: "nav.trainerClients",
-        disabled: true,
-        disabledNoteKey: "common.comingSoon",
-      },
+      { id: "trainer-requests", href: "/app/trainer/requests", labelKey: "nav.gymJoinRequests" },
+      { id: "trainer-clients", href: "/app/trainer/clients", labelKey: "nav.trainerClients" },
+      { id: "trainer-plans", href: "/app/trainer/plans", labelKey: "nav.trainerPlans" },
       {
         id: "trainer-exercises",
         href: "/app/trainer/exercises",
@@ -155,10 +151,22 @@ export const sidebarDevelopment: NavSectionGroup[] = [
     items: [
       { id: "dev-trainer-home", href: "/app/trainer", labelKey: "nav.trainer", meta: "/app/trainer" },
       {
+        id: "dev-trainer-requests",
+        href: "/app/trainer/requests",
+        labelKey: "nav.gymJoinRequests",
+        meta: "/app/trainer/requests",
+      },
+      {
         id: "dev-trainer-clients",
         href: "/app/trainer/clients",
         labelKey: "nav.trainerClients",
         meta: "/app/trainer/clients",
+      },
+      {
+        id: "dev-trainer-plans",
+        href: "/app/trainer/plans",
+        labelKey: "nav.trainerPlans",
+        meta: "/app/trainer/plans",
       },
       {
         id: "dev-trainer-exercises",
