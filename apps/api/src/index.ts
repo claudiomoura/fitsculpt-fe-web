@@ -2543,6 +2543,57 @@ async function getExerciseById(id: string) {
   return rows[0] ? normalizeExercisePayload(rows[0]) : null;
 }
 
+
+async function createExercise(input: z.infer<typeof createExerciseSchema>) {
+  const normalizedName = normalizeExerciseName(input.name);
+  const slugBase = slugifyName(normalizedName) || `exercise-${Date.now()}`;
+  const mainMuscleGroup = input.mainMuscleGroup?.trim() || "General";
+  const secondaryMuscleGroups = Array.from(
+    new Set(
+      (input.secondaryMuscleGroups ?? [])
+        .map((muscle) => muscle.trim())
+        .filter((muscle) => muscle.length > 0)
+    )
+  );
+
+  if (!hasExerciseClient()) {
+    throw new Error("EXERCISE_CREATE_NOT_SUPPORTED");
+  }
+
+  const created = await prisma.exercise.create({
+    data: {
+      name: normalizedName,
+      slug: `${slugBase}-${Math.random().toString(36).slice(2, 8)}`,
+      description: input.description?.trim() || null,
+      equipment: input.equipment?.trim() || null,
+      mainMuscleGroup,
+      secondaryMuscleGroups,
+      technique: input.technique?.trim() || null,
+      tips: input.tips?.trim() || null,
+      isUserCreated: true,
+    },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      equipment: true,
+      description: true,
+      technique: true,
+      tips: true,
+      mainMuscleGroup: true,
+      secondaryMuscleGroups: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return normalizeExercisePayload({
+    ...created,
+    createdAt: created.createdAt,
+    updatedAt: created.updatedAt,
+  });
+}
+
 async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
   if (!hasExerciseClient()) {
     app.log.warn("prisma.exercise is unavailable, using raw upsert fallback");
@@ -5069,6 +5120,18 @@ const exerciseListSchema = z.object({
 });
 
 const exerciseParamsSchema = z.object({ id: z.string().min(1) });
+const createExerciseSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(2000).optional(),
+  equipment: z.string().trim().max(80).optional(),
+  mainMuscleGroup: z.string().trim().max(80).optional(),
+  secondaryMuscleGroups: z.array(z.string().trim().min(1).max(80)).max(8).optional(),
+  technique: z.string().trim().max(3000).optional(),
+  tips: z.string().trim().max(3000).optional(),
+  mediaUrl: z.string().trim().url().optional(),
+  imageUrl: z.string().trim().url().optional(),
+  videoUrl: z.string().trim().url().optional(),
+});
 const recipeListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -5189,6 +5252,22 @@ app.get("/exercises/:id", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
     return exercise;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/exercises", async (request, reply) => {
+  try {
+    await requireUser(request);
+    const payload = createExerciseSchema.parse(request.body);
+
+    if (payload.mediaUrl || payload.imageUrl || payload.videoUrl) {
+      return reply.status(400).send({ error: "MEDIA_UPLOAD_NOT_SUPPORTED" });
+    }
+
+    const exercise = await createExercise(payload);
+    return reply.status(201).send(exercise);
   } catch (error) {
     return handleRequestError(reply, error);
   }
