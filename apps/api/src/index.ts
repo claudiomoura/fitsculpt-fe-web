@@ -709,23 +709,6 @@ async function requireGymAdminForGym(userId: string, gymId: string) {
   return adminMembership;
 }
 
-function buildActivationCode(name: string, userId: string, attempt: number) {
-  const seed = `${name}:${userId}:${Date.now().toString(36)}:${attempt}`;
-  const hash = crypto.createHash("sha256").update(seed).digest("hex").toUpperCase();
-  return hash.slice(0, 8);
-}
-
-async function generateUniqueGymActivationCode(name: string, userId: string) {
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const code = buildActivationCode(name, userId, attempt);
-    const existing = await prisma.gym.findUnique({ where: { activationCode: code } });
-    if (!existing) {
-      return code;
-    }
-  }
-  throw createHttpError(500, "JOIN_CODE_GENERATION_FAILED");
-}
-
 async function getOrCreateProfile(userId: string) {
   try {
     return await prisma.userProfile.upsert({
@@ -5912,6 +5895,17 @@ const adminUpdateGymMemberRoleSchema = z.object({
 
 const adminCreateGymSchema = z.object({
   name: z.string().trim().min(2).max(120),
+  code: z
+    .string()
+    .trim()
+    .min(4)
+    .max(24)
+    .regex(/^[A-Za-z0-9_-]+$/, "Gym code can only contain letters, numbers, hyphens and underscores")
+    .transform((value) => value.toUpperCase()),
+});
+
+const adminDeleteGymParamsSchema = z.object({
+  gymId: z.string().min(1),
 });
 
 app.get("/gyms", async (request, reply) => {
@@ -5945,7 +5939,7 @@ const createGymJoinRequest = async (request: FastifyRequest, reply: FastifyReply
     const { gymId } = joinGymSchema.parse(request.body);
     const gym = await prisma.gym.findUnique({ where: { id: gymId }, select: { id: true } });
     if (!gym) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(404).send({ error: "NOT_FOUND", message: "Gym not found." });
     }
     const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId, userId: user.id } },
@@ -5986,23 +5980,32 @@ app.post("/gyms/join-by-code", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const { code } = joinGymByCodeSchema.parse(request.body);
-    const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
+    const normalizedCode = code.toUpperCase();
+    const gym = await prisma.gym.findUnique({ where: { code: normalizedCode } });
     if (!gym) {
-      return reply.status(400).send({ error: "INVALID_GYM_CODE" });
+      return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
     }
-    const membership = await prisma.gymMembership.upsert({
+
+    const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId: gym.id, userId: user.id } },
-      create: {
-        gymId: gym.id,
-        userId: user.id,
-        status: "ACTIVE",
-        role: "MEMBER",
-      },
-      update: {
-        status: "ACTIVE",
-        role: "MEMBER",
-      },
     });
+    const membership = existing
+      ? await prisma.gymMembership.update({
+          where: { id: existing.id },
+          data: {
+            status: existing.status === "REJECTED" ? "PENDING" : existing.status,
+            role: "MEMBER",
+          },
+        })
+      : await prisma.gymMembership.create({
+          data: {
+            gymId: gym.id,
+            userId: user.id,
+            status: "PENDING",
+            role: "MEMBER",
+          },
+        });
+
     return reply.status(200).send({
       state: membership.status.toLowerCase(),
       gym: { id: gym.id, name: gym.name },
@@ -6048,25 +6051,33 @@ app.post("/gym/join-code", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const { code } = joinGymByCodeSchema.parse(request.body);
-    const gym = await prisma.gym.findUnique({ where: { code: code.toUpperCase() } });
+    const normalizedCode = code.toUpperCase();
+    const gym = await prisma.gym.findUnique({ where: { code: normalizedCode } });
 
     if (!gym) {
-      return reply.status(400).send({ error: "INVALID_GYM_CODE" });
+      return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
     }
 
-    const membership = await prisma.gymMembership.upsert({
+    const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId: gym.id, userId: user.id } },
-      create: {
-        gymId: gym.id,
-        userId: user.id,
-        status: "ACTIVE",
-        role: "MEMBER",
-      },
-      update: {
-        status: "ACTIVE",
-        role: "MEMBER",
-      },
     });
+
+    const membership = existing
+      ? await prisma.gymMembership.update({
+          where: { id: existing.id },
+          data: {
+            status: existing.status === "REJECTED" ? "PENDING" : existing.status,
+            role: "MEMBER",
+          },
+        })
+      : await prisma.gymMembership.create({
+          data: {
+            gymId: gym.id,
+            userId: user.id,
+            status: "PENDING",
+            role: "MEMBER",
+          },
+        });
 
     return reply.status(200).send({
       state: membership.status.toLowerCase(),
@@ -6118,10 +6129,10 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
     const membership = await prisma.gymMembership.findUnique({ where: { id: membershipId } });
     if (!membership) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(404).send({ error: "NOT_FOUND", message: "Membership request not found." });
     }
     if (membership.status !== "PENDING") {
-      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+      return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be accepted." });
     }
     await requireGymAdminForGym(user.id, membership.gymId);
     const updateResult = await prisma.gymMembership.updateMany({
@@ -6130,7 +6141,9 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     });
 
     if (updateResult.count === 0) {
-      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+      return reply
+        .status(400)
+        .send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be accepted." });
     }
 
     return { membershipId: membership.id, status: "ACTIVE" };
@@ -6145,10 +6158,10 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
     const membership = await prisma.gymMembership.findUnique({ where: { id: membershipId } });
     if (!membership) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(404).send({ error: "NOT_FOUND", message: "Membership request not found." });
     }
     if (membership.status !== "PENDING") {
-      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+      return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be rejected." });
     }
     await requireGymAdminForGym(user.id, membership.gymId);
     const updateResult = await prisma.gymMembership.updateMany({
@@ -6157,7 +6170,9 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
     });
 
     if (updateResult.count === 0) {
-      return reply.status(409).send({ error: "INVALID_MEMBERSHIP_STATUS" });
+      return reply
+        .status(400)
+        .send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be rejected." });
     }
 
     return { membershipId: membership.id, status: "REJECTED" };
@@ -6315,14 +6330,13 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
 app.post("/admin/gyms", async (request, reply) => {
   try {
     const user = await requireAdmin(request);
-    const { name } = adminCreateGymSchema.parse(request.body);
+    const { name, code } = adminCreateGymSchema.parse(request.body);
     const created = await prisma.$transaction(async (tx) => {
-      const activationCode = await generateUniqueGymActivationCode(name, user.id);
       const gym = await tx.gym.create({
         data: {
           name,
-          code: activationCode,
-          activationCode,
+          code,
+          activationCode: code,
         },
       });
       await tx.gymMembership.create({
@@ -6343,7 +6357,7 @@ app.post("/admin/gyms", async (request, reply) => {
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return reply.status(409).send({ error: "JOIN_CODE_CONFLICT" });
+      return reply.status(400).send({ error: "GYM_CODE_ALREADY_EXISTS", message: "Gym code already exists." });
     }
     return handleRequestError(reply, error);
   }
@@ -6375,6 +6389,42 @@ app.get("/admin/gyms", async (request, reply) => {
       activationCode: gym.activationCode,
       membersCount: gym._count.memberships,
     }));
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/admin/gyms/:gymId", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { gymId } = adminDeleteGymParamsSchema.parse(request.params);
+
+    const gym = await prisma.gym.findUnique({
+      where: { id: gymId },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            memberships: true,
+          },
+        },
+      },
+    });
+
+    if (!gym) {
+      return reply.status(404).send({ error: "NOT_FOUND", message: "Gym not found." });
+    }
+
+    if (gym._count.memberships > 0) {
+      return reply.status(400).send({
+        error: "GYM_DELETE_BLOCKED",
+        message: "Gym cannot be deleted while it still has memberships.",
+      });
+    }
+
+    await prisma.gym.delete({ where: { id: gymId } });
+
+    return reply.status(200).send({ ok: true, gymId });
   } catch (error) {
     return handleRequestError(reply, error);
   }
