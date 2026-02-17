@@ -328,7 +328,6 @@ Password123
 Tem de serr onde esta o eschema  em C:\Users\Moura\Documents\Work\FitSculpt\fitsculpt-fe-web\apps\api>
 $env:DATABASE_URL="postgresql://bd2_ukh7_user:pkY5rjnC78bP4CR13yzFTLDqFTb0Kk6O@dpg-d694rj75r7bs73f2vsqg-a.virginia-postgres.render.com/bd2_ukh7"
  
-
 npx prisma studio
 
 
