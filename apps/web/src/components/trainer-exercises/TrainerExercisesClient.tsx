@@ -16,8 +16,25 @@ type ExercisesResponse = {
   items?: Exercise[];
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function asText(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
 function getExerciseThumbnail(exercise: Exercise): string | null {
-  return exercise.imageUrl ?? exercise.posterUrl ?? null;
+  const rawExercise = exercise as Exercise & Record<string, unknown>;
+  const media = asRecord(rawExercise.media);
+
+  return (
+    exercise.imageUrl ??
+    exercise.posterUrl ??
+    asText(rawExercise.thumbnailUrl) ??
+    asText(media?.thumbnailUrl) ??
+    null
+  );
 }
 
 export default function TrainerExercisesClient() {
