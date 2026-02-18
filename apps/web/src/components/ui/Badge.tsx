@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/classNames";
 
-type BadgeVariant = "default" | "success" | "warning" | "danger" | "muted";
+type BadgeVariant = "default" | "success" | "warning" | "error" | "danger" | "info" | "muted";
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
   variant?: BadgeVariant;
@@ -11,7 +11,9 @@ const VARIANT_CLASS: Record<BadgeVariant, string> = {
   default: "",
   success: "ui-badge--success",
   warning: "ui-badge--warning",
-  danger: "ui-badge--danger",
+  error: "ui-badge--error",
+  danger: "ui-badge--error",
+  info: "ui-badge--info",
   muted: "ui-badge--muted",
 };
 

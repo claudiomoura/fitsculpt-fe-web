@@ -8,13 +8,19 @@
   --color-text: #0f172a;
   --color-text-muted: #64748b;
   --color-border: #e2e8f0;
-  --color-primary: #00f5c3;
-  --color-primary-strong: #14b8a6;
-  --color-secondary: #3b82f6;
-  --color-danger: #ef4444;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-ring: rgba(0, 245, 195, 0.35);
+  --color-primary: #00d084;
+  --color-primary-strong: #00b874;
+  --color-secondary: #0f172a;
+  --color-danger: #ff3b3b;
+  --color-success: #00d084;
+  --color-warning: #ffb020;
+  --color-info: #3b82f6;
+  --color-ring: color-mix(in srgb, var(--color-primary) 35%, transparent);
+
+  --status-success: #00d084;
+  --status-warning: #ffb020;
+  --status-error: #ff3b3b;
+  --status-info: #3b82f6;
 
   /* Backwards-compatible aliases */
   --theme-bg: var(--fs-bg);
@@ -109,13 +115,19 @@ html.theme-dark {
   --color-text: #f8fafc;
   --color-text-muted: #94a3b8;
   --color-border: #2b3240;
-  --color-primary: #7affde;
-  --color-primary-strong: #34d399;
-  --color-secondary: #7bb6ff;
-  --color-danger: #f87171;
-  --color-success: #4ade80;
-  --color-warning: #fbbf24;
-  --color-ring: rgba(122, 255, 222, 0.45);
+  --color-primary: #00d084;
+  --color-primary-strong: #1be39a;
+  --color-secondary: #e2e8f0;
+  --color-danger: #ff6b6b;
+  --color-success: #2ae0a1;
+  --color-warning: #ffb020;
+  --color-info: #60a5fa;
+  --color-ring: color-mix(in srgb, var(--color-primary) 42%, transparent);
+
+  --status-success: #00d084;
+  --status-warning: #ffb020;
+  --status-error: #ff3b3b;
+  --status-info: #3b82f6;
 
   --theme-bg: var(--fs-bg);
   --theme-surface: var(--fs-surface);
@@ -714,7 +726,7 @@ main {
 .btn:hover,
 .ui-button:hover {
   background: var(--accent-strong);
-  box-shadow: 0 12px 24px color-mix(in srgb, var(--accent) 25%, transparent);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--color-primary) 25%, transparent);
   transform: translateY(-1px);
 }
 
@@ -1747,7 +1759,7 @@ label {
   color: var(--fs-bg);
   font-size: 20px;
   font-weight: 700;
-  box-shadow: 0 10px 20px color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 
 .mobile-tab-label {
@@ -2099,21 +2111,28 @@ label {
 }
 
 .ui-badge--success {
-  background: color-mix(in srgb, var(--color-success) 16%, var(--bg-card));
-  color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 40%, var(--border));
+  background: color-mix(in srgb, var(--status-success) 16%, var(--bg-card));
+  color: var(--status-success);
+  border-color: color-mix(in srgb, var(--status-success) 40%, var(--border));
 }
 
 .ui-badge--warning {
-  background: color-mix(in srgb, var(--color-warning) 18%, var(--bg-card));
-  color: var(--color-warning);
-  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--border));
+  background: color-mix(in srgb, var(--status-warning) 18%, var(--bg-card));
+  color: var(--status-warning);
+  border-color: color-mix(in srgb, var(--status-warning) 45%, var(--border));
 }
 
+.ui-badge--error,
 .ui-badge--danger {
-  background: color-mix(in srgb, var(--color-danger) 16%, var(--bg-card));
-  color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--status-error) 16%, var(--bg-card));
+  color: var(--status-error);
+  border-color: color-mix(in srgb, var(--status-error) 45%, var(--border));
+}
+
+.ui-badge--info {
+  background: color-mix(in srgb, var(--status-info) 16%, var(--bg-card));
+  color: var(--status-info);
+  border-color: color-mix(in srgb, var(--status-info) 45%, var(--border));
 }
 
 .ui-badge--muted {
@@ -3139,18 +3158,18 @@ label {
 }
 
 .status-card--error {
-  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--border));
-  background: color-mix(in srgb, var(--color-danger) 12%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--status-error) 40%, var(--border));
+  background: color-mix(in srgb, var(--status-error) 12%, var(--bg-card));
 }
 
 .status-card--success {
-  border-color: color-mix(in srgb, var(--color-success) 40%, var(--border));
-  background: color-mix(in srgb, var(--color-success) 12%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--status-success) 40%, var(--border));
+  background: color-mix(in srgb, var(--status-success) 12%, var(--bg-card));
 }
 
 .status-card--warning {
-  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--border));
-  background: color-mix(in srgb, var(--color-warning) 15%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--status-warning) 45%, var(--border));
+  background: color-mix(in srgb, var(--status-warning) 15%, var(--bg-card));
 }
 
 @media (max-width: 900px) {
@@ -3310,8 +3329,8 @@ textarea:disabled {
 }
 
 .ui-input.is-error {
-  border-color: var(--color-danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-color: var(--status-error);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-error) 30%, transparent);
 }
 
 .ui-input-helper {
@@ -3321,7 +3340,7 @@ textarea:disabled {
 
 .ui-input-error {
   font-size: 12px;
-  color: var(--color-danger);
+  color: var(--status-error);
 }
 
 .ui-divider {
@@ -3481,15 +3500,19 @@ textarea:disabled {
 }
 
 .ui-toast--success {
-  border-color: color-mix(in srgb, var(--color-success) 40%, var(--border));
+  border-color: color-mix(in srgb, var(--status-success) 40%, var(--border));
 }
 
 .ui-toast--error {
-  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--border));
+  border-color: color-mix(in srgb, var(--status-error) 40%, var(--border));
 }
 
 .ui-toast--info {
-  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--border));
+  border-color: color-mix(in srgb, var(--status-info) 40%, var(--border));
+}
+
+.ui-toast--warning {
+  border-color: color-mix(in srgb, var(--status-warning) 42%, var(--border));
 }
 
 .ui-toast-close {

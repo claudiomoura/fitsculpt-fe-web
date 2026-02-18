@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { Button } from "./Button";
 import { cn } from "@/lib/classNames";
 
-type ToastVariant = "success" | "error" | "info";
+type ToastVariant = "success" | "warning" | "error" | "info";
 
 type ToastItem = {
   id: string;
