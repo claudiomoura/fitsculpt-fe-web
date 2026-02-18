@@ -25,6 +25,13 @@ const config: Config = {
         "dni-success": "var(--dni-success)",
         "dni-warn": "var(--dni-warn)",
         "dni-error": "var(--dni-error)",
+        "brand-bg": "var(--brand-bg)",
+        "brand-surface": "var(--brand-surface)",
+        "brand-border": "var(--brand-border)",
+        "brand-primary": "var(--brand-primary)",
+        "brand-secondary": "var(--brand-secondary)",
+        "brand-text": "var(--brand-text)",
+        "brand-muted": "var(--brand-muted)",
       },
       borderRadius: {
         card: "var(--fs-radius-card)",

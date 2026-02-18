@@ -12,3 +12,5 @@ export type { FeatureCardProps } from "./FeatureCard";
 
 export { Section } from "./Section";
 export type { SectionProps } from "./Section";
+
+export { PricingCard } from "./PricingCard";
