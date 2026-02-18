@@ -6511,6 +6511,24 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const isGlobalAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
+
+    if (!isGlobalAdmin) {
+      const managerMembership = await prisma.gymMembership.findFirst({
+        where: {
+          userId: user.id,
+          status: "ACTIVE",
+          role: { in: ["ADMIN", "TRAINER"] },
+        },
+        select: { id: true },
+      });
+
+      if (!managerMembership) {
+        return reply
+          .status(403)
+          .send({ error: "FORBIDDEN", message: "Only gym admins or trainers can list join requests." });
+      }
+    }
+
     const requests = await prisma.gymMembership.findMany({
       where: {
         status: "PENDING",
@@ -6804,7 +6822,7 @@ app.post("/admin/gyms", async (request, reply) => {
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return reply.status(400).send({ error: "GYM_CODE_ALREADY_EXISTS", message: "Gym code already exists." });
+      return reply.status(409).send({ error: "GYM_CODE_ALREADY_EXISTS", message: "Gym code already exists." });
     }
     return handleRequestError(reply, error);
   }
@@ -6862,16 +6880,9 @@ app.delete("/admin/gyms/:gymId", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND", message: "Gym not found." });
     }
 
-    if (gym._count.memberships > 0) {
-      return reply.status(400).send({
-        error: "GYM_DELETE_BLOCKED",
-        message: "Gym cannot be deleted while it still has memberships.",
-      });
-    }
-
     await prisma.gym.delete({ where: { id: gymId } });
 
-    return reply.status(200).send({ ok: true, gymId });
+    return reply.status(200).send({ ok: true, gymId, deletedMemberships: gym._count.memberships });
   } catch (error) {
     return handleRequestError(reply, error);
   }
