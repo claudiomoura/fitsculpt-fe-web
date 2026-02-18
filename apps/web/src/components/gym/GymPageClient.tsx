@@ -22,15 +22,15 @@ import {
   gymServiceCapabilities,
   requestGymJoin,
   leaveGymMembership,
+  gymServiceCapabilities,
   type GymListItem,
   type GymMembership,
 } from "@/services/gym";
 
-type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
-
+type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED";
 
 const defaultMembership: GymMembership = {
-  status: "UNKNOWN",
+  status: "NONE",
   gymId: null,
   gymName: null,
   role: null,
@@ -276,7 +276,7 @@ export default function GymPageClient() {
               const safeStatus: MembershipStatus =
                 membership.gymId && membership.gymId === gym.id && (membership.status === "PENDING" || membership.status === "ACTIVE")
                   ? membership.status
-                  : "UNKNOWN";
+                  : "NONE";
 
               return (
                 <GymCard
@@ -367,9 +367,7 @@ export default function GymPageClient() {
         </Card>
       )}
 
-      {membership.status === "UNKNOWN" && <EmptyState title={t("gym.unavailableTitle")} description={t("gym.unavailableDescription")} />}
-
-      <Card>
+            <Card>
         <CardHeader>
           <CardTitle>{t("gym.join.codeTitle")}</CardTitle>
           <CardDescription>{t("gym.join.codeHelp")}</CardDescription>
@@ -387,27 +385,27 @@ export default function GymPageClient() {
       </Card>
 
       {gymServiceCapabilities.supportsLeaveGym ? (
-        <Modal
-          open={isLeaveConfirmOpen}
-          onClose={() => {
-            if (isLeavingGym) return;
-            setIsLeaveConfirmOpen(false);
-          }}
-          title={t("gym.leave.confirmTitle")}
-          description={t("gym.leave.confirmDescription")}
-          footer={
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <Button variant="secondary" onClick={() => setIsLeaveConfirmOpen(false)} disabled={isLeavingGym}>
-                {t("ui.cancel")}
-              </Button>
-              <Button onClick={() => void handleLeaveGym()} loading={isLeavingGym} disabled={isLeavingGym}>
-                {t("gym.leave.confirmAction")}
-              </Button>
-            </div>
-          }
-        >
-          <p className="muted" style={{ margin: 0 }}>{t("gym.leave.confirmHelp")}</p>
-        </Modal>
+      <Modal
+        open={isLeaveConfirmOpen}
+        onClose={() => {
+          if (isLeavingGym) return;
+          setIsLeaveConfirmOpen(false);
+        }}
+        title={t("gym.leave.confirmTitle")}
+        description={t("gym.leave.confirmDescription")}
+        footer={
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <Button variant="secondary" onClick={() => setIsLeaveConfirmOpen(false)} disabled={isLeavingGym}>
+              {t("ui.cancel")}
+            </Button>
+            <Button onClick={() => void handleLeaveGym()} loading={isLeavingGym} disabled={isLeavingGym}>
+              {t("gym.leave.confirmAction")}
+            </Button>
+          </div>
+        }
+      >
+        <p className="muted" style={{ margin: 0 }}>{t("gym.leave.confirmHelp")}</p>
+      </Modal>
       ) : null}
 
       {actionError ? <ErrorState title={t("gym.actionErrorTitle")} description={actionError} retryLabel={t("common.retry")} onRetry={() => setActionError(null)} /> : null}

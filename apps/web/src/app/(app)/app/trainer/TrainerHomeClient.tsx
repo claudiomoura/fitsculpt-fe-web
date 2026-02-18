@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LoadingState, EmptyState } from "@/components/states";
+import { LoadingState, EmptyState, ErrorState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import TrainerPlanAssignmentPanel from "@/components/trainer/TrainerPlanAssignmentPanel";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
@@ -9,7 +9,7 @@ import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess"
 
 export default function TrainerHomeClient() {
   const { t } = useLanguage();
-  const { isLoading: accessLoading, gymLoading, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
+  const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
 
   if (accessLoading || gymLoading) {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
@@ -24,8 +24,8 @@ export default function TrainerHomeClient() {
       return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
     }
 
-    if (membership.state === "unknown") {
-      return <EmptyState title={t("trainer.gymUnknownTitle")} description={t("trainer.gymUnknownDesc")} wrapInCard icon="info" />;
+    if (gymError) {
+      return <ErrorState title={t("trainer.error")} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
     }
 
     return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;

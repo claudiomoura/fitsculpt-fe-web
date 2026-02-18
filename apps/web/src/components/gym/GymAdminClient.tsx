@@ -61,7 +61,7 @@ function parseMembers(payload: unknown): GymMember[] {
 export default function GymAdminClient() {
   const { t } = useLanguage();
   const { isAdmin, isTrainer } = useAccess();
-  const [membership, setMembership] = useState<Membership>({ status: "UNKNOWN", gymId: null });
+  const [membership, setMembership] = useState<Membership>({ status: "NONE", gymId: null });
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [members, setMembers] = useState<GymMember[]>([]);
   const [loading, setLoading] = useState(true);

@@ -46,7 +46,7 @@ function getClientAvatar(client: { name: string; raw: Record<string, unknown> })
 
 export default function TrainerClientsListClient() {
   const { t } = useLanguage();
-  const { isLoading: accessLoading, gymLoading, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
+  const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
 
   const [listState, setListState] = useState<ListState>("loading");
   const [capability, setCapability] = useState<TrainerClientsCapability>({ status: "unavailable" });
@@ -172,8 +172,8 @@ export default function TrainerClientsListClient() {
       return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
     }
 
-    if (membership.state === "unknown") {
-      return <EmptyState title={t("trainer.gymUnknownTitle")} description={t("trainer.gymUnknownDesc")} wrapInCard icon="info" />;
+    if (gymError) {
+      return <ErrorState title={t("trainer.error")} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
     }
 
     return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;

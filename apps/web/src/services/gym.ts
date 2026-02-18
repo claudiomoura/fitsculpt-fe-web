@@ -75,7 +75,14 @@ export const gymEndpointInventory: GymEndpointInventory[] = [
     notes: "Leave gym is gated in FE and returns unsupported when backend does not expose the operation.",
   },
 ];
-export type GymMembership = GymMembershipDto;
+export type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED";
+
+export type GymMembership = {
+  status: MembershipStatus;
+  gymId: string | null;
+  gymName: string | null;
+  role: string | null;
+};
 
 export type GymListItem = GymListItemDto;
 
@@ -104,6 +111,54 @@ function asString(value: unknown): string | null {
   return null;
 }
 
+function normalize(value: string | null): string | null {
+  return value ? value.trim().toUpperCase() : null;
+}
+
+type BffDataEnvelope<T> = {
+  data: T;
+};
+
+type BffGymMembership = {
+  state: MembershipStatus;
+  gymId: string | null;
+  gymName: string | null;
+  role: string | null;
+};
+
+type BffGymListItem = {
+  id: string;
+  name: string;
+};
+
+type BffJoinRequest = {
+  id: string;
+  gymId?: string;
+  gymName?: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string;
+  createdAt?: string;
+};
+
+type BffGymMember = {
+  id: string;
+  name: string;
+  email?: string;
+  role?: string | null;
+};
+
+function isMembershipStatus(value: unknown): value is MembershipStatus {
+  return value === "NONE" || value === "PENDING" || value === "ACTIVE" || value === "REJECTED";
+}
+
+function unwrapDataEnvelope<T>(payload: T | BffDataEnvelope<T>): T {
+  if (payload && typeof payload === "object" && "data" in (payload as Record<string, unknown>)) {
+    return (payload as BffDataEnvelope<T>).data;
+  }
+  return payload as T;
+}
+
 async function readJsonResponse<T>(
   path: string,
   init?: RequestInit,
@@ -125,35 +180,29 @@ async function readJsonResponse<T>(
   }
 }
 
-export function parseMembership(payload: unknown): GymMembership {
-  return normalizeMembershipPayload(payload);
+export function parseMembership(payload: BffGymMembership | BffDataEnvelope<BffGymMembership>): GymMembership {
+  const membership = unwrapDataEnvelope(payload);
+  const role = normalize(asString(membership.role));
+
+  return {
+    status: isMembershipStatus(membership.state) ? membership.state : "NONE",
+    gymId: asString(membership.gymId),
+    gymName: asString(membership.gymName),
+    role,
+  };
 }
 
-function parseGymMembers(payload: unknown): GymMember[] {
-  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const rows = Array.isArray(source.data) ? source.data : Array.isArray(payload) ? payload : [];
-
-  const parsed: GymMember[] = [];
-
-  for (const row of rows) {
-    const item = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
-    const id = asString(item.id) ?? asString(item.userId);
-    if (!id) continue;
-
-    const email = asString(item.email) ?? asString(item.userEmail) ?? null;
-    parsed.push({
-      id,
-      name: asString(item.name) ?? asString(item.userName) ?? email ?? "-",
-      ...(email ? { email } : {}),
-      role: asString(item.role),
-    });
-  }
-
-  return parsed;
+function parseGymMembers(payload: BffGymMember[] | BffDataEnvelope<BffGymMember[]>): GymMember[] {
+  return unwrapDataEnvelope(payload).map((member) => ({
+    id: member.id,
+    name: member.name,
+    ...(member.email ? { email: member.email } : {}),
+    role: member.role ?? null,
+  }));
 }
 
 
-function parseGymJoinRequests(payload: unknown): GymJoinRequest[] {
+function parseGymJoinRequests(payload: BffJoinRequest[] | BffDataEnvelope<BffJoinRequest[]>): GymJoinRequest[] {
   const parsed: GymJoinRequest[] = [];
 
   for (const item of parseJoinRequestList(payload)) {
@@ -172,23 +221,31 @@ function parseGymJoinRequests(payload: unknown): GymJoinRequest[] {
 }
 
 
-function parseGymList(payload: unknown): GymListItem[] {
-  return normalizeGymListPayload(payload);
+function parseGymList(payload: BffGymListItem[] | BffDataEnvelope<BffGymListItem[]>): GymListItem[] {
+  return unwrapDataEnvelope(payload).map((gym) => ({ id: gym.id, name: gym.name }));
 }
 
-function parseJoinRequestList(payload: unknown): JoinRequestListItem[] {
-  return normalizeJoinRequestPayload(payload);
+function parseJoinRequestList(payload: BffJoinRequest[] | BffDataEnvelope<BffJoinRequest[]>): JoinRequestListItem[] {
+  return unwrapDataEnvelope(payload).map((request) => ({
+    id: request.id,
+    ...(request.gymId ? { gymId: request.gymId } : {}),
+    ...(request.gymName ? { gymName: request.gymName } : {}),
+    ...(request.userId ? { userId: request.userId } : {}),
+    ...(request.userName ? { userName: request.userName } : {}),
+    ...(request.userEmail ? { userEmail: request.userEmail } : {}),
+    ...(request.createdAt ? { createdAt: request.createdAt } : {}),
+  }));
 }
 
 export async function fetchMyGymMembership(): Promise<ServiceResult<GymMembership>> {
-  const response = await readJsonResponse<unknown>("/api/gym/me");
+  const response = await readJsonResponse<BffGymMembership | BffDataEnvelope<BffGymMembership>>("/api/gym/me");
   if (!response.ok) return response;
 
   return { ok: true, data: parseMembership(response.data) };
 }
 
 export async function fetchGymsList(): Promise<ServiceResult<GymListItem[]>> {
-  const response = await readJsonResponse<unknown>("/api/gyms");
+  const response = await readJsonResponse<BffGymListItem[] | BffDataEnvelope<BffGymListItem[]>>("/api/gyms");
   if (!response.ok) return response;
 
   return { ok: true, data: parseGymList(response.data) };
@@ -239,7 +296,7 @@ export async function leaveGymMembership(): Promise<ServiceResult<null>> {
 }
 
 export async function fetchPendingGymJoinRequests(): Promise<ServiceResult<JoinRequestListItem[]>> {
-  const response = await readJsonResponse<unknown>("/api/admin/gym-join-requests");
+  const response = await readJsonResponse<BffJoinRequest[] | BffDataEnvelope<BffJoinRequest[]>>("/api/admin/gym-join-requests");
   if (!response.ok) return response;
 
   return { ok: true, data: parseJoinRequestList(response.data) };

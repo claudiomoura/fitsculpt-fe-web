@@ -11,7 +11,7 @@ type ListState = "loading" | "ready";
 
 export default function TrainerRequestsClient() {
   const { t } = useLanguage();
-  const { isLoading: accessLoading, gymLoading, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
+  const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
   const [state, setState] = useState<ListState>("loading");
   const [items, setItems] = useState<JoinRequestListItem[]>([]);
   const [error, setError] = useState(false);
@@ -34,7 +34,14 @@ export default function TrainerRequestsClient() {
 
   useEffect(() => {
     if (!canAccessTrainerArea) return;
-    void loadRequests();
+
+    const timeoutId = window.setTimeout(() => {
+      void loadRequests();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [canAccessTrainerArea, loadRequests]);
 
   const onReview = async (requestId: string, action: "accept" | "reject") => {
@@ -62,8 +69,8 @@ export default function TrainerRequestsClient() {
       return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
     }
 
-    if (membership.state === "unknown") {
-      return <EmptyState title={t("trainer.gymUnknownTitle")} description={t("trainer.gymUnknownDesc")} wrapInCard icon="info" />;
+    if (gymError) {
+      return <ErrorState title={t("trainer.error")} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
     }
 
     return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;
