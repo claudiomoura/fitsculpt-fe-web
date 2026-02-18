@@ -1966,7 +1966,9 @@
       "listTitle": "Available plans",
       "loading": "Loading plans...",
       "empty": "No plans available.",
-      "error": "We could not load plans."
+      "error": "We could not load plans.",
+      "addExerciseSuccess": "Exercise added to the selected plan day.",
+      "addExerciseError": "We could not add that exercise to the selected day."
     },
     "clientContext": {
       "title": "Athlete context",

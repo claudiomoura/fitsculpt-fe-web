@@ -1969,7 +1969,9 @@
       "listTitle": "Planes disponibles",
       "loading": "Cargando planes...",
       "empty": "No hay planes disponibles.",
-      "error": "No fue posible cargar los planes."
+      "error": "No fue posible cargar los planes.",
+      "addExerciseSuccess": "Ejercicio agregado al día seleccionado del plan.",
+      "addExerciseError": "No pudimos agregar ese ejercicio al día seleccionado."
     },
     "clientContext": {
       "title": "Contexto del atleta",
