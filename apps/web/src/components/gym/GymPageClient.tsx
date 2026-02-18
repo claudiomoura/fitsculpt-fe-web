@@ -22,7 +22,6 @@ import {
   gymServiceCapabilities,
   requestGymJoin,
   leaveGymMembership,
-  gymServiceCapabilities,
   type GymListItem,
   type GymMembership,
 } from "@/services/gym";

@@ -22,6 +22,25 @@ export type JoinRequestListItemDto = {
   createdAt?: string;
 };
 
+export type GymMemberListItemDto = {
+  userId: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  status?: string;
+};
+
+export type GymMutationResultDto = {
+  ok: boolean;
+  gymId: string | null;
+  gym?: {
+    id: string;
+    name?: string;
+    code?: string;
+    activationCode?: string;
+  };
+};
+
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -104,4 +123,64 @@ export function normalizeJoinRequestPayload(payload: unknown): JoinRequestListIt
   }
 
   return parsed;
+}
+
+export function normalizeMembersPayload(payload: unknown): GymMemberListItemDto[] {
+  if (!isRecord(payload) && !Array.isArray(payload)) return [];
+
+  const source = isRecord(payload) ? payload : {};
+  const items = Array.isArray(source.members)
+    ? source.members
+    : Array.isArray(source.clients)
+      ? source.clients
+      : Array.isArray(source.users)
+        ? source.users
+        : Array.isArray(source.data)
+          ? source.data
+          : Array.isArray(payload)
+            ? payload
+            : [];
+
+  const normalized: GymMemberListItemDto[] = [];
+
+  for (const entry of items) {
+    const row = isRecord(entry) ? entry : {};
+    const userId = asString(row.userId) ?? asString(row.id) ?? asString(row.memberId);
+    if (!userId) continue;
+
+    normalized.push({
+      userId,
+      name: asString(row.name) ?? asString(row.userName) ?? undefined,
+      email: asString(row.email) ?? asString(row.userEmail) ?? undefined,
+      role: normalize(asString(row.role)) ?? undefined,
+      status: normalize(asString(row.status) ?? asString(row.state)) ?? undefined,
+    });
+  }
+
+  return normalized;
+}
+
+export function normalizeGymMutationResult(payload: unknown): GymMutationResultDto {
+  const source = isRecord(payload) ? payload : {};
+  const data = isRecord(source.data) ? source.data : source;
+
+  const gymId = asString(data.gymId) ?? asString(data.id) ?? null;
+  const name = asString(data.name) ?? undefined;
+  const code = asString(data.code) ?? undefined;
+  const activationCode = asString(data.activationCode) ?? undefined;
+
+  return {
+    ok: true,
+    gymId,
+    ...(gymId
+      ? {
+          gym: {
+            id: gymId,
+            ...(name ? { name } : {}),
+            ...(code ? { code } : {}),
+            ...(activationCode ? { activationCode } : {}),
+          },
+        }
+      : {}),
+  };
 }
