@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import GymJoinRequestsManager from "@/components/admin/GymJoinRequestsManager";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 import GymJoinRequestsManager from "@/components/admin/GymJoinRequestsManager";
+import { createAdminGym } from "@/services/gym";
 
 type Gym = {
   id: string;
@@ -59,14 +64,20 @@ function parseGenericError(payload: unknown): string {
 
 export default function AdminGymsClient() {
   const { t } = useLanguage();
+  const { notify } = useToast();
   const { isAdmin, isLoading: accessLoading } = useAccess();
+
   const [gyms, setGyms] = useState<Gym[]>([]);
   const [selectedGymId, setSelectedGymId] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [createdCode, setCreatedCode] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [unsupported, setUnsupported] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersUnsupported, setMembersUnsupported] = useState(false);
   const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
@@ -76,7 +87,7 @@ export default function AdminGymsClient() {
 
   const loadGyms = async () => {
     setLoading(true);
-    setError(null);
+    setListError(null);
     try {
       const res = await fetch("/api/admin/gyms", { cache: "no-store", credentials: "include" });
       if (res.status === 404 || res.status === 405) {
@@ -91,7 +102,7 @@ export default function AdminGymsClient() {
       setGyms(data);
       setSelectedGymId((current) => (current && data.some((gym) => gym.id === current) ? current : data[0]?.id || ""));
     } catch {
-      setError(t("adminGyms.errors.load"));
+      setListError(t("adminGyms.errors.load"));
     } finally {
       setLoading(false);
     }
@@ -127,11 +138,21 @@ export default function AdminGymsClient() {
     void loadMembers(selectedGymId);
   }, [selectedGymId]);
 
+  const validateCreate = () => {
+    const nextErrors: Record<CreateField, string | null> = {
+      name: name.trim() ? null : t("ui.required"),
+      code: code.trim() ? null : t("ui.required"),
+    };
+    setCreateFieldErrors(nextErrors);
+    return !nextErrors.name && !nextErrors.code;
+  };
+
   const createGym = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !code.trim()) return;
     setError(null);
     setFieldErrors({});
     setCreatedCode(null);
+    setCreateLoading(true);
 
     try {
       const res = await fetch("/api/admin/gyms", {
@@ -166,7 +187,14 @@ export default function AdminGymsClient() {
       setSelectedGymId(created.id);
     } catch {
       setError(t("adminGyms.errors.create"));
+      return;
     }
+
+    setCreatedCode(result.data.activationCode || result.data.code || null);
+    setName("");
+    setCode("");
+    await loadGyms();
+    setSelectedGymId(result.data.id);
   };
 
   const deleteGym = async () => {
@@ -236,7 +264,13 @@ export default function AdminGymsClient() {
         <h1 className="section-title">{t("adminGyms.title")}</h1>
         <label className="form-stack">
           {t("adminGyms.createName")}
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("adminGyms.createPlaceholder")} />
+          <input value={name} onChange={(event) => { setName(event.target.value); if (nameError) setNameError(null); }} placeholder={t("adminGyms.createPlaceholder")} />
+          {nameError ? <p className="muted" style={{ margin: 0 }}>{nameError}</p> : null}
+        </label>
+        <label className="form-stack">
+          {t("adminGyms.createCode")}
+          <input value={code} onChange={(event) => { setCode(event.target.value); if (codeError) setCodeError(null); }} placeholder={t("adminGyms.createCodePlaceholder")} />
+          {codeError ? <p className="muted" style={{ margin: 0 }}>{codeError}</p> : null}
         </label>
         {fieldErrors.name ? <p className="muted" style={{ marginTop: 0 }}>{fieldErrors.name}</p> : null}
         <Button onClick={() => void createGym()} disabled={!name.trim()}>{t("adminGyms.createAction")}</Button>
@@ -246,8 +280,10 @@ export default function AdminGymsClient() {
       <section className="card form-stack">
         <h2 className="section-title section-title-sm">{t("adminGyms.listTitle")}</h2>
         {loading ? <p className="muted">{t("common.loading")}</p> : null}
-        {!loading && gyms.length === 0 ? <p className="muted">{t("adminGyms.empty")}</p> : null}
-        {!loading && gyms.length > 0 ? (
+        {!loading && listError ? <p className="muted">{listError}</p> : null}
+        {!loading && listError ? <Button variant="secondary" onClick={() => void loadGyms()}>{t("common.retry")}</Button> : null}
+        {!loading && !listError && gyms.length === 0 ? <p className="muted">{t("adminGyms.empty")}</p> : null}
+        {!loading && !listError && gyms.length > 0 ? (
           <>
             <select value={selectedGymId} onChange={(event) => setSelectedGymId(event.target.value)}>
               {gyms.map((gym) => (
@@ -261,9 +297,14 @@ export default function AdminGymsClient() {
             </Button>
             {gyms.map((gym) => (
               <p className="muted" style={{ margin: 0 }} key={`${gym.id}-meta`}>
-                {`${gym.name} · ${t("adminGyms.joinCodeLabel")}: ${gym.activationCode ?? gym.joinCode ?? gym.code ?? "-"} · ${t("adminGyms.membersCountLabel")}: ${gym.membersCount ?? 0} · ${t("adminGyms.requestsCountLabel")}: ${gym.requestsCount ?? 0}`}
+                {`${gym.name} · ${t("adminGyms.joinCodeLabel")}: ${gym.activationCode ?? gym.joinCode ?? gym.code ?? t("ui.notAvailable")} · ${t("adminGyms.membersCountLabel")}: ${gym.membersCount ?? 0} · ${t("adminGyms.requestsCountLabel")}: ${gym.requestsCount ?? 0}`}
               </p>
             ))}
+            <Button variant="danger" onClick={() => setDeleteOpen(true)} disabled={!selectedGym || deleteLoading || deleteUnsupported}>
+              {t("ui.delete")}
+            </Button>
+            {deleteUnsupported ? <p className="muted">{t("access.notAvailableDescription")}</p> : null}
+            {deleteError ? <p className="muted">{deleteError}</p> : null}
           </>
         ) : null}
       </section>
@@ -294,6 +335,21 @@ export default function AdminGymsClient() {
       </section>
 
       {error ? <section className="card status-card status-card--warning"><p className="muted">{error}</p></section> : null}
+
+      <Modal
+        open={deleteOpen}
+        onClose={() => (deleteLoading ? null : setDeleteOpen(false))}
+        title={t("ui.delete")}
+        description={`${t("admin.confirmDelete")} ${selectedGym?.name ?? ""}`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleteLoading}>{t("ui.cancel")}</Button>
+            <Button variant="danger" onClick={() => void deleteGym()} loading={deleteLoading}>{t("ui.delete")}</Button>
+          </>
+        }
+      >
+        <p className="muted">{t("admin.confirmDelete")}</p>
+      </Modal>
     </div>
   );
 }
