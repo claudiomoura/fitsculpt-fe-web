@@ -2383,7 +2383,9 @@
   "common": {
     "loading": "Cargando...",
     "retry": "Reintentar",
-    "comingSoon": "Próximamente"
+    "comingSoon": "Próximamente",
+    "success": "Éxito",
+    "error": "Error"
   },
   "adminGyms": {
     "title": "Administrar gimnasios",
@@ -2407,10 +2409,22 @@
       "members": "No pudimos cargar miembros del gimnasio.",
       "create": "No pudimos crear el gimnasio.",
       "role": "No pudimos actualizar el rol del miembro.",
-      "delete": "No pudimos eliminar el gimnasio."
+      "delete": "No pudimos eliminar el gimnasio.",
+      "unexpectedPayload": "Recibimos una respuesta inesperada al cargar gimnasios. Inténtalo nuevamente."
     },
     "deleteAction": "Eliminar gimnasio",
-    "deleteConfirm": "¿Seguro que deseas eliminar este gimnasio?"
+    "deleteConfirm": "¿Seguro que deseas eliminar este gimnasio?",
+    "createCode": "Código de acceso (opcional)",
+    "createCodePlaceholder": "EJEMPLO2026",
+    "created": "Gimnasio creado correctamente.",
+    "deleted": "Gimnasio eliminado correctamente.",
+    "loadingAccess": "Verificando acceso de administrador…",
+    "errorTitle": "Lista de gimnasios no disponible",
+    "emptyDescription": "Crea tu primer gimnasio para empezar a incorporar miembros.",
+    "membersLoading": "Cargando miembros del gimnasio…",
+    "membersErrorTitle": "Miembros no disponibles",
+    "roleUpdatedTrainer": "Miembro promovido a TRAINER.",
+    "roleUpdatedMember": "Entrenador cambiado a MEMBER."
   },
   "landingRedesign": {
     "hero": {
