@@ -59,7 +59,7 @@ export function useTrainerAreaAccess() {
         const payload = (await response.json()) as unknown;
         if (!active) return;
         setMembership(toGymMembership(payload));
-      } catch {
+      } catch (_err) {
         if (active) setMembership(UNKNOWN_MEMBERSHIP);
       } finally {
         if (active) setGymLoading(false);

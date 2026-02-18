@@ -292,7 +292,7 @@ export default function ExerciseLibraryClient() {
         if (!active) return;
         setTargetPlans(details.filter((detail): detail is TrainingPlanDetail => detail !== null));
         setPlansLoading(false);
-      } catch {
+      } catch (_err) {
         if (!active) return;
         setPlansError(t("library.addToPlansLoadError"));
         setPlansLoading(false);
@@ -364,7 +364,7 @@ export default function ExerciseLibraryClient() {
       });
       setPickerOpen(false);
       setPendingExercise(null);
-    } catch {
+    } catch (_err) {
       setAddingExercise(false);
       setAddExerciseError(t("library.addToPlansSubmitError"));
     }

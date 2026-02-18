@@ -36,7 +36,7 @@ const readFromStorage = <T>(key: string): Record<string, T[]> => {
     const raw = window.localStorage.getItem(key);
     if (!raw) return {};
     return parseRecord<T>(JSON.parse(raw));
-  } catch {
+  } catch (_err) {
     return {};
   }
 };
@@ -46,7 +46,7 @@ const writeToStorage = <T>(key: string, value: Record<string, T[]>) => {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
     return true;
-  } catch {
+  } catch (_err) {
     return false;
   }
 };

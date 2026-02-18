@@ -113,7 +113,7 @@ export default function TodayQuickActionsClient() {
 
       const hasEnabledAction = Object.values(nextAvailability).some(Boolean);
       setStatus(hasEnabledAction ? "success" : "empty");
-    } catch {
+    } catch (_err) {
       setStatus("error");
     }
   }, []);

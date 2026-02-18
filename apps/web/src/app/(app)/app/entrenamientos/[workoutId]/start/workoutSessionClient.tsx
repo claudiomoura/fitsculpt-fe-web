@@ -72,7 +72,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
         }
         const data = (await response.json()) as WorkoutSession;
         setSession(data);
-      } catch {
+      } catch (_err) {
         setError(t("workoutDetail.sessionStartError"));
       }
     };
@@ -112,7 +112,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
       const updated = (await response.json()) as WorkoutSession;
       setEntries(updated.entries ?? []);
       setEntryForm((prev) => ({ ...prev, exercise: "" }));
-    } catch {
+    } catch (_err) {
       setError(t("workoutDetail.sessionSaveError"));
     } finally {
       setSaving(false);
@@ -131,7 +131,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
       }
       const updated = (await response.json()) as WorkoutSession;
       setSession(updated);
-    } catch {
+    } catch (_err) {
       setError(t("workoutDetail.sessionFinishError"));
     } finally {
       setSaving(false);

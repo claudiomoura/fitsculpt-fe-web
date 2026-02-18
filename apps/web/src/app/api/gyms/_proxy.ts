@@ -35,13 +35,13 @@ export async function proxyToBackend(path: string, options: ProxyOptions = {}) {
     if (text) {
       try {
         parsed = JSON.parse(text) as unknown;
-      } catch {
+      } catch (_err) {
         parsed = { message: text };
       }
     }
 
     return NextResponse.json(parsed, { status: response.status });
-  } catch {
+  } catch (_err) {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }

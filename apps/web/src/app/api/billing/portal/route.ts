@@ -20,7 +20,7 @@ export async function POST() {
     });
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch {
+  } catch (_err) {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }

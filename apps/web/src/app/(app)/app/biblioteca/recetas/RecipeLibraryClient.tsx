@@ -33,7 +33,7 @@ export default function RecipeLibraryClient() {
         if (!response.ok) return;
         const data = (await response.json()) as { role?: "ADMIN" | "USER" };
         setIsAdmin(data.role === "ADMIN");
-      } catch {
+      } catch (_err) {
       }
     };
     void loadRole();

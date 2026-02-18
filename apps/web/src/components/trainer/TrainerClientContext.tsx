@@ -60,7 +60,7 @@ export default function TrainerClientContext() {
         const users = Array.isArray(data.users) ? data.users : [];
         setClient(users.find((user) => user.id === clientId && user.role !== "ADMIN") ?? null);
         setClientState("ready");
-      } catch {
+      } catch (_err) {
         if (active) {
           setPermissionState("error");
           setClientState("error");

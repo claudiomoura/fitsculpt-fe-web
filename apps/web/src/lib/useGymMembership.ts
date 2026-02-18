@@ -40,7 +40,7 @@ export function useGymMembership(): GymMembershipState {
         if (!active) return;
 
         setMembership(extractGymMembership(payload));
-      } catch {
+      } catch (_err) {
         if (!active) return;
         setMembership(UNKNOWN_MEMBERSHIP);
         setHasError(true);

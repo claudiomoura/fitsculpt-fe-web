@@ -35,7 +35,7 @@ export default function TrainingLibraryClient() {
         if (!response.ok) return;
         const data = (await response.json()) as UserRoleResponse;
         setIsAdmin(data.role === "ADMIN");
-      } catch {
+      } catch (_err) {
       }
     };
     void loadRole();

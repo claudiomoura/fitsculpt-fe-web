@@ -202,7 +202,7 @@ export default function TrainerClientContextClient() {
 
         if (!active) return;
         setRemoveCapability({ loading: false, supported });
-      } catch {
+      } catch (_err) {
         if (!active) return;
         setRemoveCapability({ loading: false, supported: false });
       }
@@ -251,7 +251,7 @@ export default function TrainerClientContextClient() {
       setRemoveModalOpen(false);
       router.push("/app/trainer/clients");
       router.refresh();
-    } catch {
+    } catch (_err) {
       setRemoveError(t("trainer.clientContext.removeClient.submitError"));
       setRemovingClient(false);
     }

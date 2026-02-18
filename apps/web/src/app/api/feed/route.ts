@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     try {
       const data = JSON.parse(responseText);
       return NextResponse.json(data, { status: response.status });
-    } catch {
+    } catch (_err) {
       return new NextResponse(responseText, {
         status: response.status,
         headers: {
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
         },
       });
     }
-  } catch {
+  } catch (_err) {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }

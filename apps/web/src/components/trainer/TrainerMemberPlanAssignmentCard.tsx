@@ -149,7 +149,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       );
       setPlanPickerOpen(false);
       setSelectedPlanId("");
-    } catch {
+    } catch (_err) {
       setSubmitting(false);
       setSubmitError(t("trainer.clientContext.training.assignment.submitError"));
     }
@@ -190,7 +190,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
 
       setAssignedPlan(null);
       setSuccess(t("trainer.clientContext.training.assignment.unassignSuccess").replace("{member}", memberName));
-    } catch {
+    } catch (_err) {
       setSubmitting(false);
       setSubmitError(t("trainer.clientContext.training.assignment.unassignError"));
     }
@@ -229,7 +229,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       }
 
       setSuccess(t("trainer.clientContext.training.assignment.removeSuccess").replace("{member}", memberName));
-    } catch {
+    } catch (_err) {
       setSubmitting(false);
       setSubmitError(t("trainer.clientContext.training.assignment.removeError"));
     }
@@ -260,7 +260,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       await loadAssignmentData();
       setSuccess(t("trainer.clientContext.training.assignment.createSuccess"));
       setCreatingPlan(false);
-    } catch {
+    } catch (_err) {
       setSubmitError(t("trainer.clientContext.training.assignment.createError"));
       setCreatingPlan(false);
     }

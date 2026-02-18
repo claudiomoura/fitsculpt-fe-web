@@ -180,7 +180,7 @@ export default function DashboardClient() {
           setCheckins(data.checkins ?? []);
           setFoodLog(data.foodLog ?? []);
         }
-      } catch {
+      } catch (_err) {
         if (active) setError(t("dashboard.chartError"));
       } finally {
         if (active) setLoading(false);
@@ -201,7 +201,7 @@ export default function DashboardClient() {
         if (!response.ok) return;
         const data = (await response.json()) as UserFood[];
         if (active) setUserFoods(data);
-      } catch {
+      } catch (_err) {
         if (active) setUserFoods([]);
       }
     };
@@ -221,7 +221,7 @@ export default function DashboardClient() {
         const data = (await response.json()) as ProfileData;
         if (!active) return;
         setProfile(data);
-      } catch {
+      } catch (_err) {
         if (active) setProfile(null);
       } finally {
         if (active) setProfileLoading(false);
