@@ -1,4 +1,4 @@
-export type ServiceErrorReason = "unauthorized" | "unsupported" | "http_error" | "network_error";
+export type ServiceErrorReason = "unauthorized" | "forbidden" | "validation" | "unsupported" | "http_error" | "network_error";
 
 export type ServiceSuccess<T> = {
   ok: true;
@@ -36,6 +36,36 @@ export type AdminGymCreateResult =
 
 export type ServiceResult<T> = ServiceSuccess<T> | ServiceFailure;
 
+
+export type GymServiceCapabilities = {
+  supportsLeaveGym: boolean;
+};
+
+export const gymServiceCapabilities: GymServiceCapabilities = {
+  supportsLeaveGym: true,
+};
+
+export type GymEndpointInventory = {
+  endpoint: string;
+  method: "GET" | "POST" | "PATCH" | "DELETE";
+  exists: boolean;
+  notes: string;
+};
+
+export const gymEndpointInventory: GymEndpointInventory[] = [
+  {
+    endpoint: "/api/gym/me",
+    method: "GET",
+    exists: true,
+    notes: "Reads current gym membership.",
+  },
+  {
+    endpoint: "/api/gyms/membership",
+    method: "DELETE",
+    exists: true,
+    notes: "Leave gym endpoint wiring via BFF proxy.",
+  },
+];
 export type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
 
 export type GymMembership = {
@@ -95,6 +125,8 @@ async function readJsonResponse<T>(
     const response = await fetch(path, { cache: "no-store", credentials: "include", ...init });
     if (!response.ok) {
       if (response.status === 401) return { ok: false, reason: "unauthorized", status: 401 };
+      if (response.status === 403) return { ok: false, reason: "forbidden", status: 403 };
+      if (response.status === 400) return { ok: false, reason: "validation", status: 400 };
       if (response.status === 404 || response.status === 405) return { ok: false, reason: "unsupported", status: response.status };
       return { ok: false, reason: "http_error", status: response.status };
     }
@@ -391,6 +423,13 @@ export async function updateGymMemberRole(
     body: JSON.stringify({ role }),
   });
 
+  if (!response.ok) return response;
+  return { ok: true, data: null };
+}
+
+
+export async function leaveCurrentGym(): Promise<ServiceResult<null>> {
+  const response = await readJsonResponse<unknown>("/api/gyms/membership", { method: "DELETE" });
   if (!response.ok) return response;
   return { ok: true, data: null };
 }

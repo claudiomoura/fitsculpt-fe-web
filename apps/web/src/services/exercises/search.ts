@@ -40,11 +40,35 @@ export type ExerciseSearchResult = {
 
 export type ExerciseSearchCapabilities = {
   canSearchExercises: boolean;
+  supportsGymScopedExercises: boolean;
 };
 
 export const exerciseSearchCapabilities: ExerciseSearchCapabilities = {
   canSearchExercises: true,
+  supportsGymScopedExercises: false,
 };
+
+export type ExerciseEndpointInventory = {
+  endpoint: string;
+  method: "GET" | "POST";
+  exists: boolean;
+  notes: string;
+};
+
+export const exerciseEndpointInventory: ExerciseEndpointInventory[] = [
+  {
+    endpoint: "/api/exercises",
+    method: "GET",
+    exists: true,
+    notes: "Used for exercise list/search through BFF proxy to backend /exercises.",
+  },
+  {
+    endpoint: "/api/exercises?gymId=:gymId",
+    method: "GET",
+    exists: false,
+    notes: "Requiere implementación de contrato backend/BFF para scoping explícito por gimnasio.",
+  },
+];
 
 function sanitizeOptions(values?: string[] | null) {
   if (!Array.isArray(values)) return [];
