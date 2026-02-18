@@ -732,6 +732,30 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
   return managerMembership;
 }
 
+async function requireActiveGymManagerMembership(userId: string) {
+  const membership = await prisma.gymMembership.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+      role: { in: ["ADMIN", "TRAINER"] },
+    },
+    select: {
+      id: true,
+      gymId: true,
+      userId: true,
+      status: true,
+      role: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (!membership) {
+    throw createHttpError(403, "FORBIDDEN");
+  }
+
+  return membership;
+}
+
 async function requireGymAdminForGym(userId: string, gymId: string) {
   const adminMembership = await prisma.gymMembership.findUnique({
     where: { gymId_userId: { gymId, userId } },
@@ -5376,6 +5400,36 @@ const assignTrainingPlanBodySchema = z
 const trainerMemberParamsSchema = z.object({
   userId: z.string().min(1),
 });
+const trainerPlanCreateSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  daysCount: z.coerce.number().int().min(1).max(14),
+  notes: z.string().trim().min(1).max(600).optional(),
+  goal: z.string().trim().min(1).max(80).default("general_fitness"),
+  level: z.string().trim().min(1).max(80).default("beginner"),
+  focus: z.string().trim().min(1).max(120).default("full_body"),
+  equipment: z.string().trim().min(1).max(120).default("bodyweight"),
+  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+  startDate: z.string().trim().min(1).optional(),
+});
+const trainerPlanUpdateSchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  daysCount: z.coerce.number().int().min(1).max(14).optional(),
+  notes: z.string().trim().min(1).max(600).nullable().optional(),
+  goal: z.string().trim().min(1).max(80).optional(),
+  level: z.string().trim().min(1).max(80).optional(),
+  focus: z.string().trim().min(1).max(120).optional(),
+  equipment: z.string().trim().min(1).max(120).optional(),
+  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+  startDate: z.string().trim().min(1).optional(),
+}).refine((value) => Object.keys(value).length > 0, {
+  message: "At least one field is required",
+});
+const trainerPlanParamsSchema = z.object({
+  planId: z.string().min(1),
+});
+const trainerAssignPlanBodySchema = z.object({
+  trainingPlanId: z.string().min(1),
+});
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -6679,6 +6733,306 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
   }
 });
 
+app.get("/trainer/plans", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+
+    const plans = await prisma.trainingPlan.findMany({
+      where: {
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        notes: true,
+        goal: true,
+        level: true,
+        daysPerWeek: true,
+        focus: true,
+        equipment: true,
+        startDate: true,
+        daysCount: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    return { items: plans };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/plans", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    await requireActiveGymManagerMembership(requester.id);
+    const payload = trainerPlanCreateSchema.parse(request.body);
+
+    const startDate = payload.startDate ? parseDateInput(payload.startDate) : new Date();
+    if (!startDate) {
+      return reply.status(400).send({ error: "INVALID_START_DATE" });
+    }
+
+    const daysCount = payload.daysCount;
+    const daysPerWeek = payload.daysPerWeek ?? Math.min(daysCount, 7);
+    const dates = buildDateRange(startDate, daysCount);
+
+    const createdPlan = await prisma.trainingPlan.create({
+      data: {
+        userId: requester.id,
+        title: payload.title,
+        notes: payload.notes ?? null,
+        goal: payload.goal,
+        level: payload.level,
+        daysPerWeek,
+        focus: payload.focus,
+        equipment: payload.equipment,
+        startDate,
+        daysCount,
+        days: {
+          create: dates.map((date, index) => ({
+            date: new Date(`${date}T00:00:00.000Z`),
+            label: `Día ${index + 1}`,
+            focus: payload.focus,
+            duration: 45,
+            order: index + 1,
+          })),
+        },
+      },
+      include: {
+        days: {
+          orderBy: { order: "asc" },
+          include: { exercises: { orderBy: { id: "asc" } } },
+        },
+      },
+    });
+
+    return reply.status(201).send(createdPlan);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/plans/:planId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { planId } = trainerPlanParamsSchema.parse(request.params);
+
+    const plan = await prisma.trainingPlan.findFirst({
+      where: {
+        id: planId,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        days: {
+          orderBy: { order: "asc" },
+          include: {
+            exercises: { orderBy: { id: "asc" } },
+          },
+        },
+      },
+    });
+
+    if (!plan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    return plan;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/trainer/plans/:planId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    await requireActiveGymManagerMembership(requester.id);
+    const { planId } = trainerPlanParamsSchema.parse(request.params);
+    const payload = trainerPlanUpdateSchema.parse(request.body);
+
+    const existing = await prisma.trainingPlan.findFirst({
+      where: { id: planId, userId: requester.id },
+      select: { id: true, focus: true, daysCount: true },
+    });
+
+    if (!existing) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    const nextDaysCount = payload.daysCount ?? existing.daysCount;
+    const nextFocus = payload.focus ?? existing.focus;
+    const nextStartDate = payload.startDate ? parseDateInput(payload.startDate) : null;
+
+    if (payload.startDate && !nextStartDate) {
+      return reply.status(400).send({ error: "INVALID_START_DATE" });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const plan = await tx.trainingPlan.update({
+        where: { id: existing.id },
+        data: {
+          title: payload.title,
+          notes: payload.notes === undefined ? undefined : payload.notes,
+          goal: payload.goal,
+          level: payload.level,
+          focus: payload.focus,
+          equipment: payload.equipment,
+          daysPerWeek: payload.daysPerWeek,
+          daysCount: payload.daysCount,
+          startDate: nextStartDate ?? undefined,
+        },
+      });
+
+      if (payload.daysCount !== undefined || payload.focus !== undefined || payload.startDate !== undefined) {
+        const dates = buildDateRange(nextStartDate ?? plan.startDate, nextDaysCount);
+        await tx.trainingDay.deleteMany({ where: { planId: existing.id } });
+        await tx.trainingDay.createMany({
+          data: dates.map((date, index) => ({
+            planId: existing.id,
+            date: new Date(`${date}T00:00:00.000Z`),
+            label: `Día ${index + 1}`,
+            focus: nextFocus,
+            duration: 45,
+            order: index + 1,
+          })),
+        });
+      }
+
+      return tx.trainingPlan.findUnique({
+        where: { id: existing.id },
+        include: {
+          days: {
+            orderBy: { order: "asc" },
+            include: { exercises: { orderBy: { id: "asc" } } },
+          },
+        },
+      });
+    });
+
+    return updated;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+    const { trainingPlanId } = trainerAssignPlanBodySchema.parse(request.body);
+
+    const [targetMembership, selectedPlan] = await Promise.all([
+      prisma.gymMembership.findUnique({
+        where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
+        select: { id: true, role: true, status: true },
+      }),
+      prisma.trainingPlan.findFirst({
+        where: {
+          id: trainingPlanId,
+          OR: [
+            { userId: requester.id },
+            {
+              gymAssignments: {
+                some: {
+                  gymId: managerMembership.gymId,
+                  status: "ACTIVE",
+                  role: "MEMBER",
+                },
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          goal: true,
+          level: true,
+          daysPerWeek: true,
+          focus: true,
+          equipment: true,
+          startDate: true,
+          daysCount: true,
+        },
+      }),
+    ]);
+
+    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    if (!selectedPlan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: selectedPlan.id },
+    });
+
+    return {
+      memberId: userId,
+      gymId: managerMembership.gymId,
+      assignedPlan: selectedPlan,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
+      select: { id: true, role: true, status: true },
+    });
+
+    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: null },
+    });
+
+    return reply.status(200).send({ memberId: userId, gymId: managerMembership.gymId, assignedPlan: null });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.get("/trainer/clients", async (request, reply) => {
   try {
     const user = await requireUser(request);
@@ -6704,6 +7058,13 @@ app.get("/trainer/clients", async (request, reply) => {
       },
       select: {
         role: true,
+        assignedTrainingPlan: {
+          select: {
+            id: true,
+            title: true,
+            daysCount: true,
+          },
+        },
         user: {
           select: {
             id: true,
@@ -6727,6 +7088,7 @@ app.get("/trainer/clients", async (request, reply) => {
         isBlocked: membership.user.isBlocked,
         subscriptionStatus: membership.user.subscriptionStatus,
         lastLoginAt: membership.user.lastLoginAt,
+        assignedPlan: membership.assignedTrainingPlan,
       })),
     };
   } catch (error) {
@@ -6761,6 +7123,13 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
       },
       select: {
         role: true,
+        assignedTrainingPlan: {
+          select: {
+            id: true,
+            title: true,
+            daysCount: true,
+          },
+        },
         user: {
           select: {
             id: true,
@@ -6786,6 +7155,7 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
       isBlocked: membership.user.isBlocked,
       subscriptionStatus: membership.user.subscriptionStatus,
       lastLoginAt: membership.user.lastLoginAt,
+      assignedPlan: membership.assignedTrainingPlan,
     };
   } catch (error) {
     return handleRequestError(reply, error);
