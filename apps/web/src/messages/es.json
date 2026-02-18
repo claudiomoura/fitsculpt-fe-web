@@ -1961,7 +1961,10 @@
       "description": "Crea y revisa los planes manuales disponibles para asignar.",
       "openList": "Abrir planes",
       "createTitle": "Crear plan manual",
+      "createFlowDescription": "Crea una plantilla con nombre y número de días, luego organiza ejercicios por día.",
+      "createDraftTitle": "Nuevo borrador de plan",
       "titleLabel": "Nombre del plan",
+      "daysLabel": "Días",
       "descriptionLabel": "Descripción",
       "create": "Crear plan",
       "creating": "Creando...",
@@ -1969,7 +1972,21 @@
       "listTitle": "Planes disponibles",
       "loading": "Cargando planes...",
       "empty": "No hay planes disponibles.",
-      "error": "No fue posible cargar los planes."
+      "error": "No fue posible cargar los planes.",
+      "selectPlan": "Usar este plan",
+      "dayBuilderTitle": "Secciones por día",
+      "dayBuilderEmpty": "Crea una plantilla de plan para comenzar a organizar ejercicios por día.",
+      "dayBuilderFor": "Editando secciones por día para: {plan}",
+      "dayExercisesEmpty": "Todavía no hay ejercicios seleccionados para este día.",
+      "notSupportedTitle": "Servicio de planes no disponible",
+      "notSupportedDescription": "Las acciones de planes de entrenamiento no están soportadas en este entorno.",
+      "exerciseSearch": {
+        "title": "Búsqueda de ejercicios",
+        "description": "Busca un ejercicio y agrégalo a la sección del día actual.",
+        "disabled": "La búsqueda se habilitará después de crear/seleccionar un plan.",
+        "select": "Agregar",
+        "remove": "Quitar"
+      }
     },
     "clientContext": {
       "title": "Contexto del atleta",
