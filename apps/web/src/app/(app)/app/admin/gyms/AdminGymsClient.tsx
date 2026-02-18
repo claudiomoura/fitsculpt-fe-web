@@ -95,6 +95,7 @@ export default function AdminGymsClient() {
 
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersUnsupported, setMembersUnsupported] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
   const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -140,7 +141,7 @@ export default function AdminGymsClient() {
       if (!payloadHasArray) {
         setGyms([]);
         setSelectedGymId("");
-        setListError("Recibimos una respuesta inesperada al cargar gimnasios. Inténtalo nuevamente.");
+        setListError(t("adminGyms.errors.load"));
         setUnsupported(false);
         return;
       }
@@ -164,20 +165,23 @@ export default function AdminGymsClient() {
     }
 
     setMembersLoading(true);
+    setMembersError(null);
     try {
       const res = await fetch(`/api/admin/gyms/${gymId}/members`, { cache: "no-store", credentials: "include" });
       if (res.status === 404 || res.status === 405) {
         setMembersUnsupported(true);
         setMembers([]);
+        setMembersError(null);
         return;
       }
       if (!res.ok) throw new Error("members");
       const data = (await res.json()) as Member[];
       setMembersUnsupported(false);
+      setMembersError(null);
       setMembers(data.filter((member) => member.status === "ACTIVE"));
     } catch (_err) {
       setMembers([]);
-      setError(t("adminGyms.errors.members"));
+      setMembersError(t("adminGyms.errors.members"));
     } finally {
       setMembersLoading(false);
     }
@@ -389,8 +393,10 @@ export default function AdminGymsClient() {
         <h2 className="section-title section-title-sm">{t("adminGyms.membersTitle")}</h2>
         {membersUnsupported ? <p className="muted">{t("adminGyms.membersUnavailable")}</p> : null}
         {membersLoading ? <p className="muted">{t("common.loading")}</p> : null}
-        {!membersUnsupported && !membersLoading && members.length === 0 ? <p className="muted">{t("adminGyms.membersEmpty")}</p> : null}
-        {!membersUnsupported && !membersLoading && members.length > 0
+        {!membersUnsupported && !membersLoading && membersError ? <p className="muted">{membersError}</p> : null}
+        {!membersUnsupported && !membersLoading && membersError ? <Button variant="secondary" onClick={() => void loadMembers(selectedGymId)}>{t("common.retry")}</Button> : null}
+        {!membersUnsupported && !membersLoading && !membersError && members.length === 0 ? <p className="muted">{t("adminGyms.membersEmpty")}</p> : null}
+        {!membersUnsupported && !membersLoading && !membersError && members.length > 0
           ? members.map((member) => (
               <div key={member.user.id} className="status-card" style={{ marginTop: 8 }}>
                 <strong>{member.user.name ?? member.user.email}</strong>

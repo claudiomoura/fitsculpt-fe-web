@@ -45,10 +45,12 @@ export type ServiceResult<T> = ServiceSuccess<T> | ServiceFailure;
 
 export type GymServiceCapabilities = {
   supportsLeaveGym: boolean;
+  supportsMemberRoleUpdate: boolean;
 };
 
 export const gymServiceCapabilities: GymServiceCapabilities = {
   supportsLeaveGym: true,
+  supportsMemberRoleUpdate: false,
 };
 
 export type GymEndpointInventory = {
@@ -70,6 +72,12 @@ export const gymEndpointInventory: GymEndpointInventory[] = [
     method: "DELETE",
     exists: true,
     notes: "Leave gym is proxied to backend /gym/me with fallback to /gyms/membership when needed.",
+  },
+  {
+    endpoint: "/api/gym/admin/members/:userId/role",
+    method: "PATCH",
+    exists: false,
+    notes: "UI role-update CTAs must stay disabled until BFF proxy is implemented.",
   },
 ];
 export type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED";
