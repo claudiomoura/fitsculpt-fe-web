@@ -1989,7 +1989,18 @@
       "empty": "No plans available.",
       "error": "We could not load plans.",
       "addExerciseSuccess": "Exercise added to the selected plan day.",
-      "addExerciseError": "We could not add that exercise to the selected day."
+      "addExerciseError": "We could not add that exercise to the selected day.",
+      "editDay": "Edit day",
+      "dayEditorTitle": "Day editor",
+      "dayEditorSubtitle": "Edit a plan day and assign exercises from the library.",
+      "dayEditorHint": "Open a day editor from any day card.",
+      "searchExercises": "Search exercises",
+      "searchExercisesPlaceholder": "Type to search in library (e.g. bench)",
+      "searchingExercises": "Searching exercises...",
+      "searchExercisesError": "We could not search exercises right now.",
+      "searchExercisesEmpty": "No exercises found for this search.",
+      "dayExercisesTitle": "Exercises in this day",
+      "dayNotFound": "No day found for selected date in this plan."
     },
     "clientContext": {
       "title": "Athlete context",
