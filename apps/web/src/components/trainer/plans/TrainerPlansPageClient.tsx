@@ -64,7 +64,11 @@ export default function TrainerPlansPageClient() {
 
   useEffect(() => {
     if (!canAccessTrainerArea) return;
-    void loadPlans();
+    const timer = window.setTimeout(() => {
+      void loadPlans();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, [canAccessTrainerArea, loadPlans]);
 
   const onCreate = async (event: FormEvent<HTMLFormElement>) => {
