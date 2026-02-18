@@ -1992,7 +1992,18 @@
       "empty": "No hay planes disponibles.",
       "error": "No fue posible cargar los planes.",
       "addExerciseSuccess": "Ejercicio agregado al día seleccionado del plan.",
-      "addExerciseError": "No pudimos agregar ese ejercicio al día seleccionado."
+      "addExerciseError": "No pudimos agregar ese ejercicio al día seleccionado.",
+      "editDay": "Editar día",
+      "dayEditorTitle": "Editor por día",
+      "dayEditorSubtitle": "Edita un día del plan y asigna ejercicios desde la biblioteca.",
+      "dayEditorHint": "Abre el editor de día desde cualquier tarjeta de día.",
+      "searchExercises": "Buscar ejercicios",
+      "searchExercisesPlaceholder": "Escribe para buscar en biblioteca (p. ej., bench)",
+      "searchingExercises": "Buscando ejercicios...",
+      "searchExercisesError": "No pudimos buscar ejercicios en este momento.",
+      "searchExercisesEmpty": "No se encontraron ejercicios para esta búsqueda.",
+      "dayExercisesTitle": "Ejercicios de este día",
+      "dayNotFound": "No se encontró el día seleccionado en este plan."
     },
     "clientContext": {
       "title": "Contexto del atleta",

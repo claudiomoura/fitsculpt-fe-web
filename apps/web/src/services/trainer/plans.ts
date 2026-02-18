@@ -139,7 +139,7 @@ export async function getTrainerPlanDetail(planId: string): Promise<ServiceResul
     };
   }
 
-  return requestJson<TrainingPlanDetail>(`/api/training-plans/${normalizedPlanId}`);
+  return requestJson<TrainingPlanDetail>(`/api/trainer/plans/${normalizedPlanId}`);
 }
 
 export async function saveTrainerPlan(planId: string, payload: SaveTrainerPlanInput): Promise<ServiceResult<TrainingPlanDetail>> {

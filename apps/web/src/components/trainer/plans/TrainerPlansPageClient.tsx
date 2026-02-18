@@ -160,8 +160,8 @@ export default function TrainerPlansPageClient() {
                     <button type="button" className="btn secondary" onClick={() => void loadPlanDetail(plan.id)}>
                       {t("trainer.plans.selectPlan")}
                     </button>
-                    <Link href={`/app/trainer/plans/${plan.id}`} className="btn secondary">
-                      {t("trainer.clientContext.training.assignment.currentLabel")}
+                    <Link href={`/app/entrenamiento/editar?planId=${plan.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`} className="btn secondary">
+                      {t("trainer.plans.editDay")}
                     </Link>
                   </div>
                 </article>
@@ -186,15 +186,18 @@ export default function TrainerPlansPageClient() {
               <p className="muted" style={{ margin: 0 }}>
                 {t("training.daysPerWeek")}: {detail.item.daysPerWeek} · {detail.item.days?.length ?? 0} días
               </p>
-              <Link href={`/app/trainer/plans/${detail.item.id}`} className="btn secondary" style={{ width: "fit-content" }}>
-                {t("trainer.clientContext.training.assignment.currentLabel")}
-              </Link>
+              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.dayEditorHint")}</p>
             </div>
 
             <div className="form-stack">
               {(detail.item.days ?? []).map((day) => (
                 <article key={day.id} className="feature-card form-stack">
-                  <strong>{day.label}</strong>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <strong>{day.label}</strong>
+                    <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item?.id}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>
+                      {t("trainer.plans.editDay")}
+                    </Link>
+                  </div>
                   {day.exercises.length === 0 ? <p className="muted">{t("trainer.plans.dayExercisesEmpty")}</p> : (
                     <ul style={{ margin: 0, paddingInlineStart: 20 }}>
                       {day.exercises.map((exercise) => <li key={exercise.id}>{exercise.name}</li>)}
