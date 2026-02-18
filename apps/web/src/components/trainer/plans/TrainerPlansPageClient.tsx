@@ -17,6 +17,10 @@ type DetailState = {
   item: TrainingPlanDetail | null;
 };
 
+function isEndpointUnavailable(status?: number): boolean {
+  return status === 404 || status === 405;
+}
+
 export default function TrainerPlansPageClient() {
   const { t } = useLanguage();
   const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
@@ -24,11 +28,14 @@ export default function TrainerPlansPageClient() {
   const [listState, setListState] = useState<LoadState>("loading");
   const [plans, setPlans] = useState<TrainingPlanListItem[]>([]);
   const [listError, setListError] = useState(false);
+  const [listDisabled, setListDisabled] = useState(false);
 
   const [title, setTitle] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(false);
+  const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(null);
+  const [createDisabled, setCreateDisabled] = useState(false);
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DetailState>({ loading: false, error: false, item: null });
@@ -40,11 +47,17 @@ export default function TrainerPlansPageClient() {
     const result = await listCurrentGymTrainerPlans({ limit: 100 });
     if (!result.ok) {
       setPlans([]);
+      const unavailable = isEndpointUnavailable(result.status);
+      setListDisabled(unavailable);
+      if (unavailable) {
+        setCreateDisabled(true);
+      }
       setListError(true);
       setListState("ready");
       return;
     }
 
+    setListDisabled(false);
     setPlans(result.data.items);
     setListState("ready");
   }, []);
@@ -77,6 +90,7 @@ export default function TrainerPlansPageClient() {
 
     setCreating(true);
     setCreateError(false);
+    setCreateErrorMessage(null);
 
     const result = await createTrainerPlan({
       title: title.trim(),
@@ -84,7 +98,11 @@ export default function TrainerPlansPageClient() {
     });
 
     if (!result.ok) {
+      if (isEndpointUnavailable(result.status)) {
+        setCreateDisabled(true);
+      }
       setCreateError(true);
+      setCreateErrorMessage(result.message ?? t("trainer.plans.createError"));
       setCreating(false);
       return;
     }
@@ -120,10 +138,11 @@ export default function TrainerPlansPageClient() {
     <div className="form-stack">
       <section className="card form-stack" aria-live="polite">
         <h2 className="section-title" style={{ fontSize: 20 }}>{t("trainer.plans.createTitle")}</h2>
+        {createDisabled ? <p className="muted">{t("trainer.plans.createDisabled")}</p> : null}
         <form className="form-stack" onSubmit={(event) => void onCreate(event)}>
           <label className="form-stack" style={{ gap: 8 }}>
             <span className="muted">{t("trainer.plans.titleLabel")}</span>
-            <input required value={title} onChange={(event) => setTitle(event.target.value)} />
+            <input required value={title} disabled={createDisabled} onChange={(event) => setTitle(event.target.value)} />
           </label>
 
           <label className="form-stack" style={{ gap: 8 }}>
@@ -133,15 +152,16 @@ export default function TrainerPlansPageClient() {
               min={1}
               max={14}
               value={daysPerWeek}
+              disabled={createDisabled}
               onChange={(event) => setDaysPerWeek(Math.max(1, Math.min(14, Number(event.target.value) || 1)))}
             />
           </label>
 
-          <button className="btn fit-content" type="submit" disabled={creating || !title.trim()}>
+          <button className="btn fit-content" type="submit" disabled={createDisabled || creating || !title.trim()}>
             {creating ? t("trainer.plans.creating") : t("trainer.plans.create")}
           </button>
 
-          {createError ? <p className="muted">{t("trainer.plans.createError")}</p> : null}
+          {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
         </form>
       </section>
 
@@ -149,9 +169,11 @@ export default function TrainerPlansPageClient() {
         <h2 className="section-title" style={{ fontSize: 20 }}>{t("trainer.plans.listTitle")}</h2>
 
         {listState === "loading" ? <LoadingState ariaLabel={t("trainer.plans.loading")} lines={3} /> : null}
-        {listState === "ready" && listError ? (
-          <ErrorState title={t("trainer.plans.error")} retryLabel={t("ui.retry")} onRetry={() => void loadPlans()} wrapInCard />
-        ) : null}
+        {listState === "ready" && listError
+          ? (listDisabled
+            ? <EmptyState title={t("trainer.plans.listDisabledTitle")} description={t("trainer.plans.listDisabledDescription")} wrapInCard icon="info" />
+            : <ErrorState title={t("trainer.plans.error")} retryLabel={t("ui.retry")} onRetry={() => void loadPlans()} wrapInCard />)
+          : null}
         {listState === "ready" && !listError && plans.length === 0 ? <EmptyState title={t("trainer.plans.empty")} wrapInCard icon="info" /> : null}
 
         {listState === "ready" && !listError && plans.length > 0 ? (
@@ -188,7 +210,7 @@ export default function TrainerPlansPageClient() {
             <div className="feature-card form-stack">
               <strong>{detail.item.title}</strong>
               <p className="muted" style={{ margin: 0 }}>
-                {t("training.daysPerWeek")}: {detail.item.daysPerWeek} · {detail.item.days?.length ?? 0} días
+                {t("training.daysPerWeek")}: {detail.item.daysPerWeek} · {t("trainer.plans.daysCount", { count: detail.item.days?.length ?? 0 })}
               </p>
               <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.dayEditorHint")}</p>
             </div>
