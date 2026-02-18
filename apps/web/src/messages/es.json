@@ -1868,6 +1868,12 @@
         "description": "Bundle con StrengthAI + NutriAI en un solo plan.",
         "price": "US$29/mes"
       }
+    },
+    "intervals": {
+      "day": "día",
+      "week": "semana",
+      "month": "mes",
+      "year": "año"
     }
   },
   "settings": {
