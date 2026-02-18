@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import GymJoinRequestsManager from "@/components/admin/GymJoinRequestsManager";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
@@ -33,6 +34,12 @@ type MaybeErrorPayload = {
   error?: unknown;
 };
 
+type MaybeGymsPayload = {
+  gyms?: unknown;
+  items?: unknown;
+  data?: unknown;
+};
+
 function toText(value: unknown): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(", ");
@@ -43,6 +50,21 @@ function parseGenericError(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
   const source = payload as MaybeErrorPayload;
   return toText(source.message) || toText(source.error);
+}
+
+function normalizeGymsPayload(payload: unknown): Gym[] {
+  if (Array.isArray(payload)) return payload as Gym[];
+
+  const source = payload && typeof payload === "object" ? (payload as MaybeGymsPayload) : null;
+  if (Array.isArray(source?.gyms)) return source.gyms as Gym[];
+  if (Array.isArray(source?.items)) return source.items as Gym[];
+  if (Array.isArray(source?.data)) return source.data as Gym[];
+
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("[AdminGymsClient] Unexpected /api/admin/gyms payload shape", payload);
+  }
+
+  return [];
 }
 
 export default function AdminGymsClient() {
@@ -72,7 +94,10 @@ export default function AdminGymsClient() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrorMap>({});
 
-  const selectedGym = useMemo(() => gyms.find((gym) => gym.id === selectedGymId) ?? null, [gyms, selectedGymId]);
+  const selectedGym = useMemo(() => {
+    if (!Array.isArray(gyms)) return null;
+    return gyms.find((gym) => gym.id === selectedGymId) ?? null;
+  }, [gyms, selectedGymId]);
 
   const loadGyms = async () => {
     setLoading(true);
@@ -85,12 +110,22 @@ export default function AdminGymsClient() {
         setSelectedGymId("");
         return;
       }
-      if (!res.ok) throw new Error("gyms");
-      const data = (await res.json()) as Gym[];
+      const payload = (await res.json().catch(() => null)) as unknown;
+
+      if (!res.ok) {
+        setGyms([]);
+        setSelectedGymId("");
+        setListError(parseGenericError(payload) || t("adminGyms.errors.load"));
+        return;
+      }
+
+      const data = normalizeGymsPayload(payload);
       setUnsupported(false);
       setGyms(data);
       setSelectedGymId((current) => (current && data.some((gym) => gym.id === current) ? current : data[0]?.id || ""));
     } catch (_err) {
+      setGyms([]);
+      setSelectedGymId("");
       setListError(t("adminGyms.errors.load"));
     } finally {
       setLoading(false);
@@ -284,7 +319,13 @@ export default function AdminGymsClient() {
 
       <section className="card form-stack">
         <h2 className="section-title section-title-sm">{t("adminGyms.listTitle")}</h2>
-        {loading ? <p className="muted">{t("common.loading")}</p> : null}
+        {loading ? (
+          <div className="form-stack" aria-hidden="true">
+            <Skeleton variant="line" style={{ width: "45%" }} />
+            <Skeleton variant="line" style={{ width: "70%" }} />
+            <Skeleton variant="line" style={{ width: "60%" }} />
+          </div>
+        ) : null}
         {!loading && listError ? <p className="muted">{listError}</p> : null}
         {!loading && listError ? <Button variant="secondary" onClick={() => void loadGyms()}>{t("common.retry")}</Button> : null}
         {!loading && !listError && gyms.length === 0 ? <p className="muted">{t("adminGyms.empty")}</p> : null}

@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json(result.payload, { status: result.status });
   }
 
-  return NextResponse.json({ data: normalizeGymListPayload(result.payload) }, { status: result.status });
+  return NextResponse.json(normalizeGymListPayload(result.payload), { status: result.status });
 }
 
 export async function POST(request: Request) {
