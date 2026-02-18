@@ -5,14 +5,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "var(--theme-bg)",
-        surface: "var(--theme-surface)",
-        elevated: "var(--theme-elevated)",
-        border: "var(--theme-border)",
-        primary: "var(--theme-primary)",
-        secondary: "var(--theme-secondary)",
-        text: "var(--theme-text)",
-        "text-muted": "var(--theme-text-muted)",
+        bg: "var(--fs-bg)",
+        surface: "var(--fs-surface)",
+        elevated: "var(--fs-elevated)",
+        border: "var(--fs-border)",
+        primary: "var(--fs-primary)",
+        secondary: "var(--fs-secondary)",
+        text: "var(--fs-text)",
+        "text-muted": "var(--fs-text-muted)",
         "dni-bg": "var(--dni-bg)",
         "dni-surface": "var(--dni-surface)",
         "dni-elevated": "var(--dni-elevated)",
@@ -27,7 +27,8 @@ const config: Config = {
         "dni-error": "var(--dni-error)",
       },
       borderRadius: {
-        card: "var(--radius-card)",
+        card: "var(--fs-radius-card)",
+        btn: "var(--fs-radius-btn)",
         button: "var(--radius-button)",
       },
       backgroundImage: {

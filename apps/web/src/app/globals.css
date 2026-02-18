@@ -16,18 +16,18 @@
   --color-warning: #f59e0b;
   --color-ring: rgba(0, 245, 195, 0.35);
 
-  /* Category Killer theme tokens */
-  --theme-bg: #0b0e13;
-  --theme-surface: #141822;
-  --theme-elevated: #1a1f2b;
-  --theme-border: #232a3a;
-  --theme-primary: #00f5c3;
-  --theme-secondary: #3b82f6;
-  --theme-text: #e6eaf2;
-  --theme-text-muted: #9aa3b2;
+  /* Backwards-compatible aliases */
+  --theme-bg: var(--fs-bg);
+  --theme-surface: var(--fs-surface);
+  --theme-elevated: var(--fs-elevated);
+  --theme-border: var(--fs-border);
+  --theme-primary: var(--fs-primary);
+  --theme-secondary: var(--fs-secondary);
+  --theme-text: var(--fs-text);
+  --theme-text-muted: var(--fs-text-muted);
 
-  --radius-card: 16px;
-  --radius-button: 14px;
+  --radius-card: var(--fs-radius-card);
+  --radius-button: var(--fs-radius-btn);
 
   /* Dark Neural Interface tokens */
   --dni-bg: #070b14;
@@ -117,17 +117,17 @@ html.theme-dark {
   --color-warning: #fbbf24;
   --color-ring: rgba(122, 255, 222, 0.45);
 
-  --theme-bg: #0b0e13;
-  --theme-surface: #141822;
-  --theme-elevated: #1a1f2b;
-  --theme-border: #232a3a;
-  --theme-primary: #00f5c3;
-  --theme-secondary: #3b82f6;
-  --theme-text: #e6eaf2;
-  --theme-text-muted: #9aa3b2;
+  --theme-bg: var(--fs-bg);
+  --theme-surface: var(--fs-surface);
+  --theme-elevated: var(--fs-elevated);
+  --theme-border: var(--fs-border);
+  --theme-primary: var(--fs-primary);
+  --theme-secondary: var(--fs-secondary);
+  --theme-text: var(--fs-text);
+  --theme-text-muted: var(--fs-text-muted);
 
-  --radius-card: 16px;
-  --radius-button: 14px;
+  --radius-card: var(--fs-radius-card);
+  --radius-button: var(--fs-radius-btn);
 
   --dni-bg: #05070f;
   --dni-surface: #0b1020;
@@ -705,7 +705,7 @@ main {
   border-radius: 999px;
   border: 1px solid transparent;
   background: var(--accent);
-  color: #fff;
+  color: var(--fs-bg);
   font-weight: var(--font-weight-semibold);
   font-size: 14px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
@@ -1744,7 +1744,7 @@ label {
   height: 36px;
   border-radius: 14px;
   background: var(--accent);
-  color: #fff;
+  color: var(--fs-bg);
   font-size: 20px;
   font-weight: 700;
   box-shadow: 0 10px 20px color-mix(in srgb, var(--accent) 35%, transparent);
