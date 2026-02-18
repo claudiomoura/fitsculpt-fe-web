@@ -27,31 +27,39 @@ type Member = {
   role: "MEMBER" | "TRAINER" | "ADMIN";
 };
 
-type ApiValidationPayload = {
-  message?: string;
-  errors?: Record<string, string | string[]>;
-  fieldErrors?: Record<string, string | string[]>;
-  details?: Array<{ field?: string; message?: string }>;
-  issues?: Array<{ path?: Array<string | number>; message?: string }>;
+type FieldErrorMap = Record<string, string>;
+
+type MaybeErrorPayload = {
+  message?: unknown;
+  error?: unknown;
+  errors?: unknown;
+  fieldErrors?: unknown;
 };
 
-type CreateField = "name" | "code";
+function toText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(", ");
+  return "";
+}
 
-function pickFieldError(payload: ApiValidationPayload | null, field: CreateField): string | null {
-  const fromRecord = (record?: Record<string, string | string[]>) => {
-    const value = record?.[field];
-    if (!value) return null;
-    return Array.isArray(value) ? value[0] ?? null : value;
-  };
+function parseFieldErrors(payload: unknown): FieldErrorMap {
+  if (!payload || typeof payload !== "object") return {};
 
-  const explicit = fromRecord(payload?.fieldErrors) ?? fromRecord(payload?.errors);
-  if (explicit) return explicit;
+  const source = payload as MaybeErrorPayload;
+  const container = (source.errors ?? source.fieldErrors) as unknown;
+  if (!container || typeof container !== "object") return {};
 
-  const fromDetails = payload?.details?.find((item) => item.field === field)?.message;
-  if (fromDetails) return fromDetails;
+  return Object.entries(container as Record<string, unknown>).reduce<FieldErrorMap>((acc, [key, value]) => {
+    const text = toText(value);
+    if (text) acc[key] = text;
+    return acc;
+  }, {});
+}
 
-  const fromIssues = payload?.issues?.find((item) => String(item.path?.[0] ?? "") === field)?.message;
-  return fromIssues ?? null;
+function parseGenericError(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const source = payload as MaybeErrorPayload;
+  return toText(source.message) || toText(source.error);
 }
 
 export default function AdminGymsClient() {
@@ -73,21 +81,9 @@ export default function AdminGymsClient() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersUnsupported, setMembersUnsupported] = useState(false);
   const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
-
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [createFieldErrors, setCreateFieldErrors] = useState<Record<CreateField, string | null>>({ name: null, code: null });
-
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteUnsupported, setDeleteUnsupported] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
   const [error, setError] = useState<string | null>(null);
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [codeError, setCodeError] = useState<string | null>(null);
-
-  const selectedGym = useMemo(() => gyms.find((gym) => gym.id === selectedGymId) ?? null, [gyms, selectedGymId]);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrorMap>({});
 
   const loadGyms = async () => {
     setLoading(true);
@@ -104,7 +100,7 @@ export default function AdminGymsClient() {
       const data = (await res.json()) as Gym[];
       setUnsupported(false);
       setGyms(data);
-      setSelectedGymId((current) => (current && data.some((item) => item.id === current) ? current : data[0]?.id ?? ""));
+      setSelectedGymId((current) => (current && data.some((gym) => gym.id === current) ? current : data[0]?.id || ""));
     } catch {
       setListError(t("adminGyms.errors.load"));
     } finally {
@@ -154,22 +150,42 @@ export default function AdminGymsClient() {
   const createGym = async () => {
     if (!name.trim() || !code.trim()) return;
     setError(null);
-    setNameError(null);
-    setCodeError(null);
+    setFieldErrors({});
     setCreatedCode(null);
     setCreateLoading(true);
 
-    const result = await createAdminGym({ name: name.trim(), code: code.trim() });
+    try {
+      const res = await fetch("/api/admin/gyms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        credentials: "include",
+        body: JSON.stringify({ name: name.trim() }),
+      });
 
-    if (!result.ok) {
-      if (result.status === 400) {
-        const nextNameError = result.error.fieldErrors.name ?? null;
-        const nextCodeError = result.error.fieldErrors.code ?? null;
-        setNameError(nextNameError);
-        setCodeError(nextCodeError);
-        setError(result.error.formError ?? (!nextNameError && !nextCodeError ? t("adminGyms.errors.create") : null));
+      const payload = (await res.json().catch(() => null)) as unknown;
+
+      if (res.status === 400) {
+        const nextFieldErrors = parseFieldErrors(payload);
+        if (Object.keys(nextFieldErrors).length > 0) {
+          setFieldErrors(nextFieldErrors);
+          return;
+        }
+        setError(parseGenericError(payload) || t("adminGyms.errors.create"));
         return;
       }
+
+      if (!res.ok) {
+        setError(parseGenericError(payload) || t("adminGyms.errors.create"));
+        return;
+      }
+
+      const created = payload as { id: string; joinCode?: string; code?: string; activationCode?: string };
+      setCreatedCode(created.activationCode ?? created.joinCode ?? created.code ?? null);
+      setName("");
+      await loadGyms();
+      setSelectedGymId(created.id);
+    } catch {
       setError(t("adminGyms.errors.create"));
       return;
     }
@@ -179,6 +195,32 @@ export default function AdminGymsClient() {
     setCode("");
     await loadGyms();
     setSelectedGymId(result.data.id);
+  };
+
+  const deleteGym = async () => {
+    if (!selectedGymId) return;
+    if (!window.confirm(t("adminGyms.deleteConfirm"))) return;
+
+    setError(null);
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`/api/admin/gyms/${selectedGymId}`, {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "include",
+      });
+      const payload = (await res.json().catch(() => null)) as unknown;
+      if (!res.ok) {
+        setError(parseGenericError(payload) || t("adminGyms.errors.delete"));
+        return;
+      }
+      setCreatedCode(null);
+      await loadGyms();
+    } catch {
+      setError(t("adminGyms.errors.delete"));
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const setMemberRole = async (userId: string, role: "TRAINER" | "MEMBER") => {
@@ -230,7 +272,8 @@ export default function AdminGymsClient() {
           <input value={code} onChange={(event) => { setCode(event.target.value); if (codeError) setCodeError(null); }} placeholder={t("adminGyms.createCodePlaceholder")} />
           {codeError ? <p className="muted" style={{ margin: 0 }}>{codeError}</p> : null}
         </label>
-        <Button onClick={() => void createGym()} disabled={!name.trim() || !code.trim()}>{t("adminGyms.createAction")}</Button>
+        {fieldErrors.name ? <p className="muted" style={{ marginTop: 0 }}>{fieldErrors.name}</p> : null}
+        <Button onClick={() => void createGym()} disabled={!name.trim()}>{t("adminGyms.createAction")}</Button>
         {createdCode ? <p className="muted">{t("adminGyms.createdCode").replace("{code}", createdCode)}</p> : null}
       </section>
 
@@ -249,6 +292,9 @@ export default function AdminGymsClient() {
                 </option>
               ))}
             </select>
+            <Button variant="secondary" onClick={() => void deleteGym()} disabled={!selectedGymId || deleteLoading}>
+              {deleteLoading ? t("common.loading") : t("adminGyms.deleteAction")}
+            </Button>
             {gyms.map((gym) => (
               <p className="muted" style={{ margin: 0 }} key={`${gym.id}-meta`}>
                 {`${gym.name} · ${t("adminGyms.joinCodeLabel")}: ${gym.activationCode ?? gym.joinCode ?? gym.code ?? t("ui.notAvailable")} · ${t("adminGyms.membersCountLabel")}: ${gym.membersCount ?? 0} · ${t("adminGyms.requestsCountLabel")}: ${gym.requestsCount ?? 0}`}
