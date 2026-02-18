@@ -2346,6 +2346,8 @@
       "members": "We could not load gym members.",
       "create": "We could not create the gym.",
       "role": "We could not update member role."
-    }
+    },
+    "createCode": "Code",
+    "createCodePlaceholder": "Gym code (e.g. FITSCULPT_HQ)"
   }
 }

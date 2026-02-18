@@ -2349,6 +2349,8 @@
       "members": "No pudimos cargar miembros del gimnasio.",
       "create": "No pudimos crear el gimnasio.",
       "role": "No pudimos actualizar el rol del miembro."
-    }
+    },
+    "createCode": "Código",
+    "createCodePlaceholder": "Código del gimnasio (ej. FITSCULPT_HQ)"
   }
 }

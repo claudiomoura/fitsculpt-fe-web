@@ -11,6 +11,29 @@ export type ServiceFailure = {
   status?: number;
 };
 
+export type GymCreateField = "name" | "code";
+
+export type AdminGymCreateValidationError = {
+  fieldErrors: Partial<Record<GymCreateField, string>>;
+  formError: string | null;
+};
+
+export type AdminGymCreateResult =
+  | {
+      ok: true;
+      data: {
+        id: string;
+        name: string;
+        code: string;
+        activationCode: string;
+      };
+    }
+  | {
+      ok: false;
+      status: number;
+      error: AdminGymCreateValidationError;
+    };
+
 export type ServiceResult<T> = ServiceSuccess<T> | ServiceFailure;
 
 export type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
@@ -258,6 +281,73 @@ export async function fetchGymJoinRequests(): Promise<Response> {
 
 export async function fetchGymMembers(gymId: string): Promise<Response> {
   return fetch(`/api/admin/gyms/${gymId}/members`, { cache: "no-store", credentials: "include" });
+}
+
+function asFirstError(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  for (const item of value) {
+    if (typeof item === "string" && item.trim().length > 0) return item;
+  }
+  return null;
+}
+
+function parseGymCreateValidationError(payload: unknown): AdminGymCreateValidationError {
+  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
+  const details = typeof source.details === "object" && source.details !== null ? (source.details as Record<string, unknown>) : {};
+  const fieldErrors =
+    typeof details.fieldErrors === "object" && details.fieldErrors !== null
+      ? (details.fieldErrors as Record<string, unknown>)
+      : {};
+
+  const nameError = asFirstError(fieldErrors.name);
+  const codeError = asFirstError(fieldErrors.code);
+  const formError = asFirstError(details.formErrors) ?? asString(source.message);
+
+  return {
+    fieldErrors: {
+      ...(nameError ? { name: nameError } : {}),
+      ...(codeError ? { code: codeError } : {}),
+    },
+    formError,
+  };
+}
+
+export async function createAdminGym(input: { name: string; code: string }): Promise<AdminGymCreateResult> {
+  try {
+    const response = await fetch("/api/admin/gyms", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      cache: "no-store",
+      credentials: "include",
+      body: JSON.stringify({
+        name: input.name,
+        code: input.code,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => null)) as unknown;
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status,
+        error: response.status === 400 ? parseGymCreateValidationError(payload) : { fieldErrors: {}, formError: null },
+      };
+    }
+
+    const created = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
+    return {
+      ok: true,
+      data: {
+        id: asString(created.id) ?? "",
+        name: asString(created.name) ?? "",
+        code: asString(created.code) ?? "",
+        activationCode: asString(created.activationCode) ?? "",
+      },
+    };
+  } catch {
+    return { ok: false, status: 0, error: { fieldErrors: {}, formError: null } };
+  }
 }
 
 export async function reviewGymJoinRequest(
