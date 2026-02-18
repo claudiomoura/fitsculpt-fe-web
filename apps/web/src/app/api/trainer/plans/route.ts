@@ -19,7 +19,7 @@ function extractItems(payload: unknown): unknown[] {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = url.searchParams.toString();
-  const path = query ? `/training-plans?${query}` : "/training-plans";
+  const path = query ? `/trainer/plans?${query}` : "/trainer/plans";
 
   const result = await fetchBackend(path);
   if (result.status < 200 || result.status >= 300) {
@@ -41,5 +41,5 @@ export async function POST(request: Request) {
   const parsed = await readJsonBody(request);
   if (!parsed.ok) return parsed.response;
 
-  return proxyToBackend("/training-plans", { method: "POST", body: parsed.body });
+  return proxyToBackend("/trainer/plans", { method: "POST", body: parsed.body });
 }
