@@ -103,7 +103,7 @@ export default function TrainerPlanAssignmentPanel() {
         setMembers(extractTrainerClients(membersPayload));
         setPlans(plansPayload.items ?? []);
         setLoading(false);
-      } catch {
+      } catch (_err) {
         if (!active) return;
         setError(t("trainer.assignPlan.loadError"));
         setLoading(false);
@@ -145,7 +145,7 @@ export default function TrainerPlanAssignmentPanel() {
           setPreview(getPlanPreview(payload));
           setPreviewLoading(false);
         }
-      } catch {
+      } catch (_err) {
         if (!active) return;
         setPreview(null);
         setPreviewError(t("trainer.assignPlan.previewError"));
@@ -198,7 +198,7 @@ export default function TrainerPlanAssignmentPanel() {
         t("trainer.assignPlan.success").replace("{member}", selectedMemberName || t("trainer.clientContext.unknownClient")),
       );
       setSelectedPlanId("");
-    } catch {
+    } catch (_err) {
       setSubmitting(false);
       setSubmitError(t("trainer.assignPlan.submitError"));
     }

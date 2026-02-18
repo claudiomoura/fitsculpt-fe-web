@@ -107,7 +107,7 @@ async function parseResponsePayload(response: Response): Promise<unknown> {
 
   try {
     return JSON.parse(text) as unknown;
-  } catch {
+  } catch (_err) {
     return { message: text };
   }
 }
@@ -138,7 +138,7 @@ export async function requestJson<T>(input: string, init?: RequestInit): Promise
 
     const payload = (await parseResponsePayload(response)) as T;
     return { ok: true, data: payload };
-  } catch {
+  } catch (_err) {
     return { ok: false, reason: "networkError", message: "Unable to connect to the server." };
   }
 }

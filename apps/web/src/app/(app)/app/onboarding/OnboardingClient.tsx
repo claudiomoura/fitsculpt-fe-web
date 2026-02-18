@@ -117,7 +117,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       const merged = mergeProfileData(data ?? undefined);
       setProfile(merged);
       setLoadState(data && Object.keys(data).length > 0 ? "ready" : "empty");
-    } catch {
+    } catch (_err) {
       setLoadState("error");
     }
   }, []);
@@ -283,7 +283,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       const data = (await response.json()) as Partial<ProfileData> | null;
       setProfile(mergeProfileData(data ?? profile));
       setSaveState("success");
-    } catch {
+    } catch (_err) {
       setSaveState("error");
     }
   }, [profile]);

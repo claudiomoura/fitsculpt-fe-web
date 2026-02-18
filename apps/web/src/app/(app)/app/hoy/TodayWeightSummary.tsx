@@ -53,7 +53,7 @@ export default function TodayWeightSummary() {
       if (mountedRef.current) {
         setLatest(hasWeight ? latestEntry : null);
       }
-    } catch {
+    } catch (_err) {
       if (mountedRef.current) {
         setError(t("today.lastWeightError"));
         setLatest(null);

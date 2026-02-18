@@ -66,7 +66,7 @@ export default function WorkoutsClient() {
         date: item.scheduledAt ? item.scheduledAt.slice(0, 10) : "",
       }));
       setWorkouts(mapped);
-    } catch {
+    } catch (_err) {
       setError(t("workouts.loadError"));
     } finally {
       setLoading(false);
@@ -232,7 +232,7 @@ export default function WorkoutsClient() {
           }))
         : [];
       setExerciseDrafts(exercises);
-    } catch {
+    } catch (_err) {
     }
   }
 

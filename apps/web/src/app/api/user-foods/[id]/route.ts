@@ -29,7 +29,7 @@ const response = await fetch(`${getBackendUrl()}/user-foods/${id}`, {
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch {
+  } catch (_err) {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }
@@ -52,7 +52,7 @@ const response = await fetch(`${getBackendUrl()}/user-foods/${id}`, {
     }
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch {
+  } catch (_err) {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }

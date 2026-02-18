@@ -40,7 +40,7 @@ async function fetchExercise(exerciseId: string) {
     }
     const data = (await response.json()) as ExerciseApiResponse;
     return { exercise: normalizeExercise(data), ok: true, status: response.status };
-  } catch {
+  } catch (_err) {
     return { exercise: null, ok: false, status: null };
   }
 }

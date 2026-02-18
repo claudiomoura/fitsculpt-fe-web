@@ -56,7 +56,7 @@ async function fetchWorkout(workoutId: string) {
     }
     const data = (await response.json()) as Workout;
     return { workout: data, error: null };
-  } catch {
+  } catch (_err) {
     return { workout: null, error: "LOAD_ERROR" };
   }
 }
