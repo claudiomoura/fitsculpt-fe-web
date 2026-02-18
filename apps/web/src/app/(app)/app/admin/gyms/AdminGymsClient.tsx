@@ -90,7 +90,7 @@ export default function AdminGymsClient() {
       setUnsupported(false);
       setGyms(data);
       setSelectedGymId((current) => (current && data.some((gym) => gym.id === current) ? current : data[0]?.id || ""));
-    } catch {
+    } catch (_err) {
       setListError(t("adminGyms.errors.load"));
     } finally {
       setLoading(false);
@@ -115,7 +115,7 @@ export default function AdminGymsClient() {
       const data = (await res.json()) as Member[];
       setMembersUnsupported(false);
       setMembers(data.filter((member) => member.status === "ACTIVE"));
-    } catch {
+    } catch (_err) {
       setMembers([]);
       setError(t("adminGyms.errors.members"));
     } finally {
@@ -170,7 +170,7 @@ export default function AdminGymsClient() {
         description: t("adminGyms.created"),
         variant: "success",
       });
-    } catch {
+    } catch (_err) {
       setError(t("adminGyms.errors.create"));
     } finally {
       setCreateLoading(false);
@@ -204,7 +204,7 @@ export default function AdminGymsClient() {
       setCreatedCode(null);
       setDeleteOpen(false);
       await loadGyms();
-    } catch {
+    } catch (_err) {
       setDeleteError(t("adminGyms.errors.delete"));
     } finally {
       setDeleteLoading(false);
@@ -231,7 +231,7 @@ export default function AdminGymsClient() {
       if (!res.ok) throw new Error("role");
       setRoleUpdateUnsupported(false);
       await loadMembers(selectedGymId);
-    } catch {
+    } catch (_err) {
       setError(t("adminGyms.errors.role"));
     }
   };

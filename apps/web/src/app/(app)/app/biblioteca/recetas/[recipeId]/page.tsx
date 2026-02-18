@@ -17,7 +17,7 @@ async function fetchRecipe(recipeId: string) {
     }
     const data = (await response.json()) as Recipe;
     return { recipe: data, ok: true };
-  } catch {
+  } catch (_err) {
     return { recipe: null, ok: false };
   }
 }

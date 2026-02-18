@@ -39,7 +39,7 @@ export default function TrainerHome() {
       const list = Array.isArray(data.users) ? data.users : [];
       setClients(list.filter((client) => client.role !== "ADMIN"));
       setClientsState("ready");
-    } catch {
+    } catch (_err) {
       setClientsState("error");
     }
   }, []);
@@ -59,7 +59,7 @@ export default function TrainerHome() {
         setCanAccessTrainer(canAccess);
         setPermissionState("ready");
         if (canAccess) void loadClients();
-      } catch {
+      } catch (_err) {
         if (active) setPermissionState("error");
       }
     };
@@ -128,7 +128,7 @@ export default function TrainerHome() {
       setName("");
       setPassword("");
       await loadClients();
-    } catch {
+    } catch (_err) {
       setCreateState("error");
     }
   };

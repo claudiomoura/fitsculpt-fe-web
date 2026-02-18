@@ -55,7 +55,7 @@ export default function TrainerExerciseCreateForm() {
         setCanAccessTrainer(flags.isAdmin || flags.isTrainer);
         setCanCreateExercise(capabilities.canCreateExercise);
         setAccessState("ready");
-      } catch {
+      } catch (_err) {
         if (active) setAccessState("error");
       }
     };
@@ -117,7 +117,7 @@ export default function TrainerExerciseCreateForm() {
       }
 
       router.push("/app/trainer/exercises");
-    } catch {
+    } catch (_err) {
       notify({
         title: t("trainer.error"),
         description: t("library.loadError"),

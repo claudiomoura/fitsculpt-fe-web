@@ -26,7 +26,7 @@ async function fetchPlan(planId: string) {
     }
     const data = (await response.json()) as NutritionPlanDetail;
     return { plan: data, error: null };
-  } catch {
+  } catch (_err) {
     return { plan: null, error: "LOAD_ERROR" };
   }
 }

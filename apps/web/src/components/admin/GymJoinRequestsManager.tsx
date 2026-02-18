@@ -44,7 +44,7 @@ export default function GymJoinRequestsManager() {
       setUnsupported(false);
       setRequests(response.data);
       setLoading(false);
-    } catch {
+    } catch (_err) {
       setError(true);
       setLoading(false);
     }
@@ -70,7 +70,7 @@ export default function GymJoinRequestsManager() {
         return;
       }
       await load();
-    } catch {
+    } catch (_err) {
       setError(true);
     } finally {
       setActingId(null);

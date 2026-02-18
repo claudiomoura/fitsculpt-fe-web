@@ -99,7 +99,7 @@ export default function GymAdminClient() {
 
       setRequests(parseJoinRequests(requestsRes.data));
       setMembers(parseMembers(await membersRes.json()));
-    } catch {
+    } catch (_err) {
       setError(t("gym.adminLoadError"));
     } finally {
       setLoading(false);
@@ -116,7 +116,7 @@ export default function GymAdminClient() {
       const response = await reviewGymJoinRequest(id, action);
       if (!response.ok) throw new Error(action);
       await loadAdminData();
-    } catch {
+    } catch (_err) {
       setError(t("gym.adminActionError"));
     } finally {
       setActionPending(null);

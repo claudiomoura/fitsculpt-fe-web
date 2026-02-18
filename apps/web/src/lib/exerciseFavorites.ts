@@ -17,7 +17,7 @@ export const getExerciseFavorites = (): string[] => {
     const stored = window.localStorage.getItem(EXERCISE_FAVORITES_STORAGE_KEY);
     if (!stored) return [];
     return normalizeFavorites(JSON.parse(stored));
-  } catch {
+  } catch (_err) {
     return [];
   }
 };
@@ -26,7 +26,7 @@ export const setExerciseFavorites = (favorites: string[]) => {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(EXERCISE_FAVORITES_STORAGE_KEY, JSON.stringify(normalizeFavorites(favorites)));
-  } catch {
+  } catch (_err) {
     // ignore storage errors
   }
 };
@@ -57,7 +57,7 @@ export const useExerciseFavorites = () => {
       const parsed = stored ? normalizeFavorites(JSON.parse(stored)) : [];
       setFavorites(parsed);
       setHasError(false);
-    } catch {
+    } catch (_err) {
       setFavorites([]);
       setHasError(true);
     } finally {

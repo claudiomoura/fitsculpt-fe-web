@@ -583,7 +583,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       if (!activeRef.current) return;
       setProfile(data);
       setSavedPlan(data.nutritionPlan ?? null);
-    } catch {
+    } catch (_err) {
       if (activeRef.current) setError(t("nutrition.profileError"));
     } finally {
       if (activeRef.current) setLoading(false);
@@ -613,7 +613,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       setAiEntitled(hasAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
-    } catch {
+    } catch (_err) {
     }
   };
 
@@ -851,7 +851,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       const updated = await updateUserProfile({ nutritionPlan: planToSave });
       setSavedPlan(updated.nutritionPlan ?? planToSave);
       setSaveMessage(t("nutrition.savePlanSuccess"));
-    } catch {
+    } catch (_err) {
       setSaveMessage(t("nutrition.savePlanError"));
     } finally {
       setSaving(false);
@@ -868,7 +868,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       const updated = await updateUserProfile({ nutritionPlan: planToSave });
       setSavedPlan(updated.nutritionPlan ?? planToSave);
       setSaveMessage(t("nutrition.manualSaveSuccess"));
-    } catch {
+    } catch (_err) {
       setSaveMessage(t("nutrition.savePlanError"));
     } finally {
       setSaving(false);
@@ -1327,7 +1327,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     const text = items.map((item) => `${item.name}: ${item.grams} g`).join("\n");
     try {
       await navigator.clipboard.writeText(text);
-    } catch {
+    } catch (_err) {
       const textarea = document.createElement("textarea");
       textarea.value = text;
       textarea.style.position = "fixed";

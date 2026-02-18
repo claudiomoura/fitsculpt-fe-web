@@ -120,7 +120,7 @@ export default function GymPageClient() {
         setGyms([]);
         setSelectedGymId("");
       }
-    } catch {
+    } catch (_err) {
       setError(t("gym.loadError.subtitle"));
     } finally {
       setLoading(false);
@@ -149,7 +149,7 @@ export default function GymPageClient() {
       if (!response.ok) throw new Error("join");
       setActionSuccess(t("gym.join.requestSuccess"));
       await loadData();
-    } catch {
+    } catch (_err) {
       setActionError(t("gym.actionError"));
     } finally {
       setRequestingJoin(false);
@@ -176,7 +176,7 @@ export default function GymPageClient() {
       setActionSuccess(t("gym.leave.success"));
       setIsLeaveConfirmOpen(false);
       await loadData();
-    } catch {
+    } catch (_err) {
       setActionError(t("gym.leave.error"));
     } finally {
       setIsLeavingGym(false);
@@ -224,7 +224,7 @@ export default function GymPageClient() {
       setCode("");
       setActionSuccess(t("gym.join.codeSuccess"));
       await loadData();
-    } catch {
+    } catch (_err) {
       setActionError(t("gym.actionError"));
     } finally {
       setJoiningByCode(false);

@@ -43,7 +43,7 @@ export default function TrainerAdminNoGymPanel() {
         const parsed = parseGyms(payload);
         setGyms(parsed);
         setSelectedGymId(parsed[0]?.id ?? "");
-      } catch {
+      } catch (_err) {
         if (active) setGyms([]);
       } finally {
         if (active) setLoadingGyms(false);
@@ -74,7 +74,7 @@ export default function TrainerAdminNoGymPanel() {
         if (!active) return;
         const rows = Array.isArray(payload) ? payload : [];
         setMembers(rows as Member[]);
-      } catch {
+      } catch (_err) {
         if (active) setMembers([]);
       } finally {
         if (active) setLoadingMembers(false);

@@ -133,7 +133,7 @@ async function readJsonResponse<T>(
 
     const data = (await response.json()) as T;
     return { ok: true, data };
-  } catch {
+  } catch (_err) {
     return { ok: false, reason: "network_error" };
   }
 }
@@ -396,7 +396,7 @@ export async function createAdminGym(input: { name: string; code: string }): Pro
         activationCode: asString(created.activationCode) ?? "",
       },
     };
-  } catch {
+  } catch (_err) {
     return { ok: false, status: 0, error: { fieldErrors: {}, formError: null } };
   }
 }

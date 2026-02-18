@@ -220,7 +220,7 @@ export default function ExerciseDetailClient({
         if (!active) return;
         setTargetPlans(details.filter(isNotNull));
         setPlansLoading(false);
-      } catch {
+      } catch (_err) {
         if (!active) return;
         setPlansError(t("library.addToPlansLoadError"));
         setPlansLoading(false);
@@ -332,7 +332,7 @@ export default function ExerciseDetailClient({
         variant: "success",
       });
       setPickerOpen(false);
-    } catch {
+    } catch (_err) {
       setAddingExercise(false);
       setAddExerciseError(t("library.addToPlansSubmitError"));
     }
