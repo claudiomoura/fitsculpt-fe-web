@@ -2397,5 +2397,55 @@
     },
     "deleteAction": "Delete gym",
     "deleteConfirm": "Are you sure you want to delete this gym?"
+  },
+  "landingRedesign": {
+    "hero": {
+      "badge": "New FitSculpt landing",
+      "title": "Train with focus, progress, and a premium experience",
+      "subtitle": "FitSculpt brings your training, nutrition, and tracking together in a clear mobile-first experience built to scale with you.",
+      "primaryCta": "Create account",
+      "secondaryCta": "Log in"
+    },
+    "features": {
+      "title": "Everything essential in one flow",
+      "subtitle": "These are the key capabilities already available in the product.",
+      "items": [
+        {
+          "title": "Guided training",
+          "description": "Access plans, sessions, and the exercise library from a focused interface.",
+          "iconSrc": "/assets/icon-dumbbell.svg",
+          "iconAlt": "Training icon"
+        },
+        {
+          "title": "Smart tracking",
+          "description": "Log progress and review your metrics with clear, low-friction states.",
+          "iconSrc": "/assets/icon-analytics.svg",
+          "iconAlt": "Analytics icon"
+        },
+        {
+          "title": "Connected nutrition",
+          "description": "Keep your nutrition plan aligned with your goal inside the same app.",
+          "iconSrc": "/assets/icon-nutrition.svg",
+          "iconAlt": "Nutrition icon"
+        }
+      ]
+    },
+    "demo": {
+      "title": "Quick experience preview",
+      "subtitle": "We show an existing visual asset while the final landing demo is being defined.",
+      "imageAlt": "FitSculpt demo preview",
+      "fallbackLabel": "Temporary visual asset for landing demo."
+    },
+    "socialProof": {
+      "title": "Trust and outcomes",
+      "subtitle": "Reserved area for verified logos and testimonials.",
+      "placeholder": "Coming soon: gym logos and real user testimonials."
+    },
+    "finalCta": {
+      "title": "Start today with FitSculpt",
+      "subtitle": "Activate your account and discover an experience designed for consistency and results.",
+      "primaryCta": "Create free account",
+      "secondaryCta": "Go to app"
+    }
   }
 }
