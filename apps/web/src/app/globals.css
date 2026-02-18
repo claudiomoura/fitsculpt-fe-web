@@ -1,33 +1,44 @@
 /* Design system: use --color-* for semantic colors, --radius-* for rounding, --shadow-* for elevation, --font-* for type scale. */
 :root {
   color-scheme: light;
-  --color-bg: #f6f4f1;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f8fafc;
-  --color-surface-highlight: #fff7ed;
-  --color-text: #0f172a;
-  --color-text-muted: #64748b;
-  --color-border: #e2e8f0;
-  --color-primary: #f97316;
-  --color-primary-strong: #ea580c;
-  --color-secondary: #0f172a;
+  --fs-bg: #0b0e13;
+  --fs-surface: #141822;
+  --fs-elevated: #1a1f2b;
+  --fs-border: #232a3a;
+  --fs-primary: #00f5c3;
+  --fs-secondary: #3b82f6;
+  --fs-text: #e6eaf2;
+  --fs-text-muted: #9aa3b2;
+  --fs-radius-card: 16px;
+  --fs-radius-btn: 14px;
+
+  --color-bg: var(--fs-bg);
+  --color-surface: var(--fs-surface);
+  --color-surface-muted: var(--fs-elevated);
+  --color-surface-highlight: color-mix(in srgb, var(--fs-secondary) 14%, var(--fs-bg));
+  --color-text: var(--fs-text);
+  --color-text-muted: var(--fs-text-muted);
+  --color-border: var(--fs-border);
+  --color-primary: var(--fs-primary);
+  --color-primary-strong: color-mix(in srgb, var(--fs-primary) 82%, black);
+  --color-secondary: var(--fs-secondary);
   --color-danger: #ef4444;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
-  --color-ring: rgba(249, 115, 22, 0.35);
+  --color-ring: color-mix(in srgb, var(--fs-primary) 38%, transparent);
 
-  /* Category Killer theme tokens */
-  --theme-bg: #0b0e13;
-  --theme-surface: #141822;
-  --theme-elevated: #1a1f2b;
-  --theme-border: #232a3a;
-  --theme-primary: #00f5c3;
-  --theme-secondary: #3b82f6;
-  --theme-text: #e6eaf2;
-  --theme-text-muted: #9aa3b2;
+  /* Backwards-compatible aliases */
+  --theme-bg: var(--fs-bg);
+  --theme-surface: var(--fs-surface);
+  --theme-elevated: var(--fs-elevated);
+  --theme-border: var(--fs-border);
+  --theme-primary: var(--fs-primary);
+  --theme-secondary: var(--fs-secondary);
+  --theme-text: var(--fs-text);
+  --theme-text-muted: var(--fs-text-muted);
 
-  --radius-card: 16px;
-  --radius-button: 14px;
+  --radius-card: var(--fs-radius-card);
+  --radius-button: var(--fs-radius-btn);
 
   /* Dark Neural Interface tokens */
   --dni-bg: #070b14;
@@ -75,15 +86,15 @@
   --text-muted: var(--color-text-muted);
   --accent: var(--color-primary);
   --accent-strong: var(--color-primary-strong);
-  --accent-soft: #ffedd5;
+  --accent-soft: color-mix(in srgb, var(--fs-primary) 16%, var(--fs-bg));
   --border: var(--color-border);
   --shadow: var(--shadow-md);
-  --header-bg: rgba(255, 255, 255, 0.92);
-  --badge-bg: #fff7ed;
-  --badge-border: #fed7aa;
-  --badge-text: #9a3412;
-  --link-active: #9a3412;
-  --hero-bg: linear-gradient(135deg, #fff7ed 0%, #ffedd5 45%, #fef3c7 100%);
+  --header-bg: color-mix(in srgb, var(--fs-surface) 92%, transparent);
+  --badge-bg: color-mix(in srgb, var(--fs-secondary) 14%, var(--fs-bg));
+  --badge-border: color-mix(in srgb, var(--fs-secondary) 32%, var(--fs-border));
+  --badge-text: var(--fs-text);
+  --link-active: var(--fs-primary);
+  --hero-bg: radial-gradient(circle at top, color-mix(in srgb, var(--fs-secondary) 20%, transparent), color-mix(in srgb, var(--fs-bg) 95%, transparent));
   --skeleton-base: rgba(148, 163, 184, 0.18);
   --skeleton-highlight: rgba(148, 163, 184, 0.34);
   --tabbar-h: 64px;
@@ -102,32 +113,43 @@ body {
 
 html.theme-dark {
   color-scheme: dark;
-  --color-bg: #0f1115;
-  --color-surface: #161a20;
-  --color-surface-muted: #1f2530;
-  --color-surface-highlight: #22160b;
-  --color-text: #f8fafc;
-  --color-text-muted: #94a3b8;
-  --color-border: #2b3240;
-  --color-primary: #f97316;
-  --color-primary-strong: #fb923c;
-  --color-secondary: #e2e8f0;
+  --fs-bg: #0b0e13;
+  --fs-surface: #141822;
+  --fs-elevated: #1a1f2b;
+  --fs-border: #232a3a;
+  --fs-primary: #00f5c3;
+  --fs-secondary: #3b82f6;
+  --fs-text: #e6eaf2;
+  --fs-text-muted: #9aa3b2;
+  --fs-radius-card: 16px;
+  --fs-radius-btn: 14px;
+
+  --color-bg: var(--fs-bg);
+  --color-surface: var(--fs-surface);
+  --color-surface-muted: var(--fs-elevated);
+  --color-surface-highlight: color-mix(in srgb, var(--fs-secondary) 14%, var(--fs-bg));
+  --color-text: var(--fs-text);
+  --color-text-muted: var(--fs-text-muted);
+  --color-border: var(--fs-border);
+  --color-primary: var(--fs-primary);
+  --color-primary-strong: color-mix(in srgb, var(--fs-primary) 82%, black);
+  --color-secondary: var(--fs-secondary);
   --color-danger: #f87171;
   --color-success: #4ade80;
   --color-warning: #fbbf24;
-  --color-ring: rgba(249, 115, 22, 0.45);
+  --color-ring: color-mix(in srgb, var(--fs-primary) 45%, transparent);
 
-  --theme-bg: #0b0e13;
-  --theme-surface: #141822;
-  --theme-elevated: #1a1f2b;
-  --theme-border: #232a3a;
-  --theme-primary: #00f5c3;
-  --theme-secondary: #3b82f6;
-  --theme-text: #e6eaf2;
-  --theme-text-muted: #9aa3b2;
+  --theme-bg: var(--fs-bg);
+  --theme-surface: var(--fs-surface);
+  --theme-elevated: var(--fs-elevated);
+  --theme-border: var(--fs-border);
+  --theme-primary: var(--fs-primary);
+  --theme-secondary: var(--fs-secondary);
+  --theme-text: var(--fs-text);
+  --theme-text-muted: var(--fs-text-muted);
 
-  --radius-card: 16px;
-  --radius-button: 14px;
+  --radius-card: var(--fs-radius-card);
+  --radius-button: var(--fs-radius-btn);
 
   --dni-bg: #05070f;
   --dni-surface: #0b1020;
@@ -155,15 +177,15 @@ html.theme-dark {
   --text-muted: var(--color-text-muted);
   --accent: var(--color-primary);
   --accent-strong: var(--color-primary-strong);
-  --accent-soft: #2a1a0b;
+  --accent-soft: color-mix(in srgb, var(--fs-primary) 16%, var(--fs-bg));
   --border: var(--color-border);
   --shadow: var(--shadow-md);
-  --header-bg: rgba(15, 17, 21, 0.9);
-  --badge-bg: #2a1a0b;
-  --badge-border: #4b2d16;
-  --badge-text: #fdba74;
-  --link-active: #fdba74;
-  --hero-bg: radial-gradient(circle at top, rgba(249, 115, 22, 0.15), rgba(15, 17, 21, 0.95));
+  --header-bg: color-mix(in srgb, var(--fs-surface) 90%, transparent);
+  --badge-bg: color-mix(in srgb, var(--fs-secondary) 14%, var(--fs-bg));
+  --badge-border: color-mix(in srgb, var(--fs-secondary) 32%, var(--fs-border));
+  --badge-text: var(--fs-text);
+  --link-active: var(--fs-primary);
+  --hero-bg: radial-gradient(circle at top, color-mix(in srgb, var(--fs-secondary) 20%, transparent), color-mix(in srgb, var(--fs-bg) 95%, transparent));
   --skeleton-base: rgba(148, 163, 184, 0.12);
   --skeleton-highlight: rgba(148, 163, 184, 0.22);
 }
@@ -705,7 +727,7 @@ main {
   border-radius: 999px;
   border: 1px solid transparent;
   background: var(--accent);
-  color: #fff;
+  color: var(--fs-bg);
   font-weight: var(--font-weight-semibold);
   font-size: 14px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
@@ -714,7 +736,7 @@ main {
 .btn:hover,
 .ui-button:hover {
   background: var(--accent-strong);
-  box-shadow: 0 12px 24px rgba(249, 115, 22, 0.25);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--fs-primary) 30%, transparent);
   transform: translateY(-1px);
 }
 
@@ -1744,10 +1766,10 @@ label {
   height: 36px;
   border-radius: 14px;
   background: var(--accent);
-  color: #fff;
+  color: var(--fs-bg);
   font-size: 20px;
   font-weight: 700;
-  box-shadow: 0 10px 20px rgba(249, 115, 22, 0.35);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--fs-primary) 35%, transparent);
 }
 
 .mobile-tab-label {
