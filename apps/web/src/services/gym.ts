@@ -1,9 +1,5 @@
 import {
-  normalizeGymListPayload,
-  normalizeJoinRequestPayload,
-  normalizeMembershipPayload,
   type GymListItemDto,
-  type GymMembershipDto,
   type JoinRequestListItemDto,
 } from "@/lib/gym-contracts";
 
@@ -383,7 +379,7 @@ function extractErrorMessage(payload: unknown): string | null {
   return null;
 }
 
-export async function createAdminGym(input: { name: string; code: string }): Promise<AdminGymCreateResult> {
+export async function createAdminGym(input: { name: string; code?: string }): Promise<AdminGymCreateResult> {
   try {
     const response = await fetch("/api/admin/gyms", {
       method: "POST",
@@ -392,7 +388,7 @@ export async function createAdminGym(input: { name: string; code: string }): Pro
       credentials: "include",
       body: JSON.stringify({
         name: input.name,
-        code: input.code,
+        ...(input.code && input.code.trim().length > 0 ? { code: input.code } : {}),
       }),
     });
 
