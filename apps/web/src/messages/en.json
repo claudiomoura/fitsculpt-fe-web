@@ -1939,7 +1939,8 @@
       "unknownStatus": "Unknown status",
       "loading": "Loading client list...",
       "description": "Review and open athlete contexts from your trainer area.",
-      "openList": "Open client list"
+      "openList": "Open client list",
+      "forbiddenHint": "Your account cannot access this client list in the current gym context."
     },
     "requests": {
       "title": "Gym join requests",
@@ -2029,7 +2030,17 @@
           "creating": "Creating plan...",
           "createSuccess": "Minimal plan created successfully. You can now assign it or add exercises from the library.",
           "createError": "We could not create a minimal plan. Please retry.",
-          "defaultPlanTitle": "Minimal weekly plan"
+          "defaultPlanTitle": "Minimal weekly plan",
+          "unsupported": "Plan assignment controls are not supported by the backend in this environment.",
+          "forbidden": "You don't have permission to manage plan assignment for this member.",
+          "unassignCta": "Unassign plan",
+          "unassignSuccess": "Plan unassigned successfully from {member}.",
+          "unassignError": "We could not unassign the current plan. Please retry.",
+          "removeClientCta": "Remove client from trainer list",
+          "removeClientConfirm": "Are you sure you want to remove {member} from your client list?",
+          "removeClientConfirmCta": "Yes, remove client",
+          "removeSuccess": "{member} was removed from your trainer list.",
+          "removeError": "We could not remove this client. Please retry."
         }
       },
       "nutrition": {
@@ -2064,7 +2075,8 @@
         "adjustmentsEmpty": "No adjustment drafts saved on this device yet.",
         "pendingLocalBadge": "Pending (local)"
       },
-      "nextStep": "Athlete context will be enabled when backend impersonation support is available."
+      "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
+      "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment."
     },
     "planBuilder": {
       "title": "Plan builder",

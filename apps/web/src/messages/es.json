@@ -1942,7 +1942,8 @@
       "unknownStatus": "Estado desconocido",
       "loading": "Cargando lista de clientes...",
       "description": "Revisa y abre contextos de atletas desde tu área de entrenador.",
-      "openList": "Abrir lista de clientes"
+      "openList": "Abrir lista de clientes",
+      "forbiddenHint": "Tu cuenta no puede acceder a esta lista de clientes en el contexto actual del gimnasio."
     },
     "requests": {
       "title": "Solicitudes de ingreso al gimnasio",
@@ -2032,7 +2033,17 @@
           "creating": "Creando plan...",
           "createSuccess": "Plan mínimo creado correctamente. Ya puedes asignarlo o agregar ejercicios desde biblioteca.",
           "createError": "No pudimos crear un plan mínimo. Reintenta.",
-          "defaultPlanTitle": "Plan semanal mínimo"
+          "defaultPlanTitle": "Plan semanal mínimo",
+          "unsupported": "Los controles de asignación de plan no están soportados por el backend en este entorno.",
+          "forbidden": "No tienes permiso para gestionar la asignación de plan para este miembro.",
+          "unassignCta": "Desasignar plan",
+          "unassignSuccess": "Plan desasignado correctamente de {member}.",
+          "unassignError": "No pudimos desasignar el plan actual. Inténtalo de nuevo.",
+          "removeClientCta": "Quitar cliente de la lista del entrenador",
+          "removeClientConfirm": "¿Seguro que quieres quitar a {member} de tu lista de clientes?",
+          "removeClientConfirmCta": "Sí, quitar cliente",
+          "removeSuccess": "{member} fue eliminado de tu lista de entrenador.",
+          "removeError": "No pudimos eliminar este cliente. Inténtalo de nuevo."
         }
       },
       "nutrition": {
@@ -2067,7 +2078,8 @@
         "adjustmentsEmpty": "Aún no hay borradores de ajuste guardados en este dispositivo.",
         "pendingLocalBadge": "Pendiente (local)"
       },
-      "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend."
+      "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend.",
+      "forbiddenHint": "No tienes permiso para ver el contexto de entrenador de este cliente. Verifica acceso al gimnasio y asignación."
     },
     "planBuilder": {
       "title": "Constructor de planes",

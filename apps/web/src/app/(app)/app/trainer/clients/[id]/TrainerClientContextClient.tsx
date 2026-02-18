@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { hasTrainerClientContextCapability } from "@/lib/capabilities";
-import { canAccessTrainerGymArea, type GymMembership } from "@/lib/gymMembership";
+import { type GymMembership } from "@/lib/gymMembership";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
@@ -62,6 +62,7 @@ export default function TrainerClientContextClient() {
   const [client, setClient] = useState<ClientRow | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("summary");
   const [gymMembershipState, setGymMembershipState] = useState<"in_gym" | "not_in_gym" | "unknown" | "no_permission">("unknown");
+  const [clientForbidden, setClientForbidden] = useState(false);
 
   const handleRetry = () => {
     window.location.reload();
@@ -97,7 +98,16 @@ export default function TrainerClientContextClient() {
         if (!canAccess) return;
 
         setClientState("loading");
+        setClientForbidden(false);
         const trainerClientResponse = await fetch(`/api/trainer/clients/${clientId}`, { cache: "no-store" });
+
+        if (trainerClientResponse.status === 403) {
+          if (active) {
+            setClientForbidden(true);
+            setClientState("ready");
+          }
+          return;
+        }
 
         if (trainerClientResponse.status === 404) {
           if (active) {
@@ -115,6 +125,7 @@ export default function TrainerClientContextClient() {
         const trainerClient = (await trainerClientResponse.json()) as ClientRow;
         if (!active) return;
 
+        setClientForbidden(false);
         setClient(trainerClient);
         setClientState("ready");
       } catch {
@@ -156,12 +167,16 @@ export default function TrainerClientContextClient() {
       return { summary: "error", training: "error", nutrition: "error", tracking: "error" };
     }
 
+    if (clientForbidden) {
+      return { summary: "unavailable", training: "unavailable", nutrition: "unavailable", tracking: "unavailable" };
+    }
+
     if (!client || !hasTrainerClientContextCapability(client)) {
       return { summary: "empty", training: "empty", nutrition: "empty", tracking: "empty" };
     }
 
     return { summary: "ready", training: "ready", nutrition: "empty", tracking: "ready" };
-  }, [client, clientState]);
+  }, [client, clientForbidden, clientState]);
 
   const renderSectionBody = (sectionState: SectionState) => {
     if (sectionState === "loading") {
@@ -194,7 +209,7 @@ export default function TrainerClientContextClient() {
     if (sectionState === "unavailable") {
       return (
         <div className="form-stack">
-          <p className="muted">{t("trainer.clientContext.unavailable")}</p>
+          <p className="muted">{clientForbidden ? t("trainer.clientContext.forbiddenHint") : t("trainer.clientContext.unavailable")}</p>
           <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
             {t("trainer.back")}
           </Link>
