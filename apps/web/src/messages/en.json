@@ -2345,7 +2345,10 @@
       "load": "We could not load gyms.",
       "members": "We could not load gym members.",
       "create": "We could not create the gym.",
-      "role": "We could not update member role."
-    }
+      "role": "We could not update member role.",
+      "delete": "We could not delete the gym."
+    },
+    "deleteAction": "Delete gym",
+    "deleteConfirm": "Are you sure you want to delete this gym?"
   }
 }

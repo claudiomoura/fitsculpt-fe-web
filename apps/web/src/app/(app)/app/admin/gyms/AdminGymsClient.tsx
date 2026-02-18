@@ -22,6 +22,41 @@ type Member = {
   role: "MEMBER" | "TRAINER" | "ADMIN";
 };
 
+type FieldErrorMap = Record<string, string>;
+
+type MaybeErrorPayload = {
+  message?: unknown;
+  error?: unknown;
+  errors?: unknown;
+  fieldErrors?: unknown;
+};
+
+function toText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(", ");
+  return "";
+}
+
+function parseFieldErrors(payload: unknown): FieldErrorMap {
+  if (!payload || typeof payload !== "object") return {};
+
+  const source = payload as MaybeErrorPayload;
+  const container = (source.errors ?? source.fieldErrors) as unknown;
+  if (!container || typeof container !== "object") return {};
+
+  return Object.entries(container as Record<string, unknown>).reduce<FieldErrorMap>((acc, [key, value]) => {
+    const text = toText(value);
+    if (text) acc[key] = text;
+    return acc;
+  }, {});
+}
+
+function parseGenericError(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const source = payload as MaybeErrorPayload;
+  return toText(source.message) || toText(source.error);
+}
+
 export default function AdminGymsClient() {
   const { t } = useLanguage();
   const { isAdmin, isLoading: accessLoading } = useAccess();
@@ -35,7 +70,9 @@ export default function AdminGymsClient() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersUnsupported, setMembersUnsupported] = useState(false);
   const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrorMap>({});
 
   const loadGyms = async () => {
     setLoading(true);
@@ -52,7 +89,7 @@ export default function AdminGymsClient() {
       const data = (await res.json()) as Gym[];
       setUnsupported(false);
       setGyms(data);
-      setSelectedGymId((current) => current || data[0]?.id || "");
+      setSelectedGymId((current) => (current && data.some((gym) => gym.id === current) ? current : data[0]?.id || ""));
     } catch {
       setError(t("adminGyms.errors.load"));
     } finally {
@@ -93,6 +130,7 @@ export default function AdminGymsClient() {
   const createGym = async () => {
     if (!name.trim()) return;
     setError(null);
+    setFieldErrors({});
     setCreatedCode(null);
 
     try {
@@ -103,14 +141,57 @@ export default function AdminGymsClient() {
         credentials: "include",
         body: JSON.stringify({ name: name.trim() }),
       });
-      if (!res.ok) throw new Error("create");
-      const created = (await res.json()) as { id: string; joinCode?: string; code?: string; activationCode?: string };
+
+      const payload = (await res.json().catch(() => null)) as unknown;
+
+      if (res.status === 400) {
+        const nextFieldErrors = parseFieldErrors(payload);
+        if (Object.keys(nextFieldErrors).length > 0) {
+          setFieldErrors(nextFieldErrors);
+          return;
+        }
+        setError(parseGenericError(payload) || t("adminGyms.errors.create"));
+        return;
+      }
+
+      if (!res.ok) {
+        setError(parseGenericError(payload) || t("adminGyms.errors.create"));
+        return;
+      }
+
+      const created = payload as { id: string; joinCode?: string; code?: string; activationCode?: string };
       setCreatedCode(created.activationCode ?? created.joinCode ?? created.code ?? null);
       setName("");
       await loadGyms();
       setSelectedGymId(created.id);
     } catch {
       setError(t("adminGyms.errors.create"));
+    }
+  };
+
+  const deleteGym = async () => {
+    if (!selectedGymId) return;
+    if (!window.confirm(t("adminGyms.deleteConfirm"))) return;
+
+    setError(null);
+    setDeleteLoading(true);
+    try {
+      const res = await fetch(`/api/admin/gyms/${selectedGymId}`, {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "include",
+      });
+      const payload = (await res.json().catch(() => null)) as unknown;
+      if (!res.ok) {
+        setError(parseGenericError(payload) || t("adminGyms.errors.delete"));
+        return;
+      }
+      setCreatedCode(null);
+      await loadGyms();
+    } catch {
+      setError(t("adminGyms.errors.delete"));
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -157,6 +238,7 @@ export default function AdminGymsClient() {
           {t("adminGyms.createName")}
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("adminGyms.createPlaceholder")} />
         </label>
+        {fieldErrors.name ? <p className="muted" style={{ marginTop: 0 }}>{fieldErrors.name}</p> : null}
         <Button onClick={() => void createGym()} disabled={!name.trim()}>{t("adminGyms.createAction")}</Button>
         {createdCode ? <p className="muted">{t("adminGyms.createdCode").replace("{code}", createdCode)}</p> : null}
       </section>
@@ -174,6 +256,9 @@ export default function AdminGymsClient() {
                 </option>
               ))}
             </select>
+            <Button variant="secondary" onClick={() => void deleteGym()} disabled={!selectedGymId || deleteLoading}>
+              {deleteLoading ? t("common.loading") : t("adminGyms.deleteAction")}
+            </Button>
             {gyms.map((gym) => (
               <p className="muted" style={{ margin: 0 }} key={`${gym.id}-meta`}>
                 {`${gym.name} · ${t("adminGyms.joinCodeLabel")}: ${gym.activationCode ?? gym.joinCode ?? gym.code ?? "-"} · ${t("adminGyms.membersCountLabel")}: ${gym.membersCount ?? 0} · ${t("adminGyms.requestsCountLabel")}: ${gym.requestsCount ?? 0}`}

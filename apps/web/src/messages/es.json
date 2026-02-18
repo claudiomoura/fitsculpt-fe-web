@@ -2348,7 +2348,10 @@
       "load": "No pudimos cargar gimnasios.",
       "members": "No pudimos cargar miembros del gimnasio.",
       "create": "No pudimos crear el gimnasio.",
-      "role": "No pudimos actualizar el rol del miembro."
-    }
+      "role": "No pudimos actualizar el rol del miembro.",
+      "delete": "No pudimos eliminar el gimnasio."
+    },
+    "deleteAction": "Eliminar gimnasio",
+    "deleteConfirm": "¿Seguro que deseas eliminar este gimnasio?"
   }
 }
