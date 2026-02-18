@@ -6259,6 +6259,41 @@ const adminDeleteGymParamsSchema = z.object({
   gymId: z.string().min(1),
 });
 
+type StableGymMembershipState = "NONE" | "PENDING" | "ACTIVE";
+
+function toStableGymMembershipState(status: "PENDING" | "ACTIVE" | "REJECTED" | null | undefined): StableGymMembershipState {
+  if (status === "PENDING") return "PENDING";
+  if (status === "ACTIVE") return "ACTIVE";
+  return "NONE";
+}
+
+function toLegacyGymMembershipState(state: StableGymMembershipState): "none" | "pending" | "active" {
+  if (state === "PENDING") return "pending";
+  if (state === "ACTIVE") return "active";
+  return "none";
+}
+
+function serializeGymMembership(
+  membership:
+    | {
+        status: "PENDING" | "ACTIVE" | "REJECTED";
+        role: "ADMIN" | "TRAINER" | "MEMBER";
+        gym: { id: string; name: string };
+      }
+    | null,
+) {
+  const status = toStableGymMembershipState(membership?.status);
+  const gym = status === "NONE" ? null : membership?.gym ?? null;
+  const role = status === "NONE" ? null : membership?.role ?? null;
+
+  return {
+    status,
+    state: toLegacyGymMembershipState(status),
+    gym,
+    role,
+  };
+}
+
 app.get("/gyms", async (request, reply) => {
   try {
     await requireUser(request);
@@ -6278,7 +6313,7 @@ app.get("/gyms", async (request, reply) => {
       },
       orderBy: { name: "asc" },
     });
-    return { gyms };
+    return { gyms, items: gyms };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6314,11 +6349,7 @@ const createGymJoinRequest = async (request: FastifyRequest, reply: FastifyReply
           include: { gym: { select: { id: true, name: true } } },
         });
 
-    return reply.status(200).send({
-      state: membership.status.toLowerCase(),
-      gym: membership.gym,
-      role: membership.role,
-    });
+    return reply.status(200).send(serializeGymMembership(membership));
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6357,11 +6388,13 @@ app.post("/gyms/join-by-code", async (request, reply) => {
           },
         });
 
-    return reply.status(200).send({
-      state: membership.status.toLowerCase(),
-      gym: { id: gym.id, name: gym.name },
-      role: membership.role,
-    });
+    return reply.status(200).send(
+      serializeGymMembership({
+        status: membership.status,
+        role: membership.role,
+        gym: { id: gym.id, name: gym.name },
+      }),
+    );
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6371,7 +6404,10 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
   try {
     const user = await requireUser(request);
     const membership = await prisma.gymMembership.findFirst({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        status: { in: ["PENDING", "ACTIVE"] },
+      },
       select: {
         status: true,
         role: true,
@@ -6384,14 +6420,7 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
       },
       orderBy: { updatedAt: "desc" },
     });
-    if (!membership) {
-      return reply.status(200).send({ state: "none" });
-    }
-    return {
-      state: membership.status.toLowerCase(),
-      gym: membership.gym,
-      role: membership.role,
-    };
+    return reply.status(200).send(serializeGymMembership(membership));
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6432,15 +6461,51 @@ app.post("/gym/join-code", async (request, reply) => {
           },
         });
 
-    return reply.status(200).send({
-      state: membership.status.toLowerCase(),
-      gym: { id: gym.id, name: gym.name },
-      role: membership.role,
-    });
+    return reply.status(200).send(
+      serializeGymMembership({
+        status: membership.status,
+        role: membership.role,
+        gym: { id: gym.id, name: gym.name },
+      }),
+    );
   } catch (error) {
     return handleRequestError(reply, error);
   }
 });
+
+
+const leaveGymMembership = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const user = await requireUser(request);
+    const activeMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: { in: ["PENDING", "ACTIVE"] },
+      },
+      select: { id: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!activeMembership) {
+      return reply.status(200).send({
+        left: false,
+        membership: serializeGymMembership(null),
+      });
+    }
+
+    await prisma.gymMembership.delete({ where: { id: activeMembership.id } });
+
+    return reply.status(200).send({
+      left: true,
+      membership: serializeGymMembership(null),
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+};
+
+app.delete("/gyms/membership", leaveGymMembership);
+app.delete("/gym/me", leaveGymMembership);
 
 app.get("/admin/gym-join-requests", async (request, reply) => {
   try {
@@ -6472,13 +6537,16 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
       },
       orderBy: { createdAt: "asc" },
     });
-    return requests.map((membership) => ({
+    const items = requests.map((membership) => ({
       id: membership.id,
       membershipId: membership.id,
+      status: "PENDING" as const,
       gym: membership.gym,
       user: membership.user,
       createdAt: membership.createdAt,
     }));
+
+    return { items, requests: items };
   } catch (error) {
     return handleRequestError(reply, error);
   }
