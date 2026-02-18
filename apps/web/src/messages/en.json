@@ -1970,20 +1970,8 @@
       "loading": "Loading plans...",
       "empty": "No plans available.",
       "error": "We could not load plans.",
-      "selectPlan": "Use this plan",
-      "dayBuilderTitle": "Day sections",
-      "dayBuilderEmpty": "Create a plan template to start organizing exercises by day.",
-      "dayBuilderFor": "Editing day sections for: {plan}",
-      "dayExercisesEmpty": "No exercises selected for this day yet.",
-      "notSupportedTitle": "Plans service not available",
-      "notSupportedDescription": "Training plan actions are not supported in this environment.",
-      "exerciseSearch": {
-        "title": "Exercise search",
-        "description": "Find an exercise and add it to the current day section.",
-        "disabled": "Exercise search will be enabled after creating/selecting a plan.",
-        "select": "Add",
-        "remove": "Remove"
-      }
+      "addExerciseSuccess": "Exercise added to the selected plan day.",
+      "addExerciseError": "We could not add that exercise to the selected day."
     },
     "clientContext": {
       "title": "Athlete context",
