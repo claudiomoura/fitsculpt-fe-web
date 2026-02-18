@@ -1582,6 +1582,9 @@
     "equipmentLabel": "Equipamiento",
     "equipmentFallback": "Sin especificar",
     "descriptionFallback": "Sin descripción disponible.",
+    "thumbnailAlt": "Miniatura de {exercise}",
+    "thumbnailMissing": "Miniatura de ejercicio no disponible",
+    "thumbnailPlaceholder": "Sin imagen",
     "levelLabel": "Nivel",
     "levelGeneral": "General",
     "primaryLabel": "Principal",
@@ -1631,7 +1634,20 @@
     "addToPlanNoPlanCta": "Crear o seleccionar un plan",
     "addToPlanSubmitError": "No pudimos añadir el ejercicio. Reintenta.",
     "addToPlanSuccessTitle": "Ejercicio añadido",
-    "addToPlanSuccessDescription": "{exercise} se añadió al día seleccionado."
+    "addToPlanSuccessDescription": "{exercise} se añadió al día seleccionado.",
+    "addToPlansModalTitle": "Agregar ejercicio a planes",
+    "addToPlansModalDescription": "Selecciona uno o más planes para {exercise}.",
+    "addToPlansLabel": "Planes",
+    "addToPlansDaysCount": "Días: {count}",
+    "addToPlansSelectedCount": "Planes seleccionados: {count}",
+    "addToPlansConfirm": "Añadir a planes",
+    "addToPlansLoading": "Cargando planes disponibles...",
+    "addToPlansLoadError": "No pudimos cargar los planes.",
+    "addToPlansNoPlan": "No hay planes de entrenamiento disponibles.",
+    "addToPlansNoPlanCta": "Crear o elegir un plan",
+    "addToPlansSubmitError": "No pudimos añadir este ejercicio a los planes seleccionados.",
+    "addToPlansSuccessTitle": "Ejercicio añadido a planes",
+    "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es)."
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -2271,7 +2287,17 @@
       "title": "Tu sesión expiró",
       "subtitle": "Inicia sesión nuevamente para consultar tu estado de gimnasio."
     },
-    "actionSuccessTitle": "Solicitud enviada"
+    "actionSuccessTitle": "Solicitud enviada",
+    "leave": {
+      "cta": "Salir del gym",
+      "confirmTitle": "¿Salir de tu gym?",
+      "confirmDescription": "Esto quitará tu membresía actual del área de gym.",
+      "confirmHelp": "Puedes solicitar acceso nuevamente desde esta pantalla.",
+      "confirmAction": "Salir del gym",
+      "success": "Saliste de tu membresía del gym correctamente.",
+      "error": "No pudimos completar esta acción ahora mismo.",
+      "unsupported": "Este entorno aún no soporta salir del gym."
+    }
   },
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",

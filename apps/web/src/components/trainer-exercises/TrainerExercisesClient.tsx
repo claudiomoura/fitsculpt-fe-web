@@ -16,6 +16,10 @@ type ExercisesResponse = {
   items?: Exercise[];
 };
 
+function getExerciseThumbnail(exercise: Exercise): string | null {
+  return exercise.imageUrl ?? exercise.posterUrl ?? null;
+}
+
 export default function TrainerExercisesClient() {
   const { t } = useLanguage();
   const [permissionState, setPermissionState] = useState<LoadState>("loading");
@@ -86,7 +90,13 @@ export default function TrainerExercisesClient() {
 
   const listBody = useMemo(() => {
     if (exercisesState === "loading") {
-      return <p className="muted">{t("library.loading")}</p>;
+      return (
+        <div className="form-stack" aria-busy="true" aria-live="polite">
+          <p className="muted">{t("library.loading")}</p>
+          <div className="card" style={{ minHeight: 76 }} />
+          <div className="card" style={{ minHeight: 76 }} />
+        </div>
+      );
     }
 
     if (exercisesState === "error") {
@@ -113,10 +123,39 @@ export default function TrainerExercisesClient() {
         {exercises.map((exercise) => (
           <li key={exercise.id} className="card">
             <Link href={`/app/biblioteca/${exercise.id}`} className="sidebar-link" style={{ display: "block" }}>
-              <strong>{exercise.name}</strong>
-              <p className="muted" style={{ margin: "4px 0 0" }}>
-                {exercise.description || t("library.descriptionFallback")}
-              </p>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                {getExerciseThumbnail(exercise) ? (
+                  <img
+                    src={getExerciseThumbnail(exercise) ?? ""}
+                    alt={t("library.thumbnailAlt").replace("{exercise}", exercise.name)}
+                    width={72}
+                    height={72}
+                    style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 10, flexShrink: 0 }}
+                  />
+                ) : (
+                  <div
+                    role="img"
+                    aria-label={t("library.thumbnailMissing")}
+                    style={{
+                      width: 72,
+                      height: 72,
+                      borderRadius: 10,
+                      flexShrink: 0,
+                      display: "grid",
+                      placeItems: "center",
+                      border: "1px solid var(--line)",
+                    }}
+                  >
+                    <span className="muted" style={{ fontSize: 12 }}>{t("library.thumbnailPlaceholder")}</span>
+                  </div>
+                )}
+                <div>
+                  <strong>{exercise.name}</strong>
+                  <p className="muted" style={{ margin: "4px 0 0" }}>
+                    {exercise.description || t("library.descriptionFallback")}
+                  </p>
+                </div>
+              </div>
             </Link>
           </li>
         ))}

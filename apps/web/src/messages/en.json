@@ -1579,6 +1579,9 @@
     "equipmentLabel": "Equipment",
     "equipmentFallback": "Not specified",
     "descriptionFallback": "No description available.",
+    "thumbnailAlt": "Thumbnail for {exercise}",
+    "thumbnailMissing": "Exercise thumbnail unavailable",
+    "thumbnailPlaceholder": "No image",
     "levelLabel": "Level",
     "levelGeneral": "General",
     "primaryLabel": "Primary",
@@ -1628,7 +1631,20 @@
     "addToPlanNoPlanCta": "Create or select a plan",
     "addToPlanSubmitError": "We couldn't add the exercise. Please retry.",
     "addToPlanSuccessTitle": "Exercise added",
-    "addToPlanSuccessDescription": "{exercise} was added to your selected day."
+    "addToPlanSuccessDescription": "{exercise} was added to your selected day.",
+    "addToPlansModalTitle": "Add exercise to plans",
+    "addToPlansModalDescription": "Select one or more plans for {exercise}.",
+    "addToPlansLabel": "Plans",
+    "addToPlansDaysCount": "Days: {count}",
+    "addToPlansSelectedCount": "Selected plans: {count}",
+    "addToPlansConfirm": "Add to plans",
+    "addToPlansLoading": "Loading available plans...",
+    "addToPlansLoadError": "We couldn't load plans.",
+    "addToPlansNoPlan": "No available training plans.",
+    "addToPlansNoPlanCta": "Create or choose a plan",
+    "addToPlansSubmitError": "We couldn't add this exercise to the selected plans.",
+    "addToPlansSuccessTitle": "Exercise added to plans",
+    "addToPlansSuccessDescription": "{exercise} was added to {count} plan(s)."
   },
   "recipes": {
     "loading": "Loading recipes...",
@@ -2268,7 +2284,17 @@
       "title": "Your session expired",
       "subtitle": "Log in again to check your gym status."
     },
-    "actionSuccessTitle": "Request sent"
+    "actionSuccessTitle": "Request sent",
+    "leave": {
+      "cta": "Leave gym",
+      "confirmTitle": "Leave your gym?",
+      "confirmDescription": "This will remove your current membership from the gym area.",
+      "confirmHelp": "You can request access again later from this screen.",
+      "confirmAction": "Leave gym",
+      "success": "You left your gym membership successfully.",
+      "error": "We couldn't complete this action right now.",
+      "unsupported": "This environment does not support leaving a gym yet."
+    }
   },
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",

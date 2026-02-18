@@ -255,6 +255,25 @@ export async function requestGymJoin(gymId: string): Promise<ServiceResult<null>
   return { ok: true, data: null };
 }
 
+
+export async function leaveGymMembership(): Promise<ServiceResult<null>> {
+  const primary = await readJsonResponse<unknown>("/api/gym/me", {
+    method: "DELETE",
+    headers: JSON_HEADERS,
+  });
+
+  if (primary.ok) return { ok: true, data: null };
+  if (primary.reason !== "unsupported") return primary;
+
+  const legacy = await readJsonResponse<unknown>("/api/gyms/membership", {
+    method: "DELETE",
+    headers: JSON_HEADERS,
+  });
+
+  if (!legacy.ok) return legacy;
+  return { ok: true, data: null };
+}
+
 export async function fetchPendingGymJoinRequests(): Promise<ServiceResult<JoinRequestListItem[]>> {
   const response = await readJsonResponse<unknown>("/api/admin/gym-join-requests");
   if (!response.ok) return response;

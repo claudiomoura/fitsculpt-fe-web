@@ -8,6 +8,7 @@ import { GymCard } from "@/components/gym/GymCard";
 import { GymListSkeleton } from "@/components/gym/GymListSkeleton";
 import { MembershipStatusBadge } from "@/components/gym/MembershipStatusBadge";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import {
   Card,
   CardContent,
@@ -19,6 +20,7 @@ import {
   fetchGymsList,
   fetchMyGymMembership,
   requestGymJoin,
+  leaveGymMembership,
   type GymListItem,
   type GymMembership,
 } from "@/services/gym";
@@ -51,6 +53,8 @@ export default function GymPageClient() {
   const [joinRequestUnsupported, setJoinRequestUnsupported] = useState(false);
   const [joinCodeUnsupported, setJoinCodeUnsupported] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+  const [isLeavingGym, setIsLeavingGym] = useState(false);
 
   const canOpenAdmin = useMemo(
     () => membership.status === "ACTIVE" && (membership.role === "ADMIN" || membership.role === "TRAINER"),
@@ -149,6 +153,33 @@ export default function GymPageClient() {
       setActionError(t("gym.actionError"));
     } finally {
       setRequestingJoin(false);
+    }
+  };
+
+  const handleLeaveGym = async () => {
+    if (isLeavingGym) return;
+
+    setIsLeavingGym(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const response = await leaveGymMembership();
+      if (!response.ok && response.reason === "unsupported") {
+        setActionError(t("gym.leave.unsupported"));
+        return;
+      }
+      if (!response.ok) {
+        throw new Error("leave-gym");
+      }
+
+      setActionSuccess(t("gym.leave.success"));
+      setIsLeaveConfirmOpen(false);
+      await loadData();
+    } catch {
+      setActionError(t("gym.leave.error"));
+    } finally {
+      setIsLeavingGym(false);
     }
   };
 
@@ -309,6 +340,14 @@ export default function GymPageClient() {
                   {t("gym.admin.goToPanel")}
                 </Link>
               )}
+              <Button
+                variant="secondary"
+                onClick={() => setIsLeaveConfirmOpen(true)}
+                disabled={isLeavingGym}
+                loading={isLeavingGym}
+              >
+                {t("gym.leave.cta")}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -343,6 +382,28 @@ export default function GymPageClient() {
           {joinCodeUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
         </CardContent>
       </Card>
+
+      <Modal
+        open={isLeaveConfirmOpen}
+        onClose={() => {
+          if (isLeavingGym) return;
+          setIsLeaveConfirmOpen(false);
+        }}
+        title={t("gym.leave.confirmTitle")}
+        description={t("gym.leave.confirmDescription")}
+        footer={
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <Button variant="secondary" onClick={() => setIsLeaveConfirmOpen(false)} disabled={isLeavingGym}>
+              {t("ui.cancel")}
+            </Button>
+            <Button onClick={() => void handleLeaveGym()} loading={isLeavingGym} disabled={isLeavingGym}>
+              {t("gym.leave.confirmAction")}
+            </Button>
+          </div>
+        }
+      >
+        <p className="muted" style={{ margin: 0 }}>{t("gym.leave.confirmHelp")}</p>
+      </Modal>
 
       {actionError ? <ErrorState title={t("gym.actionErrorTitle")} description={actionError} retryLabel={t("common.retry")} onRetry={() => setActionError(null)} /> : null}
       {actionSuccess ? <EmptyState title={t("gym.actionSuccessTitle")} description={actionSuccess} /> : null}

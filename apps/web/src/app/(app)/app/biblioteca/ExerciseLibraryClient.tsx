@@ -10,8 +10,7 @@ import {
   useExerciseRecents,
 } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
-import type { Exercise } from "@/lib/types";
-import type { TrainingPlanDetail } from "@/lib/types";
+import type { Exercise, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -81,9 +80,9 @@ export default function ExerciseLibraryClient() {
     hasError: favoritesError,
     refresh: refreshFavorites,
   } = useExerciseFavorites();
-  const [targetPlan, setTargetPlan] = useState<TrainingPlanDetail | null>(null);
-  const [planLoading, setPlanLoading] = useState(true);
-  const [planError, setPlanError] = useState<string | null>(null);
+  const [targetPlans, setTargetPlans] = useState<TrainingPlanDetail[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
   const [planRetryKey, setPlanRetryKey] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pendingExercise, setPendingExercise] = useState<Exercise | ExerciseRecent | null>(null);
@@ -223,9 +222,9 @@ export default function ExerciseLibraryClient() {
     let active = true;
 
     const loadTargetPlan = async () => {
-      setPlanLoading(true);
-      setPlanError(null);
-      setTargetPlan(null);
+      setPlansLoading(true);
+      setPlansError(null);
+      setTargetPlans([]);
 
       try {
         if (athleteUserId) {
@@ -242,7 +241,7 @@ export default function ExerciseLibraryClient() {
 
           if (!assignedPlanId) {
             if (!active) return;
-            setPlanLoading(false);
+            setPlansLoading(false);
             return;
           }
 
@@ -257,12 +256,12 @@ export default function ExerciseLibraryClient() {
 
           const detail = (await detailResponse.json()) as TrainingPlanDetail;
           if (!active) return;
-          setTargetPlan(detail);
-          setPlanLoading(false);
+          setTargetPlans([detail]);
+          setPlansLoading(false);
           return;
         }
 
-        const listResponse = await fetch("/api/training-plans?limit=1", {
+        const listResponse = await fetch("/api/training-plans?limit=20", {
           cache: "no-store",
           credentials: "include",
         });
@@ -270,31 +269,33 @@ export default function ExerciseLibraryClient() {
           throw new Error("PLAN_LIST_ERROR");
         }
 
-        const listData = (await listResponse.json()) as { items?: Array<{ id: string }> };
-        const ownPlanId = listData.items?.[0]?.id;
+        const listData = (await listResponse.json()) as { items?: TrainingPlanListItem[] };
+        const planIds = (listData.items ?? []).map((item) => item.id).filter(Boolean);
 
-        if (!ownPlanId) {
+        if (planIds.length === 0) {
           if (!active) return;
-          setPlanLoading(false);
+          setPlansLoading(false);
           return;
         }
 
-        const detailResponse = await fetch(`/api/training-plans/${ownPlanId}`, {
-          cache: "no-store",
-          credentials: "include",
-        });
-        if (!detailResponse.ok) {
-          throw new Error("PLAN_DETAIL_ERROR");
-        }
+        const details = await Promise.all(
+          planIds.map(async (planId) => {
+            const detailResponse = await fetch(`/api/training-plans/${planId}`, {
+              cache: "no-store",
+              credentials: "include",
+            });
+            if (!detailResponse.ok) return null;
+            return (await detailResponse.json()) as TrainingPlanDetail;
+          })
+        );
 
-        const detail = (await detailResponse.json()) as TrainingPlanDetail;
         if (!active) return;
-        setTargetPlan(detail);
-        setPlanLoading(false);
+        setTargetPlans(details.filter((detail): detail is TrainingPlanDetail => detail !== null));
+        setPlansLoading(false);
       } catch {
         if (!active) return;
-        setPlanError(t("library.addToPlanLoadError"));
-        setPlanLoading(false);
+        setPlansError(t("library.addToPlansLoadError"));
+        setPlansLoading(false);
       }
     };
 
@@ -310,40 +311,62 @@ export default function ExerciseLibraryClient() {
     setPickerOpen(true);
   };
 
-  const addExerciseToPlanDay = async (dayId: string) => {
-    if (!pendingExercise?.id || !targetPlan?.id || !dayId || addingExercise) return;
+  const addExerciseToPlans = async (planIds: string[]) => {
+    if (!pendingExercise?.id || planIds.length === 0 || addingExercise) return;
 
     setAddingExercise(true);
     setAddExerciseError(null);
     try {
-      const response = await fetch(`/api/training-plans/${targetPlan.id}/days/${dayId}/exercises`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        cache: "no-store",
-        body: JSON.stringify({
-          exerciseId: pendingExercise.id,
-          ...(athleteUserId ? { athleteUserId } : {}),
-        }),
-      });
+      const plansById = new Map(targetPlans.map((plan) => [plan.id, plan]));
+      const selectedPlans = planIds
+        .map((planId) => plansById.get(planId))
+        .filter((plan): plan is TrainingPlanDetail => Boolean(plan));
+
+      if (selectedPlans.length === 0) {
+        setAddingExercise(false);
+        setAddExerciseError(t("library.addToPlansSubmitError"));
+        return;
+      }
+
+      const responses = await Promise.all(
+        selectedPlans.map(async (plan) => {
+          const dayId = plan.days?.[0]?.id;
+          if (!dayId) return false;
+
+          const response = await fetch(`/api/training-plans/${plan.id}/days/${dayId}/exercises`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            cache: "no-store",
+            body: JSON.stringify({
+              exerciseId: pendingExercise.id,
+              ...(athleteUserId ? { athleteUserId } : {}),
+            }),
+          });
+
+          return response.ok;
+        })
+      );
 
       setAddingExercise(false);
 
-      if (!response.ok) {
-        setAddExerciseError(t("library.addToPlanSubmitError"));
+      if (responses.some((ok) => !ok)) {
+        setAddExerciseError(t("library.addToPlansSubmitError"));
         return;
       }
 
       notify({
-        title: t("library.addToPlanSuccessTitle"),
-        description: t("library.addToPlanSuccessDescription").replace("{exercise}", pendingExercise.name),
+        title: t("library.addToPlansSuccessTitle"),
+        description: t("library.addToPlansSuccessDescription")
+          .replace("{exercise}", pendingExercise.name)
+          .replace("{count}", String(selectedPlans.length)),
         variant: "success",
       });
       setPickerOpen(false);
       setPendingExercise(null);
     } catch {
       setAddingExercise(false);
-      setAddExerciseError(t("library.addToPlanSubmitError"));
+      setAddExerciseError(t("library.addToPlansSubmitError"));
     }
   };
 
@@ -654,13 +677,13 @@ export default function ExerciseLibraryClient() {
           setAddExerciseError(null);
         }}
         exerciseName={pendingExercise?.name ?? t("training.exerciseLabel")}
-        days={(targetPlan?.days ?? []).map((day) => ({ id: day.id, label: day.label, focus: day.focus }))}
-        loadingPlan={planLoading}
-        loadError={planError}
+        plans={targetPlans.map((plan) => ({ id: plan.id, title: plan.title, daysCount: plan.days.length }))}
+        loadingPlans={plansLoading}
+        loadError={plansError}
         isSubmitting={addingExercise}
         submitError={addExerciseError}
-        canSubmit={Boolean(targetPlan?.id)}
-        onConfirm={addExerciseToPlanDay}
+        canSubmit={targetPlans.some((plan) => (plan.days?.length ?? 0) > 0)}
+        onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
         emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"}
       />
