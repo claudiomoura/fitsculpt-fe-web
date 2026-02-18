@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getUserRoleFlags } from "@/lib/userCapabilities";
 import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabilityAudit";
+import { extractGymMembership } from "@/lib/gymMembership";
+import { isExerciseVisibleForGym } from "@/lib/exerciseVisibility";
 import type { Exercise } from "@/lib/types";
 
 type LoadState = "loading" | "ready" | "error";
@@ -31,7 +33,9 @@ function getExerciseThumbnail(exercise: Exercise): string | null {
   return (
     exercise.imageUrl ??
     exercise.posterUrl ??
+    exercise.mediaUrl ??
     asText(rawExercise.thumbnailUrl) ??
+    asText(rawExercise.mediaUrl) ??
     asText(media?.thumbnailUrl) ??
     null
   );
@@ -45,6 +49,7 @@ export default function TrainerExercisesClient() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [canCreateExercise, setCanCreateExercise] = useState(false);
   const [canUploadMedia, setCanUploadMedia] = useState(false);
+  const [viewerGymId, setViewerGymId] = useState<string | null>(null);
 
   const loadExercises = useCallback(async () => {
     setExercisesState("loading");
@@ -57,12 +62,13 @@ export default function TrainerExercisesClient() {
       }
 
       const data = (await response.json()) as ExercisesResponse;
-      setExercises(Array.isArray(data.exercises) ? data.exercises : Array.isArray(data.items) ? data.items : []);
+      const source = Array.isArray(data.exercises) ? data.exercises : Array.isArray(data.items) ? data.items : [];
+      setExercises(source.filter((item) => isExerciseVisibleForGym(item, viewerGymId)));
       setExercisesState("ready");
     } catch (_err) {
       setExercisesState("error");
     }
-  }, []);
+  }, [viewerGymId]);
 
   useEffect(() => {
     let active = true;
@@ -88,6 +94,7 @@ export default function TrainerExercisesClient() {
         setCanAccessTrainer(hasAccess);
         setCanCreateExercise(capabilities.canCreateExercise);
         setCanUploadMedia(capabilities.canUploadMedia);
+        setViewerGymId(extractGymMembership(profile).gymId);
         setPermissionState("ready");
 
         if (hasAccess) {
@@ -145,6 +152,9 @@ export default function TrainerExercisesClient() {
                   <img
                     src={getExerciseThumbnail(exercise) ?? ""}
                     alt={t("library.thumbnailAlt").replace("{exercise}", exercise.name)}
+                    onError={(event) => {
+                      event.currentTarget.src = "/placeholders/exercise-cover.svg";
+                    }}
                     width={72}
                     height={72}
                     style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 10, flexShrink: 0 }}

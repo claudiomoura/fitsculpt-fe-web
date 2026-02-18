@@ -6,6 +6,8 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { addExerciseRecent } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
+import { extractGymMembership } from "@/lib/gymMembership";
+import { isTrainingPlanVisibleForGym } from "@/lib/trainingPlanVisibility";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
@@ -68,7 +70,7 @@ export default function ExerciseDetailClient({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addingExercise, setAddingExercise] = useState(false);
   const [addExerciseError, setAddExerciseError] = useState<string | null>(null);
-  const [canMultiAddToPlans, setCanMultiAddToPlans] = useState(false);
+  const [viewerGymId, setViewerGymId] = useState<string | null>(null);
   const { favorites, toggleFavorite } = useExerciseFavorites();
   const { notify } = useToast();
   const athleteUserId = searchParams.get("athleteUserId")?.trim() || "";
@@ -168,6 +170,27 @@ export default function ExerciseDetailClient({
 
   useEffect(() => {
     let active = true;
+    const loadViewerGym = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
+        if (!response.ok) return;
+        const profile = (await response.json()) as unknown;
+        if (!active) return;
+        setViewerGymId(extractGymMembership(profile).gymId);
+      } catch {
+        if (!active) return;
+        setViewerGymId(null);
+      }
+    };
+
+    void loadViewerGym();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     const loadTargetPlan = async () => {
       setPlansLoading(true);
       setPlansError(null);
@@ -194,7 +217,7 @@ export default function ExerciseDetailClient({
           if (!detailResponse.ok) throw new Error("PLAN_DETAIL_ERROR");
           const detail = (await detailResponse.json()) as TrainingPlanDetail;
           if (!active) return;
-          setTargetPlans([detail]);
+          setTargetPlans(isTrainingPlanVisibleForGym(detail, viewerGymId) ? [detail] : []);
           setPlansLoading(false);
           return;
         }
@@ -219,7 +242,7 @@ export default function ExerciseDetailClient({
         );
 
         if (!active) return;
-        setTargetPlans(details.filter(isNotNull));
+        setTargetPlans(details.filter(isNotNull).filter((plan) => isTrainingPlanVisibleForGym(plan, viewerGymId)));
         setPlansLoading(false);
       } catch (_err) {
         if (!active) return;
@@ -231,44 +254,7 @@ export default function ExerciseDetailClient({
     return () => {
       active = false;
     };
-  }, [athleteUserId, planRetryKey, t]);
-
-  useEffect(() => {
-    let active = true;
-
-    const probeMultiAddCapability = async () => {
-      if (targetPlans.length === 0) {
-        setCanMultiAddToPlans(false);
-        return;
-      }
-
-      const samplePlan = targetPlans.find((plan) => plan.days?.[0]?.id);
-      if (!samplePlan || !samplePlan.days?.[0]?.id) {
-        setCanMultiAddToPlans(false);
-        return;
-      }
-
-      try {
-        const response = await fetch(`/api/training-plans/${samplePlan.id}/days/${samplePlan.days[0].id}/exercises`, {
-          method: "OPTIONS",
-          cache: "no-store",
-          credentials: "include",
-        });
-
-        const allow = (response.headers.get("allow") ?? response.headers.get("Allow") ?? "").toUpperCase();
-        if (!active) return;
-        setCanMultiAddToPlans(response.ok && allow.includes("POST"));
-      } catch {
-        if (!active) return;
-        setCanMultiAddToPlans(false);
-      }
-    };
-
-    void probeMultiAddCapability();
-    return () => {
-      active = false;
-    };
-  }, [targetPlans]);
+  }, [athleteUserId, planRetryKey, t, viewerGymId]);
 
   if (error) {
     return (
@@ -324,13 +310,12 @@ export default function ExerciseDetailClient({
   };
 
   const addExerciseToPlans = async (planIds: string[]) => {
-    const normalizedPlanIds = canMultiAddToPlans ? planIds : planIds.slice(0, 1);
-    if (!exercise.id || normalizedPlanIds.length === 0 || addingExercise) return;
+    if (!exercise.id || planIds.length === 0 || addingExercise) return;
     setAddingExercise(true);
     setAddExerciseError(null);
     try {
       const plansById = new Map(targetPlans.map((plan) => [plan.id, plan]));
-      const selectedPlans = normalizedPlanIds
+      const selectedPlans = planIds
         .map((planId) => plansById.get(planId))
         .filter(isNotNull);
 
@@ -516,7 +501,7 @@ export default function ExerciseDetailClient({
         isSubmitting={addingExercise}
         submitError={addExerciseError}
         canSubmit={targetPlans.some((plan) => (plan.days?.length ?? 0) > 0)}
-        allowMultiSelect={canMultiAddToPlans}
+        allowMultiSelect
         onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
         emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"}
