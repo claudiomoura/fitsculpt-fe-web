@@ -2380,7 +2380,9 @@
   "common": {
     "loading": "Loading...",
     "retry": "Retry",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "success": "Success",
+    "error": "Error"
   },
   "adminGyms": {
     "title": "Manage gyms",
@@ -2404,10 +2406,22 @@
       "members": "We could not load gym members.",
       "create": "We could not create the gym.",
       "role": "We could not update member role.",
-      "delete": "We could not delete the gym."
+      "delete": "We could not delete the gym.",
+      "unexpectedPayload": "We received an unexpected response while loading gyms. Please retry."
     },
     "deleteAction": "Delete gym",
-    "deleteConfirm": "Are you sure you want to delete this gym?"
+    "deleteConfirm": "Are you sure you want to delete this gym?",
+    "createCode": "Join code (optional)",
+    "createCodePlaceholder": "EXAMPLE2026",
+    "created": "Gym created successfully.",
+    "deleted": "Gym deleted successfully.",
+    "loadingAccess": "Checking admin access…",
+    "errorTitle": "Gym list unavailable",
+    "emptyDescription": "Create your first gym to start onboarding members.",
+    "membersLoading": "Loading gym members…",
+    "membersErrorTitle": "Members unavailable",
+    "roleUpdatedTrainer": "Member promoted to TRAINER.",
+    "roleUpdatedMember": "Member changed to MEMBER."
   },
   "landingRedesign": {
     "hero": {

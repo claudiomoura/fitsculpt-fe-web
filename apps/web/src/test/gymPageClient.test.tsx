@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import GymPageClient from "@/components/gym/GymPageClient";
+import { ToastProvider } from "@/components/ui/Toast";
 
 vi.mock("@/context/LanguageProvider", () => ({
   useLanguage: () => ({
@@ -47,7 +48,11 @@ describe("GymPageClient", () => {
 
     vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
-    render(<GymPageClient />);
+    render(
+      <ToastProvider>
+        <GymPageClient />
+      </ToastProvider>,
+    );
 
     const requestButton = await screen.findByRole("button", { name: "gym.join.requestButton" });
     fireEvent.click(requestButton);

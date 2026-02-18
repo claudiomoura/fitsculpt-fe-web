@@ -9,6 +9,7 @@ import { GymListSkeleton } from "@/components/gym/GymListSkeleton";
 import { MembershipStatusBadge } from "@/components/gym/MembershipStatusBadge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
 import {
   Card,
   CardContent,
@@ -37,6 +38,7 @@ const defaultMembership: GymMembership = {
 
 export default function GymPageClient() {
   const { t } = useLanguage();
+  const { notify } = useToast();
 
   const [membership, setMembership] = useState<GymMembership>(defaultMembership);
   const [gyms, setGyms] = useState<GymListItem[]>([]);
@@ -144,14 +146,18 @@ export default function GymPageClient() {
       }
 
       if (!response.ok) {
-        setActionError(response.message || t("gym.actionError"));
+        const message = response.message || t("gym.actionError");
+        setActionError(message);
+        notify({ title: t("common.error"), description: message, variant: "error" });
         return;
       }
 
       setActionSuccess(t("gym.join.requestSuccess"));
+      notify({ title: t("common.success"), description: t("gym.join.requestSuccess"), variant: "success" });
       await loadData();
     } catch (_err) {
       setActionError(t("gym.actionError"));
+      notify({ title: t("common.error"), description: t("gym.actionError"), variant: "error" });
     } finally {
       setRequestingJoin(false);
     }
@@ -168,18 +174,23 @@ export default function GymPageClient() {
       const response = await leaveGymMembership();
       if (!response.ok && response.reason === "unsupported") {
         setActionError(t("gym.leave.unsupported"));
+        notify({ title: t("common.error"), description: t("gym.leave.unsupported"), variant: "error" });
         return;
       }
       if (!response.ok) {
-        setActionError(response.message || t("gym.leave.error"));
+        const message = response.message || t("gym.leave.error");
+        setActionError(message);
+        notify({ title: t("common.error"), description: message, variant: "error" });
         return;
       }
 
       setActionSuccess(t("gym.leave.success"));
+      notify({ title: t("common.success"), description: t("gym.leave.success"), variant: "success" });
       setIsLeaveConfirmOpen(false);
       await loadData();
     } catch (_err) {
       setActionError(t("gym.leave.error"));
+      notify({ title: t("common.error"), description: t("gym.leave.error"), variant: "error" });
     } finally {
       setIsLeavingGym(false);
     }
@@ -219,16 +230,21 @@ export default function GymPageClient() {
         const payload = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
         if (payload?.error === "INVALID_GYM_CODE") {
           setActionError(t("gym.join.invalidCode"));
+          notify({ title: t("common.error"), description: t("gym.join.invalidCode"), variant: "error" });
           return;
         }
-        setActionError(payload?.message || t("gym.actionError"));
+        const message = payload?.message || t("gym.actionError");
+        setActionError(message);
+        notify({ title: t("common.error"), description: message, variant: "error" });
         return;
       }
       setCode("");
       setActionSuccess(t("gym.join.codeSuccess"));
+      notify({ title: t("common.success"), description: t("gym.join.codeSuccess"), variant: "success" });
       await loadData();
     } catch (_err) {
       setActionError(t("gym.actionError"));
+      notify({ title: t("common.error"), description: t("gym.actionError"), variant: "error" });
     } finally {
       setJoiningByCode(false);
     }

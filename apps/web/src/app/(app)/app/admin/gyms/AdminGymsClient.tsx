@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import GymJoinRequestsManager from "@/components/admin/GymJoinRequestsManager";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -94,8 +95,10 @@ export default function AdminGymsClient() {
   const [listError, setListError] = useState<string | null>(null);
 
   const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
   const [membersUnsupported, setMembersUnsupported] = useState(false);
   const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
+  const [roleUpdateUserId, setRoleUpdateUserId] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -140,7 +143,7 @@ export default function AdminGymsClient() {
       if (!payloadHasArray) {
         setGyms([]);
         setSelectedGymId("");
-        setListError("Recibimos una respuesta inesperada al cargar gimnasios. Inténtalo nuevamente.");
+        setListError(t("adminGyms.errors.unexpectedPayload"));
         setUnsupported(false);
         return;
       }
@@ -160,10 +163,12 @@ export default function AdminGymsClient() {
   const loadMembers = async (gymId: string) => {
     if (!gymId) {
       setMembers([]);
+      setMembersError(null);
       return;
     }
 
     setMembersLoading(true);
+    setMembersError(null);
     try {
       const res = await fetch(`/api/admin/gyms/${gymId}/members`, { cache: "no-store", credentials: "include" });
       if (res.status === 404 || res.status === 405) {
@@ -177,7 +182,7 @@ export default function AdminGymsClient() {
       setMembers(data.filter((member) => member.status === "ACTIVE"));
     } catch (_err) {
       setMembers([]);
-      setError(t("adminGyms.errors.members"));
+      setMembersError(t("adminGyms.errors.members"));
     } finally {
       setMembersLoading(false);
     }
@@ -267,6 +272,11 @@ export default function AdminGymsClient() {
       setCreatedCode(null);
       setDeleteOpen(false);
       await loadGyms();
+      notify({
+        title: t("common.success"),
+        description: t("adminGyms.deleted"),
+        variant: "success",
+      });
     } catch (_err) {
       setDeleteError(t("adminGyms.errors.delete"));
     } finally {
@@ -275,8 +285,9 @@ export default function AdminGymsClient() {
   };
 
   const setMemberRole = async (userId: string, role: "TRAINER" | "MEMBER") => {
-    if (!selectedGymId) return;
+    if (!selectedGymId || roleUpdateUserId) return;
     setError(null);
+    setRoleUpdateUserId(userId);
     try {
       const res = await fetch(`/api/admin/gyms/${selectedGymId}/members/${userId}/role`, {
         method: "PATCH",
@@ -294,12 +305,26 @@ export default function AdminGymsClient() {
       if (!res.ok) throw new Error("role");
       setRoleUpdateUnsupported(false);
       await loadMembers(selectedGymId);
+      notify({
+        title: t("common.success"),
+        description: role === "TRAINER" ? t("adminGyms.roleUpdatedTrainer") : t("adminGyms.roleUpdatedMember"),
+        variant: "success",
+      });
     } catch (_err) {
       setError(t("adminGyms.errors.role"));
+      notify({
+        title: t("common.error"),
+        description: t("adminGyms.errors.role"),
+        variant: "error",
+      });
+    } finally {
+      setRoleUpdateUserId(null);
     }
   };
 
-  if (accessLoading) return <p className="muted">{t("common.loading")}</p>;
+  if (accessLoading) {
+    return <LoadingState ariaLabel={t("adminGyms.loadingAccess")} title={t("adminGyms.loadingAccess")} lines={3} />;
+  }
   if (!isAdmin) return <p className="muted">{t("admin.unauthorized")}</p>;
 
   if (unsupported) {
@@ -354,9 +379,23 @@ export default function AdminGymsClient() {
             <Skeleton variant="line" style={{ width: "60%" }} />
           </div>
         ) : null}
-        {!loading && listError ? <p className="muted">{listError}</p> : null}
-        {!loading && listError ? <Button variant="secondary" onClick={() => void loadGyms()}>{t("common.retry")}</Button> : null}
-        {!loading && !listError && gymsList.length === 0 ? <p className="muted">{t("adminGyms.empty")}</p> : null}
+        {!loading && listError ? (
+          <ErrorState
+            title={t("adminGyms.errorTitle")}
+            description={listError}
+            retryLabel={t("common.retry")}
+            onRetry={() => void loadGyms()}
+            wrapInCard
+          />
+        ) : null}
+        {!loading && !listError && gymsList.length === 0 ? (
+          <EmptyState
+            title={t("adminGyms.empty")}
+            description={t("adminGyms.emptyDescription")}
+            actions={[{ label: t("common.retry"), onClick: () => void loadGyms(), variant: "secondary" }]}
+            wrapInCard
+          />
+        ) : null}
         {!loading && !listError && gymsList.length > 0 ? (
           <>
             <select value={selectedGymId} onChange={(event) => setSelectedGymId(event.target.value)}>
@@ -388,16 +427,40 @@ export default function AdminGymsClient() {
       <section className="card form-stack">
         <h2 className="section-title section-title-sm">{t("adminGyms.membersTitle")}</h2>
         {membersUnsupported ? <p className="muted">{t("adminGyms.membersUnavailable")}</p> : null}
-        {membersLoading ? <p className="muted">{t("common.loading")}</p> : null}
-        {!membersUnsupported && !membersLoading && members.length === 0 ? <p className="muted">{t("adminGyms.membersEmpty")}</p> : null}
+        {membersLoading ? <LoadingState ariaLabel={t("adminGyms.membersLoading")} showCard={false} lines={2} /> : null}
+        {!membersUnsupported && !membersLoading && membersError ? (
+          <ErrorState
+            title={t("adminGyms.membersErrorTitle")}
+            description={membersError}
+            retryLabel={t("common.retry")}
+            onRetry={() => void loadMembers(selectedGymId)}
+            wrapInCard
+          />
+        ) : null}
+        {!membersUnsupported && !membersLoading && !membersError && members.length === 0 ? (
+          <EmptyState title={t("adminGyms.membersEmpty")} wrapInCard icon="info" />
+        ) : null}
         {!membersUnsupported && !membersLoading && members.length > 0
           ? members.map((member) => (
               <div key={member.user.id} className="status-card" style={{ marginTop: 8 }}>
                 <strong>{member.user.name ?? member.user.email}</strong>
                 <p className="muted" style={{ margin: 0 }}>{`${member.user.email} · ${member.role}`}</p>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <Button onClick={() => void setMemberRole(member.user.id, "TRAINER")} disabled={member.role === "TRAINER" || roleUpdateUnsupported}>{t("adminGyms.promoteTrainer")}</Button>
-                  <Button variant="secondary" onClick={() => void setMemberRole(member.user.id, "MEMBER")} disabled={member.role === "MEMBER" || roleUpdateUnsupported}>{t("adminGyms.demoteMember")}</Button>
+                  <Button
+                    onClick={() => void setMemberRole(member.user.id, "TRAINER")}
+                    disabled={member.role === "TRAINER" || roleUpdateUnsupported || Boolean(roleUpdateUserId)}
+                    loading={roleUpdateUserId === member.user.id}
+                  >
+                    {t("adminGyms.promoteTrainer")}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => void setMemberRole(member.user.id, "MEMBER")}
+                    disabled={member.role === "MEMBER" || roleUpdateUnsupported || Boolean(roleUpdateUserId)}
+                    loading={roleUpdateUserId === member.user.id}
+                  >
+                    {t("adminGyms.demoteMember")}
+                  </Button>
                 </div>
                 {roleUpdateUnsupported ? <p className="muted" style={{ margin: 0 }}>{t("adminGyms.memberRoleUnavailable")}</p> : null}
               </div>
