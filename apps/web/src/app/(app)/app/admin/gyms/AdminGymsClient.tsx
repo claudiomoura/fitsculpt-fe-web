@@ -32,6 +32,7 @@ type FieldErrorMap = Partial<Record<CreateField, string>>;
 type MaybeErrorPayload = {
   message?: unknown;
   error?: unknown;
+  details?: unknown;
 };
 
 type MaybeGymsPayload = {
@@ -49,7 +50,16 @@ function toText(value: unknown): string {
 function parseGenericError(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
   const source = payload as MaybeErrorPayload;
-  return toText(source.message) || toText(source.error);
+  const details = source.details && typeof source.details === "object" ? (source.details as MaybeErrorPayload & { fieldErrors?: Record<string, unknown>; formErrors?: unknown }) : null;
+
+  if (details?.fieldErrors && typeof details.fieldErrors === "object") {
+    for (const value of Object.values(details.fieldErrors)) {
+      const text = toText(value);
+      if (text) return text;
+    }
+  }
+
+  return toText(source.message) || toText(source.error) || toText(details?.message) || toText(details?.error) || toText(details?.formErrors);
 }
 
 function normalizeGymsPayload(payload: unknown): Gym[] {
@@ -94,10 +104,11 @@ export default function AdminGymsClient() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrorMap>({});
 
+  const gymsList = useMemo(() => (Array.isArray(gyms) ? gyms : []), [gyms]);
+
   const selectedGym = useMemo(() => {
-    if (!Array.isArray(gyms)) return null;
-    return gyms.find((gym) => gym.id === selectedGymId) ?? null;
-  }, [gyms, selectedGymId]);
+    return gymsList.find((gym) => gym.id === selectedGymId) ?? null;
+  }, [gymsList, selectedGymId]);
 
   const loadGyms = async () => {
     setLoading(true);
@@ -120,6 +131,20 @@ export default function AdminGymsClient() {
       }
 
       const data = normalizeGymsPayload(payload);
+      const payloadHasArray =
+        Array.isArray(payload) ||
+        (payload &&
+          typeof payload === "object" &&
+          (Array.isArray((payload as MaybeGymsPayload).gyms) || Array.isArray((payload as MaybeGymsPayload).items) || Array.isArray((payload as MaybeGymsPayload).data)));
+
+      if (!payloadHasArray) {
+        setGyms([]);
+        setSelectedGymId("");
+        setListError("Recibimos una respuesta inesperada al cargar gimnasios. Inténtalo nuevamente.");
+        setUnsupported(false);
+        return;
+      }
+
       setUnsupported(false);
       setGyms(data);
       setSelectedGymId((current) => (current && data.some((gym) => gym.id === current) ? current : data[0]?.id || ""));
@@ -190,7 +215,8 @@ export default function AdminGymsClient() {
         if (Object.keys(result.error.fieldErrors).length > 0) {
           setFieldErrors(result.error.fieldErrors);
         }
-        setError(result.error.formError || t("adminGyms.errors.create"));
+        const firstFieldError = Object.values(result.error.fieldErrors).find((value) => typeof value === "string" && value.trim().length > 0);
+        setError(result.error.formError || firstFieldError || t("adminGyms.errors.create"));
         return;
       }
 
@@ -328,17 +354,17 @@ export default function AdminGymsClient() {
         ) : null}
         {!loading && listError ? <p className="muted">{listError}</p> : null}
         {!loading && listError ? <Button variant="secondary" onClick={() => void loadGyms()}>{t("common.retry")}</Button> : null}
-        {!loading && !listError && gyms.length === 0 ? <p className="muted">{t("adminGyms.empty")}</p> : null}
-        {!loading && !listError && gyms.length > 0 ? (
+        {!loading && !listError && gymsList.length === 0 ? <p className="muted">{t("adminGyms.empty")}</p> : null}
+        {!loading && !listError && gymsList.length > 0 ? (
           <>
             <select value={selectedGymId} onChange={(event) => setSelectedGymId(event.target.value)}>
-              {gyms.map((gym) => (
+              {gymsList.map((gym) => (
                 <option key={gym.id} value={gym.id}>
                   {gym.name}
                 </option>
               ))}
             </select>
-            {gyms.map((gym) => (
+            {gymsList.map((gym) => (
               <p className="muted" style={{ margin: 0 }} key={`${gym.id}-meta`}>
                 {`${gym.name} · ${t("adminGyms.joinCodeLabel")}: ${gym.activationCode ?? gym.joinCode ?? gym.code ?? t("ui.notAvailable")} · ${t("adminGyms.membersCountLabel")}: ${gym.membersCount ?? 0} · ${t("adminGyms.requestsCountLabel")}: ${gym.requestsCount ?? 0}`}
               </p>
