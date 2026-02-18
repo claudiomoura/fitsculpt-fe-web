@@ -60,16 +60,16 @@ export const trainerClientEndpointInventory: TrainerClientEndpointInventory[] = 
     notes: "Get trainer client detail through BFF proxy to backend /trainer/clients/:id.",
   },
   {
-    endpoint: "/api/trainer/assign-training-plan",
+    endpoint: "/api/trainer/clients/:id/plan",
     method: "POST",
     exists: true,
-    notes: "Assign plan through BFF; backend target /trainer/members/:id/training-plan-assignment.",
+    notes: "Assign client plan through BFF using backend /admin/gyms/:gymId/members/:id/assign-training-plan.",
   },
   {
-    endpoint: "/api/trainer/members/:id/training-plan-assignment",
+    endpoint: "/api/trainer/clients/:id/plan",
     method: "DELETE",
     exists: false,
-    notes: "Requiere implementación in BFF/backend contract to unassign a plan.",
+    notes: "Backend unassign endpoint is not available yet; BFF returns NOT_SUPPORTED.",
   },
   {
     endpoint: "/api/trainer/clients/:id",
@@ -147,10 +147,10 @@ export async function assignTrainingPlanToTrainerClient(
     };
   }
 
-  const result = await requestJson<unknown>("/api/trainer/assign-training-plan", {
+  const result = await requestJson<unknown>(`/api/trainer/clients/${clientId}/plan`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ clientId, sourceTrainingPlanId }),
+    body: JSON.stringify({ trainingPlanId: sourceTrainingPlanId }),
   });
 
   if (!result.ok) return result;

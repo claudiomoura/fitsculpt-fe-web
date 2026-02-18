@@ -114,7 +114,7 @@ async function parseJson(response: Response): Promise<unknown> {
 }
 
 export async function listTrainerPlans(): Promise<TrainerPlanListResponse> {
-  const response = await fetch("/api/training-plans", { cache: "no-store", credentials: "include" });
+  const response = await fetch("/api/trainer/plans", { cache: "no-store", credentials: "include" });
   if (!response.ok) throw new Error("TRAINER_PLAN_LIST_REQUEST_FAILED");
 
   const payload = await parseJson(response);
@@ -126,7 +126,7 @@ export async function listTrainerPlans(): Promise<TrainerPlanListResponse> {
 }
 
 export async function createTrainerPlan(input: TrainerPlanCreateInput): Promise<TrainingPlanListItem | null> {
-  const response = await fetch("/api/training-plans", {
+  const response = await fetch("/api/trainer/plans", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -142,7 +142,7 @@ export async function createTrainerPlan(input: TrainerPlanCreateInput): Promise<
 }
 
 export async function getTrainerPlanDetail(planId: string): Promise<TrainingPlanDetail | null> {
-  const response = await fetch(`/api/training-plans/${planId}`, { cache: "no-store", credentials: "include" });
+  const response = await fetch(`/api/trainer/plans/${planId}`, { cache: "no-store", credentials: "include" });
   if (!response.ok) {
     throw new Error("TRAINER_PLAN_DETAIL_REQUEST_FAILED");
   }
@@ -156,7 +156,7 @@ export async function addExerciseToTrainerPlanDay(
   dayId: string,
   input: AddExerciseToDayInput,
 ): Promise<void> {
-  const response = await fetch(`/api/training-plans/${planId}/days/${dayId}/exercises`, {
+  const response = await fetch(`/api/trainer/plans/${planId}/days/${dayId}/exercises`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

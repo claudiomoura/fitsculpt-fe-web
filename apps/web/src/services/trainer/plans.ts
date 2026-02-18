@@ -105,7 +105,7 @@ export async function listTrainerGymPlans(
   if (typeof query.limit === "number") search.set("limit", String(query.limit));
   if (typeof query.offset === "number") search.set("offset", String(query.offset));
 
-  const path = search.size > 0 ? `/api/training-plans?${search.toString()}` : "/api/training-plans";
+  const path = search.size > 0 ? `/api/trainer/plans?${search.toString()}` : "/api/trainer/plans";
   const result = await requestJson<TrainingPlanListPayload>(path);
 
   if (!result.ok) return result;
@@ -120,7 +120,7 @@ export async function listTrainerGymPlans(
 }
 
 export async function createTrainerPlan(payload: CreateTrainerPlanInput): Promise<ServiceResult<TrainingPlanDetail>> {
-  return requestJson<TrainingPlanDetail>("/api/training-plans", {
+  return requestJson<TrainingPlanDetail>("/api/trainer/plans", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
@@ -128,7 +128,7 @@ export async function createTrainerPlan(payload: CreateTrainerPlanInput): Promis
 }
 
 export async function saveTrainerPlan(planId: string, payload: SaveTrainerPlanInput): Promise<ServiceResult<TrainingPlanDetail>> {
-  return requestJson<TrainingPlanDetail>(`/api/training-plans/${planId}`, {
+  return requestJson<TrainingPlanDetail>(`/api/trainer/plans/${planId}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
@@ -156,7 +156,7 @@ export async function addExerciseToPlanDay(
     };
   }
 
-  const result = await requestJson<unknown>(`/api/training-plans/${planId}/days/${dayId}/exercises`, {
+  const result = await requestJson<unknown>(`/api/trainer/plans/${planId}/days/${dayId}/exercises`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -243,31 +243,31 @@ export type TrainerPlanEndpointInventory = {
 
 export const trainerPlanEndpointInventory: TrainerPlanEndpointInventory[] = [
   {
-    endpoint: "/api/training-plans",
+    endpoint: "/api/trainer/plans",
     method: "GET",
     exists: true,
     notes: "Used for listing plans; backend scope is contract-defined (no forced gymId scoping in frontend).",
   },
   {
-    endpoint: "/api/training-plans",
+    endpoint: "/api/trainer/plans",
     method: "POST",
     exists: true,
     notes: "Used for creating plans.",
   },
   {
-    endpoint: "/api/training-plans/:id",
+    endpoint: "/api/trainer/plans/:id",
     method: "PATCH",
     exists: false,
     notes: "Requiere implementación en BFF/backend para edición directa del plan.",
   },
   {
-    endpoint: "/api/training-plans/:id/days/:dayId/exercises",
+    endpoint: "/api/trainer/plans/:id/days/:dayId/exercises",
     method: "POST",
     exists: true,
     notes: "Single add-to-plan exercise endpoint.",
   },
   {
-    endpoint: "/api/training-plans/:id/days/exercises:batch",
+    endpoint: "/api/trainer/plans/:id/days/exercises:batch",
     method: "POST",
     exists: false,
     notes: "Requiere implementación para batch add; servicio usa fallback secuencial con progreso por item.",

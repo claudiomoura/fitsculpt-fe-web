@@ -19,7 +19,7 @@ describe("trainerPlans service", () => {
 
     const result = await listTrainerPlans();
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/training-plans", { cache: "no-store", credentials: "include" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/trainer/plans", { cache: "no-store", credentials: "include" });
     expect(result.items[0]?.id).toBe("p1");
     expect(result.items[0]?.title).toBe("Plan A");
   });
@@ -33,7 +33,7 @@ describe("trainerPlans service", () => {
 
     const result = await createTrainerPlan({ title: " Plan B ", description: " Notes " });
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/training-plans", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/trainer/plans", expect.objectContaining({ method: "POST" }));
     expect(result?.id).toBe("p2");
   });
 
@@ -67,7 +67,7 @@ describe("trainerPlans service", () => {
     await addExerciseToTrainerPlanDay("plan_1", "day_1", { exerciseId: "ex_1" });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/training-plans/plan_1/days/day_1/exercises",
+      "/api/trainer/plans/plan_1/days/day_1/exercises",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
