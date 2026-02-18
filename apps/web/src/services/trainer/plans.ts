@@ -83,7 +83,7 @@ export type MultiAddExerciseToPlanResult = {
 export const trainerPlanCapabilities: TrainerPlanCapabilities = {
   canListTrainerGymPlans: true,
   canCreateTrainerPlan: true,
-  canSaveTrainerPlan: false,
+  canSaveTrainerPlan: true,
   supportsBatchAdd: false,
 };
 
@@ -261,7 +261,7 @@ export const trainerPlanEndpointInventory: TrainerPlanEndpointInventory[] = [
     endpoint: "/api/trainer/plans",
     method: "GET",
     exists: true,
-    notes: "Used for listing plans; backend scope is contract-defined (no forced gymId scoping in frontend).",
+    notes: "Used for listing trainer plans scoped by backend membership checks (/trainer/plans).",
   },
   {
     endpoint: "/api/trainer/plans",
@@ -272,8 +272,8 @@ export const trainerPlanEndpointInventory: TrainerPlanEndpointInventory[] = [
   {
     endpoint: "/api/trainer/plans/:id",
     method: "PATCH",
-    exists: false,
-    notes: "Requiere implementación en BFF/backend para edición directa del plan.",
+    exists: true,
+    notes: "Used for patching trainer-owned plans through backend /trainer/plans/:planId.",
   },
   {
     endpoint: "/api/trainer/plans/:id/days/:dayId/exercises",
