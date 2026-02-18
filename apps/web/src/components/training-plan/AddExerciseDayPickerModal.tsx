@@ -1,37 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 
-type DayOption = {
+type PlanOption = {
   id: string;
-  label: string;
-  focus: string;
+  title: string;
+  daysCount: number;
 };
 
 type Props = {
   open: boolean;
   exerciseName: string;
-  days: DayOption[];
-  loadingPlan: boolean;
+  plans: PlanOption[];
+  loadingPlans: boolean;
   loadError: string | null;
   isSubmitting: boolean;
   submitError: string | null;
   canSubmit: boolean;
   emptyCtaHref: string;
   onClose: () => void;
-  onConfirm: (dayId: string) => void;
+  onConfirm: (planIds: string[]) => void;
   onRetryLoad: () => void;
 };
 
 export default function AddExerciseDayPickerModal({
   open,
   exerciseName,
-  days,
-  loadingPlan,
+  plans,
+  loadingPlans,
   loadError,
   isSubmitting,
   submitError,
@@ -42,31 +42,44 @@ export default function AddExerciseDayPickerModal({
   onRetryLoad,
 }: Props) {
   const { t } = useLanguage();
-  const [selectedDayId, setSelectedDayId] = useState("");
+  const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
 
-  const hasDays = days.length > 0;
+  const hasPlans = plans.length > 0;
+  const hasSelection = selectedPlanIds.length > 0;
+  const selectedCountLabel = useMemo(() => {
+    return t("library.addToPlansSelectedCount").replace("{count}", String(selectedPlanIds.length));
+  }, [selectedPlanIds.length, t]);
+
+  const togglePlan = (planId: string) => {
+    setSelectedPlanIds((current) => {
+      if (current.includes(planId)) {
+        return current.filter((item) => item !== planId);
+      }
+      return [...current, planId];
+    });
+  };
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={t("library.addToPlanModalTitle")}
-      description={t("library.addToPlanModalDescription").replace("{exercise}", exerciseName)}
+      title={t("library.addToPlansModalTitle")}
+      description={t("library.addToPlansModalDescription").replace("{exercise}", exerciseName)}
       footer={
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
           <Button variant="secondary" onClick={onClose}>
             {t("ui.cancel")}
           </Button>
-          <Button onClick={() => onConfirm(selectedDayId)} disabled={!selectedDayId || isSubmitting || !canSubmit} loading={isSubmitting}>
-            {t("library.addToPlanConfirm")}
+          <Button onClick={() => onConfirm(selectedPlanIds)} disabled={!hasSelection || isSubmitting || !canSubmit} loading={isSubmitting}>
+            {t("library.addToPlansConfirm")}
           </Button>
         </div>
       }
     >
       <div className="form-stack">
-        {loadingPlan ? <p className="muted">{t("library.addToPlanLoading")}</p> : null}
+        {loadingPlans ? <p className="muted">{t("library.addToPlansLoading")}</p> : null}
 
-        {!loadingPlan && loadError ? (
+        {!loadingPlans && loadError ? (
           <div className="form-stack">
             <p className="muted">{loadError}</p>
             <Button variant="secondary" onClick={onRetryLoad}>
@@ -75,27 +88,39 @@ export default function AddExerciseDayPickerModal({
           </div>
         ) : null}
 
-        {!loadingPlan && !loadError && !hasDays ? (
+        {!loadingPlans && !loadError && !hasPlans ? (
           <div className="feature-card form-stack">
-            <p className="muted" style={{ margin: 0 }}>{t("library.addToPlanNoPlan")}</p>
+            <p className="muted" style={{ margin: 0 }}>{t("library.addToPlansNoPlan")}</p>
             <Link className="btn secondary" href={emptyCtaHref} onClick={onClose}>
-              {t("library.addToPlanNoPlanCta")}
+              {t("library.addToPlansNoPlanCta")}
             </Link>
           </div>
         ) : null}
 
-        {!loadingPlan && !loadError && hasDays ? (
-          <label className="form-stack" style={{ gap: 8 }}>
-            <span className="muted">{t("library.addToPlanDayLabel")}</span>
-            <select value={selectedDayId} onChange={(event) => setSelectedDayId(event.target.value)}>
-              <option value="">{t("library.addToPlanDayPlaceholder")}</option>
-              {days.map((day) => (
-                <option key={day.id} value={day.id}>
-                  {day.label} · {day.focus}
-                </option>
-              ))}
-            </select>
-          </label>
+        {!loadingPlans && !loadError && hasPlans ? (
+          <fieldset className="form-stack" style={{ gap: 10 }}>
+            <legend className="muted">{t("library.addToPlansLabel")}</legend>
+            {plans.map((plan) => {
+              const inputId = `plan-${plan.id}`;
+              return (
+                <label key={plan.id} htmlFor={inputId} className="feature-card" style={{ padding: "0.75rem" }}>
+                  <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                    <div className="form-stack" style={{ gap: 4 }}>
+                      <strong>{plan.title}</strong>
+                      <span className="muted">{t("library.addToPlansDaysCount").replace("{count}", String(plan.daysCount))}</span>
+                    </div>
+                    <input
+                      id={inputId}
+                      type="checkbox"
+                      checked={selectedPlanIds.includes(plan.id)}
+                      onChange={() => togglePlan(plan.id)}
+                    />
+                  </div>
+                </label>
+              );
+            })}
+            <p className="muted" style={{ margin: 0 }}>{selectedCountLabel}</p>
+          </fieldset>
         ) : null}
 
         {submitError ? <p className="muted">{submitError}</p> : null}
