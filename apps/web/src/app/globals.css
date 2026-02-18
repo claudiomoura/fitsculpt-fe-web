@@ -1,31 +1,20 @@
 /* Design system: use --color-* for semantic colors, --radius-* for rounding, --shadow-* for elevation, --font-* for type scale. */
 :root {
   color-scheme: light;
-  --fs-bg: #0b0e13;
-  --fs-surface: #141822;
-  --fs-elevated: #1a1f2b;
-  --fs-border: #232a3a;
-  --fs-primary: #00f5c3;
-  --fs-secondary: #3b82f6;
-  --fs-text: #e6eaf2;
-  --fs-text-muted: #9aa3b2;
-  --fs-radius-card: 16px;
-  --fs-radius-btn: 14px;
-
-  --color-bg: var(--fs-bg);
-  --color-surface: var(--fs-surface);
-  --color-surface-muted: var(--fs-elevated);
-  --color-surface-highlight: color-mix(in srgb, var(--fs-secondary) 14%, var(--fs-bg));
-  --color-text: var(--fs-text);
-  --color-text-muted: var(--fs-text-muted);
-  --color-border: var(--fs-border);
-  --color-primary: var(--fs-primary);
-  --color-primary-strong: color-mix(in srgb, var(--fs-primary) 82%, black);
-  --color-secondary: var(--fs-secondary);
+  --color-bg: #f6f4f1;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-surface-highlight: #ecfeff;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-border: #e2e8f0;
+  --color-primary: #00f5c3;
+  --color-primary-strong: #14b8a6;
+  --color-secondary: #3b82f6;
   --color-danger: #ef4444;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
-  --color-ring: color-mix(in srgb, var(--fs-primary) 38%, transparent);
+  --color-ring: rgba(0, 245, 195, 0.35);
 
   /* Backwards-compatible aliases */
   --theme-bg: var(--fs-bg);
@@ -86,15 +75,15 @@
   --text-muted: var(--color-text-muted);
   --accent: var(--color-primary);
   --accent-strong: var(--color-primary-strong);
-  --accent-soft: color-mix(in srgb, var(--fs-primary) 16%, var(--fs-bg));
+  --accent-soft: #ecfeff;
   --border: var(--color-border);
   --shadow: var(--shadow-md);
-  --header-bg: color-mix(in srgb, var(--fs-surface) 92%, transparent);
-  --badge-bg: color-mix(in srgb, var(--fs-secondary) 14%, var(--fs-bg));
-  --badge-border: color-mix(in srgb, var(--fs-secondary) 32%, var(--fs-border));
-  --badge-text: var(--fs-text);
-  --link-active: var(--fs-primary);
-  --hero-bg: radial-gradient(circle at top, color-mix(in srgb, var(--fs-secondary) 20%, transparent), color-mix(in srgb, var(--fs-bg) 95%, transparent));
+  --header-bg: rgba(255, 255, 255, 0.92);
+  --badge-bg: #ecfeff;
+  --badge-border: #bfdbfe;
+  --badge-text: #1d4ed8;
+  --link-active: #1d4ed8;
+  --hero-bg: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 24%, white) 0%, color-mix(in srgb, var(--color-primary) 18%, var(--color-secondary) 10%, white) 45%, color-mix(in srgb, var(--color-secondary) 20%, white) 100%);
   --skeleton-base: rgba(148, 163, 184, 0.18);
   --skeleton-highlight: rgba(148, 163, 184, 0.34);
   --tabbar-h: 64px;
@@ -113,31 +102,20 @@ body {
 
 html.theme-dark {
   color-scheme: dark;
-  --fs-bg: #0b0e13;
-  --fs-surface: #141822;
-  --fs-elevated: #1a1f2b;
-  --fs-border: #232a3a;
-  --fs-primary: #00f5c3;
-  --fs-secondary: #3b82f6;
-  --fs-text: #e6eaf2;
-  --fs-text-muted: #9aa3b2;
-  --fs-radius-card: 16px;
-  --fs-radius-btn: 14px;
-
-  --color-bg: var(--fs-bg);
-  --color-surface: var(--fs-surface);
-  --color-surface-muted: var(--fs-elevated);
-  --color-surface-highlight: color-mix(in srgb, var(--fs-secondary) 14%, var(--fs-bg));
-  --color-text: var(--fs-text);
-  --color-text-muted: var(--fs-text-muted);
-  --color-border: var(--fs-border);
-  --color-primary: var(--fs-primary);
-  --color-primary-strong: color-mix(in srgb, var(--fs-primary) 82%, black);
-  --color-secondary: var(--fs-secondary);
+  --color-bg: #0f1115;
+  --color-surface: #161a20;
+  --color-surface-muted: #1f2530;
+  --color-surface-highlight: #0a1f1b;
+  --color-text: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-border: #2b3240;
+  --color-primary: #7affde;
+  --color-primary-strong: #34d399;
+  --color-secondary: #7bb6ff;
   --color-danger: #f87171;
   --color-success: #4ade80;
   --color-warning: #fbbf24;
-  --color-ring: color-mix(in srgb, var(--fs-primary) 45%, transparent);
+  --color-ring: rgba(122, 255, 222, 0.45);
 
   --theme-bg: var(--fs-bg);
   --theme-surface: var(--fs-surface);
@@ -177,15 +155,15 @@ html.theme-dark {
   --text-muted: var(--color-text-muted);
   --accent: var(--color-primary);
   --accent-strong: var(--color-primary-strong);
-  --accent-soft: color-mix(in srgb, var(--fs-primary) 16%, var(--fs-bg));
+  --accent-soft: #10211f;
   --border: var(--color-border);
   --shadow: var(--shadow-md);
-  --header-bg: color-mix(in srgb, var(--fs-surface) 90%, transparent);
-  --badge-bg: color-mix(in srgb, var(--fs-secondary) 14%, var(--fs-bg));
-  --badge-border: color-mix(in srgb, var(--fs-secondary) 32%, var(--fs-border));
-  --badge-text: var(--fs-text);
-  --link-active: var(--fs-primary);
-  --hero-bg: radial-gradient(circle at top, color-mix(in srgb, var(--fs-secondary) 20%, transparent), color-mix(in srgb, var(--fs-bg) 95%, transparent));
+  --header-bg: rgba(15, 17, 21, 0.9);
+  --badge-bg: #10211f;
+  --badge-border: #1e3a8a;
+  --badge-text: #93c5fd;
+  --link-active: #93c5fd;
+  --hero-bg: radial-gradient(circle at top, color-mix(in srgb, var(--color-primary) 28%, transparent), rgba(15, 17, 21, 0.95));
   --skeleton-base: rgba(148, 163, 184, 0.12);
   --skeleton-highlight: rgba(148, 163, 184, 0.22);
 }
@@ -736,7 +714,7 @@ main {
 .btn:hover,
 .ui-button:hover {
   background: var(--accent-strong);
-  box-shadow: 0 12px 24px color-mix(in srgb, var(--fs-primary) 30%, transparent);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--accent) 25%, transparent);
   transform: translateY(-1px);
 }
 
@@ -1769,7 +1747,7 @@ label {
   color: var(--fs-bg);
   font-size: 20px;
   font-weight: 700;
-  box-shadow: 0 10px 20px color-mix(in srgb, var(--fs-primary) 35%, transparent);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .mobile-tab-label {

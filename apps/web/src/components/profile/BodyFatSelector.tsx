@@ -45,7 +45,7 @@ function renderPreview(option: BodyFatOption, label: string): ReactNode {
         width: "100%",
         height: 180,
         borderRadius: 12,
-        background: "var(--primary-soft)",
+        background: "var(--accent-soft)",
         display: "grid",
         placeItems: "center",
         color: "var(--text-muted)",
@@ -80,7 +80,7 @@ export default function BodyFatSelector({ value, onChange }: BodyFatSelectorProp
               onClick={() => onChange(option.value)}
               className="feature-card"
               style={{
-                borderColor: isActive ? "var(--primary)" : "var(--border)",
+                borderColor: isActive ? "var(--accent)" : "var(--border)",
                 textAlign: "left",
                 cursor: "pointer",
               }}
