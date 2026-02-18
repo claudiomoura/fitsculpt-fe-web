@@ -45,6 +45,19 @@ describe("navigation section gating", () => {
     expect(allItemIds).toContain("admin-labs");
   });
 
+
+  it("shows trainer plus account only for trainer users", () => {
+    const sections = buildNavigationSections({ role: "trainer", isCoach: true });
+    const sectionIds = sections.map((section) => section.id);
+    const allItemIds = sections.flatMap((section) => section.items.map((item) => item.id));
+
+    expect(sectionIds).toEqual(["trainer", "account"]);
+    expect(allItemIds).toContain("trainer-home");
+    expect(allItemIds).toContain("profile");
+    expect(allItemIds).not.toContain("today");
+    expect(allItemIds).not.toContain("admin-dashboard");
+  });
+
   it("marks admin gym requests as unavailable to avoid broken flows", () => {
     const sections = buildNavigationSections({ role: "admin" });
     const adminSection = sections.find((section) => section.id === "admin");

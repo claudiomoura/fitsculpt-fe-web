@@ -1,4 +1,4 @@
-import { canAccessAdmin, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
+import { canAccessAdmin, type RoleAccessInput } from "@/config/roleAccess";
 
 export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin" | "trainer" | "development";
 
@@ -81,7 +81,6 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.training",
     items: [
       { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingPlan" },
-      { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
       { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
     ],
   },
@@ -237,25 +236,34 @@ export const sidebarDevelopment: NavSectionGroup[] = [
   },
 ];
 
+const sidebarAccountOnly: NavSectionGroup[] = sidebarUser.filter((section) => section.id === "account");
+
 export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
-  if (canAccessTrainer(input)) {
+  const isAdmin = canAccessAdmin(input);
+  const isTrainer = input.isCoach === true;
+
+  if (isAdmin) {
     return sidebarUser;
   }
 
-  return sidebarUser.map((section) => {
-    if (section.id !== "training") return section;
+  if (isTrainer) {
+    return sidebarAccountOnly;
+  }
 
-    return {
-      ...section,
-      items: section.items.filter((item) => item.id !== "trainer-home"),
-    };
-  });
+  return sidebarUser;
 }
 
 export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup[] {
+  const isAdmin = canAccessAdmin(input);
+  const isTrainer = input.isCoach === true;
+
+  if (isTrainer && !isAdmin) {
+    return [...sidebarTrainer, ...sidebarAccountOnly];
+  }
+
   const userSections = buildUserSections(input);
 
-  if (!canAccessAdmin(input)) {
+  if (!isAdmin) {
     return userSections;
   }
 
