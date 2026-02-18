@@ -16,6 +16,19 @@
   --color-warning: #f59e0b;
   --color-ring: rgba(249, 115, 22, 0.35);
 
+  /* Category Killer theme tokens */
+  --theme-bg: #0b0e13;
+  --theme-surface: #141822;
+  --theme-elevated: #1a1f2b;
+  --theme-border: #232a3a;
+  --theme-primary: #00f5c3;
+  --theme-secondary: #3b82f6;
+  --theme-text: #e6eaf2;
+  --theme-text-muted: #9aa3b2;
+
+  --radius-card: 16px;
+  --radius-button: 14px;
+
   /* Dark Neural Interface tokens */
   --dni-bg: #070b14;
   --dni-surface: #0d1320;
@@ -103,6 +116,18 @@ html.theme-dark {
   --color-success: #4ade80;
   --color-warning: #fbbf24;
   --color-ring: rgba(249, 115, 22, 0.45);
+
+  --theme-bg: #0b0e13;
+  --theme-surface: #141822;
+  --theme-elevated: #1a1f2b;
+  --theme-border: #232a3a;
+  --theme-primary: #00f5c3;
+  --theme-secondary: #3b82f6;
+  --theme-text: #e6eaf2;
+  --theme-text-muted: #9aa3b2;
+
+  --radius-card: 16px;
+  --radius-button: 14px;
 
   --dni-bg: #05070f;
   --dni-surface: #0b1020;

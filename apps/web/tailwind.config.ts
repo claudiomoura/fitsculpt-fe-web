@@ -5,6 +5,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        bg: "var(--theme-bg)",
+        surface: "var(--theme-surface)",
+        elevated: "var(--theme-elevated)",
+        border: "var(--theme-border)",
+        primary: "var(--theme-primary)",
+        secondary: "var(--theme-secondary)",
+        text: "var(--theme-text)",
+        "text-muted": "var(--theme-text-muted)",
         "dni-bg": "var(--dni-bg)",
         "dni-surface": "var(--dni-surface)",
         "dni-elevated": "var(--dni-elevated)",
@@ -17,6 +25,10 @@ const config: Config = {
         "dni-success": "var(--dni-success)",
         "dni-warn": "var(--dni-warn)",
         "dni-error": "var(--dni-error)",
+      },
+      borderRadius: {
+        card: "var(--radius-card)",
+        button: "var(--radius-button)",
       },
       backgroundImage: {
         "hero-glow": "var(--hero-glow)",
