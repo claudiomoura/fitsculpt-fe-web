@@ -2475,5 +2475,77 @@
       "primaryCta": "Crear cuenta gratis",
       "secondaryCta": "Ir a la app"
     }
+  },
+  "marketingPricing": {
+    "header": {
+      "navigation": "Navegación principal",
+      "links": {
+        "plans": "Planes",
+        "features": "Características",
+        "testimonials": "Testimonios"
+      }
+    },
+    "hero": {
+      "title": "Planes que se adaptan a tu progreso",
+      "subtitle": "Entrena y come con estructura clara, sin perder flexibilidad.",
+      "supporting": "Elige el plan que mejor encaja con tu fase actual y cambia cuando lo necesites."
+    },
+    "plans": {
+      "strength": {
+        "title": "Strength AI",
+        "price": "14,99 €/mes",
+        "tagline": "Fuerza, hipertrofia y progresión automática",
+        "cta": "Empezar Strength",
+        "features": {
+          "1": "Progresión inteligente de cargas",
+          "2": "Rutinas adaptadas a tu nivel",
+          "3": "Seguimiento de PRs y volumen",
+          "4": "Técnica y cues clave por ejercicio"
+        }
+      },
+      "pro": {
+        "title": "Pro",
+        "price": "19,99 €/mes",
+        "badge": "Más popular",
+        "tagline": "Strength + Nutrition en un solo sistema",
+        "cta": "Elegir Pro",
+        "features": {
+          "1": "Todo en Strength AI",
+          "2": "Todo en Nutrition AI",
+          "3": "Ajustes inteligentes semana a semana",
+          "4": "Panel de progreso avanzado"
+        }
+      },
+      "nutrition": {
+        "title": "Nutrition AI",
+        "price": "14,99 €/mes",
+        "tagline": "Macros, recetas y adherencia sin complicarte",
+        "cta": "Empezar Nutrition",
+        "features": {
+          "1": "Objetivos de macros automáticos",
+          "2": "Recomendaciones de comidas",
+          "3": "Ajustes según progreso",
+          "4": "Lista de la compra sugerida"
+        }
+      }
+    },
+    "billingNote": "Cancela cuando quieras. Impuestos incluidos donde aplique.",
+    "testimonials": {
+      "title": "Lo que dicen quienes ya lo usan",
+      "subtitle": "Historias reales de usuarios que entrenan con más claridad.",
+      "starsLabel": "Valoración de 5 estrellas",
+      "items": {
+        "one": {
+          "quote": "Por fin tengo un plan que se ajusta cuando fallo una semana."
+        },
+        "two": {
+          "quote": "La progresión de fuerza es clara, y me evita entrenar a ciegas."
+        },
+        "three": {
+          "quote": "Nutrición simple, sin menús imposibles, y con macros que encajan."
+        }
+      },
+      "disclaimer": "Los resultados dependen del contexto y la constancia de cada persona."
+    }
   }
 }

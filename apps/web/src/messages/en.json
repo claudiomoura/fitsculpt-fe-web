@@ -2472,5 +2472,77 @@
       "primaryCta": "Create free account",
       "secondaryCta": "Go to app"
     }
+  },
+  "marketingPricing": {
+    "header": {
+      "navigation": "Main navigation",
+      "links": {
+        "plans": "Plans",
+        "features": "Features",
+        "testimonials": "Testimonials"
+      }
+    },
+    "hero": {
+      "title": "Plans that adapt to your progress",
+      "subtitle": "Train and eat with clear structure, while staying flexible.",
+      "supporting": "Pick the plan that fits your current phase and switch whenever you need."
+    },
+    "plans": {
+      "strength": {
+        "title": "Strength AI",
+        "price": "€14.99/month",
+        "tagline": "Strength, hypertrophy, and automatic progression",
+        "cta": "Start Strength",
+        "features": {
+          "1": "Smart load progression",
+          "2": "Routines adapted to your level",
+          "3": "PR and volume tracking",
+          "4": "Technique and key cues by exercise"
+        }
+      },
+      "pro": {
+        "title": "Pro",
+        "price": "€19.99/month",
+        "badge": "Most popular",
+        "tagline": "Strength + Nutrition in one system",
+        "cta": "Choose Pro",
+        "features": {
+          "1": "Everything in Strength AI",
+          "2": "Everything in Nutrition AI",
+          "3": "Smart week-to-week adjustments",
+          "4": "Advanced progress dashboard"
+        }
+      },
+      "nutrition": {
+        "title": "Nutrition AI",
+        "price": "€14.99/month",
+        "tagline": "Macros, recipes, and adherence without overcomplicating",
+        "cta": "Start Nutrition",
+        "features": {
+          "1": "Automatic macro targets",
+          "2": "Meal recommendations",
+          "3": "Progress-based adjustments",
+          "4": "Suggested grocery list"
+        }
+      }
+    },
+    "billingNote": "Cancel anytime. Taxes included where applicable.",
+    "testimonials": {
+      "title": "What members are saying",
+      "subtitle": "Real feedback from users training with more clarity.",
+      "starsLabel": "5-star rating",
+      "items": {
+        "one": {
+          "quote": "I finally have a plan that adapts when I miss a week."
+        },
+        "two": {
+          "quote": "Strength progression is clear and keeps me from training blindly."
+        },
+        "three": {
+          "quote": "Simple nutrition, no impossible menus, with macros that fit."
+        }
+      },
+      "disclaimer": "Results vary based on individual context and consistency."
+    }
   }
 }

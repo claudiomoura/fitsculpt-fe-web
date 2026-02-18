@@ -72,7 +72,7 @@ export function LandingHomePage({ copy }: LandingHomePageProps) {
         </Container>
       </Section>
 
-      <Section aria-labelledby="home-features-title">
+      <Section id="features" aria-labelledby="home-features-title">
         <Container>
           <div className="landing-heading-block">
             <h2 id="home-features-title">{copy.features.title}</h2>
