@@ -38,42 +38,43 @@ function parsePlanList(payload: unknown): PlanListItem[] {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
   const rows = Array.isArray(source.items) ? source.items : Array.isArray(source.data) ? source.data : Array.isArray(payload) ? payload : [];
 
-  return rows
-    .map((row) => {
-      const item = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
-      const id = typeof item.id === "string" ? item.id : "";
-      const title = typeof item.title === "string" ? item.title : "";
+  const parsed: PlanListItem[] = [];
+  for (const row of rows) {
+    const item = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
+    const id = typeof item.id === "string" ? item.id : "";
+    const title = typeof item.title === "string" ? item.title : "";
+    if (!id || !title) continue;
 
-      if (!id || !title) return null;
+    parsed.push({
+      id,
+      title,
+      description: typeof item.description === "string" ? item.description : null,
+    });
+  }
 
-      return {
-        id,
-        title,
-        description: typeof item.description === "string" ? item.description : null,
-      } satisfies PlanListItem;
-    })
-    .filter((row): row is PlanListItem => Boolean(row));
+  return parsed;
 }
 
 function parseExerciseList(payload: unknown): ExerciseOption[] {
   const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
   const rows = Array.isArray(source.items) ? source.items : Array.isArray(source.data) ? source.data : [];
 
-  return rows
-    .map((row) => {
-      const item = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
-      const id = typeof item.id === "string" ? item.id : "";
-      const name = typeof item.name === "string" ? item.name : "";
-      if (!id || !name) return null;
+  const parsed: ExerciseOption[] = [];
+  for (const row of rows) {
+    const item = typeof row === "object" && row !== null ? (row as Record<string, unknown>) : {};
+    const id = typeof item.id === "string" ? item.id : "";
+    const name = typeof item.name === "string" ? item.name : "";
+    if (!id || !name) continue;
 
-      return {
-        id,
-        name,
-        mainMuscleGroup: typeof item.mainMuscleGroup === "string" ? item.mainMuscleGroup : null,
-        equipment: typeof item.equipment === "string" ? item.equipment : null,
-      } satisfies ExerciseOption;
-    })
-    .filter((row): row is ExerciseOption => Boolean(row));
+    parsed.push({
+      id,
+      name,
+      mainMuscleGroup: typeof item.mainMuscleGroup === "string" ? item.mainMuscleGroup : null,
+      equipment: typeof item.equipment === "string" ? item.equipment : null,
+    });
+  }
+
+  return parsed;
 }
 
 function createDraftDays(days: number): PlanDay[] {
