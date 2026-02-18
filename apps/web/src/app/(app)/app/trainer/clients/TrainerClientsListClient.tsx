@@ -11,10 +11,25 @@ import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess"
 
 type ListState = "loading" | "ready";
 
+function readAvatarCandidate(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
 function getClientAvatar(client: { name: string; raw: Record<string, unknown> }): { initials: string; url: string | null } {
-  const rawAvatar = [client.raw.avatarUrl, client.raw.profilePhotoUrl, client.raw.avatarDataUrl].find(
-    (value) => typeof value === "string" && value.trim().length > 0,
-  );
+  const user = typeof client.raw.user === "object" && client.raw.user !== null ? (client.raw.user as Record<string, unknown>) : null;
+  const profile = typeof client.raw.profile === "object" && client.raw.profile !== null ? (client.raw.profile as Record<string, unknown>) : null;
+
+  const rawAvatar = [
+    readAvatarCandidate(client.raw.avatarUrl),
+    readAvatarCandidate(client.raw.profilePhotoUrl),
+    readAvatarCandidate(client.raw.avatarDataUrl),
+    readAvatarCandidate(user?.avatarUrl),
+    readAvatarCandidate(user?.profilePhotoUrl),
+    readAvatarCandidate(user?.avatarDataUrl),
+    readAvatarCandidate(profile?.avatarUrl),
+    readAvatarCandidate(profile?.profilePhotoUrl),
+    readAvatarCandidate(profile?.avatarDataUrl),
+  ].find((value) => typeof value === "string" && value.trim().length > 0);
 
   const initials = client.name
     .split(" ")
