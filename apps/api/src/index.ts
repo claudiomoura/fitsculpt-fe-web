@@ -7192,7 +7192,9 @@ app.post("/admin/gyms", async (request, reply) => {
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return reply.status(409).send({ error: "GYM_CODE_ALREADY_EXISTS", message: "Gym code already exists." });
+      return reply
+        .status(409)
+        .send({ code: "GYM_CODE_ALREADY_EXISTS", error: "GYM_CODE_ALREADY_EXISTS", message: "Gym code already exists." });
     }
     return handleRequestError(reply, error);
   }
@@ -7254,6 +7256,14 @@ app.delete("/admin/gyms/:gymId", async (request, reply) => {
 
     return reply.status(200).send({ ok: true, gymId, deletedMemberships: gym._count.memberships });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return reply.status(404).send({ code: "GYM_NOT_FOUND", error: "GYM_NOT_FOUND", message: "Gym not found." });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return reply
+        .status(409)
+        .send({ code: "GYM_DELETE_CONFLICT", error: "GYM_DELETE_CONFLICT", message: "Gym cannot be deleted due to related records." });
+    }
     return handleRequestError(reply, error);
   }
 });
