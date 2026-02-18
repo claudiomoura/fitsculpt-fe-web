@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 import GymJoinRequestsManager from "@/components/admin/GymJoinRequestsManager";
+import { createAdminGym } from "@/services/gym";
 
 type Gym = {
   id: string;
@@ -29,6 +30,7 @@ export default function AdminGymsClient() {
   const [selectedGymId, setSelectedGymId] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [unsupported, setUnsupported] = useState(false);
@@ -36,6 +38,8 @@ export default function AdminGymsClient() {
   const [membersUnsupported, setMembersUnsupported] = useState(false);
   const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   const loadGyms = async () => {
     setLoading(true);
@@ -91,27 +95,32 @@ export default function AdminGymsClient() {
   }, [selectedGymId]);
 
   const createGym = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !code.trim()) return;
     setError(null);
+    setNameError(null);
+    setCodeError(null);
     setCreatedCode(null);
 
-    try {
-      const res = await fetch("/api/admin/gyms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        credentials: "include",
-        body: JSON.stringify({ name: name.trim() }),
-      });
-      if (!res.ok) throw new Error("create");
-      const created = (await res.json()) as { id: string; joinCode?: string; code?: string; activationCode?: string };
-      setCreatedCode(created.activationCode ?? created.joinCode ?? created.code ?? null);
-      setName("");
-      await loadGyms();
-      setSelectedGymId(created.id);
-    } catch {
+    const result = await createAdminGym({ name: name.trim(), code: code.trim() });
+
+    if (!result.ok) {
+      if (result.status === 400) {
+        const nextNameError = result.error.fieldErrors.name ?? null;
+        const nextCodeError = result.error.fieldErrors.code ?? null;
+        setNameError(nextNameError);
+        setCodeError(nextCodeError);
+        setError(result.error.formError ?? (!nextNameError && !nextCodeError ? t("adminGyms.errors.create") : null));
+        return;
+      }
       setError(t("adminGyms.errors.create"));
+      return;
     }
+
+    setCreatedCode(result.data.activationCode || result.data.code || null);
+    setName("");
+    setCode("");
+    await loadGyms();
+    setSelectedGymId(result.data.id);
   };
 
   const setMemberRole = async (userId: string, role: "TRAINER" | "MEMBER") => {
@@ -155,9 +164,15 @@ export default function AdminGymsClient() {
         <h1 className="section-title">{t("adminGyms.title")}</h1>
         <label className="form-stack">
           {t("adminGyms.createName")}
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t("adminGyms.createPlaceholder")} />
+          <input value={name} onChange={(event) => { setName(event.target.value); if (nameError) setNameError(null); }} placeholder={t("adminGyms.createPlaceholder")} />
+          {nameError ? <p className="muted" style={{ margin: 0 }}>{nameError}</p> : null}
         </label>
-        <Button onClick={() => void createGym()} disabled={!name.trim()}>{t("adminGyms.createAction")}</Button>
+        <label className="form-stack">
+          {t("adminGyms.createCode")}
+          <input value={code} onChange={(event) => { setCode(event.target.value); if (codeError) setCodeError(null); }} placeholder={t("adminGyms.createCodePlaceholder")} />
+          {codeError ? <p className="muted" style={{ margin: 0 }}>{codeError}</p> : null}
+        </label>
+        <Button onClick={() => void createGym()} disabled={!name.trim() || !code.trim()}>{t("adminGyms.createAction")}</Button>
         {createdCode ? <p className="muted">{t("adminGyms.createdCode").replace("{code}", createdCode)}</p> : null}
       </section>
 
