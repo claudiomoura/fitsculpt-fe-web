@@ -247,7 +247,7 @@ export default function TodaySummaryClient() {
       const nutritionSummary = buildNutritionSummary(planDetail);
       setAssignedNutritionPlanId(latestPlan.id);
       setNutritionState(nutritionSummary ? { status: "ready", data: nutritionSummary } : { status: "empty" });
-    } catch {
+    } catch (_err) {
       if (!mountedRef.current) return;
       setNutritionState({ status: "error" });
     }
@@ -274,7 +274,7 @@ export default function TodaySummaryClient() {
       const trainingSummary = buildTrainingSummary(planDetail);
       setAssignedPlanId(planDetail.id);
       setTrainingState(trainingSummary ? { status: "ready", data: trainingSummary } : { status: "empty" });
-    } catch {
+    } catch (_err) {
       if (!mountedRef.current) return;
       setTrainingState({ status: "error" });
     }
@@ -301,7 +301,7 @@ export default function TodaySummaryClient() {
       setNotesState(latestNotes ? { status: "ready", data: latestNotes } : { status: "empty" });
       setEnergySupported(hasEnergyField);
       setNotesSupported(hasNotesField);
-    } catch {
+    } catch (_err) {
       if (!mountedRef.current) return;
       setWeightState({ status: "error" });
       setEnergyState({ status: "error" });

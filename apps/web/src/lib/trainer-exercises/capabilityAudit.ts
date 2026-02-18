@@ -7,7 +7,7 @@ async function supportsExercisesRead(): Promise<boolean> {
   try {
     const response = await fetch("/api/exercises?limit=1", { method: "GET", cache: "no-store" });
     return response.ok;
-  } catch {
+  } catch (_err) {
     return false;
   }
 }
@@ -26,7 +26,7 @@ async function supportsExerciseCreate(): Promise<boolean> {
     }
 
     return true;
-  } catch {
+  } catch (_err) {
     return false;
   }
 }

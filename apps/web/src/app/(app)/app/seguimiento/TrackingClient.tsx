@@ -243,7 +243,7 @@ export default function TrackingClient() {
         setHasAdjustmentEntitlement(hasAiEntitlement(data));
         setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
         setAdjustmentTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
-      } catch {
+      } catch (_err) {
         if (!active) return;
         setHasAdjustmentEntitlement(false);
         setSubscriptionPlan(null);
@@ -302,7 +302,7 @@ export default function TrackingClient() {
       setTrackingLoaded(true);
       setTrackingStatus("ready");
       return true;
-    } catch {
+    } catch (_err) {
       console.warn("Tracking load failed");
       if (showError && isMountedRef.current) {
         setTrackingStatus("error");
@@ -324,7 +324,7 @@ export default function TrackingClient() {
         if (!response.ok) return;
         const data = (await response.json()) as UserFood[];
         if (active) setUserFoods(data);
-      } catch {
+      } catch (_err) {
         // Ignore load errors.
       }
     };
@@ -346,7 +346,7 @@ setCheckinNeck(Number(data.measurements.neckCm ?? 0));
 setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
         }
-      } catch {
+      } catch (_err) {
         // Ignore load errors.
       }
     };
@@ -539,7 +539,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       }
       showMessage(successMessage);
       return true;
-    } catch {
+    } catch (_err) {
       if (options?.onError) {
         options.onError(errorMessage);
       } else {

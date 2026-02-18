@@ -287,7 +287,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         setForm(null);
       }
       setSavedPlan(profile.trainingPlan ?? null);
-    } catch {
+    } catch (_err) {
       if (activeRef.current) setError(t("training.profileError"));
     } finally {
       if (activeRef.current) setLoading(false);
@@ -317,7 +317,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       setAiEntitled(hasAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
-    } catch {
+    } catch (_err) {
     }
   };
 
@@ -502,7 +502,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const updated = await updateUserProfile({ trainingPlan: nextPlan });
       setSavedPlan(updated.trainingPlan ?? nextPlan);
       setSaveMessage(t("training.savePlanSuccess"));
-    } catch {
+    } catch (_err) {
       setSaveMessage(t("training.savePlanError"));
     } finally {
       setSaving(false);
@@ -519,7 +519,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const updated = await updateUserProfile({ trainingPlan: nextPlan });
       setSavedPlan(updated.trainingPlan ?? nextPlan);
       setSaveMessage(t("training.manualSaveSuccess"));
-    } catch {
+    } catch (_err) {
       setSaveMessage(t("training.savePlanError"));
     } finally {
       setSaving(false);
@@ -665,7 +665,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       nextParams.delete("ctx");
       const nextUrl = `${pathname}${nextParams.toString() ? `?${nextParams.toString()}` : ""}`;
       router.replace(nextUrl);
-    } catch {
+    } catch (_err) {
       window.sessionStorage.removeItem(ctxKey);
     }
   }, [calendarView, pathname, router, searchParams]);
@@ -705,7 +705,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       setSavedPlan(updated.trainingPlan ?? aiPreviewPlan);
       setAiPreviewPlan(null);
       setSaveMessage(t("training.aiSuccess"));
-    } catch {
+    } catch (_err) {
       setError(t("training.savePlanError"));
     } finally {
       setAiConfirmSaving(false);

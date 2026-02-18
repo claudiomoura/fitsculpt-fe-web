@@ -90,7 +90,7 @@ export function GymAdminMembersClient() {
       } else {
         setMembers(parseMembers(await membersRes.json()));
       }
-    } catch {
+    } catch (_err) {
       setError(t("gym.admin.members.loadError"));
     } finally {
       setState("ready");
@@ -136,7 +136,7 @@ export function GymAdminMembersClient() {
           t(role === "TRAINER" ? "gym.admin.members.promoteSuccess" : "gym.admin.members.demoteSuccess"),
         );
         await loadData();
-      } catch {
+      } catch (_err) {
         setError(t("gym.admin.members.roleChangeError"));
       } finally {
         setRoleActionPendingUserId(null);
@@ -160,7 +160,7 @@ export function GymAdminMembersClient() {
         }
         setSuccessMessage(t(action === "accept" ? "admin.gymRequestsAccept" : "admin.gymRequestsReject"));
         await loadData();
-      } catch {
+      } catch (_err) {
         setError(t("admin.gymRequestsActionError"));
       } finally {
         setRequestActionPending(null);

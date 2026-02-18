@@ -126,7 +126,7 @@ function ExerciseSearchPicker({
 
       setResults(parseExerciseList((await response.json()) as unknown));
       setSearchState("idle");
-    } catch {
+    } catch (_err) {
       setSearchState("error");
     }
   };
@@ -227,7 +227,7 @@ export default function TrainerPlansPageClient() {
       setCapabilityState("supported");
       setPlans(parsePlanList((await response.json()) as unknown));
       setRouteState("ready");
-    } catch {
+    } catch (_err) {
       setLoadError(true);
       setRouteState("ready");
     }
@@ -278,7 +278,7 @@ export default function TrainerPlansPageClient() {
       setWizardDays(3);
       setCreating(false);
       await loadPlans();
-    } catch {
+    } catch (_err) {
       setCreateError(true);
       setCreating(false);
     }

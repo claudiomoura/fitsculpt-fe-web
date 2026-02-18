@@ -61,7 +61,7 @@ const readFavorites = () => {
     const stored = window.localStorage.getItem(NUTRITION_QUICK_FAVORITES_STORAGE_KEY);
     if (!stored) return [];
     return normalizeFavorites(JSON.parse(stored));
-  } catch {
+  } catch (_err) {
     return [];
   }
 };
@@ -73,7 +73,7 @@ const writeFavorites = (favorites: NutritionQuickFavorite[]) => {
       NUTRITION_QUICK_FAVORITES_STORAGE_KEY,
       JSON.stringify(normalizeFavorites(favorites))
     );
-  } catch {
+  } catch (_err) {
     // ignore storage errors
   }
 };
@@ -92,7 +92,7 @@ export const useNutritionQuickFavorites = () => {
     try {
       setFavorites(readFavorites());
       setHasError(false);
-    } catch {
+    } catch (_err) {
       setFavorites([]);
       setHasError(true);
     } finally {

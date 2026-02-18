@@ -30,7 +30,7 @@ export async function probeTrainerClientsCapability(): Promise<TrainerClientsCap
         endpoint,
         clients: extractTrainerClients(payload),
       };
-    } catch {
+    } catch (_err) {
       return {
         status: "error",
         endpoint,

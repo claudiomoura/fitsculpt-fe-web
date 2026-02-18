@@ -91,7 +91,7 @@ function tryParseJson(value: unknown): unknown {
   if (typeof value !== "string") return value;
   try {
     return JSON.parse(value);
-  } catch {
+  } catch (_err) {
     return value;
   }
 }

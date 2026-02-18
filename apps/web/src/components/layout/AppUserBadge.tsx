@@ -43,7 +43,7 @@ export default function AppUserBadge({ mobileMenuOpen, onMobileMenuOpen }: AppUs
             avatarDataUrl: data.avatarDataUrl,
           });
         }
-      } catch {
+      } catch (_err) {
         // ignore
       }
     };

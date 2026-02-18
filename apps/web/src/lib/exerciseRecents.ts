@@ -55,7 +55,7 @@ export const getExerciseRecents = (): ExerciseRecent[] => {
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return [];
     return parsed.map(normalizeRecent).filter((item): item is ExerciseRecent => Boolean(item));
-  } catch {
+  } catch (_err) {
     return [];
   }
 };
@@ -64,7 +64,7 @@ export const setExerciseRecents = (recents: ExerciseRecent[]) => {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(EXERCISE_RECENTS_STORAGE_KEY, JSON.stringify(recents));
-  } catch {
+  } catch (_err) {
     // ignore storage errors
   }
 };
@@ -73,7 +73,7 @@ export const clearExerciseRecents = () => {
   if (!isBrowser()) return;
   try {
     window.localStorage.removeItem(EXERCISE_RECENTS_STORAGE_KEY);
-  } catch {
+  } catch (_err) {
     // ignore storage errors
   }
 };
@@ -126,7 +126,7 @@ export const useExerciseRecents = () => {
       }
       setRecents(parsed.map(normalizeRecent).filter((item): item is ExerciseRecent => Boolean(item)));
       setHasError(false);
-    } catch {
+    } catch (_err) {
       setRecents([]);
       setHasError(true);
     } finally {

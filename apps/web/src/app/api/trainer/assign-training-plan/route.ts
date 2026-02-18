@@ -46,13 +46,13 @@ export async function POST(request: Request) {
     if (text) {
       try {
         data = JSON.parse(text) as unknown;
-      } catch {
+      } catch (_err) {
         data = { message: text };
       }
     }
 
     return NextResponse.json(data, { status: response.status });
-  } catch {
+  } catch (_err) {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
   }
 }

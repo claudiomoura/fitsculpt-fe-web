@@ -155,7 +155,7 @@ export default function BillingClient() {
       if (shouldSync) {
         router.replace("/app/settings/billing");
       }
-    } catch {
+    } catch (_err) {
       setError(t("billing.loadError"));
       setProfile(null);
       setPlans([]);
@@ -183,7 +183,7 @@ export default function BillingClient() {
       }
 
       window.location.href = data.url;
-    } catch {
+    } catch (_err) {
       setError(t("billing.checkoutError"));
     } finally {
       setAction(null);
@@ -205,7 +205,7 @@ export default function BillingClient() {
       }
 
       window.location.href = data.url;
-    } catch {
+    } catch (_err) {
       setError(t("billing.portalError"));
     } finally {
       setAction(null);

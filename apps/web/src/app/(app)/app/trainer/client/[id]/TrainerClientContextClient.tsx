@@ -73,7 +73,7 @@ export default function TrainerClientContextClient() {
 
         setClient(findTrainerClient(profileData, clientId));
         setClientState("ready");
-      } catch {
+      } catch (_err) {
         if (active) {
           setPermissionState("error");
           setClientState("error");

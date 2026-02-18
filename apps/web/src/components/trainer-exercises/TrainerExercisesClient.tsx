@@ -42,7 +42,7 @@ export default function TrainerExercisesClient() {
       const data = (await response.json()) as ExercisesResponse;
       setExercises(Array.isArray(data.exercises) ? data.exercises : Array.isArray(data.items) ? data.items : []);
       setExercisesState("ready");
-    } catch {
+    } catch (_err) {
       setExercisesState("error");
     }
   }, []);
@@ -76,7 +76,7 @@ export default function TrainerExercisesClient() {
         if (hasAccess) {
           void loadExercises();
         }
-      } catch {
+      } catch (_err) {
         if (active) setPermissionState("error");
       }
     };

@@ -77,7 +77,7 @@ export default function TrainerPlansClient() {
         if (previous && nextPlans.some((plan) => plan.id === previous)) return previous;
         return nextPlans[0].id;
       });
-    } catch {
+    } catch (_err) {
       setError(true);
       setState("ready");
     }
@@ -100,7 +100,7 @@ export default function TrainerPlansClient() {
       setDetailState("ready");
       const firstDay = detail?.days[0]?.id ?? "";
       setSelectedDayId((previous) => (previous && detail?.days.some((day) => day.id === previous) ? previous : firstDay));
-    } catch {
+    } catch (_err) {
       setDetailError(true);
       setDetailState("error");
       setActivePlan(null);
@@ -165,7 +165,7 @@ export default function TrainerPlansClient() {
       if (created?.id) {
         setSelectedPlanId(created.id);
       }
-    } catch {
+    } catch (_err) {
       setCreateError(true);
       setCreating(false);
     }
@@ -180,7 +180,7 @@ export default function TrainerPlansClient() {
       await addExerciseToTrainerPlanDay(selectedPlanId, selectedDayId, { exerciseId });
       await loadPlanDetail(selectedPlanId);
       setSaveState({ savingExerciseId: null, error: false, success: true });
-    } catch {
+    } catch (_err) {
       setSaveState({ savingExerciseId: null, error: true, success: false });
     }
   };

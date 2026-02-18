@@ -17,7 +17,7 @@ async function fetchTrainingPlan(planId: string) {
     }
     const data = (await response.json()) as TrainingPlanDetail;
     return { plan: data, ok: true };
-  } catch {
+  } catch (_err) {
     return { plan: null, ok: false };
   }
 }

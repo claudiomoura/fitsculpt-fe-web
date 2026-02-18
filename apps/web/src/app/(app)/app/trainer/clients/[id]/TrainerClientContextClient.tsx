@@ -7,7 +7,6 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
-import { hasTrainerClientContextCapability } from "@/lib/capabilities";
 import { type GymMembership } from "@/lib/gymMembership";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
@@ -66,7 +65,10 @@ export default function TrainerClientContextClient() {
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [client, setClient] = useState<ClientRow | null>(null);
   const [gymMembershipState, setGymMembershipState] = useState<"in_gym" | "not_in_gym" | "unknown" | "no_permission">("unknown");
-  const [clientForbidden, setClientForbidden] = useState(false);
+  const [removeCapability, setRemoveCapability] = useState<RemoveCapability>({ loading: false, supported: false });
+  const [removeModalOpen, setRemoveModalOpen] = useState(false);
+  const [removingClient, setRemovingClient] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const handleRetry = useCallback(() => {
     window.location.reload();
@@ -103,12 +105,10 @@ export default function TrainerClientContextClient() {
         if (!canAccess) return;
 
         setClientState("loading");
-        setClientForbidden(false);
         const trainerClientResponse = await fetch(`/api/trainer/clients/${clientId}`, { cache: "no-store" });
 
         if (trainerClientResponse.status === 403) {
           if (active) {
-            setClientForbidden(true);
             setClientState("ready");
           }
           return;
@@ -130,10 +130,9 @@ export default function TrainerClientContextClient() {
         const trainerClient = (await trainerClientResponse.json()) as ClientRow;
         if (!active) return;
 
-        setClientForbidden(false);
         setClient(trainerClient);
         setClientState("ready");
-      } catch {
+      } catch (_err) {
         if (active) {
           setPermissionState("error");
           setClientState("error");
@@ -163,7 +162,7 @@ export default function TrainerClientContextClient() {
         const supported = response.ok && allowHeader.toUpperCase().includes("DELETE");
         if (!active) return;
         setRemoveCapability({ loading: false, supported });
-      } catch {
+      } catch (_err) {
         if (!active) return;
         setRemoveCapability({ loading: false, supported: false });
       }
@@ -184,104 +183,23 @@ export default function TrainerClientContextClient() {
 
   const removeClientRelation = useCallback(async () => {
     if (!removeCapability.supported || !client) return;
+    setRemovingClient(true);
+    setRemoveError(null);
 
-    if (clientForbidden) {
-      return { summary: "unavailable", training: "unavailable", nutrition: "unavailable", tracking: "unavailable" };
-    }
+    try {
+      const response = await fetch(`/api/trainer/clients/${client.id}`, {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "include",
+      });
 
-    if (!client || !hasTrainerClientContextCapability(client)) {
-      return { summary: "empty", training: "empty", nutrition: "empty", tracking: "empty" };
-    }
-
-    return { summary: "ready", training: "ready", nutrition: "empty", tracking: "ready" };
-  }, [client, clientForbidden, clientState]);
-
-  const renderSectionBody = (sectionState: SectionState) => {
-    if (sectionState === "loading") {
-      return (
-        <div className="form-stack" role="status" aria-live="polite">
-          <p className="muted">{t("trainer.clientContext.loading")}</p>
-          <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
-            {t("trainer.back")}
-          </Link>
-        </div>
-      );
-    }
-
-    if (sectionState === "error") {
-      return (
-        <div className="form-stack">
-          <p className="muted">{t("trainer.clientContext.error")}</p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className="btn secondary" type="button" onClick={handleRetry}>
-              {t("trainer.retry")}
-            </button>
-            <Link href="/app/trainer" className="btn secondary">
-              {t("trainer.back")}
-            </Link>
-          </div>
-        </div>
-      );
-    }
-
-    if (sectionState === "unavailable") {
-      return (
-        <div className="form-stack">
-          <p className="muted">{clientForbidden ? t("trainer.clientContext.forbiddenHint") : t("trainer.clientContext.unavailable")}</p>
-          <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
-            {t("trainer.back")}
-          </Link>
-        </div>
-      );
-    }
-
-    if (sectionState === "empty") {
-      return (
-        <div className="form-stack">
-          <p className="muted">{t("trainer.clientContext.empty")}</p>
-          <Link href="/app/trainer" className="btn secondary" style={{ width: "fit-content" }}>
-            {t("trainer.back")}
-          </Link>
-        </div>
-      );
-    }
-
-    if (activeTab === "summary") {
-      return (
-        <div className="form-stack">
-          <p className="muted" style={{ margin: 0 }}>
-            {`${t("trainer.clientContext.summary.clientNamePrefix")} ${clientName}`}
-          </p>
-          <p className="muted" style={{ margin: 0 }}>
-            {`${t("trainer.clientContext.summary.emailPrefix")} ${client?.email ?? "-"}`}
-          </p>
-          <p className="muted" style={{ margin: 0 }}>
-            {`${t("trainer.clientContext.summary.accountStatusPrefix")} ${client?.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active")}`}
-          </p>
-        </div>
-      );
-    }
-
-    if (activeTab === "training") {
-      return (
-        <div className="form-stack">
-          <p className="muted" style={{ margin: 0 }}>
-            {`${t("trainer.clientContext.training.subscriptionStatusPrefix")} ${client?.subscriptionStatus ?? "-"}`}
-          </p>
-          <p className="muted" style={{ margin: 0 }}>
-            {t("trainer.clientContext.training.subscriptionHint")}
-          </p>
-          {client ? <TrainerMemberPlanAssignmentCard memberId={client.id} memberName={clientName} /> : null}
-          {client ? <TrainerClientDraftActions clientId={client.id} /> : null}
-        </div>
-      );
-    }
+      if (!response.ok) throw new Error(`Failed to remove client relation: ${response.status}`);
 
       setRemovingClient(false);
       setRemoveModalOpen(false);
       router.push("/app/trainer/clients");
       router.refresh();
-    } catch {
+    } catch (_err) {
       setRemoveError(t("trainer.clientContext.removeClient.submitError"));
       setRemovingClient(false);
     }

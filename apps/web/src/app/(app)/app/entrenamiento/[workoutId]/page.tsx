@@ -86,7 +86,7 @@ async function fetchWorkout(workoutId: string) {
     }
     const data = (await response.json()) as WorkoutApiResponse;
     return { workout: normalizeWorkout(data), error: null };
-  } catch {
+  } catch (_err) {
     return { workout: null, error: "LOAD_ERROR" };
   }
 }

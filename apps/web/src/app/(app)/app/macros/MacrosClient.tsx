@@ -117,7 +117,7 @@ export default function MacrosClient() {
       try {
         const data = await getUserProfile();
         if (active) setProfile(data);
-      } catch {
+      } catch (_err) {
         if (active) setError(t("macros.profileError"));
       } finally {
         if (active) setLoading(false);

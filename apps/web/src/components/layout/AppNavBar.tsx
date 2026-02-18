@@ -47,7 +47,7 @@ export default function AppNavBar() {
           const data = (await billingResponse.json()) as BillingStatus;
           if (active) setBilling(data);
         }
-      } catch {
+      } catch (_err) {
         // Ignore.
       }
     };

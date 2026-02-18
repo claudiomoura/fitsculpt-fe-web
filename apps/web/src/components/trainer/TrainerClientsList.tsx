@@ -48,7 +48,7 @@ export default function TrainerClientsList() {
       } else {
         setMembershipGate("unknown");
       }
-    } catch {
+    } catch (_err) {
       setMembershipGate("unknown");
     } finally {
       setMembershipLoading(false);
