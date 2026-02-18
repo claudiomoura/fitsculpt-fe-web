@@ -180,6 +180,21 @@ function resolvePlanByPriceId(priceId: string): SubscriptionPlan | null {
   return getStripePricePlanMap().get(priceId) ?? null;
 }
 
+function resolvePriceIdByPlanKey(planKey: string): string | null {
+  const normalizedPlanKey = planKey.trim().toUpperCase();
+  const normalizedToPlan = new Map<string, SubscriptionPlan>([
+    ["PRO", "PRO"],
+    ["STRENGTH", "STRENGTH_AI"],
+    ["STRENGTH_AI", "STRENGTH_AI"],
+    ["NUTRI", "NUTRI_AI"],
+    ["NUTRI_AI", "NUTRI_AI"],
+  ]);
+  const plan = normalizedToPlan.get(normalizedPlanKey);
+  if (!plan) return null;
+  const planEntry = getAvailableBillingPlans().find((entry) => entry.plan === plan);
+  return planEntry?.priceId ?? null;
+}
+
 function getAvailableBillingPlans() {
   const plans = [
     { plan: "PRO" as const, priceId: env.STRIPE_PRO_PRICE_ID },
@@ -383,6 +398,43 @@ async function getLatestActiveSubscription(customerId: string) {
     return null;
   }
   return activeSubscriptions.sort((a, b) => (b.current_period_end ?? 0) - (a.current_period_end ?? 0))[0] ?? null;
+}
+
+async function getActivePlanSubscriptions(customerId: string) {
+  const subscriptions = await stripeRequest<StripeSubscriptionList>(
+    "subscriptions",
+    { customer: customerId, status: "all", limit: 100, "expand[0]": "data.items.data.price" },
+    { method: "GET" }
+  );
+
+  return subscriptions.data.filter((subscription) => {
+    if (!isActiveSubscriptionStatus(subscription.status)) return false;
+    return getPlanFromSubscription(subscription) !== null;
+  });
+}
+
+async function getOrCreateCustomerId(user: User) {
+  let customerId = user.stripeCustomerId ?? null;
+
+  if (!customerId && user.email) {
+    const latestCustomer = await findLatestCustomerByEmail(user.email);
+    if (latestCustomer?.id) {
+      customerId = latestCustomer.id;
+      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+    }
+  }
+
+  if (!customerId) {
+    const customer = await stripeRequest<{ id: string }>("customers", {
+      email: user.email,
+      name: user.name ?? undefined,
+      "metadata[userId]": user.id,
+    });
+    customerId = customer.id;
+    await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+  }
+
+  return customerId;
 }
 
 function getSubscriptionPeriodEnd(subscription?: StripeSubscription | null) {
@@ -3767,53 +3819,34 @@ app.get("/auth/verify-email", async (request, reply) => {
 app.post("/billing/checkout", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const checkoutSchema = z.object({ priceId: z.string().min(1) });
-    const { priceId } = checkoutSchema.parse(request.body);
-    if (!resolvePlanByPriceId(priceId)) {
+    const checkoutSchema = z
+      .object({
+        priceId: z.string().min(1).optional(),
+        planKey: z.string().min(1).optional(),
+      })
+      .refine((payload) => Boolean(payload.priceId || payload.planKey), {
+        message: "priceId_or_planKey_required",
+      });
+    const payload = checkoutSchema.parse(request.body);
+    const resolvedPriceId = payload.priceId ?? resolvePriceIdByPlanKey(payload.planKey ?? "");
+    if (!resolvedPriceId) {
+      return reply.status(400).send({ error: "INVALID_PLAN_TARGET" });
+    }
+    const targetPlan = resolvePlanByPriceId(resolvedPriceId);
+    if (!targetPlan) {
       return reply.status(400).send({ error: "INVALID_PRICE_ID" });
     }
+
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
-    let customerId = user.stripeCustomerId ?? null;
-    if (!customerId && user.email) {
-      const latestCustomer = await findLatestCustomerByEmail(user.email);
-      if (latestCustomer?.id) {
-        customerId = latestCustomer.id;
-        await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
-      }
-    }
-    const hasActiveLocal = isActiveSubscriptionStatus(user.subscriptionStatus);
-    if (hasActiveLocal && !customerId) {
-      return reply.status(200).send({ alreadySubscribed: true });
-    }
-    if (!customerId) {
-      const customer = await stripeRequest<{ id: string }>("customers", {
-        email: user.email,
-        name: user.name ?? undefined,
-        "metadata[userId]": user.id,
-      });
-      customerId = customer.id;
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
-    }
+    const customerId = await getOrCreateCustomerId(user);
 
     if (customerId) {
-      const activeSubscription = await getLatestActiveSubscription(customerId);
-      if (activeSubscription && isActiveSubscriptionStatus(activeSubscription.status)) {
-        let portalUrl: string | null = null;
-        try {
-          const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
-            customer: customerId,
-            return_url: `${env.APP_BASE_URL}/app/settings/billing`,
-          });
-          portalUrl = session.url ?? null;
-        } catch (error) {
-          request.log.warn({ err: error, userId: user.id }, "billing portal session failed");
-        }
-        return reply.status(200).send({ alreadySubscribed: true, url: portalUrl });
+      const activeSubscriptions = await getActivePlanSubscriptions(customerId);
+      const hasActiveTargetPlan = activeSubscriptions.some((subscription) => getPlanFromSubscription(subscription) === targetPlan);
+      if (hasActiveTargetPlan) {
+        request.log.info({ userId: user.id, targetPlan }, "billing checkout blocked due to same active plan");
+        return reply.status(409).send({ error: "ALREADY_SUBSCRIBED", code: "already_subscribed", plan: targetPlan });
       }
-    }
-    if (hasActiveLocal) {
-      request.log.info({ userId: user.id }, "billing checkout blocked due to active subscription");
-      return reply.status(200).send({ alreadySubscribed: true });
     }
 
     const session = await stripeRequest<StripeCheckoutSession>(
@@ -3823,9 +3856,10 @@ app.post("/billing/checkout", async (request, reply) => {
         customer: customerId,
         client_reference_id: user.id,
         "metadata[userId]": user.id,
-        "line_items[0][price]": priceId,
+        "line_items[0][price]": resolvedPriceId,
         "line_items[0][quantity]": 1,
         "subscription_data[metadata][userId]": user.id,
+        "subscription_data[metadata][plan]": targetPlan,
         success_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=success`,
         cancel_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=cancel`,
       },
@@ -3856,16 +3890,7 @@ app.post("/billing/checkout", async (request, reply) => {
 app.post("/billing/portal", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripeRequest<{ id: string }>("customers", {
-        email: user.email,
-        name: user.name ?? undefined,
-        "metadata[userId]": user.id,
-      });
-      customerId = customer.id;
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
-    }
+    const customerId = await getOrCreateCustomerId(user);
     const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
       customer: customerId,
       return_url: `${env.APP_BASE_URL}/app/settings/billing`,
