@@ -194,10 +194,9 @@ export default function AdminGymsClient() {
   const validateCreate = () => {
     const nextErrors: FieldErrorMap = {
       ...(name.trim() ? {} : { name: t("ui.required") }),
-      ...(code.trim() ? {} : { code: t("ui.required") }),
     };
     setFieldErrors(nextErrors);
-    return !nextErrors.name && !nextErrors.code;
+    return !nextErrors.name;
   };
 
   const createGym = async () => {
@@ -209,7 +208,10 @@ export default function AdminGymsClient() {
     setCreateLoading(true);
 
     try {
-      const result = await createAdminGym({ name: name.trim(), code: code.trim() });
+      const result = await createAdminGym({
+        name: name.trim(),
+        ...(code.trim().length > 0 ? { code: code.trim() } : {}),
+      });
 
       if (!result.ok) {
         if (Object.keys(result.error.fieldErrors).length > 0) {
@@ -337,7 +339,7 @@ export default function AdminGymsClient() {
           />
           {fieldErrors.code ? <p className="muted" style={{ margin: 0 }}>{fieldErrors.code}</p> : null}
         </label>
-        <Button onClick={() => void createGym()} disabled={createLoading || !name.trim() || !code.trim()} loading={createLoading}>
+        <Button onClick={() => void createGym()} disabled={createLoading || !name.trim()} loading={createLoading}>
           {t("adminGyms.createAction")}
         </Button>
         {createdCode ? <p className="muted">{t("adminGyms.createdCode").replace("{code}", createdCode)}</p> : null}
