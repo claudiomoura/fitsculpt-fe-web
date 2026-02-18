@@ -46,10 +46,17 @@ export function useTrainerAreaAccess() {
     };
   }, []);
 
-  const canAccessTrainerArea = useMemo(
-    () => membership.state === "in_gym" && (access.isTrainer || access.isAdmin),
-    [access.isAdmin, access.isTrainer, membership.state],
-  );
+  const canAccessTrainerArea = useMemo(() => {
+    if (!(access.isTrainer || access.isAdmin)) {
+      return false;
+    }
+
+    if (membership.state === "unknown") {
+      return false;
+    }
+
+    return true;
+  }, [access.isAdmin, access.isTrainer, membership.state]);
 
   const canAccessAdminNoGymPanel = useMemo(
     () => access.isAdmin && membership.state === "not_in_gym",
