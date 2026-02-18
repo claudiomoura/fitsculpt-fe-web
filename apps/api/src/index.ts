@@ -69,12 +69,6 @@ type StripeSubscriptionList = {
 
 type StripeCustomer = {
   id: string;
-  email?: string | null;
-  created?: number | null;
-};
-
-type StripeCustomerList = {
-  data: StripeCustomer[];
 };
 
 await app.register(cors, {
@@ -402,48 +396,28 @@ function getPlanFromInvoice(invoice?: StripeInvoice | null): SubscriptionPlan | 
   return null;
 }
 
-async function findLatestCustomerByEmail(email: string) {
-  const customers = await stripeRequest<StripeCustomerList>(
-    "customers",
-    { email, limit: 10 },
-    { method: "GET" }
-  );
-  if (!customers.data.length) {
-    return null;
+async function getOrCreateStripeCustomer(user: User) {
+  if (user.stripeCustomerId) {
+    return user.stripeCustomerId;
   }
-  return (
-    customers.data.sort((a, b) => (b.created ?? 0) - (a.created ?? 0))[0] ?? null
-  );
+
+  const customer = await stripeRequest<StripeCustomer>("customers", {
+    email: user.email,
+    name: user.name ?? undefined,
+    "metadata[app_user_id]": user.id,
+    "metadata[env]": process.env.NODE_ENV ?? "development",
+  });
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { stripeCustomerId: customer.id },
+  });
+
+  return customer.id;
 }
 
 async function syncUserBillingFromStripe(user: User) {
-  let stripeCustomerId = user.stripeCustomerId ?? null;
-  if (!stripeCustomerId && user.email) {
-    const latestCustomer = await findLatestCustomerByEmail(user.email);
-    if (latestCustomer?.id) {
-      stripeCustomerId = latestCustomer.id;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { stripeCustomerId },
-      });
-    }
-  }
-
-  if (!stripeCustomerId) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        plan: "FREE",
-        subscriptionStatus: null,
-        stripeSubscriptionId: null,
-        currentPeriodEnd: null,
-        aiTokenBalance: 0,
-        aiTokenResetAt: null,
-        aiTokenRenewalAt: null,
-      },
-    });
-    return;
-  }
+  const stripeCustomerId = await getOrCreateStripeCustomer(user);
 
   const activeSubscription = await getLatestActiveSubscription(stripeCustomerId);
   if (!activeSubscription) {
@@ -3773,44 +3747,24 @@ app.post("/billing/checkout", async (request, reply) => {
       return reply.status(400).send({ error: "INVALID_PRICE_ID" });
     }
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
-    let customerId = user.stripeCustomerId ?? null;
-    if (!customerId && user.email) {
-      const latestCustomer = await findLatestCustomerByEmail(user.email);
-      if (latestCustomer?.id) {
-        customerId = latestCustomer.id;
-        await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
-      }
-    }
+    const customerId = await getOrCreateStripeCustomer(user);
     const hasActiveLocal = isActiveSubscriptionStatus(user.subscriptionStatus);
-    if (hasActiveLocal && !customerId) {
-      return reply.status(200).send({ alreadySubscribed: true });
-    }
-    if (!customerId) {
-      const customer = await stripeRequest<{ id: string }>("customers", {
-        email: user.email,
-        name: user.name ?? undefined,
-        "metadata[userId]": user.id,
-      });
-      customerId = customer.id;
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+
+    const activeSubscription = await getLatestActiveSubscription(customerId);
+    if (activeSubscription && isActiveSubscriptionStatus(activeSubscription.status)) {
+      let portalUrl: string | null = null;
+      try {
+        const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
+          customer: customerId,
+          return_url: `${env.APP_BASE_URL}/app/settings/billing`,
+        });
+        portalUrl = session.url ?? null;
+      } catch (error) {
+        request.log.warn({ err: error, userId: user.id }, "billing portal session failed");
+      }
+      return reply.status(200).send({ alreadySubscribed: true, url: portalUrl });
     }
 
-    if (customerId) {
-      const activeSubscription = await getLatestActiveSubscription(customerId);
-      if (activeSubscription && isActiveSubscriptionStatus(activeSubscription.status)) {
-        let portalUrl: string | null = null;
-        try {
-          const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
-            customer: customerId,
-            return_url: `${env.APP_BASE_URL}/app/settings/billing`,
-          });
-          portalUrl = session.url ?? null;
-        } catch (error) {
-          request.log.warn({ err: error, userId: user.id }, "billing portal session failed");
-        }
-        return reply.status(200).send({ alreadySubscribed: true, url: portalUrl });
-      }
-    }
     if (hasActiveLocal) {
       request.log.info({ userId: user.id }, "billing checkout blocked due to active subscription");
       return reply.status(200).send({ alreadySubscribed: true });
@@ -3856,21 +3810,42 @@ app.post("/billing/checkout", async (request, reply) => {
 app.post("/billing/portal", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripeRequest<{ id: string }>("customers", {
-        email: user.email,
-        name: user.name ?? undefined,
-        "metadata[userId]": user.id,
-      });
-      customerId = customer.id;
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
-    }
+    const customerId = await getOrCreateStripeCustomer(user);
     const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
       customer: customerId,
       return_url: `${env.APP_BASE_URL}/app/settings/billing`,
     });
     return { url: session.url };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/billing/admin/reset-customer-link", async (request, reply) => {
+  const schema = z.object({
+    userId: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+  }).refine((value) => value.userId || value.email, {
+    message: "userId_or_email_required",
+  });
+
+  try {
+    await requireAdmin(request);
+    const { userId, email } = schema.parse(request.body);
+    const user = userId
+      ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
+      : await prisma.user.findFirst({ where: { email: email! }, select: { id: true } });
+
+    if (!user) {
+      return reply.status(404).send({ error: "USER_NOT_FOUND" });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { stripeCustomerId: null },
+    });
+
+    return reply.status(200).send({ ok: true, userId: user.id });
   } catch (error) {
     return handleRequestError(reply, error);
   }
