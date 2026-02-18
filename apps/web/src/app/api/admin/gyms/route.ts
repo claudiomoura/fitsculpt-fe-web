@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
-import { normalizeGymListPayload, normalizeGymMutationResult } from "@/lib/gym-contracts";
+import { normalizeGymMutationResult } from "@/lib/gym-contracts";
 import { fetchBackend, readJsonBody } from "../../gyms/_proxy";
+
+type BackendContractError = {
+  code: string;
+  message: string;
+  details?: unknown;
+};
+
+function buildInvalidBackendPayloadError(payload: unknown): BackendContractError {
+  return {
+    code: "INVALID_BACKEND_PAYLOAD",
+    message: "Expected backend response to be Gym[] for GET /admin/gyms",
+    ...(payload === undefined ? {} : { details: payload }),
+  };
+}
 
 export async function GET() {
   const result = await fetchBackend("/admin/gyms");
@@ -9,7 +23,18 @@ export async function GET() {
     return NextResponse.json(result.payload, { status: result.status });
   }
 
-  return NextResponse.json(normalizeGymListPayload(result.payload), { status: result.status });
+  if (Array.isArray(result.payload)) {
+    return NextResponse.json(result.payload, { status: result.status });
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("[BFF] Unexpected 2xx payload for /admin/gyms (expected Gym[])", {
+      status: result.status,
+      payload: result.payload,
+    });
+  }
+
+  return NextResponse.json(buildInvalidBackendPayloadError(result.payload), { status: 502 });
 }
 
 export async function POST(request: Request) {
