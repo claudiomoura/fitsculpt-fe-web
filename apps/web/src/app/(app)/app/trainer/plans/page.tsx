@@ -1,5 +1,5 @@
 import { getServerT } from "@/lib/serverI18n";
-import TrainerPlansClient from "@/components/trainer/TrainerPlansClient";
+import TrainerPlansPageClient from "@/components/trainer/plans/TrainerPlansPageClient";
 
 export default async function TrainerPlansPage() {
   const { t } = await getServerT();
@@ -9,7 +9,7 @@ export default async function TrainerPlansPage() {
       <header>
         <h1 className="section-title">{t("trainer.plans.title")}</h1>
       </header>
-      <TrainerPlansClient />
+      <TrainerPlansPageClient />
     </section>
   );
 }
