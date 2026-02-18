@@ -181,7 +181,7 @@ function ExerciseSearchPicker({
 
 export default function TrainerPlansPageClient() {
   const { t } = useLanguage();
-  const { isLoading: accessLoading, gymLoading, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
+  const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
 
   const [routeState, setRouteState] = useState<RouteState>("loading");
   const [loadError, setLoadError] = useState(false);
@@ -321,8 +321,8 @@ export default function TrainerPlansPageClient() {
       return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
     }
 
-    if (membership.state === "unknown") {
-      return <EmptyState title={t("trainer.gymUnknownTitle")} description={t("trainer.gymUnknownDesc")} wrapInCard icon="info" />;
+    if (gymError) {
+      return <ErrorState title={t("trainer.error")} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
     }
 
     return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;

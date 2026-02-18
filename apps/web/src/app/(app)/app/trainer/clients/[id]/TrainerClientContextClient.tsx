@@ -7,10 +7,10 @@ import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
-import { type GymMembership } from "@/lib/gymMembership";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
+import { fetchMyGymMembership } from "@/services/gym";
 
 type AuthUser = Record<string, unknown>;
 
@@ -26,12 +26,13 @@ type ClientRow = {
 };
 
 type LoadState = "loading" | "ready" | "error";
-type MembershipState = "in_gym" | "not_in_gym" | "unknown" | "no_permission";
+type MembershipState = "in_gym" | "not_in_gym" | "unknown";
 
 type RemoveCapability = {
   loading: boolean;
   supported: boolean;
 };
+
 
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
@@ -39,24 +40,7 @@ function asString(value: unknown): string | null {
   return null;
 }
 
-function toGymMembership(payload: unknown): GymMembership {
-  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const data = typeof source.data === "object" && source.data !== null ? (source.data as Record<string, unknown>) : source;
-  const gym = typeof data.gym === "object" && data.gym !== null ? (data.gym as Record<string, unknown>) : null;
-
-  const rawStatus = asString(data.state ?? data.status)?.toUpperCase();
-  const gymId = asString(data.gymId) ?? asString(data.tenantId) ?? asString(gym?.id);
-  const gymName = asString(data.gymName) ?? asString(data.tenantName) ?? asString(gym?.name);
-
-  if (rawStatus === "ACTIVE") return { state: "in_gym", gymId, gymName };
-  if (rawStatus === "NONE" || rawStatus === "PENDING" || rawStatus === "REJECTED") {
-    return { state: "not_in_gym", gymId, gymName };
-  }
-
-  return { state: "unknown", gymId: null, gymName: null };
-}
-
-function canAccessTrainerGymArea(input: { isAdmin: boolean; isCoach: boolean; membership: GymMembership }): boolean {
+function canAccessTrainerGymArea(input: { isAdmin: boolean; isCoach: boolean; membership: { state: "in_gym" | "not_in_gym"; gymId: string | null; gymName: string | null } }): boolean {
   return (input.isAdmin || input.isCoach) && input.membership.state === "in_gym";
 }
 
@@ -117,12 +101,19 @@ export default function TrainerClientContextClient() {
 
     const load = async () => {
       try {
-        const [meResponse, gymResponse] = await Promise.all([
+        const [meResponse, membershipResult] = await Promise.all([
           fetch("/api/auth/me", { cache: "no-store" }),
-          fetch("/api/gym/me", { cache: "no-store", credentials: "include" }),
+          fetchMyGymMembership(),
         ]);
 
-        if (!meResponse.ok || !gymResponse.ok) {
+        if (!meResponse.ok) {
+          if (active) {
+            setPermissionState("error");
+          }
+          return;
+        }
+
+        if (!membershipResult.ok) {
           if (active) {
             setPermissionState("error");
           }
@@ -130,13 +121,16 @@ export default function TrainerClientContextClient() {
         }
 
         const meData = (await meResponse.json()) as AuthUser;
-        const gymPayload = (await gymResponse.json()) as unknown;
         const roleFlags = getRoleFlags(meData);
-        const gymMembership = toGymMembership(gymPayload);
+        const gymMembership: { state: "in_gym" | "not_in_gym"; gymId: string | null; gymName: string | null } = {
+          state: membershipResult.data.status === "ACTIVE" ? "in_gym" : "not_in_gym",
+          gymId: membershipResult.data.gymId,
+          gymName: membershipResult.data.gymName,
+        };
 
         if (!active) return;
 
-        setMembershipState(gymMembership.state as MembershipState);
+        setMembershipState(gymMembership.state);
 
         const canAccess = canAccessTrainerGymArea({ isAdmin: roleFlags.isAdmin, isCoach: roleFlags.isTrainer, membership: gymMembership });
         setCanAccessTrainer(canAccess);
@@ -271,9 +265,7 @@ export default function TrainerClientContextClient() {
         ? { title: t("trainer.gymRequiredTitle"), description: t("trainer.gymRequiredDesc") }
         : membershipState === "unknown"
           ? { title: t("trainer.gymUnknownTitle"), description: t("trainer.gymUnknownDesc") }
-          : membershipState === "no_permission"
-            ? { title: t("trainer.unauthorized"), description: t("trainer.unavailableDesc") }
-            : null;
+          : null;
 
     return (
       <div className="card form-stack" role="status">

@@ -21,15 +21,15 @@ import {
   fetchMyGymMembership,
   requestGymJoin,
   leaveGymMembership,
+  gymServiceCapabilities,
   type GymListItem,
   type GymMembership,
 } from "@/services/gym";
 
-type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
-
+type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED";
 
 const defaultMembership: GymMembership = {
-  status: "UNKNOWN",
+  status: "NONE",
   gymId: null,
   gymName: null,
   role: null,
@@ -275,7 +275,7 @@ export default function GymPageClient() {
               const safeStatus: MembershipStatus =
                 membership.gymId && membership.gymId === gym.id && (membership.status === "PENDING" || membership.status === "ACTIVE")
                   ? membership.status
-                  : "UNKNOWN";
+                  : "NONE";
 
               return (
                 <GymCard
@@ -340,14 +340,16 @@ export default function GymPageClient() {
                   {t("gym.admin.goToPanel")}
                 </Link>
               )}
-              <Button
-                variant="secondary"
-                onClick={() => setIsLeaveConfirmOpen(true)}
-                disabled={isLeavingGym}
-                loading={isLeavingGym}
-              >
-                {t("gym.leave.cta")}
-              </Button>
+              {gymServiceCapabilities.supportsLeaveGym ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsLeaveConfirmOpen(true)}
+                  disabled={isLeavingGym}
+                  loading={isLeavingGym}
+                >
+                  {t("gym.leave.cta")}
+                </Button>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -364,9 +366,7 @@ export default function GymPageClient() {
         </Card>
       )}
 
-      {membership.status === "UNKNOWN" && <EmptyState title={t("gym.unavailableTitle")} description={t("gym.unavailableDescription")} />}
-
-      <Card>
+            <Card>
         <CardHeader>
           <CardTitle>{t("gym.join.codeTitle")}</CardTitle>
           <CardDescription>{t("gym.join.codeHelp")}</CardDescription>
@@ -383,6 +383,7 @@ export default function GymPageClient() {
         </CardContent>
       </Card>
 
+      {gymServiceCapabilities.supportsLeaveGym ? (
       <Modal
         open={isLeaveConfirmOpen}
         onClose={() => {
@@ -404,6 +405,7 @@ export default function GymPageClient() {
       >
         <p className="muted" style={{ margin: 0 }}>{t("gym.leave.confirmHelp")}</p>
       </Modal>
+      ) : null}
 
       {actionError ? <ErrorState title={t("gym.actionErrorTitle")} description={actionError} retryLabel={t("common.retry")} onRetry={() => setActionError(null)} /> : null}
       {actionSuccess ? <EmptyState title={t("gym.actionSuccessTitle")} description={actionSuccess} /> : null}
