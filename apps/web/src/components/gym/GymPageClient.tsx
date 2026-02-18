@@ -19,6 +19,7 @@ import {
 import {
   fetchGymsList,
   fetchMyGymMembership,
+  gymServiceCapabilities,
   requestGymJoin,
   leaveGymMembership,
   gymServiceCapabilities,

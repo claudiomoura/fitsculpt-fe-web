@@ -1,3 +1,12 @@
+import {
+  normalizeGymListPayload,
+  normalizeJoinRequestPayload,
+  normalizeMembershipPayload,
+  type GymListItemDto,
+  type GymMembershipDto,
+  type JoinRequestListItemDto,
+} from "@/lib/gym-contracts";
+
 export type ServiceErrorReason = "unauthorized" | "forbidden" | "validation" | "unsupported" | "http_error" | "network_error";
 
 export type ServiceSuccess<T> = {
@@ -62,8 +71,8 @@ export const gymEndpointInventory: GymEndpointInventory[] = [
   {
     endpoint: "/api/gyms/membership",
     method: "DELETE",
-    exists: true,
-    notes: "Leave gym endpoint wiring via BFF proxy.",
+    exists: false,
+    notes: "Leave gym is gated in FE and returns unsupported when backend does not expose the operation.",
   },
 ];
 export type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED";
@@ -75,20 +84,9 @@ export type GymMembership = {
   role: string | null;
 };
 
-export type GymListItem = {
-  id: string;
-  name: string;
-};
+export type GymListItem = GymListItemDto;
 
-export type JoinRequestListItem = {
-  id: string;
-  gymId?: string;
-  gymName?: string;
-  userId?: string;
-  userName?: string;
-  userEmail?: string;
-  createdAt?: string;
-};
+export type JoinRequestListItem = JoinRequestListItemDto;
 
 export type GymJoinRequest = {
   id: string;
@@ -276,6 +274,10 @@ export async function requestGymJoin(gymId: string): Promise<ServiceResult<null>
 
 
 export async function leaveGymMembership(): Promise<ServiceResult<null>> {
+  if (!gymServiceCapabilities.supportsLeaveGym) {
+    return { ok: false, reason: "unsupported", status: 405 };
+  }
+
   const primary = await readJsonResponse<unknown>("/api/gym/me", {
     method: "DELETE",
     headers: JSON_HEADERS,

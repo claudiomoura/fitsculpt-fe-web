@@ -7,15 +7,20 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
-type ProxyOptions = {
+export type ProxyOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
 };
 
-export async function proxyToBackend(path: string, options: ProxyOptions = {}) {
+export type ProxyResult = {
+  status: number;
+  payload: unknown;
+};
+
+export async function fetchBackend(path: string, options: ProxyOptions = {}): Promise<ProxyResult> {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return { status: 401, payload: { error: "UNAUTHORIZED" } };
   }
 
   try {
@@ -40,8 +45,13 @@ export async function proxyToBackend(path: string, options: ProxyOptions = {}) {
       }
     }
 
-    return NextResponse.json(parsed, { status: response.status });
+    return { status: response.status, payload: parsed };
   } catch (_err) {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+    return { status: 502, payload: { error: "BACKEND_UNAVAILABLE" } };
   }
+}
+
+export async function proxyToBackend(path: string, options: ProxyOptions = {}) {
+  const result = await fetchBackend(path, options);
+  return NextResponse.json(result.payload, { status: result.status });
 }
