@@ -43,7 +43,6 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [capabilityState, setCapabilityState] = useState<CapabilityState>("checking");
   const [forbiddenMessage, setForbiddenMessage] = useState<string | null>(null);
-  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
 
   const selectedPlanTitle = useMemo(
@@ -163,13 +162,21 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     setSuccess(null);
 
     try {
-      const response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      let response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+        method: "DELETE",
         credentials: "include",
         cache: "no-store",
-        body: JSON.stringify({ trainingPlanId: null }),
       });
+
+      if (response.status === 404 || response.status === 405) {
+        response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          cache: "no-store",
+          body: JSON.stringify({ trainingPlanId: null }),
+        });
+      }
 
       setSubmitting(false);
 
@@ -193,45 +200,6 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     } catch (_err) {
       setSubmitting(false);
       setSubmitError(t("trainer.clientContext.training.assignment.unassignError"));
-    }
-  };
-
-  const onRemoveClient = async () => {
-    if (submitting || capabilityState !== "supported") return;
-
-    setSubmitting(true);
-    setSubmitError(null);
-    setSuccess(null);
-
-    try {
-      const response = await fetch(`/api/trainer/clients/${memberId}`, {
-        method: "DELETE",
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      setSubmitting(false);
-      setShowRemoveConfirm(false);
-
-      if (response.status === 404 || response.status === 405) {
-        setCapabilityState("unsupported");
-        return;
-      }
-
-      if (response.status === 403) {
-        setSubmitError(t("trainer.clientContext.training.assignment.forbidden"));
-        return;
-      }
-
-      if (!response.ok) {
-        setSubmitError(t("trainer.clientContext.training.assignment.removeError"));
-        return;
-      }
-
-      setSuccess(t("trainer.clientContext.training.assignment.removeSuccess").replace("{member}", memberName));
-    } catch (_err) {
-      setSubmitting(false);
-      setSubmitError(t("trainer.clientContext.training.assignment.removeError"));
     }
   };
 
@@ -345,32 +313,6 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
             </div>
           )}
 
-          <div className="feature-card form-stack">
-            <button
-              type="button"
-              className="btn secondary"
-              disabled={submitting}
-              onClick={() => setShowRemoveConfirm((prev) => !prev)}
-              style={{ width: "fit-content" }}
-            >
-              {t("trainer.clientContext.training.assignment.removeClientCta")}
-            </button>
-            {showRemoveConfirm ? (
-              <div className="form-stack">
-                <p className="muted" style={{ margin: 0 }}>
-                  {t("trainer.clientContext.training.assignment.removeClientConfirm").replace("{member}", memberName)}
-                </p>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button type="button" className="btn" disabled={submitting} onClick={() => void onRemoveClient()}>
-                    {t("trainer.clientContext.training.assignment.removeClientConfirmCta")}
-                  </button>
-                  <button type="button" className="btn secondary" disabled={submitting} onClick={() => setShowRemoveConfirm(false)}>
-                    {t("ui.cancel")}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
 
           {submitError ? <p className="muted">{submitError}</p> : null}
           {success ? <p className="muted">{success}</p> : null}
