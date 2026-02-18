@@ -1936,6 +1936,7 @@
       "active": "Active",
       "blocked": "Blocked",
       "openClientAriaPrefix": "Open context for",
+      "avatarAlt": "Avatar for {name}",
       "unknownStatus": "Unknown status",
       "loading": "Loading client list...",
       "description": "Review and open athlete contexts from your trainer area.",
@@ -2012,6 +2013,9 @@
         "assignment": {
           "title": "Assign training plan",
           "description": "Choose one of your existing plans and assign it to {member}.",
+          "planPickerTitle": "Assign a plan",
+          "planPickerDescription": "Select one of your existing plans and confirm the assignment.",
+          "openPlanPicker": "Choose plan to assign",
           "loading": "Loading plans and current assignment...",
           "loadError": "We could not load plan assignment data.",
           "currentLabel": "Currently assigned plan",

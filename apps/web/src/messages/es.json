@@ -1939,6 +1939,7 @@
       "active": "Activo",
       "blocked": "Bloqueado",
       "openClientAriaPrefix": "Abrir contexto de",
+      "avatarAlt": "Avatar de {name}",
       "unknownStatus": "Estado desconocido",
       "loading": "Cargando lista de clientes...",
       "description": "Revisa y abre contextos de atletas desde tu área de entrenador.",
@@ -2015,6 +2016,9 @@
         "assignment": {
           "title": "Asignar plan de entrenamiento",
           "description": "Elige uno de tus planes existentes y asígnalo a {member}.",
+          "planPickerTitle": "Asignar un plan",
+          "planPickerDescription": "Selecciona uno de tus planes existentes y confirma la asignación.",
+          "openPlanPicker": "Elegir plan para asignar",
           "loading": "Cargando planes y asignación actual...",
           "loadError": "No pudimos cargar los datos de asignación de planes.",
           "currentLabel": "Plan asignado actualmente",
