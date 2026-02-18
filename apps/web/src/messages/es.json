@@ -2400,5 +2400,55 @@
     },
     "deleteAction": "Eliminar gimnasio",
     "deleteConfirm": "¿Seguro que deseas eliminar este gimnasio?"
+  },
+  "landingRedesign": {
+    "hero": {
+      "badge": "Nuevo landing FitSculpt",
+      "title": "Entrena con foco, progreso y una experiencia premium",
+      "subtitle": "FitSculpt centraliza tus entrenamientos, nutrición y seguimiento en una experiencia mobile-first clara y preparada para crecer contigo.",
+      "primaryCta": "Crear cuenta",
+      "secondaryCta": "Iniciar sesión"
+    },
+    "features": {
+      "title": "Todo lo esencial en un solo flujo",
+      "subtitle": "Estas son las capacidades clave ya disponibles en el producto.",
+      "items": [
+        {
+          "title": "Entrenamiento guiado",
+          "description": "Accede a planes, sesiones y biblioteca de ejercicios desde una interfaz enfocada.",
+          "iconSrc": "/assets/icon-dumbbell.svg",
+          "iconAlt": "Icono de entrenamiento"
+        },
+        {
+          "title": "Seguimiento inteligente",
+          "description": "Registra progreso y revisa tus métricas con estados claros y sin fricción.",
+          "iconSrc": "/assets/icon-analytics.svg",
+          "iconAlt": "Icono de analíticas"
+        },
+        {
+          "title": "Nutrición conectada",
+          "description": "Mantén tu plan alimenticio alineado con tu objetivo dentro de la misma app.",
+          "iconSrc": "/assets/icon-nutrition.svg",
+          "iconAlt": "Icono de nutrición"
+        }
+      ]
+    },
+    "demo": {
+      "title": "Vista rápida de la experiencia",
+      "subtitle": "Mostramos un recurso visual existente mientras se define la demo final del landing.",
+      "imageAlt": "Vista de demostración de FitSculpt",
+      "fallbackLabel": "Recurso visual provisional para demo del landing."
+    },
+    "socialProof": {
+      "title": "Confianza y resultados",
+      "subtitle": "Espacio reservado para logos y testimonios verificados.",
+      "placeholder": "Próximamente: logos de gimnasios y testimonios reales."
+    },
+    "finalCta": {
+      "title": "Comienza hoy con FitSculpt",
+      "subtitle": "Activa tu cuenta y descubre una experiencia diseñada para constancia y resultados.",
+      "primaryCta": "Crear cuenta gratis",
+      "secondaryCta": "Ir a la app"
+    }
   }
 }
