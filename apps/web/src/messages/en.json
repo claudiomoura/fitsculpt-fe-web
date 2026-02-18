@@ -1865,6 +1865,12 @@
       "nameLabel": "Gym name",
       "idLabel": "Gym ID",
       "linkRequiresImplementation": "Requires implementation"
+    },
+    "intervals": {
+      "day": "day",
+      "week": "week",
+      "month": "month",
+      "year": "year"
     }
   },
   "settings": {
