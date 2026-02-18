@@ -410,14 +410,6 @@ async function getActivePlanSubscriptions(customerId: string) {
 async function getOrCreateCustomerId(user: User) {
   let customerId = user.stripeCustomerId ?? null;
 
-  if (!customerId && user.email) {
-    const latestCustomer = await findLatestCustomerByEmail(user.email);
-    if (latestCustomer?.id) {
-      customerId = latestCustomer.id;
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
-    }
-  }
-
   if (!customerId) {
     const customer = await stripeRequest<{ id: string }>("customers", {
       email: user.email,
@@ -3813,10 +3805,11 @@ app.post("/billing/checkout", async (request, reply) => {
 
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
     const customerId = await getOrCreateStripeCustomer(user);
-    const hasActiveLocal = isActiveSubscriptionStatus(user.subscriptionStatus);
+    const hasSamePlanLocally = isActiveSubscriptionStatus(user.subscriptionStatus) && user.plan === targetPlan;
 
-    const activeSubscription = await getLatestActiveSubscription(customerId);
-    if (activeSubscription && isActiveSubscriptionStatus(activeSubscription.status)) {
+    const activeSubscriptions = await getActivePlanSubscriptions(customerId);
+    const hasSamePlanInStripe = activeSubscriptions.some((subscription) => getPlanFromSubscription(subscription) === targetPlan);
+    if (hasSamePlanInStripe) {
       let portalUrl: string | null = null;
       try {
         const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
@@ -3830,8 +3823,8 @@ app.post("/billing/checkout", async (request, reply) => {
       return reply.status(200).send({ alreadySubscribed: true, url: portalUrl });
     }
 
-    if (hasActiveLocal) {
-      request.log.info({ userId: user.id }, "billing checkout blocked due to active subscription");
+    if (hasSamePlanLocally) {
+      request.log.info({ userId: user.id, targetPlan }, "billing checkout blocked due to active local plan");
       return reply.status(200).send({ alreadySubscribed: true });
     }
 
