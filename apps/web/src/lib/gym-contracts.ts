@@ -10,6 +10,10 @@ export type GymMembershipDto = {
 export type GymListItemDto = {
   id: string;
   name: string;
+  code?: string;
+  activationCode?: string;
+  membersCount?: number;
+  requestsCount?: number;
 };
 
 export type JoinRequestListItemDto = {
@@ -82,7 +86,20 @@ export function normalizeGymListPayload(payload: unknown): GymListItemDto[] {
       const id = asString(row.id) ?? asString(row.gymId);
       const name = asString(row.name) ?? asString(row.gymName);
       if (!id || !name) return null;
-      return { id, name };
+
+      const membersCountRaw = row.membersCount;
+      const requestsCountRaw = row.requestsCount;
+      const membersCount = typeof membersCountRaw === "number" && Number.isFinite(membersCountRaw) ? membersCountRaw : undefined;
+      const requestsCount = typeof requestsCountRaw === "number" && Number.isFinite(requestsCountRaw) ? requestsCountRaw : undefined;
+
+      return {
+        id,
+        name,
+        ...(asString(row.code) ? { code: asString(row.code)! } : {}),
+        ...(asString(row.activationCode) ? { activationCode: asString(row.activationCode)! } : {}),
+        ...(membersCount !== undefined ? { membersCount } : {}),
+        ...(requestsCount !== undefined ? { requestsCount } : {}),
+      };
     })
     .filter((entry): entry is GymListItemDto => Boolean(entry));
 }
