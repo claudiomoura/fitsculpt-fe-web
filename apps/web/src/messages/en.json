@@ -1940,7 +1940,8 @@
       "unknownStatus": "Unknown status",
       "loading": "Loading client list...",
       "description": "Review and open athlete contexts from your trainer area.",
-      "openList": "Open client list"
+      "openList": "Open client list",
+      "forbiddenHint": "Your account cannot access this client list in the current gym context."
     },
     "requests": {
       "title": "Gym join requests",
@@ -2034,11 +2035,16 @@
           "createSuccess": "Minimal plan created successfully. You can now assign it or add exercises from the library.",
           "createError": "We could not create a minimal plan. Please retry.",
           "defaultPlanTitle": "Minimal weekly plan",
+          "unsupported": "Plan assignment controls are not supported by the backend in this environment.",
+          "forbidden": "You don't have permission to manage plan assignment for this member.",
           "unassignCta": "Unassign plan",
-          "unassignSubmitting": "Unassigning...",
-          "unassignSuccess": "Unassigned {plan} from {member} successfully.",
-          "unassignError": "We could not unassign the current plan.",
-          "unassignUnsupported": "Removing an assigned plan is not supported in this environment yet."
+          "unassignSuccess": "Plan unassigned successfully from {member}.",
+          "unassignError": "We could not unassign the current plan. Please retry.",
+          "removeClientCta": "Remove client from trainer list",
+          "removeClientConfirm": "Are you sure you want to remove {member} from your client list?",
+          "removeClientConfirmCta": "Yes, remove client",
+          "removeSuccess": "{member} was removed from your trainer list.",
+          "removeError": "We could not remove this client. Please retry."
         }
       },
       "nutrition": {
@@ -2073,19 +2079,8 @@
         "adjustmentsEmpty": "No adjustment drafts saved on this device yet.",
         "pendingLocalBadge": "Pending (local)"
       },
-      "removeClient": {
-        "title": "Remove client from your list",
-        "description": "Use this action to remove the trainer-client relationship for this account.",
-        "openConfirm": "Remove client",
-        "modalTitle": "Confirm client removal",
-        "modalDescription": "You are about to remove {member} from your trainer client list.",
-        "modalWarning": "This action removes only the trainer-client relationship. It does not delete the user account.",
-        "confirm": "Confirm removal",
-        "submitting": "Removing...",
-        "submitError": "We could not remove this client right now. Please try again.",
-        "unsupported": "Client removal is not supported by the current service configuration."
-      },
-      "nextStep": "Athlete context will be enabled when backend impersonation support is available."
+      "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
+      "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment."
     },
     "planBuilder": {
       "title": "Plan builder",

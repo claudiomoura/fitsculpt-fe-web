@@ -61,6 +61,10 @@ export default function TrainerClientsListClient() {
     }
 
     if (capability.status === "error") {
+      if (capability.message === "HTTP_403") {
+        return <EmptyState title={t("trainer.unauthorized")} description={t("trainer.clients.forbiddenHint")} wrapInCard icon="warning" />;
+      }
+
       return <ErrorState title={t("trainer.clients.error")} retryLabel={t("ui.retry")} onRetry={() => void loadClients()} wrapInCard />;
     }
 
