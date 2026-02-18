@@ -19,6 +19,7 @@ import {
 import {
   fetchGymsList,
   fetchMyGymMembership,
+  gymServiceCapabilities,
   requestGymJoin,
   leaveGymMembership,
   type GymListItem,
@@ -340,14 +341,16 @@ export default function GymPageClient() {
                   {t("gym.admin.goToPanel")}
                 </Link>
               )}
-              <Button
-                variant="secondary"
-                onClick={() => setIsLeaveConfirmOpen(true)}
-                disabled={isLeavingGym}
-                loading={isLeavingGym}
-              >
-                {t("gym.leave.cta")}
-              </Button>
+              {gymServiceCapabilities.supportsLeaveGym ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsLeaveConfirmOpen(true)}
+                  disabled={isLeavingGym}
+                  loading={isLeavingGym}
+                >
+                  {t("gym.leave.cta")}
+                </Button>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -383,27 +386,29 @@ export default function GymPageClient() {
         </CardContent>
       </Card>
 
-      <Modal
-        open={isLeaveConfirmOpen}
-        onClose={() => {
-          if (isLeavingGym) return;
-          setIsLeaveConfirmOpen(false);
-        }}
-        title={t("gym.leave.confirmTitle")}
-        description={t("gym.leave.confirmDescription")}
-        footer={
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-            <Button variant="secondary" onClick={() => setIsLeaveConfirmOpen(false)} disabled={isLeavingGym}>
-              {t("ui.cancel")}
-            </Button>
-            <Button onClick={() => void handleLeaveGym()} loading={isLeavingGym} disabled={isLeavingGym}>
-              {t("gym.leave.confirmAction")}
-            </Button>
-          </div>
-        }
-      >
-        <p className="muted" style={{ margin: 0 }}>{t("gym.leave.confirmHelp")}</p>
-      </Modal>
+      {gymServiceCapabilities.supportsLeaveGym ? (
+        <Modal
+          open={isLeaveConfirmOpen}
+          onClose={() => {
+            if (isLeavingGym) return;
+            setIsLeaveConfirmOpen(false);
+          }}
+          title={t("gym.leave.confirmTitle")}
+          description={t("gym.leave.confirmDescription")}
+          footer={
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <Button variant="secondary" onClick={() => setIsLeaveConfirmOpen(false)} disabled={isLeavingGym}>
+                {t("ui.cancel")}
+              </Button>
+              <Button onClick={() => void handleLeaveGym()} loading={isLeavingGym} disabled={isLeavingGym}>
+                {t("gym.leave.confirmAction")}
+              </Button>
+            </div>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>{t("gym.leave.confirmHelp")}</p>
+        </Modal>
+      ) : null}
 
       {actionError ? <ErrorState title={t("gym.actionErrorTitle")} description={actionError} retryLabel={t("common.retry")} onRetry={() => setActionError(null)} /> : null}
       {actionSuccess ? <EmptyState title={t("gym.actionSuccessTitle")} description={actionSuccess} /> : null}

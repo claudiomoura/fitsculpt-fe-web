@@ -1,3 +1,12 @@
+import {
+  normalizeGymListPayload,
+  normalizeJoinRequestPayload,
+  normalizeMembershipPayload,
+  type GymListItemDto,
+  type GymMembershipDto,
+  type JoinRequestListItemDto,
+} from "@/lib/gym-contracts";
+
 export type ServiceErrorReason = "unauthorized" | "forbidden" | "validation" | "unsupported" | "http_error" | "network_error";
 
 export type ServiceSuccess<T> = {
@@ -42,7 +51,7 @@ export type GymServiceCapabilities = {
 };
 
 export const gymServiceCapabilities: GymServiceCapabilities = {
-  supportsLeaveGym: true,
+  supportsLeaveGym: false,
 };
 
 export type GymEndpointInventory = {
@@ -62,33 +71,15 @@ export const gymEndpointInventory: GymEndpointInventory[] = [
   {
     endpoint: "/api/gyms/membership",
     method: "DELETE",
-    exists: true,
-    notes: "Leave gym endpoint wiring via BFF proxy.",
+    exists: false,
+    notes: "Leave gym is gated in FE and returns unsupported when backend does not expose the operation.",
   },
 ];
-export type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
+export type GymMembership = GymMembershipDto;
 
-export type GymMembership = {
-  status: MembershipStatus;
-  gymId: string | null;
-  gymName: string | null;
-  role: string | null;
-};
+export type GymListItem = GymListItemDto;
 
-export type GymListItem = {
-  id: string;
-  name: string;
-};
-
-export type JoinRequestListItem = {
-  id: string;
-  gymId?: string;
-  gymName?: string;
-  userId?: string;
-  userName?: string;
-  userEmail?: string;
-  createdAt?: string;
-};
+export type JoinRequestListItem = JoinRequestListItemDto;
 
 export type GymJoinRequest = {
   id: string;
@@ -113,10 +104,6 @@ function asString(value: unknown): string | null {
   return null;
 }
 
-function normalize(value: string | null): string | null {
-  return value ? value.trim().toUpperCase() : null;
-}
-
 async function readJsonResponse<T>(
   path: string,
   init?: RequestInit,
@@ -139,20 +126,7 @@ async function readJsonResponse<T>(
 }
 
 export function parseMembership(payload: unknown): GymMembership {
-  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const data = typeof source.data === "object" && source.data !== null ? (source.data as Record<string, unknown>) : source;
-  const gym = typeof data.gym === "object" && data.gym !== null ? (data.gym as Record<string, unknown>) : null;
-
-  const rawStatus = normalize(asString(data.state) ?? asString(data.status));
-  const status: MembershipStatus =
-    rawStatus === "NONE" || rawStatus === "PENDING" || rawStatus === "ACTIVE" || rawStatus === "REJECTED" ? rawStatus : "UNKNOWN";
-
-  return {
-    status,
-    gymId: asString(data.gymId) ?? asString(data.tenantId) ?? asString(gym?.id),
-    gymName: asString(data.gymName) ?? asString(data.tenantName) ?? asString(gym?.name),
-    role: normalize(asString(data.role)),
-  };
+  return normalizeMembershipPayload(payload);
 }
 
 function parseGymMembers(payload: unknown): GymMember[] {
@@ -199,57 +173,11 @@ function parseGymJoinRequests(payload: unknown): GymJoinRequest[] {
 
 
 function parseGymList(payload: unknown): GymListItem[] {
-  const source = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
-  const items = Array.isArray(source.data) ? source.data : Array.isArray(source.gyms) ? source.gyms : Array.isArray(payload) ? payload : [];
-
-  return items
-    .map((entry) => {
-      const row = typeof entry === "object" && entry !== null ? (entry as Record<string, unknown>) : {};
-      const id = asString(row.id) ?? asString(row.gymId);
-      const name = asString(row.name) ?? asString(row.gymName);
-      if (!id || !name) return null;
-      return { id, name };
-    })
-    .filter((entry): entry is GymListItem => Boolean(entry));
+  return normalizeGymListPayload(payload);
 }
 
 function parseJoinRequestList(payload: unknown): JoinRequestListItem[] {
-  if (!payload || typeof payload !== "object") return [];
-
-  const source = payload as Record<string, unknown>;
-  const items = Array.isArray(source.items)
-    ? source.items
-    : Array.isArray(source.requests)
-      ? source.requests
-      : Array.isArray(source.data)
-        ? source.data
-        : Array.isArray(payload)
-          ? payload
-          : [];
-
-  const parsed: JoinRequestListItem[] = [];
-
-  for (const entry of items) {
-    if (!entry || typeof entry !== "object") continue;
-
-    const row = entry as Record<string, unknown>;
-    const gym = (row.gym as Record<string, unknown> | undefined) ?? undefined;
-    const user = (row.user as Record<string, unknown> | undefined) ?? undefined;
-    const id = asString(row.id) ?? asString(row.membershipId);
-    if (!id) continue;
-
-    parsed.push({
-      id,
-      gymId: asString(row.gymId) ?? asString(gym?.id) ?? undefined,
-      gymName: asString(row.gymName) ?? asString(gym?.name) ?? undefined,
-      userId: asString(row.userId) ?? asString(user?.id) ?? undefined,
-      userName: asString(row.userName) ?? asString(user?.name) ?? undefined,
-      userEmail: asString(row.userEmail) ?? asString(user?.email) ?? undefined,
-      createdAt: asString(row.createdAt) ?? undefined,
-    });
-  }
-
-  return parsed;
+  return normalizeJoinRequestPayload(payload);
 }
 
 export async function fetchMyGymMembership(): Promise<ServiceResult<GymMembership>> {
@@ -289,6 +217,10 @@ export async function requestGymJoin(gymId: string): Promise<ServiceResult<null>
 
 
 export async function leaveGymMembership(): Promise<ServiceResult<null>> {
+  if (!gymServiceCapabilities.supportsLeaveGym) {
+    return { ok: false, reason: "unsupported", status: 405 };
+  }
+
   const primary = await readJsonResponse<unknown>("/api/gym/me", {
     method: "DELETE",
     headers: JSON_HEADERS,
