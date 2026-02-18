@@ -18,6 +18,7 @@ export type ServiceFailure = {
   ok: false;
   reason: ServiceErrorReason;
   status?: number;
+  message?: string;
 };
 
 export type GymCreateField = "name" | "code";
@@ -165,15 +166,20 @@ async function readJsonResponse<T>(
 ): Promise<ServiceResult<T>> {
   try {
     const response = await fetch(path, { cache: "no-store", credentials: "include", ...init });
+    const payload = (await response.json().catch(() => null)) as unknown;
+    const backendMessage = extractErrorMessage(payload);
+
     if (!response.ok) {
-      if (response.status === 401) return { ok: false, reason: "unauthorized", status: 401 };
-      if (response.status === 403) return { ok: false, reason: "forbidden", status: 403 };
-      if (response.status === 400) return { ok: false, reason: "validation", status: 400 };
-      if (response.status === 404 || response.status === 405) return { ok: false, reason: "unsupported", status: response.status };
-      return { ok: false, reason: "http_error", status: response.status };
+      if (response.status === 401) return { ok: false, reason: "unauthorized", status: 401, ...(backendMessage ? { message: backendMessage } : {}) };
+      if (response.status === 403) return { ok: false, reason: "forbidden", status: 403, ...(backendMessage ? { message: backendMessage } : {}) };
+      if (response.status === 400) return { ok: false, reason: "validation", status: 400, ...(backendMessage ? { message: backendMessage } : {}) };
+      if (response.status === 404 || response.status === 405) {
+        return { ok: false, reason: "unsupported", status: response.status, ...(backendMessage ? { message: backendMessage } : {}) };
+      }
+      return { ok: false, reason: "http_error", status: response.status, ...(backendMessage ? { message: backendMessage } : {}) };
     }
 
-    const data = (await response.json()) as T;
+    const data = payload as T;
     return { ok: true, data };
   } catch (_err) {
     return { ok: false, reason: "network_error" };
@@ -352,6 +358,31 @@ function parseGymCreateValidationError(payload: unknown): AdminGymCreateValidati
   };
 }
 
+function extractErrorMessage(payload: unknown): string | null {
+  if (typeof payload === "string" && payload.trim().length > 0) return payload;
+  if (!payload || typeof payload !== "object") return null;
+
+  const source = payload as Record<string, unknown>;
+  const directMessage = asString(source.message) ?? asString(source.error);
+  if (directMessage) return directMessage;
+
+  const details = typeof source.details === "object" && source.details !== null ? (source.details as Record<string, unknown>) : null;
+  if (!details) return null;
+
+  const detailMessage = asString(details.message) ?? asFirstError(details.formErrors);
+  if (detailMessage) return detailMessage;
+
+  const fieldErrors = typeof details.fieldErrors === "object" && details.fieldErrors !== null ? (details.fieldErrors as Record<string, unknown>) : null;
+  if (!fieldErrors) return null;
+
+  const nameError = asFirstError(fieldErrors.name);
+  if (nameError) return nameError;
+  const codeError = asFirstError(fieldErrors.code);
+  if (codeError) return codeError;
+
+  return null;
+}
+
 export async function createAdminGym(input: { name: string; code: string }): Promise<AdminGymCreateResult> {
   try {
     const response = await fetch("/api/admin/gyms", {
@@ -371,7 +402,10 @@ export async function createAdminGym(input: { name: string; code: string }): Pro
       return {
         ok: false,
         status: response.status,
-        error: response.status === 400 ? parseGymCreateValidationError(payload) : { fieldErrors: {}, formError: null },
+        error:
+          response.status === 400
+            ? parseGymCreateValidationError(payload)
+            : { fieldErrors: {}, formError: extractErrorMessage(payload) },
       };
     }
 
