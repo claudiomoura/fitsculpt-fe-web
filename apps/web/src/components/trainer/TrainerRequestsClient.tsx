@@ -14,23 +14,23 @@ export default function TrainerRequestsClient() {
   const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
   const [state, setState] = useState<ListState>("loading");
   const [items, setItems] = useState<JoinRequestListItem[]>([]);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const loadRequests = useCallback(async () => {
     setState("loading");
-    setError(false);
+    setError(null);
 
     const response = await fetchPendingGymJoinRequests();
     if (!response.ok) {
-      setError(true);
+      setError(response.message || t("trainer.requests.error"));
       setState("ready");
       return;
     }
 
     setItems(response.data);
     setState("ready");
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!canAccessTrainerArea) return;
@@ -49,7 +49,7 @@ export default function TrainerRequestsClient() {
     const response = await reviewGymJoinRequest(requestId, action);
     setPendingAction(null);
     if (!response.ok) {
-      setError(true);
+      setError(response.message || t("trainer.requests.error"));
       return;
     }
 
@@ -81,7 +81,7 @@ export default function TrainerRequestsClient() {
   }
 
   if (error) {
-    return <ErrorState title={t("trainer.requests.error")} retryLabel={t("ui.retry")} onRetry={() => void loadRequests()} wrapInCard />;
+    return <ErrorState title={t("trainer.requests.error")} description={error} retryLabel={t("ui.retry")} onRetry={() => void loadRequests()} wrapInCard />;
   }
 
   if (items.length === 0) {
