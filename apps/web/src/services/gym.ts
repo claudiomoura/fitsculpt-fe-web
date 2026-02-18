@@ -52,7 +52,7 @@ export type GymServiceCapabilities = {
 };
 
 export const gymServiceCapabilities: GymServiceCapabilities = {
-  supportsLeaveGym: false,
+  supportsLeaveGym: true,
 };
 
 export type GymEndpointInventory = {
@@ -72,8 +72,8 @@ export const gymEndpointInventory: GymEndpointInventory[] = [
   {
     endpoint: "/api/gyms/membership",
     method: "DELETE",
-    exists: false,
-    notes: "Leave gym is gated in FE and returns unsupported when backend does not expose the operation.",
+    exists: true,
+    notes: "Leave gym is proxied to backend /gym/me with fallback to /gyms/membership when needed.",
   },
 ];
 export type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED";
