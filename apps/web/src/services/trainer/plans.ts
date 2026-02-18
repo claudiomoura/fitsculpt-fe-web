@@ -127,6 +127,21 @@ export async function createTrainerPlan(payload: CreateTrainerPlanInput): Promis
   });
 }
 
+export async function getTrainerPlanDetail(planId: string): Promise<ServiceResult<TrainingPlanDetail>> {
+  const normalizedPlanId = planId.trim();
+  if (!normalizedPlanId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "Plan id is required.",
+      fieldErrors: { planId: "Plan id is required." },
+    };
+  }
+
+  return requestJson<TrainingPlanDetail>(`/api/training-plans/${normalizedPlanId}`);
+}
+
 export async function saveTrainerPlan(planId: string, payload: SaveTrainerPlanInput): Promise<ServiceResult<TrainingPlanDetail>> {
   return requestJson<TrainingPlanDetail>(`/api/trainer/plans/${planId}`, {
     method: "PATCH",

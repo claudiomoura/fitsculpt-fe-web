@@ -68,6 +68,7 @@ export default function ExerciseDetailClient({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addingExercise, setAddingExercise] = useState(false);
   const [addExerciseError, setAddExerciseError] = useState<string | null>(null);
+  const [canMultiAddToPlans, setCanMultiAddToPlans] = useState(false);
   const { favorites, toggleFavorite } = useExerciseFavorites();
   const { notify } = useToast();
   const athleteUserId = searchParams.get("athleteUserId")?.trim() || "";
@@ -232,6 +233,43 @@ export default function ExerciseDetailClient({
     };
   }, [athleteUserId, planRetryKey, t]);
 
+  useEffect(() => {
+    let active = true;
+
+    const probeMultiAddCapability = async () => {
+      if (targetPlans.length === 0) {
+        setCanMultiAddToPlans(false);
+        return;
+      }
+
+      const samplePlan = targetPlans.find((plan) => plan.days?.[0]?.id);
+      if (!samplePlan || !samplePlan.days?.[0]?.id) {
+        setCanMultiAddToPlans(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/training-plans/${samplePlan.id}/days/${samplePlan.days[0].id}/exercises`, {
+          method: "OPTIONS",
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        const allow = (response.headers.get("allow") ?? response.headers.get("Allow") ?? "").toUpperCase();
+        if (!active) return;
+        setCanMultiAddToPlans(response.ok && allow.includes("POST"));
+      } catch {
+        if (!active) return;
+        setCanMultiAddToPlans(false);
+      }
+    };
+
+    void probeMultiAddCapability();
+    return () => {
+      active = false;
+    };
+  }, [targetPlans]);
+
   if (error) {
     return (
       <ExerciseDetailErrorState
@@ -286,12 +324,13 @@ export default function ExerciseDetailClient({
   };
 
   const addExerciseToPlans = async (planIds: string[]) => {
-    if (!exercise.id || planIds.length === 0 || addingExercise) return;
+    const normalizedPlanIds = canMultiAddToPlans ? planIds : planIds.slice(0, 1);
+    if (!exercise.id || normalizedPlanIds.length === 0 || addingExercise) return;
     setAddingExercise(true);
     setAddExerciseError(null);
     try {
       const plansById = new Map(targetPlans.map((plan) => [plan.id, plan]));
-      const selectedPlans = planIds
+      const selectedPlans = normalizedPlanIds
         .map((planId) => plansById.get(planId))
         .filter(isNotNull);
 
@@ -477,6 +516,7 @@ export default function ExerciseDetailClient({
         isSubmitting={addingExercise}
         submitError={addExerciseError}
         canSubmit={targetPlans.some((plan) => (plan.days?.length ?? 0) > 0)}
+        allowMultiSelect={canMultiAddToPlans}
         onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
         emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"}

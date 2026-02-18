@@ -21,6 +21,7 @@ type Props = {
   isSubmitting: boolean;
   submitError: string | null;
   canSubmit: boolean;
+  allowMultiSelect: boolean;
   emptyCtaHref: string;
   onClose: () => void;
   onConfirm: (planIds: string[]) => void;
@@ -36,6 +37,7 @@ export default function AddExerciseDayPickerModal({
   isSubmitting,
   submitError,
   canSubmit,
+  allowMultiSelect,
   emptyCtaHref,
   onClose,
   onConfirm,
@@ -52,6 +54,10 @@ export default function AddExerciseDayPickerModal({
 
   const togglePlan = (planId: string) => {
     setSelectedPlanIds((current) => {
+      if (!allowMultiSelect) {
+        return current[0] === planId ? [] : [planId];
+      }
+
       if (current.includes(planId)) {
         return current.filter((item) => item !== planId);
       }
@@ -111,7 +117,7 @@ export default function AddExerciseDayPickerModal({
                     </div>
                     <input
                       id={inputId}
-                      type="checkbox"
+                      type={allowMultiSelect ? "checkbox" : "radio"}
                       checked={selectedPlanIds.includes(plan.id)}
                       onChange={() => togglePlan(plan.id)}
                     />
