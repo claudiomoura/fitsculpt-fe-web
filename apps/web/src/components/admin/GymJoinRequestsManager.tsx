@@ -22,11 +22,13 @@ export default function GymJoinRequestsManager() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [actionsUnsupported, setActionsUnsupported] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(false);
     setActionError(null);
+    setActionsUnsupported(false);
     try {
       const response = await fetchPendingGymJoinRequests();
       if (!response.ok && response.reason === "unsupported") {
@@ -62,11 +64,16 @@ export default function GymJoinRequestsManager() {
     setActingId(id);
     setError(false);
     setActionError(null);
+    setActionsUnsupported(false);
     try {
       const response = await reviewGymJoinRequest(id, action);
+      if (!response.ok && response.reason === "unsupported") {
+        setActionsUnsupported(true);
+        return;
+      }
+
       if (!response.ok) {
-        setActionError(`HTTP_${response.status ?? "UNKNOWN"}`);
-        setActingId(null);
+        setActionError(t("admin.gymRequestsActionError"));
         return;
       }
       await load();
@@ -104,7 +111,8 @@ export default function GymJoinRequestsManager() {
 
   return (
     <div className="form-stack">
-      {actionError ? <p className="muted">{t("admin.gymRequestsActionError")}</p> : null}
+      {actionError ? <p className="muted">{actionError}</p> : null}
+      {actionsUnsupported ? <p className="muted">{t("gym.admin.members.unavailable")}</p> : null}
       {requests.map((request) => (
         <div key={request.id} className="status-card">
           <strong>{request.userName ?? request.userEmail ?? request.id}</strong>
@@ -112,8 +120,8 @@ export default function GymJoinRequestsManager() {
             {(request.userEmail ?? "-") + " · " + (request.gymName ?? "-")}
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button disabled={actingId === request.id} onClick={() => void act(request.id, "accept")}>{t("admin.gymRequestsAccept")}</Button>
-            <Button variant="secondary" disabled={actingId === request.id} onClick={() => void act(request.id, "reject")}>{t("admin.gymRequestsReject")}</Button>
+            <Button disabled={actingId === request.id || actionsUnsupported} onClick={() => void act(request.id, "accept")}>{t("admin.gymRequestsAccept")}</Button>
+            <Button variant="secondary" disabled={actingId === request.id || actionsUnsupported} onClick={() => void act(request.id, "reject")}>{t("admin.gymRequestsReject")}</Button>
           </div>
         </div>
       ))}
