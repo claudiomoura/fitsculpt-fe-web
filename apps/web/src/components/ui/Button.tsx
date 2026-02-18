@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ComponentPropsWithoutRef, ElementType } from "react";
+import type { ComponentPropsWithoutRef, CSSProperties, ElementType } from "react";
 import { cn } from "@/lib/classNames";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -19,6 +19,28 @@ const SIZE_CLASS: Record<ButtonSize, string> = {
   lg: "ui-button--lg",
 };
 
+const PREMIUM_BASE_STYLE: CSSProperties = {
+  minHeight: "50px",
+  borderRadius: "14px",
+};
+
+const PREMIUM_VARIANT_STYLE: Record<ButtonVariant, CSSProperties> = {
+  primary: {
+    background: "linear-gradient(135deg, #2dd4bf 0%, #0ea5e9 100%)",
+    borderColor: "rgba(14, 165, 233, 0.36)",
+    boxShadow: "0 14px 30px rgba(14, 165, 233, 0.24)",
+    color: "#f8fafc",
+  },
+  secondary: {
+    background: "color-mix(in srgb, var(--bg-card) 84%, #2dd4bf 16%)",
+    borderColor: "color-mix(in srgb, var(--border) 48%, #0ea5e9 52%)",
+    color: "color-mix(in srgb, var(--text-primary) 82%, #0f766e 18%)",
+    boxShadow: "0 10px 24px rgba(14, 165, 233, 0.12)",
+  },
+  ghost: {},
+  danger: {},
+};
+
 type ButtonProps = ComponentPropsWithoutRef<"button"> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -32,6 +54,7 @@ export function Button({
   className,
   disabled,
   type = "button",
+  style,
   children,
   ...props
 }: ButtonProps) {
@@ -41,6 +64,7 @@ export function Button({
       className={cn("ui-button", VARIANT_CLASS[variant], SIZE_CLASS[size], loading && "is-loading", className)}
       disabled={disabled || loading}
       aria-busy={loading}
+      style={{ ...PREMIUM_BASE_STYLE, ...PREMIUM_VARIANT_STYLE[variant], ...style }}
       {...props}
     >
       {loading ? <span className="ui-spinner" aria-hidden="true" /> : null}
@@ -64,6 +88,7 @@ export function ButtonLink<T extends ElementType = typeof Link>({
   loading = false,
   disabled,
   className,
+  style,
   children,
   ...props
 }: ButtonLinkProps<T>) {
@@ -75,6 +100,7 @@ export function ButtonLink<T extends ElementType = typeof Link>({
       className={cn("ui-button", VARIANT_CLASS[variant], SIZE_CLASS[size], loading && "is-loading", className)}
       aria-disabled={isDisabled}
       tabIndex={isDisabled ? -1 : undefined}
+      style={{ ...PREMIUM_BASE_STYLE, ...PREMIUM_VARIANT_STYLE[variant], ...style }}
       {...props}
     >
       {loading ? <span className="ui-spinner" aria-hidden="true" /> : null}
