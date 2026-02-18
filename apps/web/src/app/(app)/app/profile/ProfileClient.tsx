@@ -299,10 +299,10 @@ export default function ProfileClient() {
                         width: 72,
                         height: 72,
                         borderRadius: "50%",
-                        background: "var(--primary-soft)",
+                        background: "var(--accent-soft)",
                         display: "grid",
                         placeItems: "center",
-                        color: "#9a3412",
+                        color: "var(--link-active)",
                         fontSize: 12,
                         fontWeight: 600,
                       }}
