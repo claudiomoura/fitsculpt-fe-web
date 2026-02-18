@@ -34,8 +34,8 @@ type ExerciseOverviewItem = {
   value: string;
 };
 
-function isNotNull<T>(value: T | null): value is T {
-  return value !== null;
+function isNotNull<T>(value: T | null | undefined): value is T {
+  return value != null;
 }
 
 function getMuscleGroups(exercise: Exercise): MuscleGroups {

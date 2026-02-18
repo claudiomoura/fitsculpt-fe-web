@@ -44,6 +44,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   const [capabilityState, setCapabilityState] = useState<CapabilityState>("checking");
   const [forbiddenMessage, setForbiddenMessage] = useState<string | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [planPickerOpen, setPlanPickerOpen] = useState(false);
 
   const selectedPlanTitle = useMemo(
     () => plans.find((plan) => plan.id === selectedPlanId)?.title ?? "",
@@ -151,39 +152,6 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     } catch {
       setSubmitting(false);
       setSubmitError(t("trainer.clientContext.training.assignment.submitError"));
-    }
-  };
-
-  const onUnassign = async () => {
-    if (!assignedPlan || !supportsUnassign || submitting) return;
-
-    setSubmitting(true);
-    setSubmitError(null);
-    setSuccess(null);
-
-    try {
-      const response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
-        method: "DELETE",
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        setSubmitError(t("trainer.clientContext.training.assignment.unassignError"));
-        setSubmitting(false);
-        return;
-      }
-
-      setAssignedPlan(null);
-      setSuccess(
-        t("trainer.clientContext.training.assignment.unassignSuccess")
-          .replace("{member}", memberName)
-          .replace("{plan}", assignedPlan.title),
-      );
-      setSubmitting(false);
-    } catch {
-      setSubmitError(t("trainer.clientContext.training.assignment.unassignError"));
-      setSubmitting(false);
     }
   };
 

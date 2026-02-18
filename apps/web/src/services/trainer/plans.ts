@@ -67,7 +67,7 @@ export type MultiAddExerciseItemResult = {
   dayId: string;
   exerciseId: string;
   ok: boolean;
-  reason?: "validation" | "forbidden" | "httpError" | "networkError" | "notSupported" | "unauthorized";
+  reason?: "validation" | "forbidden" | "httpError" | "networkError" | "notSupported" | "unauthorized" | "invalidResponse";
   status?: number;
   message?: string;
 };
