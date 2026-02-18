@@ -98,7 +98,7 @@ export default function TrainerClientContextClient() {
         const nextMembershipState = gymMembership.state;
         setGymMembershipState(nextMembershipState);
 
-        const canAccess = canAccessTrainerGymArea(roleFlags, gymMembership);
+        const canAccess = canAccessTrainerGymArea({ isAdmin: roleFlags.isAdmin, isCoach: roleFlags.isTrainer, membership: gymMembership });
         setCanAccessTrainer(canAccess);
         setPermissionState("ready");
 
