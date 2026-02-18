@@ -24,7 +24,8 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
   const [selectedDay, setSelectedDay] = useState<TrainingPlanDay | null>(null);
 
   const [query, setQuery] = useState("");
-  const [searching, setSearching] = useState(false);
+  const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
+  const [searching, setSearching] = useState(true);
   const [searchError, setSearchError] = useState(false);
   const [results, setResults] = useState<Exercise[]>([]);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
@@ -58,32 +59,48 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
   }, [canAccessTrainerArea, loadDay]);
 
   useEffect(() => {
-    if (!query.trim()) return;
+    if (!canAccessTrainerArea) return;
 
     const controller = new AbortController();
-    const timeout = setTimeout(async () => {
+
+    async function loadExercises() {
       setSearching(true);
       setSearchError(false);
-
-      const result = await searchExercises({ query: query.trim(), limit: 8 }, controller.signal);
-      if (!result.ok) {
-        if (result.reason !== "aborted") {
+      try {
+        const result = await fetchExercisesList({ page: 1, limit: 200 }, controller.signal);
+        setAvailableExercises(result.items);
+      } catch {
+        if (!controller.signal.aborted) {
           setSearchError(true);
-          setResults([]);
+          setAvailableExercises([]);
         }
-        setSearching(false);
-        return;
+      } finally {
+        if (!controller.signal.aborted) {
+          setSearching(false);
+        }
       }
+    }
 
-      setResults(result.data.items);
-      setSearching(false);
-    }, 350);
+    void loadExercises();
 
     return () => {
       controller.abort();
-      clearTimeout(timeout);
     };
-  }, [query]);
+  }, [canAccessTrainerArea]);
+
+  useEffect(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      setResults([]);
+      return;
+    }
+
+    const filtered = availableExercises
+      .filter((exercise) => exercise.name.toLowerCase().includes(normalizedQuery))
+      .slice(0, 8);
+    setResults(filtered);
+  }, [availableExercises, query]);
 
   const onAddExercise = useCallback(async (exerciseId: string) => {
     if (!selectedDay || isAddingExercise) return;
@@ -156,8 +173,6 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
             const nextValue = event.target.value;
             setQuery(nextValue);
             if (!nextValue.trim()) {
-              setSearchError(false);
-              setSearching(false);
               setResults([]);
             }
           }}
