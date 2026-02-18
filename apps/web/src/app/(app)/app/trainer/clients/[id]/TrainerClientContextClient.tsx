@@ -22,9 +22,11 @@ type ClientRow = {
   isBlocked: boolean;
   lastLoginAt: string | null;
   subscriptionStatus: string | null;
+  avatarUrl: string | null;
 };
 
 type LoadState = "loading" | "ready" | "error";
+type MembershipState = "in_gym" | "not_in_gym" | "unknown" | "no_permission";
 
 type RemoveCapability = {
   loading: boolean;
@@ -54,6 +56,41 @@ function toGymMembership(payload: unknown): GymMembership {
   return { state: "unknown", gymId: null, gymName: null };
 }
 
+function canAccessTrainerGymArea(input: { isAdmin: boolean; isCoach: boolean; membership: GymMembership }): boolean {
+  return (input.isAdmin || input.isCoach) && input.membership.state === "in_gym";
+}
+
+function getRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+
+function normalizeClient(payload: unknown, clientId: string): ClientRow | null {
+  const root = getRecord(payload);
+  const data = getRecord(root.data);
+  const source = Object.keys(data).length > 0 ? data : root;
+
+  const normalizedId = asString(source.id) ?? asString(source.userId) ?? asString(source.clientId);
+  if (!normalizedId || normalizedId !== clientId) return null;
+
+  const email = asString(source.email);
+  if (!email) return null;
+
+  return {
+    id: normalizedId,
+    email,
+    name: asString(source.name) ?? asString(source.fullName) ?? null,
+    role: asString(source.role) ?? "",
+    isBlocked: Boolean(source.isBlocked),
+    lastLoginAt: asString(source.lastLoginAt),
+    subscriptionStatus: asString(source.subscriptionStatus),
+    avatarUrl:
+      asString(source.avatarUrl) ??
+      asString(source.profilePhotoUrl) ??
+      asString(source.avatarDataUrl) ??
+      asString(source.profileImageUrl),
+  };
+}
+
 export default function TrainerClientContextClient() {
   const { t } = useLanguage();
   const params = useParams<{ id: string }>();
@@ -64,8 +101,9 @@ export default function TrainerClientContextClient() {
   const [clientState, setClientState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [client, setClient] = useState<ClientRow | null>(null);
-  const [gymMembershipState, setGymMembershipState] = useState<"in_gym" | "not_in_gym" | "unknown" | "no_permission">("unknown");
-  const [removeCapability, setRemoveCapability] = useState<RemoveCapability>({ loading: false, supported: false });
+  const [membershipState, setMembershipState] = useState<MembershipState>("unknown");
+  const [clientForbidden, setClientForbidden] = useState(false);
+  const [removeCapability, setRemoveCapability] = useState<RemoveCapability>({ loading: true, supported: false });
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const [removingClient, setRemovingClient] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -83,8 +121,11 @@ export default function TrainerClientContextClient() {
           fetch("/api/auth/me", { cache: "no-store" }),
           fetch("/api/gym/me", { cache: "no-store", credentials: "include" }),
         ]);
+
         if (!meResponse.ok || !gymResponse.ok) {
-          if (active) setPermissionState("error");
+          if (active) {
+            setPermissionState("error");
+          }
           return;
         }
 
@@ -95,8 +136,7 @@ export default function TrainerClientContextClient() {
 
         if (!active) return;
 
-        const nextMembershipState = gymMembership.state;
-        setGymMembershipState(nextMembershipState);
+        setMembershipState(gymMembership.state as MembershipState);
 
         const canAccess = canAccessTrainerGymArea({ isAdmin: roleFlags.isAdmin, isCoach: roleFlags.isTrainer, membership: gymMembership });
         setCanAccessTrainer(canAccess);
@@ -105,43 +145,40 @@ export default function TrainerClientContextClient() {
         if (!canAccess) return;
 
         setClientState("loading");
-        const trainerClientResponse = await fetch(`/api/trainer/clients/${clientId}`, { cache: "no-store" });
+        setClientForbidden(false);
+        const detailResponse = await fetch(`/api/trainer/clients/${clientId}`, { cache: "no-store", credentials: "include" });
 
-        if (trainerClientResponse.status === 403) {
-          if (active) {
-            setClientState("ready");
-          }
-          return;
-        }
-
-        if (trainerClientResponse.status === 404) {
-          if (active) {
-            setClient(null);
-            setClientState("ready");
-          }
-          return;
-        }
-
-        if (!trainerClientResponse.ok) {
-          if (active) setClientState("error");
-          return;
-        }
-
-        const trainerClient = (await trainerClientResponse.json()) as ClientRow;
         if (!active) return;
 
-        setClient(trainerClient);
-        setClientState("ready");
-      } catch (_err) {
-        if (active) {
-          setPermissionState("error");
-          setClientState("error");
+        if (detailResponse.status === 403) {
+          setClientForbidden(true);
+          setClientState("ready");
+          return;
         }
+
+        if (detailResponse.status === 404) {
+          setClient(null);
+          setClientState("ready");
+          return;
+        }
+
+        if (!detailResponse.ok) {
+          setClientState("error");
+          return;
+        }
+
+        const payload = (await detailResponse.json()) as unknown;
+        const normalized = normalizeClient(payload, clientId);
+        setClient(normalized);
+        setClientState("ready");
+      } catch {
+        if (!active) return;
+        setPermissionState("error");
+        setClientState("error");
       }
     };
 
     void load();
-
     return () => {
       active = false;
     };
@@ -152,14 +189,17 @@ export default function TrainerClientContextClient() {
 
     const probeRemoveCapability = async () => {
       setRemoveCapability({ loading: true, supported: false });
+
       try {
         const response = await fetch(`/api/trainer/clients/${clientId}`, {
           method: "OPTIONS",
           cache: "no-store",
           credentials: "include",
         });
+
         const allowHeader = response.headers.get("allow") ?? response.headers.get("Allow") ?? "";
         const supported = response.ok && allowHeader.toUpperCase().includes("DELETE");
+
         if (!active) return;
         setRemoveCapability({ loading: false, supported });
       } catch (_err) {
@@ -179,10 +219,18 @@ export default function TrainerClientContextClient() {
     return client.name?.trim() || client.email;
   }, [client, t]);
 
-  const statusText = client?.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active");
+  const initials = useMemo(() => {
+    return clientName
+      .split(" ")
+      .map((chunk) => chunk.trim().charAt(0).toUpperCase())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("") || "?";
+  }, [clientName]);
 
   const removeClientRelation = useCallback(async () => {
-    if (!removeCapability.supported || !client) return;
+    if (!client || !removeCapability.supported) return;
+
     setRemovingClient(true);
     setRemoveError(null);
 
@@ -193,7 +241,11 @@ export default function TrainerClientContextClient() {
         credentials: "include",
       });
 
-      if (!response.ok) throw new Error(`Failed to remove client relation: ${response.status}`);
+      if (!response.ok) {
+        setRemoveError(t("trainer.clientContext.removeClient.submitError"));
+        setRemovingClient(false);
+        return;
+      }
 
       setRemovingClient(false);
       setRemoveModalOpen(false);
@@ -215,11 +267,11 @@ export default function TrainerClientContextClient() {
 
   if (!canAccessTrainer) {
     const noGymMessage =
-      gymMembershipState === "not_in_gym"
+      membershipState === "not_in_gym"
         ? { title: t("trainer.gymRequiredTitle"), description: t("trainer.gymRequiredDesc") }
-        : gymMembershipState === "unknown"
+        : membershipState === "unknown"
           ? { title: t("trainer.gymUnknownTitle"), description: t("trainer.gymUnknownDesc") }
-          : gymMembershipState === "no_permission"
+          : membershipState === "no_permission"
             ? { title: t("trainer.unauthorized"), description: t("trainer.unavailableDesc") }
             : null;
 
@@ -242,40 +294,55 @@ export default function TrainerClientContextClient() {
     return <ErrorState title={t("trainer.clientContext.error")} retryLabel={t("trainer.retry")} onRetry={handleRetry} wrapInCard />;
   }
 
+  if (clientForbidden) {
+    return <EmptyState title={t("trainer.clientContext.forbiddenHint")} wrapInCard icon="warning" />;
+  }
+
   if (!client) {
     return <EmptyState title={t("trainer.clientContext.empty")} wrapInCard icon="info" />;
   }
 
+  const statusText = client.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active");
+
   return (
     <div className="form-stack">
-      <header className="feature-card form-stack">
-        <h2 style={{ margin: 0, overflowWrap: "anywhere" }}>{clientName}</h2>
-        <p className="muted" style={{ margin: 0, overflowWrap: "anywhere" }}>
-          {client.email}
-        </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Badge variant={client.isBlocked ? "danger" : "success"}>{statusText}</Badge>
-          {client.subscriptionStatus ? <Badge variant="muted">{client.subscriptionStatus}</Badge> : null}
+      <header className="feature-card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 999,
+            overflow: "hidden",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
+            background: "color-mix(in srgb, var(--bg-muted) 70%, #0ea5e9 30%)",
+            color: "var(--text-primary)",
+            flexShrink: 0,
+          }}
+        >
+          {client.avatarUrl ? (
+            <img
+              src={client.avatarUrl}
+              alt={t("trainer.clients.avatarAlt").replace("{name}", clientName)}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            initials
+          )}
+        </span>
+
+        <div className="form-stack" style={{ gap: 2, minWidth: 0 }}>
+          <h2 style={{ margin: 0, overflowWrap: "anywhere" }}>{clientName}</h2>
+          <p className="muted" style={{ margin: 0, overflowWrap: "anywhere" }}>{client.email}</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Badge variant={client.isBlocked ? "danger" : "success"}>{statusText}</Badge>
+            {client.subscriptionStatus ? <Badge variant="muted">{client.subscriptionStatus}</Badge> : null}
+          </div>
         </div>
       </header>
-
-      <section className="card form-stack" aria-label={t("trainer.clientContext.summary.title")}>
-        <h3 style={{ margin: 0 }}>{t("trainer.clientContext.summary.title")}</h3>
-        <p className="muted" style={{ margin: 0 }}>
-          {`${t("trainer.clientContext.summary.clientNamePrefix")} ${clientName}`}
-        </p>
-        <p className="muted" style={{ margin: 0 }}>
-          {`${t("trainer.clientContext.summary.emailPrefix")} ${client.email ?? "-"}`}
-        </p>
-        <p className="muted" style={{ margin: 0 }}>
-          {`${t("trainer.clientContext.summary.accountStatusPrefix")} ${statusText}`}
-        </p>
-        {client.lastLoginAt ? (
-          <p className="muted" style={{ margin: 0 }}>
-            {`${t("trainer.clientContext.tracking.lastLoginPrefix")} ${new Date(client.lastLoginAt).toLocaleDateString()}`}
-          </p>
-        ) : null}
-      </section>
 
       <section className="card form-stack" aria-label={t("trainer.clientContext.training.title")}>
         <h3 style={{ margin: 0 }}>{t("trainer.clientContext.training.title")}</h3>
@@ -288,13 +355,9 @@ export default function TrainerClientContextClient() {
 
       <section className="card form-stack" aria-label={t("trainer.clientContext.removeClient.title")}>
         <h3 style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.title")}</h3>
-        <p className="muted" style={{ margin: 0 }}>
-          {t("trainer.clientContext.removeClient.description")}
-        </p>
+        <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.description")}</p>
         {!removeCapability.loading && !removeCapability.supported ? (
-          <p className="muted" style={{ margin: 0 }}>
-            {t("trainer.clientContext.removeClient.unsupported")}
-          </p>
+          <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.unsupported")}</p>
         ) : null}
         <button
           type="button"
