@@ -28,11 +28,6 @@ type ClientRow = {
 type LoadState = "loading" | "ready" | "error";
 type MembershipState = "in_gym" | "not_in_gym" | "unknown";
 
-type RemoveCapability = {
-  loading: boolean;
-  supported: boolean;
-};
-
 
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
@@ -87,7 +82,6 @@ export default function TrainerClientContextClient() {
   const [client, setClient] = useState<ClientRow | null>(null);
   const [membershipState, setMembershipState] = useState<MembershipState>("unknown");
   const [clientForbidden, setClientForbidden] = useState(false);
-  const [removeCapability, setRemoveCapability] = useState<RemoveCapability>({ loading: true, supported: false });
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const [removingClient, setRemovingClient] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -178,36 +172,6 @@ export default function TrainerClientContextClient() {
     };
   }, [clientId]);
 
-  useEffect(() => {
-    let active = true;
-
-    const probeRemoveCapability = async () => {
-      setRemoveCapability({ loading: true, supported: false });
-
-      try {
-        const response = await fetch(`/api/trainer/clients/${clientId}`, {
-          method: "OPTIONS",
-          cache: "no-store",
-          credentials: "include",
-        });
-
-        const allowHeader = response.headers.get("allow") ?? response.headers.get("Allow") ?? "";
-        const supported = response.ok && allowHeader.toUpperCase().includes("DELETE");
-
-        if (!active) return;
-        setRemoveCapability({ loading: false, supported });
-      } catch (_err) {
-        if (!active) return;
-        setRemoveCapability({ loading: false, supported: false });
-      }
-    };
-
-    void probeRemoveCapability();
-    return () => {
-      active = false;
-    };
-  }, [clientId]);
-
   const clientName = useMemo(() => {
     if (!client) return t("trainer.clientContext.unknownClient");
     return client.name?.trim() || client.email;
@@ -223,7 +187,7 @@ export default function TrainerClientContextClient() {
   }, [clientName]);
 
   const removeClientRelation = useCallback(async () => {
-    if (!client || !removeCapability.supported) return;
+    if (!client || !canAccessTrainer) return;
 
     setRemovingClient(true);
     setRemoveError(null);
@@ -234,6 +198,12 @@ export default function TrainerClientContextClient() {
         cache: "no-store",
         credentials: "include",
       });
+
+      if (response.status === 403) {
+        setRemoveError(t("trainer.clientContext.forbiddenHint"));
+        setRemovingClient(false);
+        return;
+      }
 
       if (!response.ok) {
         setRemoveError(t("trainer.clientContext.removeClient.submitError"));
@@ -249,7 +219,7 @@ export default function TrainerClientContextClient() {
       setRemoveError(t("trainer.clientContext.removeClient.submitError"));
       setRemovingClient(false);
     }
-  }, [client, removeCapability.supported, router, t]);
+  }, [canAccessTrainer, client, router, t]);
 
   if (permissionState === "loading") {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={2} />;
@@ -348,14 +318,14 @@ export default function TrainerClientContextClient() {
       <section className="card form-stack" aria-label={t("trainer.clientContext.removeClient.title")}>
         <h3 style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.title")}</h3>
         <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.description")}</p>
-        {!removeCapability.loading && !removeCapability.supported ? (
+        {!canAccessTrainer ? (
           <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.unsupported")}</p>
         ) : null}
         <button
           type="button"
           className="btn danger"
           style={{ width: "fit-content" }}
-          disabled={removeCapability.loading || !removeCapability.supported}
+          disabled={!canAccessTrainer}
           onClick={() => {
             setRemoveError(null);
             setRemoveModalOpen(true);
@@ -383,7 +353,7 @@ export default function TrainerClientContextClient() {
               type="button"
               className="btn danger"
               onClick={() => void removeClientRelation()}
-              disabled={!removeCapability.supported || removingClient}
+              disabled={!canAccessTrainer || removingClient}
             >
               {removingClient ? t("trainer.clientContext.removeClient.submitting") : t("trainer.clientContext.removeClient.confirm")}
             </button>
@@ -394,7 +364,7 @@ export default function TrainerClientContextClient() {
           <p className="muted" style={{ margin: 0 }}>
             {t("trainer.clientContext.removeClient.modalWarning")}
           </p>
-          {!removeCapability.loading && !removeCapability.supported ? (
+          {!canAccessTrainer ? (
             <p className="muted" style={{ margin: 0 }}>
               {t("trainer.clientContext.removeClient.unsupported")}
             </p>

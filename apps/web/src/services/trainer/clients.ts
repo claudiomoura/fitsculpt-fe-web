@@ -35,7 +35,7 @@ export const trainerClientServiceCapabilities: TrainerClientServiceCapabilities 
   canListClients: true,
   canGetClientDetail: true,
   canAssignPlan: true,
-  canUnassignPlan: false,
+  canUnassignPlan: true,
   canRemoveClient: false,
 };
 
@@ -68,8 +68,8 @@ export const trainerClientEndpointInventory: TrainerClientEndpointInventory[] = 
   {
     endpoint: "/api/trainer/clients/:id/plan",
     method: "DELETE",
-    exists: false,
-    notes: "Backend unassign endpoint is not available yet; BFF returns NOT_SUPPORTED.",
+    exists: true,
+    notes: "Unassign client plan via trainer member assignment endpoint (DELETE preferred, POST null fallback).",
   },
   {
     endpoint: "/api/trainer/clients/:id",
@@ -163,13 +163,24 @@ export async function assignTrainingPlanToTrainerClient(
   };
 }
 
-export async function unassignTrainingPlanFromTrainerClient(): Promise<ServiceResult<null>> {
-  return {
-    ok: false,
-    reason: "notSupported",
-    status: 405,
-    message: "Unassigning a trainer client's plan is not supported by the current API.",
-  };
+export async function unassignTrainingPlanFromTrainerClient(clientId: string): Promise<ServiceResult<null>> {
+  const normalizedClientId = clientId.trim();
+  if (!normalizedClientId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "Client id is required.",
+      fieldErrors: { clientId: "Client id is required." },
+    };
+  }
+
+  const result = await requestJson<unknown>(`/api/trainer/clients/${normalizedClientId}/plan`, {
+    method: "DELETE",
+  });
+
+  if (!result.ok) return result;
+  return { ok: true, data: null };
 }
 
 export async function removeTrainerClientRelationship(): Promise<ServiceResult<null>> {
