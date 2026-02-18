@@ -1939,6 +1939,7 @@
       "active": "Activo",
       "blocked": "Bloqueado",
       "openClientAriaPrefix": "Abrir contexto de",
+      "avatarAlt": "Avatar de {name}",
       "unknownStatus": "Estado desconocido",
       "loading": "Cargando lista de clientes...",
       "description": "Revisa y abre contextos de atletas desde tu área de entrenador.",
@@ -2014,6 +2015,9 @@
         "assignment": {
           "title": "Asignar plan de entrenamiento",
           "description": "Elige uno de tus planes existentes y asígnalo a {member}.",
+          "planPickerTitle": "Asignar un plan",
+          "planPickerDescription": "Selecciona uno de tus planes existentes y confirma la asignación.",
+          "openPlanPicker": "Elegir plan para asignar",
           "loading": "Cargando planes y asignación actual...",
           "loadError": "No pudimos cargar los datos de asignación de planes.",
           "currentLabel": "Plan asignado actualmente",
@@ -2032,7 +2036,12 @@
           "creating": "Creando plan...",
           "createSuccess": "Plan mínimo creado correctamente. Ya puedes asignarlo o agregar ejercicios desde biblioteca.",
           "createError": "No pudimos crear un plan mínimo. Reintenta.",
-          "defaultPlanTitle": "Plan semanal mínimo"
+          "defaultPlanTitle": "Plan semanal mínimo",
+          "unassignCta": "Desasignar plan",
+          "unassignSubmitting": "Desasignando...",
+          "unassignSuccess": "Se desasignó {plan} de {member} correctamente.",
+          "unassignError": "No pudimos desasignar el plan actual.",
+          "unassignUnsupported": "Quitar un plan asignado no está soportado en este entorno todavía."
         }
       },
       "nutrition": {
@@ -2066,6 +2075,18 @@
         "adjustmentsListTitle": "Borradores de ajuste guardados",
         "adjustmentsEmpty": "Aún no hay borradores de ajuste guardados en este dispositivo.",
         "pendingLocalBadge": "Pendiente (local)"
+      },
+      "removeClient": {
+        "title": "Quitar cliente de tu lista",
+        "description": "Esta acción elimina la relación entrenador-cliente para esta cuenta.",
+        "openConfirm": "Quitar cliente",
+        "modalTitle": "Confirmar eliminación del cliente",
+        "modalDescription": "Estás por quitar a {member} de tu lista de clientes.",
+        "modalWarning": "Esta acción solo elimina la relación entrenador-cliente. No elimina la cuenta del usuario.",
+        "confirm": "Confirmar eliminación",
+        "submitting": "Eliminando...",
+        "submitError": "No pudimos quitar este cliente ahora. Reintenta.",
+        "unsupported": "Quitar clientes no está soportado por la configuración actual del servicio."
       },
       "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend."
     },

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
+import { Modal } from "@/components/ui/Modal";
 
 type TrainingPlanListItem = {
   id: string;
@@ -38,6 +39,8 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [creatingPlan, setCreatingPlan] = useState(false);
+  const [planPickerOpen, setPlanPickerOpen] = useState(false);
+  const [supportsUnassign, setSupportsUnassign] = useState<boolean | null>(null);
 
   const selectedPlanTitle = useMemo(
     () => plans.find((plan) => plan.id === selectedPlanId)?.title ?? "",
@@ -88,6 +91,32 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     };
   }, [loadAssignmentData, t]);
 
+  useEffect(() => {
+    let active = true;
+
+    const probeUnassignCapability = async () => {
+      setSupportsUnassign(null);
+      try {
+        const response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+          method: "OPTIONS",
+          cache: "no-store",
+          credentials: "include",
+        });
+        const allowHeader = response.headers.get("allow") ?? response.headers.get("Allow") ?? "";
+        if (!active) return;
+        setSupportsUnassign(response.ok && allowHeader.toUpperCase().includes("DELETE"));
+      } catch {
+        if (!active) return;
+        setSupportsUnassign(false);
+      }
+    };
+
+    void probeUnassignCapability();
+    return () => {
+      active = false;
+    };
+  }, [memberId]);
+
   const canAssign = Boolean(selectedPlanId && !submitting);
 
   const onAssign = async () => {
@@ -119,6 +148,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
           .replace("{member}", memberName)
           .replace("{plan}", selectedPlanTitle || t("trainer.clientContext.training.assignment.unknownPlan")),
       );
+      setPlanPickerOpen(false);
       setSelectedPlanId("");
     } catch {
       setSubmitting(false);
@@ -126,6 +156,38 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     }
   };
 
+  const onUnassign = async () => {
+    if (!assignedPlan || !supportsUnassign || submitting) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+        method: "DELETE",
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        setSubmitError(t("trainer.clientContext.training.assignment.unassignError"));
+        setSubmitting(false);
+        return;
+      }
+
+      setAssignedPlan(null);
+      setSuccess(
+        t("trainer.clientContext.training.assignment.unassignSuccess")
+          .replace("{member}", memberName)
+          .replace("{plan}", assignedPlan.title),
+      );
+      setSubmitting(false);
+    } catch {
+      setSubmitError(t("trainer.clientContext.training.assignment.unassignError"));
+      setSubmitting(false);
+    }
+  };
 
   const onCreateMinimalPlan = async () => {
     if (creatingPlan || submitting) return;
@@ -174,9 +236,23 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
             <div className="feature-card form-stack" role="status">
               <strong>{t("trainer.clientContext.training.assignment.currentLabel")}</strong>
               <p className="muted" style={{ margin: 0 }}>{assignedPlan.title}</p>
-              <Link className="btn secondary" href={`/app/biblioteca?athleteUserId=${memberId}`} style={{ width: "fit-content" }}>
-                {t("trainer.clientContext.training.assignment.addExerciseCta")}
-              </Link>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Link className="btn secondary" href={`/app/biblioteca?athleteUserId=${memberId}`} style={{ width: "fit-content" }}>
+                  {t("trainer.clientContext.training.assignment.addExerciseCta")}
+                </Link>
+                {supportsUnassign ? (
+                  <button type="button" className="btn danger" onClick={() => void onUnassign()} disabled={submitting}>
+                    {submitting
+                      ? t("trainer.clientContext.training.assignment.unassignSubmitting")
+                      : t("trainer.clientContext.training.assignment.unassignCta")}
+                  </button>
+                ) : null}
+              </div>
+              {supportsUnassign === false ? (
+                <p className="muted" style={{ margin: 0 }}>
+                  {t("trainer.clientContext.training.assignment.unassignUnsupported")}
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="muted">{t("trainer.clientContext.training.assignment.noneAssigned")}</p>
@@ -198,42 +274,65 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
               </button>
             </div>
           ) : (
-            <>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn"
+                disabled={creatingPlan || submitting}
+                onClick={() => setPlanPickerOpen(true)}
+              >
+                {t("trainer.clientContext.training.assignment.openPlanPicker")}
+              </button>
               <button
                 type="button"
                 className="btn secondary"
                 disabled={creatingPlan || submitting}
                 onClick={() => void onCreateMinimalPlan()}
-                style={{ width: "fit-content" }}
               >
                 {creatingPlan
                   ? t("trainer.clientContext.training.assignment.creating")
                   : t("trainer.clientContext.training.assignment.createCta")}
               </button>
-              <label className="form-stack" style={{ gap: 8 }}>
-                <span className="muted">{t("trainer.clientContext.training.assignment.planLabel")}</span>
-                <select value={selectedPlanId} onChange={(event) => setSelectedPlanId(event.target.value)}>
-                  <option value="">{t("trainer.clientContext.training.assignment.planPlaceholder")}</option>
-                  {plans.map((plan) => (
-                    <option key={plan.id} value={plan.id}>
-                      {plan.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <button type="button" className="btn" disabled={!canAssign} onClick={() => void onAssign()}>
-                {submitting
-                  ? t("trainer.clientContext.training.assignment.submitting")
-                  : t("trainer.clientContext.training.assignment.submit")}
-              </button>
-            </>
+            </div>
           )}
 
           {submitError ? <p className="muted">{submitError}</p> : null}
           {success ? <p className="muted">{success}</p> : null}
         </>
       ) : null}
+
+      <Modal
+        open={planPickerOpen}
+        onClose={() => setPlanPickerOpen(false)}
+        title={t("trainer.clientContext.training.assignment.planPickerTitle")}
+        description={t("trainer.clientContext.training.assignment.planPickerDescription")}
+        footer={
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <button type="button" className="btn secondary" onClick={() => setPlanPickerOpen(false)}>
+              {t("ui.cancel")}
+            </button>
+            <button type="button" className="btn" onClick={() => void onAssign()} disabled={!canAssign}>
+              {submitting
+                ? t("trainer.clientContext.training.assignment.submitting")
+                : t("trainer.clientContext.training.assignment.submit")}
+            </button>
+          </div>
+        }
+      >
+        <div className="form-stack" style={{ paddingTop: 8 }}>
+          <label className="form-stack" style={{ gap: 8 }}>
+            <span className="muted">{t("trainer.clientContext.training.assignment.planLabel")}</span>
+            <select value={selectedPlanId} onChange={(event) => setSelectedPlanId(event.target.value)}>
+              <option value="">{t("trainer.clientContext.training.assignment.planPlaceholder")}</option>
+              {plans.map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </Modal>
     </section>
   );
 }
