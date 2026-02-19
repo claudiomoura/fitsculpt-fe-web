@@ -2317,6 +2317,16 @@
       "success": "Saliste de tu membresía del gym correctamente.",
       "error": "No pudimos completar esta acción ahora mismo.",
       "unsupported": "Este entorno aún no soporta salir del gym."
+    },
+    "sections": {
+      "currentStatus": "Estado actual",
+      "currentStatusHelp": "Todavía no tienes una membresía activa.",
+      "actions": "Acciones",
+      "disabledTitle": "Acciones temporalmente deshabilitadas",
+      "disabledDescription": "Tu estado actual no permite nuevas solicitudes por ahora."
+    },
+    "actions": {
+      "membershipTitle": "Acciones de membresía"
     }
   },
   "access": {
@@ -2548,33 +2558,12 @@
     },
     "billingNote": "Cancela cuando quieras. Impuestos incluidos donde aplique.",
     "features": {
-      "title": "Por qué los miembros eligen FitSculpt",
-      "subtitle": "Diseñado para ayudarte a mantener constancia con menos fricción.",
+      "title": "Todo lo que necesitas para progresar",
+      "subtitle": "Una experiencia clara para entrenar, comer y sostener resultados.",
       "items": {
-        "one": {
-          "title": "Progresión guiada",
-          "description": "Cada semana tiene una estructura clara para que sepas el siguiente paso."
-        },
-        "two": {
-          "title": "Planificación adaptable",
-          "description": "Ajusta carga de entrenamiento y nutrición cuando cambia tu rutina."
-        },
-        "three": {
-          "title": "Nutrición inteligente",
-          "description": "Objetivos de macros e ideas de comidas prácticas enfocadas en adherencia."
-        },
-        "four": {
-          "title": "Visibilidad del progreso",
-          "description": "Sigue fuerza, métricas corporales y hábitos en un solo panel."
-        },
-        "five": {
-          "title": "Flujos prácticos",
-          "description": "Diseñado para agendas reales con acciones rápidas y prioridades claras."
-        },
-        "six": {
-          "title": "Plataforma unificada",
-          "description": "Entrena y come con un sistema en vez de herramientas aisladas."
-        }
+        "1": "Planes listos para usar con estructura semanal clara.",
+        "2": "Ajustes de entrenamiento y nutrición alineados con tu progreso.",
+        "3": "Seguimiento simple para mantener consistencia sin fricción."
       }
     },
     "testimonials": {
@@ -2593,15 +2582,6 @@
         }
       },
       "disclaimer": "Los resultados dependen del contexto y la constancia de cada persona."
-    },
-    "features": {
-      "title": "Todo lo que necesitas para progresar",
-      "subtitle": "Una experiencia clara para entrenar, comer y sostener resultados.",
-      "items": {
-        "1": "Planes listos para usar con estructura semanal clara.",
-        "2": "Ajustes de entrenamiento y nutrición alineados con tu progreso.",
-        "3": "Seguimiento simple para mantener consistencia sin fricción."
-      }
     }
   }
 }

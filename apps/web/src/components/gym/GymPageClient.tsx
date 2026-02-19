@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { EmptyState, ErrorState } from "@/components/states";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { GymCard } from "@/components/gym/GymCard";
 import { GymListSkeleton } from "@/components/gym/GymListSkeleton";
 import { MembershipStatusBadge } from "@/components/gym/MembershipStatusBadge";
@@ -65,7 +65,9 @@ export default function GymPageClient() {
 
   const isMembershipPending = membership.status === "PENDING";
   const isMembershipActive = membership.status === "ACTIVE";
+  const isMembershipNone = membership.status === "NONE";
   const shouldDisableJoinActions = requestingJoin || gymsLoading || joinRequestUnsupported || isMembershipPending || isMembershipActive;
+  const isActionsDisabled = isMembershipPending || isMembershipActive || (joinRequestUnsupported && joinCodeUnsupported);
 
   const loadGyms = useCallback(async () => {
     setGymsLoading(true);
@@ -251,7 +253,7 @@ export default function GymPageClient() {
   };
 
   if (loading) {
-    return <GymListSkeleton />;
+    return <LoadingState ariaLabel={t("gym.member.loading")} title={t("gym.member.loading")} showCard={false} lines={4} />;
   }
 
   if (error) {
@@ -280,8 +282,69 @@ export default function GymPageClient() {
         </CardHeader>
       </Card>
 
-      <section className="form-stack" aria-label={t("gym.join.directoryTitle")}>
-        <h2 className="section-title section-title-sm">{t("gym.join.directoryTitle")}</h2>
+      <section className="form-stack" aria-label={t("gym.sections.currentStatus")}>
+        <h2 className="section-title section-title-sm">{t("gym.sections.currentStatus")}</h2>
+
+        {isMembershipNone ? (
+          <EmptyState title={t("gym.membership.none.title")} description={t("gym.sections.currentStatusHelp")} wrapInCard />
+        ) : null}
+
+        {membership.status === "PENDING" && (
+          <Card>
+            <CardHeader className="gym-header-row">
+              <CardTitle>{t("gym.membership.pending.title")}</CardTitle>
+              <MembershipStatusBadge
+              status={membership.status}
+              pendingLabel={t("gym.membership.pending.badge")}
+              activeLabel={t("gym.membership.active.badge")}
+              unknownLabel={t("gym.membership.unknown.badge")}
+              />
+            </CardHeader>
+            <CardContent>
+              <CardDescription>{t("gym.membership.pending.description", { gymName: membership.gymName ?? t("common.notAvailable") })}</CardDescription>
+            </CardContent>
+          </Card>
+        )}
+
+        {membership.status === "ACTIVE" && (
+          <Card>
+            <CardHeader className="gym-header-row">
+              <CardTitle>{t("gym.membership.active.title")}</CardTitle>
+              <MembershipStatusBadge
+              status={membership.status}
+              pendingLabel={t("gym.membership.pending.badge")}
+              activeLabel={t("gym.membership.active.badge")}
+              unknownLabel={t("gym.membership.unknown.badge")}
+              />
+            </CardHeader>
+            <CardContent className="form-stack">
+              <CardDescription>
+                {t("gym.membership.active.description", {
+                  gymName: membership.gymName ?? t("common.notAvailable"),
+                  role: membership.role ?? t("common.notAvailable"),
+                })}
+              </CardDescription>
+            </CardContent>
+          </Card>
+        )}
+
+        {membership.status === "REJECTED" ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("gym.membership.rejected.title")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>{t("gym.membership.rejected.description")}</CardDescription>
+            </CardContent>
+          </Card>
+        ) : null}
+      </section>
+
+      <section className="form-stack" aria-label={t("gym.sections.actions")}>
+        <h2 className="section-title section-title-sm">{t("gym.sections.actions")}</h2>
+
+        {isActionsDisabled ? <EmptyState title={t("gym.sections.disabledTitle")} description={t("gym.sections.disabledDescription")} wrapInCard /> : null}
+
         {gymsLoading ? (
           <GymListSkeleton count={2} />
         ) : gymsLoadError ? (
@@ -321,91 +384,52 @@ export default function GymPageClient() {
             );
           })
         )}
-        {joinRequestUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
-        {isMembershipPending ? <p className="muted">{t("gym.join.requestPending")}</p> : null}
-      </section>
 
-      {membership.status === "PENDING" && (
+        {!isMembershipPending && !isMembershipActive ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("gym.join.codeTitle")}</CardTitle>
+              <CardDescription>{t("gym.join.codeHelp")}</CardDescription>
+            </CardHeader>
+            <CardContent className="form-stack">
+              <label className="form-stack" htmlFor="gym-join-code">
+                {t("gym.join.codeLabel")}
+                <input id="gym-join-code" value={code} onChange={(event) => setCode(event.target.value)} />
+              </label>
+              <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || joinCodeUnsupported || !code.trim()}>
+                {joiningByCode ? t("common.loading") : t("gym.join.codeButton")}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <Card>
-          <CardHeader className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: "0.75rem" }}>
-            <CardTitle>{t("gym.membership.pending.title")}</CardTitle>
-            <MembershipStatusBadge
-              status={membership.status}
-              pendingLabel={t("gym.membership.pending.badge")}
-              activeLabel={t("gym.membership.active.badge")}
-              unknownLabel={t("gym.membership.unknown.badge")}
-            />
+          <CardHeader>
+            <CardTitle>{t("gym.actions.membershipTitle")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <CardDescription>{t("gym.membership.pending.description", { gymName: membership.gymName ?? "-" })}</CardDescription>
-          </CardContent>
-        </Card>
-      )}
-
-      {membership.status === "ACTIVE" && (
-        <Card>
-          <CardHeader className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: "0.75rem" }}>
-            <CardTitle>{t("gym.membership.active.title")}</CardTitle>
-            <MembershipStatusBadge
-              status={membership.status}
-              pendingLabel={t("gym.membership.pending.badge")}
-              activeLabel={t("gym.membership.active.badge")}
-              unknownLabel={t("gym.membership.unknown.badge")}
-            />
-          </CardHeader>
-          <CardContent className="form-stack">
-            <CardDescription>{t("gym.membership.active.description", { gymName: membership.gymName ?? "-", role: membership.role ?? "-" })}</CardDescription>
-            <div className="row" style={{ gap: "0.5rem", flexWrap: "wrap" }}>
-              <ButtonLink href="/app/entrenamiento">{t("gym.membership.active.planButton")}</ButtonLink>
-              {canOpenAdmin && (
+            <div className="gym-actions-row">
+              {isMembershipActive ? <ButtonLink href="/app/entrenamiento">{t("gym.membership.active.planButton")}</ButtonLink> : null}
+              {canOpenAdmin ? (
                 <Link href="/app/gym/admin" className="btn secondary fit-content">
                   {t("gym.admin.goToPanel")}
                 </Link>
-              )}
+              ) : null}
               {gymServiceCapabilities.supportsLeaveGym ? (
                 <Button
                   variant="secondary"
                   onClick={() => setIsLeaveConfirmOpen(true)}
-                  disabled={isLeavingGym}
+                  disabled={!isMembershipActive || isLeavingGym}
                   loading={isLeavingGym}
                 >
                   {t("gym.leave.cta")}
                 </Button>
               ) : null}
             </div>
+            {joinRequestUnsupported || joinCodeUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
           </CardContent>
         </Card>
-      )}
-
-      {membership.status === "REJECTED" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("gym.membership.rejected.title")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription>{t("gym.membership.rejected.description")}</CardDescription>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isMembershipPending && !isMembershipActive ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("gym.join.codeTitle")}</CardTitle>
-            <CardDescription>{t("gym.join.codeHelp")}</CardDescription>
-          </CardHeader>
-          <CardContent className="form-stack">
-            <label className="form-stack" htmlFor="gym-join-code">
-              {t("gym.join.codeLabel")}
-              <input id="gym-join-code" value={code} onChange={(event) => setCode(event.target.value)} />
-            </label>
-            <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || joinCodeUnsupported || !code.trim()}>
-              {joiningByCode ? t("common.loading") : t("gym.join.codeButton")}
-            </Button>
-            {joinCodeUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
-          </CardContent>
-        </Card>
-      ) : null}
+      </section>
 
       {gymServiceCapabilities.supportsLeaveGym ? (
         <Modal
@@ -417,7 +441,7 @@ export default function GymPageClient() {
           title={t("gym.leave.confirmTitle")}
           description={t("gym.leave.confirmDescription")}
           footer={
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <div className="gym-modal-footer">
               <Button variant="secondary" onClick={() => setIsLeaveConfirmOpen(false)} disabled={isLeavingGym}>
                 {t("ui.cancel")}
               </Button>
@@ -427,7 +451,7 @@ export default function GymPageClient() {
             </div>
           }
         >
-          <p className="muted" style={{ margin: 0 }}>{t("gym.leave.confirmHelp")}</p>
+          <p className="muted m-0">{t("gym.leave.confirmHelp")}</p>
         </Modal>
       ) : null}
 
