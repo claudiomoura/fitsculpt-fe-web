@@ -24,8 +24,10 @@ export function isStripePriceNotFoundError(error: unknown): boolean {
   const stripeBodyError = parseStripeErrorBody(stripeError.debug?.body);
   const message = (stripeBodyError?.message ?? "").toLowerCase();
 
+  const status = stripeError.debug?.status;
+
   return (
-    stripeError.debug?.status === 404
+    (status === 404 || status === 400)
     && (stripeBodyError?.code === "resource_missing" || message.includes("no such price"))
   );
 }

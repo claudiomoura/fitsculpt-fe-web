@@ -3961,7 +3961,7 @@ app.get("/billing/plans", async (request, reply) => {
           warnings.push({ planKey: plan, reason: "price_not_found" });
           continue;
         }
-        throw createHttpError(500, "STRIPE_PRICE_INVALID", { plan, priceId });
+        request.log.warn({ plan, priceId, error }, "billing plan skipped due to Stripe price lookup failure");
       }
     }
 
