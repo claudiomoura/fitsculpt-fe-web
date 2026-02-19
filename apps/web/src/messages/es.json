@@ -2486,6 +2486,7 @@
     }
   },
   "marketingPricing": {
+    "headerPlaceholder": "Área de cabecera reservada para la navegación final del sprint.",
     "header": {
       "navigation": "Navegación principal",
       "links": {
@@ -2497,12 +2498,13 @@
     "hero": {
       "title": "Planes que se adaptan a tu progreso",
       "subtitle": "Entrena y come con estructura clara, sin perder flexibilidad.",
-      "supporting": "Elige el plan que mejor encaja con tu fase actual y cambia cuando lo necesites."
+      "supporting": "Elige el plan que mejor encaja con tu fase actual y cambia cuando lo necesites.",
+      "cta": "Ver planes"
     },
     "plans": {
       "strength": {
-        "title": "Strength AI",
-        "price": "14,99 €/mes",
+        "title": "Strength IA",
+        "price": "14,99€",
         "tagline": "Fuerza, hipertrofia y progresión automática",
         "cta": "Empezar Strength",
         "features": {
@@ -2513,8 +2515,8 @@
         }
       },
       "pro": {
-        "title": "Pro",
-        "price": "19,99 €/mes",
+        "title": "PRO",
+        "price": "19,99€",
         "badge": "Más popular",
         "tagline": "Strength + Nutrition en un solo sistema",
         "cta": "Elegir Pro",
@@ -2526,8 +2528,8 @@
         }
       },
       "nutrition": {
-        "title": "Nutrition AI",
-        "price": "14,99 €/mes",
+        "title": "Nutrition IA",
+        "price": "14,99€",
         "tagline": "Macros, recetas y adherencia sin complicarte",
         "cta": "Empezar Nutrition",
         "features": {
@@ -2539,6 +2541,36 @@
       }
     },
     "billingNote": "Cancela cuando quieras. Impuestos incluidos donde aplique.",
+    "features": {
+      "title": "Por qué los miembros eligen FitSculpt",
+      "subtitle": "Diseñado para ayudarte a mantener constancia con menos fricción.",
+      "items": {
+        "one": {
+          "title": "Progresión guiada",
+          "description": "Cada semana tiene una estructura clara para que sepas el siguiente paso."
+        },
+        "two": {
+          "title": "Planificación adaptable",
+          "description": "Ajusta carga de entrenamiento y nutrición cuando cambia tu rutina."
+        },
+        "three": {
+          "title": "Nutrición inteligente",
+          "description": "Objetivos de macros e ideas de comidas prácticas enfocadas en adherencia."
+        },
+        "four": {
+          "title": "Visibilidad del progreso",
+          "description": "Sigue fuerza, métricas corporales y hábitos en un solo panel."
+        },
+        "five": {
+          "title": "Flujos prácticos",
+          "description": "Diseñado para agendas reales con acciones rápidas y prioridades claras."
+        },
+        "six": {
+          "title": "Plataforma unificada",
+          "description": "Entrena y come con un sistema en vez de herramientas aisladas."
+        }
+      }
+    },
     "testimonials": {
       "title": "Lo que dicen quienes ya lo usan",
       "subtitle": "Historias reales de usuarios que entrenan con más claridad.",
@@ -2555,6 +2587,9 @@
         }
       },
       "disclaimer": "Los resultados dependen del contexto y la constancia de cada persona."
+    },
+    "footer": {
+      "copy": "Planes FitSculpt • Diseñados para constancia a largo plazo"
     }
   }
 }
