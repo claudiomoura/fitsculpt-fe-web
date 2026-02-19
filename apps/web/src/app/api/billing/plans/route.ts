@@ -1,39 +1,43 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { getBackendUrl } from "@/lib/backend";
+
 export const dynamic = "force-dynamic";
+
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
+function jsonNoStore(body: unknown, status: number) {
+  return NextResponse.json(body, {
+    status,
+    headers: NO_STORE_HEADERS,
+  });
+}
 
 export async function GET() {
   const token = (await cookies()).get("fs_token")?.value;
   if (!token) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return jsonNoStore({ error: "UNAUTHORIZED" }, 401);
   }
 
-  try {
-    const response = await fetch(`${getBackendUrl()}/billing/plans`, {
-      headers: { cookie: `fs_token=${token}` },
-      cache: "no-store",
-    });
+  const response = await fetch(`${getBackendUrl()}/billing/plans`, {
+    headers: { cookie: `fs_token=${token}` },
+    cache: "no-store",
+  }).catch(() => null);
 
-    let data: unknown = null;
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
-
-    if (response.status === 404) {
-      return NextResponse.json(
-        {
-          error: "BILLING_NOT_AVAILABLE",
-          message: "Billing plans endpoint is not available yet.",
-          plans: [],
-        },
-        { status: 501 },
-      );
-    }
-
-    return NextResponse.json(data, { status: response.status });
-  } catch (_err) {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+  if (!response) {
+    return jsonNoStore({ error: "BACKEND_UNAVAILABLE" }, 502);
   }
+
+  const data: unknown = await response.json().catch(() => null);
+
+  if (response.status === 404) {
+    return jsonNoStore({ error: "BILLING_NOT_AVAILABLE", plans: [] }, 501);
+  }
+
+  if (response.status === 401 || response.status === 403 || response.status === 200) {
+    return jsonNoStore(data, response.status);
+  }
+
+  return jsonNoStore(data, response.status);
 }
