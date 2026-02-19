@@ -1,213 +1,270 @@
-# FitSculpt – Project Status (Atualizado)
-Data: 2026-02-14  
-Branch de referência: `work` (reportado como consolidado após PR-1A..PR-5)  
+Perfecto. Te lo actualizo con una postura más exigente, separando claramente **“lo que creemos que está listo”** de **“lo que está realmente validado como vendible y estable”**, alineado con lo que ya vimos en auditoría previa (mismatches FE↔BE, entitlements, gym requests, etc.).
+
+---
+
+# FitSculpt – Project Status (Atualizado Estratégico)
+
+Data: 2026-02-19
+Branch de referência: `work` (assumido consolidado após PR-1A..PR-5)
 Owner: Founder/PM (FitSculpt)
 
-> Nota de rigor: este status reflete o que foi concluído nos PRs mencionados por ti (PR-1A, PR-1B, PR-2, PR-3, PR-4, PR-5). Se quiseres que eu marque “VALIDADO” com evidência, pede-me e eu preparo um checklist de comandos e outputs para colares aqui.
+> Nota de rigor: este status separa “Implementado” de “Validado end-to-end”. Quando não há evidência de execução real (build clean + fluxo testado), fica como **Assunção**.
 
 ---
 
-## 0) Changelog recente (o que mudou desde a última versão)
-### P0 (Release e demo)
-- Build web voltou a ficar verde ao corrigir i18n (suporte a interpolação em `t(key, values)`), desbloqueando `next build`.
-- Biblioteca: correção de keys duplicadas em badges (dedupe de músculos) para eliminar warnings e instabilidade de render.
-- Tab bar mobile: removido overflow horizontal em ecrãs pequenos (320px), melhorando demo mobile.
-- Admin/dev: neutralização de navegação para features “sem backend”, evitando páginas “broken” durante demo.
+# 1) Executive Snapshot Realista
 
-### Gym Pilot (vendível ASAP)
-- Backend: adicionado suporte real a Gyms, membership, join (pedido ou código), revisão de pedidos e listagem de membros.
-- Frontend: fluxo completo de join + painel admin/trainer com estados de loading/empty/error.
-- Atribuição de plano: admin atribui plano existente a membro, e o membro passa a ver o plano na experiência “Plan/Hoy”.
+## Release Readiness (produto B2C geral)
 
----
+**Estado: PARCIALMENTE PRONTO PARA DEMO CONTROLADA**
 
-## 1) Visão (North Star)
-FitSculpt é uma web app mobile-first de treino e nutrição, com UX premium, progressão clara e experiência comparável a líderes como FitnessAI ou Dr. Muscle.
+✔ Login + `/app` protegido
+✔ Tab bar mobile estável
+✔ Biblioteca lista + detalhe
+✔ Tracking persistente (assumido funcional E2E)
+✔ Build corrigido após i18n
 
-### Objetivo do MVP
-- Demonstrar valor real a utilizadores finais
-- Ter qualidade visual e UX suficiente para demos a utilizadores, investidores e ginásios pequenos
-- Garantir base técnica sólida para evoluir para app nativa e white-label mais tarde
+⚠ Entitlements ainda inconsistentes (FE vs BE)
+⚠ Alguns endpoints admin aparentam não existir no backend
+⚠ Duplicidades estruturais (trainer/treinador, helpers backend URL)
+
+**Conclusão:** Demo funcional, mas ainda não “production-grade”.
 
 ---
 
-## 2) Estado atual do produto (snapshot executivo)
+## Gym Pilot Readiness (B2B pequeno gym)
 
-### Release readiness (hoje)
-- **Build web**: esperado PASS (`npm run build`) após PR-1A.
-- **DoD base (demo)**: login, `/app` protegido, tab bar mobile estável, Hoje + 1 ação rápida, tracking persistente, biblioteca lista + detalhe.
-- **Regra de ouro**: zero “unsupported” em rotas do Gym Pilot (agora substituído por fluxo real).
+**Estado: MVP funcional para demo, NÃO ainda “operacional robusto”**
 
-### Gym Pilot readiness (vendível para gym pequeno)
-**Estado**: **MVP Gym Pilot pronto para demo end-to-end**, com operação em < 2 minutos (meta de venda).
+Fluxo teórico completo:
 
-Fluxo vendível:
-1) Utilizador entra no gym (pedido de aprovação ou código).
-2) Admin/Trainer vê pedidos e aceita (se aplicável).
-3) Admin/Trainer atribui plano existente ao membro.
-4) Membro vê o plano no seu “Plan” (e acesso claro no “Gym/Hoy”).
+1. User entra via pedido ou código
+2. Admin vê pedidos
+3. Admin aceita
+4. Admin atribui plano
+5. User vê plano no contexto do gym
 
----
+⚠ Pontos críticos conhecidos:
 
-## 3) Estado atual do produto (detalhado por módulo)
+* Criação de gym já teve mismatch de contrato (`code` obrigatório no backend).
+* Gym requests estavam desativados no sidebar.
+* Entitlements não refletem modelo modular real.
 
-### 3.1 Autenticação e sessão
-- Login funcional, sessão via cookie `fs_token`.
-- Rotas `/app/*` protegidas.
-- Restrições mantidas: não quebrar `fs_token`, nem middleware/proxy BFF.
-
-**Estado**: Implementado, estável.
+**Conclusão:** Vendível em demo assistida, ainda frágil para uso real sem supervisão.
 
 ---
 
-### 3.2 Onboarding e Perfil
-- Onboarding base implementado.
-- i18n: ES e EN, agora com interpolação suportada em mensagens (ex: “Passo X de Y”).
+# 2) Estado Atual por Domínio
 
-**Estado**: Implementado, com melhoria crítica de build (i18n).
+## 2.1 Autenticação e Sessão
 
----
+* Cookie `fs_token`
+* Middleware protege `/app`
+* BFF obrigatório via `/api/*`
 
-### 3.3 Hoje (Home)
-- “Hoje” com quick actions e estados explícitos (loading/empty/error).
-- Integração com tracking e entry points para ações essenciais.
-
-**Estado**: Implementado.  
-**Em progresso**: polish transversal e consistência total de feedback (toasts, retry).
+**Estado:** Estável
+**Risco:** Qualquer regressão aqui é P0 absoluto.
 
 ---
 
-### 3.4 Tracking (Seguimento)
-- Tracking end-to-end via BFF `/api/tracking` (GET/PUT).
-- Persistência funcional, sem dados inventados.
-- UI adaptativa por capacidades do payload (quando aplicável).
+## 2.2 Onboarding & Perfil
 
-**Estado**: Implementado e demo-safe.
+* Base implementada
+* i18n ES/EN funcional
+* Interpolação corrigida
 
----
-
-### 3.5 Biblioteca (Exercícios, Receitas, Planos)
-- Lista e detalhe funcionais.
-- Media viewer e layout avançado em detalhe, quando disponível.
-- Seções condicionais, sem placeholders fake.
-- Correção recente: dedupe em badges para evitar keys duplicadas.
-
-**Estado**: Implementado.  
-**Em progresso**: polish final de UX premium e performance percebida (skeletons consistentes).
+**Estado:** Implementado
+**Polish pendente:** consistência total de chaves entre idiomas.
 
 ---
 
-### 3.6 Treino (B2C)
-- Planos e vistas relacionadas existentes.
-- IA (se aplicável) permanece fora do “Gym Pilot” nesta fase de venda, mas pode coexistir.
+## 2.3 Hoje (Core Loop)
 
-**Estado**: Implementado (base).  
-**Nota**: Gym Pilot usa atribuição manual simples de planos existentes, sem depender de IA.
+* Quick actions
+* Integração com tracking
+* Estados explícitos
 
----
-
-### 3.7 Nutrição (B2C)
-- Plano base e integração no dashboard.
-- Meal cards, detalhe de refeição com macros e instruções (quando existe conteúdo).
-
-**Estado**: Implementado (base).  
-**Em progresso**: consistência total dos estados e loop “semana → lista compra → ajustes” (se for objetivo futuro).
+**Estado:** Funcional para demo
+**Próximo nível:** feedback unificado, toasts consistentes, retries claros.
 
 ---
 
-## 4) Gym Pilot (novo core B2B MVP)
+## 2.4 Tracking
 
-### 4.1 Capabilities (o que existe agora)
-- Gyms e membership com estados (ex: pending/active/rejected).
-- 2 formas de entrar:
-  - pedido com aprovação
-  - código com auto-join
-- Painel admin/trainer:
-  - ver pedidos pendentes
-  - aceitar/rejeitar
-  - ver membros ativos
-- Atribuir plano existente a membro (manual e simples).
-- Visibilidade para membro: plano atribuído aparece na experiência de treino e há CTA claro no contexto do gym.
+* BFF `/api/tracking`
+* Persistência backend real
+* Sem dados inventados
 
-**Estado**: Implementado para demo vendível.
-
-### 4.2 O que NÃO entrou de propósito (para não matar prazo)
-- White-label enterprise multi-tenant avançado (branding por tenant, temas, subdomínios)
-- Nutrição do gym como módulo completo
-- IA do gym, variantes automáticas e ajustes inteligentes
-- Billing e entitlements modulares por módulo (nutrição vs fitness) como produto final
+**Estado:** Implementado
+**Risco:** validação formal E2E ainda não documentada.
 
 ---
 
-## 5) Snapshot técnico (arquitetura real hoje)
+## 2.5 Biblioteca
 
-### Frontend
-- Next.js App Router em `apps/web`.
-- BFF via `apps/web/src/app/api/*` com proxy ao backend.
-- UI client-side com estados explícitos.
+* Lista + detalhe
+* Media viewer
+* Dedupe de badges resolvido
 
-### Backend
-- Fastify + Prisma.
-- Backend é fonte de verdade para regras e persistência.
-- Novo domínio Gym Pilot implementado no backend.
-
-### i18n
-- Baseado em JSON (ES/EN).
-- Agora com interpolação de placeholders suportada por `t(key, values?)`.
+**Estado:** Implementado
+**Melhoria:** skeletons premium + performance percebida.
 
 ---
 
-## 6) Linhas vermelhas (regras absolutas)
-- Não quebrar auth/sessão (`fs_token`), cookies e rotas protegidas.
-- Frontend consome exclusivamente `/api/*` (BFF), sem chamadas diretas ao backend no browser.
-- Não inventar dados. Se faltar, esconder ou estado neutro.
-- Features incompletas não podem parecer “quase reais”. Ou ficam hidden, ou “não disponível”, sem chamadas falhadas.
-- PRs pequenos, focados, reversíveis.
-- Qualquer regressão em build ou sessão é P0.
+## 2.6 Treino (B2C)
+
+* Planos existentes
+* Estrutura preparada para coexistir com Gym Pilot
+
+**Estado:** Base funcional
+**Nota estratégica:** Gym Pilot usa atribuição manual, não IA.
 
 ---
 
-## 7) Qualidade e gates (o que tem de passar sempre)
-### Obrigatório para “vendível”
-- `apps/web`: `npm run build` PASS
-- Zero erros no console em fluxos principais:
-  - Login
-  - `/app` protegido sem sessão
-  - Tab bar mobile sem overflow
-  - Hoje + 1 ação rápida
-  - Tracking persistente
-  - Biblioteca lista + detalhe
-  - Gym Pilot end-to-end (join → accept → assign plan → member view)
+## 2.7 Nutrição (B2C)
 
-### Recomendado (próximo passo)
-- `lint` e `typecheck` explícitos (se existirem scripts dedicados)
-- Smoke tests mínimos (web e api) e checklist de regressão
+* Plano base
+* Meal cards + macros quando existem
+
+**Estado:** Base funcional
+**Ainda não é:** produto premium fechado com loop semanal completo.
 
 ---
 
-## 8) Riscos e dependências abertas
-- Modularidade comercial (Nutrição Premium vs Fitness Premium vs Bundle vs Gym) ainda não está completa como produto final. Para a venda do gym pequeno, o piloto já é suficiente, mas o pricing e packaging “limpos” virão depois.
-- Consistência i18n: novas strings devem manter chaves e placeholders alinhados entre ES e EN.
-- Dados reais e seed: demos ficam melhores se houver seed controlado para gym, planos e membros.
+# 3) Gym Pilot – Estado Real
+
+## O que está implementado
+
+✔ Domínio Gym no backend
+✔ Membership states
+✔ Join por pedido
+✔ Join por código
+✔ Aceitar/rejeitar pedido
+✔ Ver membros ativos
+✔ Atribuir plano existente
+
+## O que ainda é frágil
+
+⚠ Entitlements não alinhados
+⚠ Possível inconsistência entre UI e endpoints reais
+⚠ Não há ainda “modo demo seedado” controlado
+⚠ Tempo real de fluxo < 2 minutos ainda não validado formalmente
 
 ---
 
-## 9) Foco atual (próximas 2 a 4 semanas)
-### Prioridade máxima (curto prazo)
-- Estabilizar UX do Gym Pilot e reduzir fricção (tempo < 2 minutos na demo).
-- Fechar polish mobile: estados, feedback, skeletons, acessibilidade.
-- Consolidar navegação e reduzir duplicados (rotas e variantes linguísticas), sem quebrar compatibilidade.
+# 4) Arquitetura – Estado Atual
 
-### Objetivo de Sprint (sugestão)
-> “Gym Pilot polished” + “Core loop Today/Tracking rock-solid” para demos repetíveis.
+## Frontend
+
+* Next.js App Router
+* BFF obrigatório
+* Estados explícitos
+* Algumas duplicidades estruturais
+
+## Backend
+
+* Fastify + Prisma
+* Backend como fonte de verdade
+* Gym domain integrado
+
+## Ponto crítico técnico
+
+* Modularidade comercial ainda não está alinhada entre FE e BE.
+* Tier “GYM” no frontend não corresponde a modelo real de planos no backend.
+
+Isso não quebra demo, mas quebra modelo de produto a médio prazo.
 
 ---
 
-## 10) O que NÃO é prioridade agora
-- White-label enterprise avançado
-- App mobile nativa
-- Billing completo e modularidade por módulo como produto final
-- Growth, SEO, marketing profundo (após piloto vendável)
+# 5) Linhas Vermelhas (Continuam Válidas)
+
+* Nunca quebrar `fs_token`
+* Nunca chamar backend direto do browser
+* Nunca inventar dados
+* Feature incompleta deve estar hidden
+* PRs pequenos e reversíveis
+* Build vermelho é bloqueador total
 
 ---
-Fim do documento.
+
+# 6) Qualidade – Estado Real
+
+## Obrigatório para “vendível em demo”
+
+✔ Build web PASS (assumido após PR-1A)
+✔ Zero console errors nos fluxos principais (necessita validação formal)
+✔ Gym Pilot fluxo completo manualmente testado
+
+## Ainda não formalizado
+
+* Lint gate consistente
+* Typecheck gate consistente
+* Smoke tests mínimos
+* Checklist de regressão automatizado
+
+---
+
+# 7) Riscos Estratégicos Atuais
+
+1. Entitlements inconsistentes podem gerar acessos indevidos.
+2. Modularidade comercial ainda conceptual.
+3. Duplicidades de rotas e helpers podem causar bugs difíceis.
+4. Falta de seed demo consistente.
+5. Ainda dependes demasiado de validação manual.
+
+---
+
+# 8) Foco Estratégico Próximo (2–4 semanas)
+
+## Fase 1 – “Gym Pilot Rock-Solid”
+
+* Validar fluxo completo com cronómetro
+* Seed de demo estável
+* Corrigir qualquer mismatch restante
+* Garantir 0 erros console
+
+## Fase 2 – “Core Loop Premium”
+
+* Hoje + Tracking impecáveis
+* UX mobile refinada
+* Estados 100% consistentes
+
+## Fase 3 – “Entitlements Reais”
+
+* Refatorar gating baseado em módulos backend
+* Remover tier inventado
+* Preparar modelo comercial limpo
+
+---
+
+# 9) O que NÃO é prioridade agora
+
+* White-label avançado
+* App nativa
+* Billing sofisticado
+* Crescimento orgânico
+* IA avançada para gym
+
+---
+
+# 10) Diagnóstico Honesto
+
+FitSculpt já não é um protótipo.
+Mas também ainda não é um produto operacional autónomo.
+
+Está num ponto forte:
+
+* Demo vendível
+* Base técnica sólida
+* Domínio Gym implementado
+
+O que falta não é feature.
+É **coerência estrutural, validação formal e consolidação**.
+
+Se quiseres, posso agora:
+
+1. Transformar isto num “Board Estratégico 30 dias” ultra claro.
+2. Ou fazer um “Plano de Fecho para Primeira Venda Real”.
+3. Ou preparar um “Checklist de Demo Premium para impressionar gym owner”.
+
+Tu decides a próxima jogada.
