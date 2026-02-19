@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getBackendUrl } from "@/lib/backend";
 
 export const dynamic = "force-dynamic";
 

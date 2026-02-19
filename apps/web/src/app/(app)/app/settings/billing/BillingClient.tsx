@@ -127,7 +127,7 @@ export default function BillingClient() {
       setError(null);
       const shouldSync = searchParams.get("checkout") === "success";
 
-      const [statusResponse, plansResponse, meResponse] = await Promise.all([
+      const [statusResponse, plansResult, meResponse] = await Promise.all([
         fetch(`/api/billing/status${shouldSync ? "?sync=1" : ""}`, { cache: "no-store" }),
         getBillingPlans(),
         fetch("/api/auth/me", { cache: "no-store" }),
@@ -138,6 +138,7 @@ export default function BillingClient() {
         setBillingUnavailable(false);
         setProfile(null);
         setPlans([]);
+        setPlansStatus("ready");
         return;
       }
 
@@ -154,9 +155,21 @@ export default function BillingClient() {
 
       setProfile((await statusResponse.json()) as BillingProfile);
 
-      const plansPayload = (await plansResponse.json()) as { plans?: BillingPlanSummary[] } | BillingPlanSummary[];
-      const plansList = Array.isArray(plansPayload) ? plansPayload : plansPayload.plans;
-      setPlans(Array.isArray(plansList) ? plansList : []);
+      if (!plansResult.ok) {
+        if (plansResult.reason === "not_available") {
+          setPlansStatus("not_available");
+          setPlans([]);
+        } else {
+          setError(t("billing.loadError"));
+          setProfile(null);
+          setPlans([]);
+          setPlansStatus("ready");
+          return;
+        }
+      } else {
+        setPlans(plansResult.plans);
+        setPlansStatus("ready");
+      }
 
       if (meResponse.ok) {
         const mePayload = (await meResponse.json()) as unknown;
@@ -173,6 +186,7 @@ export default function BillingClient() {
       setBillingUnavailable(false);
       setProfile(null);
       setPlans([]);
+      setPlansStatus("ready");
     } finally {
       setLoading(false);
     }
@@ -241,6 +255,27 @@ export default function BillingClient() {
     }
     return map;
   }, [plans]);
+
+  const visiblePlanCards = useMemo(() => {
+    return PLAN_CARDS
+      .map((plan) => {
+        const matchedPlan = plan.planValues.find((value) => plansByKey.has(value));
+        if (!matchedPlan) {
+          return null;
+        }
+
+        const backendPlan = plansByKey.get(matchedPlan);
+        if (!backendPlan) {
+          return null;
+        }
+
+        return { plan, backendPlan };
+      })
+      .filter((entry): entry is { plan: PlanCard; backendPlan: BillingPlanSummary } => entry !== null);
+  }, [plansByKey]);
+
+  const isPlanActionsDisabled = plansStatus === "not_available";
+
 
   return (
     <section className="stack-md" aria-live="polite">
