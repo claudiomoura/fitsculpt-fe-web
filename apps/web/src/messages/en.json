@@ -2676,5 +2676,65 @@
       "notePlaceholder": "Write your note here",
       "nextReviewDate": "Next review date"
     }
+  },
+  "plansUi": {
+    "daysCount": "{count} days",
+    "actions": {
+      "select": "Select plan"
+    },
+    "trainer": {
+      "list": {
+        "title": "Trainer plans",
+        "empty": "No plans available yet.",
+        "error": "We could not load plans right now.",
+        "notAvailable": "Plans are not available in this environment."
+      },
+      "create": {
+        "title": "Create plan",
+        "description": "Add a name and number of days to start a new plan draft.",
+        "notAvailable": "Plan creation is not available in this environment.",
+        "nameLabel": "Plan name",
+        "daysLabel": "Days",
+        "nameRequired": "Plan name is required.",
+        "daysHelp": "Choose a value between 1 and 7 days.",
+        "confirm": "Create draft",
+        "error": "We could not create this plan draft."
+      },
+      "builder": {
+        "daysTitle": "Plan days",
+        "panelTitle": "Day detail",
+        "panelPlaceholder": "Select this day to start adding workout content.",
+        "noDaySelected": "Select a day to continue.",
+        "empty": "No days available for this plan yet.",
+        "error": "We could not load the day builder.",
+        "notAvailable": "Day builder is not available in this environment."
+      }
+    },
+    "user": {
+      "library": {
+        "title": "Plans library",
+        "empty": "No plans available in your library.",
+        "error": "We could not load your plans library.",
+        "notAvailable": "Your plans library is not available in this environment."
+      },
+      "activeBadge": "Active plan",
+      "unnamedPlan": "this plan",
+      "confirmationHint": "This action cannot be undone from this dialog.",
+      "activate": {
+        "title": "Activate plan",
+        "description": "Do you want to activate {planName}?",
+        "confirm": "Activate"
+      },
+      "deactivate": {
+        "title": "Deactivate plan",
+        "description": "Do you want to deactivate {planName}?",
+        "confirm": "Deactivate"
+      },
+      "delete": {
+        "title": "Delete plan",
+        "description": "Do you want to delete {planName}?",
+        "confirm": "Delete plan"
+      }
+    }
   }
 }
