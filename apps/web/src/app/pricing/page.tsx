@@ -72,7 +72,7 @@ export default function PricingPage() {
           </p>
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-3 lg:items-stretch">
+        <section id="planes" className="grid gap-5 scroll-mt-28 lg:grid-cols-3 lg:items-stretch">
           {plans.map((plan) => (
             <article
               key={plan.key}
@@ -114,7 +114,26 @@ export default function PricingPage() {
 
         <p className="text-center text-sm text-text-muted">{t("marketingPricing.billingNote")}</p>
 
-        <section id="testimonials" className="space-y-6 scroll-mt-24" aria-labelledby="testimonials-title">
+        <section id="caracteristicas" className="space-y-6 scroll-mt-28" aria-labelledby="pricing-features-title">
+          <div className="space-y-2 text-center">
+            <h2 id="pricing-features-title" className="text-2xl font-bold sm:text-3xl">
+              {t("marketingPricing.features.title")}
+            </h2>
+            <p className="text-sm text-text-muted sm:text-base">
+              {t("marketingPricing.features.subtitle")}
+            </p>
+          </div>
+          <ul className="grid gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((index) => (
+              <li key={index} className="rounded-2xl border border-border bg-surface p-5 text-sm text-text-muted">
+                {t(`marketingPricing.features.items.${index}`)}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+
+        <section id="testimonios" className="space-y-6 scroll-mt-28" aria-labelledby="testimonials-title">
           <div className="space-y-2 text-center">
             <h2 id="testimonials-title" className="text-2xl font-bold sm:text-3xl">
               {t("marketingPricing.testimonials.title")}

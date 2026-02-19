@@ -2,43 +2,61 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useMemo } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/DropdownMenu";
+import { useEffect, useMemo, useState } from "react";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type NavItem = {
-  key: string;
-  href: string;
+  key: "plans" | "features" | "testimonials";
+  href: "#planes" | "#caracteristicas" | "#testimonios";
+  sectionId: "planes" | "caracteristicas" | "testimonios";
 };
 
-function isActivePath(pathname: string, href: string) {
-  if (href.startsWith("#") || href.includes("#")) return false;
-  if (href === "/") return pathname === "/";
-  return pathname.startsWith(href);
-}
+const NAV_ITEMS: NavItem[] = [
+  { key: "plans", href: "#planes", sectionId: "planes" },
+  { key: "features", href: "#caracteristicas", sectionId: "caracteristicas" },
+  { key: "testimonials", href: "#testimonios", sectionId: "testimonios" },
+];
 
 export function MarketingHeader() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { locale, setLocale, t } = useLanguage();
+  const { t } = useLanguage();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>("planes");
 
-  const navItems = useMemo<NavItem[]>(
-    () => [
-      { key: "plans", href: "/pricing" },
-      { key: "features", href: "/#features" },
-      { key: "testimonials", href: "/pricing#testimonials" },
-    ],
-    []
-  );
+  const navItems = useMemo(() => NAV_ITEMS, []);
+  useEffect(() => {
+    const sectionIds = navItems.map((item) => item.sectionId);
+    const sections = sectionIds
+      .map((id) => document.getElementById(id))
+      .filter((section): section is HTMLElement => section !== null);
+
+    if (sections.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+        if (visible[0]?.target.id) {
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      {
+        rootMargin: "-40% 0px -45% 0px",
+        threshold: [0.15, 0.4, 0.65],
+      }
+    );
+
+    sections.forEach((section) => observer.observe(section));
+
+    return () => observer.disconnect();
+  }, [navItems]);
+
+  const mobileMenuId = "marketing-mobile-menu";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-bg/85 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-bg/80 backdrop-blur-xl">
       <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="inline-flex items-center" aria-label="FitSculpt">
           <Image src="/fitsculpt-logo-mono-mint.png" alt="FitSculpt" width={164} height={36} priority className="h-8 w-auto" />
@@ -46,14 +64,15 @@ export function MarketingHeader() {
 
         <nav aria-label={t("marketingPricing.header.navigation")} className="hidden items-center gap-3 md:flex">
           {navItems.map((item) => {
-            const active = isActivePath(pathname, item.href);
+            const active = activeSection === item.sectionId;
             return (
               <Link
                 key={item.key}
                 href={item.href}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
                   active ? "text-primary" : "text-text hover:text-primary"
                 }`}
+                aria-current={active ? "page" : undefined}
               >
                 {t(`marketingPricing.header.links.${item.key}`)}
               </Link>
@@ -62,73 +81,56 @@ export function MarketingHeader() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <div className="inline-flex items-center rounded-[14px] border border-border bg-surface p-1" role="group" aria-label={t("ui.language")}>
-            <button
-              type="button"
-              onClick={() => setLocale("es")}
-              aria-pressed={locale === "es"}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
-                locale === "es" ? "bg-primary text-bg" : "text-text-muted hover:text-text"
-              }`}
-            >
-              ES
-            </button>
-            <button
-              type="button"
-              onClick={() => setLocale("en")}
-              aria-pressed={locale === "en"}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
-                locale === "en" ? "bg-primary text-bg" : "text-text-muted hover:text-text"
-              }`}
-            >
-              EN
-            </button>
-          </div>
+          <LanguageSwitcher />
           <Link
             href="/login"
-            className="inline-flex h-11 items-center justify-center rounded-[14px] bg-primary px-4 text-sm font-semibold text-bg transition hover:opacity-90"
+            className="inline-flex h-11 items-center justify-center rounded-[14px] bg-primary px-4 text-sm font-semibold text-bg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             {t("nav.login")}
           </Link>
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
-          <div className="inline-flex items-center rounded-[12px] border border-border bg-surface p-1" role="group" aria-label={t("ui.language")}>
-            <button
-              type="button"
-              onClick={() => setLocale("es")}
-              aria-pressed={locale === "es"}
-              className={`rounded-md px-2 py-1 text-xs font-semibold ${
-                locale === "es" ? "bg-primary text-bg" : "text-text-muted"
-              }`}
-            >
-              ES
-            </button>
-            <button
-              type="button"
-              onClick={() => setLocale("en")}
-              aria-pressed={locale === "en"}
-              className={`rounded-md px-2 py-1 text-xs font-semibold ${
-                locale === "en" ? "bg-primary text-bg" : "text-text-muted"
-              }`}
-            >
-              EN
-            </button>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger className="!h-10 !rounded-[12px] !border !border-border !bg-surface !px-3 !text-text">
-              {t("ui.menu")}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="!min-w-52 !rounded-[16px] !border !border-border !bg-surface">
-              {navItems.map((item) => (
-                <DropdownMenuItem key={item.key} onClick={() => router.push(item.href)}>
-                  {t(`marketingPricing.header.links.${item.key}`)}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuItem onClick={() => router.push("/login")}>{t("nav.login")}</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <LanguageSwitcher />
+          <button
+            type="button"
+            aria-label={isMenuOpen ? t("ui.close") : t("ui.menu")}
+            aria-expanded={isMenuOpen}
+            aria-controls={mobileMenuId}
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border bg-surface text-text transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          >
+            <span aria-hidden="true" className="text-lg leading-none">{isMenuOpen ? "✕" : "☰"}</span>
+          </button>
         </div>
+      </div>
+
+      <div id={mobileMenuId} className={`${isMenuOpen ? "block" : "hidden"} border-t border-border/70 bg-bg/95 px-4 py-4 backdrop-blur-xl md:hidden`}>
+        <nav aria-label={t("marketingPricing.header.navigation")} className="flex flex-col gap-2">
+          {navItems.map((item) => {
+            const active = activeSection === item.sectionId;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                onClick={() => setIsMenuOpen(false)}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                  active ? "bg-primary/10 text-primary" : "text-text hover:text-primary"
+                }`}
+                aria-current={active ? "page" : undefined}
+              >
+                {t(`marketingPricing.header.links.${item.key}`)}
+              </Link>
+            );
+          })}
+          <Link
+            href="/login"
+            onClick={() => setIsMenuOpen(false)}
+            className="mt-2 inline-flex h-11 items-center justify-center rounded-[14px] bg-primary px-4 text-sm font-semibold text-bg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          >
+            {t("nav.login")}
+          </Link>
+        </nav>
       </div>
     </header>
   );

@@ -2555,6 +2555,15 @@
         }
       },
       "disclaimer": "Los resultados dependen del contexto y la constancia de cada persona."
+    },
+    "features": {
+      "title": "Todo lo que necesitas para progresar",
+      "subtitle": "Una experiencia clara para entrenar, comer y sostener resultados.",
+      "items": {
+        "1": "Planes listos para usar con estructura semanal clara.",
+        "2": "Ajustes de entrenamiento y nutrición alineados con tu progreso.",
+        "3": "Seguimiento simple para mantener consistencia sin fricción."
+      }
     }
   }
 }
