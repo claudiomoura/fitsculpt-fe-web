@@ -120,10 +120,17 @@ export async function listTrainerGymPlans(
 }
 
 export async function createTrainerPlan(payload: CreateTrainerPlanInput): Promise<ServiceResult<TrainingPlanDetail>> {
+  const normalizedDaysPerWeek = typeof payload.daysPerWeek === "number"
+    ? Math.max(1, Math.min(7, payload.daysPerWeek))
+    : undefined;
+
   return requestJson<TrainingPlanDetail>("/api/trainer/plans", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      ...(normalizedDaysPerWeek ? { daysPerWeek: normalizedDaysPerWeek, daysCount: normalizedDaysPerWeek } : {}),
+    }),
   });
 }
 
