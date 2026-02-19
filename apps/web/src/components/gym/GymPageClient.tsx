@@ -36,6 +36,12 @@ const defaultMembership: GymMembership = {
   role: null,
 };
 
+function emitGymMembershipRefresh() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("gym-membership:refresh"));
+  window.dispatchEvent(new Event("auth:refresh"));
+}
+
 export default function GymPageClient() {
   const { t } = useLanguage();
   const { notify } = useToast();
@@ -158,6 +164,7 @@ export default function GymPageClient() {
       setActionSuccess(t("gym.join.requestSuccess"));
       notify({ title: t("common.success"), description: t("gym.join.requestSuccess"), variant: "success" });
       await loadData();
+      emitGymMembershipRefresh();
     } catch (_err) {
       setActionError(t("gym.actionError"));
       notify({ title: t("common.error"), description: t("gym.actionError"), variant: "error" });
@@ -191,6 +198,7 @@ export default function GymPageClient() {
       notify({ title: t("common.success"), description: t("gym.leave.success"), variant: "success" });
       setIsLeaveConfirmOpen(false);
       await loadData();
+      emitGymMembershipRefresh();
     } catch (_err) {
       setActionError(t("gym.leave.error"));
       notify({ title: t("common.error"), description: t("gym.leave.error"), variant: "error" });
@@ -245,6 +253,7 @@ export default function GymPageClient() {
       setActionSuccess(t("gym.join.codeSuccess"));
       notify({ title: t("common.success"), description: t("gym.join.codeSuccess"), variant: "success" });
       await loadData();
+      emitGymMembershipRefresh();
     } catch (_err) {
       setActionError(t("gym.actionError"));
       notify({ title: t("common.error"), description: t("gym.actionError"), variant: "error" });
