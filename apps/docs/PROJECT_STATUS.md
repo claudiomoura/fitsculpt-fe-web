@@ -1,270 +1,315 @@
-Perfecto. Te lo actualizo con una postura más exigente, separando claramente **“lo que creemos que está listo”** de **“lo que está realmente validado como vendible y estable”**, alineado con lo que ya vimos en auditoría previa (mismatches FE↔BE, entitlements, gym requests, etc.).
-
----
-
-# FitSculpt – Project Status (Atualizado Estratégico)
+# FitSculpt – Project Status (Atualizado Estratégico Exigente)
 
 Data: 2026-02-19
-Branch de referência: `work` (assumido consolidado após PR-1A..PR-5)
+Branch de referência: `work` (última referencia conocida)
 Owner: Founder/PM (FitSculpt)
 
-> Nota de rigor: este status separa “Implementado” de “Validado end-to-end”. Quando não há evidência de execução real (build clean + fluxo testado), fica como **Assunção**.
+> Nota crítica: Este documento separa claramente:
+>
+> * **Implementado en código**
+> * **Validado end-to-end en entorno real**
+> * **Vendible sin supervisión**
+>
+> Si no hay evidencia de `npm run build` PASS + flujo manual probado, se marca como **No Validado**.
 
 ---
 
 # 1) Executive Snapshot Realista
 
-## Release Readiness (produto B2C geral)
+## Release Readiness (B2C general)
 
-**Estado: PARCIALMENTE PRONTO PARA DEMO CONTROLADA**
+**Estado real: NO Release-ready**
+
+### Lo que está implementado
 
 ✔ Login + `/app` protegido
-✔ Tab bar mobile estável
-✔ Biblioteca lista + detalhe
-✔ Tracking persistente (assumido funcional E2E)
-✔ Build corrigido após i18n
+✔ Tab bar mobile
+✔ Biblioteca lista + detalle
+✔ Tracking persiste en backend
+✔ i18n ES/EN base funcional
 
-⚠ Entitlements ainda inconsistentes (FE vs BE)
-⚠ Alguns endpoints admin aparentam não existir no backend
-⚠ Duplicidades estruturais (trainer/treinador, helpers backend URL)
+### Lo que está validado formalmente
 
-**Conclusão:** Demo funcional, mas ainda não “production-grade”.
+⚠ Build PASS solo tras hotfix manual
+⚠ TypeScript ha fallado múltiples veces en producción build
+⚠ Componentes marketing rompieron tipado
 
----
+### Conclusión honesta
 
-## Gym Pilot Readiness (B2B pequeno gym)
+Demo funcional si todo está verde.
+Pero hoy el estado es: **estable sólo tras intervención manual y triage de build.**
 
-**Estado: MVP funcional para demo, NÃO ainda “operacional robusto”**
-
-Fluxo teórico completo:
-
-1. User entra via pedido ou código
-2. Admin vê pedidos
-3. Admin aceita
-4. Admin atribui plano
-5. User vê plano no contexto do gym
-
-⚠ Pontos críticos conhecidos:
-
-* Criação de gym já teve mismatch de contrato (`code` obrigatório no backend).
-* Gym requests estavam desativados no sidebar.
-* Entitlements não refletem modelo modular real.
-
-**Conclusão:** Vendível em demo assistida, ainda frágil para uso real sem supervisão.
+No es todavía production-grade.
 
 ---
 
-# 2) Estado Atual por Domínio
+## Gym Pilot Readiness (B2B pequeño gym)
 
-## 2.1 Autenticação e Sessão
+**Estado real: MVP demostrable con supervisión. No autónomo.**
+
+### Flujo teórico completo
+
+1. Usuario solicita unirse
+2. Admin/trainer acepta
+3. Membership cambia a ACTIVE
+4. Plan asignado manualmente
+5. Usuario ve plan
+
+### Validación real
+
+⚠ Hubo mismatch FE↔BE en creación de gym (`code` obligatorio)
+⚠ Hubo crash runtime en AdminGyms
+⚠ BFF devolvió shape inesperado
+⚠ Entitlements inconsistentes
+
+### Conclusión
+
+Vendible en demo asistida.
+No robusto para uso real sin soporte.
+
+---
+
+# 2) Estado por Dominio (Implementado vs Validado)
+
+---
+
+## 2.1 Autenticación y Sesión
+
+Implementado:
 
 * Cookie `fs_token`
 * Middleware protege `/app`
-* BFF obrigatório via `/api/*`
+* BFF obligatorio
 
-**Estado:** Estável
-**Risco:** Qualquer regressão aqui é P0 absoluto.
+Validado:
+
+* Funciona en dev
+* No se ha validado formalmente en build production
+
+Riesgo:
+P0 absoluto. Cualquier regresión aquí rompe todo.
+
+Estado: Estable pero sensible.
 
 ---
 
 ## 2.2 Onboarding & Perfil
 
-* Base implementada
-* i18n ES/EN funcional
-* Interpolação corrigida
+Implementado:
 
-**Estado:** Implementado
-**Polish pendente:** consistência total de chaves entre idiomas.
+* Perfil básico
+* i18n interpolaciones corregidas
+
+Validado:
+⚠ No hay checklist formal de regresión tras cambios recientes.
+
+Estado: Funcional, no auditado formalmente.
 
 ---
 
-## 2.3 Hoje (Core Loop)
+## 2.3 Hoy (Core Loop B2C)
+
+Implementado:
 
 * Quick actions
-* Integração com tracking
-* Estados explícitos
+* Integración tracking
 
-**Estado:** Funcional para demo
-**Próximo nível:** feedback unificado, toasts consistentes, retries claros.
+Validado:
+⚠ No hay evidencia documentada de flujo cronometrado limpio
+⚠ No hay smoke test automatizado
+
+Estado: Demo-ready, no certificado.
 
 ---
 
 ## 2.4 Tracking
 
-* BFF `/api/tracking`
-* Persistência backend real
-* Sem dados inventados
+Implementado:
 
-**Estado:** Implementado
-**Risco:** validação formal E2E ainda não documentada.
+* BFF `/api/tracking`
+* Persistencia backend
+
+Validado:
+⚠ No documentado E2E con evidencia reproducible
+
+Estado: Probablemente funcional, no formalizado.
 
 ---
 
 ## 2.5 Biblioteca
 
-* Lista + detalhe
+Implementado:
+
+* Lista
+* Detalle
 * Media viewer
-* Dedupe de badges resolvido
 
-**Estado:** Implementado
-**Melhoria:** skeletons premium + performance percebida.
+Pendiente:
 
----
+* Imágenes consistentes en vista trainer
+* Multi-add a planes
 
-## 2.6 Treino (B2C)
-
-* Planos existentes
-* Estrutura preparada para coexistir com Gym Pilot
-
-**Estado:** Base funcional
-**Nota estratégica:** Gym Pilot usa atribuição manual, não IA.
+Estado: Sólido en B2C, incompleto en Gym contexto.
 
 ---
 
-## 2.7 Nutrição (B2C)
+## 2.6 Gym Domain
 
-* Plano base
-* Meal cards + macros quando existem
-
-**Estado:** Base funcional
-**Ainda não é:** produto premium fechado com loop semanal completo.
-
----
-
-# 3) Gym Pilot – Estado Real
-
-## O que está implementado
-
-✔ Domínio Gym no backend
+Implementado:
+✔ Modelo Gym backend
 ✔ Membership states
-✔ Join por pedido
-✔ Join por código
-✔ Aceitar/rejeitar pedido
-✔ Ver membros ativos
-✔ Atribuir plano existente
+✔ Join request
+✔ Accept/reject
+✔ Asignación manual de plan
 
-## O que ainda é frágil
+Frágil:
+⚠ Contratos FE↔BFF↔BE cambiaron varias veces
+⚠ Admin create tuvo mismatch obligatorio
+⚠ Runtime crash en AdminGyms
+⚠ Build TypeScript roto recientemente
 
-⚠ Entitlements não alinhados
-⚠ Possível inconsistência entre UI e endpoints reais
-⚠ Não há ainda “modo demo seedado” controlado
-⚠ Tempo real de fluxo < 2 minutos ainda não validado formalmente
+Estado real:
+Dominio implementado.
+Infraestructura aún inestable.
 
 ---
 
-# 4) Arquitetura – Estado Atual
+## 2.7 Trainer (Comercializable)
 
-## Frontend
+Implementado:
+
+* Listado base de planes
+* Asignación manual básica
+
+No validado:
+⚠ Plantilla dinámica por nº días no cerrada
+⚠ Search biblioteca no validada formalmente
+⚠ Remove client no auditado en BE
+
+Estado:
+Base funcional.
+No validado como herramienta comercial sólida.
+
+---
+
+# 3) Arquitectura – Estado Real
+
+Frontend:
 
 * Next.js App Router
-* BFF obrigatório
-* Estados explícitos
-* Algumas duplicidades estruturais
+* BFF obligatorio
+* Tipado estricto
+* Varios errores TS recientes
+* Componentes marketing rompieron build
 
-## Backend
+Backend:
 
 * Fastify + Prisma
-* Backend como fonte de verdade
-* Gym domain integrado
+* Dominio Gym integrado
+* Backend como source of truth
 
-## Ponto crítico técnico
+Riesgo estructural actual:
 
-* Modularidade comercial ainda não está alinhada entre FE e BE.
-* Tier “GYM” no frontend não corresponde a modelo real de planos no backend.
-
-Isso não quebra demo, mas quebra modelo de produto a médio prazo.
-
----
-
-# 5) Linhas Vermelhas (Continuam Válidas)
-
-* Nunca quebrar `fs_token`
-* Nunca chamar backend direto do browser
-* Nunca inventar dados
-* Feature incompleta deve estar hidden
-* PRs pequenos e reversíveis
-* Build vermelho é bloqueador total
+* Falta de “build gate” obligatorio antes de merge
+* No hay pipeline que bloquee PR si TypeScript falla
+* Entitlements no alineados completamente
 
 ---
 
-# 6) Qualidade – Estado Real
+# 4) Calidad – Estado Real
 
-## Obrigatório para “vendível em demo”
+Build:
 
-✔ Build web PASS (assumido após PR-1A)
-✔ Zero console errors nos fluxos principais (necessita validação formal)
-✔ Gym Pilot fluxo completo manualmente testado
+* Ha fallado varias veces en los últimos cambios
+* TypeScript estrictamente activo
 
-## Ainda não formalizado
+Console errors:
+⚠ No hay validación formal de “0 errores consola” en flujos Gym
 
-* Lint gate consistente
-* Typecheck gate consistente
-* Smoke tests mínimos
-* Checklist de regressão automatizado
+Testing:
 
----
+* No hay smoke tests automatizados
+* No hay checklist formal obligatorio por PR
 
-# 7) Riscos Estratégicos Atuais
-
-1. Entitlements inconsistentes podem gerar acessos indevidos.
-2. Modularidade comercial ainda conceptual.
-3. Duplicidades de rotas e helpers podem causar bugs difíceis.
-4. Falta de seed demo consistente.
-5. Ainda dependes demasiado de validação manual.
+Estado:
+Calidad dependiente del Founder.
 
 ---
 
-# 8) Foco Estratégico Próximo (2–4 semanas)
+# 5) Riesgos Estratégicos Actuales
 
-## Fase 1 – “Gym Pilot Rock-Solid”
-
-* Validar fluxo completo com cronómetro
-* Seed de demo estável
-* Corrigir qualquer mismatch restante
-* Garantir 0 erros console
-
-## Fase 2 – “Core Loop Premium”
-
-* Hoje + Tracking impecáveis
-* UX mobile refinada
-* Estados 100% consistentes
-
-## Fase 3 – “Entitlements Reais”
-
-* Refatorar gating baseado em módulos backend
-* Remover tier inventado
-* Preparar modelo comercial limpo
+1. Entitlements inconsistentes pueden permitir accesos indebidos.
+2. Build no blindado con gate automático.
+3. Contratos FE↔BE no están formalmente versionados.
+4. Múltiples hotfix manuales indican fragilidad.
+5. MVP depende demasiado de tu intervención directa.
 
 ---
 
-# 9) O que NÃO é prioridade agora
+# 6) Diagnóstico Honesto
 
-* White-label avançado
-* App nativa
-* Billing sofisticado
-* Crescimento orgânico
-* IA avançada para gym
+FitSculpt ya no es un prototipo.
+Pero todavía no es un sistema robusto y autónomo.
+
+Está en una fase crítica:
+
+✔ Dominio fuerte
+✔ Arquitectura clara
+✔ MVP comercialmente atractivo
+
+Pero necesita:
+
+* Estabilidad de build
+* Contratos cerrados
+* Flujo Gym cronometrado sin errores
+* Entitlements coherentes
 
 ---
 
-# 10) Diagnóstico Honesto
+# 7) Qué significa esto estratégicamente
 
-FitSculpt já não é um protótipo.
-Mas também ainda não é um produto operacional autónomo.
+Hoy puedes:
+✔ Hacer demo controlada
+✔ Mostrar flujo completo asistido
 
-Está num ponto forte:
+Hoy no puedes:
+✖ Dejarlo en manos del gym sin supervisión
+✖ Considerarlo production-grade
+✖ Escalar sin riesgo de regresión
 
-* Demo vendível
-* Base técnica sólida
-* Domínio Gym implementado
+---
 
-O que falta não é feature.
-É **coerência estrutural, validação formal e consolidação**.
+# 8) Próximo Foco Estratégico Real (no features nuevas)
 
-Se quiseres, posso agora:
+Fase 1 – Estabilidad Absoluta (1 semana)
 
-1. Transformar isto num “Board Estratégico 30 dias” ultra claro.
-2. Ou fazer um “Plano de Fecho para Primeira Venda Real”.
-3. Ou preparar um “Checklist de Demo Premium para impressionar gym owner”.
+* Build PASS obligatorio en cada commit
+* Script CI local mínimo
+* Validar flujo Gym con cronómetro
+* 0 errores consola
 
-Tu decides a próxima jogada.
+Fase 2 – Gym Rock Solid (1–2 semanas)
+
+* Seed demo estable
+* Remove client validado BE
+* Plantilla planes cerrada
+* Multi-add ejercicios validado
+
+Fase 3 – Entitlements reales
+
+* Backend-driven gating
+* Eliminar tiers inventados
+* Modelo comercial limpio
+
+---
+
+# 9) Conclusión Estratégica
+
+FitSculpt está en el punto exacto donde muchos proyectos mueren o escalan.
+
+No necesita más features.
+Necesita coherencia, validación formal y disciplina de build.
+
+El producto es vendible.
+La estructura aún no es inquebrantable.
+
