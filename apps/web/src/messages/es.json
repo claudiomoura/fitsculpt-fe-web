@@ -2119,7 +2119,22 @@
         "pendingLocalBadge": "Pendiente (local)"
       },
       "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend.",
-      "forbiddenHint": "No tienes permiso para ver el contexto de entrenador de este cliente. Verifica acceso al gimnasio y asignación."
+      "forbiddenHint": "No tienes permiso para ver el contexto de entrenador de este cliente. Verifica acceso al gimnasio y asignación.",
+      "notes": {
+        "title": "Notas del entrenador",
+        "loading": "Cargando notas...",
+        "empty": "Todavía no hay notas para este cliente.",
+        "unsupported": "Las notas no están disponibles en este entorno.",
+        "forbidden": "No tienes permiso para acceder a las notas de este cliente.",
+        "loadError": "No pudimos cargar las notas en este momento.",
+        "inputLabel": "Nueva nota del entrenador",
+        "inputPlaceholder": "Escribe una nota para este cliente...",
+        "submit": "Crear nota",
+        "submitting": "Guardando nota...",
+        "submitSuccess": "Nota guardada correctamente.",
+        "submitError": "No pudimos guardar esta nota. Inténtalo de nuevo."
+      },
+      "nextReviewDate": "Próxima revisión"
     },
     "planBuilder": {
       "title": "Constructor de planes",

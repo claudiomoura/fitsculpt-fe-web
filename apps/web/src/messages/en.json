@@ -2115,6 +2115,21 @@
         "adjustmentsEmpty": "No adjustment drafts saved on this device yet.",
         "pendingLocalBadge": "Pending (local)"
       },
+      "notes": {
+        "title": "Coach notes",
+        "loading": "Loading notes...",
+        "empty": "No notes available for this client yet.",
+        "unsupported": "Notes are not available in this environment.",
+        "forbidden": "You don't have permission to access notes for this client.",
+        "loadError": "We could not load notes right now.",
+        "inputLabel": "New coach note",
+        "inputPlaceholder": "Write a note for this client...",
+        "submit": "Create note",
+        "submitting": "Saving note...",
+        "submitSuccess": "Note saved successfully.",
+        "submitError": "We could not save this note. Please retry."
+      },
+      "nextReviewDate": "Next review",
       "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
       "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment."
     },
