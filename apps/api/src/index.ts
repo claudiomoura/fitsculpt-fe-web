@@ -6298,6 +6298,14 @@ const gymAdminUpdateMemberRoleSchema = z.object({
   role: z.enum(["MEMBER", "TRAINER"]),
 });
 
+const trainerGymProfileUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+  })
+  .refine((payload) => Object.keys(payload).length > 0, {
+    message: "At least one field must be provided.",
+  });
+
 const adminCreateGymSchema = z.object({
   name: z.string().trim().min(2).max(120),
   code: z
@@ -6347,6 +6355,94 @@ function serializeGymMembership(
     role,
   };
 }
+
+async function getTrainerManagedGymMembership(userId: string) {
+  return prisma.gymMembership.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+      role: { in: ["ADMIN", "TRAINER"] },
+    },
+    select: {
+      gymId: true,
+      role: true,
+      gym: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          activationCode: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+    orderBy: [
+      { role: "asc" },
+      { updatedAt: "desc" },
+    ],
+  });
+}
+
+app.get("/trainer/gym", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const membership = await getTrainerManagedGymMembership(user.id);
+
+    if (!membership) {
+      return reply
+        .status(403)
+        .send({ error: "FORBIDDEN", message: "Only active gym trainers/admins can access this resource." });
+    }
+
+    return reply.status(200).send({
+      gym: membership.gym,
+      membership: {
+        role: membership.role,
+      },
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/trainer/gym", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const payload = trainerGymProfileUpdateSchema.parse(request.body);
+    const membership = await getTrainerManagedGymMembership(user.id);
+
+    if (!membership) {
+      return reply
+        .status(403)
+        .send({ error: "FORBIDDEN", message: "Only active gym trainers/admins can access this resource." });
+    }
+
+    const updatedGym = await prisma.gym.update({
+      where: { id: membership.gymId },
+      data: {
+        ...(payload.name !== undefined ? { name: payload.name } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        activationCode: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return reply.status(200).send({
+      gym: updatedGym,
+      membership: {
+        role: membership.role,
+      },
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
 
 app.get("/gyms", async (request, reply) => {
   try {
