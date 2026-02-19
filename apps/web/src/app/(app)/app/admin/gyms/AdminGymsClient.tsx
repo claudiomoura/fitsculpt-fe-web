@@ -97,7 +97,6 @@ export default function AdminGymsClient() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [membersUnsupported, setMembersUnsupported] = useState(false);
-  const [membersError, setMembersError] = useState<string | null>(null);
   const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
   const [roleUpdateUserId, setRoleUpdateUserId] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);

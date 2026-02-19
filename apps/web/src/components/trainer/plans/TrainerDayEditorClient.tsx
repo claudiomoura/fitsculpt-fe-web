@@ -9,6 +9,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise, TrainingPlanDay } from "@/lib/types";
 import { searchExercises } from "@/services/exercises/search";
 import { addExerciseToPlanDay, getTrainerPlanDetail } from "@/services/trainer/plans";
+import { fetchExercisesList } from "@/services/exercises";
 
 type Props = {
   planId: string;
