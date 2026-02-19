@@ -66,4 +66,60 @@ describe("GymPageClient", () => {
 
     expect(await screen.findByText("gym.membership.pending.title")).toBeInTheDocument();
   });
+
+  it("hides join and request actions for active memberships", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url === "/api/gym/me") {
+        return mockResponse({ ok: true, status: 200, payload: { state: "ACTIVE", gymId: "gym-1", gymName: "Fit Gym", role: "MEMBER" } });
+      }
+
+      if (url === "/api/gyms") {
+        return mockResponse({ ok: true, status: 200, payload: { data: [{ id: "gym-1", name: "Fit Gym" }] } });
+      }
+
+      throw new Error(`Unhandled fetch: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    render(
+      <ToastProvider>
+        <GymPageClient />
+      </ToastProvider>,
+    );
+
+    expect(await screen.findByText("gym.membership.active.title")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "gym.join.requestButton" })).not.toBeInTheDocument();
+    expect(screen.queryByText("gym.join.codeTitle")).not.toBeInTheDocument();
+  });
+
+  it("shows disabled actions banner for pending memberships", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url === "/api/gym/me") {
+        return mockResponse({ ok: true, status: 200, payload: { state: "PENDING", gymId: "gym-1", gymName: "Fit Gym", role: null } });
+      }
+
+      if (url === "/api/gyms") {
+        return mockResponse({ ok: true, status: 200, payload: { data: [{ id: "gym-1", name: "Fit Gym" }] } });
+      }
+
+      throw new Error(`Unhandled fetch: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    render(
+      <ToastProvider>
+        <GymPageClient />
+      </ToastProvider>,
+    );
+
+    expect(await screen.findByText("gym.membership.pending.title")).toBeInTheDocument();
+    expect(screen.getByText("gym.sections.disabledTitle")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "gym.join.requestButton" })).not.toBeInTheDocument();
+  });
 });
