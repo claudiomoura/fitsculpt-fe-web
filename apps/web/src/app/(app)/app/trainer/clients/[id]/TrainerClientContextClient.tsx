@@ -11,6 +11,7 @@ import { getRoleFlags } from "@/lib/roles";
 import TrainerClientDraftActions from "@/components/trainer/TrainerClientDraftActions";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
 import { fetchMyGymMembership } from "@/services/gym";
+import { trainerClientServiceCapabilities } from "@/services/trainer/clients";
 
 type AuthUser = Record<string, unknown>;
 
@@ -85,6 +86,7 @@ export default function TrainerClientContextClient() {
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const [removingClient, setRemovingClient] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const removeClientSupported = trainerClientServiceCapabilities.canRemoveClient;
 
   const handleRetry = useCallback(() => {
     window.location.reload();
@@ -318,14 +320,14 @@ export default function TrainerClientContextClient() {
       <section className="card form-stack" aria-label={t("trainer.clientContext.removeClient.title")}>
         <h3 style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.title")}</h3>
         <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.description")}</p>
-        {!canAccessTrainer ? (
+        {!canAccessTrainer || !removeClientSupported ? (
           <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.unsupported")}</p>
         ) : null}
         <button
           type="button"
           className="btn danger"
           style={{ width: "fit-content" }}
-          disabled={!canAccessTrainer}
+          disabled={!canAccessTrainer || !removeClientSupported}
           onClick={() => {
             setRemoveError(null);
             setRemoveModalOpen(true);
@@ -353,7 +355,7 @@ export default function TrainerClientContextClient() {
               type="button"
               className="btn danger"
               onClick={() => void removeClientRelation()}
-              disabled={!canAccessTrainer || removingClient}
+              disabled={!canAccessTrainer || !removeClientSupported || removingClient}
             >
               {removingClient ? t("trainer.clientContext.removeClient.submitting") : t("trainer.clientContext.removeClient.confirm")}
             </button>
@@ -364,7 +366,7 @@ export default function TrainerClientContextClient() {
           <p className="muted" style={{ margin: 0 }}>
             {t("trainer.clientContext.removeClient.modalWarning")}
           </p>
-          {!canAccessTrainer ? (
+          {!canAccessTrainer || !removeClientSupported ? (
             <p className="muted" style={{ margin: 0 }}>
               {t("trainer.clientContext.removeClient.unsupported")}
             </p>

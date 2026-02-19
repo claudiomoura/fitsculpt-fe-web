@@ -1694,7 +1694,12 @@
     "filterQueryLabel": "Query:",
     "errorTitle": "We couldn't load plans",
     "emptyTitle": "No plans in the library",
-    "retrySearch": "Retry search"
+    "retrySearch": "Retry search",
+    "activateCta": "Set as active",
+    "activeCta": "Active plan",
+    "activeBadge": "Active",
+    "activating": "Activating...",
+    "activateError": "We could not set this plan as active."
   },
   "workoutDetail": {
     "notFound": "This workout was not found.",

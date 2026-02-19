@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
@@ -12,6 +12,10 @@ import { SkeletonCard } from "@/components/ui/Skeleton";
 
 type TrainingPlanResponse = {
   items: TrainingPlanListItem[];
+};
+
+type ActiveTrainingPlanResponse = {
+  plan?: TrainingPlanListItem | null;
 };
 
 type UserRoleResponse = {
@@ -26,6 +30,9 @@ export default function TrainingLibraryClient() {
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const [activatingPlanId, setActivatingPlanId] = useState<string | null>(null);
+  const [activationError, setActivationError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -41,6 +48,38 @@ export default function TrainingLibraryClient() {
     void loadRole();
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadActivePlan = async () => {
+      try {
+        const response = await fetch("/api/training-plans/active?includeDays=0", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (response.status === 404 || response.status === 405) {
+          setActivePlanId(null);
+          return;
+        }
+
+        if (!response.ok) {
+          setActivePlanId(null);
+          return;
+        }
+
+        const payload = (await response.json()) as ActiveTrainingPlanResponse;
+        const id = payload.plan?.id;
+        setActivePlanId(typeof id === "string" && id.trim() ? id : null);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setActivePlanId(null);
+      }
+    };
+
+    void loadActivePlan();
+    return () => controller.abort();
+  }, [retryKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -90,6 +129,43 @@ export default function TrainingLibraryClient() {
       : focus === "upperLower"
         ? t("training.focusUpperLower")
         : t("training.focusFullBody");
+
+  const plansById = useMemo(() => new Map(plans.map((plan) => [plan.id, plan])), [plans]);
+
+  const activatePlan = async (planId: string) => {
+    if (activatingPlanId) return;
+
+    const plan = plansById.get(planId);
+    if (!plan) {
+      setActivationError(t("trainingPlans.activateError"));
+      return;
+    }
+
+    setActivatingPlanId(planId);
+    setActivationError(null);
+
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
+        body: JSON.stringify({ trainingPlan: plan }),
+      });
+
+      if (!response.ok) {
+        setActivationError(t("trainingPlans.activateError"));
+        setActivatingPlanId(null);
+        return;
+      }
+
+      setActivePlanId(planId);
+      setActivatingPlanId(null);
+    } catch (_err) {
+      setActivationError(t("trainingPlans.activateError"));
+      setActivatingPlanId(null);
+    }
+  };
 
   return (
     <section className="card">
@@ -148,24 +224,43 @@ export default function TrainingLibraryClient() {
         </div>
       ) : (
         <div className="list-grid mt-16">
-          {plans.map((plan) => (
-            <Link
-              key={plan.id}
-              href={`/app/biblioteca/entrenamientos/${plan.id}`}
-              className="feature-card library-card"
-            >
-              <h3>{plan.title}</h3>
-              {plan.notes ? <p className="muted">{plan.notes}</p> : null}
-              <div className="badge-list">
-                <span className="badge">{goalLabel(plan.goal)}</span>
-                <span className="badge">{levelLabel(plan.level)}</span>
-                <span className="badge">
-                  {t("training.daysPerWeek")}: {plan.daysPerWeek}
-                </span>
-                <span className="badge">{focusLabel(plan.focus)}</span>
-              </div>
-            </Link>
-          ))}
+          {plans.map((plan) => {
+            const isActive = activePlanId === plan.id;
+            const isActivating = activatingPlanId === plan.id;
+
+            return (
+              <article key={plan.id} className="feature-card library-card">
+                <h3>{plan.title}</h3>
+                {plan.notes ? <p className="muted">{plan.notes}</p> : null}
+                <div className="badge-list">
+                  <span className="badge">{goalLabel(plan.goal)}</span>
+                  <span className="badge">{levelLabel(plan.level)}</span>
+                  <span className="badge">
+                    {t("training.daysPerWeek")}: {plan.daysPerWeek}
+                  </span>
+                  <span className="badge">{focusLabel(plan.focus)}</span>
+                  {isActive ? <Badge variant="success">{t("trainingPlans.activeBadge")}</Badge> : null}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                  <Link href={`/app/biblioteca/entrenamientos/${plan.id}`} className="btn secondary">
+                    {t("trainingPlans.viewDetail")}
+                  </Link>
+                  <Button
+                    onClick={() => void activatePlan(plan.id)}
+                    disabled={isActive || Boolean(activatingPlanId)}
+                    aria-label={isActive ? t("trainingPlans.activeBadge") : t("trainingPlans.activateCta")}
+                  >
+                    {isActivating
+                      ? t("trainingPlans.activating")
+                      : isActive
+                        ? t("trainingPlans.activeCta")
+                        : t("trainingPlans.activateCta")}
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+          {activationError ? <p className="muted" style={{ marginTop: 8 }}>{activationError}</p> : null}
         </div>
       )}
     </section>
