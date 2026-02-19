@@ -1925,7 +1925,13 @@
     },
     "authRequiredTitle": "Autenticación requerida",
     "authRequiredDescription": "Necesitas una sesión activa con permisos suficientes para ver los planes de facturación.",
-    "checkoutComingSoon": "Checkout próximamente"
+    "checkoutComingSoon": "Checkout próximamente",
+    "warningsBannerTitle": "Avisos de facturación",
+    "configErrors": {
+      "title": "Problema de configuración de facturación",
+      "STRIPE_NOT_CONFIGURED": "La facturación no está completamente configurada todavía. Inténtalo de nuevo más tarde o contacta a soporte.",
+      "NO_VALID_PRICES": "No hay precios válidos configurados para los planes de facturación en este entorno. Contacta a soporte."
+    }
   },
   "settings": {
     "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",

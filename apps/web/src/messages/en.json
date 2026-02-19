@@ -1922,7 +1922,13 @@
     },
     "authRequiredTitle": "Authentication required",
     "authRequiredDescription": "You need an active session with sufficient permissions to view billing plans.",
-    "checkoutComingSoon": "Checkout coming soon"
+    "checkoutComingSoon": "Checkout coming soon",
+    "warningsBannerTitle": "Billing notices",
+    "configErrors": {
+      "title": "Billing configuration issue",
+      "STRIPE_NOT_CONFIGURED": "Billing is not fully configured yet. Please try again later or contact support.",
+      "NO_VALID_PRICES": "No valid prices are configured for billing plans in this environment. Please contact support."
+    }
   },
   "settings": {
     "subtitle": "Manage your account preferences and next steps.",
