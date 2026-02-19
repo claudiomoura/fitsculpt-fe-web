@@ -125,7 +125,8 @@ type BffDataEnvelope<T> = {
 };
 
 type BffGymMembership = {
-  state: MembershipStatus;
+  state?: MembershipStatus;
+  status?: MembershipStatus;
   gymId: string | null;
   gymName: string | null;
   role: string | null;
@@ -147,7 +148,8 @@ type BffJoinRequest = {
 };
 
 type BffGymMember = {
-  id: string;
+  id?: string;
+  userId?: string;
   name: string;
   email?: string;
   role?: string | null;
@@ -193,9 +195,10 @@ async function readJsonResponse<T>(
 export function parseMembership(payload: BffGymMembership | BffDataEnvelope<BffGymMembership>): GymMembership {
   const membership = unwrapDataEnvelope(payload);
   const role = normalize(asString(membership.role));
+  const resolvedStatus = membership.state ?? membership.status;
 
   return {
-    status: isMembershipStatus(membership.state) ? membership.state : "NONE",
+    status: isMembershipStatus(resolvedStatus) ? resolvedStatus : "NONE",
     gymId: asString(membership.gymId),
     gymName: asString(membership.gymName),
     role,
@@ -203,12 +206,17 @@ export function parseMembership(payload: BffGymMembership | BffDataEnvelope<BffG
 }
 
 function parseGymMembers(payload: BffGymMember[] | BffDataEnvelope<BffGymMember[]>): GymMember[] {
-  return unwrapDataEnvelope(payload).map((member) => ({
-    id: member.id,
-    name: member.name,
-    ...(member.email ? { email: member.email } : {}),
-    role: member.role ?? null,
-  }));
+  return unwrapDataEnvelope(payload).flatMap((member) => {
+    const memberId = asString(member.id) ?? asString(member.userId);
+    if (!memberId) return [];
+
+    return [{
+      id: memberId,
+      name: member.name,
+      ...(member.email ? { email: member.email } : {}),
+      role: member.role ?? null,
+    }];
+  });
 }
 
 

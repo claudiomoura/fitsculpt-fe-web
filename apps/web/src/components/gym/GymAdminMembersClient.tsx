@@ -30,6 +30,12 @@ const ROLE_LABELS: Record<string, string> = {
   MEMBER: "MEMBER",
 };
 
+function emitGymMembershipRefresh() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event("gym-membership:refresh"));
+  window.dispatchEvent(new Event("auth:refresh"));
+}
+
 export function GymAdminMembersClient() {
   const { t } = useLanguage();
   const [gymId, setGymId] = useState<string | null>(null);
@@ -169,6 +175,7 @@ export function GymAdminMembersClient() {
         }
         setSuccessMessage(t(action === "accept" ? "admin.gymRequestsAccept" : "admin.gymRequestsReject"));
         await loadData();
+        emitGymMembershipRefresh();
       } catch (_err) {
         setError(t("admin.gymRequestsActionError"));
       } finally {
