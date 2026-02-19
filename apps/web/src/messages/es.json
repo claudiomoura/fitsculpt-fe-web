@@ -1697,7 +1697,12 @@
     "filterQueryLabel": "Consulta:",
     "errorTitle": "No pudimos cargar planes",
     "emptyTitle": "Sin planes en la biblioteca",
-    "retrySearch": "Reintentar búsqueda"
+    "retrySearch": "Reintentar búsqueda",
+    "activateCta": "Marcar como activo",
+    "activeCta": "Plan activo",
+    "activeBadge": "Activo",
+    "activating": "Activando...",
+    "activateError": "No pudimos marcar este plan como activo."
   },
   "workoutDetail": {
     "notFound": "No se encontró este entreno.",
