@@ -2483,6 +2483,7 @@
     }
   },
   "marketingPricing": {
+    "headerPlaceholder": "Header area reserved for the final sprint navigation.",
     "header": {
       "navigation": "Main navigation",
       "links": {
@@ -2494,12 +2495,13 @@
     "hero": {
       "title": "Plans that adapt to your progress",
       "subtitle": "Train and eat with clear structure, while staying flexible.",
-      "supporting": "Pick the plan that fits your current phase and switch whenever you need."
+      "supporting": "Pick the plan that fits your current phase and switch whenever you need.",
+      "cta": "View plans"
     },
     "plans": {
       "strength": {
-        "title": "Strength AI",
-        "price": "€14.99/month",
+        "title": "Strength IA",
+        "price": "14,99€",
         "tagline": "Strength, hypertrophy, and automatic progression",
         "cta": "Start Strength",
         "features": {
@@ -2510,8 +2512,8 @@
         }
       },
       "pro": {
-        "title": "Pro",
-        "price": "€19.99/month",
+        "title": "PRO",
+        "price": "19,99€",
         "badge": "Most popular",
         "tagline": "Strength + Nutrition in one system",
         "cta": "Choose Pro",
@@ -2523,8 +2525,8 @@
         }
       },
       "nutrition": {
-        "title": "Nutrition AI",
-        "price": "€14.99/month",
+        "title": "Nutrition IA",
+        "price": "14,99€",
         "tagline": "Macros, recipes, and adherence without overcomplicating",
         "cta": "Start Nutrition",
         "features": {
@@ -2536,6 +2538,36 @@
       }
     },
     "billingNote": "Cancel anytime. Taxes included where applicable.",
+    "features": {
+      "title": "Why members choose FitSculpt",
+      "subtitle": "Built to help you stay consistent with less friction.",
+      "items": {
+        "one": {
+          "title": "Guided progression",
+          "description": "Every week has a clear structure so you always know your next step."
+        },
+        "two": {
+          "title": "Adaptive planning",
+          "description": "Adjust your workload and nutrition targets as your routine changes."
+        },
+        "three": {
+          "title": "Smart nutrition",
+          "description": "Macro targets and practical meal ideas focused on adherence."
+        },
+        "four": {
+          "title": "Progress visibility",
+          "description": "Track strength, body metrics, and habits in one dashboard."
+        },
+        "five": {
+          "title": "Practical workflows",
+          "description": "Designed for real schedules with fast actions and clear priorities."
+        },
+        "six": {
+          "title": "One unified platform",
+          "description": "Train and eat with one system instead of disconnected tools."
+        }
+      }
+    },
     "testimonials": {
       "title": "What members are saying",
       "subtitle": "Real feedback from users training with more clarity.",
