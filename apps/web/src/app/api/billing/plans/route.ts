@@ -15,7 +15,7 @@ function jsonNoStore(body: unknown, status: number) {
 }
 
 export async function GET() {
-  const token = cookies().get("fs_token")?.value;
+  const token = (await cookies()).get("fs_token")?.value;
   if (!token) {
     return jsonNoStore({ error: "UNAUTHORIZED" }, 401);
   }
@@ -31,24 +31,16 @@ export async function GET() {
     return jsonNoStore({ error: "BACKEND_URL_NOT_CONFIGURED" }, 500);
   }
 
-  const response = await fetch(`${backendUrl}/billing/plans`, {
-    headers: { cookie: `fs_token=${token}` },
-    cache: "no-store",
-  }).catch(() => null);
-
-  if (!response) {
+  let response: Response;
+  try {
+    response = await fetch(`${backendUrl}/billing/plans`, {
+      headers: { cookie: `fs_token=${token}` },
+      cache: "no-store",
+    });
+  } catch {
     return jsonNoStore({ error: "BACKEND_UNAVAILABLE" }, 502);
   }
 
   const data: unknown = await response.json().catch(() => null);
-
-  if (response.status === 404) {
-    return jsonNoStore({ error: "BILLING_NOT_AVAILABLE", plans: [] }, 501);
-  }
-
-  if (response.status === 401 || response.status === 403 || response.status === 200) {
-    return jsonNoStore(data, response.status);
-  }
-
   return jsonNoStore(data, response.status);
 }
