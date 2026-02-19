@@ -55,7 +55,6 @@ export default function PricingPage() {
     <div className="pricing-page min-h-screen">
       <main className="pricing-container mx-auto w-full max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
         <section className="pricing-hero">
-          {/* Si tus i18n keys no existen, esto mostrará la key (como te pasa ahora). */}
           <h1 className="pricing-hero__title">
             {t("marketingPricing.title")}
           </h1>

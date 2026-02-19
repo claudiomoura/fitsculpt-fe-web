@@ -2575,6 +2575,8 @@
   },
   "marketingPricing": {
     "headerPlaceholder": "Header area reserved for the final sprint navigation.",
+    "title": "Plans",
+    "subtitle": "Cancel anytime. Taxes included where applicable.",
     "header": {
       "navigation": "Main navigation",
       "links": {
