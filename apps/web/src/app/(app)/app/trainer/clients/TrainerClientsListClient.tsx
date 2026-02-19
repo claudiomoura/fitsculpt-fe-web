@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { probeTrainerClientsCapability, type TrainerClientsCapability } from "@/lib/trainerCapability";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
+import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
 
 type ListState = "loading" | "ready";
@@ -169,7 +170,7 @@ export default function TrainerClientsListClient() {
 
   if (!canAccessTrainerArea) {
     if (membership.state === "not_in_gym") {
-      return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
+      return <TrainerGymRequiredState />;
     }
 
     if (gymError) {

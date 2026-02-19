@@ -51,7 +51,7 @@ export function useTrainerAreaAccess() {
       return false;
     }
 
-    if (membership.state === "unknown") {
+    if (membership.state !== "in_gym") {
       return false;
     }
 

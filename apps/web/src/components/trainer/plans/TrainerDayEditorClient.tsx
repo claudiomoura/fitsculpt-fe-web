@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
+import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise, TrainingPlanDay } from "@/lib/types";
@@ -136,7 +137,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
 
   if (!canAccessTrainerArea) {
     if (membership.state === "not_in_gym") {
-      return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
+      return <TrainerGymRequiredState />;
     }
 
     if (gymError) {

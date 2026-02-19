@@ -5,6 +5,7 @@ import { LoadingState, EmptyState, ErrorState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import TrainerPlanAssignmentPanel from "@/components/trainer/TrainerPlanAssignmentPanel";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
+import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
 
 export default function TrainerHomeClient() {
@@ -21,7 +22,7 @@ export default function TrainerHomeClient() {
 
   if (!canAccessTrainerArea) {
     if (membership.state === "not_in_gym") {
-      return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
+      return <TrainerGymRequiredState />;
     }
 
     if (gymError) {

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
+import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
@@ -124,7 +125,7 @@ export default function TrainerPlansPageClient() {
 
   if (!canAccessTrainerArea) {
     if (membership.state === "not_in_gym") {
-      return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
+      return <TrainerGymRequiredState />;
     }
 
     if (gymError) {
