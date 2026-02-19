@@ -18,9 +18,10 @@ type NavItem = {
 };
 
 function isActivePath(pathname: string, href: string) {
-  if (href.startsWith("#") || href.includes("#")) return false;
-  if (href === "/") return pathname === "/";
-  return pathname.startsWith(href);
+  const [targetPath] = href.split("#");
+  if (!targetPath) return false;
+  if (targetPath === "/") return pathname === "/";
+  return pathname.startsWith(targetPath);
 }
 
 export function MarketingHeader() {
@@ -30,7 +31,7 @@ export function MarketingHeader() {
 
   const navItems = useMemo<NavItem[]>(
     () => [
-      { key: "plans", href: "/pricing" },
+      { key: "plans", href: "/pricing#plans" },
       { key: "features", href: "/#features" },
       { key: "testimonials", href: "/pricing#testimonials" },
     ],
@@ -67,21 +68,23 @@ export function MarketingHeader() {
               type="button"
               onClick={() => setLocale("es")}
               aria-pressed={locale === "es"}
+              aria-label={t("marketingPricing.header.language.switchToEs")}
               className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                 locale === "es" ? "bg-primary text-bg" : "text-text-muted hover:text-text"
               }`}
             >
-              ES
+              {t("marketingPricing.header.language.es")}
             </button>
             <button
               type="button"
               onClick={() => setLocale("en")}
               aria-pressed={locale === "en"}
+              aria-label={t("marketingPricing.header.language.switchToEn")}
               className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                 locale === "en" ? "bg-primary text-bg" : "text-text-muted hover:text-text"
               }`}
             >
-              EN
+              {t("marketingPricing.header.language.en")}
             </button>
           </div>
           <Link
@@ -98,21 +101,23 @@ export function MarketingHeader() {
               type="button"
               onClick={() => setLocale("es")}
               aria-pressed={locale === "es"}
+              aria-label={t("marketingPricing.header.language.switchToEs")}
               className={`rounded-md px-2 py-1 text-xs font-semibold ${
                 locale === "es" ? "bg-primary text-bg" : "text-text-muted"
               }`}
             >
-              ES
+              {t("marketingPricing.header.language.es")}
             </button>
             <button
               type="button"
               onClick={() => setLocale("en")}
               aria-pressed={locale === "en"}
+              aria-label={t("marketingPricing.header.language.switchToEn")}
               className={`rounded-md px-2 py-1 text-xs font-semibold ${
                 locale === "en" ? "bg-primary text-bg" : "text-text-muted"
               }`}
             >
-              EN
+              {t("marketingPricing.header.language.en")}
             </button>
           </div>
           <DropdownMenu>

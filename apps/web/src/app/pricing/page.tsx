@@ -72,7 +72,7 @@ export default function PricingPage() {
           </p>
         </section>
 
-        <section className="grid gap-5 lg:grid-cols-3 lg:items-stretch">
+        <section id="plans" className="grid gap-5 scroll-mt-24 lg:grid-cols-3 lg:items-stretch">
           {plans.map((plan) => (
             <article
               key={plan.key}

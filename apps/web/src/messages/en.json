@@ -2489,6 +2489,12 @@
         "plans": "Plans",
         "features": "Features",
         "testimonials": "Testimonials"
+      },
+      "language": {
+        "es": "ES",
+        "en": "EN",
+        "switchToEs": "Switch language to Spanish",
+        "switchToEn": "Switch language to English"
       }
     },
     "hero": {
