@@ -5402,7 +5402,8 @@ const trainerMemberParamsSchema = z.object({
 });
 const trainerPlanCreateSchema = z.object({
   title: z.string().trim().min(1).max(120),
-  daysCount: z.coerce.number().int().min(1).max(14),
+  daysCount: z.coerce.number().int().min(1).max(14).optional(),
+  description: z.string().trim().min(1).max(600).optional(),
   notes: z.string().trim().min(1).max(600).optional(),
   goal: z.string().trim().min(1).max(80).default("general_fitness"),
   level: z.string().trim().min(1).max(80).default("beginner"),
@@ -5410,6 +5411,9 @@ const trainerPlanCreateSchema = z.object({
   equipment: z.string().trim().min(1).max(120).default("bodyweight"),
   daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
   startDate: z.string().trim().min(1).optional(),
+}).refine((value) => value.daysCount !== undefined || value.daysPerWeek !== undefined, {
+  message: "daysCount or daysPerWeek is required",
+  path: ["daysCount"],
 });
 const trainerPlanUpdateSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
@@ -5450,6 +5454,55 @@ type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null;
+}
+
+function parseClientMetrics(profile: unknown, tracking: unknown) {
+  const profileRecord = isRecord(profile) ? profile : null;
+  const trackingRecord = isRecord(tracking) ? tracking : null;
+
+  const numberOrNull = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
+  const stringOrNull = (value: unknown) => (typeof value === "string" && value.trim().length > 0 ? value : null);
+
+  const measurementsRaw = profileRecord && isRecord(profileRecord.measurements) ? profileRecord.measurements : null;
+  const measurements = measurementsRaw
+    ? {
+        chestCm: numberOrNull(measurementsRaw.chestCm),
+        waistCm: numberOrNull(measurementsRaw.waistCm),
+        hipsCm: numberOrNull(measurementsRaw.hipsCm),
+        bicepsCm: numberOrNull(measurementsRaw.bicepsCm),
+        thighCm: numberOrNull(measurementsRaw.thighCm),
+        calfCm: numberOrNull(measurementsRaw.calfCm),
+        neckCm: numberOrNull(measurementsRaw.neckCm),
+        bodyFatPercent: numberOrNull(measurementsRaw.bodyFatPercent),
+      }
+    : null;
+
+  const checkins = trackingRecord && Array.isArray(trackingRecord.checkins) ? trackingRecord.checkins : [];
+  const latestCheckin = [...checkins]
+    .filter((entry) => isRecord(entry) && typeof entry.date === "string")
+    .sort((left, right) => {
+      const leftDate = Date.parse(String(left.date));
+      const rightDate = Date.parse(String(right.date));
+      return Number.isFinite(rightDate) && Number.isFinite(leftDate) ? rightDate - leftDate : 0;
+    })[0];
+
+  const progress = latestCheckin && isRecord(latestCheckin)
+    ? {
+        date: stringOrNull(latestCheckin.date),
+        weightKg: numberOrNull(latestCheckin.weightKg),
+        bodyFatPercent: numberOrNull(latestCheckin.bodyFatPercent),
+        notes: stringOrNull(latestCheckin.notes),
+      }
+    : null;
+
+  return {
+    heightCm: numberOrNull(profileRecord?.heightCm),
+    weightKg: numberOrNull(profileRecord?.weightKg),
+    goalWeightKg: numberOrNull(profileRecord?.goalWeightKg),
+    activity: stringOrNull(profileRecord?.activity),
+    measurements,
+    progress,
+  };
 }
 
 
@@ -6982,7 +7035,7 @@ app.post("/trainer/plans", async (request, reply) => {
       return reply.status(400).send({ error: "INVALID_START_DATE" });
     }
 
-    const daysCount = payload.daysCount;
+    const daysCount = payload.daysCount ?? payload.daysPerWeek ?? 7;
     const daysPerWeek = payload.daysPerWeek ?? Math.min(daysCount, 7);
     const dates = buildDateRange(startDate, daysCount);
 
@@ -6990,7 +7043,7 @@ app.post("/trainer/plans", async (request, reply) => {
       data: {
         userId: requester.id,
         title: payload.title,
-        notes: payload.notes ?? null,
+        notes: payload.notes ?? payload.description ?? null,
         goal: payload.goal,
         level: payload.level,
         daysPerWeek,
@@ -7267,6 +7320,12 @@ app.get("/trainer/clients", async (request, reply) => {
             isBlocked: true,
             subscriptionStatus: true,
             lastLoginAt: true,
+            profile: {
+              select: {
+                profile: true,
+                tracking: true,
+              },
+            },
           },
         },
       },
@@ -7283,6 +7342,7 @@ app.get("/trainer/clients", async (request, reply) => {
         subscriptionStatus: membership.user.subscriptionStatus,
         lastLoginAt: membership.user.lastLoginAt,
         assignedPlan: membership.assignedTrainingPlan,
+        metrics: parseClientMetrics(membership.user.profile?.profile ?? null, membership.user.profile?.tracking ?? null),
       })),
     };
   } catch (error) {
@@ -7332,6 +7392,12 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
             isBlocked: true,
             subscriptionStatus: true,
             lastLoginAt: true,
+            profile: {
+              select: {
+                profile: true,
+                tracking: true,
+              },
+            },
           },
         },
       },
@@ -7350,7 +7416,31 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
       subscriptionStatus: membership.user.subscriptionStatus,
       lastLoginAt: membership.user.lastLoginAt,
       assignedPlan: membership.assignedTrainingPlan,
+      metrics: parseClientMetrics(membership.user.profile?.profile ?? null, membership.user.profile?.tracking ?? null),
     };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/clients/:userId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
+      select: { id: true, role: true, status: true },
+    });
+
+    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.delete({ where: { id: targetMembership.id } });
+
+    return reply.status(200).send({ memberId: userId, gymId: managerMembership.gymId, removed: true });
   } catch (error) {
     return handleRequestError(reply, error);
   }
