@@ -2621,5 +2621,45 @@
       },
       "disclaimer": "Results vary based on individual context and consistency."
     }
+  },
+  "trainerClient360": {
+    "common": {
+      "notProvided": "Not provided"
+    },
+    "header": {
+      "status": "Status",
+      "nextReviewDate": "Next review date"
+    },
+    "profile": {
+      "title": "Profile summary",
+      "age": "Age",
+      "height": "Height",
+      "weight": "Weight"
+    },
+    "activity": {
+      "title": "Recent activity",
+      "loading": "Loading recent activity...",
+      "empty": "No recent activity yet.",
+      "error": "Could not load recent activity right now."
+    },
+    "assignPlan": {
+      "title": "Assign plan",
+      "description": "Select a plan to assign to this client.",
+      "confirm": "Assign plan",
+      "empty": "No plans available to assign."
+    },
+    "notes": {
+      "title": "Notes",
+      "empty": "No notes yet",
+      "addCta": "Add note"
+    },
+    "createNote": {
+      "title": "Create note",
+      "description": "Write a note to keep client context up to date.",
+      "confirm": "Create note",
+      "noteLabel": "Note",
+      "notePlaceholder": "Write your note here",
+      "nextReviewDate": "Next review date"
+    }
   }
 }

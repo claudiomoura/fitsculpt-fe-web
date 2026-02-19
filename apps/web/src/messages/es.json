@@ -2624,5 +2624,45 @@
       },
       "disclaimer": "Los resultados dependen del contexto y la constancia de cada persona."
     }
+  },
+  "trainerClient360": {
+    "common": {
+      "notProvided": "No proporcionado"
+    },
+    "header": {
+      "status": "Estado",
+      "nextReviewDate": "Próxima fecha de revisión"
+    },
+    "profile": {
+      "title": "Resumen del perfil",
+      "age": "Edad",
+      "height": "Altura",
+      "weight": "Peso"
+    },
+    "activity": {
+      "title": "Actividad reciente",
+      "loading": "Cargando actividad reciente...",
+      "empty": "Aún no hay actividad reciente.",
+      "error": "No se pudo cargar la actividad reciente ahora."
+    },
+    "assignPlan": {
+      "title": "Asignar plan",
+      "description": "Selecciona un plan para asignarlo a este cliente.",
+      "confirm": "Asignar plan",
+      "empty": "No hay planes disponibles para asignar."
+    },
+    "notes": {
+      "title": "Notas",
+      "empty": "Aún no hay notas",
+      "addCta": "Agregar nota"
+    },
+    "createNote": {
+      "title": "Crear nota",
+      "description": "Escribe una nota para mantener actualizado el contexto del cliente.",
+      "confirm": "Crear nota",
+      "noteLabel": "Nota",
+      "notePlaceholder": "Escribe tu nota aquí",
+      "nextReviewDate": "Próxima fecha de revisión"
+    }
   }
 }
