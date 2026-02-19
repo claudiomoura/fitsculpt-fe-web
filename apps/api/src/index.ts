@@ -71,6 +71,21 @@ type StripeCustomer = {
   id: string;
 };
 
+type StripeProduct = {
+  id: string;
+  name?: string | null;
+};
+
+type StripePrice = {
+  id: string;
+  currency: string;
+  unit_amount: number | null;
+  recurring?: {
+    interval?: string | null;
+  } | null;
+  product?: string | StripeProduct | null;
+};
+
 await app.register(cors, {
   origin: env.CORS_ORIGIN,
   credentials: true,
@@ -199,6 +214,24 @@ function getAvailableBillingPlans() {
   return plans.filter(
     (entry): entry is (typeof plans)[number] & { priceId: string } => typeof entry.priceId === "string"
   );
+}
+
+function parseStripeAmount(price: StripePrice): number {
+  if (typeof price.unit_amount !== "number") return 0;
+  return price.unit_amount / 100;
+}
+
+function resolveStripePlanTitle(price: StripePrice, fallbackPlan: SubscriptionPlan): string {
+  if (price.product && typeof price.product === "object" && typeof price.product.name === "string" && price.product.name.trim()) {
+    return price.product.name;
+  }
+  return fallbackPlan;
+}
+
+function isStripeCredentialError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const anyError = error as Error & { code?: string; debug?: { status?: number } };
+  return anyError.code === "STRIPE_REQUEST_FAILED" && (anyError.debug?.status === 401 || anyError.debug?.status === 403);
 }
 
 function requireStripeWebhookSecret() {
@@ -3887,6 +3920,43 @@ app.post("/billing/checkout", async (request, reply) => {
       "billing checkout failed"
     );
     return handleRequestError(reply, err);
+  }
+});
+
+app.get("/billing/plans", async (request, reply) => {
+  try {
+    await requireUser(request);
+    const availablePlans = getAvailableBillingPlans();
+
+    const plans = await Promise.all(
+      availablePlans.map(async ({ plan, priceId }) => {
+        try {
+          const stripePrice = await stripeRequest<StripePrice>(`prices/${priceId}`, {
+            expand: "product",
+          }, { method: "GET" });
+
+          return {
+            planKey: plan,
+            title: resolveStripePlanTitle(stripePrice, plan),
+            price: {
+              amount: parseStripeAmount(stripePrice),
+              currency: (stripePrice.currency ?? "usd").toUpperCase(),
+              interval: stripePrice.recurring?.interval ?? "month",
+            },
+            priceId: stripePrice.id,
+          };
+        } catch (error) {
+          if (isStripeCredentialError(error)) {
+            throw createHttpError(500, "STRIPE_NOT_CONFIGURED");
+          }
+          throw createHttpError(500, "STRIPE_PRICE_INVALID", { plan, priceId });
+        }
+      })
+    );
+
+    return reply.status(200).send({ plans });
+  } catch (error) {
+    return handleRequestError(reply, error);
   }
 });
 
