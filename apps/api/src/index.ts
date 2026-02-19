@@ -6351,9 +6351,33 @@ function serializeGymMembership(
   return {
     status,
     state: toLegacyGymMembershipState(status),
+    gymId: gym?.id ?? null,
+    gymName: gym?.name ?? null,
     gym,
     role,
   };
+}
+
+async function findBlockingGymMembership(userId: string) {
+  return prisma.gymMembership.findFirst({
+    where: {
+      userId,
+      status: { in: ["PENDING", "ACTIVE"] },
+    },
+    select: {
+      id: true,
+      gymId: true,
+      status: true,
+      role: true,
+      gym: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
 }
 
 async function getTrainerManagedGymMembership(userId: string) {
@@ -6477,6 +6501,19 @@ const createGymJoinRequest = async (request: FastifyRequest, reply: FastifyReply
     if (!gym) {
       return reply.status(404).send({ error: "NOT_FOUND", message: "Gym not found." });
     }
+    const blockingMembership = await findBlockingGymMembership(user.id);
+    if (blockingMembership) {
+      return reply.status(409).send({
+        error: "GYM_MEMBERSHIP_CONFLICT",
+        message: "User already has an active or pending gym membership.",
+        membership: serializeGymMembership({
+          status: blockingMembership.status,
+          role: blockingMembership.role,
+          gym: blockingMembership.gym,
+        }),
+      });
+    }
+
     const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId, userId: user.id } },
     });
@@ -6516,6 +6553,19 @@ app.post("/gyms/join-by-code", async (request, reply) => {
     const gym = await prisma.gym.findUnique({ where: { code: normalizedCode } });
     if (!gym) {
       return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
+    }
+
+    const blockingMembership = await findBlockingGymMembership(user.id);
+    if (blockingMembership) {
+      return reply.status(409).send({
+        error: "GYM_MEMBERSHIP_CONFLICT",
+        message: "User already has an active or pending gym membership.",
+        membership: serializeGymMembership({
+          status: blockingMembership.status,
+          role: blockingMembership.role,
+          gym: blockingMembership.gym,
+        }),
+      });
     }
 
     const existing = await prisma.gymMembership.findUnique({
@@ -6588,6 +6638,19 @@ app.post("/gym/join-code", async (request, reply) => {
 
     if (!gym) {
       return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
+    }
+
+    const blockingMembership = await findBlockingGymMembership(user.id);
+    if (blockingMembership) {
+      return reply.status(409).send({
+        error: "GYM_MEMBERSHIP_CONFLICT",
+        message: "User already has an active or pending gym membership.",
+        membership: serializeGymMembership({
+          status: blockingMembership.status,
+          role: blockingMembership.role,
+          gym: blockingMembership.gym,
+        }),
+      });
     }
 
     const existing = await prisma.gymMembership.findUnique({
@@ -6727,7 +6790,7 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
     const membership = await prisma.gymMembership.findUnique({
       where: { id: membershipId },
-      select: { id: true, gymId: true, status: true },
+      select: { id: true, gymId: true, userId: true, status: true, role: true },
     });
     if (!membership) {
       return reply.status(404).send({ error: "NOT_FOUND", message: "Membership request not found." });
@@ -6738,9 +6801,44 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     if (!isGlobalAdmin) {
       await requireGymManagerForGym(user.id, membership.gymId);
     }
+
+    const activeMembershipElsewhere = await prisma.gymMembership.findFirst({
+      where: {
+        userId: membership.userId,
+        status: "ACTIVE",
+        gymId: { not: membership.gymId },
+      },
+      select: {
+        id: true,
+        gym: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    if (activeMembershipElsewhere) {
+      return reply.status(409).send({
+        error: "GYM_MEMBERSHIP_CONFLICT",
+        message: "User already belongs to another active gym.",
+        activeMembership: {
+          id: activeMembershipElsewhere.id,
+          gym: activeMembershipElsewhere.gym,
+        },
+      });
+    }
+
+    await prisma.gymMembership.updateMany({
+      where: {
+        userId: membership.userId,
+        status: "PENDING",
+        id: { not: membership.id },
+      },
+      data: { status: "REJECTED" },
+    });
+
     const updateResult = await prisma.gymMembership.updateMany({
       where: { id: membership.id, status: "PENDING" },
-      data: { status: "ACTIVE" },
+      data: { status: "ACTIVE", role: membership.role },
     });
 
     if (updateResult.count === 0) {
