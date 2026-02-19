@@ -221,6 +221,7 @@ export default function TrainingLibraryClient() {
       setActivePlanId(planId);
       setProcessingPlanId(null);
       setActivateTarget(null);
+      setRetryKey((prev) => prev + 1);
       notify({ title: t("trainingPlans.activateSuccess"), variant: "success" });
     } catch {
       setActionError(t("trainingPlans.activateError"));
@@ -248,6 +249,7 @@ export default function TrainingLibraryClient() {
       setActivePlanId(null);
       setProcessingPlanId(null);
       setDeactivateTarget(null);
+      setRetryKey((prev) => prev + 1);
       notify({ title: t("trainingPlans.deactivateSuccess"), variant: "success" });
     } catch {
       setActionError(t("trainingPlans.deactivateError"));
@@ -278,6 +280,7 @@ export default function TrainingLibraryClient() {
       }
       setProcessingPlanId(null);
       setDeleteTarget(null);
+      setRetryKey((prev) => prev + 1);
       notify({ title: t("trainingPlans.deleteSuccess"), variant: "success" });
     } catch {
       setActionError(t("trainingPlans.deleteError"));

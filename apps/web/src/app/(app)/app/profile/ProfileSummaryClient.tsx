@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, mergeProfileData } from "@/lib/profileService";
+import { isTrainer as isTrainerRole } from "@/lib/roles";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -20,6 +21,7 @@ export default function ProfileSummaryClient() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isTrainer, setIsTrainer] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -49,8 +51,20 @@ export default function ProfileSummaryClient() {
       }
     };
 
+    const loadRole = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
+        if (!response.ok || !active) return;
+        const data = (await response.json()) as unknown;
+        setIsTrainer(isTrainerRole(data));
+      } catch (_err) {
+        if (active) setIsTrainer(false);
+      }
+    };
+
     void loadProfile();
     void loadTracking();
+    void loadRole();
     return () => {
       active = false;
     };
@@ -145,8 +159,8 @@ export default function ProfileSummaryClient() {
             <h2 className="section-title section-title-sm">{t("profile.summaryTitle")}</h2>
             <p className="section-subtitle">{t("profile.summarySubtitle")}</p>
           </div>
-          <ButtonLink href="/app/onboarding">
-            {t("profile.editProfile")}
+          <ButtonLink href={isTrainer ? "/app/gym" : "/app/onboarding"}>
+            {isTrainer ? t("profile.trainerGoToGym") : t("profile.editProfile")}
           </ButtonLink>
         </div>
         {error ? (
@@ -198,7 +212,18 @@ export default function ProfileSummaryClient() {
         )}
       </section>
 
-      <section className="card">
+      {isTrainer ? (
+        <section className="card">
+          <h3 className="section-title section-title-xs">{t("profile.trainerSummaryTitle")}</h3>
+          <p className="muted">{t("profile.trainerSummaryDescription")}</p>
+          <div className="inline-actions-sm">
+            <ButtonLink href="/app/gym">{t("profile.trainerGoToGym")}</ButtonLink>
+            <ButtonLink href="/app/trainer/plans">{t("profile.trainerGoToPlans")}</ButtonLink>
+          </div>
+        </section>
+      ) : null}
+
+      {!isTrainer ? <section className="card">
         <h3 className="section-title section-title-xs">{t("profile.summaryBasics")}</h3>
         {loading ? (
           <div className="info-grid">
@@ -253,9 +278,9 @@ export default function ProfileSummaryClient() {
             </div>
           </div>
         )}
-      </section>
+      </section> : null}
 
-      <section className="card">
+      {!isTrainer ? <section className="card">
         <h3 className="section-title section-title-xs">{t("profile.summaryGoals")}</h3>
         {loading ? (
           <div className="info-grid">
@@ -286,9 +311,9 @@ export default function ProfileSummaryClient() {
             </div>
           </div>
         )}
-      </section>
+      </section> : null}
 
-      <section className="card">
+      {!isTrainer ? <section className="card">
         <h3 className="section-title section-title-xs">{t("profile.summaryTraining")}</h3>
         {loading ? (
           <div className="info-grid">
@@ -387,9 +412,9 @@ export default function ProfileSummaryClient() {
             </div>
           </div>
         )}
-      </section>
+      </section> : null}
 
-      <section className="card">
+      {!isTrainer ? <section className="card">
         <h3 className="section-title section-title-xs">{t("profile.summaryNutrition")}</h3>
         {loading ? (
           <div className="info-grid">
@@ -440,9 +465,9 @@ export default function ProfileSummaryClient() {
             </div>
           </div>
         )}
-      </section>
+      </section> : null}
 
-      <section className="card">
+      {!isTrainer ? <section className="card">
         <h3 className="section-title section-title-xs">{t("profile.summaryAllergies")}</h3>
         {loading ? (
           <div className="info-grid">
@@ -475,7 +500,7 @@ export default function ProfileSummaryClient() {
             </div>
           </div>
         )}
-      </section>
+      </section> : null}
 
       <section className="card">
         <h3 className="section-title section-title-xs">{t("profile.summaryInjuries")}</h3>

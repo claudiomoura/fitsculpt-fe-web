@@ -249,6 +249,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiConfirmSaving, setAiConfirmSaving] = useState(false);
   const [aiPreviewPlan, setAiPreviewPlan] = useState<TrainingPlan | null>(null);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
+  const [canManageManualDays, setCanManageManualDays] = useState<boolean>(false);
   const [calendarView, setCalendarView] = useState<"day" | "week" | "month" | "agenda">("day");
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
@@ -298,6 +299,35 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       if (activeRef.current) setLoading(false);
     }
   };
+
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const detectManualDayCapability = async () => {
+      try {
+        const response = await fetch("/api/training-plans/placeholder/days", {
+          method: "OPTIONS",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (response.status === 404 || response.status === 405) {
+          setCanManageManualDays(false);
+          return;
+        }
+
+        const allow = (response.headers.get("allow") ?? "").toUpperCase();
+        const canManage = allow.includes("POST") || allow.includes("DELETE") || response.ok;
+        setCanManageManualDays(canManage);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setCanManageManualDays(false);
+      }
+    };
+
+    void detectManualDayCapability();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const ref = { current: true };
@@ -618,6 +648,38 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     });
   }
 
+
+  function addManualDay() {
+    if (!canManageManualDays) return;
+    setManualPlan((prev) => {
+      if (!prev) return prev;
+      const nextIndex = prev.days.length;
+      return {
+        ...prev,
+        days: [
+          ...prev.days,
+          {
+            label: `${t("training.dayLabel")} ${nextIndex + 1}`,
+            focus: t("training.focusFullBody"),
+            duration: 45,
+            exercises: [],
+          },
+        ],
+      };
+    });
+  }
+
+  function removeManualDay(dayIndex: number) {
+    if (!canManageManualDays) return;
+    setManualPlan((prev) => {
+      if (!prev) return prev;
+      if (prev.days.length <= 1) return prev;
+      return {
+        ...prev,
+        days: prev.days.filter((_, index) => index !== dayIndex),
+      };
+    });
+  }
 
   const handleAiPlan = async () => {
     if (!profile || !form) return;
@@ -1280,8 +1342,22 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           {manualPlan ? (
             <div className="form-stack">
               {manualPlan.days.map((day, dayIndex) => (
-                <div key={`${day.label}-${dayIndex}`} className="feature-card stack-md">
+                <div key={`manual-day-${dayIndex}`} className="feature-card stack-md">
                   <div className="inline-grid-2">
+                    <div className="inline-actions-sm" style={{ gridColumn: "1 / -1", justifyContent: "space-between" }}>
+                      <button type="button" className="btn secondary" onClick={addManualDay} disabled={!canManageManualDays}>
+                        {t("training.manualDayAdd")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary"
+                        onClick={() => removeManualDay(dayIndex)}
+                        disabled={!canManageManualDays || manualPlan.days.length <= 1}
+                      >
+                        {t("training.manualDayRemove")}
+                      </button>
+                    </div>
+                    {!canManageManualDays ? <p className="muted" style={{ gridColumn: "1 / -1" }}>{t("training.manualDayControlsUnavailable")}</p> : null}
                     <label className="form-stack">
                       {t("training.manualDayLabel")}
                       <input
@@ -1313,7 +1389,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                     ) : (
                       day.exercises.map((exercise, exerciseIndex) => (
                         <div
-                          key={`${exercise.name}-${exerciseIndex}`}
+                          key={`manual-exercise-${dayIndex}-${exerciseIndex}`}
                           className="training-manual-row"
                         >
                           <input

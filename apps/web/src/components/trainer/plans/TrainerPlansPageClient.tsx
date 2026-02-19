@@ -97,32 +97,37 @@ export default function TrainerPlansPageClient() {
     setCreateError(false);
     setCreateErrorMessage(null);
 
-    const result = await createTrainerPlan({
-      title: title.trim(),
-      daysPerWeek: Math.max(1, Math.min(14, daysPerWeek)),
-    });
+    try {
+      const result = await createTrainerPlan({
+        title: title.trim(),
+        daysPerWeek: Math.max(1, Math.min(14, daysPerWeek)),
+      });
 
-    if (!result.ok) {
-      if (isEndpointUnavailable(result.status)) {
-        setCreateDisabled(true);
+      if (!result.ok) {
+        if (isEndpointUnavailable(result.status)) {
+          setCreateDisabled(true);
+        }
+        setCreateError(true);
+        setCreateErrorMessage(result.message ?? t("trainer.plans.createError"));
+        return;
       }
-      setCreateError(true);
-      setCreateErrorMessage(result.message ?? t("trainer.plans.createError"));
-      setCreating(false);
-      return;
-    }
 
-    setTitle("");
-    setDaysPerWeek(3);
-    setCreating(false);
-    setCreateModalOpen(false);
-    notify({
-      title: t("trainer.plans.createSuccessTitle"),
-      description: t("trainer.plans.createSuccessDescription"),
-      variant: "success",
-    });
-    await loadPlans();
-    await loadPlanDetail(result.data.id);
+      setTitle("");
+      setDaysPerWeek(3);
+      setCreateModalOpen(false);
+      notify({
+        title: t("trainer.plans.createSuccessTitle"),
+        description: t("trainer.plans.createSuccessDescription"),
+        variant: "success",
+      });
+      await loadPlans();
+      await loadPlanDetail(result.data.id);
+    } catch (_error) {
+      setCreateError(true);
+      setCreateErrorMessage(t("trainer.plans.createError"));
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (accessLoading || gymLoading) {
@@ -214,7 +219,7 @@ export default function TrainerPlansPageClient() {
                 <article key={day.id} className="feature-card form-stack">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                     <strong>{day.label}</strong>
-                    <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item?.id}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>
+                    <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item.id}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>
                       {t("trainer.plans.editDay")}
                     </Link>
                   </div>
@@ -239,6 +244,7 @@ export default function TrainerPlansPageClient() {
         description={t("trainer.plans.createFlowDescription")}
       >
         <form className="form-stack" onSubmit={(event) => void onCreate(event)}>
+          {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
           <label className="form-stack" style={{ gap: 8 }}>
             <span className="muted">{t("trainer.plans.titleLabel")}</span>
             <input required value={title} disabled={createDisabled || creating} onChange={(event) => setTitle(event.target.value)} />
