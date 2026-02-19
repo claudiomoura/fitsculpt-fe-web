@@ -6,6 +6,8 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
 import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
+import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 import { createTrainerPlan, getTrainerPlanDetail, listCurrentGymTrainerPlans } from "@/services/trainer/plans";
@@ -24,6 +26,7 @@ function isEndpointUnavailable(status?: number): boolean {
 
 export default function TrainerPlansPageClient() {
   const { t } = useLanguage();
+  const { notify } = useToast();
   const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
 
   const [listState, setListState] = useState<LoadState>("loading");
@@ -37,6 +40,7 @@ export default function TrainerPlansPageClient() {
   const [createError, setCreateError] = useState(false);
   const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(null);
   const [createDisabled, setCreateDisabled] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DetailState>({ loading: false, error: false, item: null });
@@ -111,6 +115,12 @@ export default function TrainerPlansPageClient() {
     setTitle("");
     setDaysPerWeek(3);
     setCreating(false);
+    setCreateModalOpen(false);
+    notify({
+      title: t("trainer.plans.createSuccessTitle"),
+      description: t("trainer.plans.createSuccessDescription"),
+      variant: "success",
+    });
     await loadPlans();
     await loadPlanDetail(result.data.id);
   };
@@ -139,34 +149,17 @@ export default function TrainerPlansPageClient() {
     <div className="form-stack">
       <section className="card form-stack" aria-live="polite">
         <h2 className="section-title" style={{ fontSize: 20 }}>{t("trainer.plans.createTitle")}</h2>
+        <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.createFlowDescription")}</p>
         {createDisabled ? <p className="muted">{t("trainer.plans.createDisabled")}</p> : null}
-        <form className="form-stack" onSubmit={(event) => void onCreate(event)}>
-          <label className="form-stack" style={{ gap: 8 }}>
-            <span className="muted">{t("trainer.plans.titleLabel")}</span>
-            <input required value={title} disabled={createDisabled} onChange={(event) => setTitle(event.target.value)} />
-          </label>
-
-          <label className="form-stack" style={{ gap: 8 }}>
-            <span className="muted">{t("trainer.plans.daysLabel")}</span>
-            <input
-              type="number"
-              min={1}
-              max={14}
-              value={daysPerWeek}
-              disabled={createDisabled}
-              onChange={(event) => setDaysPerWeek(Math.max(1, Math.min(14, Number(event.target.value) || 1)))}
-            />
-          </label>
-
-          <button className="btn fit-content" type="submit" disabled={createDisabled || creating || !title.trim()}>
-            {creating ? t("trainer.plans.creating") : t("trainer.plans.create")}
+        <div>
+          <button className="btn fit-content" type="button" onClick={() => setCreateModalOpen(true)} disabled={createDisabled}>
+            {t("trainer.plans.create")}
           </button>
-
-          {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
-        </form>
+        </div>
+        {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
       </section>
 
-      <section className="card form-stack">
+      <section className="card form-stack" aria-live="polite">
         <h2 className="section-title" style={{ fontSize: 20 }}>{t("trainer.plans.listTitle")}</h2>
 
         {listState === "loading" ? <LoadingState ariaLabel={t("trainer.plans.loading")} lines={3} /> : null}
@@ -236,6 +229,43 @@ export default function TrainerPlansPageClient() {
           </>
         ) : null}
       </section>
+
+      <Modal
+        open={createModalOpen}
+        onClose={() => {
+          if (!creating) setCreateModalOpen(false);
+        }}
+        title={t("trainer.plans.createDraftTitle")}
+        description={t("trainer.plans.createFlowDescription")}
+      >
+        <form className="form-stack" onSubmit={(event) => void onCreate(event)}>
+          <label className="form-stack" style={{ gap: 8 }}>
+            <span className="muted">{t("trainer.plans.titleLabel")}</span>
+            <input required value={title} disabled={createDisabled || creating} onChange={(event) => setTitle(event.target.value)} />
+          </label>
+
+          <label className="form-stack" style={{ gap: 8 }}>
+            <span className="muted">{t("trainer.plans.daysLabel")}</span>
+            <input
+              type="number"
+              min={1}
+              max={14}
+              value={daysPerWeek}
+              disabled={createDisabled || creating}
+              onChange={(event) => setDaysPerWeek(Math.max(1, Math.min(14, Number(event.target.value) || 1)))}
+            />
+          </label>
+
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <button type="button" className="btn secondary" onClick={() => setCreateModalOpen(false)} disabled={creating}>
+              {t("ui.cancel")}
+            </button>
+            <button className="btn" type="submit" disabled={createDisabled || creating || !title.trim()}>
+              {creating ? t("trainer.plans.creating") : t("trainer.plans.create")}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

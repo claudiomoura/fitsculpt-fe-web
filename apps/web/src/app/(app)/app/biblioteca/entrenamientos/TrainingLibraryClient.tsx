@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
 
 type TrainingPlanResponse = {
   items: TrainingPlanListItem[];
@@ -22,8 +24,27 @@ type UserRoleResponse = {
   role?: "ADMIN" | "USER";
 };
 
+type PlanCapabilities = {
+  activate: boolean;
+  deactivate: boolean;
+  delete: boolean;
+  singleActive: boolean;
+};
+
+const initialCapabilities: PlanCapabilities = {
+  activate: false,
+  deactivate: false,
+  delete: false,
+  singleActive: false,
+};
+
+function parseAllowHeader(value: string | null): string[] {
+  return (value ?? "").split(",").map((entry) => entry.trim().toUpperCase()).filter(Boolean);
+}
+
 export default function TrainingLibraryClient() {
   const { t } = useLanguage();
+  const { notify } = useToast();
   const [query, setQuery] = useState("");
   const [plans, setPlans] = useState<TrainingPlanListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,8 +52,12 @@ export default function TrainingLibraryClient() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
-  const [activatingPlanId, setActivatingPlanId] = useState<string | null>(null);
-  const [activationError, setActivationError] = useState<string | null>(null);
+  const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [capabilities, setCapabilities] = useState<PlanCapabilities>(initialCapabilities);
+  const [activateTarget, setActivateTarget] = useState<TrainingPlanListItem | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<TrainingPlanListItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TrainingPlanListItem | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -42,44 +67,12 @@ export default function TrainingLibraryClient() {
         if (!response.ok) return;
         const data = (await response.json()) as UserRoleResponse;
         setIsAdmin(data.role === "ADMIN");
-      } catch (_err) {
+      } catch {
       }
     };
     void loadRole();
     return () => controller.abort();
   }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const loadActivePlan = async () => {
-      try {
-        const response = await fetch("/api/training-plans/active?includeDays=0", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (response.status === 404 || response.status === 405) {
-          setActivePlanId(null);
-          return;
-        }
-
-        if (!response.ok) {
-          setActivePlanId(null);
-          return;
-        }
-
-        const payload = (await response.json()) as ActiveTrainingPlanResponse;
-        const id = payload.plan?.id;
-        setActivePlanId(typeof id === "string" && id.trim() ? id : null);
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setActivePlanId(null);
-      }
-    };
-
-    void loadActivePlan();
-    return () => controller.abort();
-  }, [retryKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -115,6 +108,81 @@ export default function TrainingLibraryClient() {
     return () => controller.abort();
   }, [query, retryKey, t]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadCapabilitiesAndActive = async () => {
+      let canActivate = false;
+      let canDeactivate = false;
+      let singleActive = false;
+
+      try {
+        const activeOptions = await fetch("/api/training-plans/active", {
+          method: "OPTIONS",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const allowed = parseAllowHeader(activeOptions.headers.get("allow"));
+        canActivate = allowed.includes("POST");
+        canDeactivate = allowed.includes("DELETE");
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          canActivate = false;
+          canDeactivate = false;
+        }
+      }
+
+      try {
+        const activeResponse = await fetch("/api/training-plans/active?includeDays=0", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (activeResponse.ok) {
+          const payload = (await activeResponse.json()) as ActiveTrainingPlanResponse;
+          const id = payload.plan?.id;
+          setActivePlanId(typeof id === "string" && id.trim() ? id : null);
+          singleActive = true;
+        } else {
+          setActivePlanId(null);
+          singleActive = false;
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setActivePlanId(null);
+        singleActive = false;
+      }
+
+      let canDelete = false;
+      const sampleId = plans[0]?.id;
+      if (sampleId) {
+        try {
+          const detailOptions = await fetch(`/api/training-plans/${sampleId}`, {
+            method: "OPTIONS",
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          const allowed = parseAllowHeader(detailOptions.headers.get("allow"));
+          canDelete = allowed.includes("DELETE");
+        } catch (err) {
+          if (!(err instanceof DOMException && err.name === "AbortError")) {
+            canDelete = false;
+          }
+        }
+      }
+
+      setCapabilities({
+        activate: canActivate,
+        deactivate: canDeactivate,
+        delete: canDelete,
+        singleActive,
+      });
+    };
+
+    void loadCapabilitiesAndActive();
+    return () => controller.abort();
+  }, [plans, retryKey]);
+
   const goalLabel = (goal: string) =>
     goal === "cut" ? t("training.goalCut") : goal === "bulk" ? t("training.goalBulk") : t("training.goalMaintain");
   const levelLabel = (level: string) =>
@@ -130,40 +198,90 @@ export default function TrainingLibraryClient() {
         ? t("training.focusUpperLower")
         : t("training.focusFullBody");
 
-  const plansById = useMemo(() => new Map(plans.map((plan) => [plan.id, plan])), [plans]);
 
   const activatePlan = async (planId: string) => {
-    if (activatingPlanId) return;
-
-    const plan = plansById.get(planId);
-    if (!plan) {
-      setActivationError(t("trainingPlans.activateError"));
-      return;
-    }
-
-    setActivatingPlanId(planId);
-    setActivationError(null);
+    if (!capabilities.activate || processingPlanId) return;
+    setProcessingPlanId(planId);
+    setActionError(null);
 
     try {
-      const response = await fetch("/api/profile", {
-        method: "PUT",
+      const response = await fetch("/api/training-plans/active", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         cache: "no-store",
-        body: JSON.stringify({ trainingPlan: plan }),
+        body: JSON.stringify({ planId }),
       });
 
       if (!response.ok) {
-        setActivationError(t("trainingPlans.activateError"));
-        setActivatingPlanId(null);
+        setActionError(t("trainingPlans.activateError"));
+        setProcessingPlanId(null);
         return;
       }
 
       setActivePlanId(planId);
-      setActivatingPlanId(null);
-    } catch (_err) {
-      setActivationError(t("trainingPlans.activateError"));
-      setActivatingPlanId(null);
+      setProcessingPlanId(null);
+      setActivateTarget(null);
+      notify({ title: t("trainingPlans.activateSuccess"), variant: "success" });
+    } catch {
+      setActionError(t("trainingPlans.activateError"));
+      setProcessingPlanId(null);
+    }
+  };
+
+  const deactivatePlan = async () => {
+    if (!deactivateTarget || !capabilities.deactivate || processingPlanId) return;
+    setProcessingPlanId(deactivateTarget.id);
+    setActionError(null);
+
+    try {
+      const response = await fetch("/api/training-plans/active", {
+        method: "DELETE",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        setActionError(t("trainingPlans.deactivateError"));
+        setProcessingPlanId(null);
+        return;
+      }
+
+      setActivePlanId(null);
+      setProcessingPlanId(null);
+      setDeactivateTarget(null);
+      notify({ title: t("trainingPlans.deactivateSuccess"), variant: "success" });
+    } catch {
+      setActionError(t("trainingPlans.deactivateError"));
+      setProcessingPlanId(null);
+    }
+  };
+
+  const deletePlan = async () => {
+    if (!deleteTarget || !capabilities.delete || processingPlanId) return;
+    setProcessingPlanId(deleteTarget.id);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/training-plans/${deleteTarget.id}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        setActionError(t("trainingPlans.deleteError"));
+        setProcessingPlanId(null);
+        return;
+      }
+
+      setPlans((prev) => prev.filter((plan) => plan.id !== deleteTarget.id));
+      if (activePlanId === deleteTarget.id) {
+        setActivePlanId(null);
+      }
+      setProcessingPlanId(null);
+      setDeleteTarget(null);
+      notify({ title: t("trainingPlans.deleteSuccess"), variant: "success" });
+    } catch {
+      setActionError(t("trainingPlans.deleteError"));
+      setProcessingPlanId(null);
     }
   };
 
@@ -182,6 +300,8 @@ export default function TrainingLibraryClient() {
           {query.trim().length > 0 ? <Badge>{t("trainingPlans.filterQueryLabel")} {query.trim()}</Badge> : null}
         </div>
       </div>
+
+      {!capabilities.singleActive ? <p className="muted mt-8">{t("trainingPlans.singleActiveNotAvailable")}</p> : null}
 
       {loading ? (
         <div className="list-grid mt-16">
@@ -226,7 +346,7 @@ export default function TrainingLibraryClient() {
         <div className="list-grid mt-16">
           {plans.map((plan) => {
             const isActive = activePlanId === plan.id;
-            const isActivating = activatingPlanId === plan.id;
+            const isProcessing = processingPlanId === plan.id;
 
             return (
               <article key={plan.id} className="feature-card library-card">
@@ -246,23 +366,74 @@ export default function TrainingLibraryClient() {
                     {t("trainingPlans.viewDetail")}
                   </Link>
                   <Button
-                    onClick={() => void activatePlan(plan.id)}
-                    disabled={isActive || Boolean(activatingPlanId)}
+                    onClick={() => setActivateTarget(plan)}
+                    disabled={isActive || Boolean(processingPlanId) || !capabilities.activate}
                     aria-label={isActive ? t("trainingPlans.activeBadge") : t("trainingPlans.activateCta")}
                   >
-                    {isActivating
-                      ? t("trainingPlans.activating")
-                      : isActive
-                        ? t("trainingPlans.activeCta")
-                        : t("trainingPlans.activateCta")}
+                    {isProcessing ? t("trainingPlans.activating") : t("trainingPlans.activateCta")}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setDeactivateTarget(plan)}
+                    disabled={!isActive || Boolean(processingPlanId) || !capabilities.deactivate}
+                  >
+                    {t("trainingPlans.deactivateCta")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setDeleteTarget(plan)}
+                    disabled={Boolean(processingPlanId) || !capabilities.delete}
+                  >
+                    {t("trainingPlans.deleteCta")}
                   </Button>
                 </div>
               </article>
             );
           })}
-          {activationError ? <p className="muted" style={{ marginTop: 8 }}>{activationError}</p> : null}
+          {actionError ? <p className="muted" style={{ marginTop: 8 }}>{actionError}</p> : null}
+          {(!capabilities.activate || !capabilities.deactivate || !capabilities.delete) ? (
+            <p className="muted" style={{ marginTop: 8 }}>{t("trainingPlans.actionsNotAvailable")}</p>
+          ) : null}
         </div>
       )}
+
+      <Modal
+        open={Boolean(activateTarget)}
+        onClose={() => setActivateTarget(null)}
+        title={t("trainingPlans.activateConfirmTitle")}
+        description={t("trainingPlans.activateConfirmDescription")}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="secondary" onClick={() => setActivateTarget(null)}>{t("ui.cancel")}</Button>
+          <Button onClick={() => void activatePlan(activateTarget?.id ?? "")}>
+            {t("trainingPlans.activateCta")}
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(deactivateTarget)}
+        onClose={() => setDeactivateTarget(null)}
+        title={t("trainingPlans.deactivateConfirmTitle")}
+        description={t("trainingPlans.deactivateConfirmDescription")}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="secondary" onClick={() => setDeactivateTarget(null)}>{t("ui.cancel")}</Button>
+          <Button variant="danger" onClick={() => void deactivatePlan()}>{t("trainingPlans.deactivateCta")}</Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title={t("trainingPlans.deleteConfirmTitle")}
+        description={t("trainingPlans.deleteConfirmDescription")}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="secondary" onClick={() => setDeleteTarget(null)}>{t("ui.cancel")}</Button>
+          <Button variant="danger" onClick={() => void deletePlan()}>{t("trainingPlans.deleteCta")}</Button>
+        </div>
+      </Modal>
     </section>
   );
 }

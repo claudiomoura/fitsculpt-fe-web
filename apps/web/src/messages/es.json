@@ -1702,7 +1702,23 @@
     "activeCta": "Plan activo",
     "activeBadge": "Activo",
     "activating": "Activando...",
-    "activateError": "No pudimos marcar este plan como activo."
+    "activateError": "No pudimos marcar este plan como activo.",
+    "activateSuccess": "Plan activado.",
+    "deactivateCta": "Desactivar",
+    "deactivateError": "No pudimos desactivar este plan.",
+    "deactivateSuccess": "Plan desactivado.",
+    "deleteCta": "Eliminar",
+    "deleteError": "No pudimos eliminar este plan.",
+    "deleteSuccess": "Plan eliminado.",
+    "activateConfirmTitle": "Activar plan",
+    "activateConfirmDescription": "¿Quieres activar este plan de entrenamiento?",
+    "deactivateConfirmTitle": "Desactivar plan",
+    "deactivateConfirmDescription": "¿Quieres desactivar el plan activo?",
+    "deleteConfirmTitle": "Eliminar plan",
+    "deleteConfirmDescription": "Esta acción no se puede deshacer.",
+    "actionsNotAvailable": "Algunas acciones no están disponibles en este entorno.",
+    "singleActiveNotAvailable": "La regla de un único plan activo no está disponible en este entorno.",
+    "viewDetail": "Ver detalle"
   },
   "workoutDetail": {
     "notFound": "No se encontró este entreno.",
@@ -2012,7 +2028,9 @@
       "searchExercisesError": "No pudimos buscar ejercicios en este momento.",
       "searchExercisesEmpty": "No se encontraron ejercicios para esta búsqueda.",
       "dayExercisesTitle": "Ejercicios de este día",
-      "dayNotFound": "No se encontró el día seleccionado en este plan."
+      "dayNotFound": "No se encontró el día seleccionado en este plan.",
+      "createSuccessTitle": "Plan creado",
+      "createSuccessDescription": "Tu nuevo plan está listo para editar."
     },
     "clientContext": {
       "title": "Contexto del atleta",
