@@ -75,7 +75,7 @@ export function LandingHomePage({ copy }: { copy: LandingCopy }) {
                 priority
                 className="lp-hero__girl"
               />
-              {/* Si tiveres um screenshot do app, mete aqui: /branding/phone.png */}
+              {/* Si tiveres um screenshot do app, mete aqui: /branding/phone.png 
               <div className="lp-hero__phone">
                 <div className="lp-phone__frame">
                   <Image
@@ -99,6 +99,7 @@ export function LandingHomePage({ copy }: { copy: LandingCopy }) {
                   </div>
                 </div>
               </div>
+              */}
             </div>
 
             <div className="lp-glow" />
