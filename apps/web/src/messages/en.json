@@ -2314,6 +2314,16 @@
       "success": "You left your gym membership successfully.",
       "error": "We couldn't complete this action right now.",
       "unsupported": "This environment does not support leaving a gym yet."
+    },
+    "sections": {
+      "currentStatus": "Current status",
+      "currentStatusHelp": "You do not have an active membership yet.",
+      "actions": "Actions",
+      "disabledTitle": "Actions temporarily disabled",
+      "disabledDescription": "Your current status does not allow new requests right now."
+    },
+    "actions": {
+      "membershipTitle": "Membership actions"
     }
   },
   "access": {
@@ -2545,33 +2555,12 @@
     },
     "billingNote": "Cancel anytime. Taxes included where applicable.",
     "features": {
-      "title": "Why members choose FitSculpt",
-      "subtitle": "Built to help you stay consistent with less friction.",
+      "title": "Everything you need to keep progressing",
+      "subtitle": "A clear experience to train, eat, and sustain results.",
       "items": {
-        "one": {
-          "title": "Guided progression",
-          "description": "Every week has a clear structure so you always know your next step."
-        },
-        "two": {
-          "title": "Adaptive planning",
-          "description": "Adjust your workload and nutrition targets as your routine changes."
-        },
-        "three": {
-          "title": "Smart nutrition",
-          "description": "Macro targets and practical meal ideas focused on adherence."
-        },
-        "four": {
-          "title": "Progress visibility",
-          "description": "Track strength, body metrics, and habits in one dashboard."
-        },
-        "five": {
-          "title": "Practical workflows",
-          "description": "Designed for real schedules with fast actions and clear priorities."
-        },
-        "six": {
-          "title": "One unified platform",
-          "description": "Train and eat with one system instead of disconnected tools."
-        }
+        "1": "Ready-to-use plans with a clear weekly structure.",
+        "2": "Training and nutrition adjustments aligned with your progress.",
+        "3": "Simple tracking to stay consistent without friction."
       }
     },
     "testimonials": {
@@ -2590,15 +2579,6 @@
         }
       },
       "disclaimer": "Results vary based on individual context and consistency."
-    },
-    "features": {
-      "title": "Everything you need to keep progressing",
-      "subtitle": "A clear experience to train, eat, and sustain results.",
-      "items": {
-        "1": "Ready-to-use plans with a clear weekly structure.",
-        "2": "Training and nutrition adjustments aligned with your progress.",
-        "3": "Simple tracking to stay consistent without friction."
-      }
     }
   }
 }
