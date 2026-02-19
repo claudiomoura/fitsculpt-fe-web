@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
-import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type PlanTone = "standard" | "highlight";
@@ -52,24 +51,23 @@ export default function PricingPage() {
   );
 
   return (
-    <div className="min-h-screen bg-bg text-text">
-      <MarketingHeader />
-
+ <div className="min-h-screen bg-bg text-text">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
         <section className="sticky top-[64px] z-10 rounded-xl border border-border bg-surface/90 px-4 py-2 text-center text-xs text-text-muted backdrop-blur">
           {t("marketingPricing.headerPlaceholder")}
         </section>
 
-        <section id="plans" className="grid gap-5 scroll-mt-24 lg:grid-cols-3 lg:items-stretch">
-          {plans.map((plan) => (
-            <Card
-              key={plan.key}
-              className={
-                plan.tone === "highlight"
-                  ? "flex h-full flex-col border-primary shadow-[0_0_0_1px_rgba(0,245,195,0.35),0_16px_40px_rgba(0,245,195,0.12)]"
-                  : "flex h-full flex-col"
-              }
-            >
+<section id="plans" className="grid gap-5 scroll-mt-24 lg:grid-cols-3 lg:items-stretch">
+            {plans.map((plan) => (
+         <Card
+  key={plan.key}
+  className={
+    plan.tone === "highlight"
+      ? "pricing-card pricing-card--highlight flex h-full flex-col"
+      : "pricing-card flex h-full flex-col"
+  }
+>
+            
               <CardHeader>
                 {plan.key === "pro" ? <Badge className="mb-3 w-fit">{t("marketingPricing.plans.pro.badge")}</Badge> : null}
                 <CardTitle className="text-2xl">{plan.title}</CardTitle>

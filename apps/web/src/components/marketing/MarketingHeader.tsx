@@ -63,7 +63,7 @@ export function MarketingHeader() {
       <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="inline-flex items-center" aria-label="FitSculpt">
           <Image
-            src="/fitsculpt-logo-mono-mint.png"
+            src="/fitsculpt-logo-transparent.png"
             alt="FitSculpt"
             width={164}
             height={36}
