@@ -2493,6 +2493,12 @@
         "plans": "Planes",
         "features": "Características",
         "testimonials": "Testimonios"
+      },
+      "language": {
+        "es": "ES",
+        "en": "EN",
+        "switchToEs": "Cambiar idioma a español",
+        "switchToEn": "Cambiar idioma a inglés"
       }
     },
     "hero": {

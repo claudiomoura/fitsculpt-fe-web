@@ -60,7 +60,7 @@ export default function PricingPage() {
           {t("marketingPricing.headerPlaceholder")}
         </section>
 
-        <section id="planes" className="grid gap-5 scroll-mt-28 lg:grid-cols-3 lg:items-stretch">
+        <section id="plans" className="grid gap-5 scroll-mt-24 lg:grid-cols-3 lg:items-stretch">
           {plans.map((plan) => (
             <Card
               key={plan.key}
