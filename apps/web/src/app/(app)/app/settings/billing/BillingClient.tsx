@@ -103,6 +103,7 @@ export default function BillingClient() {
   const [action, setAction] = useState<BillingAction>(null);
   const [targetPlanKey, setTargetPlanKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [plansStatus, setPlansStatus] = useState<"ready" | "not_available">("ready");
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
 
@@ -126,24 +127,37 @@ export default function BillingClient() {
       setError(null);
       const shouldSync = searchParams.get("checkout") === "success";
 
-      const [statusResponse, plansResponse, meResponse] = await Promise.all([
+      const [statusResponse, plansResult, meResponse] = await Promise.all([
         fetch(`/api/billing/status${shouldSync ? "?sync=1" : ""}`, { cache: "no-store" }),
         getBillingPlans(),
         fetch("/api/auth/me", { cache: "no-store" }),
       ]);
 
-      if (!statusResponse.ok || !plansResponse.ok) {
+      if (!statusResponse.ok) {
         setError(t("billing.loadError"));
         setProfile(null);
         setPlans([]);
+        setPlansStatus("ready");
         return;
       }
 
       setProfile((await statusResponse.json()) as BillingProfile);
 
-      const plansPayload = (await plansResponse.json()) as { plans?: BillingPlanSummary[] } | BillingPlanSummary[];
-      const plansList = Array.isArray(plansPayload) ? plansPayload : plansPayload.plans;
-      setPlans(Array.isArray(plansList) ? plansList : []);
+      if (!plansResult.ok) {
+        if (plansResult.reason === "not_available") {
+          setPlansStatus("not_available");
+          setPlans([]);
+        } else {
+          setError(t("billing.loadError"));
+          setProfile(null);
+          setPlans([]);
+          setPlansStatus("ready");
+          return;
+        }
+      } else {
+        setPlans(plansResult.plans);
+        setPlansStatus("ready");
+      }
 
       if (meResponse.ok) {
         const mePayload = (await meResponse.json()) as unknown;
@@ -159,6 +173,7 @@ export default function BillingClient() {
       setError(t("billing.loadError"));
       setProfile(null);
       setPlans([]);
+      setPlansStatus("ready");
     } finally {
       setLoading(false);
     }
@@ -228,6 +243,27 @@ export default function BillingClient() {
     return map;
   }, [plans]);
 
+  const visiblePlanCards = useMemo(() => {
+    return PLAN_CARDS
+      .map((plan) => {
+        const matchedPlan = plan.planValues.find((value) => plansByKey.has(value));
+        if (!matchedPlan) {
+          return null;
+        }
+
+        const backendPlan = plansByKey.get(matchedPlan);
+        if (!backendPlan) {
+          return null;
+        }
+
+        return { plan, backendPlan };
+      })
+      .filter((entry): entry is { plan: PlanCard; backendPlan: BillingPlanSummary } => entry !== null);
+  }, [plansByKey]);
+
+  const isPlanActionsDisabled = plansStatus === "not_available";
+
+
   return (
     <section className="stack-md" aria-live="polite">
       <header className="stack-sm">
@@ -268,53 +304,74 @@ export default function BillingClient() {
               <CardDescription>{t("billing.planSelectionDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="stack-md">
-              {PLAN_CARDS.map((plan) => {
-                const matchedPlan = plan.planValues.find((value) => plansByKey.has(value));
-                if (!matchedPlan) {
-                  return null;
-                }
+              {plansStatus === "not_available" ? (
+                <EmptyState
+                  title={t("billing.notAvailableTitle")}
+                  description={t("billing.notAvailableDescription")}
+                  icon="info"
+                  actions={[
+                    {
+                      label: t("billing.subscribe"),
+                      variant: "primary",
+                      disabled: true,
+                    },
+                    {
+                      label: t("billing.manageSubscription"),
+                      variant: "secondary",
+                      disabled: true,
+                    },
+                  ]}
+                />
+              ) : null}
 
-                const backendPlan = plansByKey.get(matchedPlan);
-                if (!backendPlan) {
-                  return null;
-                }
+              {plansStatus === "ready" ? (
+                <>
+                  {visiblePlanCards.map(({ plan, backendPlan }) => {
+                    const isCurrent = plan.planValues.some((value) => value === currentPlan);
+                    const checkoutDisabled =
+                      loading || action === "portal" || action === "checkout" || isCurrent || isPlanActionsDisabled;
 
-                const isCurrent = plan.planValues.some((value) => value === currentPlan);
-                const checkoutDisabled = loading || action === "portal" || action === "checkout" || isCurrent;
-
-                return (
-                  <div key={plan.key} className="stack-sm border border-border-subtle rounded-lg p-4 bg-surface-2">
-                    <div className="stack-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="m-0">{t(`billing.plans.${plan.key}.name`)}</h3>
-                        {isCurrent ? <Badge variant="success">{t("billing.currentPlanBadge")}</Badge> : null}
+                    return (
+                      <div key={plan.key} className="stack-sm border border-border-subtle rounded-lg p-4 bg-surface-2">
+                        <div className="stack-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="m-0">{t(`billing.plans.${plan.key}.name`)}</h3>
+                            {isCurrent ? <Badge variant="success">{t("billing.currentPlanBadge")}</Badge> : null}
+                          </div>
+                          <p className="muted m-0">{t(`billing.plans.${plan.key}.description`)}</p>
+                        </div>
+                        <p className="muted m-0">{formatPlanPrice(backendPlan, locale, t)}</p>
+                        {isCurrent ? (
+                          <Button
+                            variant="secondary"
+                            loading={action === "portal"}
+                            disabled={portalDisabled || isPlanActionsDisabled}
+                            onClick={() => void handlePortal()}
+                          >
+                            {t("billing.manageSubscription")}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="primary"
+                            loading={action === "checkout" && targetPlanKey === backendPlan.planKey}
+                            disabled={checkoutDisabled}
+                            onClick={() => void handleCheckout(backendPlan.planKey)}
+                          >
+                            {t("billing.subscribe")}
+                          </Button>
+                        )}
                       </div>
-                      <p className="muted m-0">{t(`billing.plans.${plan.key}.description`)}</p>
-                    </div>
-                    <p className="muted m-0">{formatPlanPrice(backendPlan, locale, t)}</p>
-                    {isCurrent ? (
-                      <Button
-                        variant="secondary"
-                        loading={action === "portal"}
-                        disabled={portalDisabled}
-                        onClick={() => void handlePortal()}
-                      >
-                        {t("billing.manageSubscription")}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        loading={action === "checkout" && targetPlanKey === backendPlan.planKey}
-                        disabled={checkoutDisabled}
-                        onClick={() => void handleCheckout(backendPlan.planKey)}
-                      >
-                        {t("billing.subscribe")}
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-              {error ? <p className="muted m-0">{error}</p> : null}
+                    );
+                  })}
+                  {visiblePlanCards.length === 0 ? (
+                    <EmptyState
+                      title={t("billing.noPlansTitle")}
+                      description={t("billing.noPlansDescription")}
+                      icon="info"
+                    />
+                  ) : null}
+                </>
+              ) : null}
             </CardContent>
           </Card>
 
