@@ -103,6 +103,7 @@ export default function BillingClient() {
   const [action, setAction] = useState<BillingAction>(null);
   const [targetPlanKey, setTargetPlanKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [billingUnavailable, setBillingUnavailable] = useState(false);
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
 
@@ -132,12 +133,24 @@ export default function BillingClient() {
         fetch("/api/auth/me", { cache: "no-store" }),
       ]);
 
-      if (!statusResponse.ok || !plansResponse.ok) {
+      if (!statusResponse.ok) {
         setError(t("billing.loadError"));
+        setBillingUnavailable(false);
         setProfile(null);
         setPlans([]);
         return;
       }
+
+      if (!plansResponse.ok) {
+        const unavailable = plansResponse.status === 501;
+        setBillingUnavailable(unavailable);
+        setError(unavailable ? null : t("billing.loadError"));
+        setProfile((await statusResponse.json()) as BillingProfile);
+        setPlans([]);
+        return;
+      }
+
+      setBillingUnavailable(false);
 
       setProfile((await statusResponse.json()) as BillingProfile);
 
@@ -157,6 +170,7 @@ export default function BillingClient() {
       }
     } catch (_err) {
       setError(t("billing.loadError"));
+      setBillingUnavailable(false);
       setProfile(null);
       setPlans([]);
     } finally {
@@ -268,7 +282,14 @@ export default function BillingClient() {
               <CardDescription>{t("billing.planSelectionDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="stack-md">
-              {PLAN_CARDS.map((plan) => {
+              {billingUnavailable ? (
+                <EmptyState
+                  title={t("billing.notAvailableTitle")}
+                  description={t("billing.notAvailableDescription")}
+                  icon="info"
+                />
+              ) : null}
+              {!billingUnavailable ? PLAN_CARDS.map((plan) => {
                 const matchedPlan = plan.planValues.find((value) => plansByKey.has(value));
                 if (!matchedPlan) {
                   return null;
@@ -313,7 +334,7 @@ export default function BillingClient() {
                     )}
                   </div>
                 );
-              })}
+              }) : null}
               {error ? <p className="muted m-0">{error}</p> : null}
             </CardContent>
           </Card>

@@ -1915,7 +1915,9 @@
       "week": "week",
       "month": "month",
       "year": "year"
-    }
+    },
+    "notAvailableTitle": "Billing not available",
+    "notAvailableDescription": "Billing plans are temporarily unavailable in this environment. Please try again later."
   },
   "settings": {
     "subtitle": "Manage your account preferences and next steps.",
