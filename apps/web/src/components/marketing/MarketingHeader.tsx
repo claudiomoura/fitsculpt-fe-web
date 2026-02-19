@@ -2,19 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useMemo } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/DropdownMenu";
+import { useEffect, useMemo, useState } from "react";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type NavItem = {
-  key: string;
-  href: string;
+  key: "plans" | "features" | "testimonials";
+  href: "#planes" | "#caracteristicas" | "#testimonios";
+  sectionId: "planes" | "caracteristicas" | "testimonios";
 };
 
 function isActivePath(pathname: string, href: string) {
@@ -39,7 +34,7 @@ export function MarketingHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-bg/85 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-bg/80 backdrop-blur-xl">
       <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="inline-flex items-center" aria-label="FitSculpt">
           <Image src="/fitsculpt-logo-mono-mint.png" alt="FitSculpt" width={164} height={36} priority className="h-8 w-auto" />
@@ -47,14 +42,15 @@ export function MarketingHeader() {
 
         <nav aria-label={t("marketingPricing.header.navigation")} className="hidden items-center gap-3 md:flex">
           {navItems.map((item) => {
-            const active = isActivePath(pathname, item.href);
+            const active = activeSection === item.sectionId;
             return (
               <Link
                 key={item.key}
                 href={item.href}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
                   active ? "text-primary" : "text-text hover:text-primary"
                 }`}
+                aria-current={active ? "page" : undefined}
               >
                 {t(`marketingPricing.header.links.${item.key}`)}
               </Link>
@@ -89,7 +85,7 @@ export function MarketingHeader() {
           </div>
           <Link
             href="/login"
-            className="inline-flex h-11 items-center justify-center rounded-[14px] bg-primary px-4 text-sm font-semibold text-bg transition hover:opacity-90"
+            className="inline-flex h-11 items-center justify-center rounded-[14px] bg-primary px-4 text-sm font-semibold text-bg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             {t("nav.login")}
           </Link>
@@ -134,6 +130,34 @@ export function MarketingHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
+
+      <div id={mobileMenuId} className={`${isMenuOpen ? "block" : "hidden"} border-t border-border/70 bg-bg/95 px-4 py-4 backdrop-blur-xl md:hidden`}>
+        <nav aria-label={t("marketingPricing.header.navigation")} className="flex flex-col gap-2">
+          {navItems.map((item) => {
+            const active = activeSection === item.sectionId;
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                onClick={() => setIsMenuOpen(false)}
+                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                  active ? "bg-primary/10 text-primary" : "text-text hover:text-primary"
+                }`}
+                aria-current={active ? "page" : undefined}
+              >
+                {t(`marketingPricing.header.links.${item.key}`)}
+              </Link>
+            );
+          })}
+          <Link
+            href="/login"
+            onClick={() => setIsMenuOpen(false)}
+            className="mt-2 inline-flex h-11 items-center justify-center rounded-[14px] bg-primary px-4 text-sm font-semibold text-bg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          >
+            {t("nav.login")}
+          </Link>
+        </nav>
       </div>
     </header>
   );
