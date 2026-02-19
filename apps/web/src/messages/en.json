@@ -1852,7 +1852,7 @@
     "planSelectionTitle": "Choose your plan",
     "planSelectionDescription": "Select the subscription that best fits your goals.",
     "notAvailableTitle": "Billing not available",
-    "notAvailableDescription": "Billing plans are not available in this environment right now.",
+    "notAvailableDescription": "Billing plans are temporarily unavailable in this environment. Please try again later.",
     "noPlansTitle": "No plans available",
     "noPlansDescription": "There are currently no billing plans to display.",
     "currentPlanBadge": "Current",
@@ -1920,8 +1920,9 @@
       "month": "month",
       "year": "year"
     },
-    "notAvailableTitle": "Billing not available",
-    "notAvailableDescription": "Billing plans are temporarily unavailable in this environment. Please try again later."
+    "authRequiredTitle": "Authentication required",
+    "authRequiredDescription": "You need an active session with sufficient permissions to view billing plans.",
+    "checkoutComingSoon": "Checkout coming soon"
   },
   "settings": {
     "subtitle": "Manage your account preferences and next steps.",

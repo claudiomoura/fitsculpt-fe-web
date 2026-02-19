@@ -1884,7 +1884,7 @@
     "planSelectionTitle": "Elige tu plan",
     "planSelectionDescription": "Selecciona la suscripción que mejor se adapta a tus objetivos.",
     "notAvailableTitle": "Facturación no disponible",
-    "notAvailableDescription": "Los planes de facturación no están disponibles en este entorno por ahora.",
+    "notAvailableDescription": "Los planes de facturación no están disponibles temporalmente en este entorno. Inténtalo de nuevo más tarde.",
     "noPlansTitle": "No hay planes disponibles",
     "noPlansDescription": "Actualmente no hay planes de facturación para mostrar.",
     "currentPlanBadge": "Actual",
@@ -1923,8 +1923,9 @@
       "month": "mes",
       "year": "año"
     },
-    "notAvailableTitle": "Facturación no disponible",
-    "notAvailableDescription": "Los planes de facturación no están disponibles temporalmente en este entorno. Inténtalo de nuevo más tarde."
+    "authRequiredTitle": "Autenticación requerida",
+    "authRequiredDescription": "Necesitas una sesión activa con permisos suficientes para ver los planes de facturación.",
+    "checkoutComingSoon": "Checkout próximamente"
   },
   "settings": {
     "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",
