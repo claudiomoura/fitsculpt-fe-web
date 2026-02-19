@@ -71,10 +71,6 @@ function normalizeGymsPayload(payload: unknown): Gym[] {
   if (Array.isArray(source?.items)) return source.items as Gym[];
   if (Array.isArray(source?.data)) return source.data as Gym[];
 
-  if (process.env.NODE_ENV !== "production") {
-    console.warn("[AdminGymsClient] Unexpected /api/admin/gyms payload shape", payload);
-  }
-
   return [];
 }
 

@@ -66,8 +66,9 @@ export default function GymPageClient() {
   const isMembershipPending = membership.status === "PENDING";
   const isMembershipActive = membership.status === "ACTIVE";
   const isMembershipNone = membership.status === "NONE";
+  const canRenderJoinActions = isMembershipNone || membership.status === "REJECTED";
   const shouldDisableJoinActions = requestingJoin || gymsLoading || joinRequestUnsupported || isMembershipPending || isMembershipActive;
-  const isActionsDisabled = isMembershipPending || isMembershipActive || (joinRequestUnsupported && joinCodeUnsupported);
+  const isActionsDisabled = isMembershipPending || (canRenderJoinActions && joinRequestUnsupported && joinCodeUnsupported);
 
   const loadGyms = useCallback(async () => {
     setGymsLoading(true);
@@ -345,47 +346,49 @@ export default function GymPageClient() {
 
         {isActionsDisabled ? <EmptyState title={t("gym.sections.disabledTitle")} description={t("gym.sections.disabledDescription")} wrapInCard /> : null}
 
-        {gymsLoading ? (
-          <GymListSkeleton count={2} />
-        ) : gymsLoadError ? (
-          <ErrorState title={t("gym.join.loadErrorTitle")} description={t("gym.join.loadError")} retryLabel={t("common.retry")} onRetry={() => void loadGyms()} />
-        ) : gyms.length === 0 ? (
-          <EmptyState
-            title={t("gym.join.emptyTitle")}
-            description={t("gym.join.empty")}
-            actions={[{ label: t("common.retry"), onClick: () => void loadGyms(), variant: "secondary" }]}
-          />
-        ) : (
-          gyms.map((gym) => {
-            const safeStatus: MembershipStatus =
-              membership.gymId && membership.gymId === gym.id && (membership.status === "PENDING" || membership.status === "ACTIVE")
-                ? membership.status
-                : "NONE";
+        {canRenderJoinActions ? (
+          gymsLoading ? (
+            <GymListSkeleton count={2} />
+          ) : gymsLoadError ? (
+            <ErrorState title={t("gym.join.loadErrorTitle")} description={t("gym.join.loadError")} retryLabel={t("common.retry")} onRetry={() => void loadGyms()} />
+          ) : gyms.length === 0 ? (
+            <EmptyState
+              title={t("gym.join.emptyTitle")}
+              description={t("gym.join.empty")}
+              actions={[{ label: t("common.retry"), onClick: () => void loadGyms(), variant: "secondary" }]}
+            />
+          ) : (
+            gyms.map((gym) => {
+              const safeStatus: MembershipStatus =
+                membership.gymId && membership.gymId === gym.id && (membership.status === "PENDING" || membership.status === "ACTIVE")
+                  ? membership.status
+                  : "NONE";
 
-            return (
-              <GymCard
-                key={gym.id}
-                id={gym.id}
-                name={gym.name}
-                membershipStatus={safeStatus}
-                isSelected={selectedGymId === gym.id}
-                disabled={shouldDisableJoinActions}
-                onSelect={setSelectedGymId}
-                onRequestJoin={() => void requestJoin()}
-                statusLabels={{
-                  pending: t("gym.membership.pending.badge"),
-                  active: t("gym.membership.active.badge"),
-                  fallback: t("gym.membership.unknown.badge"),
-                }}
-                selectLabel={t("gym.join.selectButton")}
-                requestLabel={t("gym.join.requestButton")}
-                pendingRequestLabel={t("gym.join.requestPending")}
-              />
-            );
-          })
-        )}
+              return (
+                <GymCard
+                  key={gym.id}
+                  id={gym.id}
+                  name={gym.name}
+                  membershipStatus={safeStatus}
+                  isSelected={selectedGymId === gym.id}
+                  disabled={shouldDisableJoinActions}
+                  onSelect={setSelectedGymId}
+                  onRequestJoin={() => void requestJoin()}
+                  statusLabels={{
+                    pending: t("gym.membership.pending.badge"),
+                    active: t("gym.membership.active.badge"),
+                    fallback: t("gym.membership.unknown.badge"),
+                  }}
+                  selectLabel={t("gym.join.selectButton")}
+                  requestLabel={t("gym.join.requestButton")}
+                  pendingRequestLabel={t("gym.join.requestPending")}
+                />
+              );
+            })
+          )
+        ) : null}
 
-        {!isMembershipPending && !isMembershipActive ? (
+        {canRenderJoinActions ? (
           <Card>
             <CardHeader>
               <CardTitle>{t("gym.join.codeTitle")}</CardTitle>
