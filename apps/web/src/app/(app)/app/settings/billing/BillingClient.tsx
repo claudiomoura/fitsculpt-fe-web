@@ -138,37 +138,26 @@ export default function BillingClient() {
         setBillingUnavailable(false);
         setProfile(null);
         setPlans([]);
-        setPlansStatus("ready");
         return;
       }
-
-      if (!plansResponse.ok) {
-        const unavailable = plansResponse.status === 501;
-        setBillingUnavailable(unavailable);
-        setError(unavailable ? null : t("billing.loadError"));
-        setProfile((await statusResponse.json()) as BillingProfile);
-        setPlans([]);
-        return;
-      }
-
-      setBillingUnavailable(false);
 
       setProfile((await statusResponse.json()) as BillingProfile);
 
       if (!plansResult.ok) {
         if (plansResult.reason === "not_available") {
-          setPlansStatus("not_available");
+          setBillingUnavailable(true);
+          setError(null);
           setPlans([]);
         } else {
+          setBillingUnavailable(false);
           setError(t("billing.loadError"));
           setProfile(null);
           setPlans([]);
-          setPlansStatus("ready");
           return;
         }
       } else {
+        setBillingUnavailable(false);
         setPlans(plansResult.plans);
-        setPlansStatus("ready");
       }
 
       if (meResponse.ok) {
@@ -186,7 +175,6 @@ export default function BillingClient() {
       setBillingUnavailable(false);
       setProfile(null);
       setPlans([]);
-      setPlansStatus("ready");
     } finally {
       setLoading(false);
     }
@@ -255,27 +243,6 @@ export default function BillingClient() {
     }
     return map;
   }, [plans]);
-
-  const visiblePlanCards = useMemo(() => {
-    return PLAN_CARDS
-      .map((plan) => {
-        const matchedPlan = plan.planValues.find((value) => plansByKey.has(value));
-        if (!matchedPlan) {
-          return null;
-        }
-
-        const backendPlan = plansByKey.get(matchedPlan);
-        if (!backendPlan) {
-          return null;
-        }
-
-        return { plan, backendPlan };
-      })
-      .filter((entry): entry is { plan: PlanCard; backendPlan: BillingPlanSummary } => entry !== null);
-  }, [plansByKey]);
-
-  const isPlanActionsDisabled = plansStatus === "not_available";
-
 
   return (
     <section className="stack-md" aria-live="polite">
