@@ -20,8 +20,35 @@ export type BillingPlansResponse = {
   plans?: BillingPlanSummary[];
 };
 
-export async function getBillingPlans(): Promise<Response> {
-  return fetch("/api/billing/plans", { cache: "no-store" });
+export type BillingPlansResult =
+  | {
+      ok: true;
+      plans: BillingPlanSummary[];
+    }
+  | {
+      ok: false;
+      reason: "not_available" | "error";
+      status: number | null;
+    };
+
+export async function getBillingPlans(): Promise<BillingPlansResult> {
+  const response = await fetch("/api/billing/plans", { cache: "no-store" });
+
+  if (response.status === 404 || response.status === 501) {
+    return { ok: false, reason: "not_available", status: response.status };
+  }
+
+  if (!response.ok) {
+    return { ok: false, reason: "error", status: response.status };
+  }
+
+  const payload = (await response.json()) as BillingPlansResponse | BillingPlanSummary[];
+  const plans = Array.isArray(payload) ? payload : payload.plans;
+
+  return {
+    ok: true,
+    plans: Array.isArray(plans) ? plans : [],
+  };
 }
 
 export async function postBillingCheckout(planKey: string): Promise<Response> {
