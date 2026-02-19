@@ -31,6 +31,8 @@ type BillingAction = "checkout" | "portal" | null;
 
 type BillingViewState = "ready" | "not_available" | "auth_required" | "error";
 
+type BillingConfigError = "NO_VALID_PRICES" | "STRIPE_NOT_CONFIGURED" | null;
+
 function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (key: string) => string) {
   const normalizedStatus = subscriptionStatus?.toLowerCase();
 
@@ -111,6 +113,8 @@ export default function BillingClient() {
   const [targetPlanKey, setTargetPlanKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [billingState, setBillingState] = useState<BillingViewState>("ready");
+  const [planWarnings, setPlanWarnings] = useState<string[]>([]);
+  const [billingConfigError, setBillingConfigError] = useState<BillingConfigError>(null);
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
 
@@ -143,6 +147,8 @@ export default function BillingClient() {
       if (!statusResponse.ok) {
         setError(t("billing.loadError"));
         setBillingState("error");
+        setBillingConfigError(null);
+        setPlanWarnings([]);
         setProfile(null);
         setPlans([]);
         return;
@@ -151,23 +157,33 @@ export default function BillingClient() {
       setProfile((await statusResponse.json()) as BillingProfile);
 
       if (!plansResult.ok) {
+        setPlanWarnings(plansResult.warnings);
+
         if (plansResult.reason === "not_available") {
           setBillingState("not_available");
+          setBillingConfigError(null);
           setError(null);
           setPlans([]);
         } else if (plansResult.reason === "auth") {
           setBillingState("auth_required");
+          setBillingConfigError(null);
           setError(null);
           setPlans([]);
         } else {
           setBillingState("error");
-          setError(t("billing.loadError"));
-          setProfile(null);
+          if (plansResult.errorCode === "NO_VALID_PRICES" || plansResult.errorCode === "STRIPE_NOT_CONFIGURED") {
+            setBillingConfigError(plansResult.errorCode);
+            setError(null);
+          } else {
+            setBillingConfigError(null);
+            setError(t("billing.loadError"));
+          }
           setPlans([]);
-          return;
         }
       } else {
         setBillingState("ready");
+        setBillingConfigError(null);
+        setPlanWarnings(plansResult.warnings);
         setPlans(plansResult.plans);
       }
 
@@ -184,6 +200,8 @@ export default function BillingClient() {
     } catch {
       setError(t("billing.loadError"));
       setBillingState("error");
+      setPlanWarnings([]);
+      setBillingConfigError(null);
       setProfile(null);
       setPlans([]);
     } finally {
@@ -246,6 +264,9 @@ export default function BillingClient() {
   const canSeeDevNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
 
   const hasPlans = plans.length > 0;
+  const billingConfigIssueMessage = billingConfigError
+    ? t(`billing.configErrors.${billingConfigError}`)
+    : null;
 
   return (
     <section className="stack-md" aria-live="polite">
@@ -268,6 +289,17 @@ export default function BillingClient() {
 
       {!loading && !error ? (
         <div className="stack-md">
+          {planWarnings.length > 0 ? (
+            <div className="rounded-lg border border-border-subtle bg-surface-2 px-4 py-3" role="status" aria-live="polite">
+              <p className="muted m-0">{t("billing.warningsBannerTitle")}</p>
+              <ul className="m-0 mt-2 pl-5 muted">
+                {planWarnings.map((warning, index) => (
+                  <li key={`${warning}-${index}`}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           <Card>
             <CardHeader>
               <CardTitle>{t("billing.currentPlanLabel")}</CardTitle>
@@ -303,6 +335,13 @@ export default function BillingClient() {
               ) : null}
               {billingState === "ready" && !hasPlans ? (
                 <EmptyState title={t("billing.noPlansTitle")} description={t("billing.noPlansDescription")} icon="info" />
+              ) : null}
+              {billingState === "error" && billingConfigIssueMessage ? (
+                <EmptyState
+                  title={t("billing.configErrors.title")}
+                  description={billingConfigIssueMessage}
+                  icon="info"
+                />
               ) : null}
               {billingState === "ready" ? plans.map((backendPlan) => {
                 const isCurrent = backendPlan.planKey === currentPlan;
