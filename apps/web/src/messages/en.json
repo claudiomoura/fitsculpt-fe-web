@@ -2193,6 +2193,47 @@
       "submitError": "We could not assign this plan. Please verify member and gym eligibility.",
       "success": "Plan assigned successfully to {member}.",
       "guidance": "The member will see the assigned plan in Plan/Today once it is saved."
+    },
+    "dashboard": {
+      "header": {
+        "title": "Dashboard overview",
+        "description": "Your trainer workspace sections use only currently available data sources."
+      },
+      "kpi": {
+        "title": "Key performance indicators",
+        "description": "Performance cards render once backend metrics are exposed to this frontend route.",
+        "cards": {
+          "clients": {
+            "title": "Active clients"
+          },
+          "sessions": {
+            "title": "Weekly sessions"
+          },
+          "adherence": {
+            "title": "Plan adherence"
+          }
+        }
+      },
+      "activity": {
+        "title": "Weekly activity",
+        "description": "Chart container for training activity trends.",
+        "empty": "No data yet for weekly activity.",
+        "cta": "Configure activity source"
+      },
+      "clients": {
+        "title": "Client list",
+        "description": "Recent clients connected to your trainer account.",
+        "empty": "No data yet for client list.",
+        "cta": "Open client tools"
+      },
+      "shared": {
+        "noData": "No data available.",
+        "noDataYet": "No data yet"
+      },
+      "error": {
+        "title": "Some dashboard sections are temporarily unavailable.",
+        "description": "Please retry in a moment while data connections recover."
+      }
     }
   },
   "gym": {

@@ -2196,6 +2196,47 @@
       "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
       "success": "Plan asignado correctamente a {member}.",
       "guidance": "El miembro verá el plan asignado en Plan/Hoy cuando se guarde."
+    },
+    "dashboard": {
+      "header": {
+        "title": "Resumen del dashboard",
+        "description": "Las secciones de tu espacio de entrenador usan solo las fuentes de datos actualmente disponibles."
+      },
+      "kpi": {
+        "title": "Indicadores clave",
+        "description": "Las tarjetas de rendimiento se mostrarán cuando las métricas del backend estén expuestas en esta ruta frontend.",
+        "cards": {
+          "clients": {
+            "title": "Clientes activos"
+          },
+          "sessions": {
+            "title": "Sesiones semanales"
+          },
+          "adherence": {
+            "title": "Adherencia al plan"
+          }
+        }
+      },
+      "activity": {
+        "title": "Actividad semanal",
+        "description": "Contenedor de gráfico para tendencias de actividad de entrenamiento.",
+        "empty": "Aún no hay datos de actividad semanal.",
+        "cta": "Configurar fuente de actividad"
+      },
+      "clients": {
+        "title": "Lista de clientes",
+        "description": "Clientes recientes conectados a tu cuenta de entrenador.",
+        "empty": "Aún no hay datos de lista de clientes.",
+        "cta": "Abrir herramientas de clientes"
+      },
+      "shared": {
+        "noData": "No hay datos disponibles.",
+        "noDataYet": "Sin datos aún"
+      },
+      "error": {
+        "title": "Algunas secciones del dashboard no están disponibles temporalmente.",
+        "description": "Vuelve a intentarlo en un momento mientras se recuperan las conexiones de datos."
+      }
     }
   },
   "gym": {
