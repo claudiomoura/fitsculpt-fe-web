@@ -60,18 +60,7 @@ export default function PricingPage() {
           {t("marketingPricing.headerPlaceholder")}
         </section>
 
-        <section className="space-y-5 text-center">
-          <h1 className="text-balance text-3xl font-bold leading-tight sm:text-5xl">{t("marketingPricing.hero.title")}</h1>
-          <p className="text-balance text-base text-text-muted sm:text-lg">{t("marketingPricing.hero.subtitle")}</p>
-          <p className="mx-auto max-w-3xl text-sm text-text-muted sm:text-base">{t("marketingPricing.hero.supporting")}</p>
-          <div className="flex justify-center">
-            <ButtonLink href="#plans" size="lg" className="w-full max-w-xs justify-center sm:w-auto">
-              {t("marketingPricing.hero.cta")}
-            </ButtonLink>
-          </div>
-        </section>
-
-        <section id="plans" className="grid gap-5 scroll-mt-24 lg:grid-cols-3 lg:items-stretch">
+        <section id="planes" className="grid gap-5 scroll-mt-28 lg:grid-cols-3 lg:items-stretch">
           {plans.map((plan) => (
             <Card
               key={plan.key}
@@ -112,26 +101,26 @@ export default function PricingPage() {
 
         <p className="text-center text-sm text-text-muted">{t("marketingPricing.billingNote")}</p>
 
-        <section id="features" className="space-y-6 scroll-mt-24" aria-labelledby="features-title">
+        <section id="caracteristicas" className="space-y-6 scroll-mt-28" aria-labelledby="pricing-features-title">
           <div className="space-y-2 text-center">
-            <h2 id="features-title" className="text-2xl font-bold sm:text-3xl">
+            <h2 id="pricing-features-title" className="text-2xl font-bold sm:text-3xl">
               {t("marketingPricing.features.title")}
             </h2>
-            <p className="text-sm text-text-muted sm:text-base">{t("marketingPricing.features.subtitle")}</p>
+            <p className="text-sm text-text-muted sm:text-base">
+              {t("marketingPricing.features.subtitle")}
+            </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURE_KEYS.map((key) => (
-              <Card key={key}>
-                <CardHeader>
-                  <CardTitle className="text-lg">{t(`marketingPricing.features.items.${key}.title`)}</CardTitle>
-                  <CardDescription>{t(`marketingPricing.features.items.${key}.description`)}</CardDescription>
-                </CardHeader>
-              </Card>
+          <ul className="grid gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((index) => (
+              <li key={index} className="rounded-2xl border border-border bg-surface p-5 text-sm text-text-muted">
+                {t(`marketingPricing.features.items.${index}`)}
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
 
-        <section id="testimonials" className="space-y-6 scroll-mt-24" aria-labelledby="testimonials-title">
+
+        <section id="testimonios" className="space-y-6 scroll-mt-28" aria-labelledby="testimonials-title">
           <div className="space-y-2 text-center">
             <h2 id="testimonials-title" className="text-2xl font-bold sm:text-3xl">
               {t("marketingPricing.testimonials.title")}

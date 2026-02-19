@@ -2585,8 +2585,14 @@
       },
       "disclaimer": "Results vary based on individual context and consistency."
     },
-    "footer": {
-      "copy": "FitSculpt plans • Built for long-term consistency"
+    "features": {
+      "title": "Everything you need to keep progressing",
+      "subtitle": "A clear experience to train, eat, and sustain results.",
+      "items": {
+        "1": "Ready-to-use plans with a clear weekly structure.",
+        "2": "Training and nutrition adjustments aligned with your progress.",
+        "3": "Simple tracking to stay consistent without friction."
+      }
     }
   }
 }
