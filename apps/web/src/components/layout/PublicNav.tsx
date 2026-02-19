@@ -9,7 +9,7 @@ export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
       <div className="landing-header__inner">
        <Link href="/" className="landing-header__brand" aria-label="FitSculpt">
   <Image
-    src="/fitsculpt-logo-mono-mint.png"
+    src="/fitsculpt-logo-transparent.png"
     alt="FitSculpt"
     width={42}
     height={42}
