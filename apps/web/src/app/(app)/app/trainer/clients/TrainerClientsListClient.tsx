@@ -12,6 +12,20 @@ import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess"
 
 type ListState = "loading" | "ready";
 
+const AT_RISK_STATUS_VALUES = new Set(["at risk", "at_risk", "atrisk", "risk"]);
+
+function toSortableStatusValue(value: string | null): string | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length ? normalized : null;
+}
+
+function getStatusSortPriority(status: string | null): number {
+  if (!status) return 2;
+  if (AT_RISK_STATUS_VALUES.has(status)) return 0;
+  return 1;
+}
+
 function readAvatarCandidate(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
@@ -92,9 +106,27 @@ export default function TrainerClientsListClient() {
       return <EmptyState title={t("trainer.clients.empty")} wrapInCard icon="info" />;
     }
 
+    const hasStatusData = capability.clients.some((client) => toSortableStatusValue(client.subscriptionStatus) !== null);
+    const clients = hasStatusData
+      ? [...capability.clients].sort((left, right) => {
+        const leftStatus = toSortableStatusValue(left.subscriptionStatus);
+        const rightStatus = toSortableStatusValue(right.subscriptionStatus);
+
+        const priorityDiff = getStatusSortPriority(leftStatus) - getStatusSortPriority(rightStatus);
+        if (priorityDiff !== 0) return priorityDiff;
+
+        if (leftStatus && rightStatus) {
+          const statusDiff = leftStatus.localeCompare(rightStatus);
+          if (statusDiff !== 0) return statusDiff;
+        }
+
+        return left.name.localeCompare(right.name);
+      })
+      : capability.clients;
+
     return (
       <ul className="form-stack" aria-label={t("trainer.clients.title")}> 
-        {capability.clients.map((client) => {
+        {clients.map((client) => {
           const statusText = client.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active");
           const avatar = getClientAvatar(client);
 
@@ -147,7 +179,7 @@ export default function TrainerClientsListClient() {
                     </span>
                   ) : null}
                   <span className="muted" style={{ margin: 0 }}>
-                    {client.subscriptionStatus ?? t("trainer.clients.unknownStatus")}
+                    {client.subscriptionStatus ?? t("ui.notAvailable")}
                   </span>
                 </span>
 
