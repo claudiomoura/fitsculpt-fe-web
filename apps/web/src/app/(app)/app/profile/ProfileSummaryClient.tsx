@@ -27,7 +27,7 @@ export default function ProfileSummaryClient() {
       try {
         const data = await getUserProfile();
         if (active) setProfile(data);
-      } catch {
+      } catch (_err) {
         if (active) setError(t("profile.loadError"));
       } finally {
         if (active) setLoading(false);
@@ -44,7 +44,7 @@ export default function ProfileSummaryClient() {
           const latest = [...data.checkins].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
           setLatestCheckinDate(latest?.date ?? null);
         }
-      } catch {
+      } catch (_err) {
         setLatestCheckinDate(null);
       }
     };
@@ -106,7 +106,7 @@ export default function ProfileSummaryClient() {
     try {
       const dataUrl = await resizeImage(file);
       await saveAvatar(dataUrl);
-    } catch {
+    } catch (_err) {
       setAvatarError(t("profile.avatarUploadError"));
     } finally {
       setAvatarSaving(false);
@@ -118,7 +118,7 @@ export default function ProfileSummaryClient() {
     setAvatarError(null);
     try {
       await saveAvatar(null);
-    } catch {
+    } catch (_err) {
       setAvatarError(t("profile.avatarRemoveError"));
     } finally {
       setAvatarSaving(false);

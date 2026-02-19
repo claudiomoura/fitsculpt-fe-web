@@ -1579,6 +1579,9 @@
     "equipmentLabel": "Equipment",
     "equipmentFallback": "Not specified",
     "descriptionFallback": "No description available.",
+    "thumbnailAlt": "Thumbnail for {exercise}",
+    "thumbnailMissing": "Exercise thumbnail unavailable",
+    "thumbnailPlaceholder": "No image",
     "levelLabel": "Level",
     "levelGeneral": "General",
     "primaryLabel": "Primary",
@@ -1628,7 +1631,20 @@
     "addToPlanNoPlanCta": "Create or select a plan",
     "addToPlanSubmitError": "We couldn't add the exercise. Please retry.",
     "addToPlanSuccessTitle": "Exercise added",
-    "addToPlanSuccessDescription": "{exercise} was added to your selected day."
+    "addToPlanSuccessDescription": "{exercise} was added to your selected day.",
+    "addToPlansModalTitle": "Add exercise to plans",
+    "addToPlansModalDescription": "Select one or more plans for {exercise}.",
+    "addToPlansLabel": "Plans",
+    "addToPlansDaysCount": "Days: {count}",
+    "addToPlansSelectedCount": "Selected plans: {count}",
+    "addToPlansConfirm": "Add to plans",
+    "addToPlansLoading": "Loading available plans...",
+    "addToPlansLoadError": "We couldn't load plans.",
+    "addToPlansNoPlan": "No available training plans.",
+    "addToPlansNoPlanCta": "Create or choose a plan",
+    "addToPlansSubmitError": "We couldn't add this exercise to the selected plans.",
+    "addToPlansSuccessTitle": "Exercise added to plans",
+    "addToPlansSuccessDescription": "{exercise} was added to {count} plan(s)."
   },
   "recipes": {
     "loading": "Loading recipes...",
@@ -1678,7 +1694,12 @@
     "filterQueryLabel": "Query:",
     "errorTitle": "We couldn't load plans",
     "emptyTitle": "No plans in the library",
-    "retrySearch": "Retry search"
+    "retrySearch": "Retry search",
+    "activateCta": "Set as active",
+    "activeCta": "Active plan",
+    "activeBadge": "Active",
+    "activating": "Activating...",
+    "activateError": "We could not set this plan as active."
   },
   "workoutDetail": {
     "notFound": "This workout was not found.",
@@ -1865,6 +1886,12 @@
       "nameLabel": "Gym name",
       "idLabel": "Gym ID",
       "linkRequiresImplementation": "Requires implementation"
+    },
+    "intervals": {
+      "day": "day",
+      "week": "week",
+      "month": "month",
+      "year": "year"
     }
   },
   "settings": {
@@ -1930,10 +1957,12 @@
       "active": "Active",
       "blocked": "Blocked",
       "openClientAriaPrefix": "Open context for",
+      "avatarAlt": "Avatar for {name}",
       "unknownStatus": "Unknown status",
       "loading": "Loading client list...",
       "description": "Review and open athlete contexts from your trainer area.",
-      "openList": "Open client list"
+      "openList": "Open client list",
+      "forbiddenHint": "Your account cannot access this client list in the current gym context."
     },
     "requests": {
       "title": "Gym join requests",
@@ -1952,15 +1981,35 @@
       "description": "Create and review manual plans available for assignment.",
       "openList": "Open plans",
       "createTitle": "Create manual plan",
+      "createFlowDescription": "Create a template with a name and number of days, then organize exercises by day.",
+      "createDraftTitle": "New draft plan",
       "titleLabel": "Plan name",
+      "daysLabel": "Days",
       "descriptionLabel": "Description",
       "create": "Create plan",
       "creating": "Creating...",
       "createError": "We could not create the plan.",
+      "createDisabled": "Plan creation is not available in this environment yet.",
       "listTitle": "Available plans",
+      "listDisabledTitle": "Plans are not available",
+      "listDisabledDescription": "Plan endpoints are not enabled in this environment.",
+      "daysCount": "{count} days",
       "loading": "Loading plans...",
       "empty": "No plans available.",
-      "error": "We could not load plans."
+      "error": "We could not load plans.",
+      "addExerciseSuccess": "Exercise added to the selected plan day.",
+      "addExerciseError": "We could not add that exercise to the selected day.",
+      "editDay": "Edit day",
+      "dayEditorTitle": "Day editor",
+      "dayEditorSubtitle": "Edit a plan day and assign exercises from the library.",
+      "dayEditorHint": "Open a day editor from any day card.",
+      "searchExercises": "Search exercises",
+      "searchExercisesPlaceholder": "Type to search in library (e.g. bench)",
+      "searchingExercises": "Searching exercises...",
+      "searchExercisesError": "We could not search exercises right now.",
+      "searchExercisesEmpty": "No exercises found for this search.",
+      "dayExercisesTitle": "Exercises in this day",
+      "dayNotFound": "No day found for selected date in this plan."
     },
     "clientContext": {
       "title": "Athlete context",
@@ -2000,6 +2049,9 @@
         "assignment": {
           "title": "Assign training plan",
           "description": "Choose one of your existing plans and assign it to {member}.",
+          "planPickerTitle": "Assign a plan",
+          "planPickerDescription": "Select one of your existing plans and confirm the assignment.",
+          "openPlanPicker": "Choose plan to assign",
           "loading": "Loading plans and current assignment...",
           "loadError": "We could not load plan assignment data.",
           "currentLabel": "Currently assigned plan",
@@ -2018,7 +2070,17 @@
           "creating": "Creating plan...",
           "createSuccess": "Minimal plan created successfully. You can now assign it or add exercises from the library.",
           "createError": "We could not create a minimal plan. Please retry.",
-          "defaultPlanTitle": "Minimal weekly plan"
+          "defaultPlanTitle": "Minimal weekly plan",
+          "unsupported": "Plan assignment controls are not supported by the backend in this environment.",
+          "forbidden": "You don't have permission to manage plan assignment for this member.",
+          "unassignCta": "Unassign plan",
+          "unassignSuccess": "Plan unassigned successfully from {member}.",
+          "unassignError": "We could not unassign the current plan. Please retry.",
+          "removeClientCta": "Remove client from trainer list",
+          "removeClientConfirm": "Are you sure you want to remove {member} from your client list?",
+          "removeClientConfirmCta": "Yes, remove client",
+          "removeSuccess": "{member} was removed from your trainer list.",
+          "removeError": "We could not remove this client. Please retry."
         }
       },
       "nutrition": {
@@ -2053,7 +2115,8 @@
         "adjustmentsEmpty": "No adjustment drafts saved on this device yet.",
         "pendingLocalBadge": "Pending (local)"
       },
-      "nextStep": "Athlete context will be enabled when backend impersonation support is available."
+      "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
+      "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment."
     },
     "planBuilder": {
       "title": "Plan builder",
@@ -2241,7 +2304,17 @@
       "title": "Your session expired",
       "subtitle": "Log in again to check your gym status."
     },
-    "actionSuccessTitle": "Request sent"
+    "actionSuccessTitle": "Request sent",
+    "leave": {
+      "cta": "Leave gym",
+      "confirmTitle": "Leave your gym?",
+      "confirmDescription": "This will remove your current membership from the gym area.",
+      "confirmHelp": "You can request access again later from this screen.",
+      "confirmAction": "Leave gym",
+      "success": "You left your gym membership successfully.",
+      "error": "We couldn't complete this action right now.",
+      "unsupported": "This environment does not support leaving a gym yet."
+    }
   },
   "access": {
     "adminPreviewTitle": "Admin Preview Mode",
@@ -2316,7 +2389,9 @@
   "common": {
     "loading": "Loading...",
     "retry": "Retry",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "success": "Success",
+    "error": "Error"
   },
   "adminGyms": {
     "title": "Manage gyms",
@@ -2339,7 +2414,191 @@
       "load": "We could not load gyms.",
       "members": "We could not load gym members.",
       "create": "We could not create the gym.",
-      "role": "We could not update member role."
+      "role": "We could not update member role.",
+      "delete": "We could not delete the gym.",
+      "unexpectedPayload": "We received an unexpected response while loading gyms. Please retry."
+    },
+    "deleteAction": "Delete gym",
+    "deleteConfirm": "Are you sure you want to delete this gym?",
+    "createCode": "Join code (optional)",
+    "createCodePlaceholder": "EXAMPLE2026",
+    "created": "Gym created successfully.",
+    "deleted": "Gym deleted successfully.",
+    "loadingAccess": "Checking admin access…",
+    "errorTitle": "Gym list unavailable",
+    "emptyDescription": "Create your first gym to start onboarding members.",
+    "membersLoading": "Loading gym members…",
+    "membersErrorTitle": "Members unavailable",
+    "roleUpdatedTrainer": "Member promoted to TRAINER.",
+    "roleUpdatedMember": "Member changed to MEMBER."
+  },
+  "landingRedesign": {
+    "hero": {
+      "badge": "New FitSculpt landing",
+      "title": "Train with focus, progress, and a premium experience",
+      "subtitle": "FitSculpt brings your training, nutrition, and tracking together in a clear mobile-first experience built to scale with you.",
+      "primaryCta": "Create account",
+      "secondaryCta": "Log in"
+    },
+    "features": {
+      "title": "Everything essential in one flow",
+      "subtitle": "These are the key capabilities already available in the product.",
+      "items": [
+        {
+          "title": "Guided training",
+          "description": "Access plans, sessions, and the exercise library from a focused interface.",
+          "iconSrc": "/assets/icon-dumbbell.svg",
+          "iconAlt": "Training icon"
+        },
+        {
+          "title": "Smart tracking",
+          "description": "Log progress and review your metrics with clear, low-friction states.",
+          "iconSrc": "/assets/icon-analytics.svg",
+          "iconAlt": "Analytics icon"
+        },
+        {
+          "title": "Connected nutrition",
+          "description": "Keep your nutrition plan aligned with your goal inside the same app.",
+          "iconSrc": "/assets/icon-nutrition.svg",
+          "iconAlt": "Nutrition icon"
+        }
+      ]
+    },
+    "demo": {
+      "title": "Quick experience preview",
+      "subtitle": "We show an existing visual asset while the final landing demo is being defined.",
+      "imageAlt": "FitSculpt demo preview",
+      "fallbackLabel": "Temporary visual asset for landing demo."
+    },
+    "socialProof": {
+      "title": "Trust and outcomes",
+      "subtitle": "Reserved area for verified logos and testimonials.",
+      "placeholder": "Coming soon: gym logos and real user testimonials."
+    },
+    "finalCta": {
+      "title": "Start today with FitSculpt",
+      "subtitle": "Activate your account and discover an experience designed for consistency and results.",
+      "primaryCta": "Create free account",
+      "secondaryCta": "Go to app"
+    }
+  },
+  "marketingPricing": {
+    "headerPlaceholder": "Header area reserved for the final sprint navigation.",
+    "header": {
+      "navigation": "Main navigation",
+      "links": {
+        "plans": "Plans",
+        "features": "Features",
+        "testimonials": "Testimonials"
+      },
+      "language": {
+        "es": "ES",
+        "en": "EN",
+        "switchToEs": "Switch language to Spanish",
+        "switchToEn": "Switch language to English"
+      }
+    },
+    "hero": {
+      "title": "Plans that adapt to your progress",
+      "subtitle": "Train and eat with clear structure, while staying flexible.",
+      "supporting": "Pick the plan that fits your current phase and switch whenever you need.",
+      "cta": "View plans"
+    },
+    "plans": {
+      "strength": {
+        "title": "Strength IA",
+        "price": "14,99€",
+        "tagline": "Strength, hypertrophy, and automatic progression",
+        "cta": "Start Strength",
+        "features": {
+          "1": "Smart load progression",
+          "2": "Routines adapted to your level",
+          "3": "PR and volume tracking",
+          "4": "Technique and key cues by exercise"
+        }
+      },
+      "pro": {
+        "title": "PRO",
+        "price": "19,99€",
+        "badge": "Most popular",
+        "tagline": "Strength + Nutrition in one system",
+        "cta": "Choose Pro",
+        "features": {
+          "1": "Everything in Strength AI",
+          "2": "Everything in Nutrition AI",
+          "3": "Smart week-to-week adjustments",
+          "4": "Advanced progress dashboard"
+        }
+      },
+      "nutrition": {
+        "title": "Nutrition IA",
+        "price": "14,99€",
+        "tagline": "Macros, recipes, and adherence without overcomplicating",
+        "cta": "Start Nutrition",
+        "features": {
+          "1": "Automatic macro targets",
+          "2": "Meal recommendations",
+          "3": "Progress-based adjustments",
+          "4": "Suggested grocery list"
+        }
+      }
+    },
+    "billingNote": "Cancel anytime. Taxes included where applicable.",
+    "features": {
+      "title": "Why members choose FitSculpt",
+      "subtitle": "Built to help you stay consistent with less friction.",
+      "items": {
+        "one": {
+          "title": "Guided progression",
+          "description": "Every week has a clear structure so you always know your next step."
+        },
+        "two": {
+          "title": "Adaptive planning",
+          "description": "Adjust your workload and nutrition targets as your routine changes."
+        },
+        "three": {
+          "title": "Smart nutrition",
+          "description": "Macro targets and practical meal ideas focused on adherence."
+        },
+        "four": {
+          "title": "Progress visibility",
+          "description": "Track strength, body metrics, and habits in one dashboard."
+        },
+        "five": {
+          "title": "Practical workflows",
+          "description": "Designed for real schedules with fast actions and clear priorities."
+        },
+        "six": {
+          "title": "One unified platform",
+          "description": "Train and eat with one system instead of disconnected tools."
+        }
+      }
+    },
+    "testimonials": {
+      "title": "What members are saying",
+      "subtitle": "Real feedback from users training with more clarity.",
+      "starsLabel": "5-star rating",
+      "items": {
+        "one": {
+          "quote": "I finally have a plan that adapts when I miss a week."
+        },
+        "two": {
+          "quote": "Strength progression is clear and keeps me from training blindly."
+        },
+        "three": {
+          "quote": "Simple nutrition, no impossible menus, with macros that fit."
+        }
+      },
+      "disclaimer": "Results vary based on individual context and consistency."
+    },
+    "features": {
+      "title": "Everything you need to keep progressing",
+      "subtitle": "A clear experience to train, eat, and sustain results.",
+      "items": {
+        "1": "Ready-to-use plans with a clear weekly structure.",
+        "2": "Training and nutrition adjustments aligned with your progress.",
+        "3": "Simple tracking to stay consistent without friction."
+      }
     }
   }
 }

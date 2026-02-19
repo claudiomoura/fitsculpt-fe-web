@@ -13,7 +13,7 @@ export async function POST(_request: Request, context: { params: Promise<{ membe
   const normalizedAction = normalizeAction(action.trim().toLowerCase());
 
   if (!normalizedMembershipId || !normalizedAction) {
-    return NextResponse.json({ error: "INVALID_ACTION" }, { status: 400 });
+    return NextResponse.json({ code: "INVALID_ACTION", message: "Action must be accept or reject" }, { status: 400 });
   }
 
   return proxyToBackend(`/admin/gym-join-requests/${normalizedMembershipId}/${normalizedAction}`, {

@@ -86,7 +86,7 @@ export async function hasTrainingPlanAdjustmentCapability(): Promise<boolean> {
       credentials: "include",
     });
     return response.status !== 404;
-  } catch {
+  } catch (_err) {
     return false;
   }
 }

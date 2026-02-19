@@ -8,6 +8,8 @@ import { GymCard } from "@/components/gym/GymCard";
 import { GymListSkeleton } from "@/components/gym/GymListSkeleton";
 import { MembershipStatusBadge } from "@/components/gym/MembershipStatusBadge";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
 import {
   Card,
   CardContent,
@@ -18,16 +20,17 @@ import {
 import {
   fetchGymsList,
   fetchMyGymMembership,
+  gymServiceCapabilities,
+  leaveGymMembership,
   requestGymJoin,
   type GymListItem,
   type GymMembership,
 } from "@/services/gym";
 
-type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED" | "UNKNOWN";
-
+type MembershipStatus = "NONE" | "PENDING" | "ACTIVE" | "REJECTED";
 
 const defaultMembership: GymMembership = {
-  status: "UNKNOWN",
+  status: "NONE",
   gymId: null,
   gymName: null,
   role: null,
@@ -35,6 +38,7 @@ const defaultMembership: GymMembership = {
 
 export default function GymPageClient() {
   const { t } = useLanguage();
+  const { notify } = useToast();
 
   const [membership, setMembership] = useState<GymMembership>(defaultMembership);
   const [gyms, setGyms] = useState<GymListItem[]>([]);
@@ -51,11 +55,17 @@ export default function GymPageClient() {
   const [joinRequestUnsupported, setJoinRequestUnsupported] = useState(false);
   const [joinCodeUnsupported, setJoinCodeUnsupported] = useState(false);
   const [isSessionExpired, setIsSessionExpired] = useState(false);
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+  const [isLeavingGym, setIsLeavingGym] = useState(false);
 
   const canOpenAdmin = useMemo(
     () => membership.status === "ACTIVE" && (membership.role === "ADMIN" || membership.role === "TRAINER"),
     [membership.role, membership.status],
   );
+
+  const isMembershipPending = membership.status === "PENDING";
+  const isMembershipActive = membership.status === "ACTIVE";
+  const shouldDisableJoinActions = requestingJoin || gymsLoading || joinRequestUnsupported || isMembershipPending || isMembershipActive;
 
   const loadGyms = useCallback(async () => {
     setGymsLoading(true);
@@ -107,16 +117,9 @@ export default function GymPageClient() {
         throw new Error("membership");
       }
 
-      const membershipData = membershipRes.data;
-      setMembership(membershipData);
-
-      if (membershipData.status === "NONE" || membershipData.status === "REJECTED") {
-        await loadGyms();
-      } else {
-        setGyms([]);
-        setSelectedGymId("");
-      }
-    } catch {
+      setMembership(membershipRes.data);
+      await loadGyms();
+    } catch (_err) {
       setError(t("gym.loadError.subtitle"));
     } finally {
       setLoading(false);
@@ -128,7 +131,7 @@ export default function GymPageClient() {
   }, [loadData]);
 
   const requestJoin = async () => {
-    if (!selectedGymId) return;
+    if (!selectedGymId || shouldDisableJoinActions) return;
 
     setRequestingJoin(true);
     setActionError(null);
@@ -142,19 +145,60 @@ export default function GymPageClient() {
         return;
       }
 
-      if (!response.ok) throw new Error("join");
+      if (!response.ok) {
+        const message = response.message || t("gym.actionError");
+        setActionError(message);
+        notify({ title: t("common.error"), description: message, variant: "error" });
+        return;
+      }
+
       setActionSuccess(t("gym.join.requestSuccess"));
+      notify({ title: t("common.success"), description: t("gym.join.requestSuccess"), variant: "success" });
       await loadData();
-    } catch {
+    } catch (_err) {
       setActionError(t("gym.actionError"));
+      notify({ title: t("common.error"), description: t("gym.actionError"), variant: "error" });
     } finally {
       setRequestingJoin(false);
     }
   };
 
+  const handleLeaveGym = async () => {
+    if (isLeavingGym) return;
+
+    setIsLeavingGym(true);
+    setActionError(null);
+    setActionSuccess(null);
+
+    try {
+      const response = await leaveGymMembership();
+      if (!response.ok && response.reason === "unsupported") {
+        setActionError(t("gym.leave.unsupported"));
+        notify({ title: t("common.error"), description: t("gym.leave.unsupported"), variant: "error" });
+        return;
+      }
+      if (!response.ok) {
+        const message = response.message || t("gym.leave.error");
+        setActionError(message);
+        notify({ title: t("common.error"), description: message, variant: "error" });
+        return;
+      }
+
+      setActionSuccess(t("gym.leave.success"));
+      notify({ title: t("common.success"), description: t("gym.leave.success"), variant: "success" });
+      setIsLeaveConfirmOpen(false);
+      await loadData();
+    } catch (_err) {
+      setActionError(t("gym.leave.error"));
+      notify({ title: t("common.error"), description: t("gym.leave.error"), variant: "error" });
+    } finally {
+      setIsLeavingGym(false);
+    }
+  };
+
   const joinUsingCode = async () => {
     const trimmedCode = code.trim();
-    if (!trimmedCode) return;
+    if (!trimmedCode || isMembershipPending || isMembershipActive) return;
 
     setJoiningByCode(true);
     setActionError(null);
@@ -183,18 +227,24 @@ export default function GymPageClient() {
       }
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        const payload = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
         if (payload?.error === "INVALID_GYM_CODE") {
           setActionError(t("gym.join.invalidCode"));
+          notify({ title: t("common.error"), description: t("gym.join.invalidCode"), variant: "error" });
           return;
         }
-        throw new Error("join-by-code");
+        const message = payload?.message || t("gym.actionError");
+        setActionError(message);
+        notify({ title: t("common.error"), description: message, variant: "error" });
+        return;
       }
       setCode("");
       setActionSuccess(t("gym.join.codeSuccess"));
+      notify({ title: t("common.success"), description: t("gym.join.codeSuccess"), variant: "success" });
       await loadData();
-    } catch {
+    } catch (_err) {
       setActionError(t("gym.actionError"));
+      notify({ title: t("common.error"), description: t("gym.actionError"), variant: "error" });
     } finally {
       setJoiningByCode(false);
     }
@@ -230,47 +280,50 @@ export default function GymPageClient() {
         </CardHeader>
       </Card>
 
-      {(membership.status === "NONE" || membership.status === "REJECTED") && (
-        <section className="form-stack" aria-label={t("gym.join.directoryTitle")}>
-          <h2 className="section-title section-title-sm">{t("gym.join.directoryTitle")}</h2>
-          {gymsLoading ? (
-            <GymListSkeleton count={2} />
-          ) : gymsLoadError ? (
-            <ErrorState title={t("gym.join.loadErrorTitle")} description={t("gym.join.loadError")} retryLabel={t("common.retry")} onRetry={() => void loadGyms()} />
-          ) : gyms.length === 0 ? (
-            <EmptyState title={t("gym.join.emptyTitle")} description={t("gym.join.empty")} />
-          ) : (
-            gyms.map((gym) => {
-              const safeStatus: MembershipStatus =
-                membership.gymId && membership.gymId === gym.id && (membership.status === "PENDING" || membership.status === "ACTIVE")
-                  ? membership.status
-                  : "UNKNOWN";
+      <section className="form-stack" aria-label={t("gym.join.directoryTitle")}>
+        <h2 className="section-title section-title-sm">{t("gym.join.directoryTitle")}</h2>
+        {gymsLoading ? (
+          <GymListSkeleton count={2} />
+        ) : gymsLoadError ? (
+          <ErrorState title={t("gym.join.loadErrorTitle")} description={t("gym.join.loadError")} retryLabel={t("common.retry")} onRetry={() => void loadGyms()} />
+        ) : gyms.length === 0 ? (
+          <EmptyState
+            title={t("gym.join.emptyTitle")}
+            description={t("gym.join.empty")}
+            actions={[{ label: t("common.retry"), onClick: () => void loadGyms(), variant: "secondary" }]}
+          />
+        ) : (
+          gyms.map((gym) => {
+            const safeStatus: MembershipStatus =
+              membership.gymId && membership.gymId === gym.id && (membership.status === "PENDING" || membership.status === "ACTIVE")
+                ? membership.status
+                : "NONE";
 
-              return (
-                <GymCard
-                  key={gym.id}
-                  id={gym.id}
-                  name={gym.name}
-                  membershipStatus={safeStatus}
-                  isSelected={selectedGymId === gym.id}
-                  disabled={requestingJoin || gymsLoading || joinRequestUnsupported}
-                  onSelect={setSelectedGymId}
-                  onRequestJoin={() => void requestJoin()}
-                  statusLabels={{
-                    pending: t("gym.membership.pending.badge"),
-                    active: t("gym.membership.active.badge"),
-                    fallback: t("gym.membership.unknown.badge"),
-                  }}
-                  selectLabel={t("gym.join.selectButton")}
-                  requestLabel={t("gym.join.requestButton")}
-                  pendingRequestLabel={t("gym.join.requestPending")}
-                />
-              );
-            })
-          )}
-          {joinRequestUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
-        </section>
-      )}
+            return (
+              <GymCard
+                key={gym.id}
+                id={gym.id}
+                name={gym.name}
+                membershipStatus={safeStatus}
+                isSelected={selectedGymId === gym.id}
+                disabled={shouldDisableJoinActions}
+                onSelect={setSelectedGymId}
+                onRequestJoin={() => void requestJoin()}
+                statusLabels={{
+                  pending: t("gym.membership.pending.badge"),
+                  active: t("gym.membership.active.badge"),
+                  fallback: t("gym.membership.unknown.badge"),
+                }}
+                selectLabel={t("gym.join.selectButton")}
+                requestLabel={t("gym.join.requestButton")}
+                pendingRequestLabel={t("gym.join.requestPending")}
+              />
+            );
+          })
+        )}
+        {joinRequestUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
+        {isMembershipPending ? <p className="muted">{t("gym.join.requestPending")}</p> : null}
+      </section>
 
       {membership.status === "PENDING" && (
         <Card>
@@ -309,6 +362,16 @@ export default function GymPageClient() {
                   {t("gym.admin.goToPanel")}
                 </Link>
               )}
+              {gymServiceCapabilities.supportsLeaveGym ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsLeaveConfirmOpen(true)}
+                  disabled={isLeavingGym}
+                  loading={isLeavingGym}
+                >
+                  {t("gym.leave.cta")}
+                </Button>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -325,24 +388,48 @@ export default function GymPageClient() {
         </Card>
       )}
 
-      {membership.status === "UNKNOWN" && <EmptyState title={t("gym.unavailableTitle")} description={t("gym.unavailableDescription")} />}
+      {!isMembershipPending && !isMembershipActive ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("gym.join.codeTitle")}</CardTitle>
+            <CardDescription>{t("gym.join.codeHelp")}</CardDescription>
+          </CardHeader>
+          <CardContent className="form-stack">
+            <label className="form-stack" htmlFor="gym-join-code">
+              {t("gym.join.codeLabel")}
+              <input id="gym-join-code" value={code} onChange={(event) => setCode(event.target.value)} />
+            </label>
+            <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || joinCodeUnsupported || !code.trim()}>
+              {joiningByCode ? t("common.loading") : t("gym.join.codeButton")}
+            </Button>
+            {joinCodeUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("gym.join.codeTitle")}</CardTitle>
-          <CardDescription>{t("gym.join.codeHelp")}</CardDescription>
-        </CardHeader>
-        <CardContent className="form-stack">
-          <label className="form-stack" htmlFor="gym-join-code">
-            {t("gym.join.codeLabel")}
-            <input id="gym-join-code" value={code} onChange={(event) => setCode(event.target.value)} />
-          </label>
-          <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || joinCodeUnsupported || !code.trim()}>
-            {joiningByCode ? t("common.loading") : t("gym.join.codeButton")}
-          </Button>
-          {joinCodeUnsupported ? <p className="muted">{t("gym.unavailableDescription")}</p> : null}
-        </CardContent>
-      </Card>
+      {gymServiceCapabilities.supportsLeaveGym ? (
+        <Modal
+          open={isLeaveConfirmOpen}
+          onClose={() => {
+            if (isLeavingGym) return;
+            setIsLeaveConfirmOpen(false);
+          }}
+          title={t("gym.leave.confirmTitle")}
+          description={t("gym.leave.confirmDescription")}
+          footer={
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <Button variant="secondary" onClick={() => setIsLeaveConfirmOpen(false)} disabled={isLeavingGym}>
+                {t("ui.cancel")}
+              </Button>
+              <Button onClick={() => void handleLeaveGym()} loading={isLeavingGym} disabled={isLeavingGym}>
+                {t("gym.leave.confirmAction")}
+              </Button>
+            </div>
+          }
+        >
+          <p className="muted" style={{ margin: 0 }}>{t("gym.leave.confirmHelp")}</p>
+        </Modal>
+      ) : null}
 
       {actionError ? <ErrorState title={t("gym.actionErrorTitle")} description={actionError} retryLabel={t("common.retry")} onRetry={() => setActionError(null)} /> : null}
       {actionSuccess ? <EmptyState title={t("gym.actionSuccessTitle")} description={actionSuccess} /> : null}

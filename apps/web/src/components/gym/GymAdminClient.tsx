@@ -61,7 +61,7 @@ function parseMembers(payload: unknown): GymMember[] {
 export default function GymAdminClient() {
   const { t } = useLanguage();
   const { isAdmin, isTrainer } = useAccess();
-  const [membership, setMembership] = useState<Membership>({ status: "UNKNOWN", gymId: null });
+  const [membership, setMembership] = useState<Membership>({ status: "NONE", gymId: null });
   const [requests, setRequests] = useState<JoinRequest[]>([]);
   const [members, setMembers] = useState<GymMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +99,7 @@ export default function GymAdminClient() {
 
       setRequests(parseJoinRequests(requestsRes.data));
       setMembers(parseMembers(await membersRes.json()));
-    } catch {
+    } catch (_err) {
       setError(t("gym.adminLoadError"));
     } finally {
       setLoading(false);
@@ -116,7 +116,7 @@ export default function GymAdminClient() {
       const response = await reviewGymJoinRequest(id, action);
       if (!response.ok) throw new Error(action);
       await loadAdminData();
-    } catch {
+    } catch (_err) {
       setError(t("gym.adminActionError"));
     } finally {
       setActionPending(null);

@@ -1,5 +1,17 @@
-import { proxyToBackend } from "../_proxy";
+import { NextResponse } from "next/server";
+import { fetchBackend, proxyToBackend } from "../_proxy";
 
 export async function GET() {
   return proxyToBackend("/gyms/membership");
+}
+
+export async function DELETE() {
+  const result = await fetchBackend("/gyms/membership", { method: "DELETE" });
+
+  if (result.status === 404 || result.status === 405) {
+    console.warn("[BFF][gyms/membership] leave gym unsupported by backend", { status: result.status });
+    return NextResponse.json({ error: "UNSUPPORTED_OPERATION", feature: "leave_gym" }, { status: 405 });
+  }
+
+  return NextResponse.json(result.payload, { status: result.status });
 }

@@ -6,7 +6,7 @@ import Link from "next/link";
 import FeatureUnavailableState from "@/components/trainer/FeatureUnavailableState";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getUserRoleFlags } from "@/lib/userCapabilities";
-import { fetchGymMembershipStatus, parseGymMembership } from "@/services/gym";
+import { fetchMyGymMembership } from "@/services/gym";
 import { findTrainerClient, hasClientContextData, type TrainerClient } from "@/lib/trainerClients";
 
 type LoadState = "loading" | "ready" | "error";
@@ -36,20 +36,13 @@ export default function TrainerClientContextClient() {
         const meData = (await meResponse.json()) as Record<string, unknown>;
         const roleFlags = getUserRoleFlags(meData);
 
-        const membershipResponse = await fetchGymMembershipStatus();
+        const membershipResult = await fetchMyGymMembership();
         let nextMembershipState: "in_gym" | "not_in_gym" | "unknown" | "no_permission" = "unknown";
 
-        if (membershipResponse.status === 403) {
-          nextMembershipState = "no_permission";
-        } else if (!membershipResponse.ok) {
-          nextMembershipState = membershipResponse.status === 401 ? "no_permission" : "unknown";
+        if (!membershipResult.ok) {
+          nextMembershipState = membershipResult.reason === "unauthorized" || membershipResult.reason === "forbidden" ? "no_permission" : "unknown";
         } else {
-          const membership = parseGymMembership(await membershipResponse.json());
-          if (membership.status === "ACTIVE") {
-            nextMembershipState = "in_gym";
-          } else if (membership.status === "NONE" || membership.status === "REJECTED") {
-            nextMembershipState = "not_in_gym";
-          }
+          nextMembershipState = membershipResult.data.status === "ACTIVE" ? "in_gym" : "not_in_gym";
         }
 
         if (!active) return;
@@ -73,7 +66,7 @@ export default function TrainerClientContextClient() {
 
         setClient(findTrainerClient(profileData, clientId));
         setClientState("ready");
-      } catch {
+      } catch (_err) {
         if (active) {
           setPermissionState("error");
           setClientState("error");

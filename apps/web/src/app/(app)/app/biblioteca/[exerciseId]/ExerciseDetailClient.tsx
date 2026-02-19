@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { addExerciseRecent } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
-import type { Exercise, TrainingPlanDetail } from "@/lib/types";
+import type { Exercise, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
+import { extractGymMembership } from "@/lib/gymMembership";
+import { isTrainingPlanVisibleForGym } from "@/lib/trainingPlanVisibility";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useToast } from "@/components/ui/Toast";
@@ -34,8 +36,8 @@ type ExerciseOverviewItem = {
   value: string;
 };
 
-function isNotNull<T>(value: T | null): value is T {
-  return value !== null;
+function isNotNull<T>(value: T | null | undefined): value is T {
+  return value != null;
 }
 
 function getMuscleGroups(exercise: Exercise): MuscleGroups {
@@ -61,13 +63,14 @@ export default function ExerciseDetailClient({
   const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [isFavoritePending, setIsFavoritePending] = useState(false);
-  const [targetPlan, setTargetPlan] = useState<TrainingPlanDetail | null>(null);
-  const [planLoading, setPlanLoading] = useState(true);
-  const [planError, setPlanError] = useState<string | null>(null);
+  const [targetPlans, setTargetPlans] = useState<TrainingPlanDetail[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
   const [planRetryKey, setPlanRetryKey] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addingExercise, setAddingExercise] = useState(false);
   const [addExerciseError, setAddExerciseError] = useState<string | null>(null);
+  const [viewerGymId, setViewerGymId] = useState<string | null>(null);
   const { favorites, toggleFavorite } = useExerciseFavorites();
   const { notify } = useToast();
   const athleteUserId = searchParams.get("athleteUserId")?.trim() || "";
@@ -167,10 +170,31 @@ export default function ExerciseDetailClient({
 
   useEffect(() => {
     let active = true;
+    const loadViewerGym = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store", credentials: "include" });
+        if (!response.ok) return;
+        const profile = (await response.json()) as unknown;
+        if (!active) return;
+        setViewerGymId(extractGymMembership(profile).gymId);
+      } catch {
+        if (!active) return;
+        setViewerGymId(null);
+      }
+    };
+
+    void loadViewerGym();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     const loadTargetPlan = async () => {
-      setPlanLoading(true);
-      setPlanError(null);
-      setTargetPlan(null);
+      setPlansLoading(true);
+      setPlansError(null);
+      setTargetPlans([]);
 
       try {
         if (athleteUserId) {
@@ -183,7 +207,7 @@ export default function ExerciseDetailClient({
           const assignedPlanId = assignmentData.assignedPlan?.id;
           if (!assignedPlanId) {
             if (!active) return;
-            setPlanLoading(false);
+            setPlansLoading(false);
             return;
           }
           const detailResponse = await fetch(`/api/training-plans/${assignedPlanId}`, {
@@ -193,37 +217,44 @@ export default function ExerciseDetailClient({
           if (!detailResponse.ok) throw new Error("PLAN_DETAIL_ERROR");
           const detail = (await detailResponse.json()) as TrainingPlanDetail;
           if (!active) return;
-          setTargetPlan(detail);
-          setPlanLoading(false);
+          setTargetPlans(isTrainingPlanVisibleForGym(detail, viewerGymId) ? [detail] : []);
+          setPlansLoading(false);
           return;
         }
 
-        const listResponse = await fetch("/api/training-plans?limit=1", { cache: "no-store", credentials: "include" });
+        const listResponse = await fetch("/api/training-plans?limit=20", { cache: "no-store", credentials: "include" });
         if (!listResponse.ok) throw new Error("PLAN_LIST_ERROR");
-        const listData = (await listResponse.json()) as { items?: Array<{ id: string }> };
-        const ownPlanId = listData.items?.[0]?.id;
-        if (!ownPlanId) {
+        const listData = (await listResponse.json()) as { items?: TrainingPlanListItem[] };
+        const planIds = (listData.items ?? []).map((item) => item.id).filter(Boolean);
+
+        if (planIds.length === 0) {
           if (!active) return;
-          setPlanLoading(false);
+          setPlansLoading(false);
           return;
         }
-        const detailResponse = await fetch(`/api/training-plans/${ownPlanId}`, { cache: "no-store", credentials: "include" });
-        if (!detailResponse.ok) throw new Error("PLAN_DETAIL_ERROR");
-        const detail = (await detailResponse.json()) as TrainingPlanDetail;
+
+        const details = await Promise.all(
+          planIds.map(async (planId) => {
+            const detailResponse = await fetch(`/api/training-plans/${planId}`, { cache: "no-store", credentials: "include" });
+            if (!detailResponse.ok) return null;
+            return (await detailResponse.json()) as TrainingPlanDetail;
+          })
+        );
+
         if (!active) return;
-        setTargetPlan(detail);
-        setPlanLoading(false);
-      } catch {
+        setTargetPlans(details.filter(isNotNull).filter((plan) => isTrainingPlanVisibleForGym(plan, viewerGymId)));
+        setPlansLoading(false);
+      } catch (_err) {
         if (!active) return;
-        setPlanError(t("library.addToPlanLoadError"));
-        setPlanLoading(false);
+        setPlansError(t("library.addToPlansLoadError"));
+        setPlansLoading(false);
       }
     };
     void loadTargetPlan();
     return () => {
       active = false;
     };
-  }, [athleteUserId, planRetryKey, t]);
+  }, [athleteUserId, planRetryKey, t, viewerGymId]);
 
   if (error) {
     return (
@@ -251,7 +282,7 @@ export default function ExerciseDetailClient({
 
   const isFavorite = Boolean(exercise?.id && favorites.includes(exercise.id));
   const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
-  const addLabel = t("library.addActionLabel");
+  const addLabel = t("library.addToPlansConfirm");
   const handleFavoriteToggle = () => {
     if (!exercise?.id || isFavoritePending) return;
     setIsFavoritePending(true);
@@ -278,32 +309,56 @@ export default function ExerciseDetailClient({
     router.push(backHref);
   };
 
-  const addExerciseToPlanDay = async (dayId: string) => {
-    if (!exercise.id || !targetPlan?.id || !dayId || addingExercise) return;
+  const addExerciseToPlans = async (planIds: string[]) => {
+    if (!exercise.id || planIds.length === 0 || addingExercise) return;
     setAddingExercise(true);
     setAddExerciseError(null);
     try {
-      const response = await fetch(`/api/training-plans/${targetPlan.id}/days/${dayId}/exercises`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        cache: "no-store",
-        body: JSON.stringify({ exerciseId: exercise.id, ...(athleteUserId ? { athleteUserId } : {}) }),
-      });
-      setAddingExercise(false);
-      if (!response.ok) {
-        setAddExerciseError(t("library.addToPlanSubmitError"));
+      const plansById = new Map(targetPlans.map((plan) => [plan.id, plan]));
+      const selectedPlans = planIds
+        .map((planId) => plansById.get(planId))
+        .filter(isNotNull);
+
+      if (selectedPlans.length === 0) {
+        setAddingExercise(false);
+        setAddExerciseError(t("library.addToPlansSubmitError"));
         return;
       }
+
+      const responses = await Promise.all(
+        selectedPlans.map(async (plan) => {
+          const dayId = plan.days?.[0]?.id;
+          if (!dayId) return false;
+
+          const response = await fetch(`/api/training-plans/${plan.id}/days/${dayId}/exercises`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            cache: "no-store",
+            body: JSON.stringify({ exerciseId: exercise.id, ...(athleteUserId ? { athleteUserId } : {}) }),
+          });
+
+          return response.ok;
+        })
+      );
+
+      setAddingExercise(false);
+      if (responses.some((ok) => !ok)) {
+        setAddExerciseError(t("library.addToPlansSubmitError"));
+        return;
+      }
+
       notify({
-        title: t("library.addToPlanSuccessTitle"),
-        description: t("library.addToPlanSuccessDescription").replace("{exercise}", exercise.name),
+        title: t("library.addToPlansSuccessTitle"),
+        description: t("library.addToPlansSuccessDescription")
+          .replace("{exercise}", exercise.name)
+          .replace("{count}", String(selectedPlans.length)),
         variant: "success",
       });
       setPickerOpen(false);
-    } catch {
+    } catch (_err) {
       setAddingExercise(false);
-      setAddExerciseError(t("library.addToPlanSubmitError"));
+      setAddExerciseError(t("library.addToPlansSubmitError"));
     }
   };
 
@@ -330,7 +385,7 @@ export default function ExerciseDetailClient({
               {backLabel}
             </Button>
             <Button variant="secondary" size="sm" aria-label={addLabel} onClick={() => setPickerOpen(true)}>
-              +
+              {addLabel}
             </Button>
           </>
         }
@@ -440,13 +495,14 @@ export default function ExerciseDetailClient({
           setAddExerciseError(null);
         }}
         exerciseName={exercise.name}
-        days={(targetPlan?.days ?? []).map((day) => ({ id: day.id, label: day.label, focus: day.focus }))}
-        loadingPlan={planLoading}
-        loadError={planError}
+        plans={targetPlans.map((plan) => ({ id: plan.id, title: plan.title, daysCount: plan.days.length }))}
+        loadingPlans={plansLoading}
+        loadError={plansError}
         isSubmitting={addingExercise}
         submitError={addExerciseError}
-        canSubmit={Boolean(targetPlan?.id)}
-        onConfirm={addExerciseToPlanDay}
+        canSubmit={targetPlans.some((plan) => (plan.days?.length ?? 0) > 0)}
+        allowMultiSelect
+        onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
         emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"}
       />

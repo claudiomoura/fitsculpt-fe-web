@@ -28,7 +28,7 @@ const readStore = (): NutritionAdherenceStore => {
     const stored = window.localStorage.getItem(NUTRITION_ADHERENCE_STORAGE_KEY);
     if (!stored) return {};
     return normalizeStore(JSON.parse(stored));
-  } catch {
+  } catch (_err) {
     return {};
   }
 };
@@ -37,7 +37,7 @@ const writeStore = (store: NutritionAdherenceStore) => {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(NUTRITION_ADHERENCE_STORAGE_KEY, JSON.stringify(store));
-  } catch {
+  } catch (_err) {
     // ignore storage errors
   }
 };
@@ -76,7 +76,7 @@ export const useNutritionAdherence = (dayKey: string) => {
     try {
       setStore(readStore());
       setError(false);
-    } catch {
+    } catch (_err) {
       setStore({});
       setError(true);
     } finally {

@@ -35,7 +35,7 @@ export default function AdminDashboardClient() {
         if (active) {
           setSummary({ total: data.total ?? 0 });
         }
-      } catch {
+      } catch (_err) {
         if (active) setRequestError(true);
       } finally {
         if (active) setLoading(false);

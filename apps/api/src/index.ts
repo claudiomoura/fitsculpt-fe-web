@@ -69,12 +69,6 @@ type StripeSubscriptionList = {
 
 type StripeCustomer = {
   id: string;
-  email?: string | null;
-  created?: number | null;
-};
-
-type StripeCustomerList = {
-  data: StripeCustomer[];
 };
 
 await app.register(cors, {
@@ -178,6 +172,21 @@ function getStripePricePlanMap(): Map<string, SubscriptionPlan> {
 
 function resolvePlanByPriceId(priceId: string): SubscriptionPlan | null {
   return getStripePricePlanMap().get(priceId) ?? null;
+}
+
+function resolvePriceIdByPlanKey(planKey: string): string | null {
+  const normalizedPlanKey = planKey.trim().toUpperCase();
+  const normalizedToPlan = new Map<string, SubscriptionPlan>([
+    ["PRO", "PRO"],
+    ["STRENGTH", "STRENGTH_AI"],
+    ["STRENGTH_AI", "STRENGTH_AI"],
+    ["NUTRI", "NUTRI_AI"],
+    ["NUTRI_AI", "NUTRI_AI"],
+  ]);
+  const plan = normalizedToPlan.get(normalizedPlanKey);
+  if (!plan) return null;
+  const planEntry = getAvailableBillingPlans().find((entry) => entry.plan === plan);
+  return planEntry?.priceId ?? null;
 }
 
 function getAvailableBillingPlans() {
@@ -385,6 +394,35 @@ async function getLatestActiveSubscription(customerId: string) {
   return activeSubscriptions.sort((a, b) => (b.current_period_end ?? 0) - (a.current_period_end ?? 0))[0] ?? null;
 }
 
+async function getActivePlanSubscriptions(customerId: string) {
+  const subscriptions = await stripeRequest<StripeSubscriptionList>(
+    "subscriptions",
+    { customer: customerId, status: "all", limit: 100, "expand[0]": "data.items.data.price" },
+    { method: "GET" }
+  );
+
+  return subscriptions.data.filter((subscription) => {
+    if (!isActiveSubscriptionStatus(subscription.status)) return false;
+    return getPlanFromSubscription(subscription) !== null;
+  });
+}
+
+async function getOrCreateCustomerId(user: User) {
+  let customerId = user.stripeCustomerId ?? null;
+
+  if (!customerId) {
+    const customer = await stripeRequest<{ id: string }>("customers", {
+      email: user.email,
+      name: user.name ?? undefined,
+      "metadata[userId]": user.id,
+    });
+    customerId = customer.id;
+    await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+  }
+
+  return customerId;
+}
+
 function getSubscriptionPeriodEnd(subscription?: StripeSubscription | null) {
   if (!subscription?.current_period_end) return null;
   return new Date(subscription.current_period_end * 1000);
@@ -402,48 +440,28 @@ function getPlanFromInvoice(invoice?: StripeInvoice | null): SubscriptionPlan | 
   return null;
 }
 
-async function findLatestCustomerByEmail(email: string) {
-  const customers = await stripeRequest<StripeCustomerList>(
-    "customers",
-    { email, limit: 10 },
-    { method: "GET" }
-  );
-  if (!customers.data.length) {
-    return null;
+async function getOrCreateStripeCustomer(user: User) {
+  if (user.stripeCustomerId) {
+    return user.stripeCustomerId;
   }
-  return (
-    customers.data.sort((a, b) => (b.created ?? 0) - (a.created ?? 0))[0] ?? null
-  );
+
+  const customer = await stripeRequest<StripeCustomer>("customers", {
+    email: user.email,
+    name: user.name ?? undefined,
+    "metadata[app_user_id]": user.id,
+    "metadata[env]": process.env.NODE_ENV ?? "development",
+  });
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { stripeCustomerId: customer.id },
+  });
+
+  return customer.id;
 }
 
 async function syncUserBillingFromStripe(user: User) {
-  let stripeCustomerId = user.stripeCustomerId ?? null;
-  if (!stripeCustomerId && user.email) {
-    const latestCustomer = await findLatestCustomerByEmail(user.email);
-    if (latestCustomer?.id) {
-      stripeCustomerId = latestCustomer.id;
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { stripeCustomerId },
-      });
-    }
-  }
-
-  if (!stripeCustomerId) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        plan: "FREE",
-        subscriptionStatus: null,
-        stripeSubscriptionId: null,
-        currentPeriodEnd: null,
-        aiTokenBalance: 0,
-        aiTokenResetAt: null,
-        aiTokenRenewalAt: null,
-      },
-    });
-    return;
-  }
+  const stripeCustomerId = await getOrCreateStripeCustomer(user);
 
   const activeSubscription = await getLatestActiveSubscription(stripeCustomerId);
   if (!activeSubscription) {
@@ -712,6 +730,30 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
     throw createHttpError(403, "FORBIDDEN");
   }
   return managerMembership;
+}
+
+async function requireActiveGymManagerMembership(userId: string) {
+  const membership = await prisma.gymMembership.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+      role: { in: ["ADMIN", "TRAINER"] },
+    },
+    select: {
+      id: true,
+      gymId: true,
+      userId: true,
+      status: true,
+      role: true,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (!membership) {
+    throw createHttpError(403, "FORBIDDEN");
+  }
+
+  return membership;
 }
 
 async function requireGymAdminForGym(userId: string, gymId: string) {
@@ -3767,52 +3809,46 @@ app.get("/auth/verify-email", async (request, reply) => {
 app.post("/billing/checkout", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const checkoutSchema = z.object({ priceId: z.string().min(1) });
-    const { priceId } = checkoutSchema.parse(request.body);
-    if (!resolvePlanByPriceId(priceId)) {
+    const checkoutSchema = z
+      .object({
+        priceId: z.string().min(1).optional(),
+        planKey: z.string().min(1).optional(),
+      })
+      .refine((payload) => Boolean(payload.priceId || payload.planKey), {
+        message: "priceId_or_planKey_required",
+      });
+    const payload = checkoutSchema.parse(request.body);
+    const resolvedPriceId = payload.priceId ?? resolvePriceIdByPlanKey(payload.planKey ?? "");
+    if (!resolvedPriceId) {
+      return reply.status(400).send({ error: "INVALID_PLAN_TARGET" });
+    }
+    const targetPlan = resolvePlanByPriceId(resolvedPriceId);
+    if (!targetPlan) {
       return reply.status(400).send({ error: "INVALID_PRICE_ID" });
     }
+
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
-    let customerId = user.stripeCustomerId ?? null;
-    if (!customerId && user.email) {
-      const latestCustomer = await findLatestCustomerByEmail(user.email);
-      if (latestCustomer?.id) {
-        customerId = latestCustomer.id;
-        await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+    const customerId = await getOrCreateStripeCustomer(user);
+    const hasSamePlanLocally = isActiveSubscriptionStatus(user.subscriptionStatus) && user.plan === targetPlan;
+
+    const activeSubscriptions = await getActivePlanSubscriptions(customerId);
+    const hasSamePlanInStripe = activeSubscriptions.some((subscription) => getPlanFromSubscription(subscription) === targetPlan);
+    if (hasSamePlanInStripe) {
+      let portalUrl: string | null = null;
+      try {
+        const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
+          customer: customerId,
+          return_url: `${env.APP_BASE_URL}/app/settings/billing`,
+        });
+        portalUrl = session.url ?? null;
+      } catch (error) {
+        request.log.warn({ err: error, userId: user.id }, "billing portal session failed");
       }
-    }
-    const hasActiveLocal = isActiveSubscriptionStatus(user.subscriptionStatus);
-    if (hasActiveLocal && !customerId) {
-      return reply.status(200).send({ alreadySubscribed: true });
-    }
-    if (!customerId) {
-      const customer = await stripeRequest<{ id: string }>("customers", {
-        email: user.email,
-        name: user.name ?? undefined,
-        "metadata[userId]": user.id,
-      });
-      customerId = customer.id;
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+      return reply.status(200).send({ alreadySubscribed: true, url: portalUrl });
     }
 
-    if (customerId) {
-      const activeSubscription = await getLatestActiveSubscription(customerId);
-      if (activeSubscription && isActiveSubscriptionStatus(activeSubscription.status)) {
-        let portalUrl: string | null = null;
-        try {
-          const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
-            customer: customerId,
-            return_url: `${env.APP_BASE_URL}/app/settings/billing`,
-          });
-          portalUrl = session.url ?? null;
-        } catch (error) {
-          request.log.warn({ err: error, userId: user.id }, "billing portal session failed");
-        }
-        return reply.status(200).send({ alreadySubscribed: true, url: portalUrl });
-      }
-    }
-    if (hasActiveLocal) {
-      request.log.info({ userId: user.id }, "billing checkout blocked due to active subscription");
+    if (hasSamePlanLocally) {
+      request.log.info({ userId: user.id, targetPlan }, "billing checkout blocked due to active local plan");
       return reply.status(200).send({ alreadySubscribed: true });
     }
 
@@ -3823,9 +3859,10 @@ app.post("/billing/checkout", async (request, reply) => {
         customer: customerId,
         client_reference_id: user.id,
         "metadata[userId]": user.id,
-        "line_items[0][price]": priceId,
+        "line_items[0][price]": resolvedPriceId,
         "line_items[0][quantity]": 1,
         "subscription_data[metadata][userId]": user.id,
+        "subscription_data[metadata][plan]": targetPlan,
         success_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=success`,
         cancel_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=cancel`,
       },
@@ -3856,21 +3893,42 @@ app.post("/billing/checkout", async (request, reply) => {
 app.post("/billing/portal", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripeRequest<{ id: string }>("customers", {
-        email: user.email,
-        name: user.name ?? undefined,
-        "metadata[userId]": user.id,
-      });
-      customerId = customer.id;
-      await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
-    }
+    const customerId = await getOrCreateStripeCustomer(user);
     const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
       customer: customerId,
       return_url: `${env.APP_BASE_URL}/app/settings/billing`,
     });
     return { url: session.url };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/billing/admin/reset-customer-link", async (request, reply) => {
+  const schema = z.object({
+    userId: z.string().min(1).optional(),
+    email: z.string().email().optional(),
+  }).refine((value) => value.userId || value.email, {
+    message: "userId_or_email_required",
+  });
+
+  try {
+    await requireAdmin(request);
+    const { userId, email } = schema.parse(request.body);
+    const user = userId
+      ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
+      : await prisma.user.findFirst({ where: { email: email! }, select: { id: true } });
+
+    if (!user) {
+      return reply.status(404).send({ error: "USER_NOT_FOUND" });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { stripeCustomerId: null },
+    });
+
+    return reply.status(200).send({ ok: true, userId: user.id });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5342,6 +5400,36 @@ const assignTrainingPlanBodySchema = z
 const trainerMemberParamsSchema = z.object({
   userId: z.string().min(1),
 });
+const trainerPlanCreateSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  daysCount: z.coerce.number().int().min(1).max(14),
+  notes: z.string().trim().min(1).max(600).optional(),
+  goal: z.string().trim().min(1).max(80).default("general_fitness"),
+  level: z.string().trim().min(1).max(80).default("beginner"),
+  focus: z.string().trim().min(1).max(120).default("full_body"),
+  equipment: z.string().trim().min(1).max(120).default("bodyweight"),
+  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+  startDate: z.string().trim().min(1).optional(),
+});
+const trainerPlanUpdateSchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  daysCount: z.coerce.number().int().min(1).max(14).optional(),
+  notes: z.string().trim().min(1).max(600).nullable().optional(),
+  goal: z.string().trim().min(1).max(80).optional(),
+  level: z.string().trim().min(1).max(80).optional(),
+  focus: z.string().trim().min(1).max(120).optional(),
+  equipment: z.string().trim().min(1).max(120).optional(),
+  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+  startDate: z.string().trim().min(1).optional(),
+}).refine((value) => Object.keys(value).length > 0, {
+  message: "At least one field is required",
+});
+const trainerPlanParamsSchema = z.object({
+  planId: z.string().min(1),
+});
+const trainerAssignPlanBodySchema = z.object({
+  trainingPlanId: z.string().min(1),
+});
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -6225,6 +6313,41 @@ const adminDeleteGymParamsSchema = z.object({
   gymId: z.string().min(1),
 });
 
+type StableGymMembershipState = "NONE" | "PENDING" | "ACTIVE";
+
+function toStableGymMembershipState(status: "PENDING" | "ACTIVE" | "REJECTED" | null | undefined): StableGymMembershipState {
+  if (status === "PENDING") return "PENDING";
+  if (status === "ACTIVE") return "ACTIVE";
+  return "NONE";
+}
+
+function toLegacyGymMembershipState(state: StableGymMembershipState): "none" | "pending" | "active" {
+  if (state === "PENDING") return "pending";
+  if (state === "ACTIVE") return "active";
+  return "none";
+}
+
+function serializeGymMembership(
+  membership:
+    | {
+        status: "PENDING" | "ACTIVE" | "REJECTED";
+        role: "ADMIN" | "TRAINER" | "MEMBER";
+        gym: { id: string; name: string };
+      }
+    | null,
+) {
+  const status = toStableGymMembershipState(membership?.status);
+  const gym = status === "NONE" ? null : membership?.gym ?? null;
+  const role = status === "NONE" ? null : membership?.role ?? null;
+
+  return {
+    status,
+    state: toLegacyGymMembershipState(status),
+    gym,
+    role,
+  };
+}
+
 app.get("/gyms", async (request, reply) => {
   try {
     await requireUser(request);
@@ -6244,7 +6367,7 @@ app.get("/gyms", async (request, reply) => {
       },
       orderBy: { name: "asc" },
     });
-    return { gyms };
+    return { gyms, items: gyms };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6280,11 +6403,7 @@ const createGymJoinRequest = async (request: FastifyRequest, reply: FastifyReply
           include: { gym: { select: { id: true, name: true } } },
         });
 
-    return reply.status(200).send({
-      state: membership.status.toLowerCase(),
-      gym: membership.gym,
-      role: membership.role,
-    });
+    return reply.status(200).send(serializeGymMembership(membership));
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6323,11 +6442,13 @@ app.post("/gyms/join-by-code", async (request, reply) => {
           },
         });
 
-    return reply.status(200).send({
-      state: membership.status.toLowerCase(),
-      gym: { id: gym.id, name: gym.name },
-      role: membership.role,
-    });
+    return reply.status(200).send(
+      serializeGymMembership({
+        status: membership.status,
+        role: membership.role,
+        gym: { id: gym.id, name: gym.name },
+      }),
+    );
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6337,7 +6458,10 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
   try {
     const user = await requireUser(request);
     const membership = await prisma.gymMembership.findFirst({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        status: { in: ["PENDING", "ACTIVE"] },
+      },
       select: {
         status: true,
         role: true,
@@ -6350,14 +6474,7 @@ const getGymMembership = async (request: FastifyRequest, reply: FastifyReply) =>
       },
       orderBy: { updatedAt: "desc" },
     });
-    if (!membership) {
-      return reply.status(200).send({ state: "none" });
-    }
-    return {
-      state: membership.status.toLowerCase(),
-      gym: membership.gym,
-      role: membership.role,
-    };
+    return reply.status(200).send(serializeGymMembership(membership));
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6398,20 +6515,74 @@ app.post("/gym/join-code", async (request, reply) => {
           },
         });
 
-    return reply.status(200).send({
-      state: membership.status.toLowerCase(),
-      gym: { id: gym.id, name: gym.name },
-      role: membership.role,
-    });
+    return reply.status(200).send(
+      serializeGymMembership({
+        status: membership.status,
+        role: membership.role,
+        gym: { id: gym.id, name: gym.name },
+      }),
+    );
   } catch (error) {
     return handleRequestError(reply, error);
   }
 });
 
+
+const leaveGymMembership = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const user = await requireUser(request);
+    const activeMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: { in: ["PENDING", "ACTIVE"] },
+      },
+      select: { id: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!activeMembership) {
+      return reply.status(200).send({
+        left: false,
+        membership: serializeGymMembership(null),
+      });
+    }
+
+    await prisma.gymMembership.delete({ where: { id: activeMembership.id } });
+
+    return reply.status(200).send({
+      left: true,
+      membership: serializeGymMembership(null),
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+};
+
+app.delete("/gyms/membership", leaveGymMembership);
+app.delete("/gym/me", leaveGymMembership);
+
 app.get("/admin/gym-join-requests", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const isGlobalAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
+
+    if (!isGlobalAdmin) {
+      const managerMembership = await prisma.gymMembership.findFirst({
+        where: {
+          userId: user.id,
+          status: "ACTIVE",
+          role: { in: ["ADMIN", "TRAINER"] },
+        },
+        select: { id: true },
+      });
+
+      if (!managerMembership) {
+        return reply
+          .status(403)
+          .send({ error: "FORBIDDEN", message: "Only gym admins or trainers can list join requests." });
+      }
+    }
+
     const requests = await prisma.gymMembership.findMany({
       where: {
         status: "PENDING",
@@ -6438,13 +6609,16 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
       },
       orderBy: { createdAt: "asc" },
     });
-    return requests.map((membership) => ({
+    const items = requests.map((membership) => ({
       id: membership.id,
       membershipId: membership.id,
+      status: "PENDING" as const,
       gym: membership.gym,
       user: membership.user,
       createdAt: membership.createdAt,
     }));
+
+    return { items, requests: items };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6559,6 +6733,306 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
   }
 });
 
+app.get("/trainer/plans", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+
+    const plans = await prisma.trainingPlan.findMany({
+      where: {
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        notes: true,
+        goal: true,
+        level: true,
+        daysPerWeek: true,
+        focus: true,
+        equipment: true,
+        startDate: true,
+        daysCount: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    return { items: plans };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/plans", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    await requireActiveGymManagerMembership(requester.id);
+    const payload = trainerPlanCreateSchema.parse(request.body);
+
+    const startDate = payload.startDate ? parseDateInput(payload.startDate) : new Date();
+    if (!startDate) {
+      return reply.status(400).send({ error: "INVALID_START_DATE" });
+    }
+
+    const daysCount = payload.daysCount;
+    const daysPerWeek = payload.daysPerWeek ?? Math.min(daysCount, 7);
+    const dates = buildDateRange(startDate, daysCount);
+
+    const createdPlan = await prisma.trainingPlan.create({
+      data: {
+        userId: requester.id,
+        title: payload.title,
+        notes: payload.notes ?? null,
+        goal: payload.goal,
+        level: payload.level,
+        daysPerWeek,
+        focus: payload.focus,
+        equipment: payload.equipment,
+        startDate,
+        daysCount,
+        days: {
+          create: dates.map((date, index) => ({
+            date: new Date(`${date}T00:00:00.000Z`),
+            label: `Día ${index + 1}`,
+            focus: payload.focus,
+            duration: 45,
+            order: index + 1,
+          })),
+        },
+      },
+      include: {
+        days: {
+          orderBy: { order: "asc" },
+          include: { exercises: { orderBy: { id: "asc" } } },
+        },
+      },
+    });
+
+    return reply.status(201).send(createdPlan);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/plans/:planId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { planId } = trainerPlanParamsSchema.parse(request.params);
+
+    const plan = await prisma.trainingPlan.findFirst({
+      where: {
+        id: planId,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        days: {
+          orderBy: { order: "asc" },
+          include: {
+            exercises: { orderBy: { id: "asc" } },
+          },
+        },
+      },
+    });
+
+    if (!plan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    return plan;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/trainer/plans/:planId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    await requireActiveGymManagerMembership(requester.id);
+    const { planId } = trainerPlanParamsSchema.parse(request.params);
+    const payload = trainerPlanUpdateSchema.parse(request.body);
+
+    const existing = await prisma.trainingPlan.findFirst({
+      where: { id: planId, userId: requester.id },
+      select: { id: true, focus: true, daysCount: true },
+    });
+
+    if (!existing) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    const nextDaysCount = payload.daysCount ?? existing.daysCount;
+    const nextFocus = payload.focus ?? existing.focus;
+    const nextStartDate = payload.startDate ? parseDateInput(payload.startDate) : null;
+
+    if (payload.startDate && !nextStartDate) {
+      return reply.status(400).send({ error: "INVALID_START_DATE" });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const plan = await tx.trainingPlan.update({
+        where: { id: existing.id },
+        data: {
+          title: payload.title,
+          notes: payload.notes === undefined ? undefined : payload.notes,
+          goal: payload.goal,
+          level: payload.level,
+          focus: payload.focus,
+          equipment: payload.equipment,
+          daysPerWeek: payload.daysPerWeek,
+          daysCount: payload.daysCount,
+          startDate: nextStartDate ?? undefined,
+        },
+      });
+
+      if (payload.daysCount !== undefined || payload.focus !== undefined || payload.startDate !== undefined) {
+        const dates = buildDateRange(nextStartDate ?? plan.startDate, nextDaysCount);
+        await tx.trainingDay.deleteMany({ where: { planId: existing.id } });
+        await tx.trainingDay.createMany({
+          data: dates.map((date, index) => ({
+            planId: existing.id,
+            date: new Date(`${date}T00:00:00.000Z`),
+            label: `Día ${index + 1}`,
+            focus: nextFocus,
+            duration: 45,
+            order: index + 1,
+          })),
+        });
+      }
+
+      return tx.trainingPlan.findUnique({
+        where: { id: existing.id },
+        include: {
+          days: {
+            orderBy: { order: "asc" },
+            include: { exercises: { orderBy: { id: "asc" } } },
+          },
+        },
+      });
+    });
+
+    return updated;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+    const { trainingPlanId } = trainerAssignPlanBodySchema.parse(request.body);
+
+    const [targetMembership, selectedPlan] = await Promise.all([
+      prisma.gymMembership.findUnique({
+        where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
+        select: { id: true, role: true, status: true },
+      }),
+      prisma.trainingPlan.findFirst({
+        where: {
+          id: trainingPlanId,
+          OR: [
+            { userId: requester.id },
+            {
+              gymAssignments: {
+                some: {
+                  gymId: managerMembership.gymId,
+                  status: "ACTIVE",
+                  role: "MEMBER",
+                },
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          title: true,
+          goal: true,
+          level: true,
+          daysPerWeek: true,
+          focus: true,
+          equipment: true,
+          startDate: true,
+          daysCount: true,
+        },
+      }),
+    ]);
+
+    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    if (!selectedPlan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: selectedPlan.id },
+    });
+
+    return {
+      memberId: userId,
+      gymId: managerMembership.gymId,
+      assignedPlan: selectedPlan,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
+      select: { id: true, role: true, status: true },
+    });
+
+    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: null },
+    });
+
+    return reply.status(200).send({ memberId: userId, gymId: managerMembership.gymId, assignedPlan: null });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.get("/trainer/clients", async (request, reply) => {
   try {
     const user = await requireUser(request);
@@ -6584,6 +7058,13 @@ app.get("/trainer/clients", async (request, reply) => {
       },
       select: {
         role: true,
+        assignedTrainingPlan: {
+          select: {
+            id: true,
+            title: true,
+            daysCount: true,
+          },
+        },
         user: {
           select: {
             id: true,
@@ -6607,6 +7088,7 @@ app.get("/trainer/clients", async (request, reply) => {
         isBlocked: membership.user.isBlocked,
         subscriptionStatus: membership.user.subscriptionStatus,
         lastLoginAt: membership.user.lastLoginAt,
+        assignedPlan: membership.assignedTrainingPlan,
       })),
     };
   } catch (error) {
@@ -6641,6 +7123,13 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
       },
       select: {
         role: true,
+        assignedTrainingPlan: {
+          select: {
+            id: true,
+            title: true,
+            daysCount: true,
+          },
+        },
         user: {
           select: {
             id: true,
@@ -6666,6 +7155,7 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
       isBlocked: membership.user.isBlocked,
       subscriptionStatus: membership.user.subscriptionStatus,
       lastLoginAt: membership.user.lastLoginAt,
+      assignedPlan: membership.assignedTrainingPlan,
     };
   } catch (error) {
     return handleRequestError(reply, error);
@@ -6702,7 +7192,9 @@ app.post("/admin/gyms", async (request, reply) => {
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return reply.status(400).send({ error: "GYM_CODE_ALREADY_EXISTS", message: "Gym code already exists." });
+      return reply
+        .status(409)
+        .send({ code: "GYM_CODE_ALREADY_EXISTS", error: "GYM_CODE_ALREADY_EXISTS", message: "Gym code already exists." });
     }
     return handleRequestError(reply, error);
   }
@@ -6760,17 +7252,18 @@ app.delete("/admin/gyms/:gymId", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND", message: "Gym not found." });
     }
 
-    if (gym._count.memberships > 0) {
-      return reply.status(400).send({
-        error: "GYM_DELETE_BLOCKED",
-        message: "Gym cannot be deleted while it still has memberships.",
-      });
-    }
-
     await prisma.gym.delete({ where: { id: gymId } });
 
-    return reply.status(200).send({ ok: true, gymId });
+    return reply.status(200).send({ ok: true, gymId, deletedMemberships: gym._count.memberships });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return reply.status(404).send({ code: "GYM_NOT_FOUND", error: "GYM_NOT_FOUND", message: "Gym not found." });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return reply
+        .status(409)
+        .send({ code: "GYM_DELETE_CONFLICT", error: "GYM_DELETE_CONFLICT", message: "Gym cannot be deleted due to related records." });
+    }
     return handleRequestError(reply, error);
   }
 });

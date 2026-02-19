@@ -9,14 +9,15 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
-import { postBillingCheckout, postBillingPortal, type BillingRedirectResponse } from "@/services/billing";
+import {
+  getBillingPlans,
+  postBillingCheckout,
+  postBillingPortal,
+  type BillingPlanSummary,
+  type BillingRedirectResponse,
+} from "@/services/billing";
 
 type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | "ULTRA" | (string & {});
-
-type AvailablePlan = {
-  plan: BillingPlan;
-  priceId: string;
-};
 
 type BillingProfile = {
   plan?: BillingPlan;
@@ -24,7 +25,6 @@ type BillingProfile = {
   tokens?: number;
   tokensExpiresAt?: string | null;
   subscriptionStatus?: string | null;
-  availablePlans?: AvailablePlan[];
 };
 
 type BillingAction = "checkout" | "portal" | null;
@@ -65,6 +65,31 @@ function resolvePlanLabel(plan: BillingPlan | null | undefined, t: (key: string)
   return t(messageKey) === messageKey ? t("billing.planLabels.unknown") : t(messageKey);
 }
 
+function resolveIntervalLabel(interval: string | undefined, t: (key: string) => string) {
+  const normalized = (interval ?? "month").toLowerCase();
+  const key = `billing.intervals.${normalized}`;
+  return t(key) === key ? t("billing.intervals.month") : t(key);
+}
+
+function formatPlanPrice(
+  plan: BillingPlanSummary,
+  locale: string,
+  t: (key: string) => string,
+) {
+  const currency = plan.price?.currency?.toUpperCase() || "USD";
+  const amount = typeof plan.price?.amount === "number" ? plan.price.amount : 0;
+  const intervalLabel = resolveIntervalLabel(plan.price?.interval, t);
+
+  const formatted = new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+
+  return `${formatted}/${intervalLabel}`;
+}
+
 export default function BillingClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -72,9 +97,11 @@ export default function BillingClient() {
 
   const { isAdmin, isDev } = useAccess();
   const [profile, setProfile] = useState<BillingProfile | null>(null);
+  const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
   const [gymMembership, setGymMembership] = useState<GymMembership>({ state: "unknown", gymId: null, gymName: null });
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<BillingAction>(null);
+  const [targetPlanKey, setTargetPlanKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
@@ -98,18 +125,26 @@ export default function BillingClient() {
       setLoading(true);
       setError(null);
       const shouldSync = searchParams.get("checkout") === "success";
-      const response = await fetch(`/api/billing/status${shouldSync ? "?sync=1" : ""}`, { cache: "no-store" });
 
-      if (!response.ok) {
+      const [statusResponse, plansResponse, meResponse] = await Promise.all([
+        fetch(`/api/billing/status${shouldSync ? "?sync=1" : ""}`, { cache: "no-store" }),
+        getBillingPlans(),
+        fetch("/api/auth/me", { cache: "no-store" }),
+      ]);
+
+      if (!statusResponse.ok || !plansResponse.ok) {
         setError(t("billing.loadError"));
         setProfile(null);
+        setPlans([]);
         return;
       }
 
-      const data = (await response.json()) as BillingProfile;
-      setProfile(data);
+      setProfile((await statusResponse.json()) as BillingProfile);
 
-      const meResponse = await fetch("/api/auth/me", { cache: "no-store" });
+      const plansPayload = (await plansResponse.json()) as { plans?: BillingPlanSummary[] } | BillingPlanSummary[];
+      const plansList = Array.isArray(plansPayload) ? plansPayload : plansPayload.plans;
+      setPlans(Array.isArray(plansList) ? plansList : []);
+
       if (meResponse.ok) {
         const mePayload = (await meResponse.json()) as unknown;
         setGymMembership(extractGymMembership(mePayload));
@@ -120,9 +155,10 @@ export default function BillingClient() {
       if (shouldSync) {
         router.replace("/app/settings/billing");
       }
-    } catch {
+    } catch (_err) {
       setError(t("billing.loadError"));
       setProfile(null);
+      setPlans([]);
     } finally {
       setLoading(false);
     }
@@ -132,12 +168,13 @@ export default function BillingClient() {
     void loadProfile();
   }, [loadProfile]);
 
-  const handleCheckout = async (priceId: string) => {
+  const handleCheckout = async (planKey: string) => {
     setAction("checkout");
+    setTargetPlanKey(planKey);
     setError(null);
 
     try {
-      const response = await postBillingCheckout(priceId);
+      const response = await postBillingCheckout(planKey);
       const data = (await response.json()) as BillingRedirectResponse;
 
       if (!response.ok || !data.url) {
@@ -146,10 +183,11 @@ export default function BillingClient() {
       }
 
       window.location.href = data.url;
-    } catch {
+    } catch (_err) {
       setError(t("billing.checkoutError"));
     } finally {
       setAction(null);
+      setTargetPlanKey(null);
     }
   };
 
@@ -167,7 +205,7 @@ export default function BillingClient() {
       }
 
       window.location.href = data.url;
-    } catch {
+    } catch (_err) {
       setError(t("billing.portalError"));
     } finally {
       setAction(null);
@@ -175,18 +213,20 @@ export default function BillingClient() {
   };
 
   const currentPlan = profile?.plan;
-  const availablePlanPrices = useMemo(() => {
-    const map = new Map<BillingPlan, string>();
-    for (const entry of profile?.availablePlans ?? []) {
-      if (!entry?.plan || !entry?.priceId) continue;
-      map.set(entry.plan, entry.priceId);
-    }
-    return map;
-  }, [profile?.availablePlans]);
   const hasSubscriptionStatus = typeof profile?.subscriptionStatus === "string" && profile.subscriptionStatus.length > 0;
   const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
   const hasGymSelectionEndpoint = false;
   const canSeeDevNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
+
+  const plansByKey = useMemo(() => {
+    const map = new Map<string, BillingPlanSummary>();
+    for (const plan of plans) {
+      if (plan?.planKey) {
+        map.set(plan.planKey.toUpperCase(), plan);
+      }
+    }
+    return map;
+  }, [plans]);
 
   return (
     <section className="stack-md" aria-live="polite">
@@ -229,13 +269,18 @@ export default function BillingClient() {
             </CardHeader>
             <CardContent className="stack-md">
               {PLAN_CARDS.map((plan) => {
-                const matchedPlan = plan.planValues.find((value) => availablePlanPrices.has(value));
+                const matchedPlan = plan.planValues.find((value) => plansByKey.has(value));
                 if (!matchedPlan) {
                   return null;
                 }
-                const priceId = availablePlanPrices.get(matchedPlan) ?? "";
+
+                const backendPlan = plansByKey.get(matchedPlan);
+                if (!backendPlan) {
+                  return null;
+                }
+
                 const isCurrent = plan.planValues.some((value) => value === currentPlan);
-                const checkoutDisabled = loading || action === "portal" || action === "checkout" || isCurrent || !priceId;
+                const checkoutDisabled = loading || action === "portal" || action === "checkout" || isCurrent;
 
                 return (
                   <div key={plan.key} className="stack-sm border border-border-subtle rounded-lg p-4 bg-surface-2">
@@ -246,21 +291,29 @@ export default function BillingClient() {
                       </div>
                       <p className="muted m-0">{t(`billing.plans.${plan.key}.description`)}</p>
                     </div>
-                    <p className="muted m-0">{t(`billing.plans.${plan.key}.price`)}</p>
-                    <Button
-                      variant={isCurrent ? "secondary" : "primary"}
-                      loading={action === "checkout"}
-                      disabled={checkoutDisabled}
-                      onClick={() => void handleCheckout(priceId)}
-                    >
-                      {t("billing.subscribe")}
-                    </Button>
+                    <p className="muted m-0">{formatPlanPrice(backendPlan, locale, t)}</p>
+                    {isCurrent ? (
+                      <Button
+                        variant="secondary"
+                        loading={action === "portal"}
+                        disabled={portalDisabled}
+                        onClick={() => void handlePortal()}
+                      >
+                        {t("billing.manageSubscription")}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        loading={action === "checkout" && targetPlanKey === backendPlan.planKey}
+                        disabled={checkoutDisabled}
+                        onClick={() => void handleCheckout(backendPlan.planKey)}
+                      >
+                        {t("billing.subscribe")}
+                      </Button>
+                    )}
                   </div>
                 );
               })}
-              <Button variant="secondary" loading={action === "portal"} disabled={portalDisabled} onClick={() => void handlePortal()}>
-                {t("billing.manageSubscription")}
-              </Button>
               {error ? <p className="muted m-0">{error}</p> : null}
             </CardContent>
           </Card>

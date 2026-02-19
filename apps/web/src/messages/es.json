@@ -1582,6 +1582,9 @@
     "equipmentLabel": "Equipamiento",
     "equipmentFallback": "Sin especificar",
     "descriptionFallback": "Sin descripción disponible.",
+    "thumbnailAlt": "Miniatura de {exercise}",
+    "thumbnailMissing": "Miniatura de ejercicio no disponible",
+    "thumbnailPlaceholder": "Sin imagen",
     "levelLabel": "Nivel",
     "levelGeneral": "General",
     "primaryLabel": "Principal",
@@ -1631,7 +1634,20 @@
     "addToPlanNoPlanCta": "Crear o seleccionar un plan",
     "addToPlanSubmitError": "No pudimos añadir el ejercicio. Reintenta.",
     "addToPlanSuccessTitle": "Ejercicio añadido",
-    "addToPlanSuccessDescription": "{exercise} se añadió al día seleccionado."
+    "addToPlanSuccessDescription": "{exercise} se añadió al día seleccionado.",
+    "addToPlansModalTitle": "Agregar ejercicio a planes",
+    "addToPlansModalDescription": "Selecciona uno o más planes para {exercise}.",
+    "addToPlansLabel": "Planes",
+    "addToPlansDaysCount": "Días: {count}",
+    "addToPlansSelectedCount": "Planes seleccionados: {count}",
+    "addToPlansConfirm": "Añadir a planes",
+    "addToPlansLoading": "Cargando planes disponibles...",
+    "addToPlansLoadError": "No pudimos cargar los planes.",
+    "addToPlansNoPlan": "No hay planes de entrenamiento disponibles.",
+    "addToPlansNoPlanCta": "Crear o elegir un plan",
+    "addToPlansSubmitError": "No pudimos añadir este ejercicio a los planes seleccionados.",
+    "addToPlansSuccessTitle": "Ejercicio añadido a planes",
+    "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es)."
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -1681,7 +1697,12 @@
     "filterQueryLabel": "Consulta:",
     "errorTitle": "No pudimos cargar planes",
     "emptyTitle": "Sin planes en la biblioteca",
-    "retrySearch": "Reintentar búsqueda"
+    "retrySearch": "Reintentar búsqueda",
+    "activateCta": "Marcar como activo",
+    "activeCta": "Plan activo",
+    "activeBadge": "Activo",
+    "activating": "Activando...",
+    "activateError": "No pudimos marcar este plan como activo."
   },
   "workoutDetail": {
     "notFound": "No se encontró este entreno.",
@@ -1868,6 +1889,12 @@
         "description": "Bundle con StrengthAI + NutriAI en un solo plan.",
         "price": "US$29/mes"
       }
+    },
+    "intervals": {
+      "day": "día",
+      "week": "semana",
+      "month": "mes",
+      "year": "año"
     }
   },
   "settings": {
@@ -1933,10 +1960,12 @@
       "active": "Activo",
       "blocked": "Bloqueado",
       "openClientAriaPrefix": "Abrir contexto de",
+      "avatarAlt": "Avatar de {name}",
       "unknownStatus": "Estado desconocido",
       "loading": "Cargando lista de clientes...",
       "description": "Revisa y abre contextos de atletas desde tu área de entrenador.",
-      "openList": "Abrir lista de clientes"
+      "openList": "Abrir lista de clientes",
+      "forbiddenHint": "Tu cuenta no puede acceder a esta lista de clientes en el contexto actual del gimnasio."
     },
     "requests": {
       "title": "Solicitudes de ingreso al gimnasio",
@@ -1955,15 +1984,35 @@
       "description": "Crea y revisa los planes manuales disponibles para asignar.",
       "openList": "Abrir planes",
       "createTitle": "Crear plan manual",
+      "createFlowDescription": "Crea una plantilla con nombre y número de días, luego organiza ejercicios por día.",
+      "createDraftTitle": "Nuevo borrador de plan",
       "titleLabel": "Nombre del plan",
+      "daysLabel": "Días",
       "descriptionLabel": "Descripción",
       "create": "Crear plan",
       "creating": "Creando...",
       "createError": "No fue posible crear el plan.",
+      "createDisabled": "La creación de planes no está disponible en este entorno todavía.",
       "listTitle": "Planes disponibles",
+      "listDisabledTitle": "Los planes no están disponibles",
+      "listDisabledDescription": "Los endpoints de planes no están habilitados en este entorno.",
+      "daysCount": "{count} días",
       "loading": "Cargando planes...",
       "empty": "No hay planes disponibles.",
-      "error": "No fue posible cargar los planes."
+      "error": "No fue posible cargar los planes.",
+      "addExerciseSuccess": "Ejercicio agregado al día seleccionado del plan.",
+      "addExerciseError": "No pudimos agregar ese ejercicio al día seleccionado.",
+      "editDay": "Editar día",
+      "dayEditorTitle": "Editor por día",
+      "dayEditorSubtitle": "Edita un día del plan y asigna ejercicios desde la biblioteca.",
+      "dayEditorHint": "Abre el editor de día desde cualquier tarjeta de día.",
+      "searchExercises": "Buscar ejercicios",
+      "searchExercisesPlaceholder": "Escribe para buscar en biblioteca (p. ej., bench)",
+      "searchingExercises": "Buscando ejercicios...",
+      "searchExercisesError": "No pudimos buscar ejercicios en este momento.",
+      "searchExercisesEmpty": "No se encontraron ejercicios para esta búsqueda.",
+      "dayExercisesTitle": "Ejercicios de este día",
+      "dayNotFound": "No se encontró el día seleccionado en este plan."
     },
     "clientContext": {
       "title": "Contexto del atleta",
@@ -2003,6 +2052,9 @@
         "assignment": {
           "title": "Asignar plan de entrenamiento",
           "description": "Elige uno de tus planes existentes y asígnalo a {member}.",
+          "planPickerTitle": "Asignar un plan",
+          "planPickerDescription": "Selecciona uno de tus planes existentes y confirma la asignación.",
+          "openPlanPicker": "Elegir plan para asignar",
           "loading": "Cargando planes y asignación actual...",
           "loadError": "No pudimos cargar los datos de asignación de planes.",
           "currentLabel": "Plan asignado actualmente",
@@ -2021,7 +2073,17 @@
           "creating": "Creando plan...",
           "createSuccess": "Plan mínimo creado correctamente. Ya puedes asignarlo o agregar ejercicios desde biblioteca.",
           "createError": "No pudimos crear un plan mínimo. Reintenta.",
-          "defaultPlanTitle": "Plan semanal mínimo"
+          "defaultPlanTitle": "Plan semanal mínimo",
+          "unsupported": "Los controles de asignación de plan no están soportados por el backend en este entorno.",
+          "forbidden": "No tienes permiso para gestionar la asignación de plan para este miembro.",
+          "unassignCta": "Desasignar plan",
+          "unassignSuccess": "Plan desasignado correctamente de {member}.",
+          "unassignError": "No pudimos desasignar el plan actual. Inténtalo de nuevo.",
+          "removeClientCta": "Quitar cliente de la lista del entrenador",
+          "removeClientConfirm": "¿Seguro que quieres quitar a {member} de tu lista de clientes?",
+          "removeClientConfirmCta": "Sí, quitar cliente",
+          "removeSuccess": "{member} fue eliminado de tu lista de entrenador.",
+          "removeError": "No pudimos eliminar este cliente. Inténtalo de nuevo."
         }
       },
       "nutrition": {
@@ -2056,7 +2118,8 @@
         "adjustmentsEmpty": "Aún no hay borradores de ajuste guardados en este dispositivo.",
         "pendingLocalBadge": "Pendiente (local)"
       },
-      "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend."
+      "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend.",
+      "forbiddenHint": "No tienes permiso para ver el contexto de entrenador de este cliente. Verifica acceso al gimnasio y asignación."
     },
     "planBuilder": {
       "title": "Constructor de planes",
@@ -2244,7 +2307,17 @@
       "title": "Tu sesión expiró",
       "subtitle": "Inicia sesión nuevamente para consultar tu estado de gimnasio."
     },
-    "actionSuccessTitle": "Solicitud enviada"
+    "actionSuccessTitle": "Solicitud enviada",
+    "leave": {
+      "cta": "Salir del gym",
+      "confirmTitle": "¿Salir de tu gym?",
+      "confirmDescription": "Esto quitará tu membresía actual del área de gym.",
+      "confirmHelp": "Puedes solicitar acceso nuevamente desde esta pantalla.",
+      "confirmAction": "Salir del gym",
+      "success": "Saliste de tu membresía del gym correctamente.",
+      "error": "No pudimos completar esta acción ahora mismo.",
+      "unsupported": "Este entorno aún no soporta salir del gym."
+    }
   },
   "access": {
     "adminPreviewTitle": "Modo vista previa admin",
@@ -2319,7 +2392,9 @@
   "common": {
     "loading": "Cargando...",
     "retry": "Reintentar",
-    "comingSoon": "Próximamente"
+    "comingSoon": "Próximamente",
+    "success": "Éxito",
+    "error": "Error"
   },
   "adminGyms": {
     "title": "Administrar gimnasios",
@@ -2342,7 +2417,191 @@
       "load": "No pudimos cargar gimnasios.",
       "members": "No pudimos cargar miembros del gimnasio.",
       "create": "No pudimos crear el gimnasio.",
-      "role": "No pudimos actualizar el rol del miembro."
+      "role": "No pudimos actualizar el rol del miembro.",
+      "delete": "No pudimos eliminar el gimnasio.",
+      "unexpectedPayload": "Recibimos una respuesta inesperada al cargar gimnasios. Inténtalo nuevamente."
+    },
+    "deleteAction": "Eliminar gimnasio",
+    "deleteConfirm": "¿Seguro que deseas eliminar este gimnasio?",
+    "createCode": "Código de acceso (opcional)",
+    "createCodePlaceholder": "EJEMPLO2026",
+    "created": "Gimnasio creado correctamente.",
+    "deleted": "Gimnasio eliminado correctamente.",
+    "loadingAccess": "Verificando acceso de administrador…",
+    "errorTitle": "Lista de gimnasios no disponible",
+    "emptyDescription": "Crea tu primer gimnasio para empezar a incorporar miembros.",
+    "membersLoading": "Cargando miembros del gimnasio…",
+    "membersErrorTitle": "Miembros no disponibles",
+    "roleUpdatedTrainer": "Miembro promovido a TRAINER.",
+    "roleUpdatedMember": "Entrenador cambiado a MEMBER."
+  },
+  "landingRedesign": {
+    "hero": {
+      "badge": "Nuevo landing FitSculpt",
+      "title": "Entrena con foco, progreso y una experiencia premium",
+      "subtitle": "FitSculpt centraliza tus entrenamientos, nutrición y seguimiento en una experiencia mobile-first clara y preparada para crecer contigo.",
+      "primaryCta": "Crear cuenta",
+      "secondaryCta": "Iniciar sesión"
+    },
+    "features": {
+      "title": "Todo lo esencial en un solo flujo",
+      "subtitle": "Estas son las capacidades clave ya disponibles en el producto.",
+      "items": [
+        {
+          "title": "Entrenamiento guiado",
+          "description": "Accede a planes, sesiones y biblioteca de ejercicios desde una interfaz enfocada.",
+          "iconSrc": "/assets/icon-dumbbell.svg",
+          "iconAlt": "Icono de entrenamiento"
+        },
+        {
+          "title": "Seguimiento inteligente",
+          "description": "Registra progreso y revisa tus métricas con estados claros y sin fricción.",
+          "iconSrc": "/assets/icon-analytics.svg",
+          "iconAlt": "Icono de analíticas"
+        },
+        {
+          "title": "Nutrición conectada",
+          "description": "Mantén tu plan alimenticio alineado con tu objetivo dentro de la misma app.",
+          "iconSrc": "/assets/icon-nutrition.svg",
+          "iconAlt": "Icono de nutrición"
+        }
+      ]
+    },
+    "demo": {
+      "title": "Vista rápida de la experiencia",
+      "subtitle": "Mostramos un recurso visual existente mientras se define la demo final del landing.",
+      "imageAlt": "Vista de demostración de FitSculpt",
+      "fallbackLabel": "Recurso visual provisional para demo del landing."
+    },
+    "socialProof": {
+      "title": "Confianza y resultados",
+      "subtitle": "Espacio reservado para logos y testimonios verificados.",
+      "placeholder": "Próximamente: logos de gimnasios y testimonios reales."
+    },
+    "finalCta": {
+      "title": "Comienza hoy con FitSculpt",
+      "subtitle": "Activa tu cuenta y descubre una experiencia diseñada para constancia y resultados.",
+      "primaryCta": "Crear cuenta gratis",
+      "secondaryCta": "Ir a la app"
+    }
+  },
+  "marketingPricing": {
+    "headerPlaceholder": "Área de cabecera reservada para la navegación final del sprint.",
+    "header": {
+      "navigation": "Navegación principal",
+      "links": {
+        "plans": "Planes",
+        "features": "Características",
+        "testimonials": "Testimonios"
+      },
+      "language": {
+        "es": "ES",
+        "en": "EN",
+        "switchToEs": "Cambiar idioma a español",
+        "switchToEn": "Cambiar idioma a inglés"
+      }
+    },
+    "hero": {
+      "title": "Planes que se adaptan a tu progreso",
+      "subtitle": "Entrena y come con estructura clara, sin perder flexibilidad.",
+      "supporting": "Elige el plan que mejor encaja con tu fase actual y cambia cuando lo necesites.",
+      "cta": "Ver planes"
+    },
+    "plans": {
+      "strength": {
+        "title": "Strength IA",
+        "price": "14,99€",
+        "tagline": "Fuerza, hipertrofia y progresión automática",
+        "cta": "Empezar Strength",
+        "features": {
+          "1": "Progresión inteligente de cargas",
+          "2": "Rutinas adaptadas a tu nivel",
+          "3": "Seguimiento de PRs y volumen",
+          "4": "Técnica y cues clave por ejercicio"
+        }
+      },
+      "pro": {
+        "title": "PRO",
+        "price": "19,99€",
+        "badge": "Más popular",
+        "tagline": "Strength + Nutrition en un solo sistema",
+        "cta": "Elegir Pro",
+        "features": {
+          "1": "Todo en Strength AI",
+          "2": "Todo en Nutrition AI",
+          "3": "Ajustes inteligentes semana a semana",
+          "4": "Panel de progreso avanzado"
+        }
+      },
+      "nutrition": {
+        "title": "Nutrition IA",
+        "price": "14,99€",
+        "tagline": "Macros, recetas y adherencia sin complicarte",
+        "cta": "Empezar Nutrition",
+        "features": {
+          "1": "Objetivos de macros automáticos",
+          "2": "Recomendaciones de comidas",
+          "3": "Ajustes según progreso",
+          "4": "Lista de la compra sugerida"
+        }
+      }
+    },
+    "billingNote": "Cancela cuando quieras. Impuestos incluidos donde aplique.",
+    "features": {
+      "title": "Por qué los miembros eligen FitSculpt",
+      "subtitle": "Diseñado para ayudarte a mantener constancia con menos fricción.",
+      "items": {
+        "one": {
+          "title": "Progresión guiada",
+          "description": "Cada semana tiene una estructura clara para que sepas el siguiente paso."
+        },
+        "two": {
+          "title": "Planificación adaptable",
+          "description": "Ajusta carga de entrenamiento y nutrición cuando cambia tu rutina."
+        },
+        "three": {
+          "title": "Nutrición inteligente",
+          "description": "Objetivos de macros e ideas de comidas prácticas enfocadas en adherencia."
+        },
+        "four": {
+          "title": "Visibilidad del progreso",
+          "description": "Sigue fuerza, métricas corporales y hábitos en un solo panel."
+        },
+        "five": {
+          "title": "Flujos prácticos",
+          "description": "Diseñado para agendas reales con acciones rápidas y prioridades claras."
+        },
+        "six": {
+          "title": "Plataforma unificada",
+          "description": "Entrena y come con un sistema en vez de herramientas aisladas."
+        }
+      }
+    },
+    "testimonials": {
+      "title": "Lo que dicen quienes ya lo usan",
+      "subtitle": "Historias reales de usuarios que entrenan con más claridad.",
+      "starsLabel": "Valoración de 5 estrellas",
+      "items": {
+        "one": {
+          "quote": "Por fin tengo un plan que se ajusta cuando fallo una semana."
+        },
+        "two": {
+          "quote": "La progresión de fuerza es clara, y me evita entrenar a ciegas."
+        },
+        "three": {
+          "quote": "Nutrición simple, sin menús imposibles, y con macros que encajan."
+        }
+      },
+      "disclaimer": "Los resultados dependen del contexto y la constancia de cada persona."
+    },
+    "features": {
+      "title": "Todo lo que necesitas para progresar",
+      "subtitle": "Una experiencia clara para entrenar, comer y sostener resultados.",
+      "items": {
+        "1": "Planes listos para usar con estructura semanal clara.",
+        "2": "Ajustes de entrenamiento y nutrición alineados con tu progreso.",
+        "3": "Seguimiento simple para mantener consistencia sin fricción."
+      }
     }
   }
 }

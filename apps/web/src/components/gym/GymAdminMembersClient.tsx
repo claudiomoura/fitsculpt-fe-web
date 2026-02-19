@@ -15,6 +15,7 @@ import {
   parseMembership,
   reviewGymJoinRequest,
   updateGymMemberRole,
+  gymServiceCapabilities,
   type GymJoinRequest,
   type GymMember,
 } from "@/services/gym";
@@ -39,6 +40,7 @@ export function GymAdminMembersClient() {
   const [error, setError] = useState<string | null>(null);
   const [requestsUnsupported, setRequestsUnsupported] = useState(false);
   const [membersUnsupported, setMembersUnsupported] = useState(false);
+  const [roleUpdateUnsupported, setRoleUpdateUnsupported] = useState(false);
   const [selectedUser, setSelectedUser] = useState<GymMember | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [requestActionPending, setRequestActionPending] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export function GymAdminMembersClient() {
     setSuccessMessage(null);
     setRequestsUnsupported(false);
     setMembersUnsupported(false);
+    setRoleUpdateUnsupported(false);
 
     try {
       const membershipRes = await fetchGymMembership();
@@ -90,7 +93,7 @@ export function GymAdminMembersClient() {
       } else {
         setMembers(parseMembers(await membersRes.json()));
       }
-    } catch {
+    } catch (_err) {
       setError(t("gym.admin.members.loadError"));
     } finally {
       setState("ready");
@@ -119,12 +122,18 @@ export function GymAdminMembersClient() {
 
   const handleRoleChange = useCallback(
     async (user: GymMember, role: RoleUpdateTarget) => {
+      if (!gymServiceCapabilities.supportsMemberRoleUpdate) {
+        setRoleUpdateUnsupported(true);
+        return;
+      }
+
       setError(null);
       setRoleActionPendingUserId(user.id);
+      setRoleUpdateUnsupported(false);
       try {
         const response = await updateGymMemberRole(user.id, role);
         if (!response.ok && response.reason === "unsupported") {
-          setMembersUnsupported(true);
+          setRoleUpdateUnsupported(true);
           return;
         }
         if (!response.ok) {
@@ -136,7 +145,7 @@ export function GymAdminMembersClient() {
           t(role === "TRAINER" ? "gym.admin.members.promoteSuccess" : "gym.admin.members.demoteSuccess"),
         );
         await loadData();
-      } catch {
+      } catch (_err) {
         setError(t("gym.admin.members.roleChangeError"));
       } finally {
         setRoleActionPendingUserId(null);
@@ -160,7 +169,7 @@ export function GymAdminMembersClient() {
         }
         setSuccessMessage(t(action === "accept" ? "admin.gymRequestsAccept" : "admin.gymRequestsReject"));
         await loadData();
-      } catch {
+      } catch (_err) {
         setError(t("admin.gymRequestsActionError"));
       } finally {
         setRequestActionPending(null);
@@ -235,6 +244,10 @@ export function GymAdminMembersClient() {
         <EmptyState title={t("gym.admin.members.empty")} wrapInCard icon="info" />
       ) : null}
 
+      {state === "ready" && !error && !membersUnsupported && roleUpdateUnsupported ? (
+        <p className="muted">{t("adminGyms.memberRoleUnavailable")}</p>
+      ) : null}
+
       {state === "ready" && !error && !membersUnsupported && hasMembers
         ? members.map((user) => {
             const userRole = user.role?.toUpperCase() ?? "MEMBER";
@@ -254,12 +267,12 @@ export function GymAdminMembersClient() {
                 </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
                   {canManageMemberRole && shouldShowPromote ? (
-                    <Button onClick={() => void handleRoleChange(user, "TRAINER")} disabled={isRoleActionPending}>
+                    <Button onClick={() => void handleRoleChange(user, "TRAINER")} disabled={isRoleActionPending || roleUpdateUnsupported || !gymServiceCapabilities.supportsMemberRoleUpdate}>
                       {isRoleActionPending ? t("gym.admin.members.roleChanging") : t("gym.admin.members.promoteTrainer")}
                     </Button>
                   ) : null}
                   {canManageMemberRole && shouldShowDemote ? (
-                    <Button variant="secondary" onClick={() => void handleRoleChange(user, "MEMBER")} disabled={isRoleActionPending}>
+                    <Button variant="secondary" onClick={() => void handleRoleChange(user, "MEMBER")} disabled={isRoleActionPending || roleUpdateUnsupported || !gymServiceCapabilities.supportsMemberRoleUpdate}>
                       {isRoleActionPending ? t("gym.admin.members.roleChanging") : t("gym.admin.members.removeTrainer")}
                     </Button>
                   ) : null}

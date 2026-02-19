@@ -62,7 +62,7 @@ export default function SettingsClient() {
         setProfile({ ...defaultProfile, ...data });
         setMembershipState(nextState);
         setMembershipGymName(gymName);
-      } catch {
+      } catch (_err) {
         if (!mounted) return;
         setHasError(true);
       } finally {

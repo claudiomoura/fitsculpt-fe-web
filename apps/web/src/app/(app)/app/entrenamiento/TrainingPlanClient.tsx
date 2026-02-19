@@ -54,6 +54,10 @@ type TrainingForm = {
   sessionTime: SessionTime;
 };
 
+type ActiveTrainingPlanResponse = {
+  plan?: TrainingPlan | null;
+};
+
 type TrainingPlanClientProps = {
   mode?: "suggested" | "manual";
 };
@@ -238,6 +242,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [subscriptionPlan, setSubscriptionPlan] = useState<AiEntitlementProfile["subscriptionPlan"]>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
+  const [activePlan, setActivePlan] = useState<TrainingPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -287,7 +292,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         setForm(null);
       }
       setSavedPlan(profile.trainingPlan ?? null);
-    } catch {
+    } catch (_err) {
       if (activeRef.current) setError(t("training.profileError"));
     } finally {
       if (activeRef.current) setLoading(false);
@@ -317,12 +322,44 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       setAiEntitled(hasAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
-    } catch {
+    } catch (_err) {
     }
   };
 
   useEffect(() => {
     void refreshSubscription();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadActivePlan = async () => {
+      try {
+        const response = await fetch("/api/training-plans/active?includeDays=1", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (response.status === 404 || response.status === 405) {
+          setActivePlan(null);
+          return;
+        }
+
+        if (!response.ok) {
+          setActivePlan(null);
+          return;
+        }
+
+        const payload = (await response.json()) as ActiveTrainingPlanResponse;
+        setActivePlan(payload.plan ?? null);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setActivePlan(null);
+      }
+    };
+
+    void loadActivePlan();
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -341,7 +378,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, []);
 
   const plan = useMemo(() => (form ? generatePlan(form, locale, t) : null), [form, locale, t]);
-  const visiblePlan = isManualView ? savedPlan ?? plan : savedPlan;
+  const visiblePlan = isManualView ? savedPlan ?? plan : activePlan ?? savedPlan;
   const planStartDate = useMemo(
     () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
     [visiblePlan?.startDate, visiblePlan?.days]
@@ -502,7 +539,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const updated = await updateUserProfile({ trainingPlan: nextPlan });
       setSavedPlan(updated.trainingPlan ?? nextPlan);
       setSaveMessage(t("training.savePlanSuccess"));
-    } catch {
+    } catch (_err) {
       setSaveMessage(t("training.savePlanError"));
     } finally {
       setSaving(false);
@@ -519,7 +556,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const updated = await updateUserProfile({ trainingPlan: nextPlan });
       setSavedPlan(updated.trainingPlan ?? nextPlan);
       setSaveMessage(t("training.manualSaveSuccess"));
-    } catch {
+    } catch (_err) {
       setSaveMessage(t("training.savePlanError"));
     } finally {
       setSaving(false);
@@ -665,7 +702,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       nextParams.delete("ctx");
       const nextUrl = `${pathname}${nextParams.toString() ? `?${nextParams.toString()}` : ""}`;
       router.replace(nextUrl);
-    } catch {
+    } catch (_err) {
       window.sessionStorage.removeItem(ctxKey);
     }
   }, [calendarView, pathname, router, searchParams]);
@@ -705,7 +742,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       setSavedPlan(updated.trainingPlan ?? aiPreviewPlan);
       setAiPreviewPlan(null);
       setSaveMessage(t("training.aiSuccess"));
-    } catch {
+    } catch (_err) {
       setError(t("training.savePlanError"));
     } finally {
       setAiConfirmSaving(false);

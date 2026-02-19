@@ -65,7 +65,7 @@ export default function ProfileClient() {
         if (active) {
           setProfile(data);
         }
-      } catch {
+      } catch (_err) {
         // Ignore fetch errors on first load.
       }
     };
@@ -87,7 +87,7 @@ export default function ProfileClient() {
           const latest = [...data.checkins].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
           setLatestCheckinDate(latest?.date ?? null);
         }
-      } catch {
+      } catch (_err) {
         setLatestCheckinDate(null);
       }
     };
@@ -299,10 +299,10 @@ export default function ProfileClient() {
                         width: 72,
                         height: 72,
                         borderRadius: "50%",
-                        background: "var(--primary-soft)",
+                        background: "var(--accent-soft)",
                         display: "grid",
                         placeItems: "center",
-                        color: "#9a3412",
+                        color: "var(--link-active)",
                         fontSize: 12,
                         fontWeight: 600,
                       }}
