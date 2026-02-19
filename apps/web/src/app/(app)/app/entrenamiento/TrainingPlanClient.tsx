@@ -1280,7 +1280,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           {manualPlan ? (
             <div className="form-stack">
               {manualPlan.days.map((day, dayIndex) => (
-                <div key={`${day.label}-${dayIndex}`} className="feature-card stack-md">
+                <div key={`manual-day-${dayIndex}`} className="feature-card stack-md">
                   <div className="inline-grid-2">
                     <label className="form-stack">
                       {t("training.manualDayLabel")}
@@ -1313,7 +1313,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                     ) : (
                       day.exercises.map((exercise, exerciseIndex) => (
                         <div
-                          key={`${exercise.name}-${exerciseIndex}`}
+                          key={`manual-exercise-${dayIndex}-${exerciseIndex}`}
                           className="training-manual-row"
                         >
                           <input
