@@ -15,12 +15,23 @@ function jsonNoStore(body: unknown, status: number) {
 }
 
 export async function GET() {
-  const token = (await cookies()).get("fs_token")?.value;
+  const token = cookies().get("fs_token")?.value;
   if (!token) {
     return jsonNoStore({ error: "UNAUTHORIZED" }, 401);
   }
 
-  const response = await fetch(`${getBackendUrl()}/billing/plans`, {
+  let backendUrl: string;
+  try {
+    backendUrl = getBackendUrl();
+  } catch {
+    return jsonNoStore({ error: "BACKEND_URL_NOT_CONFIGURED" }, 500);
+  }
+
+  if (!backendUrl) {
+    return jsonNoStore({ error: "BACKEND_URL_NOT_CONFIGURED" }, 500);
+  }
+
+  const response = await fetch(`${backendUrl}/billing/plans`, {
     headers: { cookie: `fs_token=${token}` },
     cache: "no-store",
   }).catch(() => null);
