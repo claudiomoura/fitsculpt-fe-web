@@ -13,6 +13,7 @@ import {
   toTrainerPlanDayOptions,
 } from "@/services/trainerPlans";
 import TrainerAdminNoGymPanel from "./TrainerAdminNoGymPanel";
+import TrainerGymRequiredState from "./TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "./useTrainerAreaAccess";
 
 type Plan = {
@@ -197,7 +198,7 @@ export default function TrainerPlansClient() {
 
   if (!canAccessTrainerArea) {
     if (membership.state === "not_in_gym") {
-      return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
+      return <TrainerGymRequiredState />;
     }
 
     if (gymError) {

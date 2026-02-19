@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
 import { probeTrainerClientsCapability, type TrainerClientsCapability } from "@/lib/trainerCapability";
 import { useAccess } from "@/lib/useAccess";
 import { fetchMyGymMembership } from "@/services/gym";
@@ -126,7 +127,7 @@ export default function TrainerClientsList() {
 
   if (!canAccessTrainer) {
     if (membershipGate === "not_in_gym") {
-      return <EmptyState title={t("trainer.gymRequiredTitle")} description={t("trainer.gymRequiredDesc")} wrapInCard icon="info" />;
+      return <TrainerGymRequiredState />;
     }
 
     if (membershipGate === "error") {
