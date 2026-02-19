@@ -27,7 +27,7 @@ export type BillingPlansResult =
     }
   | {
       ok: false;
-      reason: "not_available" | "error";
+      reason: "not_available" | "auth" | "error";
       status: number | null;
     };
 
@@ -36,6 +36,10 @@ export async function getBillingPlans(): Promise<BillingPlansResult> {
 
   if (response.status === 404 || response.status === 501) {
     return { ok: false, reason: "not_available", status: response.status };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return { ok: false, reason: "auth", status: response.status };
   }
 
   if (!response.ok) {
