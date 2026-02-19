@@ -1699,7 +1699,23 @@
     "activeCta": "Active plan",
     "activeBadge": "Active",
     "activating": "Activating...",
-    "activateError": "We could not set this plan as active."
+    "activateError": "We could not set this plan as active.",
+    "activateSuccess": "Plan activated.",
+    "deactivateCta": "Deactivate",
+    "deactivateError": "We could not deactivate this plan.",
+    "deactivateSuccess": "Plan deactivated.",
+    "deleteCta": "Delete",
+    "deleteError": "We could not delete this plan.",
+    "deleteSuccess": "Plan deleted.",
+    "activateConfirmTitle": "Activate plan",
+    "activateConfirmDescription": "Do you want to activate this training plan?",
+    "deactivateConfirmTitle": "Deactivate plan",
+    "deactivateConfirmDescription": "Do you want to deactivate the active training plan?",
+    "deleteConfirmTitle": "Delete plan",
+    "deleteConfirmDescription": "This action cannot be undone.",
+    "actionsNotAvailable": "Some actions are not available in this environment.",
+    "singleActiveNotAvailable": "Single active plan enforcement is not available in this environment.",
+    "viewDetail": "View detail"
   },
   "workoutDetail": {
     "notFound": "This workout was not found.",
@@ -2009,7 +2025,9 @@
       "searchExercisesError": "We could not search exercises right now.",
       "searchExercisesEmpty": "No exercises found for this search.",
       "dayExercisesTitle": "Exercises in this day",
-      "dayNotFound": "No day found for selected date in this plan."
+      "dayNotFound": "No day found for selected date in this plan.",
+      "createSuccessTitle": "Plan created",
+      "createSuccessDescription": "Your new plan is ready to edit."
     },
     "clientContext": {
       "title": "Athlete context",
