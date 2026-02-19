@@ -103,7 +103,7 @@ export default function BillingClient() {
   const [action, setAction] = useState<BillingAction>(null);
   const [targetPlanKey, setTargetPlanKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [plansStatus, setPlansStatus] = useState<"ready" | "not_available">("ready");
+  const [billingUnavailable, setBillingUnavailable] = useState(false);
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
 
@@ -135,11 +135,23 @@ export default function BillingClient() {
 
       if (!statusResponse.ok) {
         setError(t("billing.loadError"));
+        setBillingUnavailable(false);
         setProfile(null);
         setPlans([]);
         setPlansStatus("ready");
         return;
       }
+
+      if (!plansResponse.ok) {
+        const unavailable = plansResponse.status === 501;
+        setBillingUnavailable(unavailable);
+        setError(unavailable ? null : t("billing.loadError"));
+        setProfile((await statusResponse.json()) as BillingProfile);
+        setPlans([]);
+        return;
+      }
+
+      setBillingUnavailable(false);
 
       setProfile((await statusResponse.json()) as BillingProfile);
 
@@ -171,6 +183,7 @@ export default function BillingClient() {
       }
     } catch (_err) {
       setError(t("billing.loadError"));
+      setBillingUnavailable(false);
       setProfile(null);
       setPlans([]);
       setPlansStatus("ready");
@@ -304,74 +317,60 @@ export default function BillingClient() {
               <CardDescription>{t("billing.planSelectionDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="stack-md">
-              {plansStatus === "not_available" ? (
+              {billingUnavailable ? (
                 <EmptyState
                   title={t("billing.notAvailableTitle")}
                   description={t("billing.notAvailableDescription")}
                   icon="info"
-                  actions={[
-                    {
-                      label: t("billing.subscribe"),
-                      variant: "primary",
-                      disabled: true,
-                    },
-                    {
-                      label: t("billing.manageSubscription"),
-                      variant: "secondary",
-                      disabled: true,
-                    },
-                  ]}
                 />
               ) : null}
+              {!billingUnavailable ? PLAN_CARDS.map((plan) => {
+                const matchedPlan = plan.planValues.find((value) => plansByKey.has(value));
+                if (!matchedPlan) {
+                  return null;
+                }
 
-              {plansStatus === "ready" ? (
-                <>
-                  {visiblePlanCards.map(({ plan, backendPlan }) => {
-                    const isCurrent = plan.planValues.some((value) => value === currentPlan);
-                    const checkoutDisabled =
-                      loading || action === "portal" || action === "checkout" || isCurrent || isPlanActionsDisabled;
+                const backendPlan = plansByKey.get(matchedPlan);
+                if (!backendPlan) {
+                  return null;
+                }
 
-                    return (
-                      <div key={plan.key} className="stack-sm border border-border-subtle rounded-lg p-4 bg-surface-2">
-                        <div className="stack-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <h3 className="m-0">{t(`billing.plans.${plan.key}.name`)}</h3>
-                            {isCurrent ? <Badge variant="success">{t("billing.currentPlanBadge")}</Badge> : null}
-                          </div>
-                          <p className="muted m-0">{t(`billing.plans.${plan.key}.description`)}</p>
-                        </div>
-                        <p className="muted m-0">{formatPlanPrice(backendPlan, locale, t)}</p>
-                        {isCurrent ? (
-                          <Button
-                            variant="secondary"
-                            loading={action === "portal"}
-                            disabled={portalDisabled || isPlanActionsDisabled}
-                            onClick={() => void handlePortal()}
-                          >
-                            {t("billing.manageSubscription")}
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="primary"
-                            loading={action === "checkout" && targetPlanKey === backendPlan.planKey}
-                            disabled={checkoutDisabled}
-                            onClick={() => void handleCheckout(backendPlan.planKey)}
-                          >
-                            {t("billing.subscribe")}
-                          </Button>
-                        )}
+                const isCurrent = plan.planValues.some((value) => value === currentPlan);
+                const checkoutDisabled = loading || action === "portal" || action === "checkout" || isCurrent;
+
+                return (
+                  <div key={plan.key} className="stack-sm border border-border-subtle rounded-lg p-4 bg-surface-2">
+                    <div className="stack-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="m-0">{t(`billing.plans.${plan.key}.name`)}</h3>
+                        {isCurrent ? <Badge variant="success">{t("billing.currentPlanBadge")}</Badge> : null}
                       </div>
-                    );
-                  })}
-                  {visiblePlanCards.length === 0 ? (
-                    <EmptyState
-                      title={t("billing.noPlansTitle")}
-                      description={t("billing.noPlansDescription")}
-                      icon="info"
-                    />
-                  ) : null}
-                </>
-              ) : null}
+                      <p className="muted m-0">{t(`billing.plans.${plan.key}.description`)}</p>
+                    </div>
+                    <p className="muted m-0">{formatPlanPrice(backendPlan, locale, t)}</p>
+                    {isCurrent ? (
+                      <Button
+                        variant="secondary"
+                        loading={action === "portal"}
+                        disabled={portalDisabled}
+                        onClick={() => void handlePortal()}
+                      >
+                        {t("billing.manageSubscription")}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        loading={action === "checkout" && targetPlanKey === backendPlan.planKey}
+                        disabled={checkoutDisabled}
+                        onClick={() => void handleCheckout(backendPlan.planKey)}
+                      >
+                        {t("billing.subscribe")}
+                      </Button>
+                    )}
+                  </div>
+                );
+              }) : null}
+              {error ? <p className="muted m-0">{error}</p> : null}
             </CardContent>
           </Card>
 

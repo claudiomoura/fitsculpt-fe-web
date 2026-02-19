@@ -1922,7 +1922,9 @@
       "week": "semana",
       "month": "mes",
       "year": "año"
-    }
+    },
+    "notAvailableTitle": "Facturación no disponible",
+    "notAvailableDescription": "Los planes de facturación no están disponibles temporalmente en este entorno. Inténtalo de nuevo más tarde."
   },
   "settings": {
     "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",
