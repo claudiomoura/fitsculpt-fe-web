@@ -27,7 +27,7 @@ export default function PublicNav({ loggedIn }: { loggedIn: boolean }) {
 
         <div className="landing-header__actions">
           {loggedIn ? (
-            <Link href="/app" className="landing-header__button landing-header__button--ghost">
+            <Link href="/app" className="landing-header__button landing-header__button--app">
               Ir a la app
             </Link>
           ) : (

@@ -2578,6 +2578,8 @@
   },
   "marketingPricing": {
     "headerPlaceholder": "Área de cabecera reservada para la navegación final del sprint.",
+    "title": "Planes",
+    "subtitle": "Cancela cuando quieras. Impuestos incluidos donde aplique.",
     "header": {
       "navigation": "Navegación principal",
       "links": {
