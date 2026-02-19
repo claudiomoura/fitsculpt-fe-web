@@ -2679,5 +2679,65 @@
       "notePlaceholder": "Escribe tu nota aquí",
       "nextReviewDate": "Próxima fecha de revisión"
     }
+  },
+  "plansUi": {
+    "daysCount": "{count} días",
+    "actions": {
+      "select": "Seleccionar plan"
+    },
+    "trainer": {
+      "list": {
+        "title": "Planes del entrenador",
+        "empty": "Aún no hay planes disponibles.",
+        "error": "No pudimos cargar los planes ahora.",
+        "notAvailable": "Los planes no están disponibles en este entorno."
+      },
+      "create": {
+        "title": "Crear plan",
+        "description": "Agrega nombre y número de días para iniciar un borrador de plan.",
+        "notAvailable": "La creación de planes no está disponible en este entorno.",
+        "nameLabel": "Nombre del plan",
+        "daysLabel": "Días",
+        "nameRequired": "El nombre del plan es obligatorio.",
+        "daysHelp": "Elige un valor entre 1 y 7 días.",
+        "confirm": "Crear borrador",
+        "error": "No pudimos crear este borrador de plan."
+      },
+      "builder": {
+        "daysTitle": "Días del plan",
+        "panelTitle": "Detalle del día",
+        "panelPlaceholder": "Selecciona este día para comenzar a agregar contenido de entrenamiento.",
+        "noDaySelected": "Selecciona un día para continuar.",
+        "empty": "Aún no hay días disponibles para este plan.",
+        "error": "No pudimos cargar el constructor por día.",
+        "notAvailable": "El constructor por día no está disponible en este entorno."
+      }
+    },
+    "user": {
+      "library": {
+        "title": "Biblioteca de planes",
+        "empty": "No hay planes disponibles en tu biblioteca.",
+        "error": "No pudimos cargar tu biblioteca de planes.",
+        "notAvailable": "Tu biblioteca de planes no está disponible en este entorno."
+      },
+      "activeBadge": "Plan activo",
+      "unnamedPlan": "este plan",
+      "confirmationHint": "Esta acción no se puede deshacer desde este diálogo.",
+      "activate": {
+        "title": "Activar plan",
+        "description": "¿Quieres activar {planName}?",
+        "confirm": "Activar"
+      },
+      "deactivate": {
+        "title": "Desactivar plan",
+        "description": "¿Quieres desactivar {planName}?",
+        "confirm": "Desactivar"
+      },
+      "delete": {
+        "title": "Eliminar plan",
+        "description": "¿Quieres eliminar {planName}?",
+        "confirm": "Eliminar plan"
+      }
+    }
   }
 }
