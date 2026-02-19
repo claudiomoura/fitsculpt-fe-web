@@ -17,6 +17,7 @@ import "dotenv/config";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
+import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
 
 const env = getEnv();
 const prisma = await createPrismaClientWithRetry();
@@ -3928,33 +3929,46 @@ app.get("/billing/plans", async (request, reply) => {
     await requireUser(request);
     const availablePlans = getAvailableBillingPlans();
 
-    const plans = await Promise.all(
-      availablePlans.map(async ({ plan, priceId }) => {
-        try {
-          const stripePrice = await stripeRequest<StripePrice>(`prices/${priceId}`, {
-            expand: "product",
-          }, { method: "GET" });
+    const plans: Array<{
+      planKey: SubscriptionPlan;
+      title: string;
+      price: { amount: number; currency: string; interval: string };
+      priceId: string;
+    }> = [];
+    const warnings: Array<{ planKey: SubscriptionPlan; reason: "price_not_found" }> = [];
 
-          return {
-            planKey: plan,
-            title: resolveStripePlanTitle(stripePrice, plan),
-            price: {
-              amount: parseStripeAmount(stripePrice),
-              currency: (stripePrice.currency ?? "usd").toUpperCase(),
-              interval: stripePrice.recurring?.interval ?? "month",
-            },
-            priceId: stripePrice.id,
-          };
-        } catch (error) {
-          if (isStripeCredentialError(error)) {
-            throw createHttpError(500, "STRIPE_NOT_CONFIGURED");
-          }
-          throw createHttpError(500, "STRIPE_PRICE_INVALID", { plan, priceId });
+    for (const { plan, priceId } of availablePlans) {
+      try {
+        const stripePrice = await stripeRequest<StripePrice>(`prices/${priceId}`, {
+          expand: "product",
+        }, { method: "GET" });
+
+        plans.push({
+          planKey: plan,
+          title: resolveStripePlanTitle(stripePrice, plan),
+          price: {
+            amount: parseStripeAmount(stripePrice),
+            currency: (stripePrice.currency ?? "usd").toUpperCase(),
+            interval: stripePrice.recurring?.interval ?? "month",
+          },
+          priceId: stripePrice.id,
+        });
+      } catch (error) {
+        if (isStripeCredentialError(error)) {
+          throw createHttpError(500, "STRIPE_NOT_CONFIGURED");
         }
-      })
-    );
+        if (isStripePriceNotFoundError(error)) {
+          warnings.push({ planKey: plan, reason: "price_not_found" });
+          continue;
+        }
+        throw createHttpError(500, "STRIPE_PRICE_INVALID", { plan, priceId });
+      }
+    }
 
-    return reply.status(200).send({ plans });
+    if (plans.length > 0) {
+      return reply.status(200).send({ plans, ...(warnings.length > 0 ? { warnings } : {}) });
+    }
+    return reply.status(500).send({ error: "NO_VALID_PRICES", ...(warnings.length > 0 ? { warnings } : {}) });
   } catch (error) {
     return handleRequestError(reply, error);
   }
