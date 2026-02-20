@@ -36,9 +36,7 @@ export default function TrainingLibraryClient() {
 
   const [query, setQuery] = useState("");
   const [fitSculptPlans, setFitSculptPlans] = useState<TrainingPlanListItem[]>([]);
-  const [gymPlans, setGymPlans] = useState<TrainingPlanListItem[]>([]);
   const [fitSculptState, setFitSculptState] = useState<SectionState>("loading");
-  const [gymState, setGymState] = useState<SectionState>("loading");
   const [assignedPlan, setAssignedPlan] = useState<TrainingPlanListItem | null>(null);
   const [assignedPlanState, setAssignedPlanState] = useState<SectionState>("loading");
   const [aiGateState, setAiGateState] = useState<AiGateState>("loading");
@@ -116,7 +114,6 @@ export default function TrainingLibraryClient() {
 
     const loadPlans = async () => {
       setFitSculptState("loading");
-      setGymState("loading");
 
       const params = new URLSearchParams();
       params.set("limit", "100");
@@ -174,8 +171,8 @@ export default function TrainingLibraryClient() {
   }, [canLoadGymPlans, query]);
 
   const noPlansAvailable = useMemo(
-    () => fitSculptState === "ready" && gymState === "ready" && assignedPlanState === "ready" && fitSculptPlans.length === 0 && gymPlans.length === 0 && !assignedPlan,
-    [assignedPlan, assignedPlanState, fitSculptPlans.length, fitSculptState, gymPlans.length, gymState]
+    () => fitSculptState === "ready" && assignedPlanState === "ready" && fitSculptPlans.length === 0 && !assignedPlan,
+    [assignedPlan, assignedPlanState, fitSculptPlans.length, fitSculptState]
   );
 
   const selectPlan = (planId: string) => {
@@ -283,42 +280,7 @@ export default function TrainingLibraryClient() {
           </article>
         ) : null}
 
-        {gymState === "loading" ? (
-          <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            {Array.from({ length: 2 }).map((_, index) => <SkeletonCard key={`gym-${index}`} />)}
-          </div>
-        ) : null}
-
-        {gymState === "error" ? <p className="muted mt-12">{t("library.training.sectionError")}</p> : null}
-        {gymState === "unavailable" ? <p className="muted mt-12">{t("library.training.sectionUnavailable")}</p> : null}
-        {gymState === "ready" && gymPlans.length === 0 ? <p className="muted mt-12">{t("library.training.sectionEmpty")}</p> : null}
-
-        {gymState === "ready" && gymPlans.length > 0 ? (
-          <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            {gymPlans.map((plan) => {
-              const isSelected = activePlanId === plan.id;
-              return (
-                <article key={plan.id} className="feature-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-                    <div>
-                      <h3 className="m-0">{plan.title}</h3>
-                      <p className="muted mt-6">{t("library.training.planMeta", { days: plan.daysCount, level: plan.level })}</p>
-                    </div>
-                    {isSelected ? <Badge variant="success">{t("library.training.selected")}</Badge> : null}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                    <Button variant={isSelected ? "secondary" : "primary"} onClick={() => selectPlan(plan.id)}>
-                      {isSelected ? t("library.training.selected") : t("library.training.choose")}
-                    </Button>
-                    <Link href={`/app/biblioteca/entrenamientos/${plan.id}`} className="btn secondary">
-                      {t("trainingPlans.viewDetail")}
-                    </Link>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : null}
+        {assignedPlanState === "ready" && !assignedPlan ? <p className="muted mt-12">{t("library.training.sectionEmpty")}</p> : null}
       </section>
 
       <section className="card">
@@ -353,7 +315,13 @@ export default function TrainingLibraryClient() {
 
       {noPlansAvailable ? (
         <section className="card">
-          <p className="muted">{t("library.training.noAssignedOrAvailable")}</p>
+          <strong>{t("library.training.emptyVisiblePlansTitle")}</strong>
+          <p className="muted mt-6">{t("library.training.noAssignedOrAvailable")}</p>
+          <div className="mt-12">
+            <Link href="/app/entrenamiento" className="btn">
+              {t("library.training.emptyVisiblePlansCta")}
+            </Link>
+          </div>
         </section>
       ) : null}
     </>

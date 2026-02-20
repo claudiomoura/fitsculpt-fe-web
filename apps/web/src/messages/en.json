@@ -1690,6 +1690,8 @@
       "aiPlaceholderTitle": "AI plans enabled",
       "aiPlaceholderDescription": "Generate your next plan with AI when available.",
       "noAssignedOrAvailable": "You do not have assigned or available plans yet.",
+      "emptyVisiblePlansTitle": "No plans available",
+      "emptyVisiblePlansCta": "Go to Training",
       "assignedEmpty": "No assigned plan is available with current data.",
       "assignedUnavailable": "We cannot verify an assigned plan with current data.",
       "aiUnavailableTitle": "AI plans unavailable",

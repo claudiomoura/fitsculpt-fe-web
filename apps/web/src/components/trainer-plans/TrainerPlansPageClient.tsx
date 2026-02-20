@@ -23,6 +23,7 @@ type Slot = { weekIndex: number; dayOfWeek: number };
 type LoadTarget = "endurance" | "hypertrophy" | "strength" | "maxStrength" | "power" | "plyometrics";
 type LoadType = "classic" | "pyramid" | "dropSet";
 type LoadSet = { setNumber: number; reps: string; restSeconds: string; notes: string };
+type LoadSetsUpdate = LoadSet[] | ((current: LoadSet[]) => LoadSet[]);
 type DraftExercise = {
   id: string;
   exerciseId?: string;
@@ -48,6 +49,15 @@ const DEFAULT_WEEKS = 4;
 const DAYS_IN_WEEK = 7;
 const SCHEDULE_GRID_MIN_HEIGHT = 320;
 const SCHEDULE_GRID_MAX_HEIGHT = "min(48vh, 420px)";
+
+function createEmptySet(setNumber: number): LoadSet {
+  return { setNumber, reps: "", restSeconds: "", notes: "" };
+}
+
+function normalizeSets(sets: LoadSet[]): LoadSet[] {
+  if (sets.length === 0) return [createEmptySet(1)];
+  return sets.map((set, index) => ({ ...set, setNumber: index + 1 }));
+}
 
 function isEndpointUnavailable(status?: number): boolean {
   return status === 404 || status === 405;
@@ -489,7 +499,7 @@ export default function TrainerPlansPageClient() {
         onClose={() => setWorkoutEditorOpen(false)}
         onSave={onSaveWorkoutMeta}
         onAddExercise={() => {
-          setEditingExercise({ id: crypto.randomUUID(), name: "", libraryBacked: false, sets: [{ setNumber: 1, reps: "", restSeconds: "", notes: "" }] });
+          setEditingExercise({ id: crypto.randomUUID(), name: "", libraryBacked: false, sets: [createEmptySet(1)] });
           setExerciseEditorOpen(true);
         }}
         onEditExercise={(exercise) => {
@@ -786,8 +796,12 @@ function ExerciseEditor({
   onSave: (exercise: DraftExercise) => void;
 }) {
   const { t } = useLanguage();
-  const [draft, setDraft] = useState<DraftExercise | null>(exercise);
+  const [draft, setDraft] = useState<DraftExercise | null>(exercise ? { ...exercise, sets: normalizeSets(exercise.sets) } : null);
   const [step, setStep] = useState<0 | 1 | 2>(0);
+
+  useEffect(() => {
+    setDraft(exercise ? { ...exercise, sets: normalizeSets(exercise.sets) } : null);
+  }, [exercise]);
 
 
   if (!draft) return null;
@@ -798,7 +812,7 @@ function ExerciseEditor({
       onClose={onClose}
       title={t("trainer.plans.exerciseEditorTitle")}
       description={t("trainer.plans.loadWizardUiOnly")}
-      className="form-stack"
+      className="form-stack trainer-plans-exercise-editor-modal"
     >
       <div className="form-stack" style={{ maxHeight: "min(80vh, 760px)", display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", overflow: "hidden" }}>
         <div className="form-stack" style={{ minHeight: 0, overflowY: "auto", paddingRight: 4 }}>
@@ -834,7 +848,7 @@ function ExerciseEditor({
 
         {step === 0 ? <LoadTargetStep draft={draft} onChange={(loadTarget) => setDraft({ ...draft, loadTarget })} /> : null}
         {step === 1 ? <LoadTypeStep draft={draft} onChange={(loadType) => setDraft({ ...draft, loadType })} /> : null}
-        {step === 2 ? <LoadSetsStep draft={draft} onChange={(sets) => setDraft({ ...draft, sets })} /> : null}
+        {step === 2 ? <LoadSetsStep draft={draft} onChange={onSetsChange} /> : null}
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, position: "sticky", bottom: 0, background: "var(--bg-card)", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
@@ -878,7 +892,7 @@ function LoadTypeStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
   );
 }
 
-function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (value: LoadSet[]) => void }) {
+function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (value: LoadSetsUpdate) => void }) {
   const { t } = useLanguage();
   const setsRef = useRef<HTMLDivElement | null>(null);
   const previousSetsLengthRef = useRef(draft.sets.length);
@@ -900,25 +914,25 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
 
   return (
     <div className="form-stack">
-      <div className="form-stack" ref={setsRef} style={{ maxHeight: "min(42vh, 360px)", overflowY: "auto", paddingRight: 4 }}>
+      <div className="form-stack" ref={setsRef} style={{ maxHeight: "min(50vh, 420px)", overflowY: "auto", paddingRight: 4 }}>
       {draft.sets.map((set, index) => (
         <div key={`${set.setNumber}-${index}`} className="feature-card form-stack">
           <strong>{t("trainer.plans.setLabel", { set: set.setNumber })}</strong>
           <label className="form-stack" style={{ gap: 6 }}>
             <span className="muted">{t("trainer.plans.reps")}</span>
-            <input value={set.reps} onChange={(event) => onChange(draft.sets.map((entry, entryIndex) => entryIndex === index ? { ...entry, reps: event.target.value } : entry))} />
+            <input value={set.reps} onChange={(event) => onChange((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, reps: event.target.value } : entry))} />
           </label>
           <label className="form-stack" style={{ gap: 6 }}>
             <span className="muted">{t("trainer.plans.restSeconds")}</span>
-            <input value={set.restSeconds} onChange={(event) => onChange(draft.sets.map((entry, entryIndex) => entryIndex === index ? { ...entry, restSeconds: event.target.value } : entry))} />
+            <input value={set.restSeconds} onChange={(event) => onChange((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, restSeconds: event.target.value } : entry))} />
           </label>
           <label className="form-stack" style={{ gap: 6 }}>
             <span className="muted">{t("trainer.plans.intensityNotes")}</span>
-            <input value={set.notes} onChange={(event) => onChange(draft.sets.map((entry, entryIndex) => entryIndex === index ? { ...entry, notes: event.target.value } : entry))} />
+            <input value={set.notes} onChange={(event) => onChange((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, notes: event.target.value } : entry))} />
           </label>
           <Button
             variant="secondary"
-            onClick={() => onChange(normalizeSetNumbers(draft.sets.filter((_, entryIndex) => entryIndex !== index)))}
+            onClick={() => onChange((current) => normalizeSetNumbers(current.filter((_, entryIndex) => entryIndex !== index)))}
             disabled={draft.sets.length <= 1}
           >
             {t("trainer.plans.removeSet")}
@@ -927,7 +941,7 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
       ))}
       </div>
 
-      <Button variant="secondary" onClick={() => onChange([...draft.sets, { setNumber: draft.sets.length + 1, reps: "", restSeconds: "", notes: "" }])}>{t("trainer.plans.addSet")}</Button>
+      <Button variant="secondary" onClick={() => onChange([...draft.sets, createEmptySet(draft.sets.length + 1)])}>{t("trainer.plans.addSet")}</Button>
       {draft.sets.length <= 1 ? <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.removeSetDisabledHint")}</p> : null}
       <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.loadWizardUiOnly")}</p>
     </div>
