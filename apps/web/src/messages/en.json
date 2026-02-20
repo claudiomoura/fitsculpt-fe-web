@@ -2242,7 +2242,18 @@
       "restSeconds": "Rest (sec)",
       "intensityNotes": "Intensity notes",
       "removeSet": "Remove set",
-      "removeSetDisabledHint": "At least one set is required."
+      "removeSetDisabledHint": "At least one set is required.",
+      "updateExerciseSuccess": "Exercise updated successfully.",
+      "updateExerciseError": "We couldn't save exercise changes.",
+      "editExercise": {
+        "sets": "Sets",
+        "reps": "Reps",
+        "rest": "Rest (sec)",
+        "notes": "Notes",
+        "tempo": "Tempo",
+        "noEditableFields": "No editable fields are available for this exercise.",
+        "notSupported": "Editing exercise details is not supported in this environment."
+      }
     },
     "planDetail": {
       "edit": "Edit",

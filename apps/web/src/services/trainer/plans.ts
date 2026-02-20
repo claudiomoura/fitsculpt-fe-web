@@ -64,6 +64,17 @@ export type AddExerciseToPlanDayResult = {
   exerciseId: string;
 };
 
+export type UpdatePlanDayExerciseInput = {
+  planId: string;
+  dayId: string;
+  exerciseId: string;
+  sets?: number;
+  reps?: string;
+  rest?: number;
+  notes?: string;
+  tempo?: string;
+};
+
 export type MultiAddExerciseItemInput = {
   dayId: string;
   exerciseId: string;
@@ -267,6 +278,63 @@ export async function addExerciseToPlanDay(
       exerciseId,
       ...(input.athleteUserId?.trim() ? { athleteUserId: input.athleteUserId.trim() } : {}),
     }),
+  });
+
+  if (!result.ok) return result;
+
+  return {
+    ok: true,
+    data: {
+      planId,
+      dayId,
+      exerciseId,
+    },
+  };
+}
+
+export async function updatePlanDayExercise(
+  input: UpdatePlanDayExerciseInput,
+): Promise<ServiceResult<AddExerciseToPlanDayResult>> {
+  const planId = input.planId.trim();
+  const dayId = input.dayId.trim();
+  const exerciseId = input.exerciseId.trim();
+
+  if (!planId || !dayId || !exerciseId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "Plan, day and exercise are required.",
+      fieldErrors: {
+        ...(!planId ? { planId: "Plan is required." } : {}),
+        ...(!dayId ? { dayId: "Day is required." } : {}),
+        ...(!exerciseId ? { exerciseId: "Exercise is required." } : {}),
+      },
+    };
+  }
+
+  const payload = {
+    ...(typeof input.sets === "number" ? { sets: input.sets } : {}),
+    ...(typeof input.reps === "string" ? { reps: input.reps } : {}),
+    ...(typeof input.rest === "number" ? { rest: input.rest } : {}),
+    ...(typeof input.notes === "string" ? { notes: input.notes } : {}),
+    ...(typeof input.tempo === "string" ? { tempo: input.tempo } : {}),
+  };
+
+  if (Object.keys(payload).length === 0) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "At least one exercise field is required.",
+      fieldErrors: { payload: "At least one exercise field is required." },
+    };
+  }
+
+  const result = await requestJson<unknown>(`/api/trainer/plans/${planId}/days/${dayId}/exercises/${exerciseId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
   if (!result.ok) return result;
