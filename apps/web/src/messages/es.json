@@ -2240,6 +2240,14 @@
       "restSeconds": "Descanso (seg)",
       "intensityNotes": "Notas de intensidad"
     },
+    "planDetail": {
+      "edit": "Editar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "addDay": "Añadir día",
+      "deleteDay": "Eliminar día",
+      "requiresImplementation": "Requiere implementación"
+    },
     "clientContext": {
       "title": "Contexto del atleta",
       "loading": "Cargando contexto del atleta...",

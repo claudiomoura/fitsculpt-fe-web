@@ -2237,6 +2237,14 @@
       "restSeconds": "Rest (sec)",
       "intensityNotes": "Intensity notes"
     },
+    "planDetail": {
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "addDay": "Add day",
+      "deleteDay": "Delete day",
+      "requiresImplementation": "Requires implementation"
+    },
     "clientContext": {
       "title": "Athlete context",
       "loading": "Loading athlete context...",
