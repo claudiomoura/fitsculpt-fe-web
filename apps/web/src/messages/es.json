@@ -1931,7 +1931,12 @@
       "title": "Problema de configuración de facturación",
       "STRIPE_NOT_CONFIGURED": "La facturación no está completamente configurada todavía. Inténtalo de nuevo más tarde o contacta a soporte.",
       "NO_VALID_PRICES": "No hay precios válidos configurados para los planes de facturación en este entorno. Contacta a soporte."
-    }
+    },
+    "continueToCheckout": "Continuar al checkout",
+    "redirectingToCheckout": "Redirigiendo al checkout...",
+    "selectPlanCta": "Seleccionar plan",
+    "selectedPlanBadge": "Seleccionado",
+    "selectPlanError": "Selecciona un plan para continuar."
   },
   "settings": {
     "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",
