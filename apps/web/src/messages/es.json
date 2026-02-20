@@ -2089,6 +2089,8 @@
         "myExercises": "Mis ejercicios"
       },
       "empty": {
+        "fitsculpt": "No hay ejercicios de FitSculpt disponibles en este momento.",
+        "my": "Aún no creaste ejercicios.",
         "myUnsupported": "Este entorno aún no permite identificar tus ejercicios."
       }
     },
