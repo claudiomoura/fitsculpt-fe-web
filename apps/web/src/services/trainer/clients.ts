@@ -75,7 +75,7 @@ export const trainerClientEndpointInventory: TrainerClientEndpointInventory[] = 
     endpoint: "/api/trainer/clients/:id",
     method: "DELETE",
     exists: true,
-    notes: "Remove trainer-client relationship through BFF/backend when supported by current environment.",
+    notes: "Remove trainer-client relationship through BFF proxy to backend /trainer/clients/:id.",
   },
 ];
 
@@ -199,17 +199,7 @@ export async function removeTrainerClientRelationship(clientId: string): Promise
     method: "DELETE",
   });
 
-  if (!result.ok) {
-    if (result.status === 404 || result.status === 405) {
-      return {
-        ...result,
-        reason: "notSupported",
-        message: result.message ?? "Removing a trainer-client relationship is not supported in this environment.",
-      };
-    }
-    return result;
-  }
-
+  if (!result.ok) return result;
   return { ok: true, data: null };
 }
 

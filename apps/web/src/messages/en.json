@@ -2388,6 +2388,21 @@
       "nextReviewDate": "Next review",
       "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
       "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment.",
+      "removeClient": {
+        "title": "Remove from roster",
+        "description": "Remove this client from your trainer roster in the current gym.",
+        "openConfirm": "Remove from roster",
+        "confirm": "Yes, remove",
+        "submitting": "Removing...",
+        "modalTitle": "Remove client",
+        "modalDescription": "Are you sure you want to remove {member} from your roster?",
+        "modalWarning": "This action removes your trainer relationship for this gym context.",
+        "unsupported": "This action is currently unavailable in this environment.",
+        "forbidden": "You do not have permission to remove this client from your roster.",
+        "unavailable": "This action is not available in this environment.",
+        "success": "{member} was removed from your trainer roster.",
+        "submitError": "We could not remove this client right now. Please try again."
+      },
       "tabs": {
         "ariaLabel": "Client sections",
         "summary": "Summary",
