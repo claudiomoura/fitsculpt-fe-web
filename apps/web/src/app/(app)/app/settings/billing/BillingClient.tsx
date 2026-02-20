@@ -33,6 +33,11 @@ type BillingViewState = "ready" | "not_available" | "auth_required" | "error";
 
 type BillingConfigError = "NO_VALID_PRICES" | "STRIPE_NOT_CONFIGURED" | null;
 
+
+function isBillingConfigError(code: unknown): code is BillingConfigError {
+  return code === "NO_VALID_PRICES" || code === "STRIPE_NOT_CONFIGURED";
+}
+
 function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (key: string) => string) {
   const normalizedStatus = subscriptionStatus?.toLowerCase();
 
@@ -170,15 +175,17 @@ export default function BillingClient() {
           setError(null);
           setPlans([]);
         } else {
-          setBillingState("error");
-          if (plansResult.errorCode === "NO_VALID_PRICES" || plansResult.errorCode === "STRIPE_NOT_CONFIGURED") {
-            setBillingConfigError(plansResult.errorCode);
-            setError(null);
-          } else {
-            setBillingConfigError(null);
-            setError(t("billing.loadError"));
-          }
-          setPlans([]);
+setBillingState("error");
+
+if (isBillingConfigError(plansResult.errorCode)) {
+  setBillingConfigError(plansResult.errorCode);
+  setError(null);
+} else {
+  setBillingConfigError(null);
+  setError(t("billing.loadError"));
+}
+
+setPlans([]);
         }
       } else {
         setBillingState("ready");
