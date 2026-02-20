@@ -2239,7 +2239,8 @@
       "reps": "Repeticiones",
       "restSeconds": "Descanso (seg)",
       "intensityNotes": "Notas de intensidad",
-      "ownershipUnknown": "{count, plural, one {# plan no pudo clasificarse como propio del entrenador, por lo que eliminar permanece deshabilitado.} other {# planes no pudieron clasificarse como propios del entrenador, por lo que eliminar permanece deshabilitado.}}"
+      "removeSet": "Eliminar serie",
+      "removeSetDisabledHint": "Se requiere al menos una serie."
     },
     "planDetail": {
       "edit": "Editar",

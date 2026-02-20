@@ -883,6 +883,10 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
   const setsRef = useRef<HTMLDivElement | null>(null);
   const previousSetsLengthRef = useRef(draft.sets.length);
 
+  const normalizeSetNumbers = useCallback((sets: LoadSet[]) => {
+    return sets.map((set, index) => ({ ...set, setNumber: index + 1 }));
+  }, []);
+
   useEffect(() => {
     const previousLength = previousSetsLengthRef.current;
     previousSetsLengthRef.current = draft.sets.length;
@@ -896,9 +900,9 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
 
   return (
     <div className="form-stack">
-      <div className="form-stack" ref={setsRef}>
+      <div className="form-stack" ref={setsRef} style={{ maxHeight: "min(42vh, 360px)", overflowY: "auto", paddingRight: 4 }}>
       {draft.sets.map((set, index) => (
-        <div key={set.setNumber} className="feature-card form-stack">
+        <div key={`${set.setNumber}-${index}`} className="feature-card form-stack">
           <strong>{t("trainer.plans.setLabel", { set: set.setNumber })}</strong>
           <label className="form-stack" style={{ gap: 6 }}>
             <span className="muted">{t("trainer.plans.reps")}</span>
@@ -912,11 +916,19 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
             <span className="muted">{t("trainer.plans.intensityNotes")}</span>
             <input value={set.notes} onChange={(event) => onChange(draft.sets.map((entry, entryIndex) => entryIndex === index ? { ...entry, notes: event.target.value } : entry))} />
           </label>
+          <Button
+            variant="secondary"
+            onClick={() => onChange(normalizeSetNumbers(draft.sets.filter((_, entryIndex) => entryIndex !== index)))}
+            disabled={draft.sets.length <= 1}
+          >
+            {t("trainer.plans.removeSet")}
+          </Button>
         </div>
       ))}
       </div>
 
       <Button variant="secondary" onClick={() => onChange([...draft.sets, { setNumber: draft.sets.length + 1, reps: "", restSeconds: "", notes: "" }])}>{t("trainer.plans.addSet")}</Button>
+      {draft.sets.length <= 1 ? <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.removeSetDisabledHint")}</p> : null}
       <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.loadWizardUiOnly")}</p>
     </div>
   );

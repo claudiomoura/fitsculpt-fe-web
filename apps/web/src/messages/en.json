@@ -2236,7 +2236,8 @@
       "reps": "Reps",
       "restSeconds": "Rest (sec)",
       "intensityNotes": "Intensity notes",
-      "ownershipUnknown": "{count, plural, one {# plan could not be classified as trainer-owned, so delete remains disabled.} other {# plans could not be classified as trainer-owned, so delete remains disabled.}}"
+      "removeSet": "Remove set",
+      "removeSetDisabledHint": "At least one set is required."
     },
     "planDetail": {
       "edit": "Edit",
