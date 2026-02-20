@@ -256,7 +256,7 @@ export default function TrainerPlansPageClient() {
                     title={t("trainer.plans.fitsculpt.emptyTitle")}
                     description={t("trainer.plans.fitsculpt.emptyDescription")}
                     wrapInCard
-                    icon="lock"
+                    icon="info"
                   />
                 </CardContent>
                 <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.35))", pointerEvents: "none" }} />
@@ -335,7 +335,7 @@ export default function TrainerPlansPageClient() {
                   <article key={day.id} className="feature-card form-stack">
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       <strong>{day.label}</strong>
-                      <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item.id}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>{t("trainer.plans.editDay")}</Link>
+                      <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item?.id ?? ""}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>{t("trainer.plans.editDay")}</Link>
                     </div>
                     {day.exercises.length === 0 ? <p className="muted">{t("trainer.plans.dayExercisesEmpty")}</p> : (
                       <ul style={{ margin: 0, paddingInlineStart: 20 }}>

@@ -198,7 +198,7 @@ export default function ExerciseDetailClient({
 
       try {
         if (athleteUserId) {
-          const assignmentResponse = await fetch(`/api/trainer/members/${athleteUserId}/training-plan-assignment`, {
+          const assignmentResponse = await fetch(`/api/trainer/clients/${athleteUserId}/assigned-plan`, {
             cache: "no-store",
             credentials: "include",
           });

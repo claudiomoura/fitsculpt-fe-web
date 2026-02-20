@@ -1,5 +1,7 @@
 import type { Exercise } from "@/lib/types";
 
+export type { Exercise };
+
 type ExerciseFiltersMetadata = {
   equipment?: string[] | null;
   primaryMuscle?: string[] | null;

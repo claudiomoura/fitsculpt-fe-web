@@ -29,6 +29,7 @@ export type TrainerClientServiceCapabilities = {
   canAssignPlan: boolean;
   canUnassignPlan: boolean;
   canRemoveClient: boolean;
+  canManageNotes: boolean;
 };
 
 export const trainerClientServiceCapabilities: TrainerClientServiceCapabilities = {
@@ -37,6 +38,7 @@ export const trainerClientServiceCapabilities: TrainerClientServiceCapabilities 
   canAssignPlan: true,
   canUnassignPlan: true,
   canRemoveClient: true,
+  canManageNotes: false,
 };
 
 export type TrainerClientEndpointInventory = {
@@ -76,6 +78,12 @@ export const trainerClientEndpointInventory: TrainerClientEndpointInventory[] = 
     method: "DELETE",
     exists: true,
     notes: "Remove trainer-client relationship through BFF proxy to backend /trainer/clients/:id.",
+  },
+  {
+    endpoint: "/api/trainer/clients/:id/notes",
+    method: "GET",
+    exists: false,
+    notes: "Requiere implementación: BFF route and backend notes feature are not available on current main.",
   },
 ];
 

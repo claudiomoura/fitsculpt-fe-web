@@ -76,7 +76,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   const loadAssignmentData = useCallback(async () => {
     const assignmentEndpoint = `/api/trainer/clients/${memberId}/assigned-plan`;
     const [plansRes, assignmentRes] = await Promise.all([
-      fetch("/api/training-plans", { cache: "no-store", credentials: "include" }),
+      fetch("/api/trainer/plans?limit=100", { cache: "no-store", credentials: "include" }),
       fetch(assignmentEndpoint, {
         cache: "no-store",
         credentials: "include",
@@ -88,8 +88,8 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       throw new Error("ASSIGNMENT_FORBIDDEN");
     }
 
-    if (assignmentRes.status === 405) {
-      setCapabilityState("unsupported");
+    if (assignmentRes.status === 404 || assignmentRes.status === 405) {
+      setAssignmentSupported(false);
       return;
     }
 
@@ -275,7 +275,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     setSuccess(null);
 
     try {
-      const response = await fetch("/api/training-plans", {
+      const response = await fetch("/api/trainer/plans", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

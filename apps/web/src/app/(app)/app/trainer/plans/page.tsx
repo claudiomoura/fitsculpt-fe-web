@@ -1,5 +1,5 @@
 import { getServerT } from "@/lib/serverI18n";
-import TrainerPlansPageClient from "@/components/trainer-plans/TrainerPlansPageClient";
+import TrainerPlansPageClient from "@/components/trainer/plans/TrainerPlansPageClient";
 
 export default async function TrainerPlansPage() {
   const { t } = await getServerT();
