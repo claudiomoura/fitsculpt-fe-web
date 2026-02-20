@@ -1627,6 +1627,7 @@
     "filterMuscleLabel": "Músculo:",
     "errorTitle": "No pudimos cargar la biblioteca",
     "emptyTitle": "No encontramos ejercicios",
+    "emptyTryAnotherSearch": "Prueba otra búsqueda o limpia los filtros.",
     "resetFilters": "Limpiar filtros",
     "retrySearch": "Volver a intentar",
     "loadMore": "Cargar más",
@@ -1673,6 +1674,7 @@
     "addToPlansSubmitError": "No pudimos añadir este ejercicio a los planes seleccionados.",
     "addToPlansSuccessTitle": "Ejercicio añadido a planes",
     "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es).",
+    "addActionLabel": "Agregar a planes",
     "training": {
       "sections": {
         "fitsculpt": "Planes FitSculpt",
@@ -2076,6 +2078,11 @@
       "accepting": "Aceptando...",
       "rejecting": "Rechazando..."
     },
+    "exercises": {
+      "tabs": {
+        "library": "Ejercicios"
+      }
+    },
     "plans": {
       "title": "Planes del entrenador",
       "description": "Crea y revisa los planes manuales disponibles para asignar.",
@@ -2100,6 +2107,9 @@
       "addExerciseSuccess": "Ejercicio agregado al día seleccionado del plan.",
       "addExerciseError": "No pudimos agregar ese ejercicio al día seleccionado.",
       "editDay": "Editar día",
+      "selectPlan": "Seleccionar plan",
+      "dayBuilderTitle": "Constructor de días",
+      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los días de entrenamiento.",
       "dayEditorTitle": "Editor por día",
       "dayEditorSubtitle": "Edita un día del plan y asigna ejercicios desde la biblioteca.",
       "dayEditorHint": "Abre el editor de día desde cualquier tarjeta de día.",
