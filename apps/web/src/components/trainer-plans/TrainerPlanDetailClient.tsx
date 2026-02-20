@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise, TrainingPlanDetail } from "@/lib/types";
 import { fetchExercisesList } from "@/services/exercises";
-import { addExerciseToPlanDay, getTrainerPlanDetail, saveTrainerPlan } from "@/services/trainer/plans";
+import { addExerciseToPlanDay, getTrainerPlanDetail, getTrainerPlanEditCapabilities, saveTrainerPlan } from "@/services/trainer/plans";
 
 type Props = {
   planId: string;
@@ -28,7 +28,10 @@ export default function TrainerPlanDetailClient({ planId }: Props) {
 
   const canAddExercise = true;
   const canAddDay = false;
-  const canDeleteDay = false;
+  const [canDeletePlan, setCanDeletePlan] = useState(false);
+  const [canDeleteDay, setCanDeleteDay] = useState(false);
+  const [canDeleteExercise, setCanDeleteExercise] = useState(false);
+  const [canUpdateExercise, setCanUpdateExercise] = useState(false);
 
   const loadPlan = useCallback(async () => {
     setLoading(true);
@@ -53,6 +56,30 @@ export default function TrainerPlanDetailClient({ planId }: Props) {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [loadPlan]);
+
+  useEffect(() => {
+    const firstDayId = draft?.days?.[0]?.id;
+    const firstExerciseId = draft?.days?.[0]?.exercises?.[0]?.id;
+
+    if (!planId.trim()) return;
+
+    let cancelled = false;
+
+    async function loadCapabilities() {
+      const caps = await getTrainerPlanEditCapabilities(planId, firstDayId, firstExerciseId);
+      if (cancelled) return;
+      setCanDeletePlan(caps.canDeletePlan);
+      setCanDeleteDay(caps.canDeleteDay);
+      setCanDeleteExercise(caps.canDeleteDayExercise);
+      setCanUpdateExercise(caps.canUpdateDayExercise);
+    }
+
+    void loadCapabilities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft?.days, planId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -194,7 +221,7 @@ export default function TrainerPlanDetailClient({ planId }: Props) {
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {!isEditMode ? (
-            <button className="btn secondary" type="button" onClick={() => setIsEditMode(true)}>{t("trainer.planDetail.edit")}</button>
+            <button className="btn secondary" type="button" onClick={() => setIsEditMode(true)} disabled={!canUpdateExercise}>{t("trainer.planDetail.edit")}</button>
           ) : (
             <>
               <button className="btn" type="button" onClick={() => void handleSave()} disabled={saving}>
@@ -206,7 +233,8 @@ export default function TrainerPlanDetailClient({ planId }: Props) {
             </>
           )}
           <button className="btn secondary" type="button" disabled>{t("trainer.planDetail.addDay")}</button>
-          <span className="muted">{!canAddDay ? t("trainer.planDetail.requiresImplementation") : null}</span>
+          <span className="muted">{!canAddDay ? t("trainer.planDetail.notAvailableInEnvironment") : null}</span>
+          {!canDeletePlan ? <span className="muted">{t("trainer.planDetail.notAvailableInEnvironment")}</span> : null}
         </div>
 
         {saveError ? <p className="muted">{t("trainer.plans.error")}</p> : null}
@@ -217,7 +245,7 @@ export default function TrainerPlanDetailClient({ planId }: Props) {
             <button className="btn secondary fit-content" type="button" disabled>
               {t("trainer.planDetail.addDay")}
             </button>
-            <p className="muted">{t("trainer.planDetail.requiresImplementation")}</p>
+            <p className="muted">{t("trainer.planDetail.notAvailableInEnvironment")}</p>
           </section>
         ) : (
           <div className="form-stack">
@@ -241,7 +269,7 @@ export default function TrainerPlanDetailClient({ planId }: Props) {
                     <span className="muted">{day.duration}</span>
                   )}
                   <button className="btn secondary" type="button" disabled={!canDeleteDay}>{t("trainer.planDetail.deleteDay")}</button>
-                  {!canDeleteDay ? <span className="muted">{t("trainer.planDetail.requiresImplementation")}</span> : null}
+                  {!canDeleteDay ? <span className="muted">{t("trainer.planDetail.notAvailableInEnvironment")}</span> : null}
                 </div>
 
                 {day.exercises.length === 0 ? (
@@ -281,7 +309,7 @@ export default function TrainerPlanDetailClient({ planId }: Props) {
                           ) : (
                             <span>{exercise.name}</span>
                           )}
-                          {isEditMode ? (
+                          {isEditMode && canUpdateExercise ? (
                             <input
                               type="number"
                               min={0}
@@ -293,6 +321,8 @@ export default function TrainerPlanDetailClient({ planId }: Props) {
                             <span className="muted">{t("trainer.plans.loadSets")}: {exercise.sets}</span>
                           )}
                         </div>
+                        {isEditMode && !canUpdateExercise ? <p className="muted" style={{ margin: 0 }}>{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
+                        {!canDeleteExercise ? <p className="muted" style={{ margin: 0 }}>{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
                       </li>
                     ))}
                   </ul>

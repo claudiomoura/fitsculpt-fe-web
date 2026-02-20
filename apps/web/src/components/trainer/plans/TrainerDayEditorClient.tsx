@@ -8,8 +8,7 @@ import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredStat
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise, TrainingPlanDay } from "@/lib/types";
-import { searchExercises } from "@/services/exercises/search";
-import { addExerciseToPlanDay, getTrainerPlanDetail } from "@/services/trainer/plans";
+import { addExerciseToPlanDay, getTrainerPlanDetail, getTrainerPlanEditCapabilities } from "@/services/trainer/plans";
 import { fetchExercisesList } from "@/services/exercises";
 
 type Props = {
@@ -32,6 +31,8 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
   const [results, setResults] = useState<Exercise[]>([]);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [addError, setAddError] = useState(false);
+  const [canDeleteExercise, setCanDeleteExercise] = useState(false);
+  const [canUpdateExercise, setCanUpdateExercise] = useState(false);
 
   const normalizedDay = useMemo(() => day.trim(), [day]);
 
@@ -103,6 +104,27 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
       .slice(0, 8);
     setResults(filtered);
   }, [availableExercises, query]);
+
+
+  useEffect(() => {
+    if (!canAccessTrainerArea || !selectedDay) return;
+
+    const firstExerciseId = selectedDay.exercises?.[0]?.id;
+    let cancelled = false;
+
+    async function loadCapabilities() {
+      const caps = await getTrainerPlanEditCapabilities(planId, selectedDay.id, firstExerciseId);
+      if (cancelled) return;
+      setCanDeleteExercise(caps.canDeleteDayExercise);
+      setCanUpdateExercise(caps.canUpdateDayExercise);
+    }
+
+    void loadCapabilities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessTrainerArea, planId, selectedDay]);
 
   const onAddExercise = useCallback(async (exerciseId: string) => {
     if (!selectedDay || isAddingExercise) return;
@@ -210,6 +232,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
             {selectedDay.exercises.map((exercise) => <li key={exercise.id}>{exercise.name}</li>)}
           </ul>
         )}
+        {!canUpdateExercise || !canDeleteExercise ? <p className="muted">{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
       </div>
 
       <Link href="/app/trainer/plans" className="btn secondary fit-content">{t("trainer.back")}</Link>

@@ -2247,7 +2247,8 @@
       "cancel": "Cancel",
       "addDay": "Add day",
       "deleteDay": "Delete day",
-      "requiresImplementation": "Requires implementation"
+      "requiresImplementation": "Requires implementation",
+      "notAvailableInEnvironment": "Not available in this environment"
     },
     "clientContext": {
       "title": "Athlete context",
