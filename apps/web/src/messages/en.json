@@ -2235,11 +2235,7 @@
       "setLabel": "Set {set}",
       "reps": "Reps",
       "restSeconds": "Rest (sec)",
-      "intensityNotes": "Intensity notes",
-      "deleteError": "We could not delete this plan.",
-      "deleteSuccess": "Plan deleted.",
-      "deleteConfirmTitle": "Delete plan",
-      "deleteConfirmDescription": "This action cannot be undone."
+      "intensityNotes": "Intensity notes"
     },
     "clientContext": {
       "title": "Athlete context",
@@ -2320,7 +2316,8 @@
           "unassignSubmitting": "Unassigning...",
           "unassignUnavailable404": "This action is not available in this environment.",
           "unassignUnsupported405": "Unassignment is currently not supported.",
-          "unassignForbidden": "You do not have permission to unassign this plan."
+          "unassignForbidden": "You do not have permission to unassign this plan.",
+          "unassignBlockedForSession": "Unassign is unavailable in this environment for now."
         },
         "empty": "No plan information is available for this client in this environment."
       },

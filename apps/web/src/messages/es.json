@@ -2238,11 +2238,7 @@
       "setLabel": "Serie {set}",
       "reps": "Repeticiones",
       "restSeconds": "Descanso (seg)",
-      "intensityNotes": "Notas de intensidad",
-      "deleteError": "No pudimos eliminar este plan.",
-      "deleteSuccess": "Plan eliminado.",
-      "deleteConfirmTitle": "Eliminar plan",
-      "deleteConfirmDescription": "Esta acción no se puede deshacer."
+      "intensityNotes": "Notas de intensidad"
     },
     "clientContext": {
       "title": "Contexto del atleta",
@@ -2323,7 +2319,8 @@
           "unassignSubmitting": "Desasignando...",
           "unassignUnavailable404": "Esta acción no está disponible en este entorno.",
           "unassignUnsupported405": "Desasignación no soportada actualmente.",
-          "unassignForbidden": "No tienes permisos para desasignar este plan."
+          "unassignForbidden": "No tienes permisos para desasignar este plan.",
+          "unassignBlockedForSession": "La desasignación no está disponible en este entorno por ahora."
         },
         "empty": "No hay información de plan disponible para este cliente en este entorno."
       },
