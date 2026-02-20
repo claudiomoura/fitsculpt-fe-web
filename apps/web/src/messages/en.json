@@ -2235,12 +2235,16 @@
           "forbidden": "You don't have permission to manage plan assignment for this member.",
           "unassignCta": "Unassign plan",
           "unassignSuccess": "Plan unassigned successfully from {member}.",
-          "unassignError": "We could not unassign the current plan. Please retry.",
+          "unassignError": "We could not unassign the current plan. Please try again later.",
           "removeClientCta": "Remove client from trainer list",
           "removeClientConfirm": "Are you sure you want to remove {member} from your client list?",
           "removeClientConfirmCta": "Yes, remove client",
           "removeSuccess": "{member} was removed from your trainer list.",
-          "removeError": "We could not remove this client. Please retry."
+          "removeError": "We could not remove this client. Please retry.",
+          "unassignSubmitting": "Unassigning...",
+          "unassignUnavailable404": "This action is not available in this environment.",
+          "unassignUnsupported405": "Unassignment is currently not supported.",
+          "unassignForbidden": "You do not have permission to unassign this plan."
         },
         "empty": "No plan information is available for this client in this environment."
       },
