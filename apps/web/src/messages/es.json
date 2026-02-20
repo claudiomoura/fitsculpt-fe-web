@@ -2063,52 +2063,65 @@
       "dayNotFound": "No se encontró el día seleccionado en este plan.",
       "createSuccessTitle": "Plan creado",
       "createSuccessDescription": "Tu nuevo plan está listo para editar.",
-      "schedulerDescription": "Configura entrenamientos semanales con calendario y guía de cargas.",
+      "lockedBadge": "Bloqueado",
       "tabs": {
-        "fitsculpt": "FitSculpt Plans",
-        "myPlans": "Mis Planes"
+        "title": "Biblioteca de planes",
+        "ariaLabel": "Pestañas de planes del entrenador",
+        "fitsculptPlans": "Planes FitSculpt",
+        "myPlans": "Mis planes"
       },
-      "emptyPublic": "Los planes públicos no están disponibles en este entorno.",
-      "comingSoon": "Próximamente",
-      "filterUnavailable": "Filtrado no disponible en este entorno.",
-      "weeksLabel": "Semanas",
-      "workoutsSchedule": "Calendario de entrenamientos",
-      "workoutsList": "Lista de entrenamientos",
-      "weekLabel": "Semana {week}",
-      "dayLabel": "Día {day}",
-      "weekDayLabel": "Semana {week} · Día {day}",
-      "calendarHint": "Usa flechas para moverte y Enter/Espacio para seleccionar. Doble clic/toque para editar.",
-      "workoutsListEmpty": "Aún no hay entrenamientos programados.",
-      "openDayEditor": "Abrir editor de día",
-      "scheduleMappedToDays": "Las celdas seleccionadas se mapearán solo a campos de días soportados ({count}).",
-      "workoutName": "Nombre del entrenamiento",
-      "notesOptional": "Notas (opcional)",
-      "untitledWorkout": "Entrenamiento sin título",
-      "exerciseEditorTitle": "Editor de ejercicio",
-      "selectorUnavailable": "El selector de ejercicios no está disponible en este entorno. Puedes usar un nombre personalizado.",
-      "customExercise": "Nombre de ejercicio personalizado",
-      "loadTarget": "Objetivo de carga",
-      "loadType": "Tipo de carga",
-      "loadSets": "Series",
-      "targets": {
-        "endurance": "Resistencia muscular",
-        "hypertrophy": "Hipertrofia",
-        "strength": "Fuerza",
-        "maxStrength": "Fuerza máxima",
-        "power": "Potencia",
-        "plyometrics": "Pliometría"
+      "fitsculpt": {
+        "description": "Catálogo global de planes FitSculpt.",
+        "emptyTitle": "Los planes FitSculpt no están disponibles",
+        "emptyDescription": "Los planes públicos/globales no están disponibles en este entorno."
       },
-      "loadTypes": {
-        "classic": "Clásico",
-        "pyramid": "Pirámide",
-        "dropSet": "Drop set"
+      "myPlans": {
+        "noGymTitle": "Se requiere contexto de gimnasio",
+        "noGymDescription": "No pudimos determinar tu contexto de gimnasio para planes de entrenador.",
+        "goToGym": "Ir a gimnasio"
       },
-      "setLabel": "Serie {set}",
-      "reps": "Repeticiones",
-      "restSeconds": "Descanso (segundos)",
-      "intensityNotes": "Intensidad/notas (opcional)",
-      "addSet": "Agregar serie",
-      "loadWizardUiOnly": "No disponible para guardar en este entorno."
+      "wizard": {
+        "basicsTitle": "Datos básicos del plan",
+        "basicsDescription": "Configura la información básica para este borrador.",
+        "scheduleTitle": "Calendario de entrenamientos",
+        "scheduleDescription": "Selecciona los días de entrenamiento por semana y día.",
+        "goToScheduleHint": "Continúa para asignar días de entrenamiento en la grilla.",
+        "continue": "Continuar",
+        "backToBasics": "Volver",
+        "weeksLabel": "Número de semanas",
+        "weekRange": "Semana {start}–{end}",
+        "weekLabel": "S{week}",
+        "dayShort": "D{day}",
+        "localOnlyHint": "Los datos del calendario se guardan localmente en este flujo.",
+        "selectDayForEditor": "Selecciona un día de entrenamiento para abrir el editor.",
+        "workoutEditorTitle": "Editor de entrenamiento",
+        "workoutEditorDescription": "Editando el día {day}.",
+        "workoutNameLabel": "Nombre del entrenamiento",
+        "exerciseSectionTitle": "Agregar ejercicios",
+        "exerciseUnavailable": "Agregar ejercicios no está disponible en este entorno.",
+        "loadTargetLabel": "Objetivo de carga",
+        "loadTarget": {
+          "endurance": "Resistencia muscular",
+          "hypertrophy": "Hipertrofia",
+          "strength": "Fuerza",
+          "maxStrength": "Fuerza máxima",
+          "power": "Potencia",
+          "plyometrics": "Pliometría"
+        },
+        "loadTypeLabel": "Tipo de carga",
+        "loadType": {
+          "classic": "Clásico",
+          "pyramid": "Pirámide",
+          "dropSet": "Drop set"
+        },
+        "setEditorTitle": "Editor de series de carga",
+        "setNumberLabel": "Serie",
+        "repsMinLabel": "Reps mín",
+        "repsMaxLabel": "Reps máx",
+        "restSecondsLabel": "Descanso (seg)",
+        "addSet": "Agregar serie",
+        "savedLocallyHint": "Guardado localmente. Aún no se envía al backend."
+      }
     },
     "clientContext": {
       "title": "Contexto del atleta",

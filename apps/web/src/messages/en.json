@@ -279,11 +279,11 @@
     "heroPreviewStats": [
       {
         "label": "Training",
-        "value": "Push · 45 min"
+        "value": "Push \u00b7 45 min"
       },
       {
         "label": "Nutrition",
-        "value": "2,050 kcal · 135g protein"
+        "value": "2,050 kcal \u00b7 135g protein"
       },
       {
         "label": "Streak",
@@ -369,7 +369,7 @@
         "title": "FREE",
         "badge": "Starter",
         "description": "Essentials to get started with clarity.",
-        "price": "0 €",
+        "price": "0 \u20ac",
         "features": [
           "Basic weekly plan",
           "Standard library",
@@ -383,7 +383,7 @@
         "title": "PRO",
         "badge": "Recommended",
         "description": "AI, fast adjustments, and premium support.",
-        "price": "9,99 €",
+        "price": "9,99 \u20ac",
         "features": [
           "AI-generated plans",
           "Real-time adjustments",
@@ -501,7 +501,7 @@
     "todayTrainingEmpty": "No training scheduled yet.",
     "todayTrainingCta": "View training",
     "restDayTitle": "Rest day",
-    "restDaySubtitle": "Use it for light mobility or a 20–30 min walk.",
+    "restDaySubtitle": "Use it for light mobility or a 20\u201330 min walk.",
     "restDayCta": "View plan",
     "todayCaloriesTitle": "Calories today",
     "todayCaloriesSubtitle": "Consumption vs daily target.",
@@ -547,9 +547,9 @@
     "weightProgressLatestLabel": "Latest entry",
     "weightProgressDeltaLabel": "vs previous 7 days",
     "weightProgressDeltaUnavailable": "Log another week to compare trends.",
-    "weightProgressTrendUp": "↑ Up",
-    "weightProgressTrendDown": "↓ Down",
-    "weightProgressTrendStable": "→ Stable",
+    "weightProgressTrendUp": "\u2191 Up",
+    "weightProgressTrendDown": "\u2193 Down",
+    "weightProgressTrendStable": "\u2192 Stable",
     "weightProgressErrorTitle": "We couldn't load weight progress",
     "progressTitle": "Progress",
     "progressSubtitle": "Weight and body fat over time.",
@@ -742,7 +742,7 @@
     "dislikedFoods": "Foods to avoid",
     "dislikedFoodsPlaceholder": "e.g. seafood, peanuts...",
     "cookingTime": "Time per meal",
-    "cookingTimeOptionQuick": "Quick (≤15 min)",
+    "cookingTimeOptionQuick": "Quick (\u226415 min)",
     "cookingTimeOptionMedium": "Medium (15-30 min)",
     "cookingTimeOptionLong": "Long (30+ min)",
     "generate": "Generate plan",
@@ -1000,7 +1000,7 @@
     "restDayTipThree": "Prioritize hydration and sleep.",
     "weeklyPlanSubtitle": "Explore each day and review exercise details.",
     "weeklyPlanTipOne": "Open each day to see exercises and sets.",
-    "weeklyPlanTipTwo": "Use “View technique” to review execution.",
+    "weeklyPlanTipTwo": "Use \u201cView technique\u201d to review execution.",
     "weeklyPlanTipThree": "Edit the plan if you need adjustments.",
     "exerciseUnavailable": "Details unavailable for this exercise.",
     "manualPlanTitle": "Manual weekly plan",
@@ -1282,7 +1282,7 @@
     "dislikedFoods": "Foods to avoid",
     "dislikedFoodsPlaceholder": "e.g. seafood, peanuts...",
     "cookingTime": "Time per meal",
-    "cookingTimeOptionQuick": "Quick (≤15 min)",
+    "cookingTimeOptionQuick": "Quick (\u226415 min)",
     "cookingTimeOptionMedium": "Medium (15-30 min)",
     "cookingTimeOptionLong": "Long (30+ min)",
     "macroFormula": "Formula",
@@ -1302,7 +1302,7 @@
     "save": "Save profile",
     "reset": "Reset profile",
     "savedToast": "Profile saved locally.",
-    "namePlaceholder": "e.g. Laura Gómez",
+    "namePlaceholder": "e.g. Laura G\u00f3mez",
     "passwordTitle": "Change password",
     "passwordSubtitle": "Update your access password.",
     "currentPassword": "Current password",
@@ -1992,7 +1992,7 @@
     "unauthorized": "Trainer mode is not available for this account.",
     "modeTitle": "Trainer dashboard",
     "notAvailable": "Trainer client list is not available in this environment yet.",
-    "notAvailableInEnvironment": "Não disponível neste ambiente",
+    "notAvailableInEnvironment": "N\u00e3o dispon\u00edvel neste ambiente",
     "viewingAsCoach": "Viewing as coach",
     "backToDashboard": "Back to dashboard",
     "back": "Back",
@@ -2060,52 +2060,65 @@
       "dayNotFound": "No day found for selected date in this plan.",
       "createSuccessTitle": "Plan created",
       "createSuccessDescription": "Your new plan is ready to edit.",
-      "schedulerDescription": "Build weekly workouts with a calendar scheduler and guided load setup.",
+      "lockedBadge": "Locked",
       "tabs": {
-        "fitsculpt": "FitSculpt Plans",
+        "title": "Plans library",
+        "ariaLabel": "Trainer plans tabs",
+        "fitsculptPlans": "FitSculpt Plans",
         "myPlans": "My Plans"
       },
-      "emptyPublic": "Public plans are not available in this environment.",
-      "comingSoon": "Coming soon",
-      "filterUnavailable": "Filtering unavailable in this environment.",
-      "weeksLabel": "Weeks",
-      "workoutsSchedule": "Workouts schedule",
-      "workoutsList": "Workouts list",
-      "weekLabel": "Week {week}",
-      "dayLabel": "Day {day}",
-      "weekDayLabel": "Week {week} · Day {day}",
-      "calendarHint": "Use arrows to move cells and Enter/Space to select. Double tap/click to edit.",
-      "workoutsListEmpty": "No scheduled workouts yet.",
-      "openDayEditor": "Open day editor",
-      "scheduleMappedToDays": "Selected slots will be mapped to supported day fields only ({count}).",
-      "workoutName": "Workout name",
-      "notesOptional": "Notes (optional)",
-      "untitledWorkout": "Untitled workout",
-      "exerciseEditorTitle": "Exercise editor",
-      "selectorUnavailable": "Exercise selector unavailable in this environment. You can use a custom name.",
-      "customExercise": "Custom exercise name",
-      "loadTarget": "Load target",
-      "loadType": "Load type",
-      "loadSets": "Sets",
-      "targets": {
-        "endurance": "Muscular endurance",
-        "hypertrophy": "Hypertrophy",
-        "strength": "Strength",
-        "maxStrength": "Maximal strength",
-        "power": "Power",
-        "plyometrics": "Plyometrics"
+      "fitsculpt": {
+        "description": "Global FitSculpt plans catalog.",
+        "emptyTitle": "FitSculpt plans are not available",
+        "emptyDescription": "Public/global plans are not available in this environment."
       },
-      "loadTypes": {
-        "classic": "Classic",
-        "pyramid": "Pyramid",
-        "dropSet": "Drop set"
+      "myPlans": {
+        "noGymTitle": "Gym context is required",
+        "noGymDescription": "We could not determine your gym context for trainer plans.",
+        "goToGym": "Go to gym"
       },
-      "setLabel": "Set {set}",
-      "reps": "Reps",
-      "restSeconds": "Rest (seconds)",
-      "intensityNotes": "Intensity/notes (optional)",
-      "addSet": "Add set",
-      "loadWizardUiOnly": "Not available to save in this environment."
+      "wizard": {
+        "basicsTitle": "Plan basics",
+        "basicsDescription": "Configure the basic information for this draft plan.",
+        "scheduleTitle": "Workouts schedule",
+        "scheduleDescription": "Select the workout days by week and day.",
+        "goToScheduleHint": "Continue to assign workout days in the schedule grid.",
+        "continue": "Continue",
+        "backToBasics": "Back",
+        "weeksLabel": "Number of weeks",
+        "weekRange": "Week {start}\u2013{end}",
+        "weekLabel": "W{week}",
+        "dayShort": "D{day}",
+        "localOnlyHint": "Schedule data is currently stored locally in this flow.",
+        "selectDayForEditor": "Select a workout day to open the workout editor.",
+        "workoutEditorTitle": "Workout editor",
+        "workoutEditorDescription": "Editing day {day}.",
+        "workoutNameLabel": "Workout name",
+        "exerciseSectionTitle": "Add exercises",
+        "exerciseUnavailable": "Exercise add is not available in this environment.",
+        "loadTargetLabel": "Load target",
+        "loadTarget": {
+          "endurance": "Muscular endurance",
+          "hypertrophy": "Hypertrophy",
+          "strength": "Strength",
+          "maxStrength": "Max strength",
+          "power": "Power",
+          "plyometrics": "Plyometrics"
+        },
+        "loadTypeLabel": "Load type",
+        "loadType": {
+          "classic": "Classic",
+          "pyramid": "Pyramid",
+          "dropSet": "Drop set"
+        },
+        "setEditorTitle": "Load set editor",
+        "setNumberLabel": "Set",
+        "repsMinLabel": "Reps min",
+        "repsMaxLabel": "Reps max",
+        "restSecondsLabel": "Rest (sec)",
+        "addSet": "Add set",
+        "savedLocallyHint": "Saved locally. Not sent to backend yet."
+      }
     },
     "clientContext": {
       "title": "Athlete context",
@@ -2606,10 +2619,10 @@
     "createCodePlaceholder": "EXAMPLE2026",
     "created": "Gym created successfully.",
     "deleted": "Gym deleted successfully.",
-    "loadingAccess": "Checking admin access…",
+    "loadingAccess": "Checking admin access\u2026",
     "errorTitle": "Gym list unavailable",
     "emptyDescription": "Create your first gym to start onboarding members.",
-    "membersLoading": "Loading gym members…",
+    "membersLoading": "Loading gym members\u2026",
     "membersErrorTitle": "Members unavailable",
     "roleUpdatedTrainer": "Member promoted to TRAINER.",
     "roleUpdatedMember": "Member changed to MEMBER."
@@ -2691,7 +2704,7 @@
     "plans": {
       "strength": {
         "title": "Strength IA",
-        "price": "14,99€",
+        "price": "14,99\u20ac",
         "tagline": "Strength, hypertrophy, and automatic progression",
         "cta": "Start Strength",
         "features": {
@@ -2703,7 +2716,7 @@
       },
       "pro": {
         "title": "PRO",
-        "price": "19,99€",
+        "price": "19,99\u20ac",
         "badge": "Most popular",
         "tagline": "Strength + Nutrition in one system",
         "cta": "Choose Pro",
@@ -2716,7 +2729,7 @@
       },
       "nutrition": {
         "title": "Nutrition IA",
-        "price": "14,99€",
+        "price": "14,99\u20ac",
         "tagline": "Macros, recipes, and adherence without overcomplicating",
         "cta": "Start Nutrition",
         "features": {

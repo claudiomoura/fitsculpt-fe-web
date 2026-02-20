@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
 import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
+import TrainerPlansTabs from "@/components/trainer/plans/TrainerPlansTabs";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
+import { Badge } from "@/components/ui/Badge";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -13,6 +18,7 @@ import type { TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 import { createTrainerPlan, getTrainerPlanDetail, listCurrentGymTrainerPlans } from "@/services/trainer/plans";
 
 type LoadState = "loading" | "ready";
+type PlansTabId = "fitsculptPlans" | "myPlans";
 
 type DetailState = {
   loading: boolean;
@@ -20,8 +26,39 @@ type DetailState = {
   item: TrainingPlanDetail | null;
 };
 
+type CreateStep = "basics" | "schedule";
+type LoadTarget = "endurance" | "hypertrophy" | "strength" | "maxStrength" | "power" | "plyometrics";
+type LoadType = "classic" | "pyramid" | "dropSet";
+
+type WorkoutSetDraft = {
+  setNumber: number;
+  repsMin: number;
+  repsMax: number;
+  restSeconds: number;
+};
+
+type WorkoutDayDraft = {
+  workoutName: string;
+  loadTarget: LoadTarget;
+  loadType: LoadType;
+  sets: WorkoutSetDraft[];
+};
+
 function isEndpointUnavailable(status?: number): boolean {
   return status === 404 || status === 405;
+}
+
+function createWeekSchedule(weeks: number): boolean[][] {
+  return Array.from({ length: weeks }, () => Array.from({ length: 7 }, () => false));
+}
+
+function dayDraft(): WorkoutDayDraft {
+  return {
+    workoutName: "",
+    loadTarget: "hypertrophy",
+    loadType: "classic",
+    sets: [{ setNumber: 1, repsMin: 8, repsMax: 12, restSeconds: 60 }],
+  };
 }
 
 export default function TrainerPlansPageClient() {
@@ -29,6 +66,7 @@ export default function TrainerPlansPageClient() {
   const { notify } = useToast();
   const { isLoading: accessLoading, gymLoading, gymError, membership, canAccessTrainerArea, canAccessAdminNoGymPanel } = useTrainerAreaAccess();
 
+  const [activeTab, setActiveTab] = useState<PlansTabId>("myPlans");
   const [listState, setListState] = useState<LoadState>("loading");
   const [plans, setPlans] = useState<TrainingPlanListItem[]>([]);
   const [listError, setListError] = useState(false);
@@ -42,6 +80,12 @@ export default function TrainerPlansPageClient() {
   const [createDisabled, setCreateDisabled] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
+  const [createStep, setCreateStep] = useState<CreateStep>("basics");
+  const [scheduleWeeks, setScheduleWeeks] = useState(4);
+  const [scheduleGrid, setScheduleGrid] = useState<boolean[][]>(createWeekSchedule(4));
+  const [selectedScheduleCell, setSelectedScheduleCell] = useState<string | null>(null);
+  const [dayDrafts, setDayDrafts] = useState<Record<string, WorkoutDayDraft>>({});
+
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DetailState>({ loading: false, error: false, item: null });
 
@@ -54,9 +98,7 @@ export default function TrainerPlansPageClient() {
       setPlans([]);
       const unavailable = isEndpointUnavailable(result.status);
       setListDisabled(unavailable);
-      if (unavailable) {
-        setCreateDisabled(true);
-      }
+      if (unavailable) setCreateDisabled(true);
       setListError(true);
       setListState("ready");
       return;
@@ -89,6 +131,47 @@ export default function TrainerPlansPageClient() {
     return () => window.clearTimeout(timer);
   }, [canAccessTrainerArea, loadPlans]);
 
+  const toggleScheduleDay = (weekIndex: number, dayIndex: number) => {
+    setScheduleGrid((prev) => prev.map((week, rowIndex) => {
+      if (rowIndex !== weekIndex) return week;
+      return week.map((isActive, colIndex) => (colIndex === dayIndex ? !isActive : isActive));
+    }));
+    const cellKey = `${weekIndex + 1}-${dayIndex + 1}`;
+    setSelectedScheduleCell(cellKey);
+    setDayDrafts((prev) => (prev[cellKey] ? prev : { ...prev, [cellKey]: dayDraft() }));
+  };
+
+  const selectedDayDraft = useMemo(() => (selectedScheduleCell ? dayDrafts[selectedScheduleCell] : null), [dayDrafts, selectedScheduleCell]);
+
+  const updateSelectedDayDraft = (updater: (prev: WorkoutDayDraft) => WorkoutDayDraft) => {
+    if (!selectedScheduleCell) return;
+    setDayDrafts((prev) => ({ ...prev, [selectedScheduleCell]: updater(prev[selectedScheduleCell] ?? dayDraft()) }));
+  };
+
+  const setScheduleWeeksAndGrid = (nextWeeks: number) => {
+    const safeWeeks = Math.max(1, Math.min(12, nextWeeks));
+    setScheduleWeeks(safeWeeks);
+    setScheduleGrid((prev) => {
+      const next = createWeekSchedule(safeWeeks);
+      for (let weekIndex = 0; weekIndex < safeWeeks; weekIndex += 1) {
+        for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
+          next[weekIndex][dayIndex] = prev[weekIndex]?.[dayIndex] ?? false;
+        }
+      }
+      return next;
+    });
+  };
+
+  const resetCreateWizard = () => {
+    setTitle("");
+    setDaysPerWeek(3);
+    setCreateStep("basics");
+    setScheduleWeeks(4);
+    setScheduleGrid(createWeekSchedule(4));
+    setSelectedScheduleCell(null);
+    setDayDrafts({});
+  };
+
   const onCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!title.trim() || creating) return;
@@ -104,16 +187,13 @@ export default function TrainerPlansPageClient() {
       });
 
       if (!result.ok) {
-        if (isEndpointUnavailable(result.status)) {
-          setCreateDisabled(true);
-        }
+        if (isEndpointUnavailable(result.status)) setCreateDisabled(true);
         setCreateError(true);
         setCreateErrorMessage(result.message ?? t("trainer.plans.createError"));
         return;
       }
 
-      setTitle("");
-      setDaysPerWeek(3);
+      resetCreateWizard();
       setCreateModalOpen(false);
       notify({
         title: t("trainer.plans.createSuccessTitle"),
@@ -122,7 +202,7 @@ export default function TrainerPlansPageClient() {
       });
       await loadPlans();
       await loadPlanDetail(result.data.id);
-    } catch (_error) {
+    } catch {
       setCreateError(true);
       setCreateErrorMessage(t("trainer.plans.createError"));
     } finally {
@@ -130,145 +210,349 @@ export default function TrainerPlansPageClient() {
     }
   };
 
-  if (accessLoading || gymLoading) {
-    return <LoadingState ariaLabel={t("trainer.loading")} lines={3} />;
-  }
-
-  if (canAccessAdminNoGymPanel) {
-    return <TrainerAdminNoGymPanel />;
-  }
+  if (accessLoading || gymLoading) return <LoadingState ariaLabel={t("trainer.loading")} lines={3} />;
+  if (canAccessAdminNoGymPanel) return <TrainerAdminNoGymPanel />;
 
   if (!canAccessTrainerArea) {
-    if (membership.state === "not_in_gym") {
-      return <TrainerGymRequiredState />;
-    }
-
-    if (gymError) {
-      return <ErrorState title={t("trainer.error")} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
-    }
-
+    if (membership.state === "not_in_gym") return <TrainerGymRequiredState />;
+    if (gymError) return <ErrorState title={t("trainer.error")} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
     return <EmptyState title={t("trainer.unauthorized")} wrapInCard icon="warning" />;
   }
 
+  const myPlansEmptyFromGym = membership.gymId == null;
+
   return (
     <div className="form-stack">
-      <section className="card form-stack" aria-live="polite">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("trainer.plans.createTitle")}</h2>
-        <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.createFlowDescription")}</p>
-        {createDisabled ? <p className="muted">{t("trainer.plans.createDisabled")}</p> : null}
-        <div>
-          <button className="btn fit-content" type="button" onClick={() => setCreateModalOpen(true)} disabled={createDisabled}>
-            {t("trainer.plans.create")}
-          </button>
-        </div>
-        {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("trainer.plans.createTitle")}</CardTitle>
+          <CardDescription>{t("trainer.plans.createFlowDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent className="form-stack" style={{ gap: 10 }}>
+          {createDisabled ? <p className="muted">{t("trainer.plans.createDisabled")}</p> : null}
+          <div>
+            <Button onClick={() => setCreateModalOpen(true)} disabled={createDisabled}>{t("trainer.plans.create")}</Button>
+          </div>
+          {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
+        </CardContent>
+      </Card>
 
-      <section className="card form-stack" aria-live="polite">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("trainer.plans.listTitle")}</h2>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("trainer.plans.tabs.title")}</CardTitle>
+        </CardHeader>
+        <CardContent className="form-stack" style={{ gap: 12 }}>
+          <TrainerPlansTabs selectedTab={activeTab} onChange={setActiveTab} />
 
-        {listState === "loading" ? <LoadingState ariaLabel={t("trainer.plans.loading")} lines={3} /> : null}
-        {listState === "ready" && listError
-          ? (listDisabled
-            ? <EmptyState title={t("trainer.plans.listDisabledTitle")} description={t("trainer.plans.listDisabledDescription")} wrapInCard icon="info" />
-            : <ErrorState title={t("trainer.plans.error")} retryLabel={t("ui.retry")} onRetry={() => void loadPlans()} wrapInCard />)
-          : null}
-        {listState === "ready" && !listError && plans.length === 0 ? <EmptyState title={t("trainer.plans.empty")} wrapInCard icon="info" /> : null}
+          {activeTab === "fitsculptPlans" ? (
+            <section id="trainer-plans-panel-fitsculpt" role="tabpanel" aria-labelledby="trainer-plans-tab-fitsculpt">
+              <Card className="form-stack" style={{ position: "relative", overflow: "hidden" }}>
+                <CardHeader>
+                  <CardTitle>{t("trainer.plans.tabs.fitsculptPlans")}</CardTitle>
+                  <CardDescription>{t("trainer.plans.fitsculpt.description")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <EmptyState
+                    title={t("trainer.plans.fitsculpt.emptyTitle")}
+                    description={t("trainer.plans.fitsculpt.emptyDescription")}
+                    wrapInCard
+                    icon="lock"
+                  />
+                </CardContent>
+                <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.35))", pointerEvents: "none" }} />
+                <div style={{ position: "absolute", top: 12, right: 12 }}><Badge variant="warning">{t("trainer.plans.lockedBadge")}</Badge></div>
+              </Card>
+            </section>
+          ) : (
+            <section id="trainer-plans-panel-my" role="tabpanel" aria-labelledby="trainer-plans-tab-my" className="form-stack">
+              {myPlansEmptyFromGym ? (
+                <Card>
+                  <CardContent>
+                    <EmptyState
+                      title={t("trainer.plans.myPlans.noGymTitle")}
+                      description={t("trainer.plans.myPlans.noGymDescription")}
+                      wrapInCard
+                      icon="info"
+                      actions={[{ label: t("trainer.plans.myPlans.goToGym"), href: "/app/gym" }]}
+                    />
+                  </CardContent>
+                </Card>
+              ) : null}
 
-        {listState === "ready" && !listError && plans.length > 0 ? (
-          <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 20 }}>
-            {plans.map((plan) => (
-              <li key={plan.id}>
-                <article className="feature-card" style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-                  <strong>{plan.title}</strong>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="button" className="btn secondary" onClick={() => void loadPlanDetail(plan.id)}>
-                      {t("trainer.plans.selectPlan")}
-                    </button>
-                    <Link href={`/app/entrenamiento/editar?planId=${plan.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`} className="btn secondary">
-                      {t("trainer.plans.editDay")}
-                    </Link>
-                  </div>
-                </article>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
+              {listState === "loading" ? <LoadingState ariaLabel={t("trainer.plans.loading")} lines={3} /> : null}
+              {listState === "ready" && listError
+                ? (listDisabled
+                  ? <EmptyState title={t("trainer.plans.listDisabledTitle")} description={t("trainer.plans.listDisabledDescription")} wrapInCard icon="info" />
+                  : <ErrorState title={t("trainer.plans.error")} retryLabel={t("ui.retry")} onRetry={() => void loadPlans()} wrapInCard />)
+                : null}
+              {listState === "ready" && !listError && plans.length === 0 ? <EmptyState title={t("trainer.plans.empty")} wrapInCard icon="info" /> : null}
 
-      <section className="card form-stack" aria-live="polite">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("trainer.plans.dayBuilderTitle")}</h2>
+              {listState === "ready" && !listError && plans.length > 0 ? (
+                <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 0, listStyle: "none" }}>
+                  {plans.map((plan) => (
+                    <li key={plan.id}>
+                      <Card>
+                        <CardContent style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                          <div className="form-stack" style={{ gap: 4 }}>
+                            <strong>{plan.title}</strong>
+                            <span className="muted">{t("trainer.plans.daysCount", { count: plan.daysCount })}</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <Button variant="secondary" onClick={() => void loadPlanDetail(plan.id)}>{t("trainer.plans.selectPlan")}</Button>
+                            <ButtonLink href={`/app/entrenamiento/editar?planId=${plan.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`} variant="secondary">
+                              {t("trainer.plans.editDay")}
+                            </ButtonLink>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          )}
+        </CardContent>
+      </Card>
 
-        {!selectedPlanId ? <p className="muted">{t("trainer.plans.dayBuilderEmpty")}</p> : null}
-        {selectedPlanId && detail.loading ? <LoadingState ariaLabel={t("trainer.plans.loading")} lines={2} /> : null}
-        {selectedPlanId && detail.error ? (
-          <ErrorState title={t("trainer.plans.error")} retryLabel={t("ui.retry")} onRetry={() => void loadPlanDetail(selectedPlanId)} wrapInCard />
-        ) : null}
-        {detail.item ? (
-          <>
-            <div className="feature-card form-stack">
-              <strong>{detail.item.title}</strong>
-              <p className="muted" style={{ margin: 0 }}>
-                {t("training.daysPerWeek")}: {detail.item.daysPerWeek} · {t("trainer.plans.daysCount", { count: detail.item.days?.length ?? 0 })}
-              </p>
-              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.dayEditorHint")}</p>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("trainer.plans.dayBuilderTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent className="form-stack">
+          {!selectedPlanId ? <p className="muted">{t("trainer.plans.dayBuilderEmpty")}</p> : null}
+          {selectedPlanId && detail.loading ? <LoadingState ariaLabel={t("trainer.plans.loading")} lines={2} /> : null}
+          {selectedPlanId && detail.error ? <ErrorState title={t("trainer.plans.error")} retryLabel={t("ui.retry")} onRetry={() => void loadPlanDetail(selectedPlanId)} wrapInCard /> : null}
+          {detail.item ? (
+            <>
+              <div className="feature-card form-stack">
+                <strong>{detail.item.title}</strong>
+                <p className="muted" style={{ margin: 0 }}>{t("training.daysPerWeek")}: {detail.item.daysPerWeek} · {t("trainer.plans.daysCount", { count: detail.item.days?.length ?? 0 })}</p>
+                <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.dayEditorHint")}</p>
+              </div>
 
-            <div className="form-stack">
-              {(detail.item.days ?? []).map((day) => (
-                <article key={day.id} className="feature-card form-stack">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <strong>{day.label}</strong>
-                    <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item.id}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>
-                      {t("trainer.plans.editDay")}
-                    </Link>
-                  </div>
-                  {day.exercises.length === 0 ? <p className="muted">{t("trainer.plans.dayExercisesEmpty")}</p> : (
-                    <ul style={{ margin: 0, paddingInlineStart: 20 }}>
-                      {day.exercises.map((exercise) => <li key={exercise.id}>{exercise.name}</li>)}
-                    </ul>
-                  )}
-                </article>
-              ))}
-            </div>
-          </>
-        ) : null}
-      </section>
+              <div className="form-stack">
+                {(detail.item.days ?? []).map((day) => (
+                  <article key={day.id} className="feature-card form-stack">
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <strong>{day.label}</strong>
+                      <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item.id}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>{t("trainer.plans.editDay")}</Link>
+                    </div>
+                    {day.exercises.length === 0 ? <p className="muted">{t("trainer.plans.dayExercisesEmpty")}</p> : (
+                      <ul style={{ margin: 0, paddingInlineStart: 20 }}>
+                        {day.exercises.map((exercise) => <li key={exercise.id}>{exercise.name}</li>)}
+                      </ul>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Modal
         open={createModalOpen}
         onClose={() => {
-          if (!creating) setCreateModalOpen(false);
+          if (!creating) {
+            resetCreateWizard();
+            setCreateModalOpen(false);
+          }
         }}
-        title={t("trainer.plans.createDraftTitle")}
-        description={t("trainer.plans.createFlowDescription")}
+        title={t(createStep === "basics" ? "trainer.plans.wizard.basicsTitle" : "trainer.plans.wizard.scheduleTitle")}
+        description={t(createStep === "basics" ? "trainer.plans.wizard.basicsDescription" : "trainer.plans.wizard.scheduleDescription")}
       >
         <form className="form-stack" onSubmit={(event) => void onCreate(event)}>
           {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
-          <label className="form-stack" style={{ gap: 8 }}>
-            <span className="muted">{t("trainer.plans.titleLabel")}</span>
-            <input required value={title} disabled={createDisabled || creating} onChange={(event) => setTitle(event.target.value)} />
-          </label>
 
-          <label className="form-stack" style={{ gap: 8 }}>
-            <span className="muted">{t("trainer.plans.daysLabel")}</span>
-            <input
-              type="number"
-              min={1}
-              max={14}
-              value={daysPerWeek}
-              disabled={createDisabled || creating}
-              onChange={(event) => setDaysPerWeek(Math.max(1, Math.min(14, Number(event.target.value) || 1)))}
-            />
-          </label>
+          {createStep === "basics" ? (
+            <>
+              <Input label={t("trainer.plans.titleLabel")} required value={title} disabled={createDisabled || creating} onChange={(event) => setTitle(event.target.value)} />
+              <Input
+                type="number"
+                min={1}
+                max={14}
+                label={t("trainer.plans.daysLabel")}
+                value={daysPerWeek}
+                disabled={createDisabled || creating}
+                onChange={(event) => {
+                  const nextValue = Math.max(1, Math.min(14, Number(event.target.value) || 1));
+                  setDaysPerWeek(nextValue);
+                  setScheduleWeeksAndGrid(nextValue);
+                }}
+              />
+              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.goToScheduleHint")}</p>
+            </>
+          ) : (
+            <>
+              <div className="form-stack" style={{ gap: 8 }}>
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={scheduleWeeks}
+                  onChange={(event) => setScheduleWeeksAndGrid(Number(event.target.value) || 1)}
+                  label={t("trainer.plans.wizard.weeksLabel")}
+                />
+                <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.weekRange", { start: 1, end: scheduleWeeks })}</p>
+              </div>
+
+              <div className="form-stack" style={{ gap: 6 }}>
+                {scheduleGrid.map((week, weekIndex) => (
+                  <div key={`week-${weekIndex + 1}`} style={{ display: "grid", gridTemplateColumns: "80px repeat(7, minmax(44px, 1fr))", gap: 6, alignItems: "center" }}>
+                    <span className="muted">{t("trainer.plans.wizard.weekLabel", { week: weekIndex + 1 })}</span>
+                    {week.map((enabled, dayIndex) => {
+                      const cellKey = `${weekIndex + 1}-${dayIndex + 1}`;
+                      const isSelected = selectedScheduleCell === cellKey;
+                      return (
+                        <Button
+                          key={cellKey}
+                          type="button"
+                          size="sm"
+                          variant={enabled ? "primary" : "secondary"}
+                          aria-pressed={enabled}
+                          onClick={() => toggleScheduleDay(weekIndex, dayIndex)}
+                          style={{ minHeight: 40, borderWidth: isSelected ? 2 : 1 }}
+                        >
+                          {t("trainer.plans.wizard.dayShort", { day: dayIndex + 1 })}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.localOnlyHint")}</p>
+
+              {selectedDayDraft ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t("trainer.plans.wizard.workoutEditorTitle")}</CardTitle>
+                    <CardDescription>{t("trainer.plans.wizard.workoutEditorDescription", { day: selectedScheduleCell ?? "" })}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="form-stack">
+                    <Input
+                      label={t("trainer.plans.wizard.workoutNameLabel")}
+                      value={selectedDayDraft.workoutName}
+                      onChange={(event) => updateSelectedDayDraft((prev) => ({ ...prev, workoutName: event.target.value }))}
+                    />
+
+                    <div className="form-stack" style={{ gap: 8 }}>
+                      <span className="muted">{t("trainer.plans.wizard.exerciseSectionTitle")}</span>
+                      <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.exerciseUnavailable")}</p>
+                    </div>
+
+                    <label className="form-stack" style={{ gap: 6 }}>
+                      <span className="muted">{t("trainer.plans.wizard.loadTargetLabel")}</span>
+                      <select
+                        value={selectedDayDraft.loadTarget}
+                        onChange={(event) => updateSelectedDayDraft((prev) => ({ ...prev, loadTarget: event.target.value as LoadTarget }))}
+                      >
+                        <option value="endurance">{t("trainer.plans.wizard.loadTarget.endurance")}</option>
+                        <option value="hypertrophy">{t("trainer.plans.wizard.loadTarget.hypertrophy")}</option>
+                        <option value="strength">{t("trainer.plans.wizard.loadTarget.strength")}</option>
+                        <option value="maxStrength">{t("trainer.plans.wizard.loadTarget.maxStrength")}</option>
+                        <option value="power">{t("trainer.plans.wizard.loadTarget.power")}</option>
+                        <option value="plyometrics">{t("trainer.plans.wizard.loadTarget.plyometrics")}</option>
+                      </select>
+                    </label>
+
+                    <label className="form-stack" style={{ gap: 6 }}>
+                      <span className="muted">{t("trainer.plans.wizard.loadTypeLabel")}</span>
+                      <select
+                        value={selectedDayDraft.loadType}
+                        onChange={(event) => updateSelectedDayDraft((prev) => ({ ...prev, loadType: event.target.value as LoadType }))}
+                      >
+                        <option value="classic">{t("trainer.plans.wizard.loadType.classic")}</option>
+                        <option value="pyramid">{t("trainer.plans.wizard.loadType.pyramid")}</option>
+                        <option value="dropSet">{t("trainer.plans.wizard.loadType.dropSet")}</option>
+                      </select>
+                    </label>
+
+                    <div className="form-stack" style={{ gap: 8 }}>
+                      <strong>{t("trainer.plans.wizard.setEditorTitle")}</strong>
+                      {selectedDayDraft.sets.map((setItem, setIndex) => (
+                        <div key={`set-${setIndex + 1}`} style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(90px, 1fr))", gap: 8 }}>
+                          <Input
+                            type="number"
+                            label={t("trainer.plans.wizard.setNumberLabel")}
+                            value={setItem.setNumber}
+                            min={1}
+                            onChange={(event) => updateSelectedDayDraft((prev) => {
+                              const nextSets = [...prev.sets];
+                              nextSets[setIndex] = { ...nextSets[setIndex], setNumber: Math.max(1, Number(event.target.value) || 1) };
+                              return { ...prev, sets: nextSets };
+                            })}
+                          />
+                          <Input
+                            type="number"
+                            label={t("trainer.plans.wizard.repsMinLabel")}
+                            value={setItem.repsMin}
+                            min={1}
+                            onChange={(event) => updateSelectedDayDraft((prev) => {
+                              const nextSets = [...prev.sets];
+                              nextSets[setIndex] = { ...nextSets[setIndex], repsMin: Math.max(1, Number(event.target.value) || 1) };
+                              return { ...prev, sets: nextSets };
+                            })}
+                          />
+                          <Input
+                            type="number"
+                            label={t("trainer.plans.wizard.repsMaxLabel")}
+                            value={setItem.repsMax}
+                            min={1}
+                            onChange={(event) => updateSelectedDayDraft((prev) => {
+                              const nextSets = [...prev.sets];
+                              nextSets[setIndex] = { ...nextSets[setIndex], repsMax: Math.max(1, Number(event.target.value) || 1) };
+                              return { ...prev, sets: nextSets };
+                            })}
+                          />
+                          <Input
+                            type="number"
+                            label={t("trainer.plans.wizard.restSecondsLabel")}
+                            value={setItem.restSeconds}
+                            min={0}
+                            onChange={(event) => updateSelectedDayDraft((prev) => {
+                              const nextSets = [...prev.sets];
+                              nextSets[setIndex] = { ...nextSets[setIndex], restSeconds: Math.max(0, Number(event.target.value) || 0) };
+                              return { ...prev, sets: nextSets };
+                            })}
+                          />
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => updateSelectedDayDraft((prev) => ({
+                          ...prev,
+                          sets: [...prev.sets, { setNumber: prev.sets.length + 1, repsMin: 8, repsMax: 12, restSeconds: 60 }],
+                        }))}
+                      >
+                        {t("trainer.plans.wizard.addSet")}
+                      </Button>
+                      <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.savedLocallyHint")}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <p className="muted">{t("trainer.plans.wizard.selectDayForEditor")}</p>
+              )}
+            </>
+          )}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-            <button type="button" className="btn secondary" onClick={() => setCreateModalOpen(false)} disabled={creating}>
+            {createStep === "schedule" ? (
+              <Button type="button" variant="ghost" onClick={() => setCreateStep("basics")} disabled={creating}>{t("trainer.plans.wizard.backToBasics")}</Button>
+            ) : null}
+            <Button type="button" variant="secondary" onClick={() => {
+              resetCreateWizard();
+              setCreateModalOpen(false);
+            }} disabled={creating}>
               {t("ui.cancel")}
-            </button>
-            <button className="btn" type="submit" disabled={createDisabled || creating || !title.trim()}>
-              {creating ? t("trainer.plans.creating") : t("trainer.plans.create")}
-            </button>
+            </Button>
+            {createStep === "basics" ? (
+              <Button type="button" onClick={() => setCreateStep("schedule")} disabled={createDisabled || creating || !title.trim()}>{t("trainer.plans.wizard.continue")}</Button>
+            ) : (
+              <Button type="submit" disabled={createDisabled || creating || !title.trim()} loading={creating}>{t("trainer.plans.create")}</Button>
+            )}
           </div>
         </form>
       </Modal>
