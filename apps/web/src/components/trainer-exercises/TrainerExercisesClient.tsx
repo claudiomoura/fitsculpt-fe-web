@@ -18,12 +18,48 @@ type ExercisesResponse = {
   items?: Exercise[];
 };
 
+type ExercisesTab = "fitsculpt" | "my";
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
 
 function asText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function getProfileUserId(profile: AuthUser): string | null {
+  const rootUser = asRecord(profile.user);
+
+  return (
+    asText(profile.id) ??
+    asText(profile.userId) ??
+    asText(profile.sub) ??
+    asText(rootUser?.id) ??
+    asText(rootUser?.userId) ??
+    null
+  );
+}
+
+function getExerciseOwnerId(exercise: Exercise): string | null {
+  const rawExercise = exercise as Exercise & Record<string, unknown>;
+  const owner = asRecord(rawExercise.owner);
+  const createdBy = asRecord(rawExercise.createdBy);
+  const user = asRecord(rawExercise.user);
+  const author = asRecord(rawExercise.author);
+
+  return (
+    asText(rawExercise.createdById) ??
+    asText(rawExercise.ownerId) ??
+    asText(rawExercise.userId) ??
+    asText(rawExercise.trainerId) ??
+    asText(rawExercise.authorId) ??
+    asText(createdBy?.id) ??
+    asText(owner?.id) ??
+    asText(user?.id) ??
+    asText(author?.id) ??
+    null
+  );
 }
 
 function getExerciseThumbnail(exercise: Exercise): string | null {
@@ -50,6 +86,8 @@ export default function TrainerExercisesClient() {
   const [canCreateExercise, setCanCreateExercise] = useState(false);
   const [canUploadMedia, setCanUploadMedia] = useState(false);
   const [viewerGymId, setViewerGymId] = useState<string | null>(null);
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ExercisesTab>("fitsculpt");
 
   const loadExercises = useCallback(async () => {
     setExercisesState("loading");
@@ -95,6 +133,7 @@ export default function TrainerExercisesClient() {
         setCanCreateExercise(capabilities.canCreateExercise);
         setCanUploadMedia(capabilities.canUploadMedia);
         setViewerGymId(extractGymMembership(profile).gymId);
+        setViewerUserId(getProfileUserId(profile));
         setPermissionState("ready");
 
         if (hasAccess) {
@@ -111,6 +150,17 @@ export default function TrainerExercisesClient() {
       active = false;
     };
   }, [loadExercises]);
+
+  const tabData = useMemo(() => {
+    const myExercises = exercises.filter((exercise) => {
+      const ownerId = getExerciseOwnerId(exercise);
+      return Boolean(viewerUserId && ownerId && ownerId === viewerUserId);
+    });
+
+    const hasMyExerciseSignals = exercises.some((exercise) => getExerciseOwnerId(exercise) !== null);
+
+    return { myExercises, hasMyExerciseSignals };
+  }, [exercises, viewerUserId]);
 
   const listBody = useMemo(() => {
     if (exercisesState === "loading") {
@@ -134,17 +184,23 @@ export default function TrainerExercisesClient() {
       );
     }
 
-    if (exercises.length === 0) {
+    const visibleExercises = activeTab === "my" ? tabData.myExercises : exercises;
+
+    if (visibleExercises.length === 0) {
       return (
         <div className="card" role="status">
-          <p className="muted">{t("library.empty")}</p>
+          <p className="muted">
+            {activeTab === "my" && !tabData.hasMyExerciseSignals
+              ? t("trainer.exercises.empty.myUnsupported")
+              : t("library.empty")}
+          </p>
         </div>
       );
     }
 
     return (
-      <ul className="form-stack" aria-label={t("trainer.exercises.tabs.library")}>
-        {exercises.map((exercise) => (
+      <ul className="form-stack" aria-label={t("trainer.exercises.tabs.ariaLabel")}>
+        {visibleExercises.map((exercise) => (
           <li key={exercise.id} className="card">
             <Link href={`/app/biblioteca/${exercise.id}`} className="sidebar-link" style={{ display: "block" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -188,7 +244,7 @@ export default function TrainerExercisesClient() {
         ))}
       </ul>
     );
-  }, [exercises, exercisesState, loadExercises, t]);
+  }, [activeTab, exercises, exercisesState, loadExercises, t, tabData.hasMyExerciseSignals, tabData.myExercises]);
 
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
@@ -225,8 +281,28 @@ export default function TrainerExercisesClient() {
 
       <section className="section-stack" aria-labelledby="trainer-exercise-list-title">
         <h2 id="trainer-exercise-list-title" className="section-title" style={{ fontSize: 20 }}>
-          {t("trainer.exercises.tabs.library")}
+          {activeTab === "fitsculpt" ? t("trainer.exercises.tabs.fitsculpt") : t("trainer.exercises.tabs.myExercises")}
         </h2>
+        <div role="tablist" aria-label={t("trainer.exercises.tabs.ariaLabel")} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "fitsculpt"}
+            className={activeTab === "fitsculpt" ? "btn" : "btn ghost"}
+            onClick={() => setActiveTab("fitsculpt")}
+          >
+            {t("trainer.exercises.tabs.fitsculpt")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "my"}
+            className={activeTab === "my" ? "btn" : "btn ghost"}
+            onClick={() => setActiveTab("my")}
+          >
+            {t("trainer.exercises.tabs.myExercises")}
+          </button>
+        </div>
         {listBody}
       </section>
     </div>

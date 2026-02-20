@@ -1627,7 +1627,7 @@
     "filterMuscleLabel": "Músculo:",
     "errorTitle": "No pudimos cargar la biblioteca",
     "emptyTitle": "No encontramos ejercicios",
-    "emptyTryAnotherSearch": "Prueba otra búsqueda o limpia los filtros.",
+    "emptyTryAnotherSearch": "Prueba otra búsqueda o ajusta tus filtros.",
     "resetFilters": "Limpiar filtros",
     "retrySearch": "Volver a intentar",
     "loadMore": "Cargar más",
@@ -1674,7 +1674,7 @@
     "addToPlansSubmitError": "No pudimos añadir este ejercicio a los planes seleccionados.",
     "addToPlansSuccessTitle": "Ejercicio añadido a planes",
     "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es).",
-    "addActionLabel": "Agregar a planes",
+    "addActionLabel": "Agregar",
     "training": {
       "sections": {
         "fitsculpt": "Planes FitSculpt",
@@ -1697,9 +1697,7 @@
       "assignedUnavailable": "No podemos verificar el plan asignado con los datos actuales.",
       "aiUnavailableTitle": "Planes IA no disponibles",
       "aiUnavailableDescription": "No podemos validar el acceso a planes IA con los datos actuales."
-    },
-    "addActionLabel": "Agregar",
-    "emptyTryAnotherSearch": "Prueba otra búsqueda o ajusta tus filtros."
+    }
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -2082,7 +2080,13 @@
     },
     "exercises": {
       "tabs": {
-        "library": "Ejercicios"
+        "library": "Ejercicios",
+        "ariaLabel": "Pestañas de ejercicios del entrenador",
+        "fitsculpt": "FitSculpt",
+        "myExercises": "Mis ejercicios"
+      },
+      "empty": {
+        "myUnsupported": "Este entorno aún no permite identificar tus ejercicios."
       }
     },
     "plans": {
@@ -2111,7 +2115,7 @@
       "editDay": "Editar día",
       "selectPlan": "Seleccionar plan",
       "dayBuilderTitle": "Constructor de días",
-      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los días de entrenamiento.",
+      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los detalles del día.",
       "dayEditorTitle": "Editor por día",
       "dayEditorSubtitle": "Edita un día del plan y asigna ejercicios desde la biblioteca.",
       "dayEditorHint": "Abre el editor de día desde cualquier tarjeta de día.",
@@ -2200,7 +2204,8 @@
       "actions": {
         "edit": "Editar",
         "delete": "Eliminar",
-        "deleteUnsupported": "Eliminar no está soportado en este entorno."
+        "deleteUnsupported": "Eliminar no está soportado en este entorno.",
+        "deleteDenied": "Solo puedes eliminar planes creados por ti."
       },
       "targets": {
         "endurance": "Resistencia muscular",
@@ -2234,9 +2239,10 @@
       "reps": "Repeticiones",
       "restSeconds": "Descanso (seg)",
       "intensityNotes": "Notas de intensidad",
-      "selectPlan": "Seleccionar plan",
-      "dayBuilderTitle": "Constructor de días",
-      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los detalles del día."
+      "deleteError": "No pudimos eliminar este plan.",
+      "deleteSuccess": "Plan eliminado.",
+      "deleteConfirmTitle": "Eliminar plan",
+      "deleteConfirmDescription": "Esta acción no se puede deshacer."
     },
     "clientContext": {
       "title": "Contexto del atleta",
@@ -2384,6 +2390,20 @@
         "submitSuccess": "Nota guardada correctamente.",
         "submitError": "No pudimos guardar esta nota. Inténtalo de nuevo.",
         "notAvailableInEnvironment": "No disponible en este entorno"
+      },
+      "removeClient": {
+        "title": "Quitar del roster",
+        "description": "Quita a este atleta del roster del gimnasio.",
+        "openConfirm": "Quitar del roster",
+        "modalTitle": "Quitar atleta del roster",
+        "modalDescription": "¿Seguro que quieres quitar a {member} del roster del gimnasio?",
+        "modalWarning": "Esta acción puede afectar el acceso del entrenador y la visibilidad en el roster.",
+        "confirm": "Sí, quitar atleta",
+        "submitting": "Quitando...",
+        "submitSuccess": "{member} fue quitado del roster.",
+        "submitError": "No pudimos quitar a este atleta. Inténtalo nuevamente.",
+        "unsupported": "Quitar atletas no está soportado en este entorno.",
+        "unsupported403": "No tienes permiso para quitar atletas de este roster."
       },
       "nextReviewDate": "Próxima revisión",
       "tabs": {

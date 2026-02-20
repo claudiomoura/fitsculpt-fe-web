@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
+import { requestJson } from "@/lib/api/serviceResult";
 import { fetchExercisesList, type Exercise } from "@/services/exercises";
 import { createTrainerPlan, listCurrentGymTrainerPlans } from "@/services/trainer/plans";
 
@@ -32,6 +33,14 @@ type DraftExercise = {
   sets: LoadSet[];
 };
 type WorkoutDraft = { title: string; notes: string; exercises: DraftExercise[] };
+type TrainerPlanListItemWithOwnership = TrainingPlanListItem & {
+  userId?: string;
+  ownerId?: string;
+  isOwner?: boolean;
+  isOwnedByTrainer?: boolean;
+  canDelete?: boolean;
+  source?: string;
+};
 
 const DEFAULT_WEEKS = 4;
 const DAYS_IN_WEEK = 7;
@@ -49,6 +58,15 @@ function slotKey(slot: Slot): string {
 function parseSlot(key: string): Slot {
   const [weekIndex, dayOfWeek] = key.split("-").map(Number);
   return { weekIndex, dayOfWeek };
+}
+
+function canDeleteTrainerPlan(plan: TrainingPlanListItem): boolean {
+  const candidate = plan as TrainerPlanListItemWithOwnership;
+
+  if (candidate.canDelete === true) return true;
+  if (candidate.isOwner === true || candidate.isOwnedByTrainer === true) return true;
+  if (candidate.source === "trainer" || candidate.source === "owned") return true;
+  return false;
 }
 
 export default function TrainerPlansPageClient() {
@@ -83,6 +101,8 @@ export default function TrainerPlansPageClient() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchingExercises, setSearchingExercises] = useState(true);
   const [searchError, setSearchError] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<TrainingPlanListItem | null>(null);
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
 
   const selectedSlotKey = selectedSlot ? slotKey(selectedSlot) : null;
   const selectedWorkout = selectedSlotKey ? workoutsBySlot[selectedSlotKey] : null;
@@ -287,6 +307,31 @@ export default function TrainerPlansPageClient() {
     setCreating(false);
   };
 
+  const onDeletePlan = useCallback(async (plan: TrainingPlanListItem) => {
+    if (deletingPlanId) return;
+
+    setDeletingPlanId(plan.id);
+    const result = await requestJson<unknown>(`/api/trainer/plans/${plan.id}`, { method: "DELETE" });
+    setDeletingPlanId(null);
+
+    if (!result.ok) {
+      const isKnownDeleteError = result.status === 403 || result.status === 404 || result.status === 405;
+      notify({
+        title: t("trainer.plans.actions.delete"),
+        description: isKnownDeleteError ? t("trainer.plans.actions.deleteDenied") : t("trainer.plans.deleteError"),
+        variant: "danger",
+      });
+      return;
+    }
+
+    notify({
+      title: t("trainer.plans.actions.delete"),
+      description: t("trainer.plans.deleteSuccess"),
+      variant: "success",
+    });
+    await loadPlans();
+  }, [deletingPlanId, loadPlans, notify, t]);
+
   if (accessLoading || gymLoading) return <LoadingState ariaLabel={t("trainer.loading")} lines={3} />;
   if (canAccessAdminNoGymPanel) return <TrainerAdminNoGymPanel />;
 
@@ -332,10 +377,36 @@ export default function TrainerPlansPageClient() {
               emptyLabel={activeTab === "fitsculpt" ? t("trainer.plans.emptyPublic") : t("trainer.plans.empty")}
               showFallback={activeTab === "myPlans"}
               editDisabled={listDisabled}
+              canRequestDelete={activeTab === "myPlans"}
+              deletingPlanId={deletingPlanId}
+              onRequestDelete={(plan) => setDeleteTarget(plan)}
             />
           ) : null}
         </CardContent>
       </Card>
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => !deletingPlanId && setDeleteTarget(null)}
+        title={t("trainer.plans.deleteConfirmTitle")}
+        description={t("trainer.plans.deleteConfirmDescription", { name: deleteTarget?.title ?? "" })}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={Boolean(deletingPlanId)}>{t("ui.cancel")}</Button>
+          <Button
+            variant="danger"
+            loading={Boolean(deletingPlanId)}
+            disabled={!deleteTarget || Boolean(deletingPlanId)}
+            onClick={async () => {
+              if (!deleteTarget) return;
+              await onDeletePlan(deleteTarget);
+              setDeleteTarget(null);
+            }}
+          >
+            {t("trainer.plans.actions.delete")}
+          </Button>
+        </div>
+      </Modal>
 
       <Modal
         open={createModalOpen}
@@ -444,14 +515,19 @@ function PlansList({
   emptyLabel,
   showFallback,
   editDisabled,
+  canRequestDelete,
+  deletingPlanId,
+  onRequestDelete,
 }: {
   items: TrainingPlanListItem[];
   emptyLabel: string;
   showFallback?: boolean;
   editDisabled?: boolean;
+  canRequestDelete?: boolean;
+  deletingPlanId?: string | null;
+  onRequestDelete: (plan: TrainingPlanListItem) => void;
 }) {
   const { t } = useLanguage();
-  const { notify } = useToast();
 
   if (items.length === 0) {
     if (showFallback) {
@@ -484,15 +560,10 @@ function PlansList({
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled
-                  title={t("trainer.plans.actions.deleteUnsupported")}
-                  onClick={() => {
-                    notify({
-                      title: t("trainer.plans.actions.delete"),
-                      description: t("trainer.plans.actions.deleteUnsupported"),
-                      variant: "info",
-                    });
-                  }}
+                  disabled={deletingPlanId === plan.id || !canRequestDelete || !canDeleteTrainerPlan(plan)}
+                  loading={deletingPlanId === plan.id}
+                  title={!canRequestDelete || !canDeleteTrainerPlan(plan) ? t("trainer.plans.actions.deleteUnsupported") : undefined}
+                  onClick={() => onRequestDelete(plan)}
                 >
                   {t("trainer.plans.actions.delete")}
                 </Button>
@@ -698,11 +769,18 @@ function ExerciseEditor({
   const [draft, setDraft] = useState<DraftExercise | null>(exercise);
   const [step, setStep] = useState<0 | 1 | 2>(0);
 
+
   if (!draft) return null;
 
   return (
-    <Modal open={open} onClose={onClose} title={t("trainer.plans.exerciseEditorTitle")} description={t("trainer.plans.loadWizardUiOnly")}>
-      <div className="form-stack" style={{ maxHeight: "min(78vh, 760px)", display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", overflow: "hidden" }}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t("trainer.plans.exerciseEditorTitle")}
+      description={t("trainer.plans.loadWizardUiOnly")}
+      className="form-stack"
+    >
+      <div className="form-stack" style={{ maxHeight: "min(80vh, 760px)", display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", overflow: "hidden" }}>
         <div className="form-stack" style={{ minHeight: 0, overflowY: "auto", paddingRight: 4 }}>
         <label className="form-stack" style={{ gap: 8 }}>
           <span className="muted">{t("trainer.plans.searchExercises")}</span>
@@ -721,6 +799,7 @@ function ExerciseEditor({
             ))}
           </ul>
         ) : null}
+        {!searchingExercises && !searchError && exercises.length === 0 ? <p className="muted">{t("trainer.plans.searchExercisesEmpty")}</p> : null}
 
         <label className="form-stack" style={{ gap: 8 }}>
           <span className="muted">{t("trainer.plans.customExercise")}</span>
@@ -738,7 +817,7 @@ function ExerciseEditor({
         {step === 2 ? <LoadSetsStep draft={draft} onChange={(sets) => setDraft({ ...draft, sets })} /> : null}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, position: "sticky", bottom: 0, background: "var(--bg-card)", paddingTop: 8 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, position: "sticky", bottom: 0, background: "var(--bg-card)", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
           <Button variant="secondary" onClick={onClose}>{t("ui.cancel")}</Button>
           <Button onClick={() => onSave(draft)} disabled={!draft.name.trim()}>{t("ui.save")}</Button>
         </div>
@@ -782,11 +861,16 @@ function LoadTypeStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
 function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (value: LoadSet[]) => void }) {
   const { t } = useLanguage();
   const setsRef = useRef<HTMLDivElement | null>(null);
+  const previousSetsLengthRef = useRef(draft.sets.length);
 
   useEffect(() => {
+    const previousLength = previousSetsLengthRef.current;
+    previousSetsLengthRef.current = draft.sets.length;
+    if (draft.sets.length <= previousLength) return;
+
     const lastSet = setsRef.current?.lastElementChild;
     if (lastSet instanceof HTMLElement) {
-      lastSet.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      lastSet.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [draft.sets.length]);
 

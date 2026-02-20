@@ -16,6 +16,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { useToast } from "@/components/ui/Toast";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
+import { useToast } from "@/components/ui/Toast";
 import { fetchMyGymMembership } from "@/services/gym";
 import {
   getTrainerClientDetail,
@@ -75,6 +76,7 @@ export default function TrainerClientContextClient() {
   const { notify } = useToast();
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { notify } = useToast();
   const clientId = params.id;
 
   const [permissionState, setPermissionState] = useState<LoadState>("loading");
