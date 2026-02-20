@@ -6,7 +6,14 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { Prisma, PrismaClient, type SubscriptionPlan, type User } from "@prisma/client";
+import {
+  Prisma,
+  PrismaClient,
+  GymMembershipStatus,
+  GymRole,
+  type SubscriptionPlan,
+  type User,
+} from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -19,6 +26,7 @@ import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchem
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
+
 
 const env = getEnv();
 const prisma = await createPrismaClientWithRetry();
@@ -7153,26 +7161,26 @@ app.get("/trainer/plans", async (request, reply) => {
 
     const visibleGymId = managerMembership?.gymId ?? memberMembership?.gymId;
 
-    const plans = await prisma.trainingPlan.findMany({
-      where: {
-        OR: [
-          { userId: requester.id },
-          ...(visibleGymId
-            ? [
-                {
-                  gymAssignments: {
-                    some: {
-                      gymId: visibleGymId,
-                      status: "ACTIVE",
-                      role: "MEMBER",
-                    },
-                  },
+const plans = await prisma.trainingPlan.findMany({
+  where: {
+    OR: [
+      { userId: requester.id },
+      ...(visibleGymId
+        ? [
+            {
+              gymAssignments: {
+                some: {
+                  gymId: visibleGymId,
+                  status: GymMembershipStatus.ACTIVE,
+                  role: GymRole.MEMBER,
                 },
-              ]
-            : []),
-        ],
-        ...(query ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } } : {}),
-      },
+              },
+            },
+          ]
+        : []),
+    ],
+    ...(query ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } } : {}),
+  },
       select: {
         id: true,
         userId: true,
