@@ -1627,7 +1627,7 @@
     "filterMuscleLabel": "Músculo:",
     "errorTitle": "No pudimos cargar la biblioteca",
     "emptyTitle": "No encontramos ejercicios",
-    "emptyTryAnotherSearch": "Prueba otra búsqueda o limpia los filtros.",
+    "emptyTryAnotherSearch": "Prueba otra búsqueda o ajusta tus filtros.",
     "resetFilters": "Limpiar filtros",
     "retrySearch": "Volver a intentar",
     "loadMore": "Cargar más",
@@ -1674,7 +1674,7 @@
     "addToPlansSubmitError": "No pudimos añadir este ejercicio a los planes seleccionados.",
     "addToPlansSuccessTitle": "Ejercicio añadido a planes",
     "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es).",
-    "addActionLabel": "Agregar a planes",
+    "addActionLabel": "Agregar",
     "training": {
       "sections": {
         "fitsculpt": "Planes FitSculpt",
@@ -1697,9 +1697,7 @@
       "assignedUnavailable": "No podemos verificar el plan asignado con los datos actuales.",
       "aiUnavailableTitle": "Planes IA no disponibles",
       "aiUnavailableDescription": "No podemos validar el acceso a planes IA con los datos actuales."
-    },
-    "addActionLabel": "Agregar",
-    "emptyTryAnotherSearch": "Prueba otra búsqueda o ajusta tus filtros."
+    }
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -2117,7 +2115,7 @@
       "editDay": "Editar día",
       "selectPlan": "Seleccionar plan",
       "dayBuilderTitle": "Constructor de días",
-      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los días de entrenamiento.",
+      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los detalles del día.",
       "dayEditorTitle": "Editor por día",
       "dayEditorSubtitle": "Edita un día del plan y asigna ejercicios desde la biblioteca.",
       "dayEditorHint": "Abre el editor de día desde cualquier tarjeta de día.",
@@ -2239,10 +2237,7 @@
       "setLabel": "Serie {set}",
       "reps": "Repeticiones",
       "restSeconds": "Descanso (seg)",
-      "intensityNotes": "Notas de intensidad",
-      "selectPlan": "Seleccionar plan",
-      "dayBuilderTitle": "Constructor de días",
-      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los detalles del día."
+      "intensityNotes": "Notas de intensidad"
     },
     "clientContext": {
       "title": "Contexto del atleta",
@@ -2323,7 +2318,8 @@
           "unassignSubmitting": "Desasignando...",
           "unassignUnavailable404": "Esta acción no está disponible en este entorno.",
           "unassignUnsupported405": "Desasignación no soportada actualmente.",
-          "unassignForbidden": "No tienes permisos para desasignar este plan."
+          "unassignForbidden": "No tienes permisos para desasignar este plan.",
+          "unassignBlockedForSession": "La desasignación no está disponible en este entorno por ahora."
         },
         "empty": "No hay información de plan disponible para este cliente en este entorno."
       },

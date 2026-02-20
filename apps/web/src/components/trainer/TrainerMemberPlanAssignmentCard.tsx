@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Modal } from "@/components/ui/Modal";
@@ -48,6 +48,26 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   const [capabilityState, setCapabilityState] = useState<CapabilityState>("checking");
   const [forbiddenMessage, setForbiddenMessage] = useState<string | null>(null);
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
+  const unassignRequestInFlightRef = useRef(false);
+
+  const unassignSessionBlockKey = useMemo(
+    () => `trainer-unassign-blocked:${memberId}`,
+    [memberId],
+  );
+
+  const blockUnassignForSession = useCallback(() => {
+    setUnassignBlockedReason("notSupported");
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(unassignSessionBlockKey, "1");
+    }
+  }, [unassignSessionBlockKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.sessionStorage.getItem(unassignSessionBlockKey) === "1") {
+      setUnassignBlockedReason("notSupported");
+    }
+  }, [unassignSessionBlockKey]);
 
   const selectedPlanTitle = useMemo(
     () => plans.find((plan) => plan.id === selectedPlanId)?.title ?? "",
@@ -159,8 +179,18 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   };
 
   const onUnassign = async () => {
-    if (!assignedPlan || submitting || isUnassigning || capabilityState !== "supported" || unassignBlockedReason) return;
+    if (
+      !assignedPlan
+      || submitting
+      || isUnassigning
+      || capabilityState !== "supported"
+      || unassignBlockedReason
+      || unassignRequestInFlightRef.current
+    ) {
+      return;
+    }
 
+    unassignRequestInFlightRef.current = true;
     setIsUnassigning(true);
 
     try {
@@ -170,31 +200,11 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
         cache: "no-store",
       });
 
-      if (response.status === 404) {
-        setUnassignBlockedReason("notAvailable");
+      if (response.status === 404 || response.status === 405 || response.status === 401 || response.status === 403) {
+        blockUnassignForSession();
         notify({
-          title: t("trainer.clientContext.training.assignment.unassignUnavailable404"),
-          variant: "warning",
-        });
-        setIsUnassigning(false);
-        return;
-      }
-
-      if (response.status === 405) {
-        setUnassignBlockedReason("notSupported");
-        notify({
-          title: t("trainer.clientContext.training.assignment.unassignUnsupported405"),
-          variant: "warning",
-        });
-        setIsUnassigning(false);
-        return;
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        setUnassignBlockedReason("forbidden");
-        notify({
-          title: t("trainer.clientContext.training.assignment.unassignForbidden"),
-          variant: "warning",
+          title: t("trainer.clientContext.training.assignment.unassignBlockedForSession"),
+          variant: "info",
         });
         setIsUnassigning(false);
         return;
@@ -209,7 +219,8 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
         return;
       }
 
-      setAssignedPlan(null);
+      await loadAssignmentData();
+      setSuccess(null);
       notify({
         title: t("trainer.clientContext.training.assignment.unassignSuccess").replace("{member}", memberName),
         variant: "success",
@@ -221,13 +232,13 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
         variant: "error",
       });
       setIsUnassigning(false);
+    } finally {
+      unassignRequestInFlightRef.current = false;
     }
   };
 
   const unassignBlockedLabel = useMemo(() => {
-    if (unassignBlockedReason === "notAvailable") return t("trainer.clientContext.training.assignment.unassignUnavailable404");
-    if (unassignBlockedReason === "notSupported") return t("trainer.clientContext.training.assignment.unassignUnsupported405");
-    if (unassignBlockedReason === "forbidden") return t("trainer.clientContext.training.assignment.unassignForbidden");
+    if (unassignBlockedReason) return t("trainer.clientContext.training.assignment.unassignBlockedForSession");
     return null;
   }, [t, unassignBlockedReason]);
 

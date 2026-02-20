@@ -1624,7 +1624,7 @@
     "filterMuscleLabel": "Muscle:",
     "errorTitle": "We couldn't load the library",
     "emptyTitle": "No exercises found",
-    "emptyTryAnotherSearch": "Try another search or clear filters.",
+    "emptyTryAnotherSearch": "Try another search or adjust your filters.",
     "resetFilters": "Clear filters",
     "retrySearch": "Try again",
     "loadMore": "Load more",
@@ -1671,7 +1671,7 @@
     "addToPlansSubmitError": "We couldn't add this exercise to the selected plans.",
     "addToPlansSuccessTitle": "Exercise added to plans",
     "addToPlansSuccessDescription": "{exercise} was added to {count} plan(s).",
-    "addActionLabel": "Add to plans",
+    "addActionLabel": "Add",
     "training": {
       "sections": {
         "fitsculpt": "FitSculpt plans",
@@ -1694,9 +1694,7 @@
       "assignedUnavailable": "We cannot verify an assigned plan with current data.",
       "aiUnavailableTitle": "AI plans unavailable",
       "aiUnavailableDescription": "We cannot validate AI plan access with current data."
-    },
-    "addActionLabel": "Add",
-    "emptyTryAnotherSearch": "Try another search or adjust your filters."
+    }
   },
   "recipes": {
     "loading": "Loading recipes...",
@@ -2114,7 +2112,7 @@
       "editDay": "Edit day",
       "selectPlan": "Select plan",
       "dayBuilderTitle": "Day builder",
-      "dayBuilderEmpty": "Select a plan to start building workout days.",
+      "dayBuilderEmpty": "Select a plan to start building day details.",
       "dayEditorTitle": "Day editor",
       "dayEditorSubtitle": "Edit a plan day and assign exercises from the library.",
       "dayEditorHint": "Open a day editor from any day card.",
@@ -2236,10 +2234,7 @@
       "setLabel": "Set {set}",
       "reps": "Reps",
       "restSeconds": "Rest (sec)",
-      "intensityNotes": "Intensity notes",
-      "selectPlan": "Select plan",
-      "dayBuilderTitle": "Day builder",
-      "dayBuilderEmpty": "Select a plan to start building day details."
+      "intensityNotes": "Intensity notes"
     },
     "clientContext": {
       "title": "Athlete context",
@@ -2320,7 +2315,8 @@
           "unassignSubmitting": "Unassigning...",
           "unassignUnavailable404": "This action is not available in this environment.",
           "unassignUnsupported405": "Unassignment is currently not supported.",
-          "unassignForbidden": "You do not have permission to unassign this plan."
+          "unassignForbidden": "You do not have permission to unassign this plan.",
+          "unassignBlockedForSession": "Unassign is unavailable in this environment for now."
         },
         "empty": "No plan information is available for this client in this environment."
       },
