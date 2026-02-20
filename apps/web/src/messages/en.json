@@ -1624,6 +1624,7 @@
     "filterMuscleLabel": "Muscle:",
     "errorTitle": "We couldn't load the library",
     "emptyTitle": "No exercises found",
+    "emptyTryAnotherSearch": "Try another search or clear filters.",
     "resetFilters": "Clear filters",
     "retrySearch": "Try again",
     "loadMore": "Load more",
@@ -1670,6 +1671,7 @@
     "addToPlansSubmitError": "We couldn't add this exercise to the selected plans.",
     "addToPlansSuccessTitle": "Exercise added to plans",
     "addToPlansSuccessDescription": "{exercise} was added to {count} plan(s).",
+    "addActionLabel": "Add to plans",
     "training": {
       "sections": {
         "fitsculpt": "FitSculpt plans",
@@ -2073,6 +2075,11 @@
       "accepting": "Accepting...",
       "rejecting": "Rejecting..."
     },
+    "exercises": {
+      "tabs": {
+        "library": "Exercises"
+      }
+    },
     "plans": {
       "title": "Trainer plans",
       "description": "Create and review manual plans available for assignment.",
@@ -2097,6 +2104,9 @@
       "addExerciseSuccess": "Exercise added to the selected plan day.",
       "addExerciseError": "We could not add that exercise to the selected day.",
       "editDay": "Edit day",
+      "selectPlan": "Select plan",
+      "dayBuilderTitle": "Day builder",
+      "dayBuilderEmpty": "Select a plan to start building workout days.",
       "dayEditorTitle": "Day editor",
       "dayEditorSubtitle": "Edit a plan day and assign exercises from the library.",
       "dayEditorHint": "Open a day editor from any day card.",

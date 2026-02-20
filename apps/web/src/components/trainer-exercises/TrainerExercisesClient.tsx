@@ -143,7 +143,7 @@ export default function TrainerExercisesClient() {
     }
 
     return (
-      <ul className="form-stack" aria-label={t("library.tabs.exercises")}>
+      <ul className="form-stack" aria-label={t("trainer.exercises.tabs.library")}>
         {exercises.map((exercise) => (
           <li key={exercise.id} className="card">
             <Link href={`/app/biblioteca/${exercise.id}`} className="sidebar-link" style={{ display: "block" }}>
@@ -212,7 +212,7 @@ export default function TrainerExercisesClient() {
   return (
     <div className="section-stack">
       <div className="feature-card form-stack">
-        <h2 style={{ margin: 0 }}>{t("library.tabs.exercises")}</h2>
+        <h2 style={{ margin: 0 }}>{t("trainer.exercises.tabs.library")}</h2>
         {canCreateExercise ? (
           <Link href="/app/trainer/exercises/new" className="btn primary" style={{ width: "fit-content" }}>
             {t("training.manualCreate")}
@@ -225,7 +225,7 @@ export default function TrainerExercisesClient() {
 
       <section className="section-stack" aria-labelledby="trainer-exercise-list-title">
         <h2 id="trainer-exercise-list-title" className="section-title" style={{ fontSize: 20 }}>
-          {t("library.tabs.exercises")}
+          {t("trainer.exercises.tabs.library")}
         </h2>
         {listBody}
       </section>
