@@ -1171,7 +1171,6 @@
     "editProfile": "Edit profile",
     "trainerSummaryTitle": "Trainer profile",
     "trainerSummaryDescription": "Trainer tools are managed from your gym and trainer workspace.",
-
     "trainerHeaderTitle": "Professional identity",
     "trainerHeaderSubtitle": "Trainer-focused profile view.",
     "trainerRoleBadge": "Trainer",
@@ -2060,7 +2059,53 @@
       "dayExercisesTitle": "Exercises in this day",
       "dayNotFound": "No day found for selected date in this plan.",
       "createSuccessTitle": "Plan created",
-      "createSuccessDescription": "Your new plan is ready to edit."
+      "createSuccessDescription": "Your new plan is ready to edit.",
+      "schedulerDescription": "Build weekly workouts with a calendar scheduler and guided load setup.",
+      "tabs": {
+        "fitsculpt": "FitSculpt Plans",
+        "myPlans": "My Plans"
+      },
+      "emptyPublic": "Public plans are not available in this environment.",
+      "comingSoon": "Coming soon",
+      "filterUnavailable": "Filtering unavailable in this environment.",
+      "weeksLabel": "Weeks",
+      "workoutsSchedule": "Workouts schedule",
+      "workoutsList": "Workouts list",
+      "weekLabel": "Week {week}",
+      "dayLabel": "Day {day}",
+      "weekDayLabel": "Week {week} · Day {day}",
+      "calendarHint": "Use arrows to move cells and Enter/Space to select. Double tap/click to edit.",
+      "workoutsListEmpty": "No scheduled workouts yet.",
+      "openDayEditor": "Open day editor",
+      "scheduleMappedToDays": "Selected slots will be mapped to supported day fields only ({count}).",
+      "workoutName": "Workout name",
+      "notesOptional": "Notes (optional)",
+      "untitledWorkout": "Untitled workout",
+      "exerciseEditorTitle": "Exercise editor",
+      "selectorUnavailable": "Exercise selector unavailable in this environment. You can use a custom name.",
+      "customExercise": "Custom exercise name",
+      "loadTarget": "Load target",
+      "loadType": "Load type",
+      "loadSets": "Sets",
+      "targets": {
+        "endurance": "Muscular endurance",
+        "hypertrophy": "Hypertrophy",
+        "strength": "Strength",
+        "maxStrength": "Maximal strength",
+        "power": "Power",
+        "plyometrics": "Plyometrics"
+      },
+      "loadTypes": {
+        "classic": "Classic",
+        "pyramid": "Pyramid",
+        "dropSet": "Drop set"
+      },
+      "setLabel": "Set {set}",
+      "reps": "Reps",
+      "restSeconds": "Rest (seconds)",
+      "intensityNotes": "Intensity/notes (optional)",
+      "addSet": "Add set",
+      "loadWizardUiOnly": "Not available to save in this environment."
     },
     "clientContext": {
       "title": "Athlete context",
