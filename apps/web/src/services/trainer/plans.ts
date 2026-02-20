@@ -44,6 +44,13 @@ export type TrainerPlanCapabilities = {
   supportsBatchAdd: boolean;
 };
 
+export type TrainerPlanEditCapabilities = {
+  canDeletePlan: boolean;
+  canDeleteDay: boolean;
+  canDeleteDayExercise: boolean;
+  canUpdateDayExercise: boolean;
+};
+
 export type AddExerciseToPlanDayInput = {
   planId: string;
   dayId: string;
@@ -86,6 +93,81 @@ export const trainerPlanCapabilities: TrainerPlanCapabilities = {
   canSaveTrainerPlan: true,
   supportsBatchAdd: false,
 };
+
+const capabilityProbeCache = new Map<string, boolean>();
+
+function getCapabilityCacheKey(path: string, method: string): string {
+  return `${method.toUpperCase()} ${path}`;
+}
+
+async function supportsMethod(path: string, method: "DELETE" | "PATCH"): Promise<boolean> {
+  const cacheKey = getCapabilityCacheKey(path, method);
+  const cached = capabilityProbeCache.get(cacheKey);
+  if (typeof cached === "boolean") return cached;
+
+  try {
+    const response = await fetch(path, {
+      method: "OPTIONS",
+      cache: "no-store",
+      credentials: "include",
+    });
+
+    if (response.status === 404 || response.status === 405) {
+      capabilityProbeCache.set(cacheKey, false);
+      return false;
+    }
+
+    const allowHeader = response.headers.get("allow") ?? response.headers.get("Allow");
+    if (!allowHeader) {
+      capabilityProbeCache.set(cacheKey, false);
+      return false;
+    }
+
+    const allowed = allowHeader
+      .split(",")
+      .map((entry) => entry.trim().toUpperCase())
+      .includes(method);
+
+    capabilityProbeCache.set(cacheKey, allowed);
+    return allowed;
+  } catch {
+    capabilityProbeCache.set(cacheKey, false);
+    return false;
+  }
+}
+
+export async function getTrainerPlanEditCapabilities(planId: string, dayId?: string, exerciseId?: string): Promise<TrainerPlanEditCapabilities> {
+  const normalizedPlanId = planId.trim();
+  const normalizedDayId = dayId?.trim() || "capability-day";
+  const normalizedExerciseId = exerciseId?.trim() || "capability-exercise";
+
+  if (!normalizedPlanId) {
+    return {
+      canDeletePlan: false,
+      canDeleteDay: false,
+      canDeleteDayExercise: false,
+      canUpdateDayExercise: false,
+    };
+  }
+
+  const basePlanPath = `/api/trainer/plans/${normalizedPlanId}`;
+  const dayPath = `${basePlanPath}/days/${normalizedDayId}`;
+  const exercisePath = `${dayPath}/exercises/${normalizedExerciseId}`;
+
+  const [canDeletePlan, canDeleteDay, canDeleteDayExercise, canUpdateDayExercise] = await Promise.all([
+    supportsMethod(basePlanPath, "DELETE"),
+    supportsMethod(dayPath, "DELETE"),
+    supportsMethod(exercisePath, "DELETE"),
+    supportsMethod(exercisePath, "PATCH"),
+  ]);
+
+  return {
+    canDeletePlan,
+    canDeleteDay,
+    canDeleteDayExercise,
+    canUpdateDayExercise,
+  };
+}
 
 function getItems(payload: TrainingPlanListPayload): TrainingPlanListItem[] {
   if (Array.isArray(payload.items)) return payload.items;

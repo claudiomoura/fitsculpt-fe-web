@@ -2251,7 +2251,8 @@
       "cancel": "Cancelar",
       "addDay": "Añadir día",
       "deleteDay": "Eliminar día",
-      "requiresImplementation": "Requiere implementación"
+      "requiresImplementation": "Requiere implementación",
+      "notAvailableInEnvironment": "No disponible en este entorno"
     },
     "clientContext": {
       "title": "Contexto del atleta",
