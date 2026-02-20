@@ -7128,22 +7128,50 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
 app.get("/trainer/plans", async (request, reply) => {
   try {
     const requester = await requireUser(request);
-    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { query, limit, offset } = trainingPlanListSchema.parse(request.query);
+
+    const managerMembership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: requester.id,
+        status: "ACTIVE",
+        role: { in: ["ADMIN", "TRAINER"] },
+      },
+      select: { gymId: true },
+    });
+
+    const memberMembership = managerMembership
+      ? null
+      : await prisma.gymMembership.findFirst({
+          where: {
+            userId: requester.id,
+            status: "ACTIVE",
+            role: "MEMBER",
+          },
+          select: { gymId: true },
+          orderBy: { updatedAt: "desc" },
+        });
+
+    const visibleGymId = managerMembership?.gymId ?? memberMembership?.gymId;
 
     const plans = await prisma.trainingPlan.findMany({
       where: {
         OR: [
           { userId: requester.id },
-          {
-            gymAssignments: {
-              some: {
-                gymId: managerMembership.gymId,
-                status: "ACTIVE",
-                role: "MEMBER",
-              },
-            },
-          },
+          ...(visibleGymId
+            ? [
+                {
+                  gymAssignments: {
+                    some: {
+                      gymId: visibleGymId,
+                      status: "ACTIVE",
+                      role: "MEMBER",
+                    },
+                  },
+                },
+              ]
+            : []),
         ],
+        ...(query ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } } : {}),
       },
       select: {
         id: true,
@@ -7161,9 +7189,11 @@ app.get("/trainer/plans", async (request, reply) => {
         updatedAt: true,
       },
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      skip: offset,
+      take: limit,
     });
 
-    return { items: plans };
+    return { items: plans, limit, offset };
   } catch (error) {
     return handleRequestError(reply, error);
   }
