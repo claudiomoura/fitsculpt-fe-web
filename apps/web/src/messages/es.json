@@ -2082,7 +2082,13 @@
     },
     "exercises": {
       "tabs": {
-        "library": "Ejercicios"
+        "library": "Ejercicios",
+        "ariaLabel": "Pestañas de ejercicios del entrenador",
+        "fitsculpt": "FitSculpt",
+        "myExercises": "Mis ejercicios"
+      },
+      "empty": {
+        "myUnsupported": "Este entorno aún no permite identificar tus ejercicios."
       }
     },
     "plans": {

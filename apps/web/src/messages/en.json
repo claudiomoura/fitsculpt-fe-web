@@ -2079,7 +2079,13 @@
     },
     "exercises": {
       "tabs": {
-        "library": "Exercises"
+        "library": "Exercises",
+        "ariaLabel": "Trainer exercises tabs",
+        "fitsculpt": "FitSculpt",
+        "myExercises": "My exercises"
+      },
+      "empty": {
+        "myUnsupported": "This environment cannot identify your exercises yet."
       }
     },
     "plans": {
