@@ -35,6 +35,8 @@ type WorkoutDraft = { title: string; notes: string; exercises: DraftExercise[] }
 
 const DEFAULT_WEEKS = 4;
 const DAYS_IN_WEEK = 7;
+const SCHEDULE_GRID_MIN_HEIGHT = 320;
+const SCHEDULE_GRID_MAX_HEIGHT = "min(48vh, 420px)";
 
 function isEndpointUnavailable(status?: number): boolean {
   return status === 404 || status === 405;
@@ -362,18 +364,20 @@ export default function TrainerPlansPageClient() {
               <Button size="sm" variant={editorTab === "list" ? "primary" : "secondary"} onClick={() => setEditorTab("list")}>{t("trainer.plans.workoutsList")}</Button>
             </div>
 
-            {editorTab === "schedule" ? (
-              <WorkoutScheduleGrid
-                weeks={weeks}
-                selectedSlots={selectedSlots}
-                focusedSlot={focusedSlot}
-                onSelect={toggleSlot}
-                onOpenEditor={openSlotEditor}
-                onKeyDown={onGridKeyDown}
-              />
-            ) : (
-              <WorkoutsList entries={sortedWorkoutEntries} onOpen={(slot) => openSlotEditor(slot)} />
-            )}
+            <div style={{ minHeight: SCHEDULE_GRID_MIN_HEIGHT }}>
+              {editorTab === "schedule" ? (
+                <WorkoutScheduleGrid
+                  weeks={weeks}
+                  selectedSlots={selectedSlots}
+                  focusedSlot={focusedSlot}
+                  onSelect={toggleSlot}
+                  onOpenEditor={openSlotEditor}
+                  onKeyDown={onGridKeyDown}
+                />
+              ) : (
+                <WorkoutsList entries={sortedWorkoutEntries} onOpen={(slot) => openSlotEditor(slot)} />
+              )}
+            </div>
 
             {selectedSlot ? (
               <Button variant="secondary" onClick={() => setWorkoutEditorOpen(true)}>{t("trainer.plans.openDayEditor")}</Button>
@@ -520,18 +524,30 @@ function WorkoutScheduleGrid({
 
   return (
     <div className="form-stack">
-      <div role="grid" aria-label={t("trainer.plans.workoutsSchedule")} className="form-stack" style={{ gap: 6, maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "56px repeat(7, minmax(0, 1fr))", gap: 6, alignItems: "center", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1 }}>
-          <span className="muted" style={{ fontSize: 12 }}>{t("trainer.plans.weekShort")}</span>
+      <div
+        role="grid"
+        aria-label={t("trainer.plans.workoutsSchedule")}
+        className="form-stack"
+        style={{
+          gap: 6,
+          maxHeight: SCHEDULE_GRID_MAX_HEIGHT,
+          minHeight: SCHEDULE_GRID_MIN_HEIGHT,
+          overflowY: "auto",
+          overflowX: "auto",
+          paddingRight: 4,
+        }}
+      >
+        <div style={{ display: "grid", gridTemplateColumns: "72px repeat(7, 68px)", gap: 6, alignItems: "center", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1 }}>
+          <span className="muted" style={{ fontSize: 12, textAlign: "center" }}>{t("trainer.plans.weekShort")}</span>
           {Array.from({ length: DAYS_IN_WEEK }).map((__, dayOfWeek) => (
-            <span key={`header-${dayOfWeek}`} className="muted" style={{ textAlign: "center", fontSize: 12 }}>
+            <span key={`header-${dayOfWeek}`} className="muted" style={{ textAlign: "center", fontSize: 12, whiteSpace: "nowrap" }}>
               {t("trainer.plans.dayLabel", { day: dayOfWeek + 1 })}
             </span>
           ))}
         </div>
         {Array.from({ length: weeks }).map((_, weekIndex) => (
-          <div key={weekIndex} style={{ display: "grid", gridTemplateColumns: "56px repeat(7, minmax(0, 1fr))", gap: 6, alignItems: "center" }}>
-            <span className="muted" style={{ fontSize: 12 }}>{t("trainer.plans.weekShortLabel", { week: weekIndex + 1 })}</span>
+          <div key={weekIndex} style={{ display: "grid", gridTemplateColumns: "72px repeat(7, 68px)", gap: 6, alignItems: "center" }}>
+            <span className="muted" style={{ fontSize: 12, textAlign: "center" }}>{t("trainer.plans.weekShortLabel", { week: weekIndex + 1 })}</span>
             {Array.from({ length: DAYS_IN_WEEK }).map((__, dayOfWeek) => {
               const slot = { weekIndex, dayOfWeek };
               const key = slotKey(slot);
@@ -548,8 +564,8 @@ function WorkoutScheduleGrid({
                   onDoubleClick={() => onOpenEditor(slot)}
                   className="btn secondary"
                   style={{
-                    minHeight: 48,
-                    maxHeight: 48,
+                    width: 68,
+                    height: 56,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -558,7 +574,9 @@ function WorkoutScheduleGrid({
                     opacity: selected ? 1 : 0.85,
                   }}
                 >
-                  {t("trainer.plans.dayLabel", { day: dayOfWeek + 1 })}
+                  <span style={{ display: "inline-block", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {t("trainer.plans.weekDayLabel", { week: weekIndex + 1, day: dayOfWeek + 1 })}
+                  </span>
                 </button>
               );
             })}
