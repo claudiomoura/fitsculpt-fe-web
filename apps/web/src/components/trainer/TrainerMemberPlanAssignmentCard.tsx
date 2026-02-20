@@ -24,7 +24,6 @@ type AssignmentResponse = {
   assignedPlan?: AssignedPlan | null;
 };
 
-type CapabilityState = "checking" | "supported" | "unsupported";
 
 type Props = {
   memberId: string;
@@ -45,7 +44,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [creatingPlan, setCreatingPlan] = useState(false);
-  const [capabilityState, setCapabilityState] = useState<CapabilityState>("checking");
+  const [assignmentSupported, setAssignmentSupported] = useState(true);
   const [forbiddenMessage, setForbiddenMessage] = useState<string | null>(null);
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
   const unassignRequestInFlightRef = useRef(false);
@@ -75,9 +74,10 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   );
 
   const loadAssignmentData = useCallback(async () => {
+    const assignmentEndpoint = `/api/trainer/clients/${memberId}/assigned-plan`;
     const [plansRes, assignmentRes] = await Promise.all([
       fetch("/api/training-plans", { cache: "no-store", credentials: "include" }),
-      fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+      fetch(assignmentEndpoint, {
         cache: "no-store",
         credentials: "include",
       }),
@@ -88,7 +88,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       throw new Error("ASSIGNMENT_FORBIDDEN");
     }
 
-    if (assignmentRes.status === 404 || assignmentRes.status === 405) {
+    if (assignmentRes.status === 405) {
       setCapabilityState("unsupported");
       return;
     }
@@ -100,7 +100,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     const plansPayload = (await plansRes.json()) as TrainingPlansResponse;
     const assignmentPayload = (await assignmentRes.json()) as AssignmentResponse;
 
-    setCapabilityState("supported");
+    setAssignmentSupported(true);
     setPlans(plansPayload.items ?? []);
     setAssignedPlan(assignmentPayload.assignedPlan ?? null);
   }, [memberId, t]);
@@ -134,7 +134,11 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     };
   }, [loadAssignmentData, t]);
 
-  const canAssign = Boolean(selectedPlanId && !submitting && capabilityState === "supported");
+  useEffect(() => {
+    setAssignmentSupported(true);
+  }, [memberId]);
+
+  const canAssign = Boolean(selectedPlanId && !submitting && assignmentSupported);
 
   const onAssign = async () => {
     if (!canAssign) return;
@@ -144,18 +148,29 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     setSuccess(null);
 
     try {
-      const response = await fetch("/api/trainer/assign-training-plan", {
+      const response = await fetch(`/api/trainer/clients/${memberId}/assigned-plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         cache: "no-store",
-        body: JSON.stringify({ clientId: memberId, sourceTrainingPlanId: selectedPlanId }),
+        body: JSON.stringify({ trainingPlanId: selectedPlanId }),
       });
 
-      setSubmitting(false);
-
       if (response.status === 403) {
+        notify({
+          title: t("trainer.clientContext.training.assignment.forbidden"),
+          variant: "error",
+        });
         setSubmitError(t("trainer.clientContext.training.assignment.forbidden"));
+        return;
+      }
+
+      if (response.status === 404) {
+        notify({
+          title: t("trainer.clientContext.training.assignment.submitError"),
+          variant: "error",
+        });
+        setSubmitError(t("trainer.clientContext.training.assignment.submitError"));
         return;
       }
 
@@ -164,7 +179,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
         return;
       }
 
-      setAssignedPlan({ id: selectedPlanId, title: selectedPlanTitle || t("trainer.clientContext.training.assignment.unknownPlan") });
+      await loadAssignmentData();
       setSuccess(
         t("trainer.clientContext.training.assignment.success")
           .replace("{member}", memberName)
@@ -173,8 +188,9 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       setPlanPickerOpen(false);
       setSelectedPlanId("");
     } catch {
-      setSubmitting(false);
       setSubmitError(t("trainer.clientContext.training.assignment.submitError"));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -183,7 +199,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       !assignedPlan
       || submitting
       || isUnassigning
-      || capabilityState !== "supported"
+      || !assignmentSupported
       || unassignBlockedReason
       || unassignRequestInFlightRef.current
     ) {
@@ -194,17 +210,26 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     setIsUnassigning(true);
 
     try {
-      const response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+      const response = await fetch(`/api/trainer/clients/${memberId}/assigned-plan`, {
         method: "DELETE",
         credentials: "include",
         cache: "no-store",
       });
 
-      if (response.status === 404 || response.status === 405 || response.status === 401 || response.status === 403) {
+      if (response.status === 405) {
         blockUnassignForSession();
         notify({
           title: t("trainer.clientContext.training.assignment.unassignBlockedForSession"),
           variant: "info",
+        });
+        setIsUnassigning(false);
+        return;
+      }
+
+      if (response.status === 403 || response.status === 404) {
+        notify({
+          title: t("trainer.clientContext.training.assignment.unassignError"),
+          variant: "error",
         });
         setIsUnassigning(false);
         return;
@@ -283,11 +308,16 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       {loading ? <p className="muted">{t("trainer.clientContext.training.assignment.loading")}</p> : null}
       {!loading && forbiddenMessage ? <p className="muted">{forbiddenMessage}</p> : null}
       {!loading && error ? <p className="muted">{error}</p> : null}
-      {!loading && capabilityState === "unsupported" ? (
-        <p className="muted">{t("trainer.clientContext.training.assignment.unsupported")}</p>
+      {!loading && !assignmentSupported ? (
+        <div className="feature-card form-stack" role="status">
+          <p className="muted" style={{ margin: 0 }}>{t("trainer.client.planAssignmentNotSupported")}</p>
+          <button type="button" className="btn" disabled>
+            {t("trainer.clientContext.training.assignment.openPlanPicker")}
+          </button>
+        </div>
       ) : null}
 
-      {!loading && !error && !forbiddenMessage && capabilityState === "supported" ? (
+      {!loading && !error && !forbiddenMessage && assignmentSupported ? (
         <>
           {assignedPlan ? (
             <div className="feature-card form-stack" role="status">

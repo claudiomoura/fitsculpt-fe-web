@@ -2380,23 +2380,6 @@
       },
       "removeClient": {
         "title": "Remove from roster",
-        "description": "Remove this athlete from your gym roster.",
-        "openConfirm": "Remove from roster",
-        "modalTitle": "Remove athlete from roster",
-        "modalDescription": "Are you sure you want to remove {member} from your gym roster?",
-        "modalWarning": "This action can affect trainer access and roster visibility.",
-        "confirm": "Yes, remove athlete",
-        "submitting": "Removing...",
-        "submitSuccess": "{member} was removed from your roster.",
-        "submitError": "We could not remove this athlete. Please retry.",
-        "unsupported": "Removing athletes is not supported in this environment.",
-        "unsupported403": "You do not have permission to remove athletes from this roster."
-      },
-      "nextReviewDate": "Next review",
-      "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
-      "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment.",
-      "removeClient": {
-        "title": "Remove from roster",
         "description": "Remove this client from your trainer roster in the current gym.",
         "openConfirm": "Remove from roster",
         "confirm": "Yes, remove",
@@ -2410,6 +2393,9 @@
         "success": "{member} was removed from your trainer roster.",
         "submitError": "We could not remove this client right now. Please try again."
       },
+      "nextReviewDate": "Next review",
+      "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
+      "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment.",
       "tabs": {
         "ariaLabel": "Client sections",
         "summary": "Summary",
@@ -2539,6 +2525,10 @@
         "title": "Some dashboard sections are temporarily unavailable.",
         "description": "Please retry in a moment while data connections recover."
       }
+    },
+    "client": {
+      "notesNotAvailable": "Notes are not available in this environment.",
+      "planAssignmentNotSupported": "Plan assignment is not supported in this environment."
     }
   },
   "gym": {
