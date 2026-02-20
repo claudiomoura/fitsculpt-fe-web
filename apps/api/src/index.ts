@@ -5584,6 +5584,24 @@ const trainerPlanUpdateSchema = z.object({
 const trainerPlanParamsSchema = z.object({
   planId: z.string().min(1),
 });
+const trainerPlanDayParamsSchema = z.object({
+  planId: z.string().min(1),
+  dayId: z.string().min(1),
+});
+const trainerPlanExerciseParamsSchema = z.object({
+  planId: z.string().min(1),
+  dayId: z.string().min(1),
+  exerciseId: z.string().min(1),
+});
+const trainerPlanExerciseUpdateSchema = z
+  .object({
+    sets: z.coerce.number().int().min(1).max(30).optional(),
+    reps: z.string().trim().min(1).max(80).nullable().optional(),
+    rest: z.coerce.number().int().min(0).max(3600).nullable().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  });
 const trainerAssignPlanBodySchema = z.object({
   trainingPlanId: z.string().min(1),
 });
@@ -7367,6 +7385,178 @@ app.patch("/trainer/plans/:planId", async (request, reply) => {
     });
 
     return updated;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+async function getTrainerManagedPlan(
+  requesterId: string,
+  planId: string
+): Promise<{ plan: { id: string; userId: string }; managerMembership: { gymId: string } }> {
+  const managerMembership = await requireActiveGymManagerMembership(requesterId);
+  const plan = await prisma.trainingPlan.findUnique({
+    where: { id: planId },
+    select: {
+      id: true,
+      userId: true,
+      gymAssignments: {
+        where: {
+          gymId: managerMembership.gymId,
+          status: "ACTIVE",
+          role: "MEMBER",
+        },
+        select: { id: true },
+        take: 1,
+      },
+    },
+  });
+
+  if (!plan) {
+    throw createHttpError(404, "TRAINING_PLAN_NOT_FOUND", { planId });
+  }
+
+  const canManage = plan.userId === requesterId || plan.gymAssignments.length > 0;
+
+  if (!canManage) {
+    throw createHttpError(403, "FORBIDDEN", { planId, requesterId });
+  }
+
+  return { plan: { id: plan.id, userId: plan.userId }, managerMembership: { gymId: managerMembership.gymId } };
+}
+
+app.delete("/trainer/plans/:planId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId } = trainerPlanParamsSchema.parse(request.params);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    await prisma.trainingPlan.delete({
+      where: { id: plan.id },
+    });
+
+    request.log.info(
+      { planId: plan.id, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer deleted training plan"
+    );
+
+    return reply.status(204).send();
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/plans/:planId/days/:dayId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId } = trainerPlanDayParamsSchema.parse(request.params);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    const deleted = await prisma.trainingDay.deleteMany({
+      where: {
+        id: dayId,
+        planId: plan.id,
+      },
+    });
+
+    if (deleted.count === 0) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    request.log.info(
+      { planId: plan.id, dayId, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer deleted training day"
+    );
+
+    return reply.status(204).send();
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/trainer/plans/:planId/days/:dayId/exercises/:exerciseId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId, exerciseId } = trainerPlanExerciseParamsSchema.parse(request.params);
+    const payload = trainerPlanExerciseUpdateSchema.parse(request.body);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    const day = await prisma.trainingDay.findFirst({
+      where: { id: dayId, planId: plan.id },
+      select: { id: true },
+    });
+
+    if (!day) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    const updated = await prisma.trainingExercise.updateMany({
+      where: {
+        id: exerciseId,
+        dayId: day.id,
+      },
+      data: {
+        sets: payload.sets,
+        reps: payload.reps,
+        rest: payload.rest,
+      },
+    });
+
+    if (updated.count === 0) {
+      return reply.status(404).send({ error: "TRAINING_EXERCISE_NOT_FOUND" });
+    }
+
+    const exercise = await prisma.trainingExercise.findUnique({
+      where: { id: exerciseId },
+    });
+
+    request.log.info(
+      { planId: plan.id, dayId, exerciseId, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer updated training exercise"
+    );
+
+    return reply.status(200).send({ exercise });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/plans/:planId/days/:dayId/exercises/:exerciseId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId, exerciseId } = trainerPlanExerciseParamsSchema.parse(request.params);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    const day = await prisma.trainingDay.findFirst({
+      where: { id: dayId, planId: plan.id },
+      select: { id: true },
+    });
+
+    if (!day) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    const deleted = await prisma.trainingExercise.deleteMany({
+      where: {
+        id: exerciseId,
+        dayId: day.id,
+      },
+    });
+
+    if (deleted.count === 0) {
+      return reply.status(404).send({ error: "TRAINING_EXERCISE_NOT_FOUND" });
+    }
+
+    request.log.info(
+      { planId: plan.id, dayId, exerciseId, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer deleted training exercise"
+    );
+
+    return reply.status(204).send();
   } catch (error) {
     return handleRequestError(reply, error);
   }
