@@ -39,6 +39,67 @@ export type ExerciseListResult = {
   };
 };
 
+type UnknownExercise = Exercise & Record<string, unknown>;
+
+function asText(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function getExerciseUserId(exercise: Exercise): string | null {
+  const rawExercise = exercise as UnknownExercise;
+  return asText(rawExercise.userId);
+}
+
+function getIsUserCreated(exercise: Exercise): boolean | null {
+  const rawExercise = exercise as UnknownExercise;
+  return asBoolean(rawExercise.isUserCreated);
+}
+
+export function isExerciseOwnedByUser(exercise: Exercise, viewerUserId: string | null): boolean {
+  const exerciseUserId = getExerciseUserId(exercise);
+  if (viewerUserId && exerciseUserId && exerciseUserId === viewerUserId) {
+    return true;
+  }
+
+  return getIsUserCreated(exercise) === true;
+}
+
+export type ExercisesByOwnership = {
+  fitsculptExercises: Exercise[];
+  myExercises: Exercise[];
+  hasOwnershipSignals: boolean;
+};
+
+export function splitExercisesByOwnership(exercises: Exercise[], viewerUserId: string | null): ExercisesByOwnership {
+  const myExercises: Exercise[] = [];
+  const fitsculptExercises: Exercise[] = [];
+
+  let hasOwnershipSignals = false;
+
+  for (const exercise of exercises) {
+    const hasUserId = getExerciseUserId(exercise) !== null;
+    const isUserCreated = getIsUserCreated(exercise);
+    const hasIsUserCreatedSignal = isUserCreated !== null;
+
+    if (hasUserId || hasIsUserCreatedSignal) {
+      hasOwnershipSignals = true;
+    }
+
+    if (isExerciseOwnedByUser(exercise, viewerUserId)) {
+      myExercises.push(exercise);
+      continue;
+    }
+
+    fitsculptExercises.push(exercise);
+  }
+
+  return { fitsculptExercises, myExercises, hasOwnershipSignals };
+}
+
 function sanitizeOptions(values?: string[] | null) {
   if (!Array.isArray(values)) return [];
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));

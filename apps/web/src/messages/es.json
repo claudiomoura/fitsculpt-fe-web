@@ -2089,7 +2089,9 @@
         "myExercises": "Mis ejercicios"
       },
       "empty": {
-        "myUnsupported": "Este entorno aún no permite identificar tus ejercicios."
+        "myUnsupported": "Este entorno aún no permite identificar tus ejercicios.",
+        "my": "Todavía no creaste ejercicios.",
+        "fitsculpt": "Todavía no hay ejercicios públicos de FitSculpt."
       }
     },
     "plans": {

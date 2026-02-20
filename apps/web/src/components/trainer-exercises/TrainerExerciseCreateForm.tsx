@@ -73,7 +73,7 @@ export default function TrainerExerciseCreateForm() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isValid || submitting || createCapability !== "can_create") return;
+    if (!isValid || submitting || createCapability === "cannot_create") return;
 
     setSubmitting(true);
 
@@ -154,7 +154,7 @@ export default function TrainerExerciseCreateForm() {
     );
   }
 
-  if (createCapability !== "can_create") {
+  if (createCapability === "cannot_create") {
     return <p className="muted">{t("trainer.exercises.createUnavailable")}</p>;
   }
 

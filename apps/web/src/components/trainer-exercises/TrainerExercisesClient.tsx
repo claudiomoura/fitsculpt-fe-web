@@ -8,6 +8,7 @@ import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabi
 import { extractGymMembership } from "@/lib/gymMembership";
 import { isExerciseVisibleForGym } from "@/lib/exerciseVisibility";
 import type { Exercise } from "@/lib/types";
+import { splitExercisesByOwnership } from "@/services/exercises";
 
 type LoadState = "loading" | "ready" | "error";
 type CreateCapabilityState = "can_create" | "cannot_create" | "unknown";
@@ -42,26 +43,6 @@ function getProfileUserId(profile: AuthUser): string | null {
   );
 }
 
-function getExerciseOwnerId(exercise: Exercise): string | null {
-  const rawExercise = exercise as Exercise & Record<string, unknown>;
-  const owner = asRecord(rawExercise.owner);
-  const createdBy = asRecord(rawExercise.createdBy);
-  const user = asRecord(rawExercise.user);
-  const author = asRecord(rawExercise.author);
-
-  return (
-    asText(rawExercise.createdById) ??
-    asText(rawExercise.ownerId) ??
-    asText(rawExercise.userId) ??
-    asText(rawExercise.trainerId) ??
-    asText(rawExercise.authorId) ??
-    asText(createdBy?.id) ??
-    asText(owner?.id) ??
-    asText(user?.id) ??
-    asText(author?.id) ??
-    null
-  );
-}
 
 function getExerciseThumbnail(exercise: Exercise): string | null {
   const rawExercise = exercise as Exercise & Record<string, unknown>;
@@ -153,14 +134,9 @@ export default function TrainerExercisesClient() {
   }, [loadExercises]);
 
   const tabData = useMemo(() => {
-    const myExercises = exercises.filter((exercise) => {
-      const ownerId = getExerciseOwnerId(exercise);
-      return Boolean(viewerUserId && ownerId && ownerId === viewerUserId);
-    });
+    const { fitsculptExercises, myExercises, hasOwnershipSignals } = splitExercisesByOwnership(exercises, viewerUserId);
 
-    const hasMyExerciseSignals = exercises.some((exercise) => getExerciseOwnerId(exercise) !== null);
-
-    return { myExercises, hasMyExerciseSignals };
+    return { fitsculptExercises, myExercises, hasOwnershipSignals };
   }, [exercises, viewerUserId]);
 
   const listBody = useMemo(() => {
@@ -185,15 +161,17 @@ export default function TrainerExercisesClient() {
       );
     }
 
-    const visibleExercises = activeTab === "my" ? tabData.myExercises : exercises;
+    const visibleExercises = activeTab === "my" ? tabData.myExercises : tabData.fitsculptExercises;
 
     if (visibleExercises.length === 0) {
       return (
         <div className="card" role="status">
           <p className="muted">
-            {activeTab === "my" && !tabData.hasMyExerciseSignals
-              ? t("trainer.exercises.empty.myUnsupported")
-              : t("library.empty")}
+            {activeTab === "my"
+              ? tabData.hasOwnershipSignals
+                ? t("trainer.exercises.empty.my")
+                : t("trainer.exercises.empty.myUnsupported")
+              : t("trainer.exercises.empty.fitsculpt")}
           </p>
         </div>
       );
@@ -245,7 +223,7 @@ export default function TrainerExercisesClient() {
         ))}
       </ul>
     );
-  }, [activeTab, exercises, exercisesState, loadExercises, t, tabData.hasMyExerciseSignals, tabData.myExercises]);
+  }, [activeTab, exercisesState, loadExercises, t, tabData.fitsculptExercises, tabData.hasOwnershipSignals, tabData.myExercises]);
 
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
@@ -270,7 +248,7 @@ export default function TrainerExercisesClient() {
     <div className="section-stack">
       <div className="feature-card form-stack">
         <h2 style={{ margin: 0 }}>{t("trainer.exercises.tabs.library")}</h2>
-        {createCapability === "can_create" ? (
+        {createCapability !== "cannot_create" ? (
           <Link href="/app/trainer/exercises/new" className="btn primary" style={{ width: "fit-content" }}>
             {t("training.manualCreate")}
           </Link>
