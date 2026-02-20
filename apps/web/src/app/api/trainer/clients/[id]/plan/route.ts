@@ -8,7 +8,7 @@ function asText(value: unknown): string {
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const result = await fetchBackend(`/trainer/members/${id}/training-plan-assignment`);
+  const result = await fetchBackend(`/trainer/clients/${id}/assigned-plan`);
   return NextResponse.json(result.payload, { status: result.status });
 }
 
@@ -34,7 +34,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     );
   }
 
-  const trainerAssignment = await fetchBackend(`/trainer/members/${id}/training-plan-assignment`, {
+  const trainerAssignment = await fetchBackend(`/trainer/clients/${id}/assigned-plan`, {
     method: "POST",
     body: { trainingPlanId: normalizedTrainingPlanId },
   });
@@ -59,6 +59,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const result = await fetchBackend(`/trainer/members/${id}/training-plan-assignment`, { method: "DELETE" });
+  const result = await fetchBackend(`/trainer/clients/${id}/assigned-plan`, { method: "DELETE" });
   return NextResponse.json(result.payload, { status: result.status });
 }

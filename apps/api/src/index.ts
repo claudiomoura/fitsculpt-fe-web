@@ -7445,11 +7445,15 @@ app.delete("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
 
     const targetMembership = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
-      select: { id: true, role: true, status: true },
+      select: { id: true, role: true, status: true, assignedTrainingPlanId: true },
     });
 
     if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
       return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    if (!targetMembership.assignedTrainingPlanId) {
+      return reply.status(404).send({ error: "ASSIGNMENT_NOT_FOUND" });
     }
 
     await prisma.gymMembership.update({
