@@ -1,12 +1,12 @@
 "use client";
 
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
 import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -329,6 +329,7 @@ export default function TrainerPlansPageClient() {
               items={activeTab === "fitsculpt" ? fitsculptPlans : myPlans}
               emptyLabel={activeTab === "fitsculpt" ? t("trainer.plans.emptyPublic") : t("trainer.plans.empty")}
               showFallback={activeTab === "myPlans"}
+              editDisabled={listDisabled}
             />
           ) : null}
         </CardContent>
@@ -340,42 +341,48 @@ export default function TrainerPlansPageClient() {
         title={t("trainer.plans.createDraftTitle")}
         description={t("trainer.plans.schedulerDescription")}
       >
-        <form className="form-stack" onSubmit={(event) => void onSubmitPlan(event)}>
-          <label className="form-stack" style={{ gap: 8 }}>
-            <span className="muted">{t("trainer.plans.titleLabel")}</span>
-            <input required value={planTitle} onChange={(event) => setPlanTitle(event.target.value)} disabled={creating || createDisabled} />
-          </label>
+        <form
+          className="form-stack"
+          onSubmit={(event) => void onSubmitPlan(event)}
+          style={{ maxHeight: "min(78vh, 760px)", display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", overflow: "hidden" }}
+        >
+          <div className="form-stack" style={{ minHeight: 0, overflowY: "auto", paddingRight: 4 }}>
+            <label className="form-stack" style={{ gap: 8 }}>
+              <span className="muted">{t("trainer.plans.titleLabel")}</span>
+              <input required value={planTitle} onChange={(event) => setPlanTitle(event.target.value)} disabled={creating || createDisabled} />
+            </label>
 
-          <label className="form-stack" style={{ gap: 8 }}>
-            <span className="muted">{t("trainer.plans.weeksLabel")}</span>
-            <input type="number" min={1} max={12} value={weeks} onChange={(event) => setWeeks(Math.max(1, Math.min(12, Number(event.target.value) || 1)))} />
-          </label>
+            <label className="form-stack" style={{ gap: 8 }}>
+              <span className="muted">{t("trainer.plans.weeksLabel")}</span>
+              <input type="number" min={1} max={12} value={weeks} onChange={(event) => setWeeks(Math.max(1, Math.min(12, Number(event.target.value) || 1)))} />
+            </label>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Button size="sm" variant={editorTab === "schedule" ? "primary" : "secondary"} onClick={() => setEditorTab("schedule")}>{t("trainer.plans.workoutsSchedule")}</Button>
-            <Button size="sm" variant={editorTab === "list" ? "primary" : "secondary"} onClick={() => setEditorTab("list")}>{t("trainer.plans.workoutsList")}</Button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Button size="sm" variant={editorTab === "schedule" ? "primary" : "secondary"} onClick={() => setEditorTab("schedule")}>{t("trainer.plans.workoutsSchedule")}</Button>
+              <Button size="sm" variant={editorTab === "list" ? "primary" : "secondary"} onClick={() => setEditorTab("list")}>{t("trainer.plans.workoutsList")}</Button>
+            </div>
+
+            {editorTab === "schedule" ? (
+              <WorkoutScheduleGrid
+                weeks={weeks}
+                selectedSlots={selectedSlots}
+                focusedSlot={focusedSlot}
+                onSelect={toggleSlot}
+                onOpenEditor={openSlotEditor}
+                onKeyDown={onGridKeyDown}
+              />
+            ) : (
+              <WorkoutsList entries={sortedWorkoutEntries} onOpen={(slot) => openSlotEditor(slot)} />
+            )}
+
+            {selectedSlot ? (
+              <Button variant="secondary" onClick={() => setWorkoutEditorOpen(true)}>{t("trainer.plans.openDayEditor")}</Button>
+            ) : null}
+
+            {selectedSlots.size > 0 ? <p className="muted">{t("trainer.plans.scheduleMappedToDays", { count: selectedSlots.size })}</p> : null}
           </div>
 
-          {editorTab === "schedule" ? (
-            <WorkoutScheduleGrid
-              weeks={weeks}
-              selectedSlots={selectedSlots}
-              focusedSlot={focusedSlot}
-              onSelect={toggleSlot}
-              onOpenEditor={openSlotEditor}
-              onKeyDown={onGridKeyDown}
-            />
-          ) : (
-            <WorkoutsList entries={sortedWorkoutEntries} onOpen={(slot) => openSlotEditor(slot)} />
-          )}
-
-          {selectedSlot ? (
-            <Button variant="secondary" onClick={() => setWorkoutEditorOpen(true)}>{t("trainer.plans.openDayEditor")}</Button>
-          ) : null}
-
-          {selectedSlots.size > 0 ? <p className="muted">{t("trainer.plans.scheduleMappedToDays", { count: selectedSlots.size })}</p> : null}
-
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, position: "sticky", bottom: 0, background: "var(--bg-card)", paddingTop: 8 }}>
             <Button variant="secondary" onClick={() => setCreateModalOpen(false)} disabled={creating}>{t("ui.cancel")}</Button>
             <Button type="submit" loading={creating} disabled={createDisabled || !planTitle.trim()}>{t("trainer.plans.create")}</Button>
           </div>
@@ -428,8 +435,19 @@ function PlansSkeleton() {
   );
 }
 
-function PlansList({ items, emptyLabel, showFallback }: { items: TrainingPlanListItem[]; emptyLabel: string; showFallback?: boolean }) {
+function PlansList({
+  items,
+  emptyLabel,
+  showFallback,
+  editDisabled,
+}: {
+  items: TrainingPlanListItem[];
+  emptyLabel: string;
+  showFallback?: boolean;
+  editDisabled?: boolean;
+}) {
   const { t } = useLanguage();
+  const { notify } = useToast();
 
   if (items.length === 0) {
     if (showFallback) {
@@ -445,8 +463,36 @@ function PlansList({ items, emptyLabel, showFallback }: { items: TrainingPlanLis
         {items.map((plan) => (
           <li key={plan.id}>
             <article className="feature-card" style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <strong>{plan.title}</strong>
-              <Badge variant="info">{t("trainer.plans.daysCount", { count: plan.daysCount })}</Badge>
+              <div className="form-stack" style={{ gap: 8 }}>
+                <strong>{plan.title}</strong>
+                <Badge variant="info">{t("trainer.plans.daysCount", { count: plan.daysCount })}</Badge>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <ButtonLink
+                  size="sm"
+                  variant="secondary"
+                  href={`/app/trainer/plans/${plan.id}`}
+                  disabled={editDisabled}
+                  title={editDisabled ? t("trainer.plans.actionsUnavailable") : undefined}
+                >
+                  {t("trainer.plans.actions.edit")}
+                </ButtonLink>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled
+                  title={t("trainer.plans.actions.deleteUnsupported")}
+                  onClick={() => {
+                    notify({
+                      title: t("trainer.plans.actions.delete"),
+                      description: t("trainer.plans.actions.deleteUnsupported"),
+                      variant: "info",
+                    });
+                  }}
+                >
+                  {t("trainer.plans.actions.delete")}
+                </Button>
+              </div>
             </article>
           </li>
         ))}
@@ -474,10 +520,18 @@ function WorkoutScheduleGrid({
 
   return (
     <div className="form-stack">
-      <div role="grid" aria-label={t("trainer.plans.workoutsSchedule")} className="form-stack" style={{ gap: 6 }}>
+      <div role="grid" aria-label={t("trainer.plans.workoutsSchedule")} className="form-stack" style={{ gap: 6, maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "56px repeat(7, minmax(0, 1fr))", gap: 6, alignItems: "center", position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 1 }}>
+          <span className="muted" style={{ fontSize: 12 }}>{t("trainer.plans.weekShort")}</span>
+          {Array.from({ length: DAYS_IN_WEEK }).map((__, dayOfWeek) => (
+            <span key={`header-${dayOfWeek}`} className="muted" style={{ textAlign: "center", fontSize: 12 }}>
+              {t("trainer.plans.dayLabel", { day: dayOfWeek + 1 })}
+            </span>
+          ))}
+        </div>
         {Array.from({ length: weeks }).map((_, weekIndex) => (
-          <div key={weekIndex} style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 6, alignItems: "center" }}>
-            <span className="muted" style={{ fontSize: 12 }}>{t("trainer.plans.weekLabel", { week: weekIndex + 1 })}</span>
+          <div key={weekIndex} style={{ display: "grid", gridTemplateColumns: "56px repeat(7, minmax(0, 1fr))", gap: 6, alignItems: "center" }}>
+            <span className="muted" style={{ fontSize: 12 }}>{t("trainer.plans.weekShortLabel", { week: weekIndex + 1 })}</span>
             {Array.from({ length: DAYS_IN_WEEK }).map((__, dayOfWeek) => {
               const slot = { weekIndex, dayOfWeek };
               const key = slotKey(slot);
@@ -494,7 +548,11 @@ function WorkoutScheduleGrid({
                   onDoubleClick={() => onOpenEditor(slot)}
                   className="btn secondary"
                   style={{
-                    minHeight: 42,
+                    minHeight: 48,
+                    maxHeight: 48,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                     borderColor: selected ? "var(--accent)" : undefined,
                     outline: focusedSlot.weekIndex === weekIndex && focusedSlot.dayOfWeek === dayOfWeek ? "2px solid var(--accent)" : "none",
                     opacity: selected ? 1 : 0.85,
@@ -625,8 +683,9 @@ function ExerciseEditor({
   if (!draft) return null;
 
   return (
-    <Modal open={open} onClose={onClose} title={t("trainer.plans.exerciseEditorTitle")} description={t("trainer.plans.loadWizardUiOnly")}> 
-      <div className="form-stack">
+    <Modal open={open} onClose={onClose} title={t("trainer.plans.exerciseEditorTitle")} description={t("trainer.plans.loadWizardUiOnly")}>
+      <div className="form-stack" style={{ maxHeight: "min(78vh, 760px)", display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", overflow: "hidden" }}>
+        <div className="form-stack" style={{ minHeight: 0, overflowY: "auto", paddingRight: 4 }}>
         <label className="form-stack" style={{ gap: 8 }}>
           <span className="muted">{t("trainer.plans.searchExercises")}</span>
           <input value={searchTerm} onChange={(event) => onSearch(event.target.value)} placeholder={t("trainer.plans.searchExercisesPlaceholder")} />
@@ -659,8 +718,9 @@ function ExerciseEditor({
         {step === 0 ? <LoadTargetStep draft={draft} onChange={(loadTarget) => setDraft({ ...draft, loadTarget })} /> : null}
         {step === 1 ? <LoadTypeStep draft={draft} onChange={(loadType) => setDraft({ ...draft, loadType })} /> : null}
         {step === 2 ? <LoadSetsStep draft={draft} onChange={(sets) => setDraft({ ...draft, sets })} /> : null}
+        </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, position: "sticky", bottom: 0, background: "var(--bg-card)", paddingTop: 8 }}>
           <Button variant="secondary" onClick={onClose}>{t("ui.cancel")}</Button>
           <Button onClick={() => onSave(draft)} disabled={!draft.name.trim()}>{t("ui.save")}</Button>
         </div>
@@ -703,9 +763,18 @@ function LoadTypeStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
 
 function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (value: LoadSet[]) => void }) {
   const { t } = useLanguage();
+  const setsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const lastSet = setsRef.current?.lastElementChild;
+    if (lastSet instanceof HTMLElement) {
+      lastSet.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [draft.sets.length]);
 
   return (
     <div className="form-stack">
+      <div className="form-stack" ref={setsRef}>
       {draft.sets.map((set, index) => (
         <div key={set.setNumber} className="feature-card form-stack">
           <strong>{t("trainer.plans.setLabel", { set: set.setNumber })}</strong>
@@ -723,6 +792,7 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
           </label>
         </div>
       ))}
+      </div>
 
       <Button variant="secondary" onClick={() => onChange([...draft.sets, { setNumber: draft.sets.length + 1, reps: "", restSeconds: "", notes: "" }])}>{t("trainer.plans.addSet")}</Button>
       <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.loadWizardUiOnly")}</p>

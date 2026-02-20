@@ -2113,7 +2113,8 @@
         "title": "Biblioteca de planes",
         "ariaLabel": "Pestañas de planes del entrenador",
         "fitsculptPlans": "Planes FitSculpt",
-        "myPlans": "Mis planes"
+        "myPlans": "Mis planes",
+        "fitsculpt": "Planes FitSculpt"
       },
       "fitsculpt": {
         "description": "Catálogo global de planes FitSculpt.",
@@ -2166,7 +2167,57 @@
         "restSecondsLabel": "Descanso (seg)",
         "addSet": "Agregar serie",
         "savedLocallyHint": "Guardado localmente. Aún no se envía al backend."
-      }
+      },
+      "emptyPublic": "Aún no hay planes FitSculpt disponibles.",
+      "comingSoon": "Funcionalidad próximamente",
+      "filterUnavailable": "El filtrado de listados aún no está disponible.",
+      "workoutsSchedule": "Calendario",
+      "workoutsList": "Lista",
+      "calendarHint": "Haz clic en un día para seleccionarlo. Doble clic para editar ese día.",
+      "openDayEditor": "Abrir editor de día",
+      "selectorUnavailable": "El selector de ejercicios no está disponible ahora mismo.",
+      "loadWizardUiOnly": "Este asistente de cargas es solo de interfaz por ahora.",
+      "addSet": "Agregar serie",
+      "weekShort": "Semana",
+      "weekShortLabel": "S{week}",
+      "actionsUnavailable": "Acción no disponible en este entorno.",
+      "actions": {
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "deleteUnsupported": "Eliminar no está soportado en este entorno."
+      },
+      "targets": {
+        "endurance": "Resistencia muscular",
+        "hypertrophy": "Hipertrofia",
+        "strength": "Fuerza",
+        "maxStrength": "Fuerza máxima",
+        "power": "Potencia",
+        "plyometrics": "Pliometría"
+      },
+      "loadTypes": {
+        "classic": "Clásico",
+        "pyramid": "Pirámide",
+        "dropSet": "Drop set"
+      },
+      "schedulerDescription": "Construye el calendario semanal y los borradores de entrenamiento para cada día seleccionado.",
+      "weeksLabel": "Semanas",
+      "scheduleMappedToDays": "{count} día(s) seleccionados en el calendario.",
+      "dayLabel": "D{day}",
+      "workoutsListEmpty": "Aún no hay entrenamientos programados.",
+      "weekDayLabel": "Semana {week} · Día {day}",
+      "untitledWorkout": "Entrenamiento sin título",
+      "workoutName": "Nombre del entrenamiento",
+      "notesOptional": "Notas (opcional)",
+      "dayExercisesEmpty": "Aún no hay ejercicios agregados.",
+      "customExercise": "Ejercicio personalizado",
+      "exerciseEditorTitle": "Asistente de carga del ejercicio",
+      "loadTarget": "Objetivo de carga",
+      "loadType": "Tipo de carga",
+      "loadSets": "Series",
+      "setLabel": "Serie {set}",
+      "reps": "Repeticiones",
+      "restSeconds": "Descanso (seg)",
+      "intensityNotes": "Notas de intensidad"
     },
     "clientContext": {
       "title": "Contexto del atleta",
