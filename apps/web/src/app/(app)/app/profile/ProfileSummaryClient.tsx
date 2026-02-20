@@ -5,6 +5,8 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, mergeProfileData } from "@/lib/profileService";
 import { isTrainer as isTrainerRole } from "@/lib/roles";
+import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
+import TrainerProfileSummary from "@/components/trainer/profile/TrainerProfileSummary";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -12,6 +14,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 type CheckinEntry = {
   date?: string;
 };
+
+const UNKNOWN_MEMBERSHIP: GymMembership = { state: "unknown", gymId: null, gymName: null };
 
 export default function ProfileSummaryClient() {
   const { t } = useLanguage();
@@ -22,6 +26,7 @@ export default function ProfileSummaryClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isTrainer, setIsTrainer] = useState(false);
+  const [gymMembership, setGymMembership] = useState<GymMembership>(UNKNOWN_MEMBERSHIP);
 
   useEffect(() => {
     let active = true;
@@ -57,6 +62,7 @@ export default function ProfileSummaryClient() {
         if (!response.ok || !active) return;
         const data = (await response.json()) as unknown;
         setIsTrainer(isTrainerRole(data));
+        setGymMembership(extractGymMembership(data));
       } catch (_err) {
         if (active) setIsTrainer(false);
       }
@@ -212,16 +218,7 @@ export default function ProfileSummaryClient() {
         )}
       </section>
 
-      {isTrainer ? (
-        <section className="card">
-          <h3 className="section-title section-title-xs">{t("profile.trainerSummaryTitle")}</h3>
-          <p className="muted">{t("profile.trainerSummaryDescription")}</p>
-          <div className="inline-actions-sm">
-            <ButtonLink href="/app/gym">{t("profile.trainerGoToGym")}</ButtonLink>
-            <ButtonLink href="/app/trainer/plans">{t("profile.trainerGoToPlans")}</ButtonLink>
-          </div>
-        </section>
-      ) : null}
+      {isTrainer ? <TrainerProfileSummary profile={profile} loading={loading} t={t} gymMembership={gymMembership} /> : null}
 
       {!isTrainer ? <section className="card">
         <h3 className="section-title section-title-xs">{t("profile.summaryBasics")}</h3>
