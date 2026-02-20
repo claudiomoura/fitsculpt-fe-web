@@ -154,12 +154,14 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
   useEffect(() => {
     if (!canAccessTrainerArea || !selectedDay) return;
 
+    const dayId = selectedDay.id;
     const firstExerciseId = selectedDay.exercises?.[0]?.id;
     let cancelled = false;
 
     async function loadCapabilities() {
-      const caps = await getTrainerPlanEditCapabilities(planId, selectedDay.id, firstExerciseId);
+      const caps = await getTrainerPlanEditCapabilities(planId, dayId, firstExerciseId);
       if (cancelled) return;
+      setCanDeleteDay(caps.canDeleteDay);
       setCanDeleteExercise(caps.canDeleteDayExercise);
       setCanUpdateExercise(caps.canUpdateDayExercise);
       setUpdateNotSupported(false);
@@ -276,6 +278,12 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
       <header className="form-stack" style={{ gap: 8 }}>
         <h2 className="section-title" style={{ fontSize: 20 }}>{selectedDay.label}</h2>
         <p className="muted" style={{ margin: 0 }}>{selectedDay.date}</p>
+        <div>
+          <Button variant="danger" size="sm" onClick={() => setDeleteDayConfirmOpen(true)} disabled={!canDeleteDay || isDeletingDay}>
+            {t("trainer.plans.deleteDay")}
+          </Button>
+        </div>
+        {!canDeleteDay ? <p className="muted" style={{ margin: 0 }}>{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
       </header>
 
       <div className="form-stack" style={{ gap: 8 }}>
@@ -436,6 +444,37 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
       </div>
 
       <Link href="/app/trainer/plans" className="btn secondary fit-content">{t("trainer.back")}</Link>
+
+      <Modal
+        open={deleteDayConfirmOpen}
+        onClose={() => !isDeletingDay && setDeleteDayConfirmOpen(false)}
+        title={t("trainer.plans.deleteDayConfirmTitle")}
+        description={t("trainer.plans.deleteDayConfirmDescription")}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="secondary" onClick={() => setDeleteDayConfirmOpen(false)} disabled={isDeletingDay}>{t("ui.cancel")}</Button>
+          <Button variant="danger" onClick={() => void onDeleteDay()} loading={isDeletingDay} disabled={isDeletingDay}>{t("trainer.plans.actions.delete")}</Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(deleteExerciseId)}
+        onClose={() => !isDeletingExerciseId && setDeleteExerciseId(null)}
+        title={t("trainer.plans.deleteExerciseConfirmTitle")}
+        description={t("trainer.plans.deleteExerciseConfirmDescription")}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="secondary" onClick={() => setDeleteExerciseId(null)} disabled={Boolean(isDeletingExerciseId)}>{t("ui.cancel")}</Button>
+          <Button
+            variant="danger"
+            onClick={() => deleteExerciseId && void onDeleteExercise(deleteExerciseId)}
+            loading={Boolean(isDeletingExerciseId)}
+            disabled={!deleteExerciseId || Boolean(isDeletingExerciseId)}
+          >
+            {t("trainer.plans.actions.delete")}
+          </Button>
+        </div>
+      </Modal>
     </section>
   );
 }

@@ -13,9 +13,13 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
-import { requestJson } from "@/lib/api/serviceResult";
 import { fetchExercisesList, type Exercise } from "@/services/exercises";
-import { createTrainerPlan, listCurrentGymTrainerPlans } from "@/services/trainer/plans";
+import {
+  createTrainerPlan,
+  deleteTrainerPlan,
+  getTrainerPlanEditCapabilities,
+  listCurrentGymTrainerPlans,
+} from "@/services/trainer/plans";
 
 type TabId = "fitsculpt" | "myPlans";
 type LoadState = "loading" | "ready";
@@ -128,6 +132,7 @@ export default function TrainerPlansPageClient() {
   const [searchError, setSearchError] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TrainingPlanListItem | null>(null);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [deleteCapabilityByPlanId, setDeleteCapabilityByPlanId] = useState<Record<string, boolean>>({});
 
   const selectedSlotKey = selectedSlot ? slotKey(selectedSlot) : null;
   const selectedWorkout = selectedSlotKey ? workoutsBySlot[selectedSlotKey] : null;
@@ -156,6 +161,32 @@ export default function TrainerPlansPageClient() {
     if (!canAccessTrainerArea) return;
     void loadPlans();
   }, [canAccessTrainerArea, loadPlans]);
+
+  useEffect(() => {
+    if (!canAccessTrainerArea || plans.length === 0) {
+      setDeleteCapabilityByPlanId({});
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDeleteCapabilities() {
+      const entries = await Promise.all(plans.map(async (plan) => {
+        const capabilities = await getTrainerPlanEditCapabilities(plan.id);
+        return [plan.id, capabilities.canDeletePlan] as const;
+      }));
+
+      if (cancelled) return;
+
+      setDeleteCapabilityByPlanId(Object.fromEntries(entries));
+    }
+
+    void loadDeleteCapabilities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canAccessTrainerArea, plans]);
 
   useEffect(() => {
     if (!createModalOpen) return;
@@ -337,14 +368,19 @@ export default function TrainerPlansPageClient() {
     if (deletingPlanId) return;
 
     setDeletingPlanId(plan.id);
-    const result = await requestJson<unknown>(`/api/trainer/plans/${plan.id}`, { method: "DELETE" });
+    const result = await deleteTrainerPlan(plan.id);
     setDeletingPlanId(null);
 
     if (!result.ok) {
-      const isKnownDeleteError = result.status === 403 || result.status === 404 || result.status === 405;
+      const isUnsupportedDelete = result.status === 404 || result.status === 405 || result.status === 501;
+      const isKnownDeleteError = result.status === 403 || isUnsupportedDelete;
       notify({
         title: t("trainer.plans.actions.delete"),
-        description: isKnownDeleteError ? t("trainer.plans.actions.deleteDenied") : t("trainer.plans.deleteError"),
+        description: isUnsupportedDelete
+          ? t("trainer.plans.actions.deleteUnsupported")
+          : isKnownDeleteError
+            ? t("trainer.plans.actions.deleteDenied")
+            : t("trainer.plans.deleteError"),
         variant: "error",
       });
       return;
@@ -405,6 +441,7 @@ export default function TrainerPlansPageClient() {
               unknownOwnershipCount={activeTab === "myPlans" ? undeterminedOwnershipCount : 0}
               editDisabled={listDisabled}
               canRequestDelete={activeTab === "myPlans"}
+              canDeleteByPlanId={deleteCapabilityByPlanId}
               deletingPlanId={deletingPlanId}
               onRequestDelete={(plan) => setDeleteTarget(plan)}
             />
@@ -544,6 +581,7 @@ function PlansList({
   unknownOwnershipCount,
   editDisabled,
   canRequestDelete,
+  canDeleteByPlanId,
   deletingPlanId,
   onRequestDelete,
 }: {
@@ -553,6 +591,7 @@ function PlansList({
   unknownOwnershipCount?: number;
   editDisabled?: boolean;
   canRequestDelete?: boolean;
+  canDeleteByPlanId?: Record<string, boolean>;
   deletingPlanId?: string | null;
   onRequestDelete: (plan: TrainingPlanListItem) => void;
 }) {
@@ -590,9 +629,11 @@ function PlansList({
                 <Button
                   size="sm"
                   variant="ghost"
-                  disabled={deletingPlanId === plan.id || !canRequestDelete || !canDeleteTrainerPlan(plan)}
+                  disabled={deletingPlanId === plan.id || !canRequestDelete || !canDeleteTrainerPlan(plan) || !canDeleteByPlanId?.[plan.id]}
                   loading={deletingPlanId === plan.id}
-                  title={!canRequestDelete || !canDeleteTrainerPlan(plan) ? t("trainer.plans.actions.deleteUnsupported") : undefined}
+                  title={!canRequestDelete || !canDeleteTrainerPlan(plan) || !canDeleteByPlanId?.[plan.id]
+                    ? t("trainer.plans.actions.deleteUnsupported")
+                    : undefined}
                   onClick={() => onRequestDelete(plan)}
                 >
                   {t("trainer.plans.actions.delete")}
