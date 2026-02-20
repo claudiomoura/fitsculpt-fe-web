@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchExercisesList } from "@/services/exercises";
+import { fetchExercisesList, splitExercisesByOwnership } from "@/services/exercises";
 
 describe("fetchExercisesList", () => {
   it("reads the items array from API payload", async () => {
@@ -63,5 +63,28 @@ describe("fetchExercisesList", () => {
     expect(result.page).toBe(2);
     expect(result.filters.equipment).toEqual(["Barbell", "Cable"]);
     expect(result.filters.primaryMuscle).toEqual(["Chest", "Back"]);
+  });
+});
+
+
+describe("splitExercisesByOwnership", () => {
+  it("classifies user-created exercises into the mine bucket", () => {
+    const result = splitExercisesByOwnership([
+      { id: "ex_global", name: "Squat", source: "fitsculpt" } as never,
+      { id: "ex_mine_1", name: "My Row", userId: "user_1" } as never,
+      { id: "ex_mine_2", name: "My Press", isUserCreated: true } as never,
+    ], "user_1");
+
+    expect(result.mine.map((exercise) => exercise.id)).toEqual(["ex_mine_1", "ex_mine_2"]);
+    expect(result.fitSculpt.map((exercise) => exercise.id)).toEqual(["ex_global"]);
+    expect(result.hasOwnershipSignals).toBe(true);
+  });
+
+  it("keeps exercises in FitSculpt bucket when ownership cannot be determined", () => {
+    const result = splitExercisesByOwnership([{ id: "ex_unknown", name: "Unknown" }], "user_1");
+
+    expect(result.mine).toEqual([]);
+    expect(result.fitSculpt.map((exercise) => exercise.id)).toEqual(["ex_unknown"]);
+    expect(result.hasOwnershipSignals).toBe(false);
   });
 });

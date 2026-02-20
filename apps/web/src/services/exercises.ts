@@ -39,6 +39,66 @@ export type ExerciseListResult = {
   };
 };
 
+export type ExerciseOwnershipBuckets = {
+  fitSculpt: Exercise[];
+  mine: Exercise[];
+  hasOwnershipSignals: boolean;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function asText(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function resolveExerciseOwnerId(exercise: Exercise): string | null {
+  const rawExercise = exercise as Exercise & Record<string, unknown>;
+  const owner = asRecord(rawExercise.owner);
+  const user = asRecord(rawExercise.user);
+
+  return asText(rawExercise.userId) ?? asText(owner?.id) ?? asText(user?.id) ?? null;
+}
+
+function resolveIsUserCreated(exercise: Exercise): boolean | null {
+  const rawExercise = exercise as Exercise & Record<string, unknown>;
+
+  if (typeof rawExercise.isUserCreated === "boolean") {
+    return rawExercise.isUserCreated;
+  }
+
+  const source = asText(rawExercise.source)?.toLowerCase();
+  if (!source) return null;
+
+  if (source === "user" || source === "trainer") return true;
+  if (source === "fitsculpt" || source === "global") return false;
+
+  return null;
+}
+
+export function splitExercisesByOwnership(exercises: Exercise[], viewerUserId: string | null): ExerciseOwnershipBuckets {
+  const mine = exercises.filter((exercise) => {
+    const ownerId = resolveExerciseOwnerId(exercise);
+    const isUserCreated = resolveIsUserCreated(exercise);
+
+    return Boolean((viewerUserId && ownerId && ownerId === viewerUserId) || isUserCreated === true);
+  });
+
+  const mineIds = new Set(mine.map((exercise) => exercise.id));
+
+  return {
+    mine,
+    fitSculpt: exercises.filter((exercise) => !mineIds.has(exercise.id)),
+    hasOwnershipSignals: exercises.some((exercise) => {
+      const ownerId = resolveExerciseOwnerId(exercise);
+      const isUserCreated = resolveIsUserCreated(exercise);
+
+      return ownerId !== null || isUserCreated !== null;
+    }),
+  };
+}
+
 function sanitizeOptions(values?: string[] | null) {
   if (!Array.isArray(values)) return [];
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));

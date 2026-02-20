@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
+import { splitExercisesByOwnership } from "@/services/exercises";
 import { getUserRoleFlags } from "@/lib/userCapabilities";
 import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabilityAudit";
 import { extractGymMembership } from "@/lib/gymMembership";
@@ -42,27 +44,6 @@ function getProfileUserId(profile: AuthUser): string | null {
   );
 }
 
-function getExerciseOwnerId(exercise: Exercise): string | null {
-  const rawExercise = exercise as Exercise & Record<string, unknown>;
-  const owner = asRecord(rawExercise.owner);
-  const createdBy = asRecord(rawExercise.createdBy);
-  const user = asRecord(rawExercise.user);
-  const author = asRecord(rawExercise.author);
-
-  return (
-    asText(rawExercise.createdById) ??
-    asText(rawExercise.ownerId) ??
-    asText(rawExercise.userId) ??
-    asText(rawExercise.trainerId) ??
-    asText(rawExercise.authorId) ??
-    asText(createdBy?.id) ??
-    asText(owner?.id) ??
-    asText(user?.id) ??
-    asText(author?.id) ??
-    null
-  );
-}
-
 function getExerciseThumbnail(exercise: Exercise): string | null {
   const rawExercise = exercise as Exercise & Record<string, unknown>;
   const media = asRecord(rawExercise.media);
@@ -80,6 +61,7 @@ function getExerciseThumbnail(exercise: Exercise): string | null {
 
 export default function TrainerExercisesClient() {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const [permissionState, setPermissionState] = useState<LoadState>("loading");
   const [exercisesState, setExercisesState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
@@ -88,7 +70,11 @@ export default function TrainerExercisesClient() {
   const [canUploadMedia, setCanUploadMedia] = useState(false);
   const [viewerGymId, setViewerGymId] = useState<string | null>(null);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<ExercisesTab>("fitsculpt");
+  const [activeTab, setActiveTab] = useState<ExercisesTab>(() => (searchParams?.get("tab") === "my" ? "my" : "fitsculpt"));
+
+  useEffect(() => {
+    setActiveTab(searchParams?.get("tab") === "my" ? "my" : "fitsculpt");
+  }, [searchParams]);
 
   const loadExercises = useCallback(async () => {
     setExercisesState("loading");
@@ -153,14 +139,7 @@ export default function TrainerExercisesClient() {
   }, [loadExercises]);
 
   const tabData = useMemo(() => {
-    const myExercises = exercises.filter((exercise) => {
-      const ownerId = getExerciseOwnerId(exercise);
-      return Boolean(viewerUserId && ownerId && ownerId === viewerUserId);
-    });
-
-    const hasMyExerciseSignals = exercises.some((exercise) => getExerciseOwnerId(exercise) !== null);
-
-    return { myExercises, hasMyExerciseSignals };
+    return splitExercisesByOwnership(exercises, viewerUserId);
   }, [exercises, viewerUserId]);
 
   const listBody = useMemo(() => {
@@ -185,15 +164,17 @@ export default function TrainerExercisesClient() {
       );
     }
 
-    const visibleExercises = activeTab === "my" ? tabData.myExercises : exercises;
+    const visibleExercises = activeTab === "my" ? tabData.mine : tabData.fitSculpt;
 
     if (visibleExercises.length === 0) {
       return (
         <div className="card" role="status">
           <p className="muted">
-            {activeTab === "my" && !tabData.hasMyExerciseSignals
+            {activeTab === "my" && !tabData.hasOwnershipSignals
               ? t("trainer.exercises.empty.myUnsupported")
-              : t("library.empty")}
+              : activeTab === "my"
+                ? t("trainer.exercises.empty.my")
+                : t("trainer.exercises.empty.fitsculpt")}
           </p>
         </div>
       );
@@ -245,7 +226,7 @@ export default function TrainerExercisesClient() {
         ))}
       </ul>
     );
-  }, [activeTab, exercises, exercisesState, loadExercises, t, tabData.hasMyExerciseSignals, tabData.myExercises]);
+  }, [activeTab, exercisesState, loadExercises, t, tabData.fitSculpt, tabData.hasOwnershipSignals, tabData.mine]);
 
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
