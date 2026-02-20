@@ -1693,6 +1693,8 @@
       "aiPlaceholderTitle": "Planes IA habilitados",
       "aiPlaceholderDescription": "Genera tu próximo plan con IA cuando esté disponible.",
       "noAssignedOrAvailable": "Aún no tienes planes asignados o disponibles.",
+      "emptyVisiblePlansTitle": "No tienes planes disponibles",
+      "emptyVisiblePlansCta": "Ir a Entrenamiento",
       "assignedEmpty": "No hay un plan asignado con los datos actuales.",
       "assignedUnavailable": "No podemos verificar el plan asignado con los datos actuales.",
       "aiUnavailableTitle": "Planes IA no disponibles",
