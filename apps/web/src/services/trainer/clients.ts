@@ -62,16 +62,16 @@ export const trainerClientEndpointInventory: TrainerClientEndpointInventory[] = 
     notes: "Get trainer client detail through BFF proxy to backend /trainer/clients/:id.",
   },
   {
-    endpoint: "/api/trainer/clients/:id/assigned-plan",
+    endpoint: "/api/trainer/members/:id/assigned-plan",
     method: "POST",
     exists: true,
-    notes: "Assign client plan through BFF using backend /trainer/clients/:userId/assigned-plan.",
+    notes: "Assign member plan through BFF using backend /trainer/members/:userId/assigned-plan.",
   },
   {
-    endpoint: "/api/trainer/clients/:id/assigned-plan",
+    endpoint: "/api/trainer/members/:id/assigned-plan",
     method: "DELETE",
     exists: true,
-    notes: "Unassign client plan through BFF using backend /trainer/clients/:userId/assigned-plan.",
+    notes: "Unassign member plan through BFF using backend /trainer/members/:userId/assigned-plan.",
   },
   {
     endpoint: "/api/trainer/clients/:id",
@@ -155,7 +155,7 @@ export async function assignTrainingPlanToTrainerClient(
     };
   }
 
-  const result = await requestJson<unknown>(`/api/trainer/clients/${clientId}/assigned-plan`, {
+  const result = await requestJson<unknown>(`/api/trainer/members/${clientId}/assigned-plan`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ trainingPlanId: sourceTrainingPlanId }),
@@ -183,7 +183,7 @@ export async function unassignTrainingPlanFromTrainerClient(clientId: string): P
     };
   }
 
-  const result = await requestJson<unknown>(`/api/trainer/clients/${normalizedClientId}/assigned-plan`, {
+  const result = await requestJson<unknown>(`/api/trainer/members/${normalizedClientId}/assigned-plan`, {
     method: "DELETE",
   });
 
