@@ -87,6 +87,8 @@ type StripePrice = {
   product?: string | StripeProduct | null;
 };
 
+type StripeInterval = "day" | "week" | "month" | "year" | "unknown";
+
 await app.register(cors, {
   origin: env.CORS_ORIGIN,
   credentials: true,
@@ -217,16 +219,36 @@ function getAvailableBillingPlans() {
   );
 }
 
-function parseStripeAmount(price: StripePrice): number {
-  if (typeof price.unit_amount !== "number") return 0;
+function parseStripeAmount(price: StripePrice): number | null {
+  if (typeof price.unit_amount !== "number") return null;
   return price.unit_amount / 100;
 }
 
-function resolveStripePlanTitle(price: StripePrice, fallbackPlan: SubscriptionPlan): string {
+async function resolveStripePlanTitle(price: StripePrice, fallbackPlan: SubscriptionPlan): Promise<string> {
   if (price.product && typeof price.product === "object" && typeof price.product.name === "string" && price.product.name.trim()) {
     return price.product.name;
   }
+
+  if (typeof price.product === "string") {
+    try {
+      const stripeProduct = await stripeRequest<StripeProduct>(`products/${price.product}`, {}, { method: "GET" });
+      if (typeof stripeProduct.name === "string" && stripeProduct.name.trim()) {
+        return stripeProduct.name;
+      }
+    } catch {
+      return fallbackPlan;
+    }
+  }
+
   return fallbackPlan;
+}
+
+function normalizeStripeInterval(price: StripePrice): StripeInterval {
+  const interval = price.recurring?.interval;
+  if (interval === "day" || interval === "week" || interval === "month" || interval === "year") {
+    return interval;
+  }
+  return "unknown";
 }
 
 function isStripeCredentialError(error: unknown): boolean {
@@ -3932,36 +3954,44 @@ app.get("/billing/plans", async (request, reply) => {
     const plans: Array<{
       planKey: SubscriptionPlan;
       title: string;
-      price: { amount: number; currency: string; interval: string };
+      price: { amount: number; currency: string; interval: StripeInterval };
       priceId: string;
     }> = [];
-    const warnings: Array<{ planKey: SubscriptionPlan; reason: "price_not_found" }> = [];
+    const warnings: Array<{ key: SubscriptionPlan; reason: string }> = [];
 
     for (const { plan, priceId } of availablePlans) {
       try {
-        const stripePrice = await stripeRequest<StripePrice>(`prices/${priceId}`, {
-          expand: "product",
-        }, { method: "GET" });
+        const stripePrice = await stripeRequest<StripePrice>(`prices/${priceId}`, {}, { method: "GET" });
+
+        const amount = parseStripeAmount(stripePrice);
+        if (amount === null) {
+          warnings.push({ key: plan, reason: "invalid_unit_amount" });
+          request.log.warn({ plan, priceId }, "billing plan skipped (invalid unit amount)");
+          continue;
+        }
 
         plans.push({
           planKey: plan,
-          title: resolveStripePlanTitle(stripePrice, plan),
+          title: await resolveStripePlanTitle(stripePrice, plan),
           price: {
-            amount: parseStripeAmount(stripePrice),
+            amount,
             currency: (stripePrice.currency ?? "usd").toUpperCase(),
-            interval: stripePrice.recurring?.interval ?? "month",
+            interval: normalizeStripeInterval(stripePrice),
           },
           priceId: stripePrice.id,
         });
+        request.log.info({ plan, priceId }, "billing plan mapped ok");
       } catch (error) {
         if (isStripeCredentialError(error)) {
           throw createHttpError(500, "STRIPE_NOT_CONFIGURED");
         }
         if (isStripePriceNotFoundError(error)) {
-          warnings.push({ planKey: plan, reason: "price_not_found" });
+          warnings.push({ key: plan, reason: "price_not_found" });
+          request.log.warn({ plan, priceId }, "billing plan skipped (price not found)");
           continue;
         }
-        request.log.warn({ plan, priceId, error }, "billing plan skipped due to Stripe price lookup failure");
+        warnings.push({ key: plan, reason: "price_lookup_failed" });
+        request.log.warn({ plan, priceId }, "billing plan skipped due to Stripe price lookup failure");
       }
     }
 
