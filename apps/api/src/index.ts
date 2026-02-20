@@ -7427,11 +7427,54 @@ app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
       data: { assignedTrainingPlanId: selectedPlan.id },
     });
 
-    return {
+    return reply.status(200).send({
+      ok: true,
       memberId: userId,
       gymId: managerMembership.gymId,
       assignedPlan: selectedPlan,
-    };
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+        assignedTrainingPlan: {
+          select: {
+            id: true,
+            title: true,
+            goal: true,
+            level: true,
+            daysPerWeek: true,
+            focus: true,
+            equipment: true,
+            startDate: true,
+            daysCount: true,
+          },
+        },
+      },
+    });
+
+    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    return reply.status(200).send({
+      memberId: userId,
+      gymId: managerMembership.gymId,
+      assignedPlan: targetMembership.assignedTrainingPlan,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -7461,7 +7504,7 @@ app.delete("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
       data: { assignedTrainingPlanId: null },
     });
 
-    return reply.status(200).send({ memberId: userId, gymId: managerMembership.gymId, assignedPlan: null });
+    return reply.status(200).send({ ok: true, memberId: userId, gymId: managerMembership.gymId });
   } catch (error) {
     return handleRequestError(reply, error);
   }
