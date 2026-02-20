@@ -2355,6 +2355,21 @@
       },
       "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend.",
       "forbiddenHint": "No tienes permiso para ver el contexto de entrenador de este cliente. Verifica acceso al gimnasio y asignación.",
+      "removeClient": {
+        "title": "Quitar del roster",
+        "description": "Quita a este cliente de tu roster de entrenador en el gimnasio actual.",
+        "openConfirm": "Quitar del roster",
+        "confirm": "Sí, quitar",
+        "submitting": "Quitando...",
+        "modalTitle": "Quitar cliente",
+        "modalDescription": "¿Seguro que quieres quitar a {member} de tu roster?",
+        "modalWarning": "Esta acción elimina tu relación de entrenador para este contexto de gimnasio.",
+        "unsupported": "Esta acción no está disponible en este entorno.",
+        "forbidden": "No tienes permiso para quitar este cliente de tu roster.",
+        "unavailable": "Esta acción no está disponible en este entorno.",
+        "success": "{member} fue quitado de tu roster de entrenador.",
+        "submitError": "No pudimos quitar este cliente ahora. Inténtalo de nuevo."
+      },
       "notes": {
         "title": "Notas del entrenador",
         "loading": "Cargando notas...",

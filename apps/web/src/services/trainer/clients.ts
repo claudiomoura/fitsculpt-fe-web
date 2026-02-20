@@ -36,7 +36,7 @@ export const trainerClientServiceCapabilities: TrainerClientServiceCapabilities 
   canGetClientDetail: true,
   canAssignPlan: true,
   canUnassignPlan: true,
-  canRemoveClient: false,
+  canRemoveClient: true,
 };
 
 export type TrainerClientEndpointInventory = {
@@ -74,8 +74,8 @@ export const trainerClientEndpointInventory: TrainerClientEndpointInventory[] = 
   {
     endpoint: "/api/trainer/clients/:id",
     method: "DELETE",
-    exists: false,
-    notes: "Requiere implementación in BFF/backend contract to remove trainer-client relationship.",
+    exists: true,
+    notes: "Remove trainer-client relationship through BFF proxy to backend /trainer/clients/:id.",
   },
 ];
 
@@ -183,13 +183,24 @@ export async function unassignTrainingPlanFromTrainerClient(clientId: string): P
   return { ok: true, data: null };
 }
 
-export async function removeTrainerClientRelationship(): Promise<ServiceResult<null>> {
-  return {
-    ok: false,
-    reason: "notSupported",
-    status: 405,
-    message: "Removing a trainer-client relationship is not supported by the current API.",
-  };
+export async function removeTrainerClientRelationship(clientId: string): Promise<ServiceResult<null>> {
+  const normalizedClientId = clientId.trim();
+  if (!normalizedClientId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "Client id is required.",
+      fieldErrors: { clientId: "Client id is required." },
+    };
+  }
+
+  const result = await requestJson<unknown>(`/api/trainer/clients/${normalizedClientId}`, {
+    method: "DELETE",
+  });
+
+  if (!result.ok) return result;
+  return { ok: true, data: null };
 }
 
 // Backward-compatible aliases for external imports.
