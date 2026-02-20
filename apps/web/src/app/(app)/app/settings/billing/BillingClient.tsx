@@ -110,7 +110,7 @@ export default function BillingClient() {
   const [gymMembership, setGymMembership] = useState<GymMembership>({ state: "unknown", gymId: null, gymName: null });
   const [loading, setLoading] = useState(true);
   const [action, setAction] = useState<BillingAction>(null);
-  const [targetPlanKey, setTargetPlanKey] = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [billingState, setBillingState] = useState<BillingViewState>("ready");
   const [planWarnings, setPlanWarnings] = useState<string[]>([]);
@@ -185,6 +185,7 @@ export default function BillingClient() {
         setBillingConfigError(null);
         setPlanWarnings(plansResult.warnings);
         setPlans(plansResult.plans);
+        setSelectedPlanId(null);
       }
 
       if (meResponse.ok) {
@@ -204,6 +205,7 @@ export default function BillingClient() {
       setBillingConfigError(null);
       setProfile(null);
       setPlans([]);
+      setSelectedPlanId(null);
     } finally {
       setLoading(false);
     }
@@ -213,13 +215,17 @@ export default function BillingClient() {
     void loadProfile();
   }, [loadProfile]);
 
-  const handleCheckout = async (planKey: string) => {
+  const handleCheckout = async () => {
+    if (!selectedPlanId) {
+      setError(t("billing.selectPlanError"));
+      return;
+    }
+
     setAction("checkout");
-    setTargetPlanKey(planKey);
     setError(null);
 
     try {
-      const response = await postBillingCheckout(planKey);
+      const response = await postBillingCheckout(selectedPlanId);
       const data = (await response.json()) as BillingRedirectResponse;
 
       if (!response.ok || !data.url) {
@@ -227,12 +233,11 @@ export default function BillingClient() {
         return;
       }
 
-      window.location.href = data.url;
+      window.location.assign(data.url);
     } catch {
       setError(t("billing.checkoutError"));
     } finally {
       setAction(null);
-      setTargetPlanKey(null);
     }
   };
 
@@ -249,7 +254,7 @@ export default function BillingClient() {
         return;
       }
 
-      window.location.href = data.url;
+      window.location.assign(data.url);
     } catch {
       setError(t("billing.portalError"));
     } finally {
@@ -345,40 +350,62 @@ export default function BillingClient() {
               ) : null}
               {billingState === "ready" ? plans.map((backendPlan) => {
                 const isCurrent = backendPlan.planKey === currentPlan;
-                const checkoutDisabled = true;
+                const planId = backendPlan.planKey;
+                const isSelected = selectedPlanId === planId;
 
                 return (
-                  <div key={backendPlan.priceId || backendPlan.planKey} className="stack-sm border border-border-subtle rounded-lg p-4 bg-surface-2">
+                  <label
+                    key={backendPlan.priceId || backendPlan.planKey}
+                    className={`stack-sm border rounded-lg p-4 bg-surface-2 cursor-pointer transition-colors ${
+                      isSelected ? "border-brand bg-brand/10" : "border-border-subtle"
+                    }`}
+                  >
+                    <input
+                      className="sr-only"
+                      type="radio"
+                      name="billing-plan"
+                      value={planId}
+                      checked={isSelected}
+                      onChange={() => {
+                        setSelectedPlanId(planId);
+                        setError(null);
+                      }}
+                      aria-label={`${t("billing.selectPlanCta")}: ${resolvePlanTitle(backendPlan, t)}`}
+                    />
                     <div className="stack-xs">
                       <div className="flex items-center justify-between gap-2">
                         <h3 className="m-0">{resolvePlanTitle(backendPlan, t)}</h3>
-                        {isCurrent ? <Badge variant="success">{t("billing.currentPlanBadge")}</Badge> : null}
+                        <div className="flex items-center gap-2">
+                          {isSelected ? <Badge variant="info">{t("billing.selectedPlanBadge")}</Badge> : null}
+                          {isCurrent ? <Badge variant="success">{t("billing.currentPlanBadge")}</Badge> : null}
+                        </div>
                       </div>
                       <p className="muted m-0">{resolvePlanDescription(backendPlan, t)}</p>
                     </div>
                     <p className="muted m-0">{formatPlanPrice(backendPlan, locale, t)}</p>
-                    {isCurrent ? (
-                      <Button
-                        variant="secondary"
-                        loading={action === "portal"}
-                        disabled={portalDisabled}
-                        onClick={() => void handlePortal()}
-                      >
-                        {t("billing.manageSubscription")}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="primary"
-                        loading={action === "checkout" && targetPlanKey === backendPlan.planKey}
-                        disabled={checkoutDisabled}
-                        onClick={() => void handleCheckout(backendPlan.planKey)}
-                      >
-                        {t("billing.checkoutComingSoon")}
-                      </Button>
-                    )}
-                  </div>
+                  </label>
                 );
               }) : null}
+              {billingState === "ready" && hasPlans ? (
+                <Button
+                  variant="primary"
+                  loading={action === "checkout"}
+                  disabled={!selectedPlanId || action === "portal"}
+                  onClick={() => void handleCheckout()}
+                >
+                  {action === "checkout" ? t("billing.redirectingToCheckout") : t("billing.continueToCheckout")}
+                </Button>
+              ) : null}
+              {billingState === "ready" && hasSubscriptionStatus ? (
+                <Button
+                  variant="secondary"
+                  loading={action === "portal"}
+                  disabled={portalDisabled}
+                  onClick={() => void handlePortal()}
+                >
+                  {t("billing.manageSubscription")}
+                </Button>
+              ) : null}
               {error ? <p className="muted m-0">{error}</p> : null}
             </CardContent>
           </Card>

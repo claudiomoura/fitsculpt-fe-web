@@ -1860,6 +1860,11 @@
     "choosePlan": "Choose plan",
     "subscribe": "Subscribe",
     "manageSubscription": "Manage subscription",
+    "continueToCheckout": "Continue to checkout",
+    "redirectingToCheckout": "Redirecting to checkout...",
+    "selectPlanCta": "Select plan",
+    "selectedPlanBadge": "Selected",
+    "selectPlanError": "Please select a plan to continue.",
     "redirecting": "Redirecting...",
     "opening": "Opening...",
     "planLabels": {
