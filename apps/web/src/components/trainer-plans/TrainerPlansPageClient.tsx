@@ -335,7 +335,7 @@ export default function TrainerPlansPageClient() {
       notify({
         title: t("trainer.plans.actions.delete"),
         description: isKnownDeleteError ? t("trainer.plans.actions.deleteDenied") : t("trainer.plans.deleteError"),
-        variant: "danger",
+        variant: "error",
       });
       return;
     }
@@ -520,9 +520,9 @@ export default function TrainerPlansPageClient() {
 function PlansSkeleton() {
   return (
     <div className="form-stack">
-      <Skeleton height={20} />
-      <Skeleton height={20} />
-      <Skeleton height={20} />
+      <Skeleton variant="line" style={{ width: "100%" }} />
+      <Skeleton variant="line" style={{ width: "100%" }} />
+      <Skeleton variant="line" style={{ width: "100%" }} />
     </div>
   );
 }

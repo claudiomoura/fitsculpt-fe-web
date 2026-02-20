@@ -70,7 +70,7 @@ export async function getBillingPlans(): Promise<BillingPlansResult> {
       status: response.status,
       errorCode,
       warnings,
-      body: payload,
+      body: payload ?? { plans: [] },
     };
   }
 
@@ -96,14 +96,14 @@ export async function getBillingPlans(): Promise<BillingPlansResult> {
     };
   }
 
-  const plans = Array.isArray(payload) ? payload : payload.plans;
+  const plans = Array.isArray(payload) ? payload : payload?.plans;
 
   return {
     ok: true,
     status: response.status,
     plans: Array.isArray(plans) ? plans : [],
     warnings,
-    body: payload,
+    body: payload ?? { plans: [] },
   };
 }
 

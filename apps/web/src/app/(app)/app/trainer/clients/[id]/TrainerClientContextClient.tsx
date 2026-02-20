@@ -90,7 +90,7 @@ export default function TrainerClientContextClient() {
 
   const [client, setClient] = useState<TrainerClientDetail | null>(null);
   const [notes, setNotes] = useState<TrainerNote[]>([]);
-  const [notesCapability, setNotesCapability] = useState<NotesCapability>("checking");
+  const [notesCapability, setNotesCapability] = useState<NotesCapability>(trainerClientServiceCapabilities.canManageNotes ? "checking" : "unsupported");
   const [notesNotSupported, setNotesNotSupported] = useState(false);
   const [noteInput, setNoteInput] = useState("");
   const [notesLoading, setNotesLoading] = useState(false);
@@ -103,7 +103,7 @@ export default function TrainerClientContextClient() {
   }, []);
 
   const loadNotes = useCallback(async () => {
-    if (!clientId || notesNotSupported) return;
+    if (!clientId || notesNotSupported || !trainerClientServiceCapabilities.canManageNotes) return;
 
     setNotesLoading(true);
     setNoteFeedback(null);
@@ -198,9 +198,11 @@ export default function TrainerClientContextClient() {
         setClient(detailResult.data);
         setClientState("ready");
         setNotesNotSupported(false);
-        setNotesCapability("checking");
+        setNotesCapability(trainerClientServiceCapabilities.canManageNotes ? "checking" : "unsupported");
         setNotes([]);
-        await loadNotes();
+        if (trainerClientServiceCapabilities.canManageNotes) {
+          await loadNotes();
+        }
       } catch {
         if (!active) return;
         setPermissionState("error");

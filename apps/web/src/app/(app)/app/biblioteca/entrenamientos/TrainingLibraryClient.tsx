@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { getRoleFlags } from "@/lib/roles";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -15,9 +16,7 @@ type TrainingPlanResponse = {
   items?: TrainingPlanListItem[];
 };
 
-type UserRoleResponse = {
-  role?: "ADMIN" | "USER";
-};
+type UserRoleResponse = Record<string, unknown>;
 
 type ActiveTrainingPlanResponse = {
   source?: "assigned" | "own";
@@ -43,6 +42,7 @@ export default function TrainingLibraryClient() {
   const [assignedPlan, setAssignedPlan] = useState<TrainingPlanListItem | null>(null);
   const [assignedPlanState, setAssignedPlanState] = useState<SectionState>("loading");
   const [aiGateState, setAiGateState] = useState<AiGateState>("loading");
+  const [canLoadGymPlans, setCanLoadGymPlans] = useState(false);
   const [storedPlanId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem(ACTIVE_PLAN_STORAGE_KEY)?.trim() ?? ""));
 
   const queryPlanId = searchParams.get("planId")?.trim() ?? "";
@@ -68,9 +68,12 @@ export default function TrainingLibraryClient() {
         const response = await fetch("/api/auth/me", { cache: "no-store", signal: controller.signal });
         if (!response.ok) {
           setAiGateState("unavailable");
+          setCanLoadGymPlans(false);
           return;
         }
         const data = (await response.json()) as UserRoleResponse & AiEntitlementProfile;
+        const roles = getRoleFlags(data);
+        setCanLoadGymPlans(roles.isAdmin || roles.isTrainer);
         setAiGateState(hasAiEntitlement(data) ? "eligible" : "locked");
       } catch {
         setAiGateState("unavailable");
@@ -139,31 +142,36 @@ export default function TrainingLibraryClient() {
         setFitSculptState("error");
       }
 
-      try {
-        const gymResponse = await fetch(`/api/trainer/plans?${params.toString()}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (!gymResponse.ok) {
-          setGymPlans([]);
-          setGymState((gymResponse.status === 401 || gymResponse.status === 403 || gymResponse.status === 404 || gymResponse.status === 405) ? "unavailable" : "error");
-          return;
-        }
-
-        const data = (await gymResponse.json()) as TrainingPlanResponse;
-        setGymPlans(data.items ?? []);
-        setGymState("ready");
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+      if (!canLoadGymPlans) {
         setGymPlans([]);
         setGymState("unavailable");
+      } else {
+        try {
+          const gymResponse = await fetch(`/api/trainer/plans?${params.toString()}`, {
+            cache: "no-store",
+            signal: controller.signal,
+          });
+
+          if (!gymResponse.ok) {
+            setGymPlans([]);
+            setGymState((gymResponse.status === 401 || gymResponse.status === 403 || gymResponse.status === 404 || gymResponse.status === 405) ? "unavailable" : "error");
+            return;
+          }
+
+          const data = (await gymResponse.json()) as TrainingPlanResponse;
+          setGymPlans(data.items ?? []);
+          setGymState("ready");
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setGymPlans([]);
+          setGymState("unavailable");
+        }
       }
     };
 
     void Promise.all([loadPlans(), loadAssignedPlan()]);
     return () => controller.abort();
-  }, [query]);
+  }, [canLoadGymPlans, query]);
 
   const noPlansAvailable = useMemo(
     () => fitSculptState === "ready" && gymState === "ready" && assignedPlanState === "ready" && fitSculptPlans.length === 0 && gymPlans.length === 0 && !assignedPlan,
