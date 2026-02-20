@@ -2540,6 +2540,10 @@
         "title": "Algunas secciones del dashboard no están disponibles temporalmente.",
         "description": "Vuelve a intentarlo en un momento mientras se recuperan las conexiones de datos."
       }
+    },
+    "client": {
+      "notesNotAvailable": "Notas no disponibles en este entorno.",
+      "planAssignmentNotSupported": "Asignación de plan no soportada en este entorno."
     }
   },
   "gym": {
