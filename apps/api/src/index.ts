@@ -3863,6 +3863,13 @@ app.get("/auth/verify-email", async (request, reply) => {
 });
 
 app.post("/billing/checkout", async (request, reply) => {
+  /**
+   * Billing checkout contract:
+   * - Auth required.
+   * - Body must include exactly one selector: { priceId } or { planKey }.
+   * - Success: 200 { url: string }.
+   * - Errors: 400/401/500 with { error: string }.
+   */
   try {
     const user = await requireUser(request);
     const checkoutSchema = z
@@ -3870,17 +3877,30 @@ app.post("/billing/checkout", async (request, reply) => {
         priceId: z.string().min(1).optional(),
         planKey: z.string().min(1).optional(),
       })
-      .refine((payload) => Boolean(payload.priceId || payload.planKey), {
-        message: "priceId_or_planKey_required",
+      .superRefine((payload, context) => {
+        const hasPriceId = Boolean(payload.priceId);
+        const hasPlanKey = Boolean(payload.planKey);
+        if (!hasPriceId && !hasPlanKey) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "priceId_or_planKey_required",
+          });
+        }
+        if (hasPriceId && hasPlanKey) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "priceId_or_planKey_exclusive",
+          });
+        }
       });
     const payload = checkoutSchema.parse(request.body);
     const resolvedPriceId = payload.priceId ?? resolvePriceIdByPlanKey(payload.planKey ?? "");
     if (!resolvedPriceId) {
-      return reply.status(400).send({ error: "INVALID_PLAN_TARGET" });
+      return reply.status(400).send({ error: "INVALID_INPUT" });
     }
     const targetPlan = resolvePlanByPriceId(resolvedPriceId);
     if (!targetPlan) {
-      return reply.status(400).send({ error: "INVALID_PRICE_ID" });
+      return reply.status(400).send({ error: "INVALID_INPUT" });
     }
 
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
@@ -3928,21 +3948,31 @@ app.post("/billing/checkout", async (request, reply) => {
     if (!session.url) {
       throw createHttpError(502, "STRIPE_CHECKOUT_URL_MISSING");
     }
-    return { url: session.url };
+    return reply.status(200).send({ url: session.url });
 
   } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT" });
+    }
+
+    const typed = err as { statusCode?: number; code?: string; message?: string };
+    if (typed.statusCode === 401) {
+      return reply.status(401).send({ error: typed.code ?? "UNAUTHORIZED" });
+    }
+
+    if (typed.statusCode === 400) {
+      return reply.status(400).send({ error: typed.code ?? "INVALID_INPUT" });
+    }
+
     request.log.error(
       {
-        message: err?.message,
-        code: err?.code,
-        statusCode: err?.statusCode,
-        debug: err?.debug,
-        stripeStatus: err?.debug?.status,
-        stripeBody: err?.debug?.body,
+        message: typed.message,
+        code: typed.code,
+        statusCode: typed.statusCode,
       },
       "billing checkout failed"
     );
-    return handleRequestError(reply, err);
+    return reply.status(500).send({ error: "CHECKOUT_SESSION_FAILED" });
   }
 });
 
