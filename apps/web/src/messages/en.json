@@ -2069,10 +2069,16 @@
         "ready": "Section loaded successfully."
       },
       "summary": {
-        "title": "Summary",
+        "title": "Client summary",
         "clientNamePrefix": "Client:",
         "emailPrefix": "Email:",
-        "accountStatusPrefix": "Account status:"
+        "accountStatusPrefix": "Account status:",
+        "nameLabel": "Name",
+        "emailLabel": "Email",
+        "emailEmpty": "Email not available",
+        "statusLabel": "Status",
+        "lastActivityLabel": "Last activity",
+        "lastActivityEmpty": "No recent activity recorded"
       },
       "training": {
         "title": "Training",
@@ -2124,7 +2130,8 @@
           "removeClientConfirmCta": "Yes, remove client",
           "removeSuccess": "{member} was removed from your trainer list.",
           "removeError": "We could not remove this client. Please retry."
-        }
+        },
+        "empty": "No plan information is available for this client in this environment."
       },
       "nutrition": {
         "title": "Nutrition"
@@ -2170,11 +2177,24 @@
         "submit": "Create note",
         "submitting": "Saving note...",
         "submitSuccess": "Note saved successfully.",
-        "submitError": "We could not save this note. Please retry."
+        "submitError": "We could not save this note. Please retry.",
+        "notAvailableInEnvironment": "Not available in this environment"
       },
       "nextReviewDate": "Next review",
       "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
-      "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment."
+      "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment.",
+      "tabs": {
+        "ariaLabel": "Client sections",
+        "summary": "Summary",
+        "progress": "Progress",
+        "plan": "Plan",
+        "notes": "Notes"
+      },
+      "progress": {
+        "title": "Progress",
+        "empty": "No progress metrics are available with the current data.",
+        "lastLoginAt": "Last login"
+      }
     },
     "planBuilder": {
       "title": "Plan builder",

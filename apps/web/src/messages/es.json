@@ -2072,10 +2072,16 @@
         "ready": "Sección cargada correctamente."
       },
       "summary": {
-        "title": "Resumen",
+        "title": "Resumen del cliente",
         "clientNamePrefix": "Cliente:",
         "emailPrefix": "Email:",
-        "accountStatusPrefix": "Estado de cuenta:"
+        "accountStatusPrefix": "Estado de cuenta:",
+        "nameLabel": "Nombre",
+        "emailLabel": "Correo",
+        "emailEmpty": "Correo no disponible",
+        "statusLabel": "Estado",
+        "lastActivityLabel": "Última actividad",
+        "lastActivityEmpty": "Sin actividad reciente registrada"
       },
       "training": {
         "title": "Entreno",
@@ -2127,7 +2133,8 @@
           "removeClientConfirmCta": "Sí, quitar cliente",
           "removeSuccess": "{member} fue eliminado de tu lista de entrenador.",
           "removeError": "No pudimos eliminar este cliente. Inténtalo de nuevo."
-        }
+        },
+        "empty": "No hay información de plan disponible para este cliente en este entorno."
       },
       "nutrition": {
         "title": "Nutrición"
@@ -2175,9 +2182,22 @@
         "submit": "Crear nota",
         "submitting": "Guardando nota...",
         "submitSuccess": "Nota guardada correctamente.",
-        "submitError": "No pudimos guardar esta nota. Inténtalo de nuevo."
+        "submitError": "No pudimos guardar esta nota. Inténtalo de nuevo.",
+        "notAvailableInEnvironment": "No disponible en este entorno"
       },
-      "nextReviewDate": "Próxima revisión"
+      "nextReviewDate": "Próxima revisión",
+      "tabs": {
+        "ariaLabel": "Secciones del cliente",
+        "summary": "Resumen",
+        "progress": "Progreso",
+        "plan": "Plan",
+        "notes": "Notas"
+      },
+      "progress": {
+        "title": "Progreso",
+        "empty": "No hay métricas de progreso disponibles con los datos actuales.",
+        "lastLoginAt": "Último inicio de sesión"
+      }
     },
     "planBuilder": {
       "title": "Constructor de planes",
