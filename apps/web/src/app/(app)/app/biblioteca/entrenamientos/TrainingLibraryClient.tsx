@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useLanguage } from "@/context/LanguageProvider";
-import type { TrainingPlanListItem } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -11,9 +10,11 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
+import { useLanguage } from "@/context/LanguageProvider";
+import type { TrainingPlanListItem } from "@/lib/types";
 
 type TrainingPlanResponse = {
-  items: TrainingPlanListItem[];
+  items?: TrainingPlanListItem[];
 };
 
 type ActiveTrainingPlanResponse = {
@@ -31,6 +32,8 @@ type PlanCapabilities = {
   singleActive: boolean;
 };
 
+type SectionState = "loading" | "ready" | "error" | "unavailable";
+
 const initialCapabilities: PlanCapabilities = {
   activate: false,
   deactivate: false,
@@ -46,8 +49,10 @@ export default function TrainingLibraryClient() {
   const { t } = useLanguage();
   const { notify } = useToast();
   const [query, setQuery] = useState("");
-  const [plans, setPlans] = useState<TrainingPlanListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fitSculptPlans, setFitSculptPlans] = useState<TrainingPlanListItem[]>([]);
+  const [gymPlans, setGymPlans] = useState<TrainingPlanListItem[]>([]);
+  const [fitSculptState, setFitSculptState] = useState<SectionState>("loading");
+  const [gymState, setGymState] = useState<SectionState>("loading");
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -58,6 +63,12 @@ export default function TrainingLibraryClient() {
   const [activateTarget, setActivateTarget] = useState<TrainingPlanListItem | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<TrainingPlanListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TrainingPlanListItem | null>(null);
+  const [aiEligible, setAiEligible] = useState(false);
+
+  const allPlans = useMemo(
+    () => [...fitSculptPlans, ...gymPlans],
+    [fitSculptPlans, gymPlans],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,8 +76,9 @@ export default function TrainingLibraryClient() {
       try {
         const response = await fetch("/api/auth/me", { cache: "no-store", signal: controller.signal });
         if (!response.ok) return;
-        const data = (await response.json()) as UserRoleResponse;
+        const data = (await response.json()) as UserRoleResponse & AiEntitlementProfile;
         setIsAdmin(data.role === "ADMIN");
+        setAiEligible(hasAiEntitlement(data));
       } catch {
       }
     };
@@ -77,30 +89,56 @@ export default function TrainingLibraryClient() {
   useEffect(() => {
     const controller = new AbortController();
     const loadPlans = async () => {
+      setError(null);
+      setFitSculptState("loading");
+      setGymState("loading");
       try {
-        setLoading(true);
-        setError(null);
         const params = new URLSearchParams();
         if (query.trim()) params.set("query", query.trim());
         params.set("limit", "100");
-        const response = await fetch(`/api/training-plans?${params.toString()}`, {
+
+        const fitSculptResponse = await fetch(`/api/training-plans?${params.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
         });
-        if (!response.ok) {
+
+        if (!fitSculptResponse.ok) {
           setError(t("trainingPlans.loadErrorList"));
-          setPlans([]);
-          setLoading(false);
-          return;
+          setFitSculptPlans([]);
+          setFitSculptState("error");
+        } else {
+          const data = (await fitSculptResponse.json()) as TrainingPlanResponse;
+          setFitSculptPlans(data.items ?? []);
+          setFitSculptState("ready");
         }
-        const data = (await response.json()) as TrainingPlanResponse;
-        setPlans(data.items ?? []);
-        setLoading(false);
+
+        try {
+          const gymResponse = await fetch(`/api/trainer/plans?${params.toString()}`, {
+            cache: "no-store",
+            signal: controller.signal,
+          });
+
+          if (!gymResponse.ok) {
+            setGymPlans([]);
+            setGymState((gymResponse.status === 403 || gymResponse.status === 404 || gymResponse.status === 405) ? "unavailable" : "error");
+            return;
+          }
+
+          const gymData = (await gymResponse.json()) as TrainingPlanResponse;
+          setGymPlans(gymData.items ?? []);
+          setGymState("ready");
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          setGymPlans([]);
+          setGymState("unavailable");
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(t("trainingPlans.loadErrorList"));
-        setPlans([]);
-        setLoading(false);
+        setFitSculptPlans([]);
+        setGymPlans([]);
+        setFitSculptState("error");
+        setGymState("unavailable");
       }
     };
 
@@ -154,7 +192,7 @@ export default function TrainingLibraryClient() {
       }
 
       let canDelete = false;
-      const sampleId = plans[0]?.id;
+      const sampleId = allPlans[0]?.id;
       if (sampleId) {
         try {
           const detailOptions = await fetch(`/api/training-plans/${sampleId}`, {
@@ -181,7 +219,7 @@ export default function TrainingLibraryClient() {
 
     void loadCapabilitiesAndActive();
     return () => controller.abort();
-  }, [plans, retryKey]);
+  }, [allPlans, retryKey]);
 
   const goalLabel = (goal: string) =>
     goal === "cut" ? t("training.goalCut") : goal === "bulk" ? t("training.goalBulk") : t("training.goalMaintain");
@@ -197,7 +235,6 @@ export default function TrainingLibraryClient() {
       : focus === "upperLower"
         ? t("training.focusUpperLower")
         : t("training.focusFullBody");
-
 
   const activatePlan = async (planId: string) => {
     if (!capabilities.activate || processingPlanId) return;
@@ -274,7 +311,8 @@ export default function TrainingLibraryClient() {
         return;
       }
 
-      setPlans((prev) => prev.filter((plan) => plan.id !== deleteTarget.id));
+      setFitSculptPlans((prev) => prev.filter((plan) => plan.id !== deleteTarget.id));
+      setGymPlans((prev) => prev.filter((plan) => plan.id !== deleteTarget.id));
       if (activePlanId === deleteTarget.id) {
         setActivePlanId(null);
       }
@@ -288,69 +326,32 @@ export default function TrainingLibraryClient() {
     }
   };
 
-  return (
+  const renderPlansSection = (titleKey: string, plans: TrainingPlanListItem[], state: SectionState) => (
     <section className="card">
-      <div className="library-search">
-        <Input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={t("trainingPlans.searchPlaceholder")}
-          label={t("trainingPlans.searchLabel")}
-          helperText={t("trainingPlans.searchHelper")}
-        />
-        <div className="library-filter-actions">
-          <Badge variant="muted">{t("trainingPlans.filtersActive")}</Badge>
-          {query.trim().length > 0 ? <Badge>{t("trainingPlans.filterQueryLabel")} {query.trim()}</Badge> : null}
-        </div>
-      </div>
-
-      {!capabilities.singleActive ? <p className="muted mt-8">{t("trainingPlans.singleActiveNotAvailable")}</p> : null}
-
-      {loading ? (
+      <h2 className="section-title section-title-sm">{t(titleKey)}</h2>
+      {state === "loading" ? (
         <div className="list-grid mt-16">
-          {Array.from({ length: 6 }).map((_, idx) => (
-            <SkeletonCard key={idx} />
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <SkeletonCard key={`${titleKey}-s-${idx}`} />
           ))}
         </div>
-      ) : error ? (
+      ) : state === "error" ? (
         <div className="empty-state mt-16">
-          <div className="empty-state-icon">
-            <Icon name="warning" />
-          </div>
-          <div>
-            <h3 className="m-0">{t("trainingPlans.errorTitle")}</h3>
-            <p className="muted">{error}</p>
-          </div>
-          <Button variant="secondary" onClick={() => setRetryKey((prev) => prev + 1)}>
-            {t("ui.retry")}
-          </Button>
+          <p className="muted">{t("trainingPlans.sectionError")}</p>
+        </div>
+      ) : state === "unavailable" ? (
+        <div className="empty-state mt-16">
+          <p className="muted">{t("trainingPlans.sectionNotAvailable")}</p>
         </div>
       ) : plans.length === 0 ? (
         <div className="empty-state mt-16">
-          <div className="empty-state-icon">
-            <Icon name="info" />
-          </div>
-          <div>
-            <h3 className="m-0">{t("trainingPlans.emptyTitle")}</h3>
-            <p className="muted">{t("trainingPlans.empty")}</p>
-          </div>
-          <div className="empty-state-actions">
-            {isAdmin ? (
-              <Link className="btn secondary" href="/app/entrenamiento">
-                {t("trainingPlans.emptyAdminCta")}
-              </Link>
-            ) : null}
-            <Button onClick={() => setRetryKey((prev) => prev + 1)}>
-              {t("trainingPlans.retrySearch")}
-            </Button>
-          </div>
+          <p className="muted">{t("trainingPlans.sectionEmpty")}</p>
         </div>
       ) : (
         <div className="list-grid mt-16">
           {plans.map((plan) => {
             const isActive = activePlanId === plan.id;
             const isProcessing = processingPlanId === plan.id;
-
             return (
               <article key={plan.id} className="feature-card library-card">
                 <h3>{plan.title}</h3>
@@ -358,9 +359,7 @@ export default function TrainingLibraryClient() {
                 <div className="badge-list">
                   <span className="badge">{goalLabel(plan.goal)}</span>
                   <span className="badge">{levelLabel(plan.level)}</span>
-                  <span className="badge">
-                    {t("training.daysPerWeek")}: {plan.daysPerWeek}
-                  </span>
+                  <span className="badge">{t("training.daysPerWeek")}: {plan.daysPerWeek}</span>
                   <span className="badge">{focusLabel(plan.focus)}</span>
                   {isActive ? <Badge variant="success">{t("trainingPlans.activeBadge")}</Badge> : null}
                 </div>
@@ -371,9 +370,8 @@ export default function TrainingLibraryClient() {
                   <Button
                     onClick={() => setActivateTarget(plan)}
                     disabled={isActive || Boolean(processingPlanId) || !capabilities.activate}
-                    aria-label={isActive ? t("trainingPlans.activeBadge") : t("trainingPlans.activateCta")}
                   >
-                    {isProcessing ? t("trainingPlans.activating") : t("trainingPlans.activateCta")}
+                    {isProcessing ? t("trainingPlans.activating") : t("trainingPlans.selectPlanCta")}
                   </Button>
                   <Button
                     variant="secondary"
@@ -390,15 +388,82 @@ export default function TrainingLibraryClient() {
                     {t("trainingPlans.deleteCta")}
                   </Button>
                 </div>
+                {!capabilities.activate ? <p className="muted mt-8">{t("trainingPlans.selectNotSupported")}</p> : null}
               </article>
             );
           })}
-          {actionError ? <p className="muted" style={{ marginTop: 8 }}>{actionError}</p> : null}
-          {(!capabilities.activate || !capabilities.deactivate || !capabilities.delete) ? (
-            <p className="muted" style={{ marginTop: 8 }}>{t("trainingPlans.actionsNotAvailable")}</p>
-          ) : null}
         </div>
       )}
+    </section>
+  );
+
+  return (
+    <>
+      <section className="card">
+        <div className="library-search">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("trainingPlans.searchPlaceholder")}
+            label={t("trainingPlans.searchLabel")}
+            helperText={t("trainingPlans.searchHelper")}
+          />
+          <div className="library-filter-actions">
+            <Badge variant="muted">{t("trainingPlans.filtersActive")}</Badge>
+            {query.trim().length > 0 ? <Badge>{t("trainingPlans.filterQueryLabel")} {query.trim()}</Badge> : null}
+          </div>
+        </div>
+        {!capabilities.singleActive ? <p className="muted mt-8">{t("trainingPlans.singleActiveNotAvailable")}</p> : null}
+        {error ? <p className="muted mt-8">{error}</p> : null}
+        {actionError ? <p className="muted mt-8">{actionError}</p> : null}
+      </section>
+
+      {renderPlansSection("trainingPlans.sections.fitSculpt", fitSculptPlans, fitSculptState)}
+      {renderPlansSection("trainingPlans.sections.gym", gymPlans, gymState)}
+
+      <section className="card">
+        <h2 className="section-title section-title-sm">{t("trainingPlans.sections.ai")}</h2>
+        {!aiEligible ? (
+          <div className="feature-card mt-16" role="status">
+            <strong>{t("trainingPlans.aiLockedTitle")}</strong>
+            <p className="muted mt-6">{t("trainingPlans.aiLockedDescription")}</p>
+          </div>
+        ) : (
+          <div className="feature-card mt-16">
+            <strong>{t("trainingPlans.aiReadyTitle")}</strong>
+            <p className="muted mt-6">{t("trainingPlans.aiReadyDescription")}</p>
+            <div className="mt-12">
+              <Link href="/app/entrenamiento?ai=1" className="btn">
+                {t("trainingPlans.aiCta")}
+              </Link>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {fitSculptPlans.length === 0 && gymPlans.length === 0 && !aiEligible ? (
+        <section className="card">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <Icon name="info" />
+            </div>
+            <div>
+              <h3 className="m-0">{t("trainingPlans.emptyTitle")}</h3>
+              <p className="muted">{t("trainingPlans.empty")}</p>
+            </div>
+            <div className="empty-state-actions">
+              {isAdmin ? (
+                <Link className="btn secondary" href="/app/entrenamiento">
+                  {t("trainingPlans.emptyAdminCta")}
+                </Link>
+              ) : null}
+              <Button onClick={() => setRetryKey((prev) => prev + 1)}>
+                {t("trainingPlans.retrySearch")}
+              </Button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <Modal
         open={Boolean(activateTarget)}
@@ -408,9 +473,7 @@ export default function TrainingLibraryClient() {
       >
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Button variant="secondary" onClick={() => setActivateTarget(null)}>{t("ui.cancel")}</Button>
-          <Button onClick={() => void activatePlan(activateTarget?.id ?? "")}>
-            {t("trainingPlans.activateCta")}
-          </Button>
+          <Button onClick={() => void activatePlan(activateTarget?.id ?? "")}>{t("trainingPlans.selectPlanCta")}</Button>
         </div>
       </Modal>
 
@@ -437,6 +500,6 @@ export default function TrainingLibraryClient() {
           <Button variant="danger" onClick={() => void deletePlan()}>{t("trainingPlans.deleteCta")}</Button>
         </div>
       </Modal>
-    </section>
+    </>
   );
 }

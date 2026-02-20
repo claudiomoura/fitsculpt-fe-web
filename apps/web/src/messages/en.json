@@ -803,6 +803,9 @@
     "dayNext": "Next day",
     "emptyTitle": "You don't have a plan yet",
     "emptySubtitle": "Generate a plan with AI or create one manually.",
+    "noSelectedPlanTitle": "You don't have any plan selected",
+    "noSelectedPlanSubtitle": "Select a plan to view your training calendar.",
+    "selectPlanCta": "Select a plan",
     "manualCreate": "Create manually",
     "manualPlanTitle": "Manual weekly plan",
     "manualPlanSubtitle": "Edit meals and ingredients for each day, then save.",
@@ -1729,7 +1732,22 @@
     "deleteConfirmDescription": "This action cannot be undone.",
     "actionsNotAvailable": "Some actions are not available in this environment.",
     "singleActiveNotAvailable": "Single active plan enforcement is not available in this environment.",
-    "viewDetail": "View detail"
+    "viewDetail": "View detail",
+    "selectPlanCta": "Select plan",
+    "selectNotSupported": "Plan selection is not available in this environment yet.",
+    "sectionEmpty": "No plans available in this section.",
+    "sectionNotAvailable": "This section is not available with current data.",
+    "sectionError": "We couldn't load this section.",
+    "sections": {
+      "fitSculpt": "FitSculpt Plans",
+      "gym": "Gym Plans",
+      "ai": "AI Plans"
+    },
+    "aiLockedTitle": "AI plans are locked",
+    "aiLockedDescription": "Upgrade your plan to unlock AI training plans.",
+    "aiReadyTitle": "AI plans available",
+    "aiReadyDescription": "Generate a personalized plan using AI.",
+    "aiCta": "Generate AI plan"
   },
   "workoutDetail": {
     "notFound": "This workout was not found.",
