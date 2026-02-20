@@ -279,11 +279,11 @@
     "heroPreviewStats": [
       {
         "label": "Training",
-        "value": "Push \u00b7 45 min"
+        "value": "Push · 45 min"
       },
       {
         "label": "Nutrition",
-        "value": "2,050 kcal \u00b7 135g protein"
+        "value": "2,050 kcal · 135g protein"
       },
       {
         "label": "Streak",
@@ -369,7 +369,7 @@
         "title": "FREE",
         "badge": "Starter",
         "description": "Essentials to get started with clarity.",
-        "price": "0 \u20ac",
+        "price": "0 €",
         "features": [
           "Basic weekly plan",
           "Standard library",
@@ -383,7 +383,7 @@
         "title": "PRO",
         "badge": "Recommended",
         "description": "AI, fast adjustments, and premium support.",
-        "price": "9,99 \u20ac",
+        "price": "9,99 €",
         "features": [
           "AI-generated plans",
           "Real-time adjustments",
@@ -501,7 +501,7 @@
     "todayTrainingEmpty": "No training scheduled yet.",
     "todayTrainingCta": "View training",
     "restDayTitle": "Rest day",
-    "restDaySubtitle": "Use it for light mobility or a 20\u201330 min walk.",
+    "restDaySubtitle": "Use it for light mobility or a 20–30 min walk.",
     "restDayCta": "View plan",
     "todayCaloriesTitle": "Calories today",
     "todayCaloriesSubtitle": "Consumption vs daily target.",
@@ -547,9 +547,9 @@
     "weightProgressLatestLabel": "Latest entry",
     "weightProgressDeltaLabel": "vs previous 7 days",
     "weightProgressDeltaUnavailable": "Log another week to compare trends.",
-    "weightProgressTrendUp": "\u2191 Up",
-    "weightProgressTrendDown": "\u2193 Down",
-    "weightProgressTrendStable": "\u2192 Stable",
+    "weightProgressTrendUp": "↑ Up",
+    "weightProgressTrendDown": "↓ Down",
+    "weightProgressTrendStable": "→ Stable",
     "weightProgressErrorTitle": "We couldn't load weight progress",
     "progressTitle": "Progress",
     "progressSubtitle": "Weight and body fat over time.",
@@ -742,7 +742,7 @@
     "dislikedFoods": "Foods to avoid",
     "dislikedFoodsPlaceholder": "e.g. seafood, peanuts...",
     "cookingTime": "Time per meal",
-    "cookingTimeOptionQuick": "Quick (\u226415 min)",
+    "cookingTimeOptionQuick": "Quick (≤15 min)",
     "cookingTimeOptionMedium": "Medium (15-30 min)",
     "cookingTimeOptionLong": "Long (30+ min)",
     "generate": "Generate plan",
@@ -1003,7 +1003,7 @@
     "restDayTipThree": "Prioritize hydration and sleep.",
     "weeklyPlanSubtitle": "Explore each day and review exercise details.",
     "weeklyPlanTipOne": "Open each day to see exercises and sets.",
-    "weeklyPlanTipTwo": "Use \u201cView technique\u201d to review execution.",
+    "weeklyPlanTipTwo": "Use “View technique” to review execution.",
     "weeklyPlanTipThree": "Edit the plan if you need adjustments.",
     "exerciseUnavailable": "Details unavailable for this exercise.",
     "manualPlanTitle": "Manual weekly plan",
@@ -1107,7 +1107,15 @@
     "aiPreviewCancel": "Cancel",
     "aiPreviewConfirm": "Confirm and save",
     "aiPreviewConfirming": "Saving plan...",
-    "aiInvalidOutput": "The AI response was invalid. Please retry generation."
+    "aiInvalidOutput": "The AI response was invalid. Please retry generation.",
+    "calendar": {
+      "subtitle": "View workouts for the currently selected training plan.",
+      "noPlanSelected": "No plan selected",
+      "noPlanSelectedDescription": "Select a training plan from the library to see workouts in your calendar.",
+      "goToPlansCta": "Go to training plans",
+      "filteredByPlan": "Showing workouts for the selected plan only.",
+      "changePlan": "Change plan"
+    }
   },
   "profile": {
     "formTitle": "Profile and metrics",
@@ -1285,7 +1293,7 @@
     "dislikedFoods": "Foods to avoid",
     "dislikedFoodsPlaceholder": "e.g. seafood, peanuts...",
     "cookingTime": "Time per meal",
-    "cookingTimeOptionQuick": "Quick (\u226415 min)",
+    "cookingTimeOptionQuick": "Quick (≤15 min)",
     "cookingTimeOptionMedium": "Medium (15-30 min)",
     "cookingTimeOptionLong": "Long (30+ min)",
     "macroFormula": "Formula",
@@ -1305,7 +1313,7 @@
     "save": "Save profile",
     "reset": "Reset profile",
     "savedToast": "Profile saved locally.",
-    "namePlaceholder": "e.g. Laura G\u00f3mez",
+    "namePlaceholder": "e.g. Laura Gómez",
     "passwordTitle": "Change password",
     "passwordSubtitle": "Update your access password.",
     "currentPassword": "Current password",
@@ -1661,7 +1669,26 @@
     "addToPlansNoPlanCta": "Create or choose a plan",
     "addToPlansSubmitError": "We couldn't add this exercise to the selected plans.",
     "addToPlansSuccessTitle": "Exercise added to plans",
-    "addToPlansSuccessDescription": "{exercise} was added to {count} plan(s)."
+    "addToPlansSuccessDescription": "{exercise} was added to {count} plan(s).",
+    "training": {
+      "sections": {
+        "fitsculpt": "FitSculpt plans",
+        "gym": "Gym plans",
+        "ai": "AI plans"
+      },
+      "sectionError": "We could not load this section right now.",
+      "sectionUnavailable": "This section is currently unavailable.",
+      "sectionEmpty": "No plans available in this section yet.",
+      "assignedByTrainer": "Assigned by your trainer",
+      "selected": "Selected",
+      "choose": "Choose plan",
+      "planMeta": "{days} days • {level}",
+      "aiLockedTitle": "AI plans are locked",
+      "aiLockedDescription": "Upgrade your subscription to unlock AI plans.",
+      "aiPlaceholderTitle": "AI plans enabled",
+      "aiPlaceholderDescription": "Generate your next plan with AI when available.",
+      "noAssignedOrAvailable": "You do not have assigned or available plans yet."
+    }
   },
   "recipes": {
     "loading": "Loading recipes...",
@@ -2010,7 +2037,7 @@
     "unauthorized": "Trainer mode is not available for this account.",
     "modeTitle": "Trainer dashboard",
     "notAvailable": "Trainer client list is not available in this environment yet.",
-    "notAvailableInEnvironment": "N\u00e3o dispon\u00edvel neste ambiente",
+    "notAvailableInEnvironment": "Não disponível neste ambiente",
     "viewingAsCoach": "Viewing as coach",
     "backToDashboard": "Back to dashboard",
     "back": "Back",
@@ -2104,7 +2131,7 @@
         "continue": "Continue",
         "backToBasics": "Back",
         "weeksLabel": "Number of weeks",
-        "weekRange": "Week {start}\u2013{end}",
+        "weekRange": "Week {start}–{end}",
         "weekLabel": "W{week}",
         "dayShort": "D{day}",
         "localOnlyHint": "Schedule data is currently stored locally in this flow.",
@@ -2637,10 +2664,10 @@
     "createCodePlaceholder": "EXAMPLE2026",
     "created": "Gym created successfully.",
     "deleted": "Gym deleted successfully.",
-    "loadingAccess": "Checking admin access\u2026",
+    "loadingAccess": "Checking admin access…",
     "errorTitle": "Gym list unavailable",
     "emptyDescription": "Create your first gym to start onboarding members.",
-    "membersLoading": "Loading gym members\u2026",
+    "membersLoading": "Loading gym members…",
     "membersErrorTitle": "Members unavailable",
     "roleUpdatedTrainer": "Member promoted to TRAINER.",
     "roleUpdatedMember": "Member changed to MEMBER."
@@ -2722,7 +2749,7 @@
     "plans": {
       "strength": {
         "title": "Strength IA",
-        "price": "14,99\u20ac",
+        "price": "14,99€",
         "tagline": "Strength, hypertrophy, and automatic progression",
         "cta": "Start Strength",
         "features": {
@@ -2734,7 +2761,7 @@
       },
       "pro": {
         "title": "PRO",
-        "price": "19,99\u20ac",
+        "price": "19,99€",
         "badge": "Most popular",
         "tagline": "Strength + Nutrition in one system",
         "cta": "Choose Pro",
@@ -2747,7 +2774,7 @@
       },
       "nutrition": {
         "title": "Nutrition IA",
-        "price": "14,99\u20ac",
+        "price": "14,99€",
         "tagline": "Macros, recipes, and adherence without overcomplicating",
         "cta": "Start Nutrition",
         "features": {
