@@ -698,11 +698,18 @@ function ExerciseEditor({
   const [draft, setDraft] = useState<DraftExercise | null>(exercise);
   const [step, setStep] = useState<0 | 1 | 2>(0);
 
+
   if (!draft) return null;
 
   return (
-    <Modal open={open} onClose={onClose} title={t("trainer.plans.exerciseEditorTitle")} description={t("trainer.plans.loadWizardUiOnly")}>
-      <div className="form-stack" style={{ maxHeight: "min(78vh, 760px)", display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", overflow: "hidden" }}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t("trainer.plans.exerciseEditorTitle")}
+      description={t("trainer.plans.loadWizardUiOnly")}
+      className="form-stack"
+    >
+      <div className="form-stack" style={{ maxHeight: "min(80vh, 760px)", display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", overflow: "hidden" }}>
         <div className="form-stack" style={{ minHeight: 0, overflowY: "auto", paddingRight: 4 }}>
         <label className="form-stack" style={{ gap: 8 }}>
           <span className="muted">{t("trainer.plans.searchExercises")}</span>
@@ -721,6 +728,7 @@ function ExerciseEditor({
             ))}
           </ul>
         ) : null}
+        {!searchingExercises && !searchError && exercises.length === 0 ? <p className="muted">{t("trainer.plans.searchExercisesEmpty")}</p> : null}
 
         <label className="form-stack" style={{ gap: 8 }}>
           <span className="muted">{t("trainer.plans.customExercise")}</span>
@@ -738,7 +746,7 @@ function ExerciseEditor({
         {step === 2 ? <LoadSetsStep draft={draft} onChange={(sets) => setDraft({ ...draft, sets })} /> : null}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, position: "sticky", bottom: 0, background: "var(--bg-card)", paddingTop: 8 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, position: "sticky", bottom: 0, background: "var(--bg-card)", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
           <Button variant="secondary" onClick={onClose}>{t("ui.cancel")}</Button>
           <Button onClick={() => onSave(draft)} disabled={!draft.name.trim()}>{t("ui.save")}</Button>
         </div>
@@ -782,11 +790,16 @@ function LoadTypeStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
 function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (value: LoadSet[]) => void }) {
   const { t } = useLanguage();
   const setsRef = useRef<HTMLDivElement | null>(null);
+  const previousSetsLengthRef = useRef(draft.sets.length);
 
   useEffect(() => {
+    const previousLength = previousSetsLengthRef.current;
+    previousSetsLengthRef.current = draft.sets.length;
+    if (draft.sets.length <= previousLength) return;
+
     const lastSet = setsRef.current?.lastElementChild;
     if (lastSet instanceof HTMLElement) {
-      lastSet.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      lastSet.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [draft.sets.length]);
 
