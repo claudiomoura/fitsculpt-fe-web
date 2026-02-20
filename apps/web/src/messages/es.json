@@ -2376,6 +2376,20 @@
         "submitError": "No pudimos guardar esta nota. Inténtalo de nuevo.",
         "notAvailableInEnvironment": "No disponible en este entorno"
       },
+      "removeClient": {
+        "title": "Quitar del roster",
+        "description": "Quita a este atleta del roster del gimnasio.",
+        "openConfirm": "Quitar del roster",
+        "modalTitle": "Quitar atleta del roster",
+        "modalDescription": "¿Seguro que quieres quitar a {member} del roster del gimnasio?",
+        "modalWarning": "Esta acción puede afectar el acceso del entrenador y la visibilidad en el roster.",
+        "confirm": "Sí, quitar atleta",
+        "submitting": "Quitando...",
+        "submitSuccess": "{member} fue quitado del roster.",
+        "submitError": "No pudimos quitar a este atleta. Inténtalo nuevamente.",
+        "unsupported": "Quitar atletas no está soportado en este entorno.",
+        "unsupported403": "No tienes permiso para quitar atletas de este roster."
+      },
       "nextReviewDate": "Próxima revisión",
       "tabs": {
         "ariaLabel": "Secciones del cliente",

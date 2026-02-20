@@ -15,9 +15,11 @@ import {
 import { useLanguage } from "@/context/LanguageProvider";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
+import { useToast } from "@/components/ui/Toast";
 import { fetchMyGymMembership } from "@/services/gym";
 import {
   getTrainerClientDetail,
+  removeTrainerClientRelationship,
   trainerClientServiceCapabilities,
   type TrainerClientDetail,
 } from "@/services/trainer/clients";
@@ -72,6 +74,7 @@ export default function TrainerClientContextClient() {
   const { t } = useLanguage();
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { notify } = useToast();
   const clientId = params.id;
 
   const [permissionState, setPermissionState] = useState<LoadState>("loading");
@@ -82,7 +85,8 @@ export default function TrainerClientContextClient() {
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const [removingClient, setRemovingClient] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  const removeClientSupported = trainerClientServiceCapabilities.canRemoveClient;
+  const [removeActionDisabled, setRemoveActionDisabled] = useState(false);
+  const removeClientSupported = trainerClientServiceCapabilities.canRemoveClient && !removeActionDisabled;
 
   const [client, setClient] = useState<TrainerClientDetail | null>(null);
   const [notes, setNotes] = useState<TrainerNote[]>([]);
@@ -270,34 +274,41 @@ export default function TrainerClientContextClient() {
     setRemovingClient(true);
     setRemoveError(null);
 
-    try {
-      const response = await fetch(`/api/trainer/clients/${client.id}`, {
-        method: "DELETE",
-        cache: "no-store",
-        credentials: "include",
-      });
+    const result = await removeTrainerClientRelationship(client.id);
+    setRemovingClient(false);
 
-      if (response.status === 403) {
-        setRemoveError(t("trainer.clientContext.forbiddenHint"));
-        setRemovingClient(false);
+    if (!result.ok) {
+      if (result.status === 403) {
+        setRemoveActionDisabled(true);
+        const message = t("trainer.clientContext.removeClient.unsupported403");
+        setRemoveError(message);
+        notify({ title: t("common.error"), description: message, variant: "error" });
         return;
       }
 
-      if (!response.ok) {
-        setRemoveError(t("trainer.clientContext.removeClient.submitError"));
-        setRemovingClient(false);
+      if (result.status === 404 || result.status === 405 || result.reason === "notSupported") {
+        setRemoveActionDisabled(true);
+        const message = t("trainer.clientContext.removeClient.unsupported");
+        setRemoveError(message);
+        notify({ title: t("common.error"), description: message, variant: "error" });
         return;
       }
 
-      setRemovingClient(false);
-      setRemoveModalOpen(false);
-      router.push("/app/trainer/clients");
-      router.refresh();
-    } catch {
-      setRemoveError(t("trainer.clientContext.removeClient.submitError"));
-      setRemovingClient(false);
+      const message = result.message ?? t("trainer.clientContext.removeClient.submitError");
+      setRemoveError(message);
+      notify({ title: t("common.error"), description: message, variant: "error" });
+      return;
     }
-  }, [canAccessTrainer, client, router, t]);
+
+    notify({
+      title: t("common.success"),
+      description: t("trainer.clientContext.removeClient.submitSuccess").replace("{member}", clientName),
+      variant: "success",
+    });
+    setRemoveModalOpen(false);
+    router.push("/app/trainer/clients");
+    router.refresh();
+  }, [canAccessTrainer, client, clientName, notify, router, t]);
 
   const onCreateNote = useCallback(async () => {
     const content = noteInput.trim();
