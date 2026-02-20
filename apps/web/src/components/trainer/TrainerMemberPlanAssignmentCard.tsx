@@ -75,9 +75,10 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   );
 
   const loadAssignmentData = useCallback(async () => {
+    const assignmentEndpoint = `/api/trainer/clients/${memberId}/assigned-plan`;
     const [plansRes, assignmentRes] = await Promise.all([
       fetch("/api/training-plans", { cache: "no-store", credentials: "include" }),
-      fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+      fetch(assignmentEndpoint, {
         cache: "no-store",
         credentials: "include",
       }),
@@ -88,7 +89,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       throw new Error("ASSIGNMENT_FORBIDDEN");
     }
 
-    if (assignmentRes.status === 404 || assignmentRes.status === 405) {
+    if (assignmentRes.status === 405) {
       setCapabilityState("unsupported");
       return;
     }
@@ -144,18 +145,29 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     setSuccess(null);
 
     try {
-      const response = await fetch("/api/trainer/assign-training-plan", {
+      const response = await fetch(`/api/trainer/clients/${memberId}/assigned-plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         cache: "no-store",
-        body: JSON.stringify({ clientId: memberId, sourceTrainingPlanId: selectedPlanId }),
+        body: JSON.stringify({ trainingPlanId: selectedPlanId }),
       });
 
-      setSubmitting(false);
-
       if (response.status === 403) {
+        notify({
+          title: t("trainer.clientContext.training.assignment.forbidden"),
+          variant: "error",
+        });
         setSubmitError(t("trainer.clientContext.training.assignment.forbidden"));
+        return;
+      }
+
+      if (response.status === 404) {
+        notify({
+          title: t("trainer.clientContext.training.assignment.submitError"),
+          variant: "error",
+        });
+        setSubmitError(t("trainer.clientContext.training.assignment.submitError"));
         return;
       }
 
@@ -164,7 +176,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
         return;
       }
 
-      setAssignedPlan({ id: selectedPlanId, title: selectedPlanTitle || t("trainer.clientContext.training.assignment.unknownPlan") });
+      await loadAssignmentData();
       setSuccess(
         t("trainer.clientContext.training.assignment.success")
           .replace("{member}", memberName)
@@ -173,8 +185,9 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       setPlanPickerOpen(false);
       setSelectedPlanId("");
     } catch {
-      setSubmitting(false);
       setSubmitError(t("trainer.clientContext.training.assignment.submitError"));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -194,17 +207,26 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     setIsUnassigning(true);
 
     try {
-      const response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+      const response = await fetch(`/api/trainer/clients/${memberId}/assigned-plan`, {
         method: "DELETE",
         credentials: "include",
         cache: "no-store",
       });
 
-      if (response.status === 404 || response.status === 405 || response.status === 401 || response.status === 403) {
+      if (response.status === 405) {
         blockUnassignForSession();
         notify({
           title: t("trainer.clientContext.training.assignment.unassignBlockedForSession"),
           variant: "info",
+        });
+        setIsUnassigning(false);
+        return;
+      }
+
+      if (response.status === 403 || response.status === 404) {
+        notify({
+          title: t("trainer.clientContext.training.assignment.unassignError"),
+          variant: "error",
         });
         setIsUnassigning(false);
         return;
