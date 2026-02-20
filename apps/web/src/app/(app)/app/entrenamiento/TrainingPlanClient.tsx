@@ -408,7 +408,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, []);
 
   const plan = useMemo(() => (form ? generatePlan(form, locale, t) : null), [form, locale, t]);
-  const visiblePlan = isManualView ? savedPlan ?? plan : activePlan ?? savedPlan;
+  const visiblePlan = isManualView ? savedPlan ?? plan : activePlan;
   const planStartDate = useMemo(
     () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
     [visiblePlan?.startDate, visiblePlan?.days]
@@ -967,19 +967,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <Icon name="dumbbell" />
                 </div>
                 <div>
-                  <h3 className="m-0">{t("training.emptyTitle")}</h3>
-                  <p className="muted">{t("training.emptySubtitle")}</p>
+                  <h3 className="m-0">{t("training.noSelectedPlanTitle")}</h3>
+                  <p className="muted">{t("training.noSelectedPlanSubtitle")}</p>
                 </div>
                 <div className="empty-state-actions">
-                  <Button
-                    disabled={isAiDisabled}
-                    loading={aiLoading}
-                    onClick={handleGenerateClick}
-                  >
-                    {aiLoading ? t("training.aiGenerating") : t("training.aiGenerate")}
-                  </Button>
-                  <ButtonLink variant="secondary" href="/app/entrenamiento/editar">
-                    {t("training.manualCreate")}
+                  <ButtonLink href="/app/biblioteca/entrenamientos">
+                    {t("training.selectPlanCta")}
                   </ButtonLink>
                 </div>
               </div>

@@ -803,6 +803,9 @@
     "dayNext": "Día siguiente",
     "emptyTitle": "Aún no tienes plan",
     "emptySubtitle": "Genera un plan con IA o crea uno manual.",
+    "noSelectedPlanTitle": "No tienes ningún plan seleccionado",
+    "noSelectedPlanSubtitle": "Selecciona un plan para ver tu calendario de entrenamiento.",
+    "selectPlanCta": "Seleccionar plan",
     "manualCreate": "Crear manual",
     "weeklyPlanSubtitle": "Explora cada día y revisa el detalle de los ejercicios.",
     "weeklyPlanTipOne": "Abre cada día para ver ejercicios y series.",
@@ -1733,7 +1736,22 @@
     "deleteConfirmDescription": "Esta acción no se puede deshacer.",
     "actionsNotAvailable": "Algunas acciones no están disponibles en este entorno.",
     "singleActiveNotAvailable": "La regla de un único plan activo no está disponible en este entorno.",
-    "viewDetail": "Ver detalle"
+    "viewDetail": "Ver detalle",
+    "selectPlanCta": "Seleccionar plan",
+    "selectNotSupported": "La selección de plan aún no está disponible en este entorno.",
+    "sectionEmpty": "No hay planes disponibles en esta sección.",
+    "sectionNotAvailable": "Esta sección no está disponible con los datos actuales.",
+    "sectionError": "No pudimos cargar esta sección.",
+    "sections": {
+      "fitSculpt": "Planes FitSculpt",
+      "gym": "Planes de gimnasio",
+      "ai": "Planes con IA"
+    },
+    "aiLockedTitle": "Los planes con IA están bloqueados",
+    "aiLockedDescription": "Actualiza tu plan para desbloquear planes de entrenamiento con IA.",
+    "aiReadyTitle": "Planes con IA disponibles",
+    "aiReadyDescription": "Genera un plan personalizado usando IA.",
+    "aiCta": "Generar plan con IA"
   },
   "workoutDetail": {
     "notFound": "No se encontró este entreno.",
