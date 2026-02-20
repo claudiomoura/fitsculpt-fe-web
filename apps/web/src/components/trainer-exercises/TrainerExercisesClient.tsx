@@ -10,6 +10,7 @@ import { isExerciseVisibleForGym } from "@/lib/exerciseVisibility";
 import type { Exercise } from "@/lib/types";
 
 type LoadState = "loading" | "ready" | "error";
+type CreateCapabilityState = "can_create" | "cannot_create" | "unknown";
 
 type AuthUser = Record<string, unknown>;
 
@@ -83,7 +84,7 @@ export default function TrainerExercisesClient() {
   const [exercisesState, setExercisesState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [canCreateExercise, setCanCreateExercise] = useState(false);
+  const [createCapability, setCreateCapability] = useState<CreateCapabilityState>("unknown");
   const [canUploadMedia, setCanUploadMedia] = useState(false);
   const [viewerGymId, setViewerGymId] = useState<string | null>(null);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
@@ -130,7 +131,7 @@ export default function TrainerExercisesClient() {
         if (!active) return;
 
         setCanAccessTrainer(hasAccess);
-        setCanCreateExercise(capabilities.canCreateExercise);
+        setCreateCapability(capabilities.createExercise);
         setCanUploadMedia(capabilities.canUploadMedia);
         setViewerGymId(extractGymMembership(profile).gymId);
         setViewerUserId(getProfileUserId(profile));
@@ -269,12 +270,12 @@ export default function TrainerExercisesClient() {
     <div className="section-stack">
       <div className="feature-card form-stack">
         <h2 style={{ margin: 0 }}>{t("trainer.exercises.tabs.library")}</h2>
-        {canCreateExercise ? (
+        {createCapability === "can_create" ? (
           <Link href="/app/trainer/exercises/new" className="btn primary" style={{ width: "fit-content" }}>
             {t("training.manualCreate")}
           </Link>
         ) : (
-          <p className="muted" style={{ margin: 0 }}>{t("trainer.notAvailable")}</p>
+          <p className="muted" style={{ margin: 0 }}>{t("trainer.exercises.createUnavailable")}</p>
         )}
         {!canUploadMedia ? <p className="muted" style={{ margin: 0 }}>{t("trainer.notAvailable")}</p> : null}
       </div>

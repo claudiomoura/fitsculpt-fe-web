@@ -15,6 +15,8 @@ type CreateExerciseResponse = {
   exercise?: { id?: string };
 };
 
+type CreateCapabilityState = "can_create" | "cannot_create" | "unknown";
+
 export default function TrainerExerciseCreateForm() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -28,7 +30,7 @@ export default function TrainerExerciseCreateForm() {
   const [technique, setTechnique] = useState("");
   const [tips, setTips] = useState("");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
-  const [canCreateExercise, setCanCreateExercise] = useState(false);
+  const [createCapability, setCreateCapability] = useState<CreateCapabilityState>("unknown");
   const [accessState, setAccessState] = useState<"loading" | "ready" | "error">("loading");
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,7 +55,7 @@ export default function TrainerExerciseCreateForm() {
         if (!active) return;
 
         setCanAccessTrainer(flags.isAdmin || flags.isTrainer);
-        setCanCreateExercise(capabilities.canCreateExercise);
+        setCreateCapability(capabilities.createExercise);
         setAccessState("ready");
       } catch (_err) {
         if (active) setAccessState("error");
@@ -71,7 +73,7 @@ export default function TrainerExerciseCreateForm() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!isValid || submitting || !canCreateExercise) return;
+    if (!isValid || submitting || createCapability !== "can_create") return;
 
     setSubmitting(true);
 
@@ -92,6 +94,16 @@ export default function TrainerExerciseCreateForm() {
           tips: tips.trim() || undefined,
         }),
       });
+
+      if ([400, 403, 404].includes(response.status)) {
+        setCreateCapability("cannot_create");
+        notify({
+          title: t("trainer.error"),
+          description: t("trainer.exercises.createUnavailable"),
+          variant: "error",
+        });
+        return;
+      }
 
       if (!response.ok) {
         notify({
@@ -142,8 +154,8 @@ export default function TrainerExerciseCreateForm() {
     );
   }
 
-  if (!canCreateExercise) {
-    return <p className="muted">{t("trainer.notAvailable")}</p>;
+  if (createCapability !== "can_create") {
+    return <p className="muted">{t("trainer.exercises.createUnavailable")}</p>;
   }
 
   return (

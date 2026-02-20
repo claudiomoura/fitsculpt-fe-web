@@ -2078,6 +2078,7 @@
       "rejecting": "Rejecting..."
     },
     "exercises": {
+      "createUnavailable": "Manual exercise creation is not available in this environment.",
       "tabs": {
         "library": "Exercises",
         "ariaLabel": "Trainer exercises tabs",
