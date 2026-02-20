@@ -2081,6 +2081,7 @@
       "rejecting": "Rechazando..."
     },
     "exercises": {
+      "createUnavailable": "La creación manual de ejercicios no está disponible en este entorno.",
       "tabs": {
         "library": "Ejercicios",
         "ariaLabel": "Pestañas de ejercicios del entrenador",
