@@ -41,6 +41,9 @@ export type BillingPlansResult =
       body: BillingPlansResponse | BillingPlanSummary[] | null;
     };
 
+const unsupportedBillingEndpoints = new Set<string>();
+const BILLING_PLANS_KEY = "GET /api/billing/plans";
+
 function extractWarnings(payload: BillingPlansResponse | BillingPlanSummary[] | null): string[] {
   if (!payload || Array.isArray(payload)) {
     return [];
@@ -58,12 +61,24 @@ function extractErrorCode(payload: BillingPlansResponse | BillingPlanSummary[] |
 }
 
 export async function getBillingPlans(): Promise<BillingPlansResult> {
+  if (unsupportedBillingEndpoints.has(BILLING_PLANS_KEY)) {
+    return {
+      ok: false,
+      reason: "not_available",
+      status: 501,
+      errorCode: null,
+      warnings: [],
+      body: { plans: [] },
+    };
+  }
+
   const response = await fetch("/api/billing/plans", { cache: "no-store" });
   const payload = (await response.json().catch(() => null)) as BillingPlansResponse | BillingPlanSummary[] | null;
   const warnings = extractWarnings(payload);
   const errorCode = extractErrorCode(payload);
 
   if (response.status === 404 || response.status === 501) {
+    unsupportedBillingEndpoints.add(BILLING_PLANS_KEY);
     return {
       ok: false,
       reason: "not_available",
