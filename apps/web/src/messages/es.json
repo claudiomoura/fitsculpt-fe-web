@@ -1110,7 +1110,15 @@
     "aiPreviewCancel": "Cancelar",
     "aiPreviewConfirm": "Confirmar y guardar",
     "aiPreviewConfirming": "Guardando plan...",
-    "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo."
+    "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo.",
+    "calendar": {
+      "subtitle": "Visualiza entrenamientos solo del plan seleccionado actualmente.",
+      "noPlanSelected": "No hay un plan seleccionado",
+      "noPlanSelectedDescription": "Selecciona un plan en la biblioteca para ver sus entrenamientos en el calendario.",
+      "goToPlansCta": "Ir a la biblioteca de entrenamientos",
+      "filteredByPlan": "Mostrando entrenamientos solo del plan seleccionado.",
+      "changePlan": "Cambiar plan"
+    }
   },
   "profile": {
     "formTitle": "Perfil y métricas",
@@ -1664,7 +1672,26 @@
     "addToPlansNoPlanCta": "Crear o elegir un plan",
     "addToPlansSubmitError": "No pudimos añadir este ejercicio a los planes seleccionados.",
     "addToPlansSuccessTitle": "Ejercicio añadido a planes",
-    "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es)."
+    "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es).",
+    "training": {
+      "sections": {
+        "fitsculpt": "Planes FitSculpt",
+        "gym": "Planes de gimnasio",
+        "ai": "Planes IA"
+      },
+      "sectionError": "No pudimos cargar esta sección ahora mismo.",
+      "sectionUnavailable": "Esta sección no está disponible actualmente.",
+      "sectionEmpty": "Aún no hay planes disponibles en esta sección.",
+      "assignedByTrainer": "Asignado por tu entrenador",
+      "selected": "Seleccionado",
+      "choose": "Elegir plan",
+      "planMeta": "{days} días • {level}",
+      "aiLockedTitle": "Los planes IA están bloqueados",
+      "aiLockedDescription": "Mejora tu suscripción para desbloquear planes IA.",
+      "aiPlaceholderTitle": "Planes IA habilitados",
+      "aiPlaceholderDescription": "Genera tu próximo plan con IA cuando esté disponible.",
+      "noAssignedOrAvailable": "Aún no tienes planes asignados o disponibles."
+    }
   },
   "recipes": {
     "loading": "Cargando recetas...",
