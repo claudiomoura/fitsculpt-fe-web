@@ -6,6 +6,12 @@ import { useParams, useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
+import {
+  ClientHeaderCardSkeleton,
+  ClientProfileSummarySkeleton,
+  ClientRecentActivityCardSkeleton,
+  NotesPanelSkeleton,
+} from "@/components/trainer-client/TrainerClientSkeletons";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
@@ -27,6 +33,7 @@ type TrainerNote = {
 };
 
 type NotesCapability = "checking" | "supported" | "unsupported" | "forbidden" | "error";
+type TrainerClientTab = "summary" | "progress" | "plan" | "notes";
 
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
@@ -84,6 +91,7 @@ export default function TrainerClientContextClient() {
   const [notesLoading, setNotesLoading] = useState(false);
   const [notesSubmitting, setNotesSubmitting] = useState(false);
   const [noteFeedback, setNoteFeedback] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TrainerClientTab>("summary");
 
   const handleRetry = useCallback(() => {
     window.location.reload();
@@ -227,6 +235,35 @@ export default function TrainerClientContextClient() {
     );
   }, [client]);
 
+
+
+  const trackingEntries = useMemo(() => {
+    if (!client) return [] as Array<{ key: string; value: string }>;
+
+    const tracking =
+      typeof client.raw.tracking === "object" && client.raw.tracking !== null
+        ? (client.raw.tracking as Record<string, unknown>)
+        : null;
+
+    if (!tracking) return [] as Array<{ key: string; value: string }>;
+
+    return Object.entries(tracking)
+      .map(([key, value]) => {
+        const normalizedValue = asString(value);
+        if (!normalizedValue) return null;
+        return { key, value: normalizedValue };
+      })
+      .filter((entry): entry is { key: string; value: string } => Boolean(entry));
+  }, [client]);
+
+  const hasPlanData = useMemo(() => {
+    if (!client) return false;
+
+    if (Array.isArray(client.plans)) return client.plans.length > 0;
+
+    return typeof client.plans === "object" && client.plans !== null && Object.keys(client.plans as Record<string, unknown>).length > 0;
+  }, [client]);
+
   const removeClientRelation = useCallback(async () => {
     if (!client || !canAccessTrainer) return;
 
@@ -327,7 +364,17 @@ export default function TrainerClientContextClient() {
   }
 
   if (clientState === "loading") {
-    return <LoadingState ariaLabel={t("trainer.clientContext.loading")} lines={3} />;
+    return (
+      <div className="form-stack" aria-label={t("trainer.clientContext.loading")}>
+        <ClientHeaderCardSkeleton />
+        <div className="card form-stack">
+          <LoadingState ariaLabel={t("trainer.clientContext.loading")} lines={1} compact />
+        </div>
+        <ClientProfileSummarySkeleton />
+        <ClientRecentActivityCardSkeleton />
+        <NotesPanelSkeleton />
+      </div>
+    );
   }
 
   if (clientState === "error") {
@@ -343,6 +390,13 @@ export default function TrainerClientContextClient() {
   }
 
   const statusText = client.isBlocked === true ? t("trainer.clients.blocked") : t("trainer.clients.active");
+
+  const tabs: Array<{ id: TrainerClientTab; label: string }> = [
+    { id: "summary", label: t("trainer.clientContext.tabs.summary") },
+    { id: "progress", label: t("trainer.clientContext.tabs.progress") },
+    { id: "plan", label: t("trainer.clientContext.tabs.plan") },
+    { id: "notes", label: t("trainer.clientContext.tabs.notes") },
+  ];
 
   return (
     <div className="form-stack">
@@ -389,86 +443,135 @@ export default function TrainerClientContextClient() {
         </div>
       </header>
 
-      <section className="card form-stack" aria-label={t("trainer.clientContext.training.title")}>
-        <h3 style={{ margin: 0 }}>{t("trainer.clientContext.training.title")}</h3>
-        <p className="muted" style={{ margin: 0 }}>
-          {`${t("trainer.clientContext.training.subscriptionStatusPrefix")} ${client.subscriptionStatus ?? "-"}`}
-        </p>
-        <TrainerMemberPlanAssignmentCard memberId={client.id} memberName={clientName} />
-      </section>
+      <nav aria-label={t("trainer.clientContext.tabs.ariaLabel")}>
+        <div role="tablist" aria-orientation="horizontal" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              aria-controls={`trainer-client-tabpanel-${tab.id}`}
+              id={`trainer-client-tab-${tab.id}`}
+              className={`btn ${activeTab === tab.id ? "" : "secondary"}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </nav>
 
-      <section className="card form-stack" aria-live="polite" aria-label={t("trainer.clientContext.notes.title")}>
-        <h3 style={{ margin: 0 }}>{t("trainer.clientContext.notes.title")}</h3>
+      {activeTab === "summary" ? (
+        <section id="trainer-client-tabpanel-summary" role="tabpanel" aria-labelledby="trainer-client-tab-summary" className="card form-stack">
+          <h3 style={{ margin: 0 }}>{t("trainer.clientContext.summary.title")}</h3>
+          <div className="form-stack" style={{ gap: 6 }}>
+            <p style={{ margin: 0 }}><strong>{t("trainer.clientContext.summary.nameLabel")}:</strong> {clientName}</p>
+            <p style={{ margin: 0 }}><strong>{t("trainer.clientContext.summary.emailLabel")}:</strong> {client.email ?? t("trainer.clientContext.summary.emailEmpty")}</p>
+            <p style={{ margin: 0 }}><strong>{t("trainer.clientContext.summary.statusLabel")}:</strong> {statusText}</p>
+            <p style={{ margin: 0 }}><strong>{t("trainer.clientContext.summary.lastActivityLabel")}:</strong> {client.lastLoginAt ? new Date(client.lastLoginAt).toLocaleString() : t("trainer.clientContext.summary.lastActivityEmpty")}</p>
+          </div>
+        </section>
+      ) : null}
 
-        {notesLoading ? <p className="muted">{t("trainer.clientContext.notes.loading")}</p> : null}
-        {!notesLoading && notesCapability === "unsupported" ? <p className="muted">{t("trainer.clientContext.notes.unsupported")}</p> : null}
-        {!notesLoading && notesCapability === "forbidden" ? <p className="muted">{t("trainer.clientContext.notes.forbidden")}</p> : null}
-        {!notesLoading && notesCapability === "error" ? <p className="muted">{t("trainer.clientContext.notes.loadError")}</p> : null}
+      {activeTab === "progress" ? (
+        <section id="trainer-client-tabpanel-progress" role="tabpanel" aria-labelledby="trainer-client-tab-progress" className="card form-stack">
+          <h3 style={{ margin: 0 }}>{t("trainer.clientContext.progress.title")}</h3>
+          {trackingEntries.length === 0 ? (
+            <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.progress.empty")}</p>
+          ) : (
+            <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 20 }}>
+              {trackingEntries.map((entry) => (
+                <li key={entry.key}><span style={{ fontWeight: 600 }}>{entry.key}:</span> {entry.value}</li>
+              ))}
+            </ul>
+          )}
+          {client.lastLoginAt ? <p className="muted" style={{ margin: 0 }}>{`${t("trainer.clientContext.progress.lastLoginAt")}: ${new Date(client.lastLoginAt).toLocaleString()}`}</p> : null}
+        </section>
+      ) : null}
 
-        {!notesLoading && notesCapability === "supported" ? (
-          <>
-            {notes.length === 0 ? <p className="muted">{t("trainer.clientContext.notes.empty")}</p> : null}
-            {notes.length > 0 ? (
-              <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 20 }}>
-                {notes.map((note) => (
-                  <li key={note.id}>
-                    <p style={{ margin: 0 }}>{note.content}</p>
-                    {note.createdAt ? <p className="muted" style={{ margin: "4px 0 0" }}>{new Date(note.createdAt).toLocaleString()}</p> : null}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+      {activeTab === "plan" ? (
+        <section id="trainer-client-tabpanel-plan" role="tabpanel" aria-labelledby="trainer-client-tab-plan" className="form-stack">
+          <section className="card form-stack" aria-label={t("trainer.clientContext.training.title")}>
+            <h3 style={{ margin: 0 }}>{t("trainer.clientContext.training.title")}</h3>
+            <p className="muted" style={{ margin: 0 }}>
+              {`${t("trainer.clientContext.training.subscriptionStatusPrefix")} ${client.subscriptionStatus ?? "-"}`}
+            </p>
+            {!hasPlanData ? <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.training.empty")}</p> : null}
+            <TrainerMemberPlanAssignmentCard memberId={client.id} memberName={clientName} />
+          </section>
 
-            <label htmlFor="trainer-note-create" className="sr-only">
-              {t("trainer.clientContext.notes.inputLabel")}
-            </label>
-            <textarea
-              id="trainer-note-create"
-              className="input"
-              rows={4}
-              value={noteInput}
-              onChange={(event) => setNoteInput(event.target.value)}
-              placeholder={t("trainer.clientContext.notes.inputPlaceholder")}
-            />
+          <section className="card form-stack" aria-label={t("trainer.clientContext.removeClient.title")}>
+            <h3 style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.title")}</h3>
+            <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.description")}</p>
+            {!canAccessTrainer || !removeClientSupported ? <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.unsupported")}</p> : null}
             <button
               type="button"
-              className="btn"
+              className="btn danger"
               style={{ width: "fit-content" }}
-              onClick={() => void onCreateNote()}
-              disabled={notesSubmitting || noteInput.trim().length === 0}
+              disabled={!canAccessTrainer || !removeClientSupported}
+              onClick={() => {
+                setRemoveError(null);
+                setRemoveModalOpen(true);
+              }}
             >
-              {notesSubmitting ? t("trainer.clientContext.notes.submitting") : t("trainer.clientContext.notes.submit")}
+              {t("trainer.clientContext.removeClient.openConfirm")}
             </button>
-          </>
-        ) : null}
+          </section>
+        </section>
+      ) : null}
 
-        {noteFeedback ? <p className="muted">{noteFeedback}</p> : null}
-      </section>
+      {activeTab === "notes" ? (
+        <section id="trainer-client-tabpanel-notes" role="tabpanel" aria-labelledby="trainer-client-tab-notes" className="card form-stack" aria-live="polite" aria-label={t("trainer.clientContext.notes.title")}>
+          <h3 style={{ margin: 0 }}>{t("trainer.clientContext.notes.title")}</h3>
 
-      <section className="card form-stack" aria-label={t("trainer.clientContext.removeClient.title")}>
-        <h3 style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.title")}</h3>
-        <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.description")}</p>
-        {!canAccessTrainer || !removeClientSupported ? (
-          <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.removeClient.unsupported")}</p>
-        ) : null}
-        <button
-          type="button"
-          className="btn danger"
-          style={{ width: "fit-content" }}
-          disabled={!canAccessTrainer || !removeClientSupported}
-          onClick={() => {
-            setRemoveError(null);
-            setRemoveModalOpen(true);
-          }}
-        >
-          {t("trainer.clientContext.removeClient.openConfirm")}
-        </button>
-      </section>
+          {notesLoading || notesCapability === "checking" ? <p className="muted">{t("trainer.clientContext.notes.loading")}</p> : null}
+          {!notesLoading && notesCapability === "unsupported" ? <p className="muted">{t("trainer.clientContext.notes.notAvailableInEnvironment")}</p> : null}
+          {!notesLoading && notesCapability === "forbidden" ? <p className="muted">{t("trainer.clientContext.notes.forbidden")}</p> : null}
+          {!notesLoading && notesCapability === "error" ? <p className="muted">{t("trainer.clientContext.notes.loadError")}</p> : null}
+
+          {!notesLoading && notesCapability === "supported" ? (
+            <>
+              {notes.length === 0 ? <p className="muted">{t("trainer.clientContext.notes.empty")}</p> : null}
+              {notes.length > 0 ? (
+                <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 20 }}>
+                  {notes.map((note) => (
+                    <li key={note.id}>
+                      <p style={{ margin: 0 }}>{note.content}</p>
+                      {note.createdAt ? <p className="muted" style={{ margin: "4px 0 0" }}>{new Date(note.createdAt).toLocaleString()}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
+              <label htmlFor="trainer-note-create" className="sr-only">{t("trainer.clientContext.notes.inputLabel")}</label>
+              <textarea
+                id="trainer-note-create"
+                className="input"
+                rows={4}
+                value={noteInput}
+                onChange={(event) => setNoteInput(event.target.value)}
+                placeholder={t("trainer.clientContext.notes.inputPlaceholder")}
+              />
+              <button
+                type="button"
+                className="btn"
+                style={{ width: "fit-content" }}
+                onClick={() => void onCreateNote()}
+                disabled={notesSubmitting || noteInput.trim().length === 0}
+              >
+                {notesSubmitting ? t("trainer.clientContext.notes.submitting") : t("trainer.clientContext.notes.submit")}
+              </button>
+            </>
+          ) : null}
+
+          {noteFeedback ? <p className="muted">{noteFeedback}</p> : null}
+        </section>
+      ) : null}
 
       <Link href="/app/trainer/clients" className="btn secondary" style={{ width: "fit-content" }}>
         {t("trainer.back")}
       </Link>
-
       <Modal
         open={removeModalOpen}
         onClose={() => setRemoveModalOpen(false)}
