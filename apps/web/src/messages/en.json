@@ -1694,7 +1694,9 @@
       "assignedUnavailable": "We cannot verify an assigned plan with current data.",
       "aiUnavailableTitle": "AI plans unavailable",
       "aiUnavailableDescription": "We cannot validate AI plan access with current data."
-    }
+    },
+    "addActionLabel": "Add",
+    "emptyTryAnotherSearch": "Try another search or adjust your filters."
   },
   "recipes": {
     "loading": "Loading recipes...",
@@ -2228,7 +2230,10 @@
       "setLabel": "Set {set}",
       "reps": "Reps",
       "restSeconds": "Rest (sec)",
-      "intensityNotes": "Intensity notes"
+      "intensityNotes": "Intensity notes",
+      "selectPlan": "Select plan",
+      "dayBuilderTitle": "Day builder",
+      "dayBuilderEmpty": "Select a plan to start building day details."
     },
     "clientContext": {
       "title": "Athlete context",

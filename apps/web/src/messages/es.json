@@ -1697,7 +1697,9 @@
       "assignedUnavailable": "No podemos verificar el plan asignado con los datos actuales.",
       "aiUnavailableTitle": "Planes IA no disponibles",
       "aiUnavailableDescription": "No podemos validar el acceso a planes IA con los datos actuales."
-    }
+    },
+    "addActionLabel": "Agregar",
+    "emptyTryAnotherSearch": "Prueba otra búsqueda o ajusta tus filtros."
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -2231,7 +2233,10 @@
       "setLabel": "Serie {set}",
       "reps": "Repeticiones",
       "restSeconds": "Descanso (seg)",
-      "intensityNotes": "Notas de intensidad"
+      "intensityNotes": "Notas de intensidad",
+      "selectPlan": "Seleccionar plan",
+      "dayBuilderTitle": "Constructor de días",
+      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los detalles del día."
     },
     "clientContext": {
       "title": "Contexto del atleta",
