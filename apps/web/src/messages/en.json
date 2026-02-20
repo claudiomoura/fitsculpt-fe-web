@@ -2537,6 +2537,10 @@
         "title": "Some dashboard sections are temporarily unavailable.",
         "description": "Please retry in a moment while data connections recover."
       }
+    },
+    "client": {
+      "notesNotAvailable": "Notes are not available in this environment.",
+      "planAssignmentNotSupported": "Plan assignment is not supported in this environment."
     }
   },
   "gym": {

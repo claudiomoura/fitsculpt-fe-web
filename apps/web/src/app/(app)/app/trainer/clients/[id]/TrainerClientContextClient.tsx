@@ -91,6 +91,7 @@ export default function TrainerClientContextClient() {
   const [client, setClient] = useState<TrainerClientDetail | null>(null);
   const [notes, setNotes] = useState<TrainerNote[]>([]);
   const [notesCapability, setNotesCapability] = useState<NotesCapability>("checking");
+  const [notesNotSupported, setNotesNotSupported] = useState(false);
   const [noteInput, setNoteInput] = useState("");
   const [notesLoading, setNotesLoading] = useState(false);
   const [notesSubmitting, setNotesSubmitting] = useState(false);
@@ -102,7 +103,7 @@ export default function TrainerClientContextClient() {
   }, []);
 
   const loadNotes = useCallback(async () => {
-    if (!clientId) return;
+    if (!clientId || notesNotSupported) return;
 
     setNotesLoading(true);
     setNoteFeedback(null);
@@ -110,6 +111,7 @@ export default function TrainerClientContextClient() {
       const response = await fetch(`/api/trainer/clients/${clientId}/notes`, { cache: "no-store", credentials: "include" });
 
       if (response.status === 404 || response.status === 405) {
+        setNotesNotSupported(true);
         setNotesCapability("unsupported");
         setNotes([]);
         setNotesLoading(false);
@@ -137,7 +139,8 @@ export default function TrainerClientContextClient() {
       setNotes([]);
       setNotesLoading(false);
     }
-  }, [clientId]);
+  }, [clientId, notesNotSupported]);
+
 
   useEffect(() => {
     let active = true;
@@ -194,6 +197,9 @@ export default function TrainerClientContextClient() {
 
         setClient(detailResult.data);
         setClientState("ready");
+        setNotesNotSupported(false);
+        setNotesCapability("checking");
+        setNotes([]);
         await loadNotes();
       } catch {
         if (!active) return;
@@ -332,6 +338,7 @@ export default function TrainerClientContextClient() {
       setNotesSubmitting(false);
 
       if (response.status === 404 || response.status === 405) {
+        setNotesNotSupported(true);
         setNotesCapability("unsupported");
         return;
       }
@@ -540,7 +547,7 @@ export default function TrainerClientContextClient() {
           <h3 style={{ margin: 0 }}>{t("trainer.clientContext.notes.title")}</h3>
 
           {notesLoading || notesCapability === "checking" ? <p className="muted">{t("trainer.clientContext.notes.loading")}</p> : null}
-          {!notesLoading && notesCapability === "unsupported" ? <p className="muted">{t("trainer.clientContext.notes.notAvailableInEnvironment")}</p> : null}
+          {!notesLoading && notesCapability === "unsupported" ? <p className="muted">{t("trainer.client.notesNotAvailable")}</p> : null}
           {!notesLoading && notesCapability === "forbidden" ? <p className="muted">{t("trainer.clientContext.notes.forbidden")}</p> : null}
           {!notesLoading && notesCapability === "error" ? <p className="muted">{t("trainer.clientContext.notes.loadError")}</p> : null}
 

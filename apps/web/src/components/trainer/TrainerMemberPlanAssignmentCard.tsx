@@ -24,7 +24,6 @@ type AssignmentResponse = {
   assignedPlan?: AssignedPlan | null;
 };
 
-type CapabilityState = "checking" | "supported" | "unsupported";
 
 type Props = {
   memberId: string;
@@ -45,7 +44,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [creatingPlan, setCreatingPlan] = useState(false);
-  const [capabilityState, setCapabilityState] = useState<CapabilityState>("checking");
+  const [assignmentSupported, setAssignmentSupported] = useState(true);
   const [forbiddenMessage, setForbiddenMessage] = useState<string | null>(null);
   const [planPickerOpen, setPlanPickerOpen] = useState(false);
   const unassignRequestInFlightRef = useRef(false);
@@ -89,7 +88,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     }
 
     if (assignmentRes.status === 404 || assignmentRes.status === 405) {
-      setCapabilityState("unsupported");
+      setAssignmentSupported(false);
       return;
     }
 
@@ -100,7 +99,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     const plansPayload = (await plansRes.json()) as TrainingPlansResponse;
     const assignmentPayload = (await assignmentRes.json()) as AssignmentResponse;
 
-    setCapabilityState("supported");
+    setAssignmentSupported(true);
     setPlans(plansPayload.items ?? []);
     setAssignedPlan(assignmentPayload.assignedPlan ?? null);
   }, [memberId, t]);
@@ -134,7 +133,11 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     };
   }, [loadAssignmentData, t]);
 
-  const canAssign = Boolean(selectedPlanId && !submitting && capabilityState === "supported");
+  useEffect(() => {
+    setAssignmentSupported(true);
+  }, [memberId]);
+
+  const canAssign = Boolean(selectedPlanId && !submitting && assignmentSupported);
 
   const onAssign = async () => {
     if (!canAssign) return;
@@ -183,7 +186,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       !assignedPlan
       || submitting
       || isUnassigning
-      || capabilityState !== "supported"
+      || !assignmentSupported
       || unassignBlockedReason
       || unassignRequestInFlightRef.current
     ) {
@@ -283,11 +286,16 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       {loading ? <p className="muted">{t("trainer.clientContext.training.assignment.loading")}</p> : null}
       {!loading && forbiddenMessage ? <p className="muted">{forbiddenMessage}</p> : null}
       {!loading && error ? <p className="muted">{error}</p> : null}
-      {!loading && capabilityState === "unsupported" ? (
-        <p className="muted">{t("trainer.clientContext.training.assignment.unsupported")}</p>
+      {!loading && !assignmentSupported ? (
+        <div className="feature-card form-stack" role="status">
+          <p className="muted" style={{ margin: 0 }}>{t("trainer.client.planAssignmentNotSupported")}</p>
+          <button type="button" className="btn" disabled>
+            {t("trainer.clientContext.training.assignment.openPlanPicker")}
+          </button>
+        </div>
       ) : null}
 
-      {!loading && !error && !forbiddenMessage && capabilityState === "supported" ? (
+      {!loading && !error && !forbiddenMessage && assignmentSupported ? (
         <>
           {assignedPlan ? (
             <div className="feature-card form-stack" role="status">
