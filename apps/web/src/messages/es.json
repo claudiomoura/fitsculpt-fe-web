@@ -2204,7 +2204,8 @@
       "actions": {
         "edit": "Editar",
         "delete": "Eliminar",
-        "deleteUnsupported": "Eliminar no está soportado en este entorno."
+        "deleteUnsupported": "Eliminar no está soportado en este entorno.",
+        "deleteDenied": "Solo puedes eliminar planes creados por ti."
       },
       "targets": {
         "endurance": "Resistencia muscular",
@@ -2357,6 +2358,21 @@
       },
       "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend.",
       "forbiddenHint": "No tienes permiso para ver el contexto de entrenador de este cliente. Verifica acceso al gimnasio y asignación.",
+      "removeClient": {
+        "title": "Quitar del roster",
+        "description": "Quita a este cliente de tu roster de entrenador en el gimnasio actual.",
+        "openConfirm": "Quitar del roster",
+        "confirm": "Sí, quitar",
+        "submitting": "Quitando...",
+        "modalTitle": "Quitar cliente",
+        "modalDescription": "¿Seguro que quieres quitar a {member} de tu roster?",
+        "modalWarning": "Esta acción elimina tu relación de entrenador para este contexto de gimnasio.",
+        "unsupported": "Esta acción no está disponible en este entorno.",
+        "forbidden": "No tienes permiso para quitar este cliente de tu roster.",
+        "unavailable": "Esta acción no está disponible en este entorno.",
+        "success": "{member} fue quitado de tu roster de entrenador.",
+        "submitError": "No pudimos quitar este cliente ahora. Inténtalo de nuevo."
+      },
       "notes": {
         "title": "Notas del entrenador",
         "loading": "Cargando notas...",
@@ -2371,6 +2387,20 @@
         "submitSuccess": "Nota guardada correctamente.",
         "submitError": "No pudimos guardar esta nota. Inténtalo de nuevo.",
         "notAvailableInEnvironment": "No disponible en este entorno"
+      },
+      "removeClient": {
+        "title": "Quitar del roster",
+        "description": "Quita a este atleta del roster del gimnasio.",
+        "openConfirm": "Quitar del roster",
+        "modalTitle": "Quitar atleta del roster",
+        "modalDescription": "¿Seguro que quieres quitar a {member} del roster del gimnasio?",
+        "modalWarning": "Esta acción puede afectar el acceso del entrenador y la visibilidad en el roster.",
+        "confirm": "Sí, quitar atleta",
+        "submitting": "Quitando...",
+        "submitSuccess": "{member} fue quitado del roster.",
+        "submitError": "No pudimos quitar a este atleta. Inténtalo nuevamente.",
+        "unsupported": "Quitar atletas no está soportado en este entorno.",
+        "unsupported403": "No tienes permiso para quitar atletas de este roster."
       },
       "nextReviewDate": "Próxima revisión",
       "tabs": {

@@ -2201,7 +2201,8 @@
       "actions": {
         "edit": "Edit",
         "delete": "Delete",
-        "deleteUnsupported": "Delete is not supported in this environment."
+        "deleteUnsupported": "Delete is not supported in this environment.",
+        "deleteDenied": "You can only delete plans created by you."
       },
       "targets": {
         "endurance": "Muscular endurance",
@@ -2367,9 +2368,38 @@
         "submitError": "We could not save this note. Please retry.",
         "notAvailableInEnvironment": "Not available in this environment"
       },
+      "removeClient": {
+        "title": "Remove from roster",
+        "description": "Remove this athlete from your gym roster.",
+        "openConfirm": "Remove from roster",
+        "modalTitle": "Remove athlete from roster",
+        "modalDescription": "Are you sure you want to remove {member} from your gym roster?",
+        "modalWarning": "This action can affect trainer access and roster visibility.",
+        "confirm": "Yes, remove athlete",
+        "submitting": "Removing...",
+        "submitSuccess": "{member} was removed from your roster.",
+        "submitError": "We could not remove this athlete. Please retry.",
+        "unsupported": "Removing athletes is not supported in this environment.",
+        "unsupported403": "You do not have permission to remove athletes from this roster."
+      },
       "nextReviewDate": "Next review",
       "nextStep": "Athlete context will be enabled when backend impersonation support is available.",
       "forbiddenHint": "You don't have permission to view this client's trainer context. Verify gym access and assignment.",
+      "removeClient": {
+        "title": "Remove from roster",
+        "description": "Remove this client from your trainer roster in the current gym.",
+        "openConfirm": "Remove from roster",
+        "confirm": "Yes, remove",
+        "submitting": "Removing...",
+        "modalTitle": "Remove client",
+        "modalDescription": "Are you sure you want to remove {member} from your roster?",
+        "modalWarning": "This action removes your trainer relationship for this gym context.",
+        "unsupported": "This action is currently unavailable in this environment.",
+        "forbidden": "You do not have permission to remove this client from your roster.",
+        "unavailable": "This action is not available in this environment.",
+        "success": "{member} was removed from your trainer roster.",
+        "submitError": "We could not remove this client right now. Please try again."
+      },
       "tabs": {
         "ariaLabel": "Client sections",
         "summary": "Summary",
