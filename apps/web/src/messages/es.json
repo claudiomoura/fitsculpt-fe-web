@@ -1174,7 +1174,6 @@
     "editProfile": "Editar perfil",
     "trainerSummaryTitle": "Perfil de entrenador",
     "trainerSummaryDescription": "Las herramientas de entrenador se gestionan desde tu gimnasio y área de entrenador.",
-
     "trainerHeaderTitle": "Identidad profesional",
     "trainerHeaderSubtitle": "Vista de perfil orientada a entrenador.",
     "trainerRoleBadge": "Entrenador",
@@ -2063,7 +2062,66 @@
       "dayExercisesTitle": "Ejercicios de este día",
       "dayNotFound": "No se encontró el día seleccionado en este plan.",
       "createSuccessTitle": "Plan creado",
-      "createSuccessDescription": "Tu nuevo plan está listo para editar."
+      "createSuccessDescription": "Tu nuevo plan está listo para editar.",
+      "lockedBadge": "Bloqueado",
+      "tabs": {
+        "title": "Biblioteca de planes",
+        "ariaLabel": "Pestañas de planes del entrenador",
+        "fitsculptPlans": "Planes FitSculpt",
+        "myPlans": "Mis planes"
+      },
+      "fitsculpt": {
+        "description": "Catálogo global de planes FitSculpt.",
+        "emptyTitle": "Los planes FitSculpt no están disponibles",
+        "emptyDescription": "Los planes públicos/globales no están disponibles en este entorno."
+      },
+      "myPlans": {
+        "noGymTitle": "Se requiere contexto de gimnasio",
+        "noGymDescription": "No pudimos determinar tu contexto de gimnasio para planes de entrenador.",
+        "goToGym": "Ir a gimnasio"
+      },
+      "wizard": {
+        "basicsTitle": "Datos básicos del plan",
+        "basicsDescription": "Configura la información básica para este borrador.",
+        "scheduleTitle": "Calendario de entrenamientos",
+        "scheduleDescription": "Selecciona los días de entrenamiento por semana y día.",
+        "goToScheduleHint": "Continúa para asignar días de entrenamiento en la grilla.",
+        "continue": "Continuar",
+        "backToBasics": "Volver",
+        "weeksLabel": "Número de semanas",
+        "weekRange": "Semana {start}–{end}",
+        "weekLabel": "S{week}",
+        "dayShort": "D{day}",
+        "localOnlyHint": "Los datos del calendario se guardan localmente en este flujo.",
+        "selectDayForEditor": "Selecciona un día de entrenamiento para abrir el editor.",
+        "workoutEditorTitle": "Editor de entrenamiento",
+        "workoutEditorDescription": "Editando el día {day}.",
+        "workoutNameLabel": "Nombre del entrenamiento",
+        "exerciseSectionTitle": "Agregar ejercicios",
+        "exerciseUnavailable": "Agregar ejercicios no está disponible en este entorno.",
+        "loadTargetLabel": "Objetivo de carga",
+        "loadTarget": {
+          "endurance": "Resistencia muscular",
+          "hypertrophy": "Hipertrofia",
+          "strength": "Fuerza",
+          "maxStrength": "Fuerza máxima",
+          "power": "Potencia",
+          "plyometrics": "Pliometría"
+        },
+        "loadTypeLabel": "Tipo de carga",
+        "loadType": {
+          "classic": "Clásico",
+          "pyramid": "Pirámide",
+          "dropSet": "Drop set"
+        },
+        "setEditorTitle": "Editor de series de carga",
+        "setNumberLabel": "Serie",
+        "repsMinLabel": "Reps mín",
+        "repsMaxLabel": "Reps máx",
+        "restSecondsLabel": "Descanso (seg)",
+        "addSet": "Agregar serie",
+        "savedLocallyHint": "Guardado localmente. Aún no se envía al backend."
+      }
     },
     "clientContext": {
       "title": "Contexto del atleta",
