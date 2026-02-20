@@ -116,7 +116,7 @@ export default function TrainingCalendarClient() {
     );
   }
 
-  if (!planId || state === "empty") {
+  if (!planId || state === "empty" || !plan) {
     return (
       <section className="card centered-card">
         <div className="empty-state">
