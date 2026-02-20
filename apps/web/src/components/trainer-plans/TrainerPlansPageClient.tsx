@@ -42,6 +42,8 @@ type TrainerPlanListItemWithOwnership = TrainingPlanListItem & {
   source?: string;
 };
 
+type PlanOwnership = "trainer" | "fitsculpt" | "unknown";
+
 const DEFAULT_WEEKS = 4;
 const DAYS_IN_WEEK = 7;
 const SCHEDULE_GRID_MIN_HEIGHT = 320;
@@ -61,12 +63,25 @@ function parseSlot(key: string): Slot {
 }
 
 function canDeleteTrainerPlan(plan: TrainingPlanListItem): boolean {
+  return getPlanOwnership(plan) === "trainer";
+}
+
+function getPlanOwnership(plan: TrainingPlanListItem): PlanOwnership {
   const candidate = plan as TrainerPlanListItemWithOwnership;
 
-  if (candidate.canDelete === true) return true;
-  if (candidate.isOwner === true || candidate.isOwnedByTrainer === true) return true;
-  if (candidate.source === "trainer" || candidate.source === "owned") return true;
-  return false;
+  if (candidate.canDelete === true) return "trainer";
+  if (candidate.isOwner === true || candidate.isOwnedByTrainer === true) return "trainer";
+
+  const normalizedSource = typeof candidate.source === "string" ? candidate.source.toLowerCase().trim() : "";
+
+  if (normalizedSource === "trainer" || normalizedSource === "owned") return "trainer";
+  if (normalizedSource === "fitsculpt" || normalizedSource === "system" || normalizedSource === "global" || normalizedSource === "public") {
+    return "fitsculpt";
+  }
+
+  if (candidate.canDelete === false) return "fitsculpt";
+
+  return "unknown";
 }
 
 export default function TrainerPlansPageClient() {
@@ -158,8 +173,9 @@ export default function TrainerPlansPageClient() {
     return () => controller.abort();
   }, [createModalOpen]);
 
-  const fitsculptPlans = plans;
-  const myPlans = plans;
+  const trainerOwnedPlans = useMemo(() => plans.filter((plan) => getPlanOwnership(plan) === "trainer"), [plans]);
+  const fitsculptPlans = useMemo(() => plans.filter((plan) => getPlanOwnership(plan) !== "trainer"), [plans]);
+  const undeterminedOwnershipCount = useMemo(() => plans.filter((plan) => getPlanOwnership(plan) === "unknown").length, [plans]);
 
   const sortedWorkoutEntries = useMemo(() => {
     return Object.entries(workoutsBySlot)
@@ -373,9 +389,10 @@ export default function TrainerPlansPageClient() {
 
           {listState === "ready" && !listError ? (
             <PlansList
-              items={activeTab === "fitsculpt" ? fitsculptPlans : myPlans}
+              items={activeTab === "fitsculpt" ? fitsculptPlans : trainerOwnedPlans}
               emptyLabel={activeTab === "fitsculpt" ? t("trainer.plans.emptyPublic") : t("trainer.plans.empty")}
               showFallback={activeTab === "myPlans"}
+              unknownOwnershipCount={activeTab === "myPlans" ? undeterminedOwnershipCount : 0}
               editDisabled={listDisabled}
               canRequestDelete={activeTab === "myPlans"}
               deletingPlanId={deletingPlanId}
@@ -514,6 +531,7 @@ function PlansList({
   items,
   emptyLabel,
   showFallback,
+  unknownOwnershipCount,
   editDisabled,
   canRequestDelete,
   deletingPlanId,
@@ -522,6 +540,7 @@ function PlansList({
   items: TrainingPlanListItem[];
   emptyLabel: string;
   showFallback?: boolean;
+  unknownOwnershipCount?: number;
   editDisabled?: boolean;
   canRequestDelete?: boolean;
   deletingPlanId?: string | null;
@@ -539,6 +558,7 @@ function PlansList({
   return (
     <div className="form-stack">
       {showFallback ? <Badge variant="muted">{t("trainer.plans.filterUnavailable")}</Badge> : null}
+      {Boolean(unknownOwnershipCount) ? <p className="muted">{t("trainer.plans.ownershipUnknown", { count: unknownOwnershipCount ?? 0 })}</p> : null}
       <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 20 }}>
         {items.map((plan) => (
           <li key={plan.id}>
