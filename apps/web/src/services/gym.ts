@@ -109,6 +109,11 @@ export type GymMember = {
 export type GymRole = "ADMIN" | "TRAINER" | "MEMBER";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
+const unsupportedEndpoints = new Set<string>();
+
+function getEndpointCapabilityKey(path: string, method?: string): string {
+  return `${(method ?? "GET").toUpperCase()} ${path}`;
+}
 
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
@@ -170,6 +175,11 @@ async function readJsonResponse<T>(
   path: string,
   init?: RequestInit,
 ): Promise<ServiceResult<T>> {
+  const capabilityKey = getEndpointCapabilityKey(path, init?.method);
+  if (unsupportedEndpoints.has(capabilityKey)) {
+    return { ok: false, reason: "unsupported", status: 405 };
+  }
+
   try {
     const response = await fetch(path, { cache: "no-store", credentials: "include", ...init });
     const payload = (await response.json().catch(() => null)) as unknown;
@@ -180,6 +190,7 @@ async function readJsonResponse<T>(
       if (response.status === 403) return { ok: false, reason: "forbidden", status: 403, ...(backendMessage ? { message: backendMessage } : {}) };
       if (response.status === 400) return { ok: false, reason: "validation", status: 400, ...(backendMessage ? { message: backendMessage } : {}) };
       if (response.status === 404 || response.status === 405) {
+        unsupportedEndpoints.add(capabilityKey);
         return { ok: false, reason: "unsupported", status: response.status, ...(backendMessage ? { message: backendMessage } : {}) };
       }
       return { ok: false, reason: "http_error", status: response.status, ...(backendMessage ? { message: backendMessage } : {}) };
