@@ -1,37 +1,57 @@
-import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+
 import { getBackendUrl } from "@/lib/backend";
 
-async function getAuthCookie() {
-  const token = (await cookies()).get("fs_token")?.value;
-  return token ? `fs_token=${token}` : null;
+export const dynamic = "force-dynamic";
+
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
+function jsonNoStore(body: unknown, status: number) {
+  return NextResponse.json(body, {
+    status,
+    headers: NO_STORE_HEADERS,
+  });
+}
+
+function toJsonBodyOrNull(response: Response): Promise<unknown> {
+  return response.json().catch(() => null);
 }
 
 export async function POST(request: Request) {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const token = (await cookies()).get("fs_token")?.value;
+  if (!token) {
+    return jsonNoStore({ error: "UNAUTHORIZED" }, 401);
   }
 
-  let payload: unknown = {};
+  let backendUrl: string;
   try {
-    payload = await request.json();
-  } catch (_err) {
-    payload = {};
+    backendUrl = getBackendUrl();
+  } catch {
+    return jsonNoStore({ error: "BACKEND_URL_NOT_CONFIGURED" }, 500);
   }
 
+  if (!backendUrl) {
+    return jsonNoStore({ error: "BACKEND_URL_NOT_CONFIGURED" }, 500);
+  }
+
+  const payload = (await request.json().catch(() => ({}))) as unknown;
+
+  let response: Response;
   try {
-    const response = await fetch(`${getBackendUrl()}/billing/checkout`, {
+    response = await fetch(`${backendUrl}/billing/checkout`, {
       method: "POST",
       headers: {
-        cookie: authCookie,
+        cookie: `fs_token=${token}`,
         "content-type": "application/json",
       },
       body: JSON.stringify(payload),
+      cache: "no-store",
     });
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
-  } catch (_err) {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+  } catch {
+    return jsonNoStore({ error: "BACKEND_UNAVAILABLE" }, 502);
   }
+
+  const data = await toJsonBodyOrNull(response);
+  return jsonNoStore(data, response.status);
 }
