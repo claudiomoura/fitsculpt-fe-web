@@ -131,7 +131,6 @@ export const sidebarTrainer: NavSectionGroup[] = [
     labelKey: "navSections.trainer",
     items: [
       { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
-      { id: "trainer-requests", href: "/app/trainer/requests", labelKey: "nav.gymJoinRequests" },
       { id: "trainer-clients", href: "/app/trainer/clients", labelKey: "nav.trainerClients" },
       { id: "trainer-plans", href: "/app/trainer/plans", labelKey: "nav.trainerPlans" },
       {
@@ -236,7 +235,15 @@ export const sidebarDevelopment: NavSectionGroup[] = [
   },
 ];
 
-const sidebarAccountOnly: NavSectionGroup[] = sidebarUser.filter((section) => section.id === "account");
+const sidebarAccountOnly: NavSectionGroup[] = sidebarUser
+  .filter((section) => section.id === "account")
+  .map((section) => ({
+    ...section,
+    items: [
+      ...section.items,
+      { id: "trainer-requests", href: "/app/trainer/requests", labelKey: "nav.gymJoinRequests" },
+    ],
+  }));
 
 export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
   const isAdmin = canAccessAdmin(input);
