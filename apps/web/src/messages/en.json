@@ -2110,7 +2110,8 @@
         "title": "Plans library",
         "ariaLabel": "Trainer plans tabs",
         "fitsculptPlans": "FitSculpt Plans",
-        "myPlans": "My Plans"
+        "myPlans": "My plans",
+        "fitsculpt": "FitSculpt plans"
       },
       "fitsculpt": {
         "description": "Global FitSculpt plans catalog.",
@@ -2163,7 +2164,57 @@
         "restSecondsLabel": "Rest (sec)",
         "addSet": "Add set",
         "savedLocallyHint": "Saved locally. Not sent to backend yet."
-      }
+      },
+      "emptyPublic": "No FitSculpt plans available yet.",
+      "comingSoon": "Feature coming soon",
+      "filterUnavailable": "Filtered listing is not available yet.",
+      "workoutsSchedule": "Schedule",
+      "workoutsList": "List",
+      "calendarHint": "Click a day to select it. Double click to edit that day.",
+      "openDayEditor": "Open day editor",
+      "selectorUnavailable": "Exercise selector is not available right now.",
+      "loadWizardUiOnly": "This load wizard is UI-only for now.",
+      "addSet": "Add set",
+      "weekShort": "Week",
+      "weekShortLabel": "W{week}",
+      "actionsUnavailable": "Action unavailable in this environment.",
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete",
+        "deleteUnsupported": "Delete is not supported in this environment."
+      },
+      "targets": {
+        "endurance": "Muscular endurance",
+        "hypertrophy": "Hypertrophy",
+        "strength": "Strength",
+        "maxStrength": "Max strength",
+        "power": "Power",
+        "plyometrics": "Plyometrics"
+      },
+      "loadTypes": {
+        "classic": "Classic",
+        "pyramid": "Pyramid",
+        "dropSet": "Drop set"
+      },
+      "schedulerDescription": "Build the weekly schedule and draft workouts for each selected day.",
+      "weeksLabel": "Weeks",
+      "scheduleMappedToDays": "{count} day(s) selected in schedule.",
+      "dayLabel": "D{day}",
+      "workoutsListEmpty": "No scheduled workouts yet.",
+      "weekDayLabel": "Week {week} · Day {day}",
+      "untitledWorkout": "Untitled workout",
+      "workoutName": "Workout name",
+      "notesOptional": "Notes (optional)",
+      "dayExercisesEmpty": "No exercises added yet.",
+      "customExercise": "Custom exercise",
+      "exerciseEditorTitle": "Exercise load wizard",
+      "loadTarget": "Load target",
+      "loadType": "Load type",
+      "loadSets": "Sets",
+      "setLabel": "Set {set}",
+      "reps": "Reps",
+      "restSeconds": "Rest (sec)",
+      "intensityNotes": "Intensity notes"
     },
     "clientContext": {
       "title": "Athlete context",
