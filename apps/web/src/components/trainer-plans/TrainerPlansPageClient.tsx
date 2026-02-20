@@ -49,6 +49,15 @@ const DAYS_IN_WEEK = 7;
 const SCHEDULE_GRID_MIN_HEIGHT = 320;
 const SCHEDULE_GRID_MAX_HEIGHT = "min(48vh, 420px)";
 
+function createEmptySet(setNumber: number): LoadSet {
+  return { setNumber, reps: "", restSeconds: "", notes: "" };
+}
+
+function normalizeSets(sets: LoadSet[]): LoadSet[] {
+  if (sets.length === 0) return [createEmptySet(1)];
+  return sets.map((set, index) => ({ ...set, setNumber: index + 1 }));
+}
+
 function isEndpointUnavailable(status?: number): boolean {
   return status === 404 || status === 405;
 }
@@ -489,7 +498,7 @@ export default function TrainerPlansPageClient() {
         onClose={() => setWorkoutEditorOpen(false)}
         onSave={onSaveWorkoutMeta}
         onAddExercise={() => {
-          setEditingExercise({ id: crypto.randomUUID(), name: "", libraryBacked: false, sets: [{ setNumber: 1, reps: "", restSeconds: "", notes: "" }] });
+          setEditingExercise({ id: crypto.randomUUID(), name: "", libraryBacked: false, sets: [createEmptySet(1)] });
           setExerciseEditorOpen(true);
         }}
         onEditExercise={(exercise) => {
@@ -786,8 +795,12 @@ function ExerciseEditor({
   onSave: (exercise: DraftExercise) => void;
 }) {
   const { t } = useLanguage();
-  const [draft, setDraft] = useState<DraftExercise | null>(exercise);
+  const [draft, setDraft] = useState<DraftExercise | null>(exercise ? { ...exercise, sets: normalizeSets(exercise.sets) } : null);
   const [step, setStep] = useState<0 | 1 | 2>(0);
+
+  useEffect(() => {
+    setDraft(exercise ? { ...exercise, sets: normalizeSets(exercise.sets) } : null);
+  }, [exercise]);
 
 
   if (!draft) return null;
@@ -798,7 +811,7 @@ function ExerciseEditor({
       onClose={onClose}
       title={t("trainer.plans.exerciseEditorTitle")}
       description={t("trainer.plans.loadWizardUiOnly")}
-      className="form-stack"
+      className="form-stack trainer-plans-exercise-editor-modal"
     >
       <div className="form-stack" style={{ maxHeight: "min(80vh, 760px)", display: "grid", gridTemplateRows: "minmax(0, 1fr) auto", overflow: "hidden" }}>
         <div className="form-stack" style={{ minHeight: 0, overflowY: "auto", paddingRight: 4 }}>
@@ -927,7 +940,7 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
       ))}
       </div>
 
-      <Button variant="secondary" onClick={() => onChange([...draft.sets, { setNumber: draft.sets.length + 1, reps: "", restSeconds: "", notes: "" }])}>{t("trainer.plans.addSet")}</Button>
+      <Button variant="secondary" onClick={() => onChange([...draft.sets, createEmptySet(draft.sets.length + 1)])}>{t("trainer.plans.addSet")}</Button>
       {draft.sets.length <= 1 ? <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.removeSetDisabledHint")}</p> : null}
       <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.loadWizardUiOnly")}</p>
     </div>
