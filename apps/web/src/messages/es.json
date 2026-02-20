@@ -2255,7 +2255,18 @@
       "restSeconds": "Descanso (seg)",
       "intensityNotes": "Notas de intensidad",
       "removeSet": "Eliminar serie",
-      "removeSetDisabledHint": "Se requiere al menos una serie."
+      "removeSetDisabledHint": "Se requiere al menos una serie.",
+      "updateExerciseSuccess": "Ejercicio actualizado correctamente.",
+      "updateExerciseError": "No pudimos guardar los cambios del ejercicio.",
+      "editExercise": {
+        "sets": "Series",
+        "reps": "Repeticiones",
+        "rest": "Descanso (seg)",
+        "notes": "Notas",
+        "tempo": "Tempo",
+        "noEditableFields": "No hay campos editables disponibles para este ejercicio.",
+        "notSupported": "La edición de detalles del ejercicio no está soportada en este entorno."
+      }
     },
     "planDetail": {
       "edit": "Editar",

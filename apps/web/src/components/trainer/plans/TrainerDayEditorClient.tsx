@@ -6,24 +6,52 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
 import TrainerGymRequiredState from "@/components/trainer/TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "@/components/trainer/useTrainerAreaAccess";
-import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
-import type { Exercise, TrainingPlanDay } from "@/lib/types";
-import {
-  addExerciseToPlanDay,
-  deleteTrainerPlanDay,
-  deleteTrainerPlanDayExercise,
-  getTrainerPlanDetail,
-  getTrainerPlanEditCapabilities,
-} from "@/services/trainer/plans";
+import type { Exercise, TrainingPlanExercise, TrainingPlanDay } from "@/lib/types";
+import { addExerciseToPlanDay, getTrainerPlanDetail, getTrainerPlanEditCapabilities, updatePlanDayExercise } from "@/services/trainer/plans";
 import { fetchExercisesList } from "@/services/exercises";
 
 type Props = {
   planId: string;
   day: string;
 };
+
+type ExerciseDraft = {
+  sets?: number;
+  reps?: string;
+  rest?: number;
+  notes?: string;
+  tempo?: string;
+};
+
+const NOT_SUPPORTED_STATUSES = new Set([404, 405, 501]);
+
+function toExerciseDraft(exercise: TrainingPlanExercise): ExerciseDraft {
+  return {
+    ...(typeof exercise.sets === "number" ? { sets: exercise.sets } : {}),
+    ...(typeof exercise.reps === "string" ? { reps: exercise.reps } : {}),
+    ...(typeof exercise.rest === "number" ? { rest: exercise.rest } : {}),
+    ...(typeof exercise.notes === "string" ? { notes: exercise.notes } : {}),
+    ...(typeof exercise.tempo === "string" ? { tempo: exercise.tempo } : {}),
+  };
+}
+
+function hasAnyEditableFields(exercise: TrainingPlanExercise): boolean {
+  return typeof exercise.sets === "number"
+    || typeof exercise.reps === "string"
+    || typeof exercise.rest === "number"
+    || typeof exercise.notes === "string"
+    || typeof exercise.tempo === "string";
+}
+
+function hasDraftChanges(base: ExerciseDraft, next: ExerciseDraft): boolean {
+  return base.sets !== next.sets
+    || base.reps !== next.reps
+    || base.rest !== next.rest
+    || base.notes !== next.notes
+    || base.tempo !== next.tempo;
+}
 
 export default function TrainerDayEditorClient({ planId, day }: Props) {
   const { t } = useLanguage();
@@ -43,11 +71,9 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
   const [addError, setAddError] = useState(false);
   const [canDeleteExercise, setCanDeleteExercise] = useState(false);
   const [canUpdateExercise, setCanUpdateExercise] = useState(false);
-  const [canDeleteDay, setCanDeleteDay] = useState(false);
-  const [deleteDayConfirmOpen, setDeleteDayConfirmOpen] = useState(false);
-  const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
-  const [isDeletingDay, setIsDeletingDay] = useState(false);
-  const [isDeletingExerciseId, setIsDeletingExerciseId] = useState<string | null>(null);
+  const [updateNotSupported, setUpdateNotSupported] = useState(false);
+  const [exerciseDrafts, setExerciseDrafts] = useState<Record<string, ExerciseDraft>>({});
+  const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
 
   const normalizedDay = useMemo(() => day.trim(), [day]);
 
@@ -59,12 +85,17 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
     if (!result.ok) {
       setError(true);
       setSelectedDay(null);
+      setExerciseDrafts({});
       setLoading(false);
       return;
     }
 
     const match = (result.data.days ?? []).find((dayItem) => dayItem.date.startsWith(normalizedDay));
     setSelectedDay(match ?? null);
+    setExerciseDrafts((match?.exercises ?? []).reduce<Record<string, ExerciseDraft>>((acc, exercise) => {
+      acc[exercise.id] = toExerciseDraft(exercise);
+      return acc;
+    }, {}));
     setLoading(false);
   }, [normalizedDay, planId]);
 
@@ -120,7 +151,6 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
     setResults(filtered);
   }, [availableExercises, query]);
 
-
   useEffect(() => {
     if (!canAccessTrainerArea || !selectedDay) return;
 
@@ -134,6 +164,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
       setCanDeleteDay(caps.canDeleteDay);
       setCanDeleteExercise(caps.canDeleteDayExercise);
       setCanUpdateExercise(caps.canUpdateDayExercise);
+      setUpdateNotSupported(false);
     }
 
     void loadCapabilities();
@@ -166,55 +197,49 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
     await loadDay();
   }, [isAddingExercise, loadDay, planId, selectedDay]);
 
-  const onDeleteDay = useCallback(async () => {
-    if (!selectedDay || isDeletingDay) return;
-    setIsDeletingDay(true);
-    const result = await deleteTrainerPlanDay(planId, selectedDay.id);
-    setIsDeletingDay(false);
+  const onSaveExercise = useCallback(async (exercise: TrainingPlanExercise) => {
+    if (!selectedDay || savingExerciseId) return;
+
+    const draft = exerciseDrafts[exercise.id] ?? toExerciseDraft(exercise);
+    const payload = {
+      ...(typeof draft.sets === "number" ? { sets: draft.sets } : {}),
+      ...(typeof draft.reps === "string" ? { reps: draft.reps } : {}),
+      ...(typeof draft.rest === "number" ? { rest: draft.rest } : {}),
+      ...(typeof draft.notes === "string" ? { notes: draft.notes } : {}),
+      ...(typeof draft.tempo === "string" ? { tempo: draft.tempo } : {}),
+    };
+
+    setSavingExerciseId(exercise.id);
+    const result = await updatePlanDayExercise({
+      planId,
+      dayId: selectedDay.id,
+      exerciseId: exercise.id,
+      ...payload,
+    });
 
     if (!result.ok) {
-      const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
+      if (NOT_SUPPORTED_STATUSES.has(result.status ?? 0) || result.reason === "notSupported") {
+        setUpdateNotSupported(true);
+        setCanUpdateExercise(false);
+      }
+
       notify({
-        title: t("trainer.plans.deleteDay"),
-        description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteDayError"),
+        title: t("common.error"),
+        description: result.message ?? t("trainer.plans.updateExerciseError"),
         variant: "error",
       });
+      setSavingExerciseId(null);
       return;
     }
 
     notify({
-      title: t("trainer.plans.deleteDay"),
-      description: t("trainer.plans.deleteDaySuccess"),
+      title: t("common.success"),
+      description: t("trainer.plans.updateExerciseSuccess"),
       variant: "success",
     });
-    setDeleteDayConfirmOpen(false);
+    setSavingExerciseId(null);
     await loadDay();
-  }, [isDeletingDay, loadDay, notify, planId, selectedDay, t]);
-
-  const onDeleteExercise = useCallback(async (exerciseId: string) => {
-    if (!selectedDay || isDeletingExerciseId) return;
-    setIsDeletingExerciseId(exerciseId);
-    const result = await deleteTrainerPlanDayExercise(planId, selectedDay.id, exerciseId);
-    setIsDeletingExerciseId(null);
-
-    if (!result.ok) {
-      const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
-      notify({
-        title: t("trainer.plans.deleteExercise"),
-        description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteExerciseError"),
-        variant: "error",
-      });
-      return;
-    }
-
-    notify({
-      title: t("trainer.plans.deleteExercise"),
-      description: t("trainer.plans.deleteExerciseSuccess"),
-      variant: "success",
-    });
-    setDeleteExerciseId(null);
-    await loadDay();
-  }, [isDeletingExerciseId, loadDay, notify, planId, selectedDay, t]);
+  }, [exerciseDrafts, loadDay, notify, planId, savingExerciseId, selectedDay, t]);
 
   if (accessLoading || gymLoading) {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={3} />;
@@ -301,24 +326,121 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
       <div className="form-stack">
         <h3 style={{ margin: 0 }}>{t("trainer.plans.dayExercisesTitle")}</h3>
         {selectedDay.exercises.length === 0 ? <p className="muted">{t("trainer.plans.dayExercisesEmpty")}</p> : (
-          <ul style={{ margin: 0, paddingInlineStart: 20 }}>
-            {selectedDay.exercises.map((exercise) => (
-              <li key={exercise.id} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <span>{exercise.name}</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={!canDeleteExercise || isDeletingExerciseId === exercise.id}
-                  loading={isDeletingExerciseId === exercise.id}
-                  onClick={() => setDeleteExerciseId(exercise.id)}
-                >
-                  {t("trainer.plans.actions.delete")}
-                </Button>
-              </li>
-            ))}
+          <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 0, listStyle: "none", gap: 12 }}>
+            {selectedDay.exercises.map((exercise) => {
+              const baseDraft = toExerciseDraft(exercise);
+              const draft = exerciseDrafts[exercise.id] ?? baseDraft;
+              const canEditThisExercise = canUpdateExercise && hasAnyEditableFields(exercise);
+              const changed = hasDraftChanges(baseDraft, draft);
+              const isSaving = savingExerciseId === exercise.id;
+
+              return (
+                <li key={exercise.id} className="card form-stack" style={{ gap: 10 }}>
+                  <strong>{exercise.name}</strong>
+
+                  {typeof exercise.sets === "number" ? (
+                    <label className="form-stack" style={{ gap: 6 }}>
+                      <span className="muted">{t("trainer.plans.editExercise.sets")}</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={typeof draft.sets === "number" ? draft.sets : ""}
+                        onChange={(event) => setExerciseDrafts((prev) => ({
+                          ...prev,
+                          [exercise.id]: {
+                            ...draft,
+                            sets: Math.max(1, Number(event.target.value) || 1),
+                          },
+                        }))}
+                        disabled={!canEditThisExercise || isSaving}
+                      />
+                    </label>
+                  ) : null}
+
+                  {typeof exercise.reps === "string" ? (
+                    <label className="form-stack" style={{ gap: 6 }}>
+                      <span className="muted">{t("trainer.plans.editExercise.reps")}</span>
+                      <input
+                        value={draft.reps ?? ""}
+                        onChange={(event) => setExerciseDrafts((prev) => ({
+                          ...prev,
+                          [exercise.id]: {
+                            ...draft,
+                            reps: event.target.value,
+                          },
+                        }))}
+                        disabled={!canEditThisExercise || isSaving}
+                      />
+                    </label>
+                  ) : null}
+
+                  {typeof exercise.rest === "number" ? (
+                    <label className="form-stack" style={{ gap: 6 }}>
+                      <span className="muted">{t("trainer.plans.editExercise.rest")}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={typeof draft.rest === "number" ? draft.rest : ""}
+                        onChange={(event) => setExerciseDrafts((prev) => ({
+                          ...prev,
+                          [exercise.id]: {
+                            ...draft,
+                            rest: Math.max(0, Number(event.target.value) || 0),
+                          },
+                        }))}
+                        disabled={!canEditThisExercise || isSaving}
+                      />
+                    </label>
+                  ) : null}
+
+                  {typeof exercise.tempo === "string" ? (
+                    <label className="form-stack" style={{ gap: 6 }}>
+                      <span className="muted">{t("trainer.plans.editExercise.tempo")}</span>
+                      <input
+                        value={draft.tempo ?? ""}
+                        onChange={(event) => setExerciseDrafts((prev) => ({
+                          ...prev,
+                          [exercise.id]: {
+                            ...draft,
+                            tempo: event.target.value,
+                          },
+                        }))}
+                        disabled={!canEditThisExercise || isSaving}
+                      />
+                    </label>
+                  ) : null}
+
+                  {typeof exercise.notes === "string" ? (
+                    <label className="form-stack" style={{ gap: 6 }}>
+                      <span className="muted">{t("trainer.plans.editExercise.notes")}</span>
+                      <textarea
+                        value={draft.notes ?? ""}
+                        onChange={(event) => setExerciseDrafts((prev) => ({
+                          ...prev,
+                          [exercise.id]: {
+                            ...draft,
+                            notes: event.target.value,
+                          },
+                        }))}
+                        disabled={!canEditThisExercise || isSaving}
+                      />
+                    </label>
+                  ) : null}
+
+                  {!hasAnyEditableFields(exercise) ? <p className="muted">{t("trainer.plans.editExercise.noEditableFields")}</p> : null}
+
+                  {canEditThisExercise ? (
+                    <button type="button" className="btn" disabled={!changed || isSaving} onClick={() => void onSaveExercise(exercise)}>
+                      {t("trainer.plans.save")}
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
         {!canUpdateExercise || !canDeleteExercise ? <p className="muted">{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
+        {updateNotSupported ? <p className="muted">{t("trainer.plans.editExercise.notSupported")}</p> : null}
       </div>
 
       <Link href="/app/trainer/plans" className="btn secondary fit-content">{t("trainer.back")}</Link>

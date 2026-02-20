@@ -505,7 +505,7 @@ export default function TrainerPlansPageClient() {
         title={t(createStep === "basics" ? "trainer.plans.wizard.basicsTitle" : "trainer.plans.wizard.scheduleTitle")}
         description={t(createStep === "basics" ? "trainer.plans.wizard.basicsDescription" : "trainer.plans.wizard.scheduleDescription")}
       >
-        <form className="form-stack" onSubmit={(event) => void onCreate(event)}>
+        <form className="form-stack" onSubmit={(event) => void onCreate(event)} style={{ maxHeight: "min(78vh, 760px)", overflowY: "auto", paddingInlineEnd: 2 }}>
           {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
 
           {createStep === "basics" ? (
@@ -614,6 +614,7 @@ export default function TrainerPlansPageClient() {
 
                     <div className="form-stack" style={{ gap: 8 }}>
                       <strong>{t("trainer.plans.wizard.setEditorTitle")}</strong>
+                      <div className="form-stack" style={{ gap: 8, maxHeight: "40vh", overflowY: "auto", paddingInlineEnd: 2 }}>
                       {selectedDayDraft.sets.map((setItem, setIndex) => (
                         <div key={`set-${setIndex + 1}`} style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(90px, 1fr))", gap: 8 }}>
                           <Input
@@ -662,6 +663,7 @@ export default function TrainerPlansPageClient() {
                           />
                         </div>
                       ))}
+                      </div>
                       <Button
                         type="button"
                         variant="secondary"
@@ -682,7 +684,7 @@ export default function TrainerPlansPageClient() {
             </>
           )}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap", position: "sticky", bottom: 0, background: "var(--card, #111)", paddingTop: 10 }}>
             {createStep === "schedule" ? (
               <Button type="button" variant="ghost" onClick={() => setCreateStep("basics")} disabled={creating}>{t("trainer.plans.wizard.backToBasics")}</Button>
             ) : null}
