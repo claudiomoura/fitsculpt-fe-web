@@ -1110,9 +1110,9 @@
     "aiInvalidOutput": "The AI response was invalid. Please retry generation.",
     "calendar": {
       "subtitle": "View workouts for the currently selected training plan.",
-      "noPlanSelected": "No plan selected",
+      "noPlanSelected": "No training plan selected",
       "noPlanSelectedDescription": "Select a training plan from the library to see workouts in your calendar.",
-      "goToPlansCta": "Go to training plans",
+      "goToPlansCta": "View training plans",
       "filteredByPlan": "Showing workouts for the selected plan only.",
       "changePlan": "Change plan"
     }
@@ -1687,7 +1687,11 @@
       "aiLockedDescription": "Upgrade your subscription to unlock AI plans.",
       "aiPlaceholderTitle": "AI plans enabled",
       "aiPlaceholderDescription": "Generate your next plan with AI when available.",
-      "noAssignedOrAvailable": "You do not have assigned or available plans yet."
+      "noAssignedOrAvailable": "You do not have assigned or available plans yet.",
+      "assignedEmpty": "No assigned plan is available with current data.",
+      "assignedUnavailable": "We cannot verify an assigned plan with current data.",
+      "aiUnavailableTitle": "AI plans unavailable",
+      "aiUnavailableDescription": "We cannot validate AI plan access with current data."
     }
   },
   "recipes": {

@@ -1113,9 +1113,9 @@
     "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo.",
     "calendar": {
       "subtitle": "Visualiza entrenamientos solo del plan seleccionado actualmente.",
-      "noPlanSelected": "No hay un plan seleccionado",
+      "noPlanSelected": "No tienes ningún plan seleccionado",
       "noPlanSelectedDescription": "Selecciona un plan en la biblioteca para ver sus entrenamientos en el calendario.",
-      "goToPlansCta": "Ir a la biblioteca de entrenamientos",
+      "goToPlansCta": "Ver planes de entrenamiento",
       "filteredByPlan": "Mostrando entrenamientos solo del plan seleccionado.",
       "changePlan": "Cambiar plan"
     }
@@ -1690,7 +1690,11 @@
       "aiLockedDescription": "Mejora tu suscripción para desbloquear planes IA.",
       "aiPlaceholderTitle": "Planes IA habilitados",
       "aiPlaceholderDescription": "Genera tu próximo plan con IA cuando esté disponible.",
-      "noAssignedOrAvailable": "Aún no tienes planes asignados o disponibles."
+      "noAssignedOrAvailable": "Aún no tienes planes asignados o disponibles.",
+      "assignedEmpty": "No hay un plan asignado con los datos actuales.",
+      "assignedUnavailable": "No podemos verificar el plan asignado con los datos actuales.",
+      "aiUnavailableTitle": "Planes IA no disponibles",
+      "aiUnavailableDescription": "No podemos validar el acceso a planes IA con los datos actuales."
     }
   },
   "recipes": {
