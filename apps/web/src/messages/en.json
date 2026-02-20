@@ -2235,7 +2235,9 @@
       "setLabel": "Set {set}",
       "reps": "Reps",
       "restSeconds": "Rest (sec)",
-      "intensityNotes": "Intensity notes"
+      "intensityNotes": "Intensity notes",
+      "removeSet": "Remove set",
+      "removeSetDisabledHint": "At least one set is required."
     },
     "planDetail": {
       "edit": "Edit",

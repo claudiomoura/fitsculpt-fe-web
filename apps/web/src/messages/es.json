@@ -2238,7 +2238,9 @@
       "setLabel": "Serie {set}",
       "reps": "Repeticiones",
       "restSeconds": "Descanso (seg)",
-      "intensityNotes": "Notas de intensidad"
+      "intensityNotes": "Notas de intensidad",
+      "removeSet": "Eliminar serie",
+      "removeSetDisabledHint": "Se requiere al menos una serie."
     },
     "planDetail": {
       "edit": "Editar",
