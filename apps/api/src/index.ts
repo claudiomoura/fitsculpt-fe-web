@@ -1,3 +1,4 @@
+import "dotenv/config";
 import crypto from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
