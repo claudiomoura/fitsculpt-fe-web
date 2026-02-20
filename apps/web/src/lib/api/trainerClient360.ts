@@ -43,7 +43,7 @@ export const trainerClient360EndpointInventory = {
   detail: { path: "/api/trainer/clients/:id", exists: true },
   listNotes: { path: "/api/trainer/clients/:id/notes", exists: false },
   createNote: { path: "/api/trainer/clients/:id/notes", exists: false },
-  assignPlan: { path: "/api/trainer/clients/:id/plan", exists: true },
+  assignPlan: { path: "/api/trainer/clients/:id/assigned-plan", exists: true },
 } as const;
 
 function asRecord(value: unknown): UnknownRecord {
@@ -210,7 +210,7 @@ export async function assignPlanToTrainerClient360(
     };
   }
 
-  const result = await requestJson<unknown>(`/api/trainer/clients/${clientId}/plan`, {
+  const result = await requestJson<unknown>(`/api/trainer/clients/${clientId}/assigned-plan`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ trainingPlanId }),

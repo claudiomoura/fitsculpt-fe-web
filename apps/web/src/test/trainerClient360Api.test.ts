@@ -45,7 +45,7 @@ describe("trainer client 360 api", () => {
     const result = await assignPlanToTrainerClient360({ clientId: "client_3", trainingPlanId: "plan_1" });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/trainer/clients/client_3/plan",
+      "/api/trainer/clients/client_3/assigned-plan",
       expect.objectContaining({
         method: "POST",
         credentials: "include",
