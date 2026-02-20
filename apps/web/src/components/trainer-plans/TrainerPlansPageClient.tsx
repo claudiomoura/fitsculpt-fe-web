@@ -23,6 +23,7 @@ type Slot = { weekIndex: number; dayOfWeek: number };
 type LoadTarget = "endurance" | "hypertrophy" | "strength" | "maxStrength" | "power" | "plyometrics";
 type LoadType = "classic" | "pyramid" | "dropSet";
 type LoadSet = { setNumber: number; reps: string; restSeconds: string; notes: string };
+type LoadSetsUpdate = LoadSet[] | ((current: LoadSet[]) => LoadSet[]);
 type DraftExercise = {
   id: string;
   exerciseId?: string;
@@ -789,6 +790,14 @@ function ExerciseEditor({
   const [draft, setDraft] = useState<DraftExercise | null>(exercise);
   const [step, setStep] = useState<0 | 1 | 2>(0);
 
+  const onSetsChange = useCallback((update: LoadSetsUpdate) => {
+    setDraft((previous) => {
+      if (!previous) return previous;
+      const sets = typeof update === "function" ? update(previous.sets) : update;
+      return { ...previous, sets };
+    });
+  }, []);
+
 
   if (!draft) return null;
 
@@ -834,7 +843,7 @@ function ExerciseEditor({
 
         {step === 0 ? <LoadTargetStep draft={draft} onChange={(loadTarget) => setDraft({ ...draft, loadTarget })} /> : null}
         {step === 1 ? <LoadTypeStep draft={draft} onChange={(loadType) => setDraft({ ...draft, loadType })} /> : null}
-        {step === 2 ? <LoadSetsStep draft={draft} onChange={(sets) => setDraft({ ...draft, sets })} /> : null}
+        {step === 2 ? <LoadSetsStep draft={draft} onChange={onSetsChange} /> : null}
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, position: "sticky", bottom: 0, background: "var(--bg-card)", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
@@ -878,7 +887,7 @@ function LoadTypeStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
   );
 }
 
-function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (value: LoadSet[]) => void }) {
+function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (value: LoadSetsUpdate) => void }) {
   const { t } = useLanguage();
   const setsRef = useRef<HTMLDivElement | null>(null);
   const previousSetsLengthRef = useRef(draft.sets.length);
@@ -900,25 +909,25 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
 
   return (
     <div className="form-stack">
-      <div className="form-stack" ref={setsRef} style={{ maxHeight: "min(42vh, 360px)", overflowY: "auto", paddingRight: 4 }}>
+      <div className="form-stack" ref={setsRef} style={{ maxHeight: "min(50vh, 420px)", overflowY: "auto", paddingRight: 4 }}>
       {draft.sets.map((set, index) => (
         <div key={`${set.setNumber}-${index}`} className="feature-card form-stack">
           <strong>{t("trainer.plans.setLabel", { set: set.setNumber })}</strong>
           <label className="form-stack" style={{ gap: 6 }}>
             <span className="muted">{t("trainer.plans.reps")}</span>
-            <input value={set.reps} onChange={(event) => onChange(draft.sets.map((entry, entryIndex) => entryIndex === index ? { ...entry, reps: event.target.value } : entry))} />
+            <input value={set.reps} onChange={(event) => onChange((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, reps: event.target.value } : entry))} />
           </label>
           <label className="form-stack" style={{ gap: 6 }}>
             <span className="muted">{t("trainer.plans.restSeconds")}</span>
-            <input value={set.restSeconds} onChange={(event) => onChange(draft.sets.map((entry, entryIndex) => entryIndex === index ? { ...entry, restSeconds: event.target.value } : entry))} />
+            <input value={set.restSeconds} onChange={(event) => onChange((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, restSeconds: event.target.value } : entry))} />
           </label>
           <label className="form-stack" style={{ gap: 6 }}>
             <span className="muted">{t("trainer.plans.intensityNotes")}</span>
-            <input value={set.notes} onChange={(event) => onChange(draft.sets.map((entry, entryIndex) => entryIndex === index ? { ...entry, notes: event.target.value } : entry))} />
+            <input value={set.notes} onChange={(event) => onChange((current) => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, notes: event.target.value } : entry))} />
           </label>
           <Button
             variant="secondary"
-            onClick={() => onChange(normalizeSetNumbers(draft.sets.filter((_, entryIndex) => entryIndex !== index)))}
+            onClick={() => onChange((current) => normalizeSetNumbers(current.filter((_, entryIndex) => entryIndex !== index)))}
             disabled={draft.sets.length <= 1}
           >
             {t("trainer.plans.removeSet")}
@@ -927,7 +936,7 @@ function LoadSetsStep({ draft, onChange }: { draft: DraftExercise; onChange: (va
       ))}
       </div>
 
-      <Button variant="secondary" onClick={() => onChange([...draft.sets, { setNumber: draft.sets.length + 1, reps: "", restSeconds: "", notes: "" }])}>{t("trainer.plans.addSet")}</Button>
+      <Button variant="secondary" onClick={() => onChange((current) => [...current, { setNumber: current.length + 1, reps: "", restSeconds: "", notes: "" }])}>{t("trainer.plans.addSet")}</Button>
       {draft.sets.length <= 1 ? <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.removeSetDisabledHint")}</p> : null}
       <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.loadWizardUiOnly")}</p>
     </div>
