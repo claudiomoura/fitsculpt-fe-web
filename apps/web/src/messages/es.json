@@ -2293,12 +2293,16 @@
           "forbidden": "No tienes permiso para gestionar la asignación de plan para este miembro.",
           "unassignCta": "Desasignar plan",
           "unassignSuccess": "Plan desasignado correctamente de {member}.",
-          "unassignError": "No pudimos desasignar el plan actual. Inténtalo de nuevo.",
+          "unassignError": "No pudimos desasignar el plan actual. Inténtalo más tarde.",
           "removeClientCta": "Quitar cliente de la lista del entrenador",
           "removeClientConfirm": "¿Seguro que quieres quitar a {member} de tu lista de clientes?",
           "removeClientConfirmCta": "Sí, quitar cliente",
           "removeSuccess": "{member} fue eliminado de tu lista de entrenador.",
-          "removeError": "No pudimos eliminar este cliente. Inténtalo de nuevo."
+          "removeError": "No pudimos eliminar este cliente. Inténtalo de nuevo.",
+          "unassignSubmitting": "Desasignando...",
+          "unassignUnavailable404": "Esta acción no está disponible en este entorno.",
+          "unassignUnsupported405": "Desasignación no soportada actualmente.",
+          "unassignForbidden": "No tienes permisos para desasignar este plan."
         },
         "empty": "No hay información de plan disponible para este cliente en este entorno."
       },

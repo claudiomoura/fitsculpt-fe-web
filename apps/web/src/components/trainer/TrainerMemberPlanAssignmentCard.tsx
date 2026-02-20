@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
 
 type TrainingPlanListItem = {
   id: string;
@@ -32,12 +33,15 @@ type Props = {
 
 export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }: Props) {
   const { t } = useLanguage();
+  const { notify } = useToast();
   const [plans, setPlans] = useState<TrainingPlanListItem[]>([]);
   const [assignedPlan, setAssignedPlan] = useState<AssignedPlan | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isUnassigning, setIsUnassigning] = useState(false);
+  const [unassignBlockedReason, setUnassignBlockedReason] = useState<"notAvailable" | "notSupported" | "forbidden" | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [creatingPlan, setCreatingPlan] = useState(false);
@@ -148,60 +152,84 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       );
       setPlanPickerOpen(false);
       setSelectedPlanId("");
-    } catch (_err) {
+    } catch {
       setSubmitting(false);
       setSubmitError(t("trainer.clientContext.training.assignment.submitError"));
     }
   };
 
   const onUnassign = async () => {
-    if (!assignedPlan || submitting || capabilityState !== "supported") return;
+    if (!assignedPlan || submitting || isUnassigning || capabilityState !== "supported" || unassignBlockedReason) return;
 
-    setSubmitting(true);
-    setSubmitError(null);
-    setSuccess(null);
+    setIsUnassigning(true);
 
     try {
-      let response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
+      const response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
         method: "DELETE",
         credentials: "include",
         cache: "no-store",
       });
 
-      if (response.status === 404 || response.status === 405) {
-        response = await fetch(`/api/trainer/members/${memberId}/training-plan-assignment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          cache: "no-store",
-          body: JSON.stringify({ trainingPlanId: null }),
+      if (response.status === 404) {
+        setUnassignBlockedReason("notAvailable");
+        notify({
+          title: t("trainer.clientContext.training.assignment.unassignUnavailable404"),
+          variant: "warning",
         });
-      }
-
-      setSubmitting(false);
-
-      if (response.status === 404 || response.status === 405) {
-        setCapabilityState("unsupported");
+        setIsUnassigning(false);
         return;
       }
 
-      if (response.status === 403) {
-        setSubmitError(t("trainer.clientContext.training.assignment.forbidden"));
+      if (response.status === 405) {
+        setUnassignBlockedReason("notSupported");
+        notify({
+          title: t("trainer.clientContext.training.assignment.unassignUnsupported405"),
+          variant: "warning",
+        });
+        setIsUnassigning(false);
+        return;
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        setUnassignBlockedReason("forbidden");
+        notify({
+          title: t("trainer.clientContext.training.assignment.unassignForbidden"),
+          variant: "warning",
+        });
+        setIsUnassigning(false);
         return;
       }
 
       if (!response.ok) {
-        setSubmitError(t("trainer.clientContext.training.assignment.unassignError"));
+        notify({
+          title: t("trainer.clientContext.training.assignment.unassignError"),
+          variant: "error",
+        });
+        setIsUnassigning(false);
         return;
       }
 
       setAssignedPlan(null);
-      setSuccess(t("trainer.clientContext.training.assignment.unassignSuccess").replace("{member}", memberName));
-    } catch (_err) {
-      setSubmitting(false);
-      setSubmitError(t("trainer.clientContext.training.assignment.unassignError"));
+      notify({
+        title: t("trainer.clientContext.training.assignment.unassignSuccess").replace("{member}", memberName),
+        variant: "success",
+      });
+      setIsUnassigning(false);
+    } catch {
+      notify({
+        title: t("trainer.clientContext.training.assignment.unassignError"),
+        variant: "error",
+      });
+      setIsUnassigning(false);
     }
   };
+
+  const unassignBlockedLabel = useMemo(() => {
+    if (unassignBlockedReason === "notAvailable") return t("trainer.clientContext.training.assignment.unassignUnavailable404");
+    if (unassignBlockedReason === "notSupported") return t("trainer.clientContext.training.assignment.unassignUnsupported405");
+    if (unassignBlockedReason === "forbidden") return t("trainer.clientContext.training.assignment.unassignForbidden");
+    return null;
+  }, [t, unassignBlockedReason]);
 
   const onCreateMinimalPlan = async () => {
     if (creatingPlan || submitting) return;
@@ -228,7 +256,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
       await loadAssignmentData();
       setSuccess(t("trainer.clientContext.training.assignment.createSuccess"));
       setCreatingPlan(false);
-    } catch (_err) {
+    } catch {
       setSubmitError(t("trainer.clientContext.training.assignment.createError"));
       setCreatingPlan(false);
     }
@@ -261,12 +289,13 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
                 <button
                   type="button"
                   className="btn secondary"
-                  disabled={submitting}
+                  disabled={submitting || isUnassigning || Boolean(unassignBlockedReason)}
+                  title={unassignBlockedLabel ?? undefined}
                   onClick={() => void onUnassign()}
                   style={{ width: "fit-content" }}
                 >
-                  {submitting
-                    ? t("trainer.clientContext.training.assignment.submitting")
+                  {isUnassigning
+                    ? t("trainer.clientContext.training.assignment.unassignSubmitting")
                     : t("trainer.clientContext.training.assignment.unassignCta")}
                 </button>
               </div>
