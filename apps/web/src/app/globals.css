@@ -3469,11 +3469,19 @@ textarea:disabled {
   font-size: 14px;
 }
 
+.trainer-plans-exercise-editor-modal {
+  max-height: min(88vh, 880px);
+}
+
 @media (max-width: 720px) {
   .ui-modal-card {
     width: 100%;
     align-self: end;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  }
+
+  .trainer-plans-exercise-editor-modal {
+    max-height: min(92vh, 880px);
   }
 }
 
