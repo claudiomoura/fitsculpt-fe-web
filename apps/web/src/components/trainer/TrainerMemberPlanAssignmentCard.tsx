@@ -74,7 +74,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
   );
 
   const loadAssignmentData = useCallback(async () => {
-    const assignmentEndpoint = `/api/trainer/clients/${memberId}/assigned-plan`;
+    const assignmentEndpoint = `/api/trainer/members/${memberId}/training-plan-assignment`;
     const [plansRes, assignmentRes] = await Promise.all([
       fetch("/api/trainer/plans?limit=100", { cache: "no-store", credentials: "include" }),
       fetch(assignmentEndpoint, {
@@ -90,6 +90,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
 
     if (assignmentRes.status === 404 || assignmentRes.status === 405) {
       setAssignmentSupported(false);
+      setAssignedPlan(null);
       return;
     }
 
@@ -148,7 +149,7 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     setSuccess(null);
 
     try {
-      const response = await fetch(`/api/trainer/clients/${memberId}/assigned-plan`, {
+      const response = await fetch(`/api/trainer/members/${memberId}/assigned-plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -165,12 +166,9 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
         return;
       }
 
-      if (response.status === 404) {
-        notify({
-          title: t("trainer.clientContext.training.assignment.submitError"),
-          variant: "error",
-        });
-        setSubmitError(t("trainer.clientContext.training.assignment.submitError"));
+      if (response.status === 404 || response.status === 405) {
+        setAssignmentSupported(false);
+        setSubmitError(null);
         return;
       }
 
@@ -210,23 +208,20 @@ export default function TrainerMemberPlanAssignmentCard({ memberId, memberName }
     setIsUnassigning(true);
 
     try {
-      const response = await fetch(`/api/trainer/clients/${memberId}/assigned-plan`, {
+      const response = await fetch(`/api/trainer/members/${memberId}/assigned-plan`, {
         method: "DELETE",
         credentials: "include",
         cache: "no-store",
       });
 
-      if (response.status === 405) {
+      if (response.status === 404 || response.status === 405) {
         blockUnassignForSession();
-        notify({
-          title: t("trainer.clientContext.training.assignment.unassignBlockedForSession"),
-          variant: "info",
-        });
+        setAssignmentSupported(false);
         setIsUnassigning(false);
         return;
       }
 
-      if (response.status === 403 || response.status === 404) {
+      if (response.status === 403) {
         notify({
           title: t("trainer.clientContext.training.assignment.unassignError"),
           variant: "error",
