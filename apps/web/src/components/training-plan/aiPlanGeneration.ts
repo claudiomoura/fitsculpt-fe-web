@@ -106,7 +106,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       name: profile.name || undefined,
       age: profile.age,
       sex: profile.sex,
-      level: input.level,
+      experienceLevel: input.level,
       goal: input.goal,
       goals: profile.goals,
       equipment: input.equipment,
