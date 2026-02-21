@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
-import { createAdminGym } from "@/services/gym";
+import { createAdminGym, fetchAdminGymsList } from "@/services/gym";
 
 type Gym = {
   id: string;
@@ -36,12 +36,6 @@ type MaybeErrorPayload = {
   details?: unknown;
 };
 
-type MaybeGymsPayload = {
-  gyms?: unknown;
-  items?: unknown;
-  data?: unknown;
-};
-
 function toText(value: unknown): string {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(", ");
@@ -61,17 +55,6 @@ function parseGenericError(payload: unknown): string {
   }
 
   return toText(source.message) || toText(source.error) || toText(details?.message) || toText(details?.error) || toText(details?.formErrors);
-}
-
-function normalizeGymsPayload(payload: unknown): Gym[] {
-  if (Array.isArray(payload)) return payload as Gym[];
-
-  const source = payload && typeof payload === "object" ? (payload as MaybeGymsPayload) : null;
-  if (Array.isArray(source?.gyms)) return source.gyms as Gym[];
-  if (Array.isArray(source?.items)) return source.items as Gym[];
-  if (Array.isArray(source?.data)) return source.data as Gym[];
-
-  return [];
 }
 
 export default function AdminGymsClient() {
@@ -113,40 +96,25 @@ export default function AdminGymsClient() {
     setLoading(true);
     setListError(null);
     try {
-      const res = await fetch("/api/admin/gyms", { cache: "no-store", credentials: "include" });
-      if (res.status === 404 || res.status === 405) {
+      const result = await fetchAdminGymsList();
+
+      if (!result.ok && result.reason === "unsupported") {
         setUnsupported(true);
         setGyms([]);
         setSelectedGymId("");
         return;
       }
-      const payload = (await res.json().catch(() => null)) as unknown;
 
-      if (!res.ok) {
+      if (!result.ok) {
         setGyms([]);
         setSelectedGymId("");
-        setListError(parseGenericError(payload) || t("adminGyms.errors.load"));
-        return;
-      }
-
-      const data = normalizeGymsPayload(payload);
-      const payloadHasArray =
-        Array.isArray(payload) ||
-        (payload &&
-          typeof payload === "object" &&
-          (Array.isArray((payload as MaybeGymsPayload).gyms) || Array.isArray((payload as MaybeGymsPayload).items) || Array.isArray((payload as MaybeGymsPayload).data)));
-
-      if (!payloadHasArray) {
-        setGyms([]);
-        setSelectedGymId("");
-        setListError(t("adminGyms.errors.load"));
-        setUnsupported(false);
+        setListError(result.message || t("adminGyms.errors.load"));
         return;
       }
 
       setUnsupported(false);
-      setGyms(data);
-      setSelectedGymId((current) => (current && data.some((gym) => gym.id === current) ? current : data[0]?.id || ""));
+      setGyms(result.data.gyms);
+      setSelectedGymId((current) => (current && result.data.gyms.some((gym) => gym.id === current) ? current : result.data.gyms[0]?.id || ""));
     } catch (_err) {
       setGyms([]);
       setSelectedGymId("");
