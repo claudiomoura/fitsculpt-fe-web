@@ -28,7 +28,7 @@
     "adminPreview": "Vista previa admin",
     "adminLabs": "Labs",
     "trainerClients": "Clientes del entrenador",
-    "trainerPlans": "Planes del entrenador",
+    "trainerPlans": "Planes del gimnasio",
     "trainerExercises": "Ejercicios del entrenador",
     "newExercise": "Nuevo ejercicio",
     "onboarding": "Onboarding",
@@ -2097,7 +2097,7 @@
       }
     },
     "plans": {
-      "title": "Planes del entrenador",
+      "title": "Planes del gimnasio",
       "description": "Crea y revisa los planes manuales disponibles para asignar.",
       "openList": "Abrir planes",
       "createTitle": "Crear plan manual",
@@ -2154,9 +2154,9 @@
       "lockedBadge": "Bloqueado",
       "tabs": {
         "title": "Biblioteca de planes",
-        "ariaLabel": "Pestañas de planes del entrenador",
+        "ariaLabel": "Pestañas de planes del gimnasio",
         "fitsculptPlans": "Planes FitSculpt",
-        "myPlans": "Mis planes",
+        "myPlans": "Planes del gimnasio",
         "fitsculpt": "Planes FitSculpt"
       },
       "fitsculpt": {
@@ -2166,7 +2166,7 @@
       },
       "myPlans": {
         "noGymTitle": "Se requiere contexto de gimnasio",
-        "noGymDescription": "No pudimos determinar tu contexto de gimnasio para planes de entrenador.",
+        "noGymDescription": "No pudimos determinar el contexto de tu gimnasio para los planes del gimnasio.",
         "goToGym": "Ir a gimnasio"
       },
       "wizard": {
@@ -3012,7 +3012,7 @@
     },
     "trainer": {
       "list": {
-        "title": "Planes del entrenador",
+        "title": "Planes del gimnasio",
         "empty": "Aún no hay planes disponibles.",
         "error": "No pudimos cargar los planes ahora.",
         "notAvailable": "Los planes no están disponibles en este entorno."

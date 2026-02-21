@@ -28,7 +28,7 @@
     "adminPreview": "Admin Preview",
     "adminLabs": "Labs",
     "trainerClients": "Trainer clients",
-    "trainerPlans": "Trainer plans",
+    "trainerPlans": "Gym plans",
     "trainerExercises": "Trainer exercises",
     "newExercise": "New exercise",
     "onboarding": "Onboarding",
@@ -2094,7 +2094,7 @@
       }
     },
     "plans": {
-      "title": "Trainer plans",
+      "title": "Gym plans",
       "description": "Create and review manual plans available for assignment.",
       "openList": "Open plans",
       "createTitle": "Create manual plan",
@@ -2151,9 +2151,9 @@
       "lockedBadge": "Locked",
       "tabs": {
         "title": "Plans library",
-        "ariaLabel": "Trainer plans tabs",
+        "ariaLabel": "Gym plans tabs",
         "fitsculptPlans": "FitSculpt Plans",
-        "myPlans": "My plans",
+        "myPlans": "Gym plans",
         "fitsculpt": "FitSculpt plans"
       },
       "fitsculpt": {
@@ -2163,7 +2163,7 @@
       },
       "myPlans": {
         "noGymTitle": "Gym context is required",
-        "noGymDescription": "We could not determine your gym context for trainer plans.",
+        "noGymDescription": "We could not determine your gym context for gym plans.",
         "goToGym": "Go to gym"
       },
       "wizard": {
@@ -3010,7 +3010,7 @@
     },
     "trainer": {
       "list": {
-        "title": "Trainer plans",
+        "title": "Gym plans",
         "empty": "No plans available yet.",
         "error": "We could not load plans right now.",
         "notAvailable": "Plans are not available in this environment."
