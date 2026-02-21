@@ -2051,7 +2051,8 @@ async function saveTrainingPlan(
 function buildNutritionPrompt(
   data: z.infer<typeof aiNutritionSchema>,
   recipes: RecipePromptItem[] = [],
-  strict = false
+  strict = false,
+  retryFeedback?: string
 ) {
   const distribution =
     typeof data.mealDistribution === "string"
@@ -2101,8 +2102,12 @@ function buildNutritionPrompt(
     "Cada día debe incluir dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
     "Usa siempre type y macros en cada comida.",
     "REGLA MATEMÁTICA OBLIGATORIA POR COMIDA: macros.calories = round(4*protein + 4*carbs + 9*fats).",
-    "REGLA MATEMÁTICA OBLIGATORIA POR DÍA: la suma de meal.macros.calories de ese día debe ser EXACTAMENTE igual a dailyCalories.",
+    "REGLA MATEMÁTICA OBLIGATORIA POR DÍA: la suma de meal.macros.calories de ese día debe ser igual (con desvío mínimo) a dailyCalories.",
     `REGLA MATEMÁTICA OBLIGATORIA GLOBAL: dailyCalories debe ser exactamente ${data.calories}.`,
+    "REGLA DE CONSISTENCIA: no dejes comidas con calories incompatibles con sus macros; si ajustas macros, recalcula calories de esa comida.",
+    "REGLA DE CIERRE DIARIO: valida proteína, carbohidratos y grasas por día y corrige expected vs actual antes de responder.",
+    strict ? "REINTENTO OBLIGATORIO: corrige explícitamente incoherencias por comida y por día." : "",
+    strict && retryFeedback ? `ERRORES DETECTADOS EN INTENTO PREVIO: ${retryFeedback}` : "",
     "Antes de responder, revalida internamente todas las sumas y corrige cualquier desvío numérico.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
@@ -2125,23 +2130,30 @@ function normalizeNutritionCaloriesPerDay(
     }));
     if (meals.length === 0) return { ...day, meals };
 
-    let remainingDelta = targetKcal - meals.reduce((sum, meal) => sum + meal.macros.calories, 0);
-    if (remainingDelta === 0) return { ...day, meals };
-
-    const direction = remainingDelta > 0 ? 1 : -1;
-    const maxIterations = Math.abs(remainingDelta) * meals.length;
-    let iterations = 0;
-
-    while (remainingDelta !== 0 && iterations < maxIterations) {
-      for (const meal of meals) {
-        if (remainingDelta === 0) break;
-        if (direction < 0 && meal.macros.calories <= 1) continue;
-        meal.macros.calories += direction;
-        remainingDelta -= direction;
+    for (const meal of meals) {
+      const macroBasedCalories = Math.round(meal.macros.protein * 4 + meal.macros.carbs * 4 + meal.macros.fats * 9);
+      if (Math.abs(meal.macros.calories - macroBasedCalories) > 35) {
+        meal.macros.calories = Math.max(1, macroBasedCalories);
       }
-      iterations += 1;
-      if (direction < 0 && meals.every((meal) => meal.macros.calories <= 1)) {
-        break;
+    }
+
+    let remainingDelta = targetKcal - meals.reduce((sum, meal) => sum + meal.macros.calories, 0);
+    if (remainingDelta !== 0) {
+      const direction = remainingDelta > 0 ? 1 : -1;
+      const maxIterations = Math.abs(remainingDelta) * meals.length;
+      let iterations = 0;
+
+      while (remainingDelta !== 0 && iterations < maxIterations) {
+        for (const meal of meals) {
+          if (remainingDelta === 0) break;
+          if (direction < 0 && meal.macros.calories <= 1) continue;
+          meal.macros.calories += direction;
+          remainingDelta -= direction;
+        }
+        iterations += 1;
+        if (direction < 0 && meals.every((meal) => meal.macros.calories <= 1)) {
+          break;
+        }
       }
     }
 
@@ -2454,6 +2466,43 @@ function getNutritionInvalidOutputDebug(error: unknown) {
   };
 }
 
+function summarizeNutritionMath(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
+  return {
+    dailyCalories: plan.dailyCalories,
+    totalDays: plan.days.length,
+    days: plan.days.map((day) => {
+      const totals = day.meals.reduce(
+        (acc, meal) => {
+          acc.calories += meal.macros.calories;
+          acc.protein += meal.macros.protein;
+          acc.carbs += meal.macros.carbs;
+          acc.fats += meal.macros.fats;
+          return acc;
+        },
+        { calories: 0, protein: 0, carbs: 0, fats: 0 }
+      );
+      return {
+        dayLabel: day.dayLabel,
+        meals: day.meals.length,
+        totals,
+      };
+    }),
+  };
+}
+
+function buildRetryFeedback(error: unknown) {
+  const typed = error as { debug?: Record<string, unknown> };
+  const debug = typed?.debug;
+  if (!debug || typeof debug !== "object") return "";
+  const reason = typeof debug.reason === "string" ? debug.reason : null;
+  const dayLabel = typeof debug.dayLabel === "string" ? debug.dayLabel : "día desconocido";
+  const expected = typeof debug.expected === "number" ? debug.expected : null;
+  const actual = typeof debug.actual === "number" ? debug.actual : null;
+  const tolerance = typeof debug.tolerance === "number" ? debug.tolerance : null;
+  if (!reason || expected === null || actual === null) return "";
+  return `${reason} en ${dayLabel}: expected=${expected}, actual=${actual}${tolerance !== null ? `, tolerance=±${tolerance}` : ""}`;
+}
+
 function assertNutritionRequestMapping(
   payload: z.infer<typeof aiGenerateNutritionSchema>,
   nutritionInput: z.infer<typeof aiNutritionSchema>,
@@ -2477,8 +2526,8 @@ function assertNutritionRequestMapping(
   }
 }
 
-const NUTRITION_KCAL_TOLERANCE = 200;
-const NUTRITION_MACRO_TOLERANCE = 25;
+const kcalTolerancePerDay = 200;
+const macroToleranceGPerDay = 20;
 
 function assertWithinTolerance(actual: number, expected: number, tolerance: number) {
   return Math.abs(actual - expected) <= tolerance;
@@ -2486,7 +2535,7 @@ function assertWithinTolerance(actual: number, expected: number, tolerance: numb
 
 function assertTrainingLevelConsistency(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
-  experienceLevel: z.infer<typeof aiGenerateTrainingSchema>['experienceLevel']
+  experienceLevel: z.infer<typeof aiGenerateTrainingSchema>["experienceLevel"]
 ) {
   const minExercises = experienceLevel === "advanced" ? 4 : 3;
   const maxExercises = experienceLevel === "beginner" ? 4 : 5;
@@ -2555,36 +2604,37 @@ function assertNutritionMath(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   constraints: z.infer<typeof aiGenerateNutritionSchema>
 ) {
-  if (!assertWithinTolerance(plan.dailyCalories, constraints.targetKcal, NUTRITION_KCAL_TOLERANCE)) {
+  const macroTargets = constraints.macroTargets;
+  if (!assertWithinTolerance(plan.dailyCalories, constraints.targetKcal, kcalTolerancePerDay)) {
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
       reason: "DAILY_CALORIES_MISMATCH",
       expected: constraints.targetKcal,
       actual: plan.dailyCalories,
-      tolerance: NUTRITION_KCAL_TOLERANCE,
+      tolerance: kcalTolerancePerDay,
     });
   }
-  if (!assertWithinTolerance(plan.proteinG, constraints.macroTargets.proteinG, NUTRITION_MACRO_TOLERANCE)) {
+  if (macroTargets && !assertWithinTolerance(plan.proteinG, macroTargets.proteinG, macroToleranceGPerDay)) {
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
       reason: "PROTEIN_MISMATCH",
-      expected: constraints.macroTargets.proteinG,
+      expected: macroTargets.proteinG,
       actual: plan.proteinG,
-      tolerance: NUTRITION_MACRO_TOLERANCE,
+      tolerance: macroToleranceGPerDay,
     });
   }
-  if (!assertWithinTolerance(plan.carbsG, constraints.macroTargets.carbsG, NUTRITION_MACRO_TOLERANCE)) {
+  if (macroTargets && !assertWithinTolerance(plan.carbsG, macroTargets.carbsG, macroToleranceGPerDay)) {
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
       reason: "CARBS_MISMATCH",
-      expected: constraints.macroTargets.carbsG,
+      expected: macroTargets.carbsG,
       actual: plan.carbsG,
-      tolerance: NUTRITION_MACRO_TOLERANCE,
+      tolerance: macroToleranceGPerDay,
     });
   }
-  if (!assertWithinTolerance(plan.fatG, constraints.macroTargets.fatsG, NUTRITION_MACRO_TOLERANCE)) {
+  if (macroTargets && !assertWithinTolerance(plan.fatG, macroTargets.fatsG, macroToleranceGPerDay)) {
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
       reason: "FATS_MISMATCH",
-      expected: constraints.macroTargets.fatsG,
+      expected: macroTargets.fatsG,
       actual: plan.fatG,
-      tolerance: NUTRITION_MACRO_TOLERANCE,
+      tolerance: macroToleranceGPerDay,
     });
   }
 
@@ -2608,38 +2658,42 @@ function assertNutritionMath(
       { calories: 0, protein: 0, carbs: 0, fats: 0 }
     );
 
-    if (!assertWithinTolerance(dayTotals.calories, constraints.targetKcal, NUTRITION_KCAL_TOLERANCE)) {
+    if (!assertWithinTolerance(dayTotals.calories, constraints.targetKcal, kcalTolerancePerDay)) {
       throw createHttpError(400, "INVALID_AI_OUTPUT", {
         reason: "DAY_TOTAL_CALORIES_MISMATCH",
         expected: constraints.targetKcal,
         actual: dayTotals.calories,
+        tolerance: kcalTolerancePerDay,
         dayLabel: day.dayLabel,
       });
     }
 
-    if (!assertWithinTolerance(dayTotals.protein, constraints.macroTargets.proteinG, NUTRITION_MACRO_TOLERANCE)) {
+    if (macroTargets && !assertWithinTolerance(dayTotals.protein, macroTargets.proteinG, macroToleranceGPerDay)) {
       throw createHttpError(400, "INVALID_AI_OUTPUT", {
         reason: "DAY_TOTAL_PROTEIN_MISMATCH",
-        expected: constraints.macroTargets.proteinG,
+        expected: macroTargets.proteinG,
         actual: dayTotals.protein,
+        tolerance: macroToleranceGPerDay,
         dayLabel: day.dayLabel,
       });
     }
 
-    if (!assertWithinTolerance(dayTotals.carbs, constraints.macroTargets.carbsG, NUTRITION_MACRO_TOLERANCE)) {
+    if (macroTargets && !assertWithinTolerance(dayTotals.carbs, macroTargets.carbsG, macroToleranceGPerDay)) {
       throw createHttpError(400, "INVALID_AI_OUTPUT", {
         reason: "DAY_TOTAL_CARBS_MISMATCH",
-        expected: constraints.macroTargets.carbsG,
+        expected: macroTargets.carbsG,
         actual: dayTotals.carbs,
+        tolerance: macroToleranceGPerDay,
         dayLabel: day.dayLabel,
       });
     }
 
-    if (!assertWithinTolerance(dayTotals.fats, constraints.macroTargets.fatsG, NUTRITION_MACRO_TOLERANCE)) {
+    if (macroTargets && !assertWithinTolerance(dayTotals.fats, macroTargets.fatsG, macroToleranceGPerDay)) {
       throw createHttpError(400, "INVALID_AI_OUTPUT", {
         reason: "DAY_TOTAL_FATS_MISMATCH",
-        expected: constraints.macroTargets.fatsG,
+        expected: macroTargets.fatsG,
         actual: dayTotals.fats,
+        tolerance: macroToleranceGPerDay,
         dayLabel: day.dayLabel,
       });
     }
@@ -5760,13 +5814,14 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
     let aiResult: OpenAiResponse | null = null;
     let lastError: unknown = null;
     let lastRawOutput = "";
+    let retryFeedback = "";
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const prompt = `${buildNutritionPrompt(nutritionInput, [], attempt > 0)} ` +
-          `Macros objetivo exactos por día: proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
-          `Calorías exactas por día: ${payload.targetKcal}. ` +
-          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige los números para cumplir calorías y macros EXACTOS, y meals por día exactos." : ""}`;
+        const prompt = `${buildNutritionPrompt(nutritionInput, [], attempt > 0, retryFeedback)} ` +
+          `Macros objetivo por día (con tolerancia): proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
+          `Calorías objetivo por día: ${payload.targetKcal}. ` +
+          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día." : ""}`;
         const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
           responseFormat: {
             type: "json_schema",
@@ -5784,13 +5839,24 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
         lastRawOutput = JSON.stringify(result.payload);
         const candidate = parseNutritionPlanPayload(result.payload, startDate, daysCount);
         assertNutritionMatchesRequest(candidate, payload.mealsPerDay, daysCount);
+        const beforeNormalize = summarizeNutritionMath(candidate);
         const normalizedCandidate = normalizeNutritionCaloriesPerDay(candidate, payload.targetKcal);
+        const afterNormalize = summarizeNutritionMath(normalizedCandidate);
+        app.log.info(
+          {
+            attempt,
+            beforeNormalize,
+            afterNormalize,
+          },
+          "nutrition normalization summary"
+        );
         assertNutritionMath(normalizedCandidate, payload);
         parsedPlan = normalizedCandidate;
         aiResult = result;
         break;
       } catch (error) {
         lastError = error;
+        retryFeedback = buildRetryFeedback(error);
       }
     }
 
