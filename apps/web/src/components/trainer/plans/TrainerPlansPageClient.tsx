@@ -266,51 +266,63 @@ export default function TrainerPlansPageClient() {
 
   const onDeletePlan = async () => {
     if (!deletePlanTarget || deletingPlanId) return;
-    setDeletingPlanId(deletePlanTarget.id);
-    const result = await deleteTrainerPlan(deletePlanTarget.id);
-    setDeletingPlanId(null);
 
+    const target = deletePlanTarget;
+    setDeletingPlanId(target.id);
+
+    const result = await deleteTrainerPlan(target.id);
     if (!result.ok) {
-      const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
+      const unsupported = result.status === 405 || result.status === 501;
       notify({
         title: t("trainer.plans.actions.delete"),
         description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteError"),
         variant: "error",
       });
+      setDeletingPlanId(null);
       return;
     }
 
     setDeletePlanTarget(null);
-    setPlans((prev) => prev.filter((entry) => entry.id !== deletePlanTarget.id));
-    if (selectedPlanId === deletePlanTarget.id) {
+    setDeletingPlanId(null);
+    notify({ title: t("trainer.plans.actions.delete"), description: t("trainer.plans.deleteSuccess"), variant: "success" });
+
+    await loadPlans();
+    if (selectedPlanId === target.id) {
       setSelectedPlanId(null);
       setDetail({ loading: false, error: false, item: null });
+      return;
     }
-    notify({ title: t("trainer.plans.actions.delete"), description: t("trainer.plans.deleteSuccess"), variant: "success" });
+
+    if (selectedPlanId) {
+      await loadPlanDetail(selectedPlanId);
+    }
   };
 
   const onDeleteDay = async () => {
     if (!detail.item?.id || !deleteDayTarget || deletingDayId) return;
-    setDeletingDayId(deleteDayTarget.id);
-    const result = await deleteTrainerPlanDay(detail.item.id, deleteDayTarget.id);
-    setDeletingDayId(null);
 
+    const currentPlanId = detail.item.id;
+    const target = deleteDayTarget;
+    setDeletingDayId(target.id);
+
+    const result = await deleteTrainerPlanDay(currentPlanId, target.id);
     if (!result.ok) {
-      const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
+      const unsupported = result.status === 405 || result.status === 501;
       notify({
         title: t("trainer.planDetail.deleteDay"),
         description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteDayError"),
         variant: "error",
       });
+      setDeletingDayId(null);
       return;
     }
 
     setDeleteDayTarget(null);
-    setDetail((prev) => (prev.item ? {
-      ...prev,
-      item: { ...prev.item, days: prev.item.days.filter((d) => d.id !== result.data.dayId) },
-    } : prev));
+    setDeletingDayId(null);
     notify({ title: t("trainer.planDetail.deleteDay"), description: t("trainer.plans.deleteDaySuccess"), variant: "success" });
+
+    await loadPlanDetail(currentPlanId);
+    await loadPlans();
   };
 
   if (accessLoading || gymLoading) return <LoadingState ariaLabel={t("trainer.loading")} lines={3} />;
