@@ -101,6 +101,7 @@ type AiTokenSnapshot = {
 type NutritionAiErrorState = {
   title: string;
   description: string;
+  actionableHint: string | null;
   details: string | null;
   canRetry: boolean;
 };
@@ -405,6 +406,38 @@ function extractAiDiffDetails(details: unknown): string | null {
   const typed = details as { diff?: unknown };
   if (!typed.diff || typeof typed.diff !== "object") return null;
   return JSON.stringify(typed.diff, null, 2);
+}
+
+function extractAiActionableHint(details: unknown, t: (key: string, vars?: Record<string, string | number>) => string): string | null {
+  if (!details || typeof details !== "object") return null;
+
+  const typed = details as {
+    reason?: unknown;
+    diff?: {
+      expected?: unknown;
+      actual?: unknown;
+      delta?: unknown;
+    };
+  };
+
+  const expected = Number(typed.diff?.expected);
+  const actual = Number(typed.diff?.actual);
+
+  if (!Number.isFinite(expected) || !Number.isFinite(actual)) {
+    return null;
+  }
+
+  const delta = Number(typed.diff?.delta);
+  const fallbackDelta = Math.abs(expected - actual);
+  const resolvedDelta = Number.isFinite(delta) ? Math.abs(delta) : fallbackDelta;
+  const reason = typeof typed.reason === "string" && typed.reason.trim().length > 0 ? typed.reason : t("nutrition.aiErrorState.genericReason");
+
+  return t("nutrition.aiErrorState.actionableDiff", {
+    reason,
+    expected: Math.round(expected * 10) / 10,
+    actual: Math.round(actual * 10) / 10,
+    delta: Math.round(resolvedDelta * 10) / 10,
+  });
 }
 
 function activityMultiplier(activity: Activity) {
@@ -1351,6 +1384,7 @@ const macroTargets = {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: t("ai.insufficientTokens"),
+          actionableHint: null,
           details: null,
           canRetry: false,
         });
@@ -1359,6 +1393,7 @@ const macroTargets = {
         setAiError({
           title: t("nutrition.aiErrorState.invalidOutputTitle"),
           description: t("nutrition.aiErrorState.invalidOutputDescription"),
+          actionableHint: extractAiActionableHint(requestError.details, t),
           details: extractAiDiffDetails(requestError.details),
           canRetry: !retriesReached,
         });
@@ -1368,6 +1403,7 @@ const macroTargets = {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: extractAiFieldErrorsMessage(requestError.details) ?? requestError.message ?? t("nutrition.aiErrorState.genericDescription"),
+          actionableHint: null,
           details: null,
           canRetry: !retriesReached,
         });
@@ -1377,6 +1413,7 @@ const macroTargets = {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: requestError.message ?? t("nutrition.aiRateLimit"),
+          actionableHint: null,
           details: null,
           canRetry: !retriesReached,
         });
@@ -1386,6 +1423,7 @@ const macroTargets = {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: t("nutrition.aiErrorState.genericDescription"),
+          actionableHint: null,
           details: null,
           canRetry: !retriesReached,
         });
@@ -1651,6 +1689,7 @@ useEffect(() => {
                   <strong>{aiError.title}</strong>
                 </div>
                 <p className="muted">{aiError.description}</p>
+                {aiError.actionableHint ? <p className="muted">{aiError.actionableHint}</p> : null}
                 {aiError.details ? (
                   <details>
                     <summary>{t("nutrition.aiErrorState.detailsCta")}</summary>
