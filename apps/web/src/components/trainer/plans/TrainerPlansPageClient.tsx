@@ -20,8 +20,8 @@ import {
   deleteTrainerPlan,
   deleteTrainerPlanDay,
   getTrainerPlanDetail,
-  getTrainerPlanEditCapabilities,
   listCurrentGymTrainerPlans,
+  markTrainerPlanEditCapabilityUnsupported,
 } from "@/services/trainer/plans";
 
 type LoadState = "loading" | "ready";
@@ -99,8 +99,8 @@ export default function TrainerPlansPageClient() {
   const [deleteDayTarget, setDeleteDayTarget] = useState<{ id: string; label: string } | null>(null);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [deletingDayId, setDeletingDayId] = useState<string | null>(null);
-  const [canDeletePlanById, setCanDeletePlanById] = useState<Record<string, boolean>>({});
-  const [canDeleteSelectedPlanDay, setCanDeleteSelectedPlanDay] = useState(false);
+  const [deletePlanNotSupportedById, setDeletePlanNotSupportedById] = useState<Record<string, boolean>>({});
+  const [deleteDayNotSupportedByPlanId, setDeleteDayNotSupportedByPlanId] = useState<Record<string, boolean>>({});
 
   const loadPlans = useCallback(async () => {
     setListState("loading");
@@ -144,46 +144,7 @@ export default function TrainerPlansPageClient() {
     return () => window.clearTimeout(timer);
   }, [canAccessTrainerArea, loadPlans]);
 
-  useEffect(() => {
-    if (plans.length === 0) {
-      setCanDeletePlanById({});
-      return;
-    }
 
-    let cancelled = false;
-    async function loadDeleteCapabilities() {
-      const entries = await Promise.all(plans.map(async (plan) => {
-        const caps = await getTrainerPlanEditCapabilities(plan.id);
-        return [plan.id, caps.canDeletePlan] as const;
-      }));
-
-      if (cancelled) return;
-      setCanDeletePlanById(Object.fromEntries(entries));
-    }
-
-    void loadDeleteCapabilities();
-    return () => {
-      cancelled = true;
-    };
-  }, [plans]);
-
-  useEffect(() => {
-    if (!detail.item?.id || !detail.item.days?.[0]?.id) {
-      setCanDeleteSelectedPlanDay(false);
-      return;
-    }
-
-    let cancelled = false;
-    async function loadDetailCapabilities() {
-      const caps = await getTrainerPlanEditCapabilities(detail.item!.id, detail.item!.days[0].id);
-      if (cancelled) return;
-      setCanDeleteSelectedPlanDay(caps.canDeleteDay);
-    }
-    void loadDetailCapabilities();
-    return () => {
-      cancelled = true;
-    };
-  }, [detail.item]);
 
   const toggleScheduleDay = (weekIndex: number, dayIndex: number) => {
     setScheduleGrid((prev) => prev.map((week, rowIndex) => {
@@ -272,7 +233,12 @@ export default function TrainerPlansPageClient() {
 
     const result = await deleteTrainerPlan(target.id);
     if (!result.ok) {
-      const unsupported = result.status === 405 || result.status === 501;
+      const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
+      if (unsupported) {
+        setDeletePlanNotSupportedById((prev) => ({ ...prev, [deletePlanTarget.id]: true }));
+        markTrainerPlanEditCapabilityUnsupported(deletePlanTarget.id, "canDeletePlan");
+      }
+
       notify({
         title: t("trainer.plans.actions.delete"),
         description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteError"),
@@ -283,11 +249,13 @@ export default function TrainerPlansPageClient() {
     }
 
     setDeletePlanTarget(null);
-    setDeletingPlanId(null);
-    notify({ title: t("trainer.plans.actions.delete"), description: t("trainer.plans.deleteSuccess"), variant: "success" });
-
-    await loadPlans();
-    if (selectedPlanId === target.id) {
+    setDeletePlanNotSupportedById((prev) => {
+      const next = { ...prev };
+      delete next[deletePlanTarget.id];
+      return next;
+    });
+    setPlans((prev) => prev.filter((entry) => entry.id !== deletePlanTarget.id));
+    if (selectedPlanId === deletePlanTarget.id) {
       setSelectedPlanId(null);
       setDetail({ loading: false, error: false, item: null });
       return;
@@ -307,7 +275,12 @@ export default function TrainerPlansPageClient() {
 
     const result = await deleteTrainerPlanDay(currentPlanId, target.id);
     if (!result.ok) {
-      const unsupported = result.status === 405 || result.status === 501;
+      const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
+      if (unsupported) {
+        setDeleteDayNotSupportedByPlanId((prev) => ({ ...prev, [detail.item.id]: true }));
+        markTrainerPlanEditCapabilityUnsupported(detail.item.id, "canDeleteDay", { dayId: deleteDayTarget.id });
+      }
+
       notify({
         title: t("trainer.planDetail.deleteDay"),
         description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteDayError"),
@@ -318,7 +291,11 @@ export default function TrainerPlansPageClient() {
     }
 
     setDeleteDayTarget(null);
-    setDeletingDayId(null);
+    setDeleteDayNotSupportedByPlanId((prev) => ({ ...prev, [detail.item.id]: false }));
+    setDetail((prev) => (prev.item ? {
+      ...prev,
+      item: { ...prev.item, days: prev.item.days.filter((d) => d.id !== result.data.dayId) },
+    } : prev));
     notify({ title: t("trainer.planDetail.deleteDay"), description: t("trainer.plans.deleteDaySuccess"), variant: "success" });
 
     await loadPlanDetail(currentPlanId);
@@ -416,9 +393,9 @@ export default function TrainerPlansPageClient() {
                             <Button variant="secondary" onClick={() => void loadPlanDetail(plan.id)}>{t("trainer.plans.selectPlan")}</Button>
                             <Button
                               variant="ghost"
-                              disabled={!canDeletePlanById[plan.id]}
+                              disabled={Boolean(deletePlanNotSupportedById[plan.id])}
                               onClick={() => setDeletePlanTarget(plan)}
-                              title={!canDeletePlanById[plan.id] ? t("trainer.plans.actions.deleteUnsupported") : undefined}
+                              title={deletePlanNotSupportedById[plan.id] ? t("trainer.plans.actions.deleteUnsupported") : undefined}
                             >
                               {t("trainer.plans.actions.delete")}
                             </Button>
@@ -462,9 +439,9 @@ export default function TrainerPlansPageClient() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        disabled={!canDeleteSelectedPlanDay}
+                        disabled={Boolean(detail.item?.id && deleteDayNotSupportedByPlanId[detail.item.id])}
                         onClick={() => setDeleteDayTarget({ id: day.id, label: day.label })}
-                        title={!canDeleteSelectedPlanDay ? t("trainer.planDetail.notAvailableInEnvironment") : undefined}
+                        title={detail.item?.id && deleteDayNotSupportedByPlanId[detail.item.id] ? t("trainer.planDetail.notAvailableInEnvironment") : undefined}
                       >
                         {t("trainer.planDetail.deleteDay")}
                       </Button>
