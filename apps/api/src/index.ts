@@ -5553,6 +5553,9 @@ const assignTrainingPlanBodySchema = z
 const trainerMemberParamsSchema = z.object({
   userId: z.string().min(1),
 });
+const trainerMemberIdParamsSchema = z.object({
+  id: z.string().min(1),
+});
 const trainerPlanCreateSchema = z.object({
   title: z.string().trim().min(1).max(120),
   daysCount: z.coerce.number().int().min(1).max(14).optional(),
@@ -5605,6 +5608,17 @@ const trainerPlanExerciseUpdateSchema = z
 const trainerAssignPlanBodySchema = z.object({
   trainingPlanId: z.string().min(1),
 });
+const trainerAssignPlanResultSchema = {
+  id: true,
+  title: true,
+  goal: true,
+  level: true,
+  daysPerWeek: true,
+  focus: true,
+  equipment: true,
+  startDate: true,
+  daysCount: true,
+} as const;
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -7432,8 +7446,14 @@ app.delete("/trainer/plans/:planId", async (request, reply) => {
 
     const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
 
-    await prisma.trainingPlan.delete({
-      where: { id: plan.id },
+    await prisma.$transaction(async (tx) => {
+      await tx.gymMembership.updateMany({
+        where: { assignedTrainingPlanId: plan.id },
+        data: { assignedTrainingPlanId: null },
+      });
+      await tx.trainingPlan.delete({
+        where: { id: plan.id },
+      });
     });
 
     request.log.info(
@@ -7454,14 +7474,25 @@ app.delete("/trainer/plans/:planId/days/:dayId", async (request, reply) => {
 
     const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
 
-    const deleted = await prisma.trainingDay.deleteMany({
-      where: {
-        id: dayId,
-        planId: plan.id,
-      },
+    const deleted = await prisma.$transaction(async (tx) => {
+      const day = await tx.trainingDay.findFirst({
+        where: {
+          id: dayId,
+          planId: plan.id,
+        },
+        select: { id: true },
+      });
+
+      if (!day) {
+        return false;
+      }
+
+      await tx.trainingExercise.deleteMany({ where: { dayId: day.id } });
+      await tx.trainingDay.delete({ where: { id: day.id } });
+      return true;
     });
 
-    if (deleted.count === 0) {
+    if (!deleted) {
       return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
     }
 
@@ -7471,6 +7502,58 @@ app.delete("/trainer/plans/:planId/days/:dayId", async (request, reply) => {
     );
 
     return reply.status(204).send();
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/plans/:planId/days/:dayId/exercises", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId } = trainerPlanDayParamsSchema.parse(request.params);
+    const { exerciseId } = addTrainingExerciseBodySchema.parse(request.body);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    const [day, exercise] = await Promise.all([
+      prisma.trainingDay.findFirst({
+        where: { id: dayId, planId: plan.id },
+        select: { id: true },
+      }),
+      prisma.exercise.findUnique({
+        where: { id: exerciseId },
+        select: { id: true, name: true },
+      }),
+    ]);
+
+    if (!day) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    if (!exercise) {
+      return reply.status(404).send({ error: "EXERCISE_NOT_FOUND" });
+    }
+
+    const created = await prisma.trainingExercise.create({
+      data: {
+        dayId: day.id,
+        name: exercise.name,
+        sets: 3,
+        reps: "10-12",
+      },
+    });
+
+    request.log.info(
+      { planId: plan.id, dayId, exerciseId, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer added exercise to training day"
+    );
+
+    return reply.status(201).send({
+      exercise: created,
+      sourceExercise: exercise,
+      planId: plan.id,
+      dayId: day.id,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -7562,51 +7645,76 @@ app.delete("/trainer/plans/:planId/days/:dayId/exercises/:exerciseId", async (re
   }
 });
 
+async function getTrainerMemberAssignment(
+  requesterId: string,
+  memberUserId: string
+): Promise<{
+  managerMembership: { gymId: string };
+  targetMembership: {
+    id: string;
+    status: string;
+    role: string;
+    assignedTrainingPlanId: string | null;
+    assignedTrainingPlan: {
+      id: string;
+      title: string;
+      goal: string;
+      level: string;
+      daysPerWeek: number;
+      focus: string;
+      equipment: string;
+      startDate: Date;
+      daysCount: number;
+    } | null;
+  };
+}> {
+  const managerMembership = await requireActiveGymManagerMembership(requesterId);
+  const targetMembership = await prisma.gymMembership.findUnique({
+    where: { gymId_userId: { gymId: managerMembership.gymId, userId: memberUserId } },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+      assignedTrainingPlanId: true,
+      assignedTrainingPlan: {
+        select: trainerAssignPlanResultSchema,
+      },
+    },
+  });
+
+  if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+    throw createHttpError(404, "MEMBER_NOT_FOUND", { memberUserId, gymId: managerMembership.gymId });
+  }
+
+  return { managerMembership: { gymId: managerMembership.gymId }, targetMembership };
+}
+
 app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
   try {
-    const requester = await requireUser(request);
-    const managerMembership = await requireActiveGymManagerMembership(requester.id);
     const { userId } = trainerClientParamsSchema.parse(request.params);
     const { trainingPlanId } = trainerAssignPlanBodySchema.parse(request.body);
+    const requester = await requireUser(request);
 
-    const [targetMembership, selectedPlan] = await Promise.all([
-      prisma.gymMembership.findUnique({
-        where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
-        select: { id: true, role: true, status: true },
-      }),
-      prisma.trainingPlan.findFirst({
-        where: {
-          id: trainingPlanId,
-          OR: [
-            { userId: requester.id },
-            {
-              gymAssignments: {
-                some: {
-                  gymId: managerMembership.gymId,
-                  status: "ACTIVE",
-                  role: "MEMBER",
-                },
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, userId);
+
+    const selectedPlan = await prisma.trainingPlan.findFirst({
+      where: {
+        id: trainingPlanId,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
               },
             },
-          ],
-        },
-        select: {
-          id: true,
-          title: true,
-          goal: true,
-          level: true,
-          daysPerWeek: true,
-          focus: true,
-          equipment: true,
-          startDate: true,
-          daysCount: true,
-        },
-      }),
-    ]);
-
-    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
-      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
-    }
+          },
+        ],
+      },
+      select: trainerAssignPlanResultSchema,
+    });
 
     if (!selectedPlan) {
       return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
@@ -7631,34 +7739,8 @@ app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
 app.get("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
   try {
     const requester = await requireUser(request);
-    const managerMembership = await requireActiveGymManagerMembership(requester.id);
     const { userId } = trainerClientParamsSchema.parse(request.params);
-
-    const targetMembership = await prisma.gymMembership.findUnique({
-      where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
-      select: {
-        id: true,
-        role: true,
-        status: true,
-        assignedTrainingPlan: {
-          select: {
-            id: true,
-            title: true,
-            goal: true,
-            level: true,
-            daysPerWeek: true,
-            focus: true,
-            equipment: true,
-            startDate: true,
-            daysCount: true,
-          },
-        },
-      },
-    });
-
-    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
-      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
-    }
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, userId);
 
     return reply.status(200).send({
       memberId: userId,
@@ -7673,28 +7755,79 @@ app.get("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
 app.delete("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
   try {
     const requester = await requireUser(request);
-    const managerMembership = await requireActiveGymManagerMembership(requester.id);
     const { userId } = trainerClientParamsSchema.parse(request.params);
-
-    const targetMembership = await prisma.gymMembership.findUnique({
-      where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
-      select: { id: true, role: true, status: true, assignedTrainingPlanId: true },
-    });
-
-    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
-      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
-    }
-
-    if (!targetMembership.assignedTrainingPlanId) {
-      return reply.status(404).send({ error: "ASSIGNMENT_NOT_FOUND" });
-    }
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, userId);
 
     await prisma.gymMembership.update({
       where: { id: targetMembership.id },
       data: { assignedTrainingPlanId: null },
     });
 
-    return reply.status(200).send({ ok: true, memberId: userId, gymId: managerMembership.gymId });
+    return reply.status(200).send({ ok: true, memberId: userId, gymId: managerMembership.gymId, assignedPlan: null });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/members/:id/training-plan-assignment", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { id } = trainerMemberIdParamsSchema.parse(request.params);
+    const { trainingPlanId } = trainerAssignPlanBodySchema.parse(request.body);
+
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, id);
+
+    const selectedPlan = await prisma.trainingPlan.findFirst({
+      where: {
+        id: trainingPlanId,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
+      select: trainerAssignPlanResultSchema,
+    });
+
+    if (!selectedPlan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: selectedPlan.id },
+    });
+
+    return reply.status(200).send({
+      ok: true,
+      memberId: id,
+      gymId: managerMembership.gymId,
+      assignedPlan: selectedPlan,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/members/:id/training-plan-assignment", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { id } = trainerMemberIdParamsSchema.parse(request.params);
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, id);
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: null },
+    });
+
+    return reply.status(200).send({ ok: true, memberId: id, gymId: managerMembership.gymId, assignedPlan: null });
   } catch (error) {
     return handleRequestError(reply, error);
   }
