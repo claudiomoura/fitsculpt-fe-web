@@ -2971,6 +2971,45 @@ label {
   margin-top: 12px;
 }
 
+.dashboard-kpi-grid {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.dashboard-kpi-card {
+  min-height: 210px;
+  display: grid;
+  gap: 12px;
+  align-content: space-between;
+}
+
+.dashboard-kpi-value {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+.dashboard-kpi-bars {
+  height: 56px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 6px;
+}
+
+.dashboard-kpi-bar {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 78%, transparent);
+  min-height: 8px;
+}
+
+@media (max-width: 700px) {
+  .dashboard-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .library-search {
   display: grid;
   gap: 12px;
