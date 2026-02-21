@@ -51,6 +51,8 @@ export type TrainerPlanEditCapabilities = {
   canUpdateDayExercise: boolean;
 };
 
+type TrainerPlanEditCapability = keyof TrainerPlanEditCapabilities;
+
 export type AddExerciseToPlanDayInput = {
   planId: string;
   dayId: string;
@@ -105,52 +107,34 @@ export const trainerPlanCapabilities: TrainerPlanCapabilities = {
   supportsBatchAdd: false,
 };
 
-const capabilityProbeCache = new Map<string, boolean>();
+const unsupportedCapabilityCache = new Map<string, Partial<Record<TrainerPlanEditCapability, boolean>>>();
 
-function getCapabilityCacheKey(path: string, method: string): string {
-  return `${method.toUpperCase()} ${path}`;
+function getUnsupportedCapabilityCacheKey(planId: string, dayId?: string, exerciseId?: string): string {
+  return `${planId}::${dayId ?? "*"}::${exerciseId ?? "*"}`;
 }
 
-async function supportsMethod(path: string, method: "DELETE" | "PATCH"): Promise<boolean> {
-  const cacheKey = getCapabilityCacheKey(path, method);
-  const cached = capabilityProbeCache.get(cacheKey);
-  if (typeof cached === "boolean") return cached;
+export function markTrainerPlanEditCapabilityUnsupported(
+  planId: string,
+  capability: TrainerPlanEditCapability,
+  options: { dayId?: string; exerciseId?: string } = {},
+): void {
+  const normalizedPlanId = planId.trim();
+  if (!normalizedPlanId) return;
 
-  try {
-    const response = await fetch(path, {
-      method: "OPTIONS",
-      cache: "no-store",
-      credentials: "include",
-    });
-
-    if (response.status === 404 || response.status === 405) {
-      capabilityProbeCache.set(cacheKey, false);
-      return false;
-    }
-
-    const allowHeader = response.headers.get("allow") ?? response.headers.get("Allow");
-    if (!allowHeader) {
-      capabilityProbeCache.set(cacheKey, false);
-      return false;
-    }
-
-    const allowed = allowHeader
-      .split(",")
-      .map((entry) => entry.trim().toUpperCase())
-      .includes(method);
-
-    capabilityProbeCache.set(cacheKey, allowed);
-    return allowed;
-  } catch {
-    capabilityProbeCache.set(cacheKey, false);
-    return false;
-  }
+  const normalizedDayId = options.dayId?.trim() || undefined;
+  const normalizedExerciseId = options.exerciseId?.trim() || undefined;
+  const key = getUnsupportedCapabilityCacheKey(normalizedPlanId, normalizedDayId, normalizedExerciseId);
+  const previous = unsupportedCapabilityCache.get(key) ?? {};
+  unsupportedCapabilityCache.set(key, {
+    ...previous,
+    [capability]: true,
+  });
 }
 
 export async function getTrainerPlanEditCapabilities(planId: string, dayId?: string, exerciseId?: string): Promise<TrainerPlanEditCapabilities> {
   const normalizedPlanId = planId.trim();
-  const normalizedDayId = dayId?.trim() || "capability-day";
-  const normalizedExerciseId = exerciseId?.trim() || "capability-exercise";
+  const normalizedDayId = dayId?.trim() || undefined;
+  const normalizedExerciseId = exerciseId?.trim() || undefined;
 
   if (!normalizedPlanId) {
     return {
@@ -161,22 +145,14 @@ export async function getTrainerPlanEditCapabilities(planId: string, dayId?: str
     };
   }
 
-  const basePlanPath = `/api/trainer/plans/${normalizedPlanId}`;
-  const dayPath = `${basePlanPath}/days/${normalizedDayId}`;
-  const exercisePath = `${dayPath}/exercises/${normalizedExerciseId}`;
-
-  const [canDeletePlan, canDeleteDay, canDeleteDayExercise, canUpdateDayExercise] = await Promise.all([
-    supportsMethod(basePlanPath, "DELETE"),
-    supportsMethod(dayPath, "DELETE"),
-    supportsMethod(exercisePath, "DELETE"),
-    supportsMethod(exercisePath, "PATCH"),
-  ]);
+  const key = getUnsupportedCapabilityCacheKey(normalizedPlanId, normalizedDayId, normalizedExerciseId);
+  const unsupported = unsupportedCapabilityCache.get(key) ?? {};
 
   return {
-    canDeletePlan,
-    canDeleteDay,
-    canDeleteDayExercise,
-    canUpdateDayExercise,
+    canDeletePlan: !unsupported.canDeletePlan,
+    canDeleteDay: !unsupported.canDeleteDay,
+    canDeleteDayExercise: !unsupported.canDeleteDayExercise,
+    canUpdateDayExercise: !unsupported.canUpdateDayExercise,
   };
 }
 
