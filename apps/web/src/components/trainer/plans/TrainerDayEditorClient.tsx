@@ -409,6 +409,48 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
                         }))}
                         disabled={!canEditThisExercise || isSaving}
                       />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          disabled={!canEditThisExercise || isSaving}
+                          onClick={() => setExerciseDrafts((prev) => {
+                            const currentDraft = prev[exercise.id] ?? baseDraft;
+                            const currentSets = typeof currentDraft.sets === "number" ? currentDraft.sets : 1;
+
+                            return {
+                              ...prev,
+                              [exercise.id]: {
+                                ...currentDraft,
+                                sets: currentSets + 1,
+                              },
+                            };
+                          })}
+                        >
+                          {t("trainer.plans.editExercise.addSet")}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          disabled={!canEditThisExercise || isSaving || (typeof draft.sets === "number" ? draft.sets : 1) <= 1}
+                          onClick={() => setExerciseDrafts((prev) => {
+                            const currentDraft = prev[exercise.id] ?? baseDraft;
+                            const currentSets = typeof currentDraft.sets === "number" ? currentDraft.sets : 1;
+
+                            return {
+                              ...prev,
+                              [exercise.id]: {
+                                ...currentDraft,
+                                sets: Math.max(1, currentSets - 1),
+                              },
+                            };
+                          })}
+                        >
+                          {t("trainer.plans.editExercise.removeSet")}
+                        </Button>
+                      </div>
                     </label>
                   ) : null}
 
