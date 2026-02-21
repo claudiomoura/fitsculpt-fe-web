@@ -30,6 +30,7 @@ import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
+import { generateNutritionPlan, type NutritionGenerateError } from "@/services/nutrition";
 
 type NutritionForm = {
   age: number;
@@ -95,6 +96,13 @@ type ShoppingItem = {
 
 type AiTokenSnapshot = {
   tokens: number | null;
+};
+
+type NutritionAiErrorState = {
+  title: string;
+  description: string;
+  details: string | null;
+  canRetry: boolean;
 };
 
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
@@ -372,9 +380,7 @@ function computeAiMacroTargets(profile: ProfileData, targetKcal: number) {
   };
 }
 
-function extractAiFieldErrorsMessage(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-  const details = (payload as { details?: unknown }).details;
+function extractAiFieldErrorsMessage(details: unknown): string | null {
   if (!details || typeof details !== "object") return null;
   const fieldErrors = (details as { fieldErrors?: unknown }).fieldErrors;
   if (!fieldErrors || typeof fieldErrors !== "object") return null;
@@ -394,24 +400,11 @@ function extractAiFieldErrorsMessage(payload: unknown): string | null {
   return entries.length > 0 ? entries.join(" · ") : null;
 }
 
-
-
-function extractAiInvalidOutputDebugMessage(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-  const typed = payload as { error?: unknown; reasonCode?: unknown; details?: unknown };
-  if (typed.error !== "INVALID_AI_OUTPUT") return null;
-  const reasonCode = typeof typed.reasonCode === "string" ? typed.reasonCode : null;
-  const details = typed.details && typeof typed.details === "object" ? (typed.details as Record<string, unknown>) : null;
-  if (!details) return reasonCode ? `AI debug: ${reasonCode}` : "AI debug: INVALID_AI_OUTPUT";
-
-  const expected = typeof details.expected === "number" ? details.expected : null;
-  const actual = typeof details.actual === "number" ? details.actual : null;
-  const dayLabel = typeof details.dayLabel === "string" ? details.dayLabel : null;
-
-  const parts = [reasonCode, dayLabel ? `día=${dayLabel}` : null, expected !== null ? `expected=${expected}` : null, actual !== null ? `actual=${actual}` : null]
-    .filter((part): part is string => Boolean(part));
-
-  return parts.length > 0 ? `AI debug: ${parts.join(" · ")}` : "AI debug: INVALID_AI_OUTPUT";
+function extractAiDiffDetails(details: unknown): string | null {
+  if (!details || typeof details !== "object") return null;
+  const typed = details as { diff?: unknown };
+  if (!typed.diff || typeof typed.diff !== "object") return null;
+  return JSON.stringify(typed.diff, null, 2);
 }
 
 function activityMultiplier(activity: Activity) {
@@ -661,6 +654,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<NutritionAiErrorState | null>(null);
+  const [aiRetryCount, setAiRetryCount] = useState(0);
   const [aiSuccessModalOpen, setAiSuccessModalOpen] = useState(false);
   const [lastGeneratedAiPlan, setLastGeneratedAiPlan] = useState<NutritionPlan | null>(null);
   const [lastGeneratedTokensUsed, setLastGeneratedTokensUsed] = useState<number | null>(null);
@@ -1257,14 +1252,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     updateNutritionSearchParams(dayKey, selectedMeal?.mealKey ?? null);
   }, [planStartDate, searchParams, selectedDate, selectedMeal?.mealKey]);
 
-  const handleAiPlan = async () => {
+  const MAX_AI_RETRIES = 3;
+
+  const handleAiPlan = async (mode: "default" | "simple" = "default") => {
     if (!profile || aiLoading) return;
     if (!isProfileComplete(profile)) {
       router.push("/app/onboarding?ai=nutrition&next=/app/nutricion");
       return;
     }
     setAiLoading(true);
-    setError(null);
+    setAiError(null);
    try {
   const startDate = toDateKey(startOfWeek(new Date()));
 
@@ -1293,58 +1290,25 @@ const macroTargets = {
 
   const tokensBefore = await readAiTokenSnapshot();
 
-  const response = await fetch("/api/ai/nutrition-plan/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
+  const data = await generateNutritionPlan({
       name: profile.name || undefined,
       age: profile.age,
       sex: profile.sex,
       goal: profile.goal,
       mealsPerDay,
-      targetKcal,          // 🔥 solo este, NO calories
+      targetKcal,
       macroTargets,
       startDate,
       daysCount: 7,
       dietType: profile.nutritionPreferences.dietType,
-      allergies: profile.nutritionPreferences.allergies,
-      preferredFoods: profile.nutritionPreferences.preferredFoods,
-      dislikedFoods: profile.nutritionPreferences.dislikedFoods,
-      mealDistribution: profile.nutritionPreferences.mealDistribution,
-    }),
+      allergies: mode === "simple" ? [] : profile.nutritionPreferences.allergies,
+      preferredFoods: mode === "simple" ? "" : profile.nutritionPreferences.preferredFoods,
+      dislikedFoods: mode === "simple" ? "" : profile.nutritionPreferences.dislikedFoods,
+      mealDistribution:
+        mode === "simple"
+          ? { preset: "balanced", percentages: [25, 25, 30, 20] }
+          : profile.nutritionPreferences.mealDistribution,
   });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as
-          | { error?: string; message?: string; retryAfterSec?: number; details?: { fieldErrors?: unknown } }
-          | null;
-        if (payload?.error === "INSUFFICIENT_TOKENS") {
-          throw new Error(t("ai.insufficientTokens"));
-        }
-        if (response.status === 400) {
-          const fieldErrorsMessage = extractAiFieldErrorsMessage(payload);
-          if (fieldErrorsMessage) {
-            throw new Error(fieldErrorsMessage);
-          }
-          const debugMessage = extractAiInvalidOutputDebugMessage(payload);
-          if (debugMessage) {
-            throw new Error(debugMessage);
-          }
-          if (payload?.message) {
-            throw new Error(payload.message);
-          }
-        }
-        if (response.status === 429) {
-          const message = payload?.message ?? t("nutrition.aiRateLimit");
-          throw new Error(message);
-        }
-        throw new Error(t("nutrition.aiError"));
-      }
-      const data = (await response.json()) as {
-        plan?: NutritionPlan;
-        aiTokenBalance?: number;
-        aiTokenRenewalAt?: string | null;
-      };
       const generatedPlan = data.plan ?? (data as unknown as NutritionPlan);
       if (typeof data.aiTokenBalance === "number") {
         setAiTokenBalance(data.aiTokenBalance);
@@ -1375,12 +1339,59 @@ const macroTargets = {
       setLastGeneratedAiPlan(updatedPlan);
       setLastGeneratedTokensUsed(tokensUsed);
       setLastGeneratedTokensBalance(currentTokenBalance);
+      setAiRetryCount(0);
       setAiSuccessModalOpen(true);
       setPendingTokenToastId((value) => value + 1);
       setSaveMessage(t("nutrition.aiSuccess"));
       void refreshSubscription();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("nutrition.aiError"));
+      const requestError = err as NutritionGenerateError;
+      const retriesReached = aiRetryCount >= MAX_AI_RETRIES;
+      if (requestError?.code === "INSUFFICIENT_TOKENS") {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: t("ai.insufficientTokens"),
+          details: null,
+          canRetry: false,
+        });
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (requestError?.status === 400 && requestError?.code === "INVALID_AI_OUTPUT") {
+        setAiError({
+          title: t("nutrition.aiErrorState.invalidOutputTitle"),
+          description: t("nutrition.aiErrorState.invalidOutputDescription"),
+          details: extractAiDiffDetails(requestError.details),
+          canRetry: !retriesReached,
+        });
+        setAiRetryCount((prev) => prev + 1);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (requestError?.status === 400) {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: extractAiFieldErrorsMessage(requestError.details) ?? requestError.message ?? t("nutrition.aiErrorState.genericDescription"),
+          details: null,
+          canRetry: !retriesReached,
+        });
+        setAiRetryCount((prev) => prev + 1);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (requestError?.status === 429) {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: requestError.message ?? t("nutrition.aiRateLimit"),
+          details: null,
+          canRetry: !retriesReached,
+        });
+        setAiRetryCount((prev) => prev + 1);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: t("nutrition.aiErrorState.genericDescription"),
+          details: null,
+          canRetry: !retriesReached,
+        });
+        setAiRetryCount((prev) => prev + 1);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      }
     } finally {
       setAiLoading(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
@@ -1546,7 +1557,9 @@ useEffect(() => {
       variant: "success",
     });
   }, [hasPlan, notify, pendingTokenToastId, t]);
-  const handleRetry = () => window.location.reload();
+  const handleRetry = () => {
+    void handleAiPlan();
+  };
 
   return (
     <div className="page">
@@ -1630,6 +1643,32 @@ useEffect(() => {
                     {t("ui.back")}
                   </button>
                 </div>
+              </div>
+            ) : aiError ? (
+              <div className="status-card status-card--warning" role="alert" aria-live="polite">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{aiError.title}</strong>
+                </div>
+                <p className="muted">{aiError.description}</p>
+                {aiError.details ? (
+                  <details>
+                    <summary>{t("nutrition.aiErrorState.detailsCta")}</summary>
+                    <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{aiError.details}</pre>
+                  </details>
+                ) : null}
+                <div className="inline-actions-sm">
+                  <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
+                    {t("ui.retry")}
+                  </button>
+                  <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
+                    {t("nutrition.aiErrorState.generateSimple")}
+                  </button>
+                  <Link href="/app/nutricion/editar" className="btn secondary fit-content">
+                    {t("nutrition.aiErrorState.adjustGoals")}
+                  </Link>
+                </div>
+                {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
               </div>
             ) : saveMessage ? (
               <p className="muted">{saveMessage}</p>

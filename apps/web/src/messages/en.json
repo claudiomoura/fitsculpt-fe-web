@@ -872,6 +872,17 @@
       "close": "Close"
     },
     "aiError": "We couldn't generate the plan with AI.",
+    "aiErrorState": {
+      "title": "Generation failed",
+      "invalidOutputTitle": "We couldn't build your plan this time",
+      "invalidOutputDescription": "The generated nutrition output was invalid. You can retry safely.",
+      "genericDescription": "We couldn't generate your nutrition plan right now. Please try again.",
+      "toast": "Nutrition plan generation failed.",
+      "detailsCta": "Details",
+      "generateSimple": "Generate with simpler constraints",
+      "adjustGoals": "Adjust goals",
+      "retryLimit": "Retry limit reached for now. Please adjust goals or try later."
+    },
     "aiRateLimit": "You've reached the AI request limit. Try again later.",
     "resetPlan": "Reset plan",
     "shoppingTitle": "Shopping list",
