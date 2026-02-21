@@ -1679,6 +1679,7 @@
       "sections": {
         "fitsculpt": "Planes FitSculpt",
         "gym": "Planes de gimnasio",
+        "assigned": "Plan asignado",
         "ai": "Planes IA"
       },
       "sectionError": "No pudimos cargar esta sección ahora mismo.",

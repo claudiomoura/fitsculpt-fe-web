@@ -844,6 +844,14 @@ function ExerciseEditor({
     setDraft(exercise ? { ...exercise, sets: normalizeSets(exercise.sets) } : null);
   }, [exercise]);
 
+  const onSetsChange = useCallback((value: LoadSetsUpdate) => {
+    setDraft((current) => {
+      if (!current) return current;
+      const nextSets = typeof value === "function" ? value(current.sets) : value;
+      return { ...current, sets: normalizeSets(nextSets) };
+    });
+  }, []);
+
 
   if (!draft) return null;
 

@@ -37,6 +37,8 @@ export default function TrainingLibraryClient() {
   const [query, setQuery] = useState("");
   const [fitSculptPlans, setFitSculptPlans] = useState<TrainingPlanListItem[]>([]);
   const [fitSculptState, setFitSculptState] = useState<SectionState>("loading");
+  const [gymPlans, setGymPlans] = useState<TrainingPlanListItem[]>([]);
+  const [gymState, setGymState] = useState<SectionState>("loading");
   const [assignedPlan, setAssignedPlan] = useState<TrainingPlanListItem | null>(null);
   const [assignedPlanState, setAssignedPlanState] = useState<SectionState>("loading");
   const [aiGateState, setAiGateState] = useState<AiGateState>("loading");
@@ -247,8 +249,10 @@ export default function TrainingLibraryClient() {
       </section>
 
       {renderSection("library.training.sections.fitsculpt", fitSculptPlans, fitSculptState)}
+      {renderSection("library.training.sections.gym", gymPlans, gymState)}
+
       <section className="card">
-        <h2 className="section-title section-title-sm">{t("library.training.sections.gym")}</h2>
+        <h2 className="section-title section-title-sm">{t("library.training.sections.assigned")}</h2>
 
         {assignedPlanState === "loading" ? (
           <div className="mt-12" style={{ display: "grid", gap: 12 }}>
@@ -280,7 +284,6 @@ export default function TrainingLibraryClient() {
           </article>
         ) : null}
 
-        {assignedPlanState === "ready" && !assignedPlan ? <p className="muted mt-12">{t("library.training.sectionEmpty")}</p> : null}
       </section>
 
       <section className="card">
