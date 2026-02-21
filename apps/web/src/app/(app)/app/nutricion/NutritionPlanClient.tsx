@@ -1323,11 +1323,11 @@ const macroTargets = {
 
   const tokensBefore = await readAiTokenSnapshot();
 
-  const data = await generateNutritionPlan({
-      name: profile.name || undefined,
-      age: profile.age,
-      sex: profile.sex,
-      goal: profile.goal,
+const data = await generateNutritionPlan({
+  name: profile.name || undefined,
+  age: profile.age ?? undefined,
+  sex: profile.sex ?? undefined,
+  goal: profile.goal ?? undefined,
       mealsPerDay,
       targetKcal,
       macroTargets,
@@ -1349,7 +1349,29 @@ const macroTargets = {
       if (typeof data.aiTokenRenewalAt === "string" || data.aiTokenRenewalAt === null) {
         setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
       }
-      const planToSave = ensurePlanStartDate(generatedPlan);
+      function isNutritionPlanData(value: unknown): value is NutritionPlanData {
+  if (!value || typeof value !== "object") return false;
+  const v = value as NutritionPlanData;
+
+  return (
+    typeof (v as { dailyCalories?: unknown }).dailyCalories === "number" &&
+    typeof (v as { proteinG?: unknown }).proteinG === "number" &&
+    typeof (v as { carbsG?: unknown }).carbsG === "number" &&
+    typeof (v as { fatG?: unknown }).fatG === "number" &&
+    Array.isArray((v as { days?: unknown }).days)
+  );
+}
+const candidatePlan = (data as { plan?: unknown }).plan;
+
+if (!isNutritionPlanData(candidatePlan)) {
+  throw {
+    status: 400,
+    code: "INVALID_AI_OUTPUT",
+    message: "Invalid plan shape returned by /api/ai/nutrition-plan/generate",
+  } satisfies Partial<NutritionGenerateError>;
+}
+
+const planToSave = ensurePlanStartDate(candidatePlan);
       setSavedPlan(planToSave);
       setSelectedDate(parseDate(planToSave.startDate) ?? selectedDate);
       const updated = await updateUserProfile({ nutritionPlan: planToSave });
