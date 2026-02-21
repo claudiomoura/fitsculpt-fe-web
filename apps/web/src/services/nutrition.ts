@@ -27,6 +27,17 @@ export type NutritionGenerateError = {
   details: unknown;
 };
 
+function extractNutritionErrorDetails(payload: {
+  details?: unknown;
+  debug?: unknown;
+} | null): unknown {
+  if (!payload || typeof payload !== "object") return null;
+  if (payload.details !== undefined) return payload.details;
+  if (!payload.debug || typeof payload.debug !== "object") return null;
+  const debugDetails = (payload.debug as { details?: unknown }).details;
+  return debugDetails ?? null;
+}
+
 export type NutritionGenerateResponse = {
   plan?: unknown;
   aiTokenBalance?: number;
@@ -46,6 +57,7 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
     message?: unknown;
     retryAfterSec?: unknown;
     details?: unknown;
+    debug?: unknown;
     plan?: unknown;
     aiTokenBalance?: unknown;
     aiTokenRenewalAt?: unknown;
@@ -57,7 +69,7 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
       code: typeof payload?.error === "string" ? payload.error : null,
       message: typeof payload?.message === "string" ? payload.message : null,
       retryAfterSec: typeof payload?.retryAfterSec === "number" ? payload.retryAfterSec : null,
-      details: payload?.details ?? null,
+      details: extractNutritionErrorDetails(payload),
     };
     throw error;
   }

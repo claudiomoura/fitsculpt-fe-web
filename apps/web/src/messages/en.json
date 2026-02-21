@@ -881,7 +881,9 @@
       "detailsCta": "Details",
       "generateSimple": "Generate with simpler constraints",
       "adjustGoals": "Adjust goals",
-      "retryLimit": "Retry limit reached for now. Please adjust goals or try later."
+      "retryLimit": "Retry limit reached for now. Please adjust goals or try later.",
+      "genericReason": "It does not match your target",
+      "actionableDiff": "{{reason}}: target {{expected}}g, received {{actual}}g (~{{delta}}g short)"
     },
     "aiRateLimit": "You've reached the AI request limit. Try again later.",
     "resetPlan": "Reset plan",

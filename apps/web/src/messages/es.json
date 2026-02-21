@@ -885,7 +885,9 @@
       "detailsCta": "Detalles",
       "generateSimple": "Generar con restricciones simples",
       "adjustGoals": "Ajustar objetivos",
-      "retryLimit": "Se alcanzó el límite de reintentos por ahora. Ajusta objetivos o inténtalo más tarde."
+      "retryLimit": "Se alcanzó el límite de reintentos por ahora. Ajusta objetivos o inténtalo más tarde.",
+      "genericReason": "No coincide con el objetivo",
+      "actionableDiff": "{{reason}}: objetivo {{expected}}g, recibido {{actual}}g (faltan ~{{delta}}g)"
     },
     "aiRateLimit": "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.",
     "resetPlan": "Reiniciar plan",
