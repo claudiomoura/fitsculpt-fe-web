@@ -261,8 +261,8 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
       variant: "success",
     });
     setDeleteDayConfirmOpen(false);
-    setIsDeletingDay(false);
     await loadDay();
+    setIsDeletingDay(false);
   }, [isDeletingDay, loadDay, notify, planId, selectedDay, t]);
 
   const onDeleteExercise = useCallback(async (exerciseId: string) => {
@@ -292,8 +292,8 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
       variant: "success",
     });
     setDeleteExerciseId(null);
-    setIsDeletingExerciseId(null);
     await loadDay();
+    setIsDeletingExerciseId(null);
   }, [isDeletingExerciseId, loadDay, notify, planId, selectedDay, t]);
 
   if (accessLoading || gymLoading) {

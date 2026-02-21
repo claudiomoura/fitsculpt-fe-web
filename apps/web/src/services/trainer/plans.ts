@@ -242,7 +242,12 @@ export async function deleteTrainerPlan(planId: string): Promise<ServiceResult<{
     method: "DELETE",
   });
 
-  if (!result.ok) return result;
+  if (!result.ok) {
+    if (result.status === 404) {
+      return { ok: true, data: { planId: normalizedPlanId } };
+    }
+    return result;
+  }
   return { ok: true, data: { planId: normalizedPlanId } };
 }
 
@@ -267,7 +272,12 @@ export async function deleteTrainerPlanDay(planId: string, dayId: string): Promi
     method: "DELETE",
   });
 
-  if (!result.ok) return result;
+  if (!result.ok) {
+    if (result.status === 404) {
+      return { ok: true, data: { planId: normalizedPlanId, dayId: normalizedDayId } };
+    }
+    return result;
+  }
   return { ok: true, data: { planId: normalizedPlanId, dayId: normalizedDayId } };
 }
 
@@ -298,7 +308,19 @@ export async function deleteTrainerPlanDayExercise(
     method: "DELETE",
   });
 
-  if (!result.ok) return result;
+  if (!result.ok) {
+    if (result.status === 404) {
+      return {
+        ok: true,
+        data: {
+          planId: normalizedPlanId,
+          dayId: normalizedDayId,
+          exerciseId: normalizedExerciseId,
+        },
+      };
+    }
+    return result;
+  }
   return {
     ok: true,
     data: {
