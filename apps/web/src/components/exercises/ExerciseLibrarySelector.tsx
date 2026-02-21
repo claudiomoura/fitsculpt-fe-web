@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise } from "@/lib/types";
+import { searchExercises } from "@/services/exercises/search";
 
 
 type SelectedExerciseRef = {
