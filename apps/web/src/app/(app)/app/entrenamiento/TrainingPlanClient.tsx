@@ -58,6 +58,9 @@ type ActiveTrainingPlanResponse = {
   plan?: TrainingPlan | null;
 };
 
+const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
+const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
+
 type TrainingPlanClientProps = {
   mode?: "suggested" | "manual";
 };
@@ -243,6 +246,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiEntitled, setAiEntitled] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [activePlan, setActivePlan] = useState<TrainingPlan | null>(null);
+  const [storedPlanId, setStoredPlanId] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -337,6 +341,36 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     };
   }, []);
 
+  const queryPlanId = searchParams.get("planId")?.trim() ?? "";
+  const selectedPlanId = queryPlanId || storedPlanId || "";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const persistedPlanId = (
+      window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY)?.trim()
+      || window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY)?.trim()
+      || ""
+    );
+    setStoredPlanId(persistedPlanId);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (queryPlanId) {
+      window.localStorage.setItem(SELECTED_PLAN_STORAGE_KEY, queryPlanId);
+      window.localStorage.setItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY, queryPlanId);
+      if (storedPlanId !== queryPlanId) {
+        setStoredPlanId(queryPlanId);
+      }
+      return;
+    }
+
+    if (!storedPlanId) return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.set("planId", storedPlanId);
+    router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
+  }, [pathname, queryPlanId, router, searchParams, storedPlanId]);
+
   const refreshSubscription = async () => {
     try {
       const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -365,6 +399,22 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
     const loadActivePlan = async () => {
       try {
+        if (selectedPlanId) {
+          const selectedResponse = await fetch(`/api/training-plans/${encodeURIComponent(selectedPlanId)}`, {
+            cache: "no-store",
+            signal: controller.signal,
+          });
+
+          if (selectedResponse.ok) {
+            const selectedPayload = (await selectedResponse.json()) as TrainingPlan;
+            setActivePlan(selectedPayload);
+            return;
+          }
+
+          setActivePlan(null);
+          return;
+        }
+
         const response = await fetch("/api/training-plans/active?includeDays=1", {
           cache: "no-store",
           signal: controller.signal,
@@ -390,7 +440,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
     void loadActivePlan();
     return () => controller.abort();
-  }, []);
+  }, [selectedPlanId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
