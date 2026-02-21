@@ -2089,7 +2089,8 @@
       "empty": {
         "myUnsupported": "This environment cannot identify your exercises yet.",
         "my": "You have not created exercises yet.",
-        "fitsculpt": "No public FitSculpt exercises are available yet."
+        "fitsculpt": "No public FitSculpt exercises are available yet.",
+        "unknown": "Some exercises could not be classified and are hidden to avoid incorrect labeling."
       }
     },
     "plans": {

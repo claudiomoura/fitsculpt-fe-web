@@ -46,7 +46,18 @@ function asText(value: unknown): string | null {
 }
 
 function asBoolean(value: unknown): boolean | null {
-  return typeof value === "boolean" ? value : null;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+
+function normalizeSource(value: unknown): string | null {
+  const text = asText(value);
+  return text ? text.trim().toLowerCase() : null;
 }
 
 function getExerciseUserId(exercise: Exercise): string | null {
@@ -59,33 +70,113 @@ function getIsUserCreated(exercise: Exercise): boolean | null {
   return asBoolean(rawExercise.isUserCreated);
 }
 
+function getExerciseSource(exercise: Exercise): string | null {
+  const rawExercise = exercise as UnknownExercise;
+  return normalizeSource(rawExercise.source);
+}
+
+function getExerciseSourceId(exercise: Exercise): string | null {
+  return normalizeSource(exercise.sourceId);
+}
+
+function isUserSource(source: string | null): boolean {
+  if (!source) return false;
+  return ["user", "custom", "trainer", "manual"].includes(source);
+}
+
+function isGlobalSource(source: string | null): boolean {
+  if (!source) return false;
+  return ["fitsculpt", "global", "system", "default", "public"].includes(source);
+}
+
+function sourceIdSignalsUserOwnership(sourceId: string | null, viewerUserId: string | null): boolean {
+  if (!sourceId) return false;
+  if (sourceId.startsWith("user:") || sourceId.startsWith("user_")) return true;
+  if (sourceId.startsWith("custom:") || sourceId.startsWith("manual:")) return true;
+  if (viewerUserId && (sourceId.endsWith(`:${viewerUserId.toLowerCase()}`) || sourceId === viewerUserId.toLowerCase())) {
+    return true;
+  }
+  return false;
+}
+
+function sourceIdSignalsGlobalOwnership(sourceId: string | null): boolean {
+  if (!sourceId) return false;
+  return (
+    sourceId.startsWith("fitsculpt:") ||
+    sourceId.startsWith("fs:") ||
+    sourceId.startsWith("global:") ||
+    sourceId.startsWith("system:")
+  );
+}
+
 export function isExerciseOwnedByUser(exercise: Exercise, viewerUserId: string | null): boolean {
+  const isUserCreated = getIsUserCreated(exercise);
+  if (isUserCreated === true) {
+    return true;
+  }
+
+  const source = getExerciseSource(exercise);
+  if (isUserSource(source)) {
+    return true;
+  }
+
+  const sourceId = getExerciseSourceId(exercise);
+  if (sourceIdSignalsUserOwnership(sourceId, viewerUserId)) {
+    return true;
+  }
+
   const exerciseUserId = getExerciseUserId(exercise);
   if (viewerUserId && exerciseUserId && exerciseUserId === viewerUserId) {
     return true;
   }
 
-  return getIsUserCreated(exercise) === true;
+  return false;
+}
+
+function isExerciseGlobal(exercise: Exercise): boolean {
+  const isUserCreated = getIsUserCreated(exercise);
+  if (isUserCreated === false) {
+    return true;
+  }
+
+  const source = getExerciseSource(exercise);
+  if (isGlobalSource(source)) {
+    return true;
+  }
+
+  const sourceId = getExerciseSourceId(exercise);
+  return sourceIdSignalsGlobalOwnership(sourceId);
 }
 
 export type ExercisesByOwnership = {
   fitsculptExercises: Exercise[];
   myExercises: Exercise[];
+  unknownExercises: Exercise[];
   hasOwnershipSignals: boolean;
 };
 
-export function splitExercisesByOwnership(exercises: Exercise[], viewerUserId: string | null): ExercisesByOwnership {
+export function splitExercisesByOwnership(
+  exercises: Exercise[],
+  viewerUserId: string | null,
+  membership?: { gymId?: string | null } | null
+): ExercisesByOwnership {
+  void membership;
   const myExercises: Exercise[] = [];
   const fitsculptExercises: Exercise[] = [];
+  const unknownExercises: Exercise[] = [];
 
   let hasOwnershipSignals = false;
 
   for (const exercise of exercises) {
-    const hasUserId = getExerciseUserId(exercise) !== null;
     const isUserCreated = getIsUserCreated(exercise);
+    const source = getExerciseSource(exercise);
+    const sourceId = getExerciseSourceId(exercise);
+    const hasUserId = getExerciseUserId(exercise) !== null;
     const hasIsUserCreatedSignal = isUserCreated !== null;
+    const hasSourceSignal = source !== null;
+    const hasSourceIdSignal = sourceId !== null;
 
-    if (hasUserId || hasIsUserCreatedSignal) {
+    if (hasUserId || hasIsUserCreatedSignal || hasSourceSignal || hasSourceIdSignal) {
       hasOwnershipSignals = true;
     }
 
@@ -94,10 +185,15 @@ export function splitExercisesByOwnership(exercises: Exercise[], viewerUserId: s
       continue;
     }
 
-    fitsculptExercises.push(exercise);
+    if (isExerciseGlobal(exercise)) {
+      fitsculptExercises.push(exercise);
+      continue;
+    }
+
+    unknownExercises.push(exercise);
   }
 
-  return { fitsculptExercises, myExercises, hasOwnershipSignals };
+  return { fitsculptExercises, myExercises, unknownExercises, hasOwnershipSignals };
 }
 
 function sanitizeOptions(values?: string[] | null) {
