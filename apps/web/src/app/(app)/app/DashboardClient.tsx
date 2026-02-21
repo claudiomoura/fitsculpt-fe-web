@@ -7,6 +7,7 @@ import type { ProfileData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
 import { NUTRITION_ADHERENCE_STORAGE_KEY } from "@/lib/nutritionAdherence";
+import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
@@ -59,6 +60,19 @@ type WorkoutSession = {
 type WorkoutItem = {
   id: string;
   sessions?: WorkoutSession[] | null;
+};
+
+const WEEK_DAYS = 7;
+
+type WeeklyKpi = {
+  key: string;
+  title: string;
+  valueLabel: string;
+  helperLabel: string;
+  deltaLabel?: string;
+  bars?: number[];
+  ctaHref: string;
+  ctaLabel: string;
 };
 
 function ProgressRing({
@@ -386,7 +400,7 @@ export default function DashboardClient() {
         ? userFoodMap.get(entry.foodKey.replace("user:", ""))
         : defaultFoodProfiles[entry.foodKey];
       if (!profile) return;
-      const baseCalories = "calories" in profile ? profile.calories : profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
+      const baseCalories = profile.calories ?? profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
       const calories = baseCalories * (entry.grams / 100);
       caloriesByDay[currentDayIndex] += calories;
       calorieDays.add(entry.date);
@@ -525,6 +539,105 @@ export default function DashboardClient() {
   ]);
 
   const handleRetry = () => window.location.reload();
+
+  const weightProgressContent = (() => {
+    if (loading) {
+      return (
+        <div className="dashboard-loading mt-12">
+          <Skeleton variant="line" className="w-32" />
+          <div className="dashboard-charts">
+            <SkeletonCard />
+          </div>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="dashboard-error">
+          <div className="status-card status-card--warning">
+            <div className="inline-actions-sm">
+              <Icon name="warning" />
+              <strong>{t("dashboard.weightProgressErrorTitle")}</strong>
+            </div>
+            <p className="muted">{error}</p>
+          </div>
+          <div className="inline-actions">
+            <Button variant="secondary" onClick={handleRetry}>
+              {t("ui.retry")}
+            </Button>
+            <ButtonLink variant="ghost" href="/app/seguimiento">
+              {t("dashboard.weightProgressBackCta")}
+            </ButtonLink>
+          </div>
+        </div>
+      );
+    }
+
+    if (!hasWeightEntries) {
+      return (
+        <div className="empty-state dashboard-empty">
+          <div className="empty-state-icon">
+            <Icon name="info" />
+          </div>
+          <div>
+            <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
+            <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
+          </div>
+          <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+            {t("dashboard.weightProgressEmptyCta")}
+          </ButtonLink>
+        </div>
+      );
+    }
+
+    if (!hasWeightProgress || !currentWeight) {
+      return (
+        <div className="empty-state dashboard-empty">
+          <div className="empty-state-icon">
+            <Icon name="info" />
+          </div>
+          <div>
+            <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
+            <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
+          </div>
+          <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+            {t("dashboard.weightProgressEmptyCta")}
+          </ButtonLink>
+        </div>
+      );
+    }
+
+    return (
+      <div className="list-grid">
+        <div className="feature-card stack-md">
+          <div>
+            <span className="muted">{t("dashboard.weightProgressLast7Days")}</span>
+            <div className="mt-6">
+              <strong>
+                {currentWeight.latest.weightKg.toFixed(1)} {t("units.kilograms")}
+              </strong>
+              <p className="muted mt-6">
+                {t("dashboard.weightProgressLatestLabel")} {weightDateFormatter.format(currentWeight.latest.date)}
+              </p>
+            </div>
+          </div>
+          <div className="stack-sm">
+            {weightDeltaLabel ? (
+              <>
+                <span className={`status-pill ${weightDeltaStatus}`}>
+                  {weightDeltaLabel} {Math.abs(weightDelta ?? 0).toFixed(1)} {t("units.kilograms")}
+                </span>
+                <span className="muted">{t("dashboard.weightProgressDeltaLabel")}</span>
+              </>
+            ) : (
+              <span className="muted">{t("dashboard.weightProgressDeltaUnavailable")}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  })();
 
   return (
     <div className="page page-with-tabbar-safe-area">
@@ -717,87 +830,7 @@ export default function DashboardClient() {
           </ButtonLink>
         </div>
 
-        {loading ? (
-          <div className="dashboard-loading mt-12">
-            <Skeleton variant="line" className="w-32" />
-            <div className="dashboard-charts">
-              <SkeletonCard />
-            </div>
-          </div>
-        ) : error ? (
-          <div className="dashboard-error">
-            <div className="status-card status-card--warning">
-              <div className="inline-actions-sm">
-                <Icon name="warning" />
-                <strong>{t("dashboard.weightProgressErrorTitle")}</strong>
-              </div>
-              <p className="muted">{error}</p>
-            </div>
-            <div className="inline-actions">
-              <Button variant="secondary" onClick={handleRetry}>
-                {t("ui.retry")}
-              </Button>
-              <ButtonLink variant="ghost" href="/app/seguimiento">
-                {t("dashboard.weightProgressBackCta")}
-              </ButtonLink>
-            </div>
-          </div>
-        ) : !hasWeightEntries ? (
-          <div className="empty-state dashboard-empty">
-            <div className="empty-state-icon">
-              <Icon name="info" />
-            </div>
-            <div>
-              <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
-              <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
-            </div>
-            <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
-              {t("dashboard.weightProgressEmptyCta")}
-            </ButtonLink>
-          </div>
-        ) : !hasWeightProgress || !currentWeight ? (
-  <div className="empty-state dashboard-empty">
-    <div className="empty-state-icon">
-      <Icon name="info" />
-    </div>
-    <div>
-      <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
-      <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
-    </div>
-    <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
-      {t("dashboard.weightProgressEmptyCta")}
-    </ButtonLink>
-  </div>
-) : (
-  <div className="list-grid">
-    <div className="feature-card stack-md">
-      <div>
-        <span className="muted">{t("dashboard.weightProgressLast7Days")}</span>
-        <div className="mt-6">
-          <strong>
-            {currentWeight.latest.weightKg.toFixed(1)} {t("units.kilograms")}
-          </strong>
-          <p className="muted mt-6">
-            {t("dashboard.weightProgressLatestLabel")}{" "}
-            {weightDateFormatter.format(currentWeight.latest.date)}
-          </p>
-        </div>
-      </div>
-      <div className="stack-sm">
-        {weightDeltaLabel ? (
-          <>
-            <span className={`status-pill ${weightDeltaStatus}`}>
-              {weightDeltaLabel} {Math.abs(weightDelta ?? 0).toFixed(1)} {t("units.kilograms")}
-            </span>
-            <span className="muted">{t("dashboard.weightProgressDeltaLabel")}</span>
-          </>
-        ) : (
-          <span className="muted">{t("dashboard.weightProgressDeltaUnavailable")}</span>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+        {weightProgressContent}
       </section>
 
       <section className="card">
