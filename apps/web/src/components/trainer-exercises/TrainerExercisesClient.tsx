@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { splitExercisesByOwnership } from "@/services/exercises";
@@ -22,7 +21,6 @@ type ExercisesResponse = {
   items?: Exercise[];
 };
 
-type ExercisesTab = "fitsculpt" | "my";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
@@ -63,7 +61,6 @@ function getExerciseThumbnail(exercise: Exercise): string | null {
 
 export default function TrainerExercisesClient() {
   const { t } = useLanguage();
-  const searchParams = useSearchParams();
   const [permissionState, setPermissionState] = useState<LoadState>("loading");
   const [exercisesState, setExercisesState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
@@ -72,11 +69,6 @@ export default function TrainerExercisesClient() {
   const [canUploadMedia, setCanUploadMedia] = useState(false);
   const [viewerGymId, setViewerGymId] = useState<string | null>(null);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<ExercisesTab>(() => (searchParams?.get("tab") === "my" ? "my" : "fitsculpt"));
-
-  useEffect(() => {
-    setActiveTab(searchParams?.get("tab") === "my" ? "my" : "fitsculpt");
-  }, [searchParams]);
 
   const loadExercises = useCallback(async () => {
     setExercisesState("loading");
@@ -140,113 +132,69 @@ export default function TrainerExercisesClient() {
     };
   }, [loadExercises]);
 
-  const tabData = useMemo(() => {
-    const { fitsculptExercises, myExercises, unknownExercises, hasOwnershipSignals } = splitExercisesByOwnership(
-      exercises,
-      viewerUserId,
-      { gymId: viewerGymId }
-    );
-
-    return { fitsculptExercises, myExercises, unknownExercises, hasOwnershipSignals };
+  const sectionData = useMemo(() => {
+    return splitExercisesByOwnership(exercises, viewerUserId, { gymId: viewerGymId });
   }, [exercises, viewerGymId, viewerUserId]);
 
-  const listBody = useMemo(() => {
-    if (exercisesState === "loading") {
+  const renderExerciseList = useCallback(
+    (items: Exercise[], emptyMessage: string) => {
+      if (items.length === 0) {
+        return (
+          <div className="card" role="status">
+            <p className="muted">{emptyMessage}</p>
+          </div>
+        );
+      }
+
       return (
-        <div className="form-stack" aria-busy="true" aria-live="polite">
-          <p className="muted">{t("library.loading")}</p>
-          <div className="card" style={{ minHeight: 76 }} />
-          <div className="card" style={{ minHeight: 76 }} />
-        </div>
-      );
-    }
-
-    if (exercisesState === "error") {
-      return (
-        <div className="card form-stack" role="status">
-          <p className="muted">{t("library.loadErrorList")}</p>
-          <button type="button" className="btn secondary" onClick={() => void loadExercises()}>
-            {t("ui.retry")}
-          </button>
-        </div>
-      );
-    }
-
-    const visibleExercises = activeTab === "my" ? tabData.myExercises : tabData.fitsculptExercises;
-
-    if (visibleExercises.length === 0) {
-      return (
-        <div className="card" role="status">
-          <p className="muted">
-            {activeTab === "my"
-              ? tabData.hasOwnershipSignals
-                ? t("trainer.exercises.empty.my")
-                : t("trainer.exercises.empty.myUnsupported")
-              : t("trainer.exercises.empty.fitsculpt")}
-          </p>
-          {tabData.unknownExercises.length > 0 && activeTab === "fitsculpt" ? (
-            <p className="muted" style={{ marginTop: 8 }}>{t("trainer.exercises.empty.unknown")}</p>
-          ) : null}
-        </div>
-      );
-    }
-
-    return (
-      <ul className="form-stack" aria-label={t("trainer.exercises.tabs.ariaLabel")}>
-        {visibleExercises.map((exercise) => (
-          <li key={exercise.id} className="card">
-            <Link href={`/app/biblioteca/${exercise.id}`} className="sidebar-link" style={{ display: "block" }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                {getExerciseThumbnail(exercise) ? (
-                  <img
-                    src={getExerciseThumbnail(exercise) ?? ""}
-                    alt={t("library.thumbnailAlt").replace("{exercise}", exercise.name)}
-                    onError={(event) => {
-                      event.currentTarget.src = "/placeholders/exercise-cover.svg";
-                    }}
-                    width={72}
-                    height={72}
-                    style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 10, flexShrink: 0 }}
-                  />
-                ) : (
-                  <div
-                    role="img"
-                    aria-label={t("library.thumbnailMissing")}
-                    style={{
-                      width: 72,
-                      height: 72,
-                      borderRadius: 10,
-                      flexShrink: 0,
-                      display: "grid",
-                      placeItems: "center",
-                      border: "1px solid var(--line)",
-                    }}
-                  >
-                    <span className="muted" style={{ fontSize: 12 }}>{t("library.thumbnailPlaceholder")}</span>
+        <ul className="form-stack" aria-label={t("trainer.exercises.sections.listAriaLabel")}>
+          {items.map((exercise) => (
+            <li key={exercise.id} className="card">
+              <Link href={`/app/biblioteca/${exercise.id}`} className="sidebar-link" style={{ display: "block" }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {getExerciseThumbnail(exercise) ? (
+                    <img
+                      src={getExerciseThumbnail(exercise) ?? ""}
+                      alt={t("library.thumbnailAlt").replace("{exercise}", exercise.name)}
+                      onError={(event) => {
+                        event.currentTarget.src = "/placeholders/exercise-cover.svg";
+                      }}
+                      width={72}
+                      height={72}
+                      style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 10, flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div
+                      role="img"
+                      aria-label={t("library.thumbnailMissing")}
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: 10,
+                        flexShrink: 0,
+                        display: "grid",
+                        placeItems: "center",
+                        border: "1px solid var(--line)",
+                      }}
+                    >
+                      <span className="muted" style={{ fontSize: 12 }}>{t("library.thumbnailPlaceholder")}</span>
+                    </div>
+                  )}
+                  <div>
+                    <strong>{exercise.name}</strong>
+                    <p className="muted" style={{ margin: "4px 0 0" }}>
+                      {exercise.description || t("library.descriptionFallback")}
+                    </p>
                   </div>
-                )}
-                <div>
-                  <strong>{exercise.name}</strong>
-                  <p className="muted" style={{ margin: "4px 0 0" }}>
-                    {exercise.description || t("library.descriptionFallback")}
-                  </p>
                 </div>
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    );
-  }, [
-    activeTab,
-    exercisesState,
-    loadExercises,
-    t,
-    tabData.fitsculptExercises,
-    tabData.hasOwnershipSignals,
-    tabData.myExercises,
-    tabData.unknownExercises.length,
-  ]);
+              </Link>
+            </li>
+          ))}
+        </ul>
+      );
+    },
+    [t]
+  );
 
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
@@ -283,34 +231,47 @@ export default function TrainerExercisesClient() {
 
       <section className="section-stack" aria-labelledby="trainer-exercise-list-title">
         <h2 id="trainer-exercise-list-title" className="section-title" style={{ fontSize: 20 }}>
-          {activeTab === "fitsculpt" ? t("trainer.exercises.tabs.fitsculpt") : t("trainer.exercises.tabs.myExercises")}
+          {t("trainer.exercises.tabs.library")}
         </h2>
-        <div role="tablist" aria-label={t("trainer.exercises.tabs.ariaLabel")} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "fitsculpt"}
-            className={activeTab === "fitsculpt" ? "btn" : "btn ghost"}
-            onClick={() => setActiveTab("fitsculpt")}
-          >
-            {t("trainer.exercises.tabs.fitsculpt")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "my"}
-            className={activeTab === "my" ? "btn" : "btn ghost"}
-            onClick={() => setActiveTab("my")}
-          >
-            {t("trainer.exercises.tabs.myExercises")}
-          </button>
-        </div>
-        {listBody}
-        {activeTab === "fitsculpt" && tabData.unknownExercises.length > 0 ? (
-          <div className="card" role="status">
-            <p className="muted">{t("trainer.exercises.empty.unknown")}</p>
+
+        {exercisesState === "loading" ? (
+          <div className="form-stack" aria-busy="true" aria-live="polite">
+            <p className="muted">{t("library.loading")}</p>
+            <div className="card" style={{ minHeight: 76 }} />
+            <div className="card" style={{ minHeight: 76 }} />
           </div>
-        ) : null}
+        ) : exercisesState === "error" ? (
+          <div className="card form-stack" role="status">
+            <p className="muted">{t("library.loadErrorList")}</p>
+            <button type="button" className="btn secondary" onClick={() => void loadExercises()}>
+              {t("ui.retry")}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="section-stack" role="region" aria-label={t("trainer.exercises.tabs.fitsculpt")}>
+              <h3 style={{ margin: 0 }}>{t("trainer.exercises.tabs.fitsculpt")}</h3>
+              {renderExerciseList(sectionData.fitsculptExercises, t("trainer.exercises.empty.fitsculpt"))}
+            </div>
+
+            <div className="section-stack" role="region" aria-label={t("trainer.exercises.sections.gym") }>
+              <h3 style={{ margin: 0 }}>{t("trainer.exercises.sections.gym")}</h3>
+              {sectionData.supportsScopedSections
+                ? renderExerciseList(sectionData.gymExercises, t("trainer.exercises.empty.gym"))
+                : (
+                  <div className="card" role="status">
+                    <p className="muted">{t("trainer.exercises.empty.gymUnavailable")}</p>
+                  </div>
+                )}
+            </div>
+
+            {!sectionData.supportsScopedSections && sectionData.unclassifiedExercises.length > 0 ? (
+              <div className="card" role="status">
+                <p className="muted">{t("trainer.exercises.empty.unclassified")}</p>
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
     </div>
   );
