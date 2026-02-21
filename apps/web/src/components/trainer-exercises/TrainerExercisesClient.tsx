@@ -141,10 +141,14 @@ export default function TrainerExercisesClient() {
   }, [loadExercises]);
 
   const tabData = useMemo(() => {
-    const { fitsculptExercises, myExercises, hasOwnershipSignals } = splitExercisesByOwnership(exercises, viewerUserId);
+    const { fitsculptExercises, myExercises, unknownExercises, hasOwnershipSignals } = splitExercisesByOwnership(
+      exercises,
+      viewerUserId,
+      { gymId: viewerGymId }
+    );
 
-    return { fitsculptExercises, myExercises, hasOwnershipSignals };
-  }, [exercises, viewerUserId]);
+    return { fitsculptExercises, myExercises, unknownExercises, hasOwnershipSignals };
+  }, [exercises, viewerGymId, viewerUserId]);
 
   const listBody = useMemo(() => {
     if (exercisesState === "loading") {
@@ -180,6 +184,9 @@ export default function TrainerExercisesClient() {
                 : t("trainer.exercises.empty.myUnsupported")
               : t("trainer.exercises.empty.fitsculpt")}
           </p>
+          {tabData.unknownExercises.length > 0 && activeTab === "fitsculpt" ? (
+            <p className="muted" style={{ marginTop: 8 }}>{t("trainer.exercises.empty.unknown")}</p>
+          ) : null}
         </div>
       );
     }
@@ -230,7 +237,16 @@ export default function TrainerExercisesClient() {
         ))}
       </ul>
     );
-  }, [activeTab, exercisesState, loadExercises, t, tabData.fitsculptExercises, tabData.hasOwnershipSignals, tabData.myExercises]);
+  }, [
+    activeTab,
+    exercisesState,
+    loadExercises,
+    t,
+    tabData.fitsculptExercises,
+    tabData.hasOwnershipSignals,
+    tabData.myExercises,
+    tabData.unknownExercises.length,
+  ]);
 
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
@@ -290,6 +306,11 @@ export default function TrainerExercisesClient() {
           </button>
         </div>
         {listBody}
+        {activeTab === "fitsculpt" && tabData.unknownExercises.length > 0 ? (
+          <div className="card" role="status">
+            <p className="muted">{t("trainer.exercises.empty.unknown")}</p>
+          </div>
+        ) : null}
       </section>
     </div>
   );
