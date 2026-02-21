@@ -40,10 +40,12 @@
     "gymJoinRequests": "Solicitudes de ingreso al gimnasio",
     "gym": "Gimnasio",
     "labs": "Labs",
-    "progress": "Resumen semanal",
+    "progress": "Progreso",
     "trainingCalendar": "Calendario de entrenamiento",
     "nutritionCalendar": "Calendario de nutrición",
-    "nutritionPlans": "Planes de nutrición"
+    "nutritionPlans": "Planes de nutrición",
+    "exerciseLibrary": "Biblioteca de ejercicios",
+    "trainingPlans": "Planes de entrenamiento"
   },
   "navSections": {
     "summary": "Resumen",

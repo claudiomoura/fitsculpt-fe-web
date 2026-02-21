@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import AppUserBadge from "./AppUserBadge";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
-import { buildNavigationSections } from "./navConfig";
+import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig";
 import { useAccess } from "@/lib/useAccess";
 
 type AuthUser = {
@@ -91,11 +91,9 @@ export default function AppNavBar() {
 
   const closeMenu = () => setOpen(false);
 
-  const isActive = (href: string) => {
-    if (!pathname) return false;
-    if (href === "/app") return pathname === "/app";
-    return pathname.startsWith(href);
-  };
+  const activeHref = getMostSpecificActiveHref(pathname, sections);
+
+  const isActive = (href: string) => activeHref === href;
 
   return (
     <header className="site-header">

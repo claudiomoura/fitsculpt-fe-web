@@ -40,10 +40,12 @@
     "gymJoinRequests": "Gym join requests",
     "gym": "Gym",
     "labs": "Labs",
-    "progress": "Weekly summary",
+    "progress": "Progress",
     "trainingCalendar": "Training calendar",
     "nutritionCalendar": "Nutrition calendar",
-    "nutritionPlans": "Nutrition plans"
+    "nutritionPlans": "Nutrition plans",
+    "exerciseLibrary": "Exercise library",
+    "trainingPlans": "Training plans"
   },
   "navSections": {
     "summary": "Summary",
