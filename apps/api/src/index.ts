@@ -21,6 +21,7 @@ import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLeve
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
+import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
 import "dotenv/config";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
@@ -2503,9 +2504,25 @@ function buildRetryFeedback(error: unknown) {
   if (!debug || typeof debug !== "object") return "";
   const reason = typeof debug.reason === "string" ? debug.reason : null;
   const dayLabel = typeof debug.dayLabel === "string" ? debug.dayLabel : "día desconocido";
-  const expected = typeof debug.expected === "number" ? debug.expected : null;
-  const actual = typeof debug.actual === "number" ? debug.actual : null;
-  const tolerance = typeof debug.tolerance === "number" ? debug.tolerance : null;
+  const diff = (debug.diff ?? {}) as Record<string, unknown>;
+  const expected =
+    typeof debug.expected === "number"
+      ? debug.expected
+      : typeof diff.expected === "number"
+        ? diff.expected
+        : null;
+  const actual =
+    typeof debug.actual === "number"
+      ? debug.actual
+      : typeof diff.actual === "number"
+        ? diff.actual
+        : null;
+  const tolerance =
+    typeof debug.tolerance === "number"
+      ? debug.tolerance
+      : typeof diff.tolerance === "number"
+        ? diff.tolerance
+        : null;
   if (!reason || expected === null || actual === null) return "";
   return `${reason} en ${dayLabel}: expected=${expected}, actual=${actual}${tolerance !== null ? `, tolerance=±${tolerance}` : ""}`;
 }
@@ -2533,12 +2550,6 @@ function assertNutritionRequestMapping(
   }
 }
 
-const kcalTolerancePerDay = 200;
-const macroToleranceGPerDay = 20;
-
-function assertWithinTolerance(actual: number, expected: number, tolerance: number) {
-  return Math.abs(actual - expected) <= tolerance;
-}
 
 function assertTrainingLevelConsistency(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
@@ -2611,117 +2622,22 @@ function assertNutritionMath(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   constraints: z.infer<typeof aiGenerateNutritionSchema>
 ) {
-  const macroTargets = constraints.macroTargets;
-  if (!assertWithinTolerance(plan.dailyCalories, constraints.targetKcal, kcalTolerancePerDay)) {
+  const mathIssue = validateNutritionMath(plan, constraints);
+  if (mathIssue) {
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
-      reason: "DAILY_CALORIES_MISMATCH",
-      expected: constraints.targetKcal,
-      actual: plan.dailyCalories,
-      tolerance: kcalTolerancePerDay,
+      reason: mathIssue.reason,
+      dayLabel: mathIssue.dayLabel,
+      mealTitle: mathIssue.mealTitle,
+      diff: mathIssue.diff,
+      expected: mathIssue.diff.expected,
+      actual: mathIssue.diff.actual,
+      tolerance: mathIssue.diff.tolerance,
     });
-  }
-  if (macroTargets && !assertWithinTolerance(plan.proteinG, macroTargets.proteinG, macroToleranceGPerDay)) {
-    throw createHttpError(400, "INVALID_AI_OUTPUT", {
-      reason: "PROTEIN_MISMATCH",
-      expected: macroTargets.proteinG,
-      actual: plan.proteinG,
-      tolerance: macroToleranceGPerDay,
-    });
-  }
-  if (macroTargets && !assertWithinTolerance(plan.carbsG, macroTargets.carbsG, macroToleranceGPerDay)) {
-    throw createHttpError(400, "INVALID_AI_OUTPUT", {
-      reason: "CARBS_MISMATCH",
-      expected: macroTargets.carbsG,
-      actual: plan.carbsG,
-      tolerance: macroToleranceGPerDay,
-    });
-  }
-  if (macroTargets && !assertWithinTolerance(plan.fatG, macroTargets.fatsG, macroToleranceGPerDay)) {
-    throw createHttpError(400, "INVALID_AI_OUTPUT", {
-      reason: "FATS_MISMATCH",
-      expected: macroTargets.fatsG,
-      actual: plan.fatG,
-      tolerance: macroToleranceGPerDay,
-    });
-  }
-
-  for (const day of plan.days) {
-    if (day.meals.length !== constraints.mealsPerDay) {
-      throw createHttpError(400, "INVALID_AI_OUTPUT", {
-        reason: "MEALS_PER_DAY_MISMATCH",
-        expectedMealsPerDay: constraints.mealsPerDay,
-        actualMealsPerDay: day.meals.length,
-        dayLabel: day.dayLabel,
-      });
-    }
-    const dayTotals = day.meals.reduce(
-      (acc, meal) => {
-        acc.calories += meal.macros.calories;
-        acc.protein += meal.macros.protein;
-        acc.carbs += meal.macros.carbs;
-        acc.fats += meal.macros.fats;
-        return acc;
-      },
-      { calories: 0, protein: 0, carbs: 0, fats: 0 }
-    );
-
-    if (!assertWithinTolerance(dayTotals.calories, constraints.targetKcal, kcalTolerancePerDay)) {
-      throw createHttpError(400, "INVALID_AI_OUTPUT", {
-        reason: "DAY_TOTAL_CALORIES_MISMATCH",
-        expected: constraints.targetKcal,
-        actual: dayTotals.calories,
-        tolerance: kcalTolerancePerDay,
-        dayLabel: day.dayLabel,
-      });
-    }
-
-    if (macroTargets && !assertWithinTolerance(dayTotals.protein, macroTargets.proteinG, macroToleranceGPerDay)) {
-      throw createHttpError(400, "INVALID_AI_OUTPUT", {
-        reason: "DAY_TOTAL_PROTEIN_MISMATCH",
-        expected: macroTargets.proteinG,
-        actual: dayTotals.protein,
-        tolerance: macroToleranceGPerDay,
-        dayLabel: day.dayLabel,
-      });
-    }
-
-    if (macroTargets && !assertWithinTolerance(dayTotals.carbs, macroTargets.carbsG, macroToleranceGPerDay)) {
-      throw createHttpError(400, "INVALID_AI_OUTPUT", {
-        reason: "DAY_TOTAL_CARBS_MISMATCH",
-        expected: macroTargets.carbsG,
-        actual: dayTotals.carbs,
-        tolerance: macroToleranceGPerDay,
-        dayLabel: day.dayLabel,
-      });
-    }
-
-    if (macroTargets && !assertWithinTolerance(dayTotals.fats, macroTargets.fatsG, macroToleranceGPerDay)) {
-      throw createHttpError(400, "INVALID_AI_OUTPUT", {
-        reason: "DAY_TOTAL_FATS_MISMATCH",
-        expected: macroTargets.fatsG,
-        actual: dayTotals.fats,
-        tolerance: macroToleranceGPerDay,
-        dayLabel: day.dayLabel,
-      });
-    }
-
-    if (constraints.mealsPerDay === 2) {
-      const expectedMealKcal = constraints.targetKcal / 2;
-      const invalidMeal = day.meals.find((meal) => !assertWithinTolerance(meal.macros.calories, expectedMealKcal, 0));
-      if (invalidMeal) {
-        throw createHttpError(400, "INVALID_AI_OUTPUT", {
-          reason: "TWO_MEAL_SPLIT_MISMATCH",
-          expectedMealKcal,
-          actualMealKcal: invalidMeal.macros.calories,
-          dayLabel: day.dayLabel,
-          mealTitle: invalidMeal.title,
-        });
-      }
-    }
   }
 
   assertDietaryPreferenceCompliance(plan, constraints.dietaryPrefs);
 }
+
 
 function summarizeTrainingPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
   return {
@@ -5890,7 +5806,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
             daysCount: payload.daysCount,
             dietType: payload.dietType,
           },
-          rawOutput: lastRawOutput.slice(0, 2000),
+          rawOutputPreview: process.env.NODE_ENV === "production" ? undefined : lastRawOutput.slice(0, 2000),
           reasonCode: debug.reasonCode,
           details: debug.details,
         },
