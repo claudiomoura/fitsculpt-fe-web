@@ -162,7 +162,7 @@ export function LandingHomePage({ copy }: { copy: LandingCopy }) {
           <p className="lp-final__subtitle">{copy.finalCta.subtitle}</p>
 
           <form className="lp-final__form" action="/register" method="get">
-            <input className="lp-input" type="email" name="email" placeholder={copy.finalCta.placeholder} />
+            <input className="lp-input" type="email" name="email" placeholder={copy.finalCta.placeholder} suppressHydrationWarning />
             <button className="lp-btn lp-btn--green lp-btn--cta" type="submit">
               {copy.finalCta.button}
             </button>
