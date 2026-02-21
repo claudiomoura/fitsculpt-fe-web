@@ -330,7 +330,10 @@ export async function addExerciseToPlanDay(
     };
   }
 
-  const result = await requestJson<unknown>(`/api/trainer/plans/${planId}/days/${dayId}/exercises`, {
+  const encodedPlanId = encodeURIComponent(planId);
+  const encodedDayId = encodeURIComponent(dayId);
+
+  const result = await requestJson<unknown>(`/api/trainer/plans/${encodedPlanId}/days/${encodedDayId}/exercises`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
