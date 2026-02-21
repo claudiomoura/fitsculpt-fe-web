@@ -187,8 +187,7 @@ export default function TrainerPlansPageClient() {
     setDayDrafts({});
   };
 
-  const onCreate = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onCreate = async () => {
     if (!title.trim() || creating) return;
 
     setCreating(true);
@@ -223,6 +222,17 @@ export default function TrainerPlansPageClient() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const onCreateWizardSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (createStep === "basics") {
+      if (createDisabled || creating || !title.trim()) return;
+      setCreateStep("schedule");
+      return;
+    }
+
+    void onCreate();
   };
 
   const onDeletePlan = async () => {
@@ -494,7 +504,7 @@ export default function TrainerPlansPageClient() {
         title={t(createStep === "basics" ? "trainer.plans.wizard.basicsTitle" : "trainer.plans.wizard.scheduleTitle")}
         description={t(createStep === "basics" ? "trainer.plans.wizard.basicsDescription" : "trainer.plans.wizard.scheduleDescription")}
       >
-        <form className="form-stack" onSubmit={(event) => void onCreate(event)} style={{ maxHeight: "min(78vh, 760px)", overflowY: "auto", paddingInlineEnd: 2 }}>
+        <form className="form-stack" onSubmit={onCreateWizardSubmit} style={{ maxHeight: "min(78vh, 760px)", overflowY: "auto", paddingInlineEnd: 2 }}>
           {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
 
           {createStep === "basics" ? (
@@ -684,7 +694,7 @@ export default function TrainerPlansPageClient() {
               {t("ui.cancel")}
             </Button>
             {createStep === "basics" ? (
-              <Button type="button" onClick={() => setCreateStep("schedule")} disabled={createDisabled || creating || !title.trim()}>{t("trainer.plans.wizard.continue")}</Button>
+              <Button type="submit" disabled={createDisabled || creating || !title.trim()}>{t("trainer.plans.wizard.continue")}</Button>
             ) : (
               <Button type="submit" disabled={createDisabled || creating || !title.trim()} loading={creating}>{t("trainer.plans.create")}</Button>
             )}
