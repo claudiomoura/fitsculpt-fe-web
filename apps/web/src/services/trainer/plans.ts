@@ -44,6 +44,15 @@ export type TrainerPlanCapabilities = {
   supportsBatchAdd: boolean;
 };
 
+export type TrainerPlanEditCapabilities = {
+  canDeletePlan: boolean;
+  canDeleteDay: boolean;
+  canDeleteDayExercise: boolean;
+  canUpdateDayExercise: boolean;
+};
+
+type TrainerPlanEditCapability = keyof TrainerPlanEditCapabilities;
+
 export type AddExerciseToPlanDayInput = {
   planId: string;
   dayId: string;
@@ -55,6 +64,17 @@ export type AddExerciseToPlanDayResult = {
   planId: string;
   dayId: string;
   exerciseId: string;
+};
+
+export type UpdatePlanDayExerciseInput = {
+  planId: string;
+  dayId: string;
+  exerciseId: string;
+  sets?: number;
+  reps?: string;
+  rest?: number;
+  notes?: string;
+  tempo?: string;
 };
 
 export type MultiAddExerciseItemInput = {
@@ -86,6 +106,55 @@ export const trainerPlanCapabilities: TrainerPlanCapabilities = {
   canSaveTrainerPlan: true,
   supportsBatchAdd: false,
 };
+
+const unsupportedCapabilityCache = new Map<string, Partial<Record<TrainerPlanEditCapability, boolean>>>();
+
+function getUnsupportedCapabilityCacheKey(planId: string, dayId?: string, exerciseId?: string): string {
+  return `${planId}::${dayId ?? "*"}::${exerciseId ?? "*"}`;
+}
+
+export function markTrainerPlanEditCapabilityUnsupported(
+  planId: string,
+  capability: TrainerPlanEditCapability,
+  options: { dayId?: string; exerciseId?: string } = {},
+): void {
+  const normalizedPlanId = planId.trim();
+  if (!normalizedPlanId) return;
+
+  const normalizedDayId = options.dayId?.trim() || undefined;
+  const normalizedExerciseId = options.exerciseId?.trim() || undefined;
+  const key = getUnsupportedCapabilityCacheKey(normalizedPlanId, normalizedDayId, normalizedExerciseId);
+  const previous = unsupportedCapabilityCache.get(key) ?? {};
+  unsupportedCapabilityCache.set(key, {
+    ...previous,
+    [capability]: true,
+  });
+}
+
+export async function getTrainerPlanEditCapabilities(planId: string, dayId?: string, exerciseId?: string): Promise<TrainerPlanEditCapabilities> {
+  const normalizedPlanId = planId.trim();
+  const normalizedDayId = dayId?.trim() || undefined;
+  const normalizedExerciseId = exerciseId?.trim() || undefined;
+
+  if (!normalizedPlanId) {
+    return {
+      canDeletePlan: false,
+      canDeleteDay: false,
+      canDeleteDayExercise: false,
+      canUpdateDayExercise: false,
+    };
+  }
+
+  const key = getUnsupportedCapabilityCacheKey(normalizedPlanId, normalizedDayId, normalizedExerciseId);
+  const unsupported = unsupportedCapabilityCache.get(key) ?? {};
+
+  return {
+    canDeletePlan: !unsupported.canDeletePlan,
+    canDeleteDay: !unsupported.canDeleteDay,
+    canDeleteDayExercise: !unsupported.canDeleteDayExercise,
+    canUpdateDayExercise: !unsupported.canUpdateDayExercise,
+  };
+}
 
 function getItems(payload: TrainingPlanListPayload): TrainingPlanListItem[] {
   if (Array.isArray(payload.items)) return payload.items;
@@ -120,10 +189,17 @@ export async function listTrainerGymPlans(
 }
 
 export async function createTrainerPlan(payload: CreateTrainerPlanInput): Promise<ServiceResult<TrainingPlanDetail>> {
+  const normalizedDaysPerWeek = typeof payload.daysPerWeek === "number"
+    ? Math.max(1, Math.min(7, payload.daysPerWeek))
+    : undefined;
+
   return requestJson<TrainingPlanDetail>("/api/trainer/plans", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      ...payload,
+      ...(normalizedDaysPerWeek ? { daysPerWeek: normalizedDaysPerWeek, daysCount: normalizedDaysPerWeek } : {}),
+    }),
   });
 }
 
@@ -150,6 +226,89 @@ export async function saveTrainerPlan(planId: string, payload: SaveTrainerPlanIn
   });
 }
 
+export async function deleteTrainerPlan(planId: string): Promise<ServiceResult<{ planId: string }>> {
+  const normalizedPlanId = planId.trim();
+  if (!normalizedPlanId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "Plan id is required.",
+      fieldErrors: { planId: "Plan id is required." },
+    };
+  }
+
+  const result = await requestJson<unknown>(`/api/trainer/plans/${normalizedPlanId}`, {
+    method: "DELETE",
+  });
+
+  if (!result.ok) return result;
+  return { ok: true, data: { planId: normalizedPlanId } };
+}
+
+export async function deleteTrainerPlanDay(planId: string, dayId: string): Promise<ServiceResult<{ planId: string; dayId: string }>> {
+  const normalizedPlanId = planId.trim();
+  const normalizedDayId = dayId.trim();
+
+  if (!normalizedPlanId || !normalizedDayId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "Plan and day are required.",
+      fieldErrors: {
+        ...(!normalizedPlanId ? { planId: "Plan is required." } : {}),
+        ...(!normalizedDayId ? { dayId: "Day is required." } : {}),
+      },
+    };
+  }
+
+  const result = await requestJson<unknown>(`/api/trainer/plans/${normalizedPlanId}/days/${normalizedDayId}`, {
+    method: "DELETE",
+  });
+
+  if (!result.ok) return result;
+  return { ok: true, data: { planId: normalizedPlanId, dayId: normalizedDayId } };
+}
+
+export async function deleteTrainerPlanDayExercise(
+  planId: string,
+  dayId: string,
+  exerciseId: string,
+): Promise<ServiceResult<{ planId: string; dayId: string; exerciseId: string }>> {
+  const normalizedPlanId = planId.trim();
+  const normalizedDayId = dayId.trim();
+  const normalizedExerciseId = exerciseId.trim();
+
+  if (!normalizedPlanId || !normalizedDayId || !normalizedExerciseId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "Plan, day and exercise are required.",
+      fieldErrors: {
+        ...(!normalizedPlanId ? { planId: "Plan is required." } : {}),
+        ...(!normalizedDayId ? { dayId: "Day is required." } : {}),
+        ...(!normalizedExerciseId ? { exerciseId: "Exercise is required." } : {}),
+      },
+    };
+  }
+
+  const result = await requestJson<unknown>(`/api/trainer/plans/${normalizedPlanId}/days/${normalizedDayId}/exercises/${normalizedExerciseId}`, {
+    method: "DELETE",
+  });
+
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    data: {
+      planId: normalizedPlanId,
+      dayId: normalizedDayId,
+      exerciseId: normalizedExerciseId,
+    },
+  };
+}
+
 export async function addExerciseToPlanDay(
   input: AddExerciseToPlanDayInput,
 ): Promise<ServiceResult<AddExerciseToPlanDayResult>> {
@@ -171,13 +330,73 @@ export async function addExerciseToPlanDay(
     };
   }
 
-  const result = await requestJson<unknown>(`/api/trainer/plans/${planId}/days/${dayId}/exercises`, {
+  const encodedPlanId = encodeURIComponent(planId);
+  const encodedDayId = encodeURIComponent(dayId);
+
+  const result = await requestJson<unknown>(`/api/trainer/plans/${encodedPlanId}/days/${encodedDayId}/exercises`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       exerciseId,
       ...(input.athleteUserId?.trim() ? { athleteUserId: input.athleteUserId.trim() } : {}),
     }),
+  });
+
+  if (!result.ok) return result;
+
+  return {
+    ok: true,
+    data: {
+      planId,
+      dayId,
+      exerciseId,
+    },
+  };
+}
+
+export async function updatePlanDayExercise(
+  input: UpdatePlanDayExerciseInput,
+): Promise<ServiceResult<AddExerciseToPlanDayResult>> {
+  const planId = input.planId.trim();
+  const dayId = input.dayId.trim();
+  const exerciseId = input.exerciseId.trim();
+
+  if (!planId || !dayId || !exerciseId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "Plan, day and exercise are required.",
+      fieldErrors: {
+        ...(!planId ? { planId: "Plan is required." } : {}),
+        ...(!dayId ? { dayId: "Day is required." } : {}),
+        ...(!exerciseId ? { exerciseId: "Exercise is required." } : {}),
+      },
+    };
+  }
+
+  const payload = {
+    ...(typeof input.sets === "number" ? { sets: input.sets } : {}),
+    ...(typeof input.reps === "string" ? { reps: input.reps } : {}),
+    ...(typeof input.rest === "number" ? { rest: input.rest } : {}),
+    ...(typeof input.notes === "string" ? { notes: input.notes } : {}),
+    ...(typeof input.tempo === "string" ? { tempo: input.tempo } : {}),
+  };
+
+  if (Object.keys(payload).length === 0) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "At least one exercise field is required.",
+      fieldErrors: { payload: "At least one exercise field is required." },
+    };
+  }
+
+  const result = await requestJson<unknown>(`/api/trainer/plans/${planId}/days/${dayId}/exercises/${exerciseId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
   if (!result.ok) return result;
@@ -251,7 +470,7 @@ export async function addExerciseToMultiplePlanDays(
 
 export type TrainerPlanEndpointInventory = {
   endpoint: string;
-  method: "GET" | "POST" | "PATCH";
+  method: "GET" | "POST" | "PATCH" | "DELETE";
   exists: boolean;
   notes: string;
 };
@@ -276,10 +495,28 @@ export const trainerPlanEndpointInventory: TrainerPlanEndpointInventory[] = [
     notes: "Used for patching trainer-owned plans through backend /trainer/plans/:planId.",
   },
   {
+    endpoint: "/api/trainer/plans/:id",
+    method: "DELETE",
+    exists: true,
+    notes: "Delete trainer-owned plan.",
+  },
+  {
+    endpoint: "/api/trainer/plans/:id/days/:dayId",
+    method: "DELETE",
+    exists: true,
+    notes: "Delete day from trainer-owned plan.",
+  },
+  {
     endpoint: "/api/trainer/plans/:id/days/:dayId/exercises",
     method: "POST",
     exists: true,
     notes: "Single add-to-plan exercise endpoint.",
+  },
+  {
+    endpoint: "/api/trainer/plans/:id/days/:dayId/exercises/:exerciseId",
+    method: "DELETE",
+    exists: true,
+    notes: "Delete exercise from a plan day.",
   },
   {
     endpoint: "/api/trainer/plans/:id/days/exercises:batch",

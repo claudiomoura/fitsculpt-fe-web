@@ -1,6 +1,7 @@
 export { ExerciseDetailHeader } from "./detail/ExerciseDetailHeader";
 export { ExerciseDetailSections } from "./detail/ExerciseDetailSections";
 export { ExerciseMediaViewer } from "./media/ExerciseMediaViewer";
+export { ExerciseCard } from "./list/ExerciseCard";
 export { EmptyState } from "./states/EmptyState";
 export { ErrorState } from "./states/ErrorState";
 export { ExerciseDetailEmptyState } from "./states/ExerciseDetailEmptyState";

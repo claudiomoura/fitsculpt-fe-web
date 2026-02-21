@@ -3,14 +3,25 @@ import TrainerDayEditorClient from "@/components/trainer/plans/TrainerDayEditorC
 import { getServerT } from "@/lib/serverI18n";
 
 type Props = {
-  searchParams?: Promise<{ day?: string; planId?: string }>;
+  searchParams?: Promise<{
+    day?: string | string[];
+    planId?: string | string[];
+  }>;
 };
+
+function getSearchParamValue(param?: string | string[]) {
+  if (Array.isArray(param)) {
+    return param[0]?.trim() ?? "";
+  }
+
+  return param?.trim() ?? "";
+}
 
 export default async function TrainingPlanEditPage({ searchParams }: Props) {
   const { t } = await getServerT();
   const params = searchParams ? await searchParams : undefined;
-  const day = params?.day?.trim() ?? "";
-  const planId = params?.planId?.trim() ?? "";
+  const day = getSearchParamValue(params?.day);
+  const planId = getSearchParamValue(params?.planId);
 
   if (day && planId) {
     return (

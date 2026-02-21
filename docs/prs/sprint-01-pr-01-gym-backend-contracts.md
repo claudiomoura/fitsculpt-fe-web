@@ -69,6 +69,35 @@ Notas:
 }
 ```
 
+
+### 4) Mi gimnasio (trainer/admin)
+- `GET /trainer/gym`
+- `PATCH /trainer/gym`
+- Auth: `requireUser` + membresía activa `ADMIN|TRAINER`.
+- Scope: solo devuelve/actualiza el gym vinculado al entrenador autenticado (no directorio).
+
+Response estable (`GET` y `PATCH`):
+
+```json
+{
+  "gym": {
+    "id": "cuid",
+    "name": "FitSculpt Central",
+    "code": "CENTRAL01",
+    "activationCode": "A1B2C3",
+    "createdAt": "2026-02-18T10:00:00.000Z",
+    "updatedAt": "2026-02-18T10:00:00.000Z"
+  },
+  "membership": {
+    "role": "ADMIN | TRAINER"
+  }
+}
+```
+
+Errores consistentes:
+- `403 FORBIDDEN` si el usuario no es `ADMIN|TRAINER` activo en un gym.
+- `400 INVALID_INPUT` si el payload de `PATCH` es inválido o vacío.
+
 ### Accept / Reject
 - `POST /admin/gym-join-requests/:membershipId/accept`
 - `POST /admin/gym-join-requests/:membershipId/reject`
@@ -122,6 +151,15 @@ curl -X POST "$API_URL/admin/gym-join-requests/$MEMBERSHIP_ID/accept" -H "Author
 
 # Reject request
 curl -X POST "$API_URL/admin/gym-join-requests/$MEMBERSHIP_ID/reject" -H "Authorization: Bearer $TOKEN"
+
+# Read my trainer gym
+curl -X GET "$API_URL/trainer/gym" -H "Authorization: Bearer $TOKEN"
+
+# Update my trainer gym
+curl -X PATCH "$API_URL/trainer/gym" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"FitSculpt Central Updated"}'
 
 # Leave gym
 curl -X DELETE "$API_URL/gym/me" -H "Authorization: Bearer $TOKEN"

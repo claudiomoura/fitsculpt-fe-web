@@ -1,5 +1,5 @@
 export type TrainerExerciseCapabilities = {
-  canCreateExercise: boolean;
+  createExercise: "can_create" | "cannot_create" | "unknown";
   canUploadMedia: boolean;
 };
 
@@ -12,31 +12,11 @@ async function supportsExercisesRead(): Promise<boolean> {
   }
 }
 
-async function supportsExerciseCreate(): Promise<boolean> {
-  try {
-    const response = await fetch("/api/exercises", {
-      method: "POST",
-      cache: "no-store",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
-    });
-
-    if (response.status === 404 || response.status === 405 || response.status === 501) {
-      return false;
-    }
-
-    return true;
-  } catch (_err) {
-    return false;
-  }
-}
-
 export async function auditTrainerExerciseCapabilities(): Promise<TrainerExerciseCapabilities> {
   const canReadExercises = await supportsExercisesRead();
-  const canCreateExercise = canReadExercises ? await supportsExerciseCreate() : false;
 
   return {
-    canCreateExercise,
+    createExercise: canReadExercises ? "unknown" : "cannot_create",
     canUploadMedia: false,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccess } from "@/lib/useAccess";
 import type { GymMembership } from "@/lib/gymMembership";
 import { fetchMyGymMembership } from "@/services/gym";
@@ -18,40 +18,51 @@ export function useTrainerAreaAccess() {
   const [gymLoading, setGymLoading] = useState(true);
   const [gymError, setGymError] = useState(false);
 
+  const loadMembership = useCallback(async () => {
+    setGymLoading(true);
+    setGymError(false);
+
+    const result = await fetchMyGymMembership();
+
+    if (!result.ok) {
+      setMembership(UNKNOWN_MEMBERSHIP);
+      setGymError(true);
+      setGymLoading(false);
+      return;
+    }
+
+    setMembership(toGymMembership(result.data));
+    setGymError(false);
+    setGymLoading(false);
+  }, []);
+
   useEffect(() => {
     let active = true;
 
-    const loadMembership = async () => {
-      setGymLoading(true);
-      setGymError(false);
-      const result = await fetchMyGymMembership();
+    const run = async () => {
+      await loadMembership();
       if (!active) return;
-
-      if (!result.ok) {
-        setMembership(UNKNOWN_MEMBERSHIP);
-        setGymError(true);
-        setGymLoading(false);
-        return;
-      }
-
-      setMembership(toGymMembership(result.data));
-      setGymError(false);
-      setGymLoading(false);
     };
 
-    void loadMembership();
+    const handleRefresh = () => {
+      void run();
+    };
+
+    void run();
+    window.addEventListener("gym-membership:refresh", handleRefresh);
 
     return () => {
       active = false;
+      window.removeEventListener("gym-membership:refresh", handleRefresh);
     };
-  }, []);
+  }, [loadMembership]);
 
   const canAccessTrainerArea = useMemo(() => {
     if (!(access.isTrainer || access.isAdmin)) {
       return false;
     }
 
-    if (membership.state === "unknown") {
+    if (membership.state !== "in_gym") {
       return false;
     }
 
@@ -70,5 +81,6 @@ export function useTrainerAreaAccess() {
     gymError,
     canAccessTrainerArea,
     canAccessAdminNoGymPanel,
+    refreshGymMembership: loadMembership,
   };
 }

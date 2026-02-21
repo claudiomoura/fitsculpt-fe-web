@@ -803,6 +803,9 @@
     "dayNext": "Día siguiente",
     "emptyTitle": "Aún no tienes plan",
     "emptySubtitle": "Genera un plan con IA o crea uno manual.",
+    "noSelectedPlanTitle": "No tienes ningún plan seleccionado",
+    "noSelectedPlanSubtitle": "Selecciona un plan para ver tu calendario de entrenamiento.",
+    "selectPlanCta": "Seleccionar plan",
     "manualCreate": "Crear manual",
     "weeklyPlanSubtitle": "Explora cada día y revisa el detalle de los ejercicios.",
     "weeklyPlanTipOne": "Abre cada día para ver ejercicios y series.",
@@ -1021,6 +1024,9 @@
     "manualExerciseReps": "Repeticiones",
     "manualExerciseAdd": "Agregar ejercicio",
     "manualExerciseRemove": "Eliminar",
+    "manualDayAdd": "Agregar día",
+    "manualDayRemove": "Eliminar día",
+    "manualDayControlsUnavailable": "No disponible",
     "periodTitle": "Periodización de 4 semanas",
     "periodSubtitle": "Progresión sugerida para mantener sobrecarga y recuperación.",
     "weekLabel": "Semana",
@@ -1104,7 +1110,15 @@
     "aiPreviewCancel": "Cancelar",
     "aiPreviewConfirm": "Confirmar y guardar",
     "aiPreviewConfirming": "Guardando plan...",
-    "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo."
+    "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo.",
+    "calendar": {
+      "subtitle": "Visualiza entrenamientos solo del plan seleccionado actualmente.",
+      "noPlanSelected": "No tienes ningún plan seleccionado",
+      "noPlanSelectedDescription": "Selecciona un plan en la biblioteca para ver sus entrenamientos en el calendario.",
+      "goToPlansCta": "Ver planes de entrenamiento",
+      "filteredByPlan": "Mostrando entrenamientos solo del plan seleccionado.",
+      "changePlan": "Cambiar plan"
+    }
   },
   "profile": {
     "formTitle": "Perfil y métricas",
@@ -1169,6 +1183,17 @@
     "summaryInjuries": "Lesiones y limitaciones",
     "summaryMacros": "Macros",
     "editProfile": "Editar perfil",
+    "trainerSummaryTitle": "Perfil de entrenador",
+    "trainerSummaryDescription": "Las herramientas de entrenador se gestionan desde tu gimnasio y área de entrenador.",
+    "trainerHeaderTitle": "Identidad profesional",
+    "trainerHeaderSubtitle": "Vista de perfil orientada a entrenador.",
+    "trainerRoleBadge": "Entrenador",
+    "trainerDataTitle": "Datos del entrenador",
+    "trainerGymTitle": "Mi gimnasio",
+    "trainerGymEmpty": "No disponible por ahora.",
+    "trainerPreferencesTitle": "Preferencias / disponibilidad",
+    "trainerGoToGym": "Ir a Mi gimnasio",
+    "trainerGoToPlans": "Ir a planes de entrenador",
     "legacySubtitle": "Formulario completo (modo legacy).",
     "noData": "Sin dato",
     "yes": "Sí",
@@ -1602,6 +1627,7 @@
     "filterMuscleLabel": "Músculo:",
     "errorTitle": "No pudimos cargar la biblioteca",
     "emptyTitle": "No encontramos ejercicios",
+    "emptyTryAnotherSearch": "Prueba otra búsqueda o ajusta tus filtros.",
     "resetFilters": "Limpiar filtros",
     "retrySearch": "Volver a intentar",
     "loadMore": "Cargar más",
@@ -1647,7 +1673,34 @@
     "addToPlansNoPlanCta": "Crear o elegir un plan",
     "addToPlansSubmitError": "No pudimos añadir este ejercicio a los planes seleccionados.",
     "addToPlansSuccessTitle": "Ejercicio añadido a planes",
-    "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es)."
+    "addToPlansSuccessDescription": "{exercise} se añadió a {count} plan(es).",
+    "addActionLabel": "Agregar",
+    "training": {
+      "sections": {
+        "fitsculpt": "Planes FitSculpt",
+        "gym": "Planes de gimnasio",
+        "assigned": "Plan asignado",
+        "ai": "Planes IA"
+      },
+      "sectionError": "No pudimos cargar esta sección ahora mismo.",
+      "sectionUnavailable": "Esta sección no está disponible actualmente.",
+      "sectionEmpty": "Aún no hay planes disponibles en esta sección.",
+      "assignedByTrainer": "Asignado por tu entrenador",
+      "selected": "Seleccionado",
+      "choose": "Elegir plan",
+      "planMeta": "{days} días • {level}",
+      "aiLockedTitle": "Los planes IA están bloqueados",
+      "aiLockedDescription": "Mejora tu suscripción para desbloquear planes IA.",
+      "aiPlaceholderTitle": "Planes IA habilitados",
+      "aiPlaceholderDescription": "Genera tu próximo plan con IA cuando esté disponible.",
+      "noAssignedOrAvailable": "Aún no tienes planes asignados o disponibles.",
+      "emptyVisiblePlansTitle": "No tienes planes disponibles",
+      "emptyVisiblePlansCta": "Ir a Entrenamiento",
+      "assignedEmpty": "No hay un plan asignado con los datos actuales.",
+      "assignedUnavailable": "No podemos verificar el plan asignado con los datos actuales.",
+      "aiUnavailableTitle": "Planes IA no disponibles",
+      "aiUnavailableDescription": "No podemos validar el acceso a planes IA con los datos actuales."
+    }
   },
   "recipes": {
     "loading": "Cargando recetas...",
@@ -1702,7 +1755,38 @@
     "activeCta": "Plan activo",
     "activeBadge": "Activo",
     "activating": "Activando...",
-    "activateError": "No pudimos marcar este plan como activo."
+    "activateError": "No pudimos marcar este plan como activo.",
+    "activateSuccess": "Plan activado.",
+    "deactivateCta": "Desactivar",
+    "deactivateError": "No pudimos desactivar este plan.",
+    "deactivateSuccess": "Plan desactivado.",
+    "deleteCta": "Eliminar",
+    "deleteError": "No pudimos eliminar este plan.",
+    "deleteSuccess": "Plan eliminado.",
+    "activateConfirmTitle": "Activar plan",
+    "activateConfirmDescription": "¿Quieres activar este plan de entrenamiento?",
+    "deactivateConfirmTitle": "Desactivar plan",
+    "deactivateConfirmDescription": "¿Quieres desactivar el plan activo?",
+    "deleteConfirmTitle": "Eliminar plan",
+    "deleteConfirmDescription": "Esta acción no se puede deshacer.",
+    "actionsNotAvailable": "Algunas acciones no están disponibles en este entorno.",
+    "singleActiveNotAvailable": "La regla de un único plan activo no está disponible en este entorno.",
+    "viewDetail": "Ver detalle",
+    "selectPlanCta": "Seleccionar plan",
+    "selectNotSupported": "La selección de plan aún no está disponible en este entorno.",
+    "sectionEmpty": "No hay planes disponibles en esta sección.",
+    "sectionNotAvailable": "Esta sección no está disponible con los datos actuales.",
+    "sectionError": "No pudimos cargar esta sección.",
+    "sections": {
+      "fitSculpt": "Planes FitSculpt",
+      "gym": "Planes de gimnasio",
+      "ai": "Planes con IA"
+    },
+    "aiLockedTitle": "Los planes con IA están bloqueados",
+    "aiLockedDescription": "Actualiza tu plan para desbloquear planes de entrenamiento con IA.",
+    "aiReadyTitle": "Planes con IA disponibles",
+    "aiReadyDescription": "Genera un plan personalizado usando IA.",
+    "aiCta": "Generar plan con IA"
   },
   "workoutDetail": {
     "notFound": "No se encontró este entreno.",
@@ -1860,6 +1944,10 @@
     },
     "planSelectionTitle": "Elige tu plan",
     "planSelectionDescription": "Selecciona la suscripción que mejor se adapta a tus objetivos.",
+    "notAvailableTitle": "Facturación no disponible",
+    "notAvailableDescription": "Los planes de facturación no están disponibles temporalmente en este entorno. Inténtalo de nuevo más tarde.",
+    "noPlansTitle": "No hay planes disponibles",
+    "noPlansDescription": "Actualmente no hay planes de facturación para mostrar.",
     "currentPlanBadge": "Actual",
     "choosePlan": "Elegir plan",
     "subscribe": "Suscribirme",
@@ -1895,7 +1983,21 @@
       "week": "semana",
       "month": "mes",
       "year": "año"
-    }
+    },
+    "authRequiredTitle": "Autenticación requerida",
+    "authRequiredDescription": "Necesitas una sesión activa con permisos suficientes para ver los planes de facturación.",
+    "checkoutComingSoon": "Checkout próximamente",
+    "warningsBannerTitle": "Avisos de facturación",
+    "configErrors": {
+      "title": "Problema de configuración de facturación",
+      "STRIPE_NOT_CONFIGURED": "La facturación no está completamente configurada todavía. Inténtalo de nuevo más tarde o contacta a soporte.",
+      "NO_VALID_PRICES": "No hay precios válidos configurados para los planes de facturación en este entorno. Contacta a soporte."
+    },
+    "continueToCheckout": "Continuar al checkout",
+    "redirectingToCheckout": "Redirigiendo al checkout...",
+    "selectPlanCta": "Seleccionar plan",
+    "selectedPlanBadge": "Seleccionado",
+    "selectPlanError": "Selecciona un plan para continuar."
   },
   "settings": {
     "subtitle": "Gestiona las preferencias de tu cuenta y los próximos pasos.",
@@ -1979,12 +2081,27 @@
       "accepting": "Aceptando...",
       "rejecting": "Rechazando..."
     },
+    "exercises": {
+      "createUnavailable": "La creación manual de ejercicios no está disponible en este entorno.",
+      "tabs": {
+        "library": "Ejercicios",
+        "ariaLabel": "Pestañas de ejercicios del entrenador",
+        "fitsculpt": "FitSculpt",
+        "myExercises": "Mis ejercicios"
+      },
+      "empty": {
+        "myUnsupported": "Este entorno aún no permite identificar tus ejercicios.",
+        "my": "Todavía no creaste ejercicios.",
+        "fitsculpt": "Todavía no hay ejercicios públicos de FitSculpt.",
+        "unknown": "Algunos ejercicios no se pudieron clasificar y se ocultan para evitar etiquetas incorrectas."
+      }
+    },
     "plans": {
       "title": "Planes del entrenador",
       "description": "Crea y revisa los planes manuales disponibles para asignar.",
       "openList": "Abrir planes",
       "createTitle": "Crear plan manual",
-      "createFlowDescription": "Crea una plantilla con nombre y número de días, luego organiza ejercicios por día.",
+      "createFlowDescription": "Crea un borrador con datos básicos, elige días en el calendario y luego configura cada día seleccionado antes de crear el plan.",
       "createDraftTitle": "Nuevo borrador de plan",
       "titleLabel": "Nombre del plan",
       "daysLabel": "Días",
@@ -2001,8 +2118,12 @@
       "empty": "No hay planes disponibles.",
       "error": "No fue posible cargar los planes.",
       "addExerciseSuccess": "Ejercicio agregado al día seleccionado del plan.",
+      "addExerciseNotSupported": "Agregar ejercicios no está soportado en este entorno.",
       "addExerciseError": "No pudimos agregar ese ejercicio al día seleccionado.",
       "editDay": "Editar día",
+      "selectPlan": "Seleccionar plan",
+      "dayBuilderTitle": "Constructor de días",
+      "dayBuilderEmpty": "Selecciona un plan para empezar a construir los detalles del día.",
       "dayEditorTitle": "Editor por día",
       "dayEditorSubtitle": "Edita un día del plan y asigna ejercicios desde la biblioteca.",
       "dayEditorHint": "Abre el editor de día desde cualquier tarjeta de día.",
@@ -2012,7 +2133,166 @@
       "searchExercisesError": "No pudimos buscar ejercicios en este momento.",
       "searchExercisesEmpty": "No se encontraron ejercicios para esta búsqueda.",
       "dayExercisesTitle": "Ejercicios de este día",
-      "dayNotFound": "No se encontró el día seleccionado en este plan."
+      "dayNotFound": "No se encontró el día seleccionado en este plan.",
+      "deleteDay": "Eliminar día",
+      "deleteDayConfirmTitle": "Eliminar día del plan",
+      "deleteDayConfirmDescription": "Esta acción no se puede deshacer.",
+      "deleteDaySuccess": "Día eliminado correctamente.",
+      "deleteDayError": "No pudimos eliminar este día.",
+      "deleteExercise": "Eliminar ejercicio",
+      "deleteExerciseConfirmTitle": "Eliminar ejercicio del día",
+      "deleteExerciseConfirmDescription": "Esta acción no se puede deshacer.",
+      "deleteExerciseSuccess": "Ejercicio eliminado correctamente.",
+      "cannotDeletePlanInEnvironment": "No se puede eliminar el plan en este entorno.",
+      "cannotDeleteDayInEnvironment": "No se puede eliminar el día en este entorno.",
+      "cannotDeleteExerciseInEnvironment": "No se puede eliminar el ejercicio en este entorno.",
+      "cannotAddExerciseInEnvironment": "No se puede agregar el ejercicio en este entorno.",
+      "cannotUpdateExerciseInEnvironment": "No se pueden actualizar los detalles del ejercicio en este entorno.",
+      "deleteExerciseError": "No pudimos eliminar este ejercicio.",
+      "createSuccessTitle": "Plan creado",
+      "createSuccessDescription": "Tu nuevo plan está listo para editar.",
+      "lockedBadge": "Bloqueado",
+      "tabs": {
+        "title": "Biblioteca de planes",
+        "ariaLabel": "Pestañas de planes del entrenador",
+        "fitsculptPlans": "Planes FitSculpt",
+        "myPlans": "Mis planes",
+        "fitsculpt": "Planes FitSculpt"
+      },
+      "fitsculpt": {
+        "description": "Catálogo global de planes FitSculpt.",
+        "emptyTitle": "Los planes FitSculpt no están disponibles",
+        "emptyDescription": "Los planes públicos/globales no están disponibles en este entorno."
+      },
+      "myPlans": {
+        "noGymTitle": "Se requiere contexto de gimnasio",
+        "noGymDescription": "No pudimos determinar tu contexto de gimnasio para planes de entrenador.",
+        "goToGym": "Ir a gimnasio"
+      },
+      "wizard": {
+        "basicsTitle": "Datos básicos del plan",
+        "basicsDescription": "Configura la información básica para este borrador.",
+        "scheduleTitle": "Calendario de entrenamientos",
+        "scheduleDescription": "Selecciona los días de entrenamiento por semana y día.",
+        "goToScheduleHint": "Continúa para asignar días de entrenamiento en la grilla.",
+        "continue": "Continuar",
+        "backToBasics": "Volver",
+        "weeksLabel": "Número de semanas",
+        "weekRange": "Semana {start}–{end}",
+        "weekLabel": "S{week}",
+        "dayShort": "D{day}",
+        "localOnlyHint": "Los datos del calendario se guardan localmente en este flujo.",
+        "selectDayForEditor": "Selecciona un día de entrenamiento para abrir el editor.",
+        "workoutEditorTitle": "Editor de entrenamiento",
+        "workoutEditorDescription": "Editando el día {day}.",
+        "workoutNameLabel": "Nombre del entrenamiento",
+        "exerciseSectionTitle": "Agregar ejercicios",
+        "exerciseUnavailable": "Agregar ejercicios no está disponible en este entorno.",
+        "loadTargetLabel": "Objetivo de carga",
+        "loadTarget": {
+          "endurance": "Resistencia muscular",
+          "hypertrophy": "Hipertrofia",
+          "strength": "Fuerza",
+          "maxStrength": "Fuerza máxima",
+          "power": "Potencia",
+          "plyometrics": "Pliometría"
+        },
+        "loadTypeLabel": "Tipo de carga",
+        "loadType": {
+          "classic": "Clásico",
+          "pyramid": "Pirámide",
+          "dropSet": "Drop set"
+        },
+        "setEditorTitle": "Editor de series de carga",
+        "setNumberLabel": "Serie",
+        "repsMinLabel": "Reps mín",
+        "repsMaxLabel": "Reps máx",
+        "restSecondsLabel": "Descanso (seg)",
+        "addSet": "Agregar serie",
+        "savedLocallyHint": "Guardado localmente. Aún no se envía al backend.",
+        "workoutsTitle": "Borradores de entrenamiento",
+        "workoutsDescription": "Configura cada día de calendario seleccionado antes de crear el plan.",
+        "continueToWorkouts": "Continuar a borradores de entrenamiento",
+        "backToSchedule": "Volver al calendario",
+        "selectedDaysCount": "{count} días seleccionados",
+        "exerciseUnavailableNeutral": "Agregar ejercicios en este asistente no está disponible en este entorno. Los datos del borrador se mantienen locales hasta crear el plan.",
+        "editDayChip": "Editar {day}"
+      },
+      "emptyPublic": "Aún no hay planes FitSculpt disponibles.",
+      "comingSoon": "Funcionalidad próximamente",
+      "filterUnavailable": "El filtrado de listados aún no está disponible.",
+      "workoutsSchedule": "Calendario",
+      "workoutsList": "Lista",
+      "calendarHint": "Haz clic en un día para seleccionarlo. Doble clic para editar ese día.",
+      "openDayEditor": "Abrir editor de día",
+      "selectorUnavailable": "El selector de ejercicios no está disponible ahora mismo.",
+      "loadWizardUiOnly": "Este asistente de cargas es solo de interfaz por ahora.",
+      "addSet": "Agregar serie",
+      "weekShort": "Semana",
+      "weekShortLabel": "S{week}",
+      "actionsUnavailable": "Acción no disponible en este entorno.",
+      "actions": {
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "deleteUnsupported": "Eliminar no está soportado en este entorno.",
+        "deleteDenied": "Solo puedes eliminar planes creados por ti."
+      },
+      "targets": {
+        "endurance": "Resistencia muscular",
+        "hypertrophy": "Hipertrofia",
+        "strength": "Fuerza",
+        "maxStrength": "Fuerza máxima",
+        "power": "Potencia",
+        "plyometrics": "Pliometría"
+      },
+      "loadTypes": {
+        "classic": "Clásico",
+        "pyramid": "Pirámide",
+        "dropSet": "Drop set"
+      },
+      "schedulerDescription": "Construye el calendario semanal y los borradores de entrenamiento para cada día seleccionado.",
+      "weeksLabel": "Semanas",
+      "scheduleMappedToDays": "{count} día(s) seleccionados en el calendario.",
+      "dayLabel": "D{day}",
+      "workoutsListEmpty": "Aún no hay entrenamientos programados.",
+      "weekDayLabel": "Semana {week} · Día {day}",
+      "untitledWorkout": "Entrenamiento sin título",
+      "workoutName": "Nombre del entrenamiento",
+      "notesOptional": "Notas (opcional)",
+      "dayExercisesEmpty": "Aún no hay ejercicios agregados.",
+      "customExercise": "Ejercicio personalizado",
+      "exerciseEditorTitle": "Asistente de carga del ejercicio",
+      "loadTarget": "Objetivo de carga",
+      "loadType": "Tipo de carga",
+      "loadSets": "Series",
+      "setLabel": "Serie {set}",
+      "reps": "Repeticiones",
+      "restSeconds": "Descanso (seg)",
+      "intensityNotes": "Notas de intensidad",
+      "removeSet": "Eliminar serie",
+      "removeSetDisabledHint": "Se requiere al menos una serie.",
+      "updateExerciseSuccess": "Ejercicio actualizado correctamente.",
+      "updateExerciseError": "No pudimos guardar los cambios del ejercicio.",
+      "editExercise": {
+        "sets": "Series",
+        "addSet": "Añadir serie",
+        "removeSet": "Eliminar serie",
+        "reps": "Repeticiones",
+        "rest": "Descanso (seg)",
+        "notes": "Notas",
+        "tempo": "Tempo",
+        "noEditableFields": "No hay campos editables disponibles para este ejercicio.",
+        "notSupported": "La edición de detalles del ejercicio no está soportada en este entorno."
+      }
+    },
+    "planDetail": {
+      "edit": "Editar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "addDay": "Añadir día",
+      "deleteDay": "Eliminar día",
+      "requiresImplementation": "Requiere implementación",
+      "notAvailableInEnvironment": "No disponible en este entorno"
     },
     "clientContext": {
       "title": "Contexto del atleta",
@@ -2029,10 +2309,16 @@
         "ready": "Sección cargada correctamente."
       },
       "summary": {
-        "title": "Resumen",
+        "title": "Resumen del cliente",
         "clientNamePrefix": "Cliente:",
         "emailPrefix": "Email:",
-        "accountStatusPrefix": "Estado de cuenta:"
+        "accountStatusPrefix": "Estado de cuenta:",
+        "nameLabel": "Nombre",
+        "emailLabel": "Correo",
+        "emailEmpty": "Correo no disponible",
+        "statusLabel": "Estado",
+        "lastActivityLabel": "Última actividad",
+        "lastActivityEmpty": "Sin actividad reciente registrada"
       },
       "training": {
         "title": "Entreno",
@@ -2078,13 +2364,19 @@
           "forbidden": "No tienes permiso para gestionar la asignación de plan para este miembro.",
           "unassignCta": "Desasignar plan",
           "unassignSuccess": "Plan desasignado correctamente de {member}.",
-          "unassignError": "No pudimos desasignar el plan actual. Inténtalo de nuevo.",
+          "unassignError": "No pudimos desasignar el plan actual. Inténtalo más tarde.",
           "removeClientCta": "Quitar cliente de la lista del entrenador",
           "removeClientConfirm": "¿Seguro que quieres quitar a {member} de tu lista de clientes?",
           "removeClientConfirmCta": "Sí, quitar cliente",
           "removeSuccess": "{member} fue eliminado de tu lista de entrenador.",
-          "removeError": "No pudimos eliminar este cliente. Inténtalo de nuevo."
-        }
+          "removeError": "No pudimos eliminar este cliente. Inténtalo de nuevo.",
+          "unassignSubmitting": "Desasignando...",
+          "unassignUnavailable404": "Esta acción no está disponible en este entorno.",
+          "unassignUnsupported405": "Desasignación no soportada actualmente.",
+          "unassignForbidden": "No tienes permisos para desasignar este plan.",
+          "unassignBlockedForSession": "La desasignación no está disponible en este entorno por ahora."
+        },
+        "empty": "No hay información de plan disponible para este cliente en este entorno."
       },
       "nutrition": {
         "title": "Nutrición"
@@ -2119,7 +2411,49 @@
         "pendingLocalBadge": "Pendiente (local)"
       },
       "nextStep": "El contexto del atleta se habilitará cuando exista soporte real de impersonación en backend.",
-      "forbiddenHint": "No tienes permiso para ver el contexto de entrenador de este cliente. Verifica acceso al gimnasio y asignación."
+      "forbiddenHint": "No tienes permiso para ver el contexto de entrenador de este cliente. Verifica acceso al gimnasio y asignación.",
+      "removeClient": {
+        "title": "Quitar del roster",
+        "description": "Quita a este atleta del roster del gimnasio.",
+        "openConfirm": "Quitar del roster",
+        "modalTitle": "Quitar atleta del roster",
+        "modalDescription": "¿Seguro que quieres quitar a {member} del roster del gimnasio?",
+        "modalWarning": "Esta acción puede afectar el acceso del entrenador y la visibilidad en el roster.",
+        "confirm": "Sí, quitar atleta",
+        "submitting": "Quitando...",
+        "submitSuccess": "{member} fue quitado del roster.",
+        "submitError": "No pudimos quitar a este atleta. Inténtalo nuevamente.",
+        "unsupported": "Quitar atletas no está soportado en este entorno.",
+        "unsupported403": "No tienes permiso para quitar atletas de este roster."
+      },
+      "notes": {
+        "title": "Notas del entrenador",
+        "loading": "Cargando notas...",
+        "empty": "Todavía no hay notas para este cliente.",
+        "unsupported": "Las notas no están disponibles en este entorno.",
+        "forbidden": "No tienes permiso para acceder a las notas de este cliente.",
+        "loadError": "No pudimos cargar las notas en este momento.",
+        "inputLabel": "Nueva nota del entrenador",
+        "inputPlaceholder": "Escribe una nota para este cliente...",
+        "submit": "Crear nota",
+        "submitting": "Guardando nota...",
+        "submitSuccess": "Nota guardada correctamente.",
+        "submitError": "No pudimos guardar esta nota. Inténtalo de nuevo.",
+        "notAvailableInEnvironment": "No disponible en este entorno"
+      },
+      "nextReviewDate": "Próxima revisión",
+      "tabs": {
+        "ariaLabel": "Secciones del cliente",
+        "summary": "Resumen",
+        "progress": "Progreso",
+        "plan": "Plan",
+        "notes": "Notas"
+      },
+      "progress": {
+        "title": "Progreso",
+        "empty": "No hay métricas de progreso disponibles con los datos actuales.",
+        "lastLoginAt": "Último inicio de sesión"
+      }
     },
     "planBuilder": {
       "title": "Constructor de planes",
@@ -2196,6 +2530,51 @@
       "submitError": "No pudimos asignar este plan. Verifica elegibilidad de miembro y gimnasio.",
       "success": "Plan asignado correctamente a {member}.",
       "guidance": "El miembro verá el plan asignado en Plan/Hoy cuando se guarde."
+    },
+    "dashboard": {
+      "header": {
+        "title": "Resumen del dashboard",
+        "description": "Las secciones de tu espacio de entrenador usan solo las fuentes de datos actualmente disponibles."
+      },
+      "kpi": {
+        "title": "Indicadores clave",
+        "description": "Las tarjetas de rendimiento se mostrarán cuando las métricas del backend estén expuestas en esta ruta frontend.",
+        "cards": {
+          "clients": {
+            "title": "Clientes activos"
+          },
+          "sessions": {
+            "title": "Sesiones semanales"
+          },
+          "adherence": {
+            "title": "Adherencia al plan"
+          }
+        }
+      },
+      "activity": {
+        "title": "Actividad semanal",
+        "description": "Contenedor de gráfico para tendencias de actividad de entrenamiento.",
+        "empty": "Aún no hay datos de actividad semanal.",
+        "cta": "Configurar fuente de actividad"
+      },
+      "clients": {
+        "title": "Lista de clientes",
+        "description": "Clientes recientes conectados a tu cuenta de entrenador.",
+        "empty": "Aún no hay datos de lista de clientes.",
+        "cta": "Abrir herramientas de clientes"
+      },
+      "shared": {
+        "noData": "No hay datos disponibles.",
+        "noDataYet": "Sin datos aún"
+      },
+      "error": {
+        "title": "Algunas secciones del dashboard no están disponibles temporalmente.",
+        "description": "Vuelve a intentarlo en un momento mientras se recuperan las conexiones de datos."
+      }
+    },
+    "client": {
+      "notesNotAvailable": "Notas no disponibles en este entorno.",
+      "planAssignmentNotSupported": "Asignación de plan no soportada en este entorno."
     }
   },
   "gym": {
@@ -2317,6 +2696,16 @@
       "success": "Saliste de tu membresía del gym correctamente.",
       "error": "No pudimos completar esta acción ahora mismo.",
       "unsupported": "Este entorno aún no soporta salir del gym."
+    },
+    "sections": {
+      "currentStatus": "Estado actual",
+      "currentStatusHelp": "Todavía no tienes una membresía activa.",
+      "actions": "Acciones",
+      "disabledTitle": "Acciones temporalmente deshabilitadas",
+      "disabledDescription": "Tu estado actual no permite nuevas solicitudes por ahora."
+    },
+    "actions": {
+      "membershipTitle": "Acciones de membresía"
     }
   },
   "access": {
@@ -2487,6 +2876,8 @@
   },
   "marketingPricing": {
     "headerPlaceholder": "Área de cabecera reservada para la navegación final del sprint.",
+    "title": "Planes",
+    "subtitle": "Cancela cuando quieras. Impuestos incluidos donde aplique.",
     "header": {
       "navigation": "Navegación principal",
       "links": {
@@ -2548,33 +2939,12 @@
     },
     "billingNote": "Cancela cuando quieras. Impuestos incluidos donde aplique.",
     "features": {
-      "title": "Por qué los miembros eligen FitSculpt",
-      "subtitle": "Diseñado para ayudarte a mantener constancia con menos fricción.",
+      "title": "Todo lo que necesitas para progresar",
+      "subtitle": "Una experiencia clara para entrenar, comer y sostener resultados.",
       "items": {
-        "one": {
-          "title": "Progresión guiada",
-          "description": "Cada semana tiene una estructura clara para que sepas el siguiente paso."
-        },
-        "two": {
-          "title": "Planificación adaptable",
-          "description": "Ajusta carga de entrenamiento y nutrición cuando cambia tu rutina."
-        },
-        "three": {
-          "title": "Nutrición inteligente",
-          "description": "Objetivos de macros e ideas de comidas prácticas enfocadas en adherencia."
-        },
-        "four": {
-          "title": "Visibilidad del progreso",
-          "description": "Sigue fuerza, métricas corporales y hábitos en un solo panel."
-        },
-        "five": {
-          "title": "Flujos prácticos",
-          "description": "Diseñado para agendas reales con acciones rápidas y prioridades claras."
-        },
-        "six": {
-          "title": "Plataforma unificada",
-          "description": "Entrena y come con un sistema en vez de herramientas aisladas."
-        }
+        "1": "Planes listos para usar con estructura semanal clara.",
+        "2": "Ajustes de entrenamiento y nutrición alineados con tu progreso.",
+        "3": "Seguimiento simple para mantener consistencia sin fricción."
       }
     },
     "testimonials": {
@@ -2593,14 +2963,105 @@
         }
       },
       "disclaimer": "Los resultados dependen del contexto y la constancia de cada persona."
+    }
+  },
+  "trainerClient360": {
+    "common": {
+      "notProvided": "No proporcionado"
     },
-    "features": {
-      "title": "Todo lo que necesitas para progresar",
-      "subtitle": "Una experiencia clara para entrenar, comer y sostener resultados.",
-      "items": {
-        "1": "Planes listos para usar con estructura semanal clara.",
-        "2": "Ajustes de entrenamiento y nutrición alineados con tu progreso.",
-        "3": "Seguimiento simple para mantener consistencia sin fricción."
+    "header": {
+      "status": "Estado",
+      "nextReviewDate": "Próxima fecha de revisión"
+    },
+    "profile": {
+      "title": "Resumen del perfil",
+      "age": "Edad",
+      "height": "Altura",
+      "weight": "Peso"
+    },
+    "activity": {
+      "title": "Actividad reciente",
+      "loading": "Cargando actividad reciente...",
+      "empty": "Aún no hay actividad reciente.",
+      "error": "No se pudo cargar la actividad reciente ahora."
+    },
+    "assignPlan": {
+      "title": "Asignar plan",
+      "description": "Selecciona un plan para asignarlo a este cliente.",
+      "confirm": "Asignar plan",
+      "empty": "No hay planes disponibles para asignar."
+    },
+    "notes": {
+      "title": "Notas",
+      "empty": "Aún no hay notas",
+      "addCta": "Agregar nota"
+    },
+    "createNote": {
+      "title": "Crear nota",
+      "description": "Escribe una nota para mantener actualizado el contexto del cliente.",
+      "confirm": "Crear nota",
+      "noteLabel": "Nota",
+      "notePlaceholder": "Escribe tu nota aquí",
+      "nextReviewDate": "Próxima fecha de revisión"
+    }
+  },
+  "plansUi": {
+    "daysCount": "{count} días",
+    "actions": {
+      "select": "Seleccionar plan"
+    },
+    "trainer": {
+      "list": {
+        "title": "Planes del entrenador",
+        "empty": "Aún no hay planes disponibles.",
+        "error": "No pudimos cargar los planes ahora.",
+        "notAvailable": "Los planes no están disponibles en este entorno."
+      },
+      "create": {
+        "title": "Crear plan",
+        "description": "Agrega nombre y número de días para iniciar un borrador de plan.",
+        "notAvailable": "La creación de planes no está disponible en este entorno.",
+        "nameLabel": "Nombre del plan",
+        "daysLabel": "Días",
+        "nameRequired": "El nombre del plan es obligatorio.",
+        "daysHelp": "Elige un valor entre 1 y 7 días.",
+        "confirm": "Crear borrador",
+        "error": "No pudimos crear este borrador de plan."
+      },
+      "builder": {
+        "daysTitle": "Días del plan",
+        "panelTitle": "Detalle del día",
+        "panelPlaceholder": "Selecciona este día para comenzar a agregar contenido de entrenamiento.",
+        "noDaySelected": "Selecciona un día para continuar.",
+        "empty": "Aún no hay días disponibles para este plan.",
+        "error": "No pudimos cargar el constructor por día.",
+        "notAvailable": "El constructor por día no está disponible en este entorno."
+      }
+    },
+    "user": {
+      "library": {
+        "title": "Biblioteca de planes",
+        "empty": "No hay planes disponibles en tu biblioteca.",
+        "error": "No pudimos cargar tu biblioteca de planes.",
+        "notAvailable": "Tu biblioteca de planes no está disponible en este entorno."
+      },
+      "activeBadge": "Plan activo",
+      "unnamedPlan": "este plan",
+      "confirmationHint": "Esta acción no se puede deshacer desde este diálogo.",
+      "activate": {
+        "title": "Activar plan",
+        "description": "¿Quieres activar {planName}?",
+        "confirm": "Activar"
+      },
+      "deactivate": {
+        "title": "Desactivar plan",
+        "description": "¿Quieres desactivar {planName}?",
+        "confirm": "Desactivar"
+      },
+      "delete": {
+        "title": "Eliminar plan",
+        "description": "¿Quieres eliminar {planName}?",
+        "confirm": "Eliminar plan"
       }
     }
   }

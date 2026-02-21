@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -16,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
-import { EmptyState, ErrorState, SkeletonExerciseList } from "@/components/exercise-library";
+import { EmptyState, ErrorState, ExerciseCard, SkeletonExerciseList } from "@/components/exercise-library";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
 import { fetchExercisesList } from "@/services/exercises";
 
@@ -228,7 +227,7 @@ export default function ExerciseLibraryClient() {
 
       try {
         if (athleteUserId) {
-          const assignmentResponse = await fetch(`/api/trainer/members/${athleteUserId}/training-plan-assignment`, {
+          const assignmentResponse = await fetch(`/api/trainer/clients/${athleteUserId}/assigned-plan`, {
             cache: "no-store",
             credentials: "include",
           });
@@ -386,79 +385,26 @@ export default function ExerciseLibraryClient() {
     const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
     const addLabel = t("library.addActionLabel");
 
-    const content = (
-      <>
-        <img
-          src={coverUrl}
-          alt={`${t("library.mediaAlt")} ${exercise.name}`}
-          className="exercise-card-media"
-          onError={(event) => {
-            event.currentTarget.src = "/placeholders/exercise-cover.svg";
-          }}
-        />
-        <h3>{exercise.name}</h3>
-        <div className="badge-list">
-          {muscles.length > 0 ? (
-            muscles.map((muscle) => (
-              <Badge key={muscle}>{muscle}</Badge>
-            ))
-          ) : (
-            <Badge variant="muted">{t("library.noMuscleData")}</Badge>
-          )}
-        </div>
-        <p className="muted">
-          {t("library.equipmentLabel")}: {exercise.equipment ?? t("library.equipmentFallback")}
-        </p>
-        {exercise.description ? <p className="muted">{exercise.description}</p> : null}
-      </>
-    );
-
-    if (!exerciseId) {
-      return (
-        <div key={fallbackKey} className="feature-card">
-          {content}
-          <div className="inline-actions-sm">
-            <Button variant="secondary" size="sm" aria-label={addLabel} onClick={() => openDayPicker(exercise)}>
-              +
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <div key={exerciseId} className="feature-card library-card">
-        <Link href={`/app/biblioteca/${exerciseId}?${detailParams}`} className="library-card-link">
-          {content}
-        </Link>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="library-favorite-button"
-          aria-pressed={isFavorite}
-          aria-label={favoriteLabel}
-          loading={isFavoritePending}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            handleFavoriteToggle(exerciseId, isFavorite);
-          }}
-        >
-          {favoriteLabel}
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          className="library-favorite-button"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            openDayPicker(exercise);
-          }}
-        >
-          +
-        </Button>
-      </div>
+      <ExerciseCard
+        key={exerciseId || fallbackKey}
+        id={exerciseId}
+        name={exercise.name}
+        href={exerciseId ? `/app/biblioteca/${exerciseId}?${detailParams}` : undefined}
+        coverUrl={coverUrl}
+        mediaAltPrefix={t("library.mediaAlt")}
+        muscles={muscles}
+        noMuscleDataLabel={t("library.noMuscleData")}
+        equipmentLabel={t("library.equipmentLabel")}
+        equipmentValue={exercise.equipment ?? t("library.equipmentFallback")}
+        description={exercise.description}
+        favoriteLabel={favoriteLabel}
+        addLabel={addLabel}
+        isFavorite={isFavorite}
+        isFavoritePending={isFavoritePending}
+        onFavoriteToggle={exerciseId ? () => handleFavoriteToggle(exerciseId, isFavorite) : undefined}
+        onAdd={() => openDayPicker(exercise)}
+      />
     );
   };
 

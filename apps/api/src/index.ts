@@ -1,3 +1,4 @@
+import "dotenv/config";
 import crypto from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
@@ -5,7 +6,14 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { Prisma, PrismaClient, type SubscriptionPlan, type User } from "@prisma/client";
+import {
+  Prisma,
+  PrismaClient,
+  GymMembershipStatus,
+  GymRole,
+  type SubscriptionPlan,
+  type User,
+} from "@prisma/client";
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
@@ -17,6 +25,8 @@ import "dotenv/config";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
+import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
+
 
 const env = getEnv();
 const prisma = await createPrismaClientWithRetry();
@@ -70,6 +80,23 @@ type StripeSubscriptionList = {
 type StripeCustomer = {
   id: string;
 };
+
+type StripeProduct = {
+  id: string;
+  name?: string | null;
+};
+
+type StripePrice = {
+  id: string;
+  currency: string;
+  unit_amount: number | null;
+  recurring?: {
+    interval?: string | null;
+  } | null;
+  product?: string | StripeProduct | null;
+};
+
+type StripeInterval = "day" | "week" | "month" | "year" | "unknown";
 
 await app.register(cors, {
   origin: env.CORS_ORIGIN,
@@ -199,6 +226,44 @@ function getAvailableBillingPlans() {
   return plans.filter(
     (entry): entry is (typeof plans)[number] & { priceId: string } => typeof entry.priceId === "string"
   );
+}
+
+function parseStripeAmount(price: StripePrice): number | null {
+  if (typeof price.unit_amount !== "number") return null;
+  return price.unit_amount / 100;
+}
+
+async function resolveStripePlanTitle(price: StripePrice, fallbackPlan: SubscriptionPlan): Promise<string> {
+  if (price.product && typeof price.product === "object" && typeof price.product.name === "string" && price.product.name.trim()) {
+    return price.product.name;
+  }
+
+  if (typeof price.product === "string") {
+    try {
+      const stripeProduct = await stripeRequest<StripeProduct>(`products/${price.product}`, {}, { method: "GET" });
+      if (typeof stripeProduct.name === "string" && stripeProduct.name.trim()) {
+        return stripeProduct.name;
+      }
+    } catch {
+      return fallbackPlan;
+    }
+  }
+
+  return fallbackPlan;
+}
+
+function normalizeStripeInterval(price: StripePrice): StripeInterval {
+  const interval = price.recurring?.interval;
+  if (interval === "day" || interval === "week" || interval === "month" || interval === "year") {
+    return interval;
+  }
+  return "unknown";
+}
+
+function isStripeCredentialError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const anyError = error as Error & { code?: string; debug?: { status?: number } };
+  return anyError.code === "STRIPE_REQUEST_FAILED" && (anyError.debug?.status === 401 || anyError.debug?.status === 403);
 }
 
 function requireStripeWebhookSecret() {
@@ -3807,6 +3872,13 @@ app.get("/auth/verify-email", async (request, reply) => {
 });
 
 app.post("/billing/checkout", async (request, reply) => {
+  /**
+   * Billing checkout contract:
+   * - Auth required.
+   * - Body must include exactly one selector: { priceId } or { planKey }.
+   * - Success: 200 { url: string }.
+   * - Errors: 400/401/500 with { error: string }.
+   */
   try {
     const user = await requireUser(request);
     const checkoutSchema = z
@@ -3814,17 +3886,30 @@ app.post("/billing/checkout", async (request, reply) => {
         priceId: z.string().min(1).optional(),
         planKey: z.string().min(1).optional(),
       })
-      .refine((payload) => Boolean(payload.priceId || payload.planKey), {
-        message: "priceId_or_planKey_required",
+      .superRefine((payload, context) => {
+        const hasPriceId = Boolean(payload.priceId);
+        const hasPlanKey = Boolean(payload.planKey);
+        if (!hasPriceId && !hasPlanKey) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "priceId_or_planKey_required",
+          });
+        }
+        if (hasPriceId && hasPlanKey) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "priceId_or_planKey_exclusive",
+          });
+        }
       });
     const payload = checkoutSchema.parse(request.body);
     const resolvedPriceId = payload.priceId ?? resolvePriceIdByPlanKey(payload.planKey ?? "");
     if (!resolvedPriceId) {
-      return reply.status(400).send({ error: "INVALID_PLAN_TARGET" });
+      return reply.status(400).send({ error: "INVALID_INPUT" });
     }
     const targetPlan = resolvePlanByPriceId(resolvedPriceId);
     if (!targetPlan) {
-      return reply.status(400).send({ error: "INVALID_PRICE_ID" });
+      return reply.status(400).send({ error: "INVALID_INPUT" });
     }
 
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
@@ -3872,21 +3957,89 @@ app.post("/billing/checkout", async (request, reply) => {
     if (!session.url) {
       throw createHttpError(502, "STRIPE_CHECKOUT_URL_MISSING");
     }
-    return { url: session.url };
+    return reply.status(200).send({ url: session.url });
 
   } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT" });
+    }
+
+    const typed = err as { statusCode?: number; code?: string; message?: string };
+    if (typed.statusCode === 401) {
+      return reply.status(401).send({ error: typed.code ?? "UNAUTHORIZED" });
+    }
+
+    if (typed.statusCode === 400) {
+      return reply.status(400).send({ error: typed.code ?? "INVALID_INPUT" });
+    }
+
     request.log.error(
       {
-        message: err?.message,
-        code: err?.code,
-        statusCode: err?.statusCode,
-        debug: err?.debug,
-        stripeStatus: err?.debug?.status,
-        stripeBody: err?.debug?.body,
+        message: typed.message,
+        code: typed.code,
+        statusCode: typed.statusCode,
       },
       "billing checkout failed"
     );
-    return handleRequestError(reply, err);
+    return reply.status(500).send({ error: "CHECKOUT_SESSION_FAILED" });
+  }
+});
+
+app.get("/billing/plans", async (request, reply) => {
+  try {
+    await requireUser(request);
+    const availablePlans = getAvailableBillingPlans();
+
+    const plans: Array<{
+      planKey: SubscriptionPlan;
+      title: string;
+      price: { amount: number; currency: string; interval: StripeInterval };
+      priceId: string;
+    }> = [];
+    const warnings: Array<{ key: SubscriptionPlan; reason: string }> = [];
+
+    for (const { plan, priceId } of availablePlans) {
+      try {
+        const stripePrice = await stripeRequest<StripePrice>(`prices/${priceId}`, {}, { method: "GET" });
+
+        const amount = parseStripeAmount(stripePrice);
+        if (amount === null) {
+          warnings.push({ key: plan, reason: "invalid_unit_amount" });
+          request.log.warn({ plan, priceId }, "billing plan skipped (invalid unit amount)");
+          continue;
+        }
+
+        plans.push({
+          planKey: plan,
+          title: await resolveStripePlanTitle(stripePrice, plan),
+          price: {
+            amount,
+            currency: (stripePrice.currency ?? "usd").toUpperCase(),
+            interval: normalizeStripeInterval(stripePrice),
+          },
+          priceId: stripePrice.id,
+        });
+        request.log.info({ plan, priceId }, "billing plan mapped ok");
+      } catch (error) {
+        if (isStripeCredentialError(error)) {
+          throw createHttpError(500, "STRIPE_NOT_CONFIGURED");
+        }
+        if (isStripePriceNotFoundError(error)) {
+          warnings.push({ key: plan, reason: "price_not_found" });
+          request.log.warn({ plan, priceId }, "billing plan skipped (price not found)");
+          continue;
+        }
+        warnings.push({ key: plan, reason: "price_lookup_failed" });
+        request.log.warn({ plan, priceId }, "billing plan skipped due to Stripe price lookup failure");
+      }
+    }
+
+    if (plans.length > 0) {
+      return reply.status(200).send({ plans, ...(warnings.length > 0 ? { warnings } : {}) });
+    }
+    return reply.status(500).send({ error: "NO_VALID_PRICES", ...(warnings.length > 0 ? { warnings } : {}) });
+  } catch (error) {
+    return handleRequestError(reply, error);
   }
 });
 
@@ -5400,9 +5553,13 @@ const assignTrainingPlanBodySchema = z
 const trainerMemberParamsSchema = z.object({
   userId: z.string().min(1),
 });
+const trainerMemberIdParamsSchema = z.object({
+  id: z.string().min(1),
+});
 const trainerPlanCreateSchema = z.object({
   title: z.string().trim().min(1).max(120),
-  daysCount: z.coerce.number().int().min(1).max(14),
+  daysCount: z.coerce.number().int().min(1).max(14).optional(),
+  description: z.string().trim().min(1).max(600).optional(),
   notes: z.string().trim().min(1).max(600).optional(),
   goal: z.string().trim().min(1).max(80).default("general_fitness"),
   level: z.string().trim().min(1).max(80).default("beginner"),
@@ -5410,6 +5567,9 @@ const trainerPlanCreateSchema = z.object({
   equipment: z.string().trim().min(1).max(120).default("bodyweight"),
   daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
   startDate: z.string().trim().min(1).optional(),
+}).refine((value) => value.daysCount !== undefined || value.daysPerWeek !== undefined, {
+  message: "daysCount or daysPerWeek is required",
+  path: ["daysCount"],
 });
 const trainerPlanUpdateSchema = z.object({
   title: z.string().trim().min(1).max(120).optional(),
@@ -5427,9 +5587,38 @@ const trainerPlanUpdateSchema = z.object({
 const trainerPlanParamsSchema = z.object({
   planId: z.string().min(1),
 });
+const trainerPlanDayParamsSchema = z.object({
+  planId: z.string().min(1),
+  dayId: z.string().min(1),
+});
+const trainerPlanExerciseParamsSchema = z.object({
+  planId: z.string().min(1),
+  dayId: z.string().min(1),
+  exerciseId: z.string().min(1),
+});
+const trainerPlanExerciseUpdateSchema = z
+  .object({
+    sets: z.coerce.number().int().min(1).max(30).optional(),
+    reps: z.string().trim().min(1).max(80).nullable().optional(),
+    rest: z.coerce.number().int().min(0).max(3600).nullable().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  });
 const trainerAssignPlanBodySchema = z.object({
   trainingPlanId: z.string().min(1),
 });
+const trainerAssignPlanResultSchema = {
+  id: true,
+  title: true,
+  goal: true,
+  level: true,
+  daysPerWeek: true,
+  focus: true,
+  equipment: true,
+  startDate: true,
+  daysCount: true,
+} as const;
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -5450,6 +5639,55 @@ type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null;
+}
+
+function parseClientMetrics(profile: unknown, tracking: unknown) {
+  const profileRecord = isRecord(profile) ? profile : null;
+  const trackingRecord = isRecord(tracking) ? tracking : null;
+
+  const numberOrNull = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
+  const stringOrNull = (value: unknown) => (typeof value === "string" && value.trim().length > 0 ? value : null);
+
+  const measurementsRaw = profileRecord && isRecord(profileRecord.measurements) ? profileRecord.measurements : null;
+  const measurements = measurementsRaw
+    ? {
+        chestCm: numberOrNull(measurementsRaw.chestCm),
+        waistCm: numberOrNull(measurementsRaw.waistCm),
+        hipsCm: numberOrNull(measurementsRaw.hipsCm),
+        bicepsCm: numberOrNull(measurementsRaw.bicepsCm),
+        thighCm: numberOrNull(measurementsRaw.thighCm),
+        calfCm: numberOrNull(measurementsRaw.calfCm),
+        neckCm: numberOrNull(measurementsRaw.neckCm),
+        bodyFatPercent: numberOrNull(measurementsRaw.bodyFatPercent),
+      }
+    : null;
+
+  const checkins = trackingRecord && Array.isArray(trackingRecord.checkins) ? trackingRecord.checkins : [];
+  const latestCheckin = [...checkins]
+    .filter((entry) => isRecord(entry) && typeof entry.date === "string")
+    .sort((left, right) => {
+      const leftDate = Date.parse(String(left.date));
+      const rightDate = Date.parse(String(right.date));
+      return Number.isFinite(rightDate) && Number.isFinite(leftDate) ? rightDate - leftDate : 0;
+    })[0];
+
+  const progress = latestCheckin && isRecord(latestCheckin)
+    ? {
+        date: stringOrNull(latestCheckin.date),
+        weightKg: numberOrNull(latestCheckin.weightKg),
+        bodyFatPercent: numberOrNull(latestCheckin.bodyFatPercent),
+        notes: stringOrNull(latestCheckin.notes),
+      }
+    : null;
+
+  return {
+    heightCm: numberOrNull(profileRecord?.heightCm),
+    weightKg: numberOrNull(profileRecord?.weightKg),
+    goalWeightKg: numberOrNull(profileRecord?.goalWeightKg),
+    activity: stringOrNull(profileRecord?.activity),
+    measurements,
+    progress,
+  };
 }
 
 
@@ -6298,6 +6536,14 @@ const gymAdminUpdateMemberRoleSchema = z.object({
   role: z.enum(["MEMBER", "TRAINER"]),
 });
 
+const trainerGymProfileUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+  })
+  .refine((payload) => Object.keys(payload).length > 0, {
+    message: "At least one field must be provided.",
+  });
+
 const adminCreateGymSchema = z.object({
   name: z.string().trim().min(2).max(120),
   code: z
@@ -6343,10 +6589,122 @@ function serializeGymMembership(
   return {
     status,
     state: toLegacyGymMembershipState(status),
+    gymId: gym?.id ?? null,
+    gymName: gym?.name ?? null,
     gym,
     role,
   };
 }
+
+async function findBlockingGymMembership(userId: string) {
+  return prisma.gymMembership.findFirst({
+    where: {
+      userId,
+      status: { in: ["PENDING", "ACTIVE"] },
+    },
+    select: {
+      id: true,
+      gymId: true,
+      status: true,
+      role: true,
+      gym: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+async function getTrainerManagedGymMembership(userId: string) {
+  return prisma.gymMembership.findFirst({
+    where: {
+      userId,
+      status: "ACTIVE",
+      role: { in: ["ADMIN", "TRAINER"] },
+    },
+    select: {
+      gymId: true,
+      role: true,
+      gym: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          activationCode: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+    orderBy: [
+      { role: "asc" },
+      { updatedAt: "desc" },
+    ],
+  });
+}
+
+app.get("/trainer/gym", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const membership = await getTrainerManagedGymMembership(user.id);
+
+    if (!membership) {
+      return reply
+        .status(403)
+        .send({ error: "FORBIDDEN", message: "Only active gym trainers/admins can access this resource." });
+    }
+
+    return reply.status(200).send({
+      gym: membership.gym,
+      membership: {
+        role: membership.role,
+      },
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/trainer/gym", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const payload = trainerGymProfileUpdateSchema.parse(request.body);
+    const membership = await getTrainerManagedGymMembership(user.id);
+
+    if (!membership) {
+      return reply
+        .status(403)
+        .send({ error: "FORBIDDEN", message: "Only active gym trainers/admins can access this resource." });
+    }
+
+    const updatedGym = await prisma.gym.update({
+      where: { id: membership.gymId },
+      data: {
+        ...(payload.name !== undefined ? { name: payload.name } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        activationCode: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return reply.status(200).send({
+      gym: updatedGym,
+      membership: {
+        role: membership.role,
+      },
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
 
 app.get("/gyms", async (request, reply) => {
   try {
@@ -6381,6 +6739,19 @@ const createGymJoinRequest = async (request: FastifyRequest, reply: FastifyReply
     if (!gym) {
       return reply.status(404).send({ error: "NOT_FOUND", message: "Gym not found." });
     }
+    const blockingMembership = await findBlockingGymMembership(user.id);
+    if (blockingMembership) {
+      return reply.status(409).send({
+        error: "GYM_MEMBERSHIP_CONFLICT",
+        message: "User already has an active or pending gym membership.",
+        membership: serializeGymMembership({
+          status: blockingMembership.status,
+          role: blockingMembership.role,
+          gym: blockingMembership.gym,
+        }),
+      });
+    }
+
     const existing = await prisma.gymMembership.findUnique({
       where: { gymId_userId: { gymId, userId: user.id } },
     });
@@ -6420,6 +6791,19 @@ app.post("/gyms/join-by-code", async (request, reply) => {
     const gym = await prisma.gym.findUnique({ where: { code: normalizedCode } });
     if (!gym) {
       return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
+    }
+
+    const blockingMembership = await findBlockingGymMembership(user.id);
+    if (blockingMembership) {
+      return reply.status(409).send({
+        error: "GYM_MEMBERSHIP_CONFLICT",
+        message: "User already has an active or pending gym membership.",
+        membership: serializeGymMembership({
+          status: blockingMembership.status,
+          role: blockingMembership.role,
+          gym: blockingMembership.gym,
+        }),
+      });
     }
 
     const existing = await prisma.gymMembership.findUnique({
@@ -6492,6 +6876,19 @@ app.post("/gym/join-code", async (request, reply) => {
 
     if (!gym) {
       return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
+    }
+
+    const blockingMembership = await findBlockingGymMembership(user.id);
+    if (blockingMembership) {
+      return reply.status(409).send({
+        error: "GYM_MEMBERSHIP_CONFLICT",
+        message: "User already has an active or pending gym membership.",
+        membership: serializeGymMembership({
+          status: blockingMembership.status,
+          role: blockingMembership.role,
+          gym: blockingMembership.gym,
+        }),
+      });
     }
 
     const existing = await prisma.gymMembership.findUnique({
@@ -6631,7 +7028,7 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
     const membership = await prisma.gymMembership.findUnique({
       where: { id: membershipId },
-      select: { id: true, gymId: true, status: true },
+      select: { id: true, gymId: true, userId: true, status: true, role: true },
     });
     if (!membership) {
       return reply.status(404).send({ error: "NOT_FOUND", message: "Membership request not found." });
@@ -6642,9 +7039,44 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
     if (!isGlobalAdmin) {
       await requireGymManagerForGym(user.id, membership.gymId);
     }
+
+    const activeMembershipElsewhere = await prisma.gymMembership.findFirst({
+      where: {
+        userId: membership.userId,
+        status: "ACTIVE",
+        gymId: { not: membership.gymId },
+      },
+      select: {
+        id: true,
+        gym: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+
+    if (activeMembershipElsewhere) {
+      return reply.status(409).send({
+        error: "GYM_MEMBERSHIP_CONFLICT",
+        message: "User already belongs to another active gym.",
+        activeMembership: {
+          id: activeMembershipElsewhere.id,
+          gym: activeMembershipElsewhere.gym,
+        },
+      });
+    }
+
+    await prisma.gymMembership.updateMany({
+      where: {
+        userId: membership.userId,
+        status: "PENDING",
+        id: { not: membership.id },
+      },
+      data: { status: "REJECTED" },
+    });
+
     const updateResult = await prisma.gymMembership.updateMany({
       where: { id: membership.id, status: "PENDING" },
-      data: { status: "ACTIVE" },
+      data: { status: "ACTIVE", role: membership.role },
     });
 
     if (updateResult.count === 0) {
@@ -6736,23 +7168,51 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
 app.get("/trainer/plans", async (request, reply) => {
   try {
     const requester = await requireUser(request);
-    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { query, limit, offset } = trainingPlanListSchema.parse(request.query);
 
-    const plans = await prisma.trainingPlan.findMany({
+    const managerMembership = await prisma.gymMembership.findFirst({
       where: {
-        OR: [
-          { userId: requester.id },
-          {
-            gymAssignments: {
-              some: {
-                gymId: managerMembership.gymId,
-                status: "ACTIVE",
-                role: "MEMBER",
+        userId: requester.id,
+        status: "ACTIVE",
+        role: { in: ["ADMIN", "TRAINER"] },
+      },
+      select: { gymId: true },
+    });
+
+    const memberMembership = managerMembership
+      ? null
+      : await prisma.gymMembership.findFirst({
+          where: {
+            userId: requester.id,
+            status: "ACTIVE",
+            role: "MEMBER",
+          },
+          select: { gymId: true },
+          orderBy: { updatedAt: "desc" },
+        });
+
+    const visibleGymId = managerMembership?.gymId ?? memberMembership?.gymId;
+
+const plans = await prisma.trainingPlan.findMany({
+  where: {
+    OR: [
+      { userId: requester.id },
+      ...(visibleGymId
+        ? [
+            {
+              gymAssignments: {
+                some: {
+                  gymId: visibleGymId,
+                  status: GymMembershipStatus.ACTIVE,
+                  role: GymRole.MEMBER,
+                },
               },
             },
-          },
-        ],
-      },
+          ]
+        : []),
+    ],
+    ...(query ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } } : {}),
+  },
       select: {
         id: true,
         userId: true,
@@ -6769,9 +7229,11 @@ app.get("/trainer/plans", async (request, reply) => {
         updatedAt: true,
       },
       orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      skip: offset,
+      take: limit,
     });
 
-    return { items: plans };
+    return { items: plans, limit, offset };
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6788,7 +7250,7 @@ app.post("/trainer/plans", async (request, reply) => {
       return reply.status(400).send({ error: "INVALID_START_DATE" });
     }
 
-    const daysCount = payload.daysCount;
+    const daysCount = payload.daysCount ?? payload.daysPerWeek ?? 7;
     const daysPerWeek = payload.daysPerWeek ?? Math.min(daysCount, 7);
     const dates = buildDateRange(startDate, daysCount);
 
@@ -6796,7 +7258,7 @@ app.post("/trainer/plans", async (request, reply) => {
       data: {
         userId: requester.id,
         title: payload.title,
-        notes: payload.notes ?? null,
+        notes: payload.notes ?? payload.description ?? null,
         goal: payload.goal,
         level: payload.level,
         daysPerWeek,
@@ -6942,51 +7404,317 @@ app.patch("/trainer/plans/:planId", async (request, reply) => {
   }
 });
 
-app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
+async function getTrainerManagedPlan(
+  requesterId: string,
+  planId: string
+): Promise<{ plan: { id: string; userId: string }; managerMembership: { gymId: string } }> {
+  const managerMembership = await requireActiveGymManagerMembership(requesterId);
+  const plan = await prisma.trainingPlan.findUnique({
+    where: { id: planId },
+    select: {
+      id: true,
+      userId: true,
+      gymAssignments: {
+        where: {
+          gymId: managerMembership.gymId,
+          status: "ACTIVE",
+          role: "MEMBER",
+        },
+        select: { id: true },
+        take: 1,
+      },
+    },
+  });
+
+  if (!plan) {
+    throw createHttpError(404, "TRAINING_PLAN_NOT_FOUND", { planId });
+  }
+
+  const canManage = plan.userId === requesterId || plan.gymAssignments.length > 0;
+
+  if (!canManage) {
+    throw createHttpError(403, "FORBIDDEN", { planId, requesterId });
+  }
+
+  return { plan: { id: plan.id, userId: plan.userId }, managerMembership: { gymId: managerMembership.gymId } };
+}
+
+app.delete("/trainer/plans/:planId", async (request, reply) => {
   try {
     const requester = await requireUser(request);
-    const managerMembership = await requireActiveGymManagerMembership(requester.id);
-    const { userId } = trainerClientParamsSchema.parse(request.params);
-    const { trainingPlanId } = trainerAssignPlanBodySchema.parse(request.body);
+    const { planId } = trainerPlanParamsSchema.parse(request.params);
 
-    const [targetMembership, selectedPlan] = await Promise.all([
-      prisma.gymMembership.findUnique({
-        where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
-        select: { id: true, role: true, status: true },
-      }),
-      prisma.trainingPlan.findFirst({
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.gymMembership.updateMany({
+        where: { assignedTrainingPlanId: plan.id },
+        data: { assignedTrainingPlanId: null },
+      });
+      await tx.trainingPlan.delete({
+        where: { id: plan.id },
+      });
+    });
+
+    request.log.info(
+      { planId: plan.id, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer deleted training plan"
+    );
+
+    return reply.status(204).send();
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/plans/:planId/days/:dayId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId } = trainerPlanDayParamsSchema.parse(request.params);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    const deleted = await prisma.$transaction(async (tx) => {
+      const day = await tx.trainingDay.findFirst({
         where: {
-          id: trainingPlanId,
-          OR: [
-            { userId: requester.id },
-            {
-              gymAssignments: {
-                some: {
-                  gymId: managerMembership.gymId,
-                  status: "ACTIVE",
-                  role: "MEMBER",
-                },
-              },
-            },
-          ],
+          id: dayId,
+          planId: plan.id,
         },
-        select: {
-          id: true,
-          title: true,
-          goal: true,
-          level: true,
-          daysPerWeek: true,
-          focus: true,
-          equipment: true,
-          startDate: true,
-          daysCount: true,
-        },
+        select: { id: true },
+      });
+
+      if (!day) {
+        return false;
+      }
+
+      await tx.trainingExercise.deleteMany({ where: { dayId: day.id } });
+      await tx.trainingDay.delete({ where: { id: day.id } });
+      return true;
+    });
+
+    if (!deleted) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    request.log.info(
+      { planId: plan.id, dayId, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer deleted training day"
+    );
+
+    return reply.status(204).send();
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/plans/:planId/days/:dayId/exercises", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId } = trainerPlanDayParamsSchema.parse(request.params);
+    const { exerciseId } = addTrainingExerciseBodySchema.parse(request.body);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    const [day, exercise] = await Promise.all([
+      prisma.trainingDay.findFirst({
+        where: { id: dayId, planId: plan.id },
+        select: { id: true },
+      }),
+      prisma.exercise.findUnique({
+        where: { id: exerciseId },
+        select: { id: true, name: true },
       }),
     ]);
 
-    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
-      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    if (!day) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
     }
+
+    if (!exercise) {
+      return reply.status(404).send({ error: "EXERCISE_NOT_FOUND" });
+    }
+
+    const created = await prisma.trainingExercise.create({
+      data: {
+        dayId: day.id,
+        name: exercise.name,
+        sets: 3,
+        reps: "10-12",
+      },
+    });
+
+    request.log.info(
+      { planId: plan.id, dayId, exerciseId, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer added exercise to training day"
+    );
+
+    return reply.status(201).send({
+      exercise: created,
+      sourceExercise: exercise,
+      planId: plan.id,
+      dayId: day.id,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/trainer/plans/:planId/days/:dayId/exercises/:exerciseId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId, exerciseId } = trainerPlanExerciseParamsSchema.parse(request.params);
+    const payload = trainerPlanExerciseUpdateSchema.parse(request.body);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    const day = await prisma.trainingDay.findFirst({
+      where: { id: dayId, planId: plan.id },
+      select: { id: true },
+    });
+
+    if (!day) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    const updated = await prisma.trainingExercise.updateMany({
+      where: {
+        id: exerciseId,
+        dayId: day.id,
+      },
+      data: {
+        sets: payload.sets,
+        reps: payload.reps,
+        rest: payload.rest,
+      },
+    });
+
+    if (updated.count === 0) {
+      return reply.status(404).send({ error: "TRAINING_EXERCISE_NOT_FOUND" });
+    }
+
+    const exercise = await prisma.trainingExercise.findUnique({
+      where: { id: exerciseId },
+    });
+
+    request.log.info(
+      { planId: plan.id, dayId, exerciseId, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer updated training exercise"
+    );
+
+    return reply.status(200).send({ exercise });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/plans/:planId/days/:dayId/exercises/:exerciseId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { planId, dayId, exerciseId } = trainerPlanExerciseParamsSchema.parse(request.params);
+
+    const { plan, managerMembership } = await getTrainerManagedPlan(requester.id, planId);
+
+    const day = await prisma.trainingDay.findFirst({
+      where: { id: dayId, planId: plan.id },
+      select: { id: true },
+    });
+
+    if (!day) {
+      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
+    }
+
+    const deleted = await prisma.trainingExercise.deleteMany({
+      where: {
+        id: exerciseId,
+        dayId: day.id,
+      },
+    });
+
+    if (deleted.count === 0) {
+      return reply.status(404).send({ error: "TRAINING_EXERCISE_NOT_FOUND" });
+    }
+
+    request.log.info(
+      { planId: plan.id, dayId, exerciseId, requesterId: requester.id, gymId: managerMembership.gymId },
+      "trainer deleted training exercise"
+    );
+
+    return reply.status(204).send();
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+async function getTrainerMemberAssignment(
+  requesterId: string,
+  memberUserId: string
+): Promise<{
+  managerMembership: { gymId: string };
+  targetMembership: {
+    id: string;
+    status: string;
+    role: string;
+    assignedTrainingPlanId: string | null;
+    assignedTrainingPlan: {
+      id: string;
+      title: string;
+      goal: string;
+      level: string;
+      daysPerWeek: number;
+      focus: string;
+      equipment: string;
+      startDate: Date;
+      daysCount: number;
+    } | null;
+  };
+}> {
+  const managerMembership = await requireActiveGymManagerMembership(requesterId);
+  const targetMembership = await prisma.gymMembership.findUnique({
+    where: { gymId_userId: { gymId: managerMembership.gymId, userId: memberUserId } },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+      assignedTrainingPlanId: true,
+      assignedTrainingPlan: {
+        select: trainerAssignPlanResultSchema,
+      },
+    },
+  });
+
+  if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+    throw createHttpError(404, "MEMBER_NOT_FOUND", { memberUserId, gymId: managerMembership.gymId });
+  }
+
+  return { managerMembership: { gymId: managerMembership.gymId }, targetMembership };
+}
+
+app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
+  try {
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+    const { trainingPlanId } = trainerAssignPlanBodySchema.parse(request.body);
+    const requester = await requireUser(request);
+
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, userId);
+
+    const selectedPlan = await prisma.trainingPlan.findFirst({
+      where: {
+        id: trainingPlanId,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
+      select: trainerAssignPlanResultSchema,
+    });
 
     if (!selectedPlan) {
       return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
@@ -6997,11 +7725,28 @@ app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
       data: { assignedTrainingPlanId: selectedPlan.id },
     });
 
-    return {
+    return reply.status(200).send({
+      ok: true,
       memberId: userId,
       gymId: managerMembership.gymId,
       assignedPlan: selectedPlan,
-    };
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, userId);
+
+    return reply.status(200).send({
+      memberId: userId,
+      gymId: managerMembership.gymId,
+      assignedPlan: targetMembership.assignedTrainingPlan,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -7010,24 +7755,79 @@ app.post("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
 app.delete("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
   try {
     const requester = await requireUser(request);
-    const managerMembership = await requireActiveGymManagerMembership(requester.id);
     const { userId } = trainerClientParamsSchema.parse(request.params);
-
-    const targetMembership = await prisma.gymMembership.findUnique({
-      where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
-      select: { id: true, role: true, status: true },
-    });
-
-    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
-      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
-    }
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, userId);
 
     await prisma.gymMembership.update({
       where: { id: targetMembership.id },
       data: { assignedTrainingPlanId: null },
     });
 
-    return reply.status(200).send({ memberId: userId, gymId: managerMembership.gymId, assignedPlan: null });
+    return reply.status(200).send({ ok: true, memberId: userId, gymId: managerMembership.gymId, assignedPlan: null });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/members/:id/training-plan-assignment", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { id } = trainerMemberIdParamsSchema.parse(request.params);
+    const { trainingPlanId } = trainerAssignPlanBodySchema.parse(request.body);
+
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, id);
+
+    const selectedPlan = await prisma.trainingPlan.findFirst({
+      where: {
+        id: trainingPlanId,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
+      select: trainerAssignPlanResultSchema,
+    });
+
+    if (!selectedPlan) {
+      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: selectedPlan.id },
+    });
+
+    return reply.status(200).send({
+      ok: true,
+      memberId: id,
+      gymId: managerMembership.gymId,
+      assignedPlan: selectedPlan,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/members/:id/training-plan-assignment", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { id } = trainerMemberIdParamsSchema.parse(request.params);
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, id);
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedTrainingPlanId: null },
+    });
+
+    return reply.status(200).send({ ok: true, memberId: id, gymId: managerMembership.gymId, assignedPlan: null });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -7073,6 +7873,12 @@ app.get("/trainer/clients", async (request, reply) => {
             isBlocked: true,
             subscriptionStatus: true,
             lastLoginAt: true,
+            profile: {
+              select: {
+                profile: true,
+                tracking: true,
+              },
+            },
           },
         },
       },
@@ -7089,6 +7895,7 @@ app.get("/trainer/clients", async (request, reply) => {
         subscriptionStatus: membership.user.subscriptionStatus,
         lastLoginAt: membership.user.lastLoginAt,
         assignedPlan: membership.assignedTrainingPlan,
+        metrics: parseClientMetrics(membership.user.profile?.profile ?? null, membership.user.profile?.tracking ?? null),
       })),
     };
   } catch (error) {
@@ -7138,6 +7945,12 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
             isBlocked: true,
             subscriptionStatus: true,
             lastLoginAt: true,
+            profile: {
+              select: {
+                profile: true,
+                tracking: true,
+              },
+            },
           },
         },
       },
@@ -7156,7 +7969,31 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
       subscriptionStatus: membership.user.subscriptionStatus,
       lastLoginAt: membership.user.lastLoginAt,
       assignedPlan: membership.assignedTrainingPlan,
+      metrics: parseClientMetrics(membership.user.profile?.profile ?? null, membership.user.profile?.tracking ?? null),
     };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/clients/:userId", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+
+    const targetMembership = await prisma.gymMembership.findUnique({
+      where: { gymId_userId: { gymId: managerMembership.gymId, userId } },
+      select: { id: true, role: true, status: true },
+    });
+
+    if (!targetMembership || targetMembership.status !== "ACTIVE" || targetMembership.role !== "MEMBER") {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.delete({ where: { id: targetMembership.id } });
+
+    return reply.status(200).send({ memberId: userId, gymId: managerMembership.gymId, removed: true });
   } catch (error) {
     return handleRequestError(reply, error);
   }

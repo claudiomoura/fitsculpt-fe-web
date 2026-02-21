@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
-import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type PlanTone = "standard" | "highlight";
@@ -21,7 +20,6 @@ const PLAN_DATA: PlanData[] = [
 ];
 
 const TESTIMONIAL_KEYS = ["one", "two", "three"] as const;
-const FEATURE_KEYS = ["one", "two", "three", "four", "five", "six"] as const;
 
 function RatingStars({ label }: { label: string }) {
   return (
@@ -46,51 +44,67 @@ export default function PricingPage() {
         price: t(`marketingPricing.plans.${plan.key}.price`),
         tagline: t(`marketingPricing.plans.${plan.key}.tagline`),
         cta: t(`marketingPricing.plans.${plan.key}.cta`),
-        features: [1, 2, 3, 4].map((featureIndex) => t(`marketingPricing.plans.${plan.key}.features.${featureIndex}`)),
+        features: [1, 2, 3, 4].map((featureIndex) =>
+          t(`marketingPricing.plans.${plan.key}.features.${featureIndex}`)
+        ),
       })),
     [t]
   );
 
   return (
-    <div className="min-h-screen bg-bg text-text">
-      <MarketingHeader />
-
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-14 px-4 pb-20 pt-8 sm:px-6 lg:px-8">
-        <section className="sticky top-[64px] z-10 rounded-xl border border-border bg-surface/90 px-4 py-2 text-center text-xs text-text-muted backdrop-blur">
-          {t("marketingPricing.headerPlaceholder")}
+    <div className="pricing-page min-h-screen">
+      <main className="pricing-container mx-auto w-full max-w-6xl px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+        <section className="pricing-hero">
+          <h1 className="pricing-hero__title">
+            {t("marketingPricing.title")}
+          </h1>
+          <p className="pricing-hero__sub">
+            {t("marketingPricing.subtitle")}
+          </p>
         </section>
 
-        <section id="plans" className="grid gap-5 scroll-mt-24 lg:grid-cols-3 lg:items-stretch">
+        <section
+          id="planes"
+          className="pricing-plans mt-10 grid gap-4 lg:grid-cols-3 lg:items-stretch"
+        >
           {plans.map((plan) => (
             <Card
               key={plan.key}
-              className={
-                plan.tone === "highlight"
-                  ? "flex h-full flex-col border-primary shadow-[0_0_0_1px_rgba(0,245,195,0.35),0_16px_40px_rgba(0,245,195,0.12)]"
-                  : "flex h-full flex-col"
-              }
+              className={[
+                "pricing-card flex h-full flex-col",
+                plan.tone === "highlight" ? "pricing-card--highlight" : "",
+                plan.key === "pro" ? "pricing-card--pro" : "",
+              ].join(" ")}
             >
-              <CardHeader>
-                {plan.key === "pro" ? <Badge className="mb-3 w-fit">{t("marketingPricing.plans.pro.badge")}</Badge> : null}
-                <CardTitle className="text-2xl">{plan.title}</CardTitle>
-                <CardDescription>{plan.tagline}</CardDescription>
-                <p className="pt-2 text-3xl font-bold text-text">{plan.price}</p>
+              <CardHeader className="pricing-card__header">
+                {plan.key === "pro" ? (
+                  <Badge className="pricing-badge w-fit">{t("marketingPricing.plans.pro.badge")}</Badge>
+                ) : null}
+
+                <div className="pricing-card__top">
+                  <CardTitle className="pricing-card__title">{plan.title}</CardTitle>
+                  <div className="pricing-card__price">{plan.price}</div>
+                </div>
+
+                <CardDescription className="pricing-card__tagline">{plan.tagline}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <ul className="space-y-3 text-sm text-text-muted">
+
+              <CardContent className="pricing-card__content">
+                <ul className="pricing-card__list">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2">
-                      <span aria-hidden="true" className="mt-1 inline-block h-2 w-2 rounded-full bg-primary" />
+                    <li key={feature} className="pricing-card__item">
+                      <span aria-hidden="true" className="pricing-dot" />
                       <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
               </CardContent>
+
               <CardFooter className="mt-auto">
                 <ButtonLink
                   href="/register"
                   variant={plan.tone === "highlight" ? "primary" : "secondary"}
-                  className="w-full justify-center"
+                  className="w-full justify-center pricing-card__cta"
                 >
                   {plan.cta}
                 </ButtonLink>
@@ -99,17 +113,16 @@ export default function PricingPage() {
           ))}
         </section>
 
-        <p className="text-center text-sm text-text-muted">{t("marketingPricing.billingNote")}</p>
+        <p className="mt-6 text-center text-sm text-text-muted">{t("marketingPricing.billingNote")}</p>
 
-        <section id="caracteristicas" className="space-y-6 scroll-mt-28" aria-labelledby="pricing-features-title">
+        <section id="caracteristicas" className="mt-14 space-y-6 scroll-mt-28" aria-labelledby="pricing-features-title">
           <div className="space-y-2 text-center">
             <h2 id="pricing-features-title" className="text-2xl font-bold sm:text-3xl">
               {t("marketingPricing.features.title")}
             </h2>
-            <p className="text-sm text-text-muted sm:text-base">
-              {t("marketingPricing.features.subtitle")}
-            </p>
+            <p className="text-sm text-text-muted sm:text-base">{t("marketingPricing.features.subtitle")}</p>
           </div>
+
           <ul className="grid gap-4 md:grid-cols-3">
             {[1, 2, 3].map((index) => (
               <li key={index} className="rounded-2xl border border-border bg-surface p-5 text-sm text-text-muted">
@@ -119,17 +132,17 @@ export default function PricingPage() {
           </ul>
         </section>
 
-
-        <section id="testimonios" className="space-y-6 scroll-mt-28" aria-labelledby="testimonials-title">
+        <section id="testimonios" className="mt-14 space-y-6 scroll-mt-28" aria-labelledby="testimonials-title">
           <div className="space-y-2 text-center">
             <h2 id="testimonials-title" className="text-2xl font-bold sm:text-3xl">
               {t("marketingPricing.testimonials.title")}
             </h2>
             <p className="text-sm text-text-muted sm:text-base">{t("marketingPricing.testimonials.subtitle")}</p>
           </div>
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {TESTIMONIAL_KEYS.map((key) => (
-              <Card key={key}>
+              <Card key={key} className="pricing-tcard">
                 <CardHeader>
                   <RatingStars label={t("marketingPricing.testimonials.starsLabel")} />
                   <CardDescription className="text-sm leading-relaxed text-text-muted">
@@ -139,13 +152,10 @@ export default function PricingPage() {
               </Card>
             ))}
           </div>
+
           <p className="text-center text-xs text-text-muted">{t("marketingPricing.testimonials.disclaimer")}</p>
         </section>
       </main>
-
-      <footer className="border-t border-border/70 py-6">
-        <p className="text-center text-xs text-text-muted">{t("marketingPricing.footer.copy")}</p>
-      </footer>
     </div>
   );
 }
