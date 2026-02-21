@@ -1165,6 +1165,11 @@
       "goToPlansCta": "View training plans",
       "filteredByPlan": "Showing workouts for the selected plan only.",
       "changePlan": "Change plan"
+    },
+    "planDetails": {
+      "title": "Plan details",
+      "show": "Show plan details",
+      "hide": "Hide plan details"
     }
   },
   "profile": {

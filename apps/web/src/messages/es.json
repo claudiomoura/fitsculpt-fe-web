@@ -1168,6 +1168,11 @@
       "goToPlansCta": "Ver planes de entrenamiento",
       "filteredByPlan": "Mostrando entrenamientos solo del plan seleccionado.",
       "changePlan": "Cambiar plan"
+    },
+    "planDetails": {
+      "title": "Datos del plan",
+      "show": "Mostrar datos del plan",
+      "hide": "Ocultar datos del plan"
     }
   },
   "profile": {
