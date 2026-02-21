@@ -2090,7 +2090,14 @@
         "myUnsupported": "This environment cannot identify your exercises yet.",
         "my": "You have not created exercises yet.",
         "fitsculpt": "No public FitSculpt exercises are available yet.",
-        "unknown": "Some exercises could not be classified and are hidden to avoid incorrect labeling."
+        "unknown": "Some exercises could not be classified and are hidden to avoid incorrect labeling.",
+        "gym": "There are no gym exercises yet.",
+        "gymUnavailable": "Not available yet.",
+        "unclassified": "Only backend-supported sections are shown. Some exercises could not be classified using explicit ownership signals."
+      },
+      "sections": {
+        "gym": "Gym",
+        "listAriaLabel": "Exercises list"
       }
     },
     "plans": {

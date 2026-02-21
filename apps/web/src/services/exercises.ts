@@ -84,11 +84,6 @@ function isUserSource(source: string | null): boolean {
   return ["user", "custom", "trainer", "manual"].includes(source);
 }
 
-function isGlobalSource(source: string | null): boolean {
-  if (!source) return false;
-  return ["fitsculpt", "global", "system", "default", "public"].includes(source);
-}
-
 function sourceIdSignalsUserOwnership(sourceId: string | null, viewerUserId: string | null): boolean {
   if (!sourceId) return false;
   if (sourceId.startsWith("user:") || sourceId.startsWith("user_")) return true;
@@ -97,16 +92,6 @@ function sourceIdSignalsUserOwnership(sourceId: string | null, viewerUserId: str
     return true;
   }
   return false;
-}
-
-function sourceIdSignalsGlobalOwnership(sourceId: string | null): boolean {
-  if (!sourceId) return false;
-  return (
-    sourceId.startsWith("fitsculpt:") ||
-    sourceId.startsWith("fs:") ||
-    sourceId.startsWith("global:") ||
-    sourceId.startsWith("system:")
-  );
 }
 
 export function isExerciseOwnedByUser(exercise: Exercise, viewerUserId: string | null): boolean {
@@ -133,67 +118,131 @@ export function isExerciseOwnedByUser(exercise: Exercise, viewerUserId: string |
   return false;
 }
 
-function isExerciseGlobal(exercise: Exercise): boolean {
-  const isUserCreated = getIsUserCreated(exercise);
-  if (isUserCreated === false) {
-    return true;
-  }
-
-  const source = getExerciseSource(exercise);
-  if (isGlobalSource(source)) {
-    return true;
-  }
-
-  const sourceId = getExerciseSourceId(exercise);
-  return sourceIdSignalsGlobalOwnership(sourceId);
-}
-
 export type ExercisesByOwnership = {
   fitsculptExercises: Exercise[];
-  myExercises: Exercise[];
-  unknownExercises: Exercise[];
-  hasOwnershipSignals: boolean;
+  gymExercises: Exercise[];
+  unclassifiedExercises: Exercise[];
+  supportsScopedSections: boolean;
 };
+
+function getExerciseGymId(exercise: Exercise): string | null {
+  const rawExercise = exercise as UnknownExercise;
+  const gym = rawExercise.gym as UnknownExercise | undefined;
+  const tenant = rawExercise.tenant as UnknownExercise | undefined;
+  const owner = rawExercise.owner as UnknownExercise | undefined;
+
+  return (
+    asText(rawExercise.ownerGymId) ??
+    asText(rawExercise.gymId) ??
+    asText(rawExercise.createdByGymId) ??
+    asText(rawExercise.tenantId) ??
+    asText(rawExercise.organizationId) ??
+    asText(gym?.id) ??
+    asText(gym?.gymId) ??
+    asText(tenant?.id) ??
+    asText(tenant?.gymId) ??
+    asText(owner?.gymId) ??
+    null
+  );
+}
+
+function getExerciseScope(exercise: Exercise): string | null {
+  const rawExercise = exercise as UnknownExercise;
+  return normalizeSource(rawExercise.scope);
+}
+
+function getExerciseVisibility(exercise: Exercise): string | null {
+  const rawExercise = exercise as UnknownExercise;
+  return normalizeSource(rawExercise.visibility);
+}
+
+function getIsPublic(exercise: Exercise): boolean | null {
+  const rawExercise = exercise as UnknownExercise;
+  return asBoolean(rawExercise.isPublic);
+}
+
+function hasScopedSignals(exercise: Exercise): boolean {
+  const rawExercise = exercise as UnknownExercise;
+  return (
+    "ownerGymId" in rawExercise ||
+    "gymId" in rawExercise ||
+    "createdByGymId" in rawExercise ||
+    "scope" in rawExercise ||
+    "visibility" in rawExercise ||
+    "isPublic" in rawExercise ||
+    "isGlobal" in rawExercise
+  );
+}
+
+function isGlobalExerciseByScope(exercise: Exercise): boolean {
+  const rawExercise = exercise as UnknownExercise;
+  const scope = getExerciseScope(exercise);
+  const visibility = getExerciseVisibility(exercise);
+  const source = getExerciseSource(exercise);
+  const isPublic = getIsPublic(exercise);
+  const isGlobal = asBoolean(rawExercise.isGlobal);
+
+  if (isPublic === true || isGlobal === true) return true;
+  if (scope && ["global", "public", "fitsculpt", "system"].includes(scope)) return true;
+  if (visibility && ["global", "public", "fitsculpt", "shared"].includes(visibility)) return true;
+  if (source && ["fitsculpt", "global", "system", "default", "public"].includes(source)) return true;
+
+  return false;
+}
 
 export function splitExercisesByOwnership(
   exercises: Exercise[],
   viewerUserId: string | null,
   membership?: { gymId?: string | null } | null
 ): ExercisesByOwnership {
-  void membership;
-  const myExercises: Exercise[] = [];
+  void viewerUserId;
+  const gymExercises: Exercise[] = [];
   const fitsculptExercises: Exercise[] = [];
-  const unknownExercises: Exercise[] = [];
+  const unclassifiedExercises: Exercise[] = [];
+  const viewerGymId = membership?.gymId ?? null;
 
-  let hasOwnershipSignals = false;
+  let supportsScopedSections = false;
+
+  const allHaveScopedSignals = exercises.length > 0 && exercises.every(hasScopedSignals);
 
   for (const exercise of exercises) {
-    const isUserCreated = getIsUserCreated(exercise);
-    const source = getExerciseSource(exercise);
-    const sourceId = getExerciseSourceId(exercise);
-    const hasUserId = getExerciseUserId(exercise) !== null;
-    const hasIsUserCreatedSignal = isUserCreated !== null;
-    const hasSourceSignal = source !== null;
-    const hasSourceIdSignal = sourceId !== null;
+    const exerciseGymId = getExerciseGymId(exercise);
+    const globalByScope = isGlobalExerciseByScope(exercise);
+    const hasScope = hasScopedSignals(exercise);
 
-    if (hasUserId || hasIsUserCreatedSignal || hasSourceSignal || hasSourceIdSignal) {
-      hasOwnershipSignals = true;
+    if (hasScope) {
+      supportsScopedSections = true;
     }
 
-    if (isExerciseOwnedByUser(exercise, viewerUserId)) {
-      myExercises.push(exercise);
-      continue;
-    }
-
-    if (isExerciseGlobal(exercise)) {
+    if (globalByScope) {
       fitsculptExercises.push(exercise);
       continue;
     }
 
-    unknownExercises.push(exercise);
+    if (viewerGymId && exerciseGymId === viewerGymId) {
+      gymExercises.push(exercise);
+      continue;
+    }
+
+    if (!viewerGymId && exerciseGymId) {
+      gymExercises.push(exercise);
+      continue;
+    }
+
+    if (!allHaveScopedSignals) {
+      unclassifiedExercises.push(exercise);
+      continue;
+    }
+
+    if (getIsPublic(exercise) === false) {
+      gymExercises.push(exercise);
+      continue;
+    }
+
+    unclassifiedExercises.push(exercise);
   }
 
-  return { fitsculptExercises, myExercises, unknownExercises, hasOwnershipSignals };
+  return { fitsculptExercises, gymExercises, unclassifiedExercises, supportsScopedSections };
 }
 
 function sanitizeOptions(values?: string[] | null) {
