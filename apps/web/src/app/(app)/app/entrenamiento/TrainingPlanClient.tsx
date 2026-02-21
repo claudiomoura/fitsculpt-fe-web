@@ -55,8 +55,11 @@ type TrainingForm = {
 };
 
 type ActiveTrainingPlanResponse = {
+  source?: "assigned" | "own";
   plan?: TrainingPlan | null;
 };
+
+type ActivePlanOrigin = "selected" | "assigned";
 
 const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
 const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
@@ -246,6 +249,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiEntitled, setAiEntitled] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [activePlan, setActivePlan] = useState<TrainingPlan | null>(null);
+  const [activePlanOrigin, setActivePlanOrigin] = useState<ActivePlanOrigin | null>(null);
+  const [activePlanError, setActivePlanError] = useState<string | null>(null);
   const [storedPlanId, setStoredPlanId] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -398,6 +403,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     const controller = new AbortController();
 
     const loadActivePlan = async () => {
+      setActivePlanError(null);
       try {
         if (selectedPlanId) {
           const selectedResponse = await fetch(`/api/training-plans/${encodeURIComponent(selectedPlanId)}`, {
@@ -408,11 +414,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           if (selectedResponse.ok) {
             const selectedPayload = (await selectedResponse.json()) as TrainingPlan;
             setActivePlan(selectedPayload);
+            setActivePlanOrigin("selected");
             return;
           }
-
-          setActivePlan(null);
-          return;
         }
 
         const response = await fetch("/api/training-plans/active?includeDays=1", {
@@ -422,19 +426,35 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
         if (response.status === 404 || response.status === 405) {
           setActivePlan(null);
+          setActivePlanOrigin(null);
+          if (selectedPlanId) {
+            setActivePlanError("No pudimos cargar el plan seleccionado.");
+          }
           return;
         }
 
         if (!response.ok) {
           setActivePlan(null);
+          setActivePlanOrigin(null);
+          if (selectedPlanId) {
+            setActivePlanError("No pudimos cargar el plan seleccionado.");
+          }
           return;
         }
 
         const payload = (await response.json()) as ActiveTrainingPlanResponse;
         setActivePlan(payload.plan ?? null);
+        setActivePlanOrigin(payload.plan ? "assigned" : null);
+        if (selectedPlanId && payload.plan) {
+          setActivePlanError("No pudimos acceder al plan seleccionado. Mostramos tu plan asignado.");
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setActivePlan(null);
+        setActivePlanOrigin(null);
+        if (selectedPlanId) {
+          setActivePlanError("No pudimos cargar el plan seleccionado.");
+        }
       }
     };
 
@@ -1060,6 +1080,28 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
                 </div>
               </div>
+
+              {!isManualView && activePlan ? (
+                <div className="status-card" style={{ marginBottom: 12 }}>
+                  <div className="inline-actions-sm" style={{ justifyContent: "space-between", width: "100%" }}>
+                    <strong>
+                      Plan activo: {activePlan.title?.trim() || selectedPlanId || "-"}
+                    </strong>
+                    <Badge variant={activePlanOrigin === "selected" ? "success" : "default"}>
+                      {activePlanOrigin === "selected" ? "Seleccionado" : "Asignado"}
+                    </Badge>
+                  </div>
+                </div>
+              ) : null}
+
+              {activePlanError ? (
+                <div className="status-card status-card--warning" style={{ marginBottom: 12 }}>
+                  <div className="inline-actions-sm">
+                    <Icon name="warning" />
+                    <strong>{activePlanError}</strong>
+                  </div>
+                </div>
+              ) : null}
 
               {!planStartDate ? (
                 <div className="calendar-empty">
