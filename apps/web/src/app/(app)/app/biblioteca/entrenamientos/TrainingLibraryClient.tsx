@@ -26,7 +26,8 @@ type ActiveTrainingPlanResponse = {
 type SectionState = "loading" | "ready" | "error" | "unavailable";
 type AiGateState = "loading" | "eligible" | "locked" | "unavailable";
 
-const ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
+const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
+const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
 
 export default function TrainingLibraryClient() {
   const { t } = useLanguage();
@@ -43,14 +44,23 @@ export default function TrainingLibraryClient() {
   const [assignedPlanState, setAssignedPlanState] = useState<SectionState>("loading");
   const [aiGateState, setAiGateState] = useState<AiGateState>("loading");
   const [canLoadGymPlans, setCanLoadGymPlans] = useState(false);
-  const [storedPlanId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem(ACTIVE_PLAN_STORAGE_KEY)?.trim() ?? ""));
+  const [storedPlanId] = useState(() => {
+    if (typeof window === "undefined") return "";
+
+    return (
+      window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY)?.trim()
+      || window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY)?.trim()
+      || ""
+    );
+  });
 
   const queryPlanId = searchParams.get("planId")?.trim() ?? "";
   const activePlanId = queryPlanId || storedPlanId || null;
 
   useEffect(() => {
     if (queryPlanId) {
-      window.localStorage.setItem(ACTIVE_PLAN_STORAGE_KEY, queryPlanId);
+      window.localStorage.setItem(SELECTED_PLAN_STORAGE_KEY, queryPlanId);
+      window.localStorage.setItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY, queryPlanId);
       return;
     }
 
@@ -181,7 +191,8 @@ export default function TrainingLibraryClient() {
     const normalizedPlanId = planId.trim();
     if (!normalizedPlanId) return;
 
-    window.localStorage.setItem(ACTIVE_PLAN_STORAGE_KEY, normalizedPlanId);
+    window.localStorage.setItem(SELECTED_PLAN_STORAGE_KEY, normalizedPlanId);
+    window.localStorage.setItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY, normalizedPlanId);
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.set("planId", normalizedPlanId);

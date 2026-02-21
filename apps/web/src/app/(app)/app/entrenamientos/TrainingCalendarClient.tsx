@@ -8,7 +8,8 @@ import { SkeletonCard } from "@/components/ui/Skeleton";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanDetail } from "@/lib/types";
 
-const ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
+const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
+const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
 
 type LoadState = "idle" | "loading" | "ready" | "empty";
 
@@ -18,7 +19,15 @@ export default function TrainingCalendarClient() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [storedPlanId] = useState(() => (typeof window === "undefined" ? "" : window.localStorage.getItem(ACTIVE_PLAN_STORAGE_KEY)?.trim() ?? ""));
+  const [storedPlanId] = useState(() => {
+    if (typeof window === "undefined") return "";
+
+    return (
+      window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY)?.trim()
+      || window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY)?.trim()
+      || ""
+    );
+  });
   const [plan, setPlan] = useState<TrainingPlanDetail | null>(null);
   const [state, setState] = useState<LoadState>("idle");
 
@@ -27,7 +36,8 @@ export default function TrainingCalendarClient() {
 
   useEffect(() => {
     if (queryPlanId) {
-      window.localStorage.setItem(ACTIVE_PLAN_STORAGE_KEY, queryPlanId);
+      window.localStorage.setItem(SELECTED_PLAN_STORAGE_KEY, queryPlanId);
+      window.localStorage.setItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY, queryPlanId);
       return;
     }
 
@@ -54,8 +64,9 @@ export default function TrainingCalendarClient() {
 
         if (userPlanResponse.ok) {
           const data = (await userPlanResponse.json()) as TrainingPlanDetail;
-          setPlan(data);
-          setState("ready");
+          const hasDays = Array.isArray(data.days) && data.days.length > 0;
+          setPlan(hasDays ? data : null);
+          setState(hasDays ? "ready" : "empty");
           return;
         }
 
@@ -72,8 +83,9 @@ export default function TrainingCalendarClient() {
 
         if (gymPlanResponse.ok) {
           const data = (await gymPlanResponse.json()) as TrainingPlanDetail;
-          setPlan(data);
-          setState("ready");
+          const hasDays = Array.isArray(data.days) && data.days.length > 0;
+          setPlan(hasDays ? data : null);
+          setState(hasDays ? "ready" : "empty");
           return;
         }
 
@@ -142,30 +154,26 @@ export default function TrainingCalendarClient() {
         </div>
       </div>
 
-      {days.length === 0 ? (
-        <p className="muted mt-12">{t("library.training.sectionEmpty")}</p>
-      ) : (
-        <div className="form-stack mt-12">
-          {days.map((day) => (
-            <article key={day.id} className="calendar-day-card">
-              <div className="calendar-day-card-header">
-                <strong>{day.dateLabel}</strong>
-                <span className="muted">{day.focus}</span>
-              </div>
-              <div className="calendar-day-card-body">
-                <p className="muted">{day.duration} {t("training.minutesLabel")}</p>
-                <ul className="list">
-                  {day.exercises.map((exercise) => (
-                    <li key={exercise.id}>
-                      <strong>{exercise.name}</strong> <span className="muted">{exercise.sets} {exercise.reps ? `x ${exercise.reps}` : ""}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+      <div className="form-stack mt-12">
+        {days.map((day) => (
+          <article key={day.id} className="calendar-day-card">
+            <div className="calendar-day-card-header">
+              <strong>{day.dateLabel}</strong>
+              <span className="muted">{day.focus}</span>
+            </div>
+            <div className="calendar-day-card-body">
+              <p className="muted">{day.duration} {t("training.minutesLabel")}</p>
+              <ul className="list">
+                {day.exercises.map((exercise) => (
+                  <li key={exercise.id}>
+                    <strong>{exercise.name}</strong> <span className="muted">{exercise.sets} {exercise.reps ? `x ${exercise.reps}` : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
