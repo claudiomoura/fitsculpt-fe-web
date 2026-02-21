@@ -343,6 +343,25 @@ function extractAiFieldErrorsMessage(payload: unknown): string | null {
 }
 
 
+
+function extractAiInvalidOutputDebugMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const typed = payload as { error?: unknown; reasonCode?: unknown; details?: unknown };
+  if (typed.error !== "INVALID_AI_OUTPUT") return null;
+  const reasonCode = typeof typed.reasonCode === "string" ? typed.reasonCode : null;
+  const details = typed.details && typeof typed.details === "object" ? (typed.details as Record<string, unknown>) : null;
+  if (!details) return reasonCode ? `AI debug: ${reasonCode}` : "AI debug: INVALID_AI_OUTPUT";
+
+  const expected = typeof details.expected === "number" ? details.expected : null;
+  const actual = typeof details.actual === "number" ? details.actual : null;
+  const dayLabel = typeof details.dayLabel === "string" ? details.dayLabel : null;
+
+  const parts = [reasonCode, dayLabel ? `día=${dayLabel}` : null, expected !== null ? `expected=${expected}` : null, actual !== null ? `actual=${actual}` : null]
+    .filter((part): part is string => Boolean(part));
+
+  return parts.length > 0 ? `AI debug: ${parts.join(" · ")}` : "AI debug: INVALID_AI_OUTPUT";
+}
+
 function activityMultiplier(activity: Activity) {
   switch (activity) {
     case "sedentary":
@@ -1248,6 +1267,10 @@ const macroTargets = {
           if (fieldErrorsMessage) {
             throw new Error(fieldErrorsMessage);
           }
+          const debugMessage = extractAiInvalidOutputDebugMessage(payload);
+          if (debugMessage) {
+            throw new Error(debugMessage);
+          }
           if (payload?.message) {
             throw new Error(payload.message);
           }
@@ -1304,7 +1327,7 @@ useEffect(() => {
   };
 
   const isAiLocked = !aiEntitled || (subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0);
-  const isAiDisabled = aiLoading || isAiLocked || !plan;
+  const isAiDisabled = aiLoading || isAiLocked;
 
   const handlePrevDay = () => {
     setSelectedDate((prev) => addDays(prev, -1));

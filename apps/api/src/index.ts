@@ -2100,6 +2100,10 @@ function buildNutritionPrompt(
     `Distribución de comidas: ${distribution} ${distributionPercentages}.`,
     "Cada día debe incluir dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
     "Usa siempre type y macros en cada comida.",
+    "REGLA MATEMÁTICA OBLIGATORIA POR COMIDA: macros.calories = round(4*protein + 4*carbs + 9*fats).",
+    "REGLA MATEMÁTICA OBLIGATORIA POR DÍA: la suma de meal.macros.calories de ese día debe ser EXACTAMENTE igual a dailyCalories.",
+    `REGLA MATEMÁTICA OBLIGATORIA GLOBAL: dailyCalories debe ser exactamente ${data.calories}.`,
+    "Antes de responder, revalida internamente todas las sumas y corrige cualquier desvío numérico.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
@@ -2107,6 +2111,48 @@ function buildNutritionPrompt(
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function normalizeNutritionCaloriesPerDay(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  targetKcal: number
+): z.infer<typeof aiNutritionPlanResponseSchema> {
+  const days = plan.days.map((day) => {
+    const meals = day.meals.map((meal) => ({
+      ...meal,
+      macros: { ...meal.macros },
+      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+    }));
+    if (meals.length === 0) return { ...day, meals };
+
+    let remainingDelta = targetKcal - meals.reduce((sum, meal) => sum + meal.macros.calories, 0);
+    if (remainingDelta === 0) return { ...day, meals };
+
+    const direction = remainingDelta > 0 ? 1 : -1;
+    const maxIterations = Math.abs(remainingDelta) * meals.length;
+    let iterations = 0;
+
+    while (remainingDelta !== 0 && iterations < maxIterations) {
+      for (const meal of meals) {
+        if (remainingDelta === 0) break;
+        if (direction < 0 && meal.macros.calories <= 1) continue;
+        meal.macros.calories += direction;
+        remainingDelta -= direction;
+      }
+      iterations += 1;
+      if (direction < 0 && meals.every((meal) => meal.macros.calories <= 1)) {
+        break;
+      }
+    }
+
+    return { ...day, meals };
+  });
+
+  return {
+    ...plan,
+    dailyCalories: targetKcal,
+    days,
+  };
 }
 
 function buildTipPrompt(data: z.infer<typeof aiTipSchema>) {
@@ -5707,8 +5753,8 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
       mealDistribution: nutritionPreferences.mealDistribution as z.infer<typeof mealDistributionSchema> | undefined,
     };
 
-    const startDate = parseDateInput(nutritionInput.startDate) ?? new Date();
-    const daysCount = nutritionInput.daysCount ?? 7;
+    const startDate = payload.startDate ? parseDateInput(payload.startDate) ?? new Date() : new Date();
+    const daysCount = payload.daysCount ?? 7;
     assertNutritionRequestMapping(payload, nutritionInput, daysCount);
     let parsedPlan: z.infer<typeof aiNutritionPlanResponseSchema> | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -5738,8 +5784,9 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
         lastRawOutput = JSON.stringify(result.payload);
         const candidate = parseNutritionPlanPayload(result.payload, startDate, daysCount);
         assertNutritionMatchesRequest(candidate, payload.mealsPerDay, daysCount);
-        assertNutritionMath(candidate, payload);
-        parsedPlan = candidate;
+        const normalizedCandidate = normalizeNutritionCaloriesPerDay(candidate, payload.targetKcal);
+        assertNutritionMath(normalizedCandidate, payload);
+        parsedPlan = normalizedCandidate;
         aiResult = result;
         break;
       } catch (error) {
