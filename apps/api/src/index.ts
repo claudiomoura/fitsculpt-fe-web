@@ -2450,7 +2450,14 @@ function getNutritionInvalidOutputDebug(error: unknown) {
     return { cause: "INVALID_AI_OUTPUT", reasonCode: "MISSING_FIELDS", details: typed.debug ?? {} };
   }
   if (typeof reason === "string" && reason.includes("MISMATCH")) {
-    return { cause: "INVALID_AI_OUTPUT", reasonCode: "MATH_MISMATCH", details: typed.debug ?? {} };
+    return {
+      cause: "INVALID_AI_OUTPUT",
+      reasonCode: "MATH_MISMATCH",
+      details: {
+        ...(typed.debug ?? {}),
+        persisted: false,
+      },
+    };
   }
   if (typed.code === "AI_PARSE_ERROR") {
     return {
@@ -5862,6 +5869,17 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
 
     if (!parsedPlan) {
       const debug = getNutritionInvalidOutputDebug(lastError);
+      app.log.info(
+        {
+          userId: user.id,
+          startDate: payload.startDate ?? toIsoDateString(startDate),
+          daysCount,
+          persisted: false,
+          planId: null,
+          reasonCode: debug.reasonCode,
+        },
+        "nutrition plan generation result"
+      );
       app.log.warn(
         {
           request: {
@@ -5887,6 +5905,17 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
     const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
     await upsertRecipesFromPlan(parsedPlan);
     await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
+
+    app.log.info(
+      {
+        userId: user.id,
+        startDate: payload.startDate ?? toIsoDateString(startDate),
+        daysCount,
+        persisted: true,
+        planId: savedPlan.id,
+      },
+      "nutrition plan generation result"
+    );
 
     return reply.status(200).send({
       planId: savedPlan.id,
