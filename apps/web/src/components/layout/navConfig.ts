@@ -36,13 +36,13 @@ export const mainTabsMobile: MobileTab[] = [
   {
     id: "dashboard",
     href: "/app",
-    labelKey: "nav.dashboard",
+    labelKey: "nav.progress",
     icon: "info",
   },
   {
     id: "plan",
     href: "/app/entrenamiento",
-    labelKey: "nav.plan",
+    labelKey: "nav.trainingCalendar",
     icon: "dumbbell",
   },
   {
@@ -54,7 +54,7 @@ export const mainTabsMobile: MobileTab[] = [
   {
     id: "nutrition",
     href: "/app/nutricion",
-    labelKey: "nav.nutrition",
+    labelKey: "nav.nutritionCalendar",
     icon: "sparkles",
   },
   {
@@ -71,7 +71,7 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.summary",
     items: [
       { id: "today", href: "/app/hoy", labelKey: "nav.today" },
-      { id: "dashboard", href: "/app", labelKey: "nav.dashboard" },
+      { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
     ],
@@ -80,7 +80,7 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "training",
     labelKey: "navSections.training",
     items: [
-      { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingPlan" },
+      { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
       { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
     ],
   },
@@ -88,8 +88,8 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutrition" },
-      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.dietPlans" },
+      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutritionCalendar" },
+      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans" },
       { id: "macros", href: "/app/macros", labelKey: "nav.macros" },
     ],
   },

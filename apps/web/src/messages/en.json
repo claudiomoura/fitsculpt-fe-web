@@ -39,7 +39,11 @@
     "recipeLibrary": "Recipe library",
     "gymJoinRequests": "Gym join requests",
     "gym": "Gym",
-    "labs": "Labs"
+    "labs": "Labs",
+    "progress": "Progress",
+    "trainingCalendar": "Training calendar",
+    "nutritionCalendar": "Nutrition calendar",
+    "nutritionPlans": "Nutrition plans"
   },
   "navSections": {
     "summary": "Summary",
