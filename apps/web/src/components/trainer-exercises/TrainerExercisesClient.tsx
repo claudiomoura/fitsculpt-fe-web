@@ -10,7 +10,7 @@ import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabi
 import { extractGymMembership } from "@/lib/gymMembership";
 import { isExerciseVisibleForGym } from "@/lib/exerciseVisibility";
 import type { Exercise } from "@/lib/types";
-import { splitExercisesByOwnership } from "@/services/exercises";
+
 
 type LoadState = "loading" | "ready" | "error";
 type CreateCapabilityState = "can_create" | "cannot_create" | "unknown";
