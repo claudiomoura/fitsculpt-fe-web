@@ -21,7 +21,6 @@ import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLeve
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
-import { normalizeNutritionPlan } from "./ai/normalizeNutritionPlan.js";
 import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
@@ -2332,6 +2331,135 @@ function logNutritionMealsPerDay(
     },
     "nutrition plan meals per day"
   );
+}
+
+function roundNutritionGrams(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+function normalizeNutritionCaloriesPerDay(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  targetKcal: number
+): z.infer<typeof aiNutritionPlanResponseSchema> {
+  const days = plan.days.map((day) => {
+    const meals = day.meals.map((meal) => ({
+      ...meal,
+      macros: { ...meal.macros },
+      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+    }));
+
+    if (meals.length === 0) {
+      return { ...day, meals };
+    }
+
+    const totalCalories = meals.reduce((acc, meal) => acc + Math.max(0, meal.macros.calories), 0);
+    const fallbackShare = 1 / meals.length;
+    let assignedCalories = 0;
+
+    const normalizedMeals = meals.map((meal, index) => {
+      if (index === meals.length - 1) {
+        const calories = targetKcal - assignedCalories;
+        return {
+          ...meal,
+          macros: {
+            ...meal.macros,
+            calories,
+          },
+        };
+      }
+
+      const share = totalCalories > 0 ? Math.max(0, meal.macros.calories) / totalCalories : fallbackShare;
+      const calories = Math.round(targetKcal * share);
+      assignedCalories += calories;
+      return {
+        ...meal,
+        macros: {
+          ...meal.macros,
+          calories,
+        },
+      };
+    });
+
+    return { ...day, meals: normalizedMeals };
+  });
+
+  return {
+    ...plan,
+    dailyCalories: targetKcal,
+    days,
+  };
+}
+
+function normalizeNutritionMacrosPerDay(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  macroTargets?: z.infer<typeof aiGenerateNutritionSchema>["macroTargets"] | null
+): z.infer<typeof aiNutritionPlanResponseSchema> {
+  if (!macroTargets) return plan;
+
+  const days = plan.days.map((day) => {
+    const meals = day.meals.map((meal) => ({
+      ...meal,
+      macros: { ...meal.macros },
+      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+    }));
+
+    if (meals.length === 0) {
+      return { ...day, meals };
+    }
+
+    const totalCalories = meals.reduce((acc, meal) => acc + Math.max(0, meal.macros.calories), 0);
+    const fallbackShare = 1 / meals.length;
+    let assignedProtein = 0;
+    let assignedCarbs = 0;
+    let assignedFats = 0;
+
+    const normalizedMeals = meals.map((meal, index) => {
+      if (index === meals.length - 1) {
+        const protein = roundNutritionGrams(macroTargets.proteinG - assignedProtein);
+        const carbs = roundNutritionGrams(macroTargets.carbsG - assignedCarbs);
+        const fats = roundNutritionGrams(macroTargets.fatsG - assignedFats);
+
+        return {
+          ...meal,
+          macros: {
+            calories: Math.round(protein * 4 + carbs * 4 + fats * 9),
+            protein,
+            carbs,
+            fats,
+          },
+        };
+      }
+
+      const share = totalCalories > 0 ? Math.max(0, meal.macros.calories) / totalCalories : fallbackShare;
+      const protein = roundNutritionGrams(macroTargets.proteinG * share);
+      const carbs = roundNutritionGrams(macroTargets.carbsG * share);
+      const fats = roundNutritionGrams(macroTargets.fatsG * share);
+
+      assignedProtein += protein;
+      assignedCarbs += carbs;
+      assignedFats += fats;
+
+      return {
+        ...meal,
+        macros: {
+          calories: Math.round(protein * 4 + carbs * 4 + fats * 9),
+          protein,
+          carbs,
+          fats,
+        },
+      };
+    });
+
+    return { ...day, meals: normalizedMeals };
+  });
+
+  return {
+    ...plan,
+    proteinG: macroTargets.proteinG,
+    carbsG: macroTargets.carbsG,
+    fatG: macroTargets.fatsG,
+    days,
+  };
 }
 
 function parseNutritionPlanPayload(payload: Record<string, unknown>, startDate: Date, daysCount: number) {
@@ -5714,8 +5842,10 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
         const candidate = parseNutritionPlanPayload(result.payload, startDate, daysCount);
         assertNutritionMatchesRequest(candidate, payload.mealsPerDay, daysCount);
         const beforeNormalize = summarizeNutritionMath(candidate);
-        const normalizedCandidate = normalizeNutritionPlan(candidate);
-        const afterNormalize = summarizeNutritionMath(normalizedCandidate);
+        const calNormalized = normalizeNutritionCaloriesPerDay(candidate, payload.targetKcal);
+        const macroNormalized = normalizeNutritionMacrosPerDay(calNormalized, payload.macroTargets);
+        const finalNormalized = normalizeNutritionCaloriesPerDay(macroNormalized, payload.targetKcal);
+        const afterNormalize = summarizeNutritionMath(finalNormalized);
         app.log.info(
           {
             attempt,
@@ -5724,8 +5854,8 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
           },
           "nutrition normalization summary"
         );
-        assertNutritionMath(normalizedCandidate, payload);
-        parsedPlan = normalizedCandidate;
+        assertNutritionMath(finalNormalized, payload);
+        parsedPlan = finalNormalized;
         aiResult = result;
         break;
       } catch (error) {
