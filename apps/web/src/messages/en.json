@@ -84,7 +84,9 @@
     "continue": "Continue",
     "optional": "Optional",
     "required": "Required",
-    "notAvailable": "Not available"
+    "notAvailable": "Not available",
+    "showPlanDetails": "Show plan details",
+    "hidePlanDetails": "Hide plan details"
   },
   "calendar": {
     "today": "Today",

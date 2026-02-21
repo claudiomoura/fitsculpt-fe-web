@@ -697,6 +697,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<"day" | "week" | "month" | "agenda">("day");
+  const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
     const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
@@ -1745,58 +1746,76 @@ useEffect(() => {
                   </Badge>
                 </div>
 
-                <div className="info-grid mt-16">
-                  <div className="info-item">
-                    <div className="info-label">{t("macros.weight")}</div>
-                    <div className="info-value">{profile.weightKg ?? "-"} kg</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("macros.height")}</div>
-                    <div className="info-value">{profile.heightCm ?? "-"} cm</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("macros.activity")}</div>
-                    <div className="info-value">
-                      {t(profile.activity === "sedentary" ? "macros.activitySedentary" : profile.activity === "light" ? "macros.activityLight" : profile.activity === "moderate" ? "macros.activityModerate" : profile.activity === "very" ? "macros.activityVery" : "macros.activityExtra")}
+                <button
+                  type="button"
+                  className="btn secondary fit-content mt-12"
+                  aria-expanded={isPlanDetailsOpen}
+                  aria-controls="nutrition-plan-details"
+                  onClick={() => setIsPlanDetailsOpen((prev) => !prev)}
+                >
+                  {isPlanDetailsOpen ? t("ui.hidePlanDetails") : t("ui.showPlanDetails")}
+                  <Icon
+                    name="chevron-down"
+                    size={16}
+                    className="ml-6"
+                    style={{ transform: isPlanDetailsOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 160ms ease" }}
+                  />
+                </button>
+
+                <div id="nutrition-plan-details" role="region" aria-label={t("nutrition.formTitle")} hidden={!isPlanDetailsOpen} className="mt-16">
+                  <div className="info-grid">
+                    <div className="info-item">
+                      <div className="info-label">{t("macros.weight")}</div>
+                      <div className="info-value">{profile.weightKg ?? "-"} kg</div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">{t("macros.height")}</div>
+                      <div className="info-value">{profile.heightCm ?? "-"} cm</div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">{t("macros.activity")}</div>
+                      <div className="info-value">
+                        {t(profile.activity === "sedentary" ? "macros.activitySedentary" : profile.activity === "light" ? "macros.activityLight" : profile.activity === "moderate" ? "macros.activityModerate" : profile.activity === "very" ? "macros.activityVery" : "macros.activityExtra")}
+                      </div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">{t("nutrition.dietTypeLabel")}</div>
+                      <div className="info-value">{t(`nutrition.dietType.${profile.nutritionPreferences.dietType}`)}</div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">{t("nutrition.mealDistributionLabel")}</div>
+                      <div className="info-value">
+                        {t(`nutrition.mealDistribution.${profile.nutritionPreferences.mealDistribution.preset}`)}
+                      </div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">{t("nutrition.allergiesLabel")}</div>
+                      <div className="info-value">
+                        {profile.nutritionPreferences.allergies.length > 0
+                          ? profile.nutritionPreferences.allergies.join(", ")
+                          : "-"}
+                      </div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">{t("nutrition.dietaryPrefs")}</div>
+                      <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">{t("nutrition.preferredFoods")}</div>
+                      <div className="info-value">{profile.nutritionPreferences.preferredFoods || "-"}</div>
+                    </div>
+                    <div className="info-item">
+                      <div className="info-label">{t("nutrition.dislikedFoods")}</div>
+                      <div className="info-value">{profile.nutritionPreferences.dislikedFoods || "-"}</div>
                     </div>
                   </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.dietTypeLabel")}</div>
-                    <div className="info-value">{t(`nutrition.dietType.${profile.nutritionPreferences.dietType}`)}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.mealDistributionLabel")}</div>
-                    <div className="info-value">
-                      {t(`nutrition.mealDistribution.${profile.nutritionPreferences.mealDistribution.preset}`)}
-                    </div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.allergiesLabel")}</div>
-                    <div className="info-value">
-                      {profile.nutritionPreferences.allergies.length > 0
-                        ? profile.nutritionPreferences.allergies.join(", ")
-                        : "-"}
-                    </div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.dietaryPrefs")}</div>
-                    <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.preferredFoods")}</div>
-                    <div className="info-value">{profile.nutritionPreferences.preferredFoods || "-"}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.dislikedFoods")}</div>
-                    <div className="info-value">{profile.nutritionPreferences.dislikedFoods || "-"}</div>
-                  </div>
+
+                  <p className="muted mt-12">
+                    {t("nutrition.preferencesHint")}
+                  </p>
                 </div>
               </>
             ) : null}
-
-            <p className="muted mt-12">
-              {t("nutrition.preferencesHint")}
-            </p>
           </section>
 
           {loading ? (
