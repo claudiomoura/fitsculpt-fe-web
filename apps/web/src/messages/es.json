@@ -39,7 +39,11 @@
     "recipeLibrary": "Biblioteca de recetas",
     "gymJoinRequests": "Solicitudes de ingreso al gimnasio",
     "gym": "Gimnasio",
-    "labs": "Labs"
+    "labs": "Labs",
+    "progress": "Progreso",
+    "trainingCalendar": "Calendario de entrenamiento",
+    "nutritionCalendar": "Calendario de nutrición",
+    "nutritionPlans": "Planes de nutrición"
   },
   "navSections": {
     "summary": "Resumen",
