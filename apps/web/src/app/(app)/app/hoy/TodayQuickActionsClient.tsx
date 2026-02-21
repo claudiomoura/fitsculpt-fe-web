@@ -12,9 +12,9 @@ import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, Tr
 type ViewStatus = "loading" | "success" | "empty" | "error";
 
 type ActionAvailability = {
-  checkinReady: boolean;
   trainingReady: boolean;
-  macrosReady: boolean;
+  foodReady: boolean;
+  planReady: boolean;
 };
 
 type TrainingPlansPayload = {
@@ -54,9 +54,9 @@ export default function TodayQuickActionsClient() {
   const { t } = useLanguage();
   const [status, setStatus] = useState<ViewStatus>("loading");
   const [availability, setAvailability] = useState<ActionAvailability>({
-    checkinReady: false,
     trainingReady: false,
-    macrosReady: false,
+    foodReady: false,
+    planReady: false,
   });
 
   const loadQuickActions = useCallback(async () => {
@@ -75,7 +75,7 @@ export default function TodayQuickActionsClient() {
       }
 
       let trainingReady = false;
-      let macrosReady = false;
+      let foodReady = trackingResponse.ok;
 
       if (trainingListResponse.ok) {
         const trainingList = (await trainingListResponse.json()) as TrainingPlansPayload;
@@ -102,13 +102,13 @@ export default function TodayQuickActionsClient() {
           });
           if (nutritionDetailResponse.ok) {
             const nutritionDetail = (await nutritionDetailResponse.json()) as NutritionPlanDetail;
-            macrosReady = hasTodayNutrition(nutritionDetail);
+            foodReady = foodReady || hasTodayNutrition(nutritionDetail);
           }
         }
       }
 
-      const checkinReady = trackingResponse.ok;
-      const nextAvailability = { checkinReady, trainingReady, macrosReady };
+      const planReady = trainingReady || foodReady;
+      const nextAvailability = { trainingReady, foodReady, planReady };
       setAvailability(nextAvailability);
 
       const hasEnabledAction = Object.values(nextAvailability).some(Boolean);
@@ -131,31 +131,31 @@ export default function TodayQuickActionsClient() {
   const actions = useMemo<TodayQuickAction[]>(() => {
     return [
       {
-        id: "checkin",
-        title: t("quickActions.checkinTitle"),
-        description: t("quickActions.checkinDescription"),
-        outcome: t("quickActions.checkinOutcome"),
-        ctaLabel: t("quickActions.checkinCta"),
-        href: availability.checkinReady ? `/app/seguimiento?from=hoy&returnTo=${returnToHoy}#checkin-entry` : undefined,
-        disabledHint: t("quickActions.checkinUnavailable"),
-      },
-      {
-        id: "training",
-        title: t("quickActions.openTraining"),
-        description: t("quickActions.openTrainingDescription"),
-        outcome: t("quickActions.trainingOutcome"),
-        ctaLabel: t("quickActions.openPlanCta"),
+        id: "register-training",
+        title: t("quickActions.registerTrainingTitle"),
+        description: t("quickActions.registerTrainingDescription"),
+        outcome: t("quickActions.registerTrainingOutcome"),
+        ctaLabel: t("quickActions.registerTrainingCta"),
         href: availability.trainingReady ? `/app/entrenamiento?from=hoy&returnTo=${returnToHoy}` : undefined,
-        disabledHint: t("quickActions.trainingUnavailable"),
+        disabledHint: t("quickActions.registerTrainingUnavailable"),
       },
       {
-        id: "macros",
-        title: t("quickActions.openNutrition"),
-        description: t("quickActions.openNutritionDescription"),
-        outcome: t("quickActions.macrosOutcome"),
-        ctaLabel: t("quickActions.openMacrosCta"),
-        href: availability.macrosReady ? `/app/macros?from=hoy&returnTo=${returnToHoy}` : undefined,
-        disabledHint: t("quickActions.macrosUnavailable"),
+        id: "register-food",
+        title: t("quickActions.registerFoodTitle"),
+        description: t("quickActions.registerFoodDescription"),
+        outcome: t("quickActions.registerFoodOutcome"),
+        ctaLabel: t("quickActions.registerFoodCta"),
+        href: availability.foodReady ? `/app/macros?from=hoy&returnTo=${returnToHoy}` : undefined,
+        disabledHint: t("quickActions.registerFoodUnavailable"),
+      },
+      {
+        id: "view-plan-today",
+        title: t("quickActions.viewTodayPlanTitle"),
+        description: t("quickActions.viewTodayPlanDescription"),
+        outcome: t("quickActions.viewTodayPlanOutcome"),
+        ctaLabel: t("quickActions.viewTodayPlanCta"),
+        href: availability.planReady ? `/app/entrenamiento?from=hoy&returnTo=${returnToHoy}` : undefined,
+        disabledHint: t("quickActions.viewTodayPlanUnavailable"),
       },
     ];
   }, [availability, returnToHoy, t]);

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { buildNavigationSections } from "./navConfig";
+import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 
@@ -17,11 +17,9 @@ export default function AppSidebar() {
     [role, isCoach, isAdmin, isDev, gymMembershipState],
   );
 
-  const isActive = (href: string) => {
-    if (!pathname) return false;
-    if (href === "/app") return pathname === "/app";
-    return pathname.startsWith(href);
-  };
+  const activeHref = getMostSpecificActiveHref(pathname, sections);
+
+  const isActive = (href: string) => activeHref === href;
 
   return (
     <aside className="app-sidebar" aria-label={t("appName")}>

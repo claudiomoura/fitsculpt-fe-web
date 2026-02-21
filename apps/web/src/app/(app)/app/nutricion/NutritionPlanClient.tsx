@@ -697,6 +697,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<"day" | "week" | "month" | "agenda">("day");
+  const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
     const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
@@ -1621,183 +1622,146 @@ useEffect(() => {
     void handleAiPlan();
   };
 
+const nutritionPlanDetails = profile ? (
+  <section className="card">
+    <div className="section-head section-head-actions">
+      <div>
+        <h2 className="section-title section-title-sm">{t("nutrition.planDetails.title")}</h2>
+        <p className="section-subtitle">{t("nutrition.planDetails.subtitle")}</p>
+      </div>
+
+      <button
+        type="button"
+        className="btn secondary fit-content"
+        aria-expanded={isPlanDetailsOpen}
+        aria-controls="nutrition-plan-details"
+        onClick={() => setIsPlanDetailsOpen((prev) => !prev)}
+      >
+        {isPlanDetailsOpen ? t("ui.hide") : t("ui.show")}
+        <Icon
+          name="chevron-down"
+          size={16}
+          className="ml-6"
+          style={{
+            transform: isPlanDetailsOpen ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 160ms ease",
+          }}
+        />
+      </button>
+    </div>
+
+    <div
+      id="nutrition-plan-details"
+      role="region"
+      aria-label={t("nutrition.planDetails.title")}
+      hidden={!isPlanDetailsOpen}
+      className="mt-16"
+    >
+      <div className="inline-actions-sm mb-12">
+        <Link href="/app/nutricion/editar" className="btn secondary">
+          {t("nutrition.editPlan")}
+        </Link>
+      </div>
+
+      {aiTokenBalance !== null ? (
+        <p className="muted mt-8 plan-token-line">
+          {t("ai.tokensRemaining")} {aiTokenBalance}
+          {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
+        </p>
+      ) : null}
+
+        {aiTokenBalance !== null ? (
+          <p className="muted mt-8 plan-token-line">
+            {t("ai.tokensRemaining")} {aiTokenBalance}
+            {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
+          </p>
+        ) : null}
+
+        {exportMessage ? (
+          <p className="muted mt-8">{exportMessage}</p>
+        ) : null}
+
+        <div className="export-actions mt-12">
+          <button type="button" className="btn secondary" onClick={handleExportCsv}>
+            {t("nutrition.exportCsv")}
+          </button>
+          <button type="button" className="btn" onClick={handleCopyShoppingList}>
+            {t("nutrition.exportCopyList")}
+          </button>
+          <button type="button" className="btn secondary" disabled title={t("nutrition.comingSoon")}>
+            {t("nutrition.exportPdf")}
+          </button>
+        </div>
+
+        <div className="badge-list plan-summary-chips mt-12">
+          <Badge>
+            {t("macros.goal")}: {t(profile.goal === "cut" ? "macros.goalCut" : profile.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
+          </Badge>
+          <Badge>{t("nutrition.mealsPerDay")}: {profile.nutritionPreferences.mealsPerDay}</Badge>
+          <Badge>
+            {t("nutrition.cookingTime")}: {t(profile.nutritionPreferences.cookingTime === "quick" ? "nutrition.cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "nutrition.cookingTimeOptionLong" : "nutrition.cookingTimeOptionMedium")}
+          </Badge>
+        </div>
+
+        <div className="info-grid">
+          <div className="info-item">
+            <div className="info-label">{t("macros.weight")}</div>
+            <div className="info-value">{profile.weightKg ?? "-"} kg</div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("macros.height")}</div>
+            <div className="info-value">{profile.heightCm ?? "-"} cm</div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("macros.activity")}</div>
+            <div className="info-value">
+              {t(profile.activity === "sedentary" ? "macros.activitySedentary" : profile.activity === "light" ? "macros.activityLight" : profile.activity === "moderate" ? "macros.activityModerate" : profile.activity === "very" ? "macros.activityVery" : "macros.activityExtra")}
+            </div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("nutrition.dietTypeLabel")}</div>
+            <div className="info-value">{t(`nutrition.dietType.${profile.nutritionPreferences.dietType}`)}</div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("nutrition.mealDistributionLabel")}</div>
+            <div className="info-value">
+              {t(`nutrition.mealDistribution.${profile.nutritionPreferences.mealDistribution.preset}`)}
+            </div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("nutrition.allergiesLabel")}</div>
+            <div className="info-value">
+              {profile.nutritionPreferences.allergies.length > 0
+                ? profile.nutritionPreferences.allergies.join(", ")
+                : "-"}
+            </div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("nutrition.dietaryPrefs")}</div>
+            <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("nutrition.preferredFoods")}</div>
+            <div className="info-value">{profile.nutritionPreferences.preferredFoods || "-"}</div>
+          </div>
+          <div className="info-item">
+            <div className="info-label">{t("nutrition.dislikedFoods")}</div>
+            <div className="info-value">{profile.nutritionPreferences.dislikedFoods || "-"}</div>
+          </div>
+        </div>
+
+        <p className="muted mt-12">
+          {t("nutrition.preferencesHint")}
+        </p>
+      </div>
+    </section>
+  ) : null;
+
   return (
     <div className="page">
       {!isManualView ? (
         <>
-          <section className="card">
-            <div className="section-head section-head-actions">
-              <div>
-                <h2 className="section-title section-title-sm">{t("nutrition.formTitle")}</h2>
-                <p className="section-subtitle">{t("nutrition.tips")}</p>
-              </div>
-
-              <div className="section-actions">
-                {/* <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
-                  {t("nutrition.generate")}
-                </button> */}
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={isAiDisabled}
-                  onClick={handleGenerateClick}
-                >
-                  {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                </button>
-                {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-                  {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
-                </button> */}
-                <Link href="/app/nutricion/editar" className="btn secondary">
-                  {t("nutrition.editPlan")}
-                </Link>
-              </div>
-            </div>
-
-            {aiTokenBalance !== null ? (
-              <p className="muted mt-8">
-                {t("ai.tokensRemaining")} {aiTokenBalance}
-                {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
-              </p>
-            ) : null}
-
-            {isAiLocked ? (
-              <div className="feature-card mt-12">
-                <strong>{t("aiLockedTitle")}</strong>
-                <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
-              </div>
-            ) : null}
-
-            {exportMessage && (
-              <p className="muted mt-8">{exportMessage}</p>
-            )}
-
-            <div className="export-actions mt-12">
-              <button type="button" className="btn secondary" onClick={handleExportCsv}>
-                {t("nutrition.exportCsv")}
-              </button>
-              <button type="button" className="btn secondary" disabled title={t("nutrition.comingSoon")}>
-                {t("nutrition.exportPdf")}
-              </button>
-              <button type="button" className="btn" onClick={handleCopyShoppingList}>
-                {t("nutrition.exportCopyList")}
-              </button>
-            </div>
-
-            {loading ? (
-              <div className="form-stack">
-                <Skeleton variant="line" className="w-40" />
-                <Skeleton variant="line" className="w-70" />
-              </div>
-            ) : error ? (
-              <div className="status-card status-card--warning">
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{t("nutrition.errorTitle")}</strong>
-                </div>
-                <p className="muted">{error}</p>
-                <div className="inline-actions-sm">
-                  <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
-                    {t("ui.retry")}
-                  </button>
-                  <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>
-                    {t("ui.back")}
-                  </button>
-                </div>
-              </div>
-            ) : aiError ? (
-              <div className="status-card status-card--warning" role="alert" aria-live="polite">
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{aiError.title}</strong>
-                </div>
-                <p className="muted">{aiError.description}</p>
-                {aiError.actionableHint ? <p className="muted">{aiError.actionableHint}</p> : null}
-                {aiError.details ? (
-                  <details>
-                    <summary>{t("nutrition.aiErrorState.detailsCta")}</summary>
-                    <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{aiError.details}</pre>
-                  </details>
-                ) : null}
-                <div className="inline-actions-sm">
-                  <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
-                    {t("ui.retry")}
-                  </button>
-                  <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
-                    {t("nutrition.aiErrorState.generateSimple")}
-                  </button>
-                  <Link href="/app/nutricion/editar" className="btn secondary fit-content">
-                    {t("nutrition.aiErrorState.adjustGoals")}
-                  </Link>
-                </div>
-                {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
-              </div>
-            ) : saveMessage ? (
-              <p className="muted">{saveMessage}</p>
-            ) : profile ? (
-              <>
-                <div className="badge-list">
-                  <Badge>
-                    {t("macros.goal")}: {t(profile.goal === "cut" ? "macros.goalCut" : profile.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
-                  </Badge>
-                  <Badge>{t("nutrition.mealsPerDay")}: {profile.nutritionPreferences.mealsPerDay}</Badge>
-                  <Badge>
-                    {t("nutrition.cookingTime")}: {t(profile.nutritionPreferences.cookingTime === "quick" ? "nutrition.cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "nutrition.cookingTimeOptionLong" : "nutrition.cookingTimeOptionMedium")}
-                  </Badge>
-                </div>
-
-                <div className="info-grid mt-16">
-                  <div className="info-item">
-                    <div className="info-label">{t("macros.weight")}</div>
-                    <div className="info-value">{profile.weightKg ?? "-"} kg</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("macros.height")}</div>
-                    <div className="info-value">{profile.heightCm ?? "-"} cm</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("macros.activity")}</div>
-                    <div className="info-value">
-                      {t(profile.activity === "sedentary" ? "macros.activitySedentary" : profile.activity === "light" ? "macros.activityLight" : profile.activity === "moderate" ? "macros.activityModerate" : profile.activity === "very" ? "macros.activityVery" : "macros.activityExtra")}
-                    </div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.dietTypeLabel")}</div>
-                    <div className="info-value">{t(`nutrition.dietType.${profile.nutritionPreferences.dietType}`)}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.mealDistributionLabel")}</div>
-                    <div className="info-value">
-                      {t(`nutrition.mealDistribution.${profile.nutritionPreferences.mealDistribution.preset}`)}
-                    </div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.allergiesLabel")}</div>
-                    <div className="info-value">
-                      {profile.nutritionPreferences.allergies.length > 0
-                        ? profile.nutritionPreferences.allergies.join(", ")
-                        : "-"}
-                    </div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.dietaryPrefs")}</div>
-                    <div className="info-value">{profile.nutritionPreferences.dietaryPrefs || "-"}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.preferredFoods")}</div>
-                    <div className="info-value">{profile.nutritionPreferences.preferredFoods || "-"}</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.dislikedFoods")}</div>
-                    <div className="info-value">{profile.nutritionPreferences.dislikedFoods || "-"}</div>
-                  </div>
-                </div>
-              </>
-            ) : null}
-
-            <p className="muted mt-12">
-              {t("nutrition.preferencesHint")}
-            </p>
-          </section>
+          
 
           {loading ? (
             <section className="card">
@@ -2163,6 +2127,98 @@ useEffect(() => {
               </section>
 
               <section className="card">
+            <div className="section-head section-head-actions">
+              <div>
+                <h2 className="section-title section-title-sm">{t("nutrition.formTitle")}</h2>
+                <p className="section-subtitle">{t("nutrition.tips")}</p>
+              </div>
+
+              <div className="section-actions plan-page-actions">
+                {/* <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
+                  {t("nutrition.generate")}
+                </button> 
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={isAiDisabled}
+                  onClick={handleGenerateClick}
+                >
+                  {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                </button>
+                {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+                  {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
+                </button> */}
+                <Link href="/app/nutricion/editar" className="btn secondary">
+                  {t("nutrition.editPlan")}
+                </Link>
+              </div>
+            </div>
+
+            {isAiLocked ? (
+              <div className="feature-card mt-12">
+                <strong>{t("aiLockedTitle")}</strong>
+                <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
+              </div>
+            ) : null}
+
+            {loading ? (
+              <div className="form-stack">
+                <Skeleton variant="line" className="w-40" />
+                <Skeleton variant="line" className="w-70" />
+              </div>
+            ) : error ? (
+              <div className="status-card status-card--warning">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("nutrition.errorTitle")}</strong>
+                </div>
+                <p className="muted">{error}</p>
+                <div className="inline-actions-sm">
+                  <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                    {t("ui.retry")}
+                  </button>
+                  <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>
+                    {t("ui.back")}
+                  </button>
+                </div>
+              </div>
+            ) : aiError ? (
+              <div className="status-card status-card--warning" role="alert" aria-live="polite">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{aiError.title}</strong>
+                </div>
+                <p className="muted">{aiError.description}</p>
+                {aiError.actionableHint ? <p className="muted">{aiError.actionableHint}</p> : null}
+                {aiError.details ? (
+                  <details>
+                    <summary>{t("nutrition.aiErrorState.detailsCta")}</summary>
+                    <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{aiError.details}</pre>
+                  </details>
+                ) : null}
+                <div className="inline-actions-sm">
+                  <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
+                    {t("ui.retry")}
+                  </button>
+                  <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
+                    {t("nutrition.aiErrorState.generateSimple")}
+                  </button>
+                  <Link href="/app/nutricion/editar" className="btn secondary fit-content">
+                    {t("nutrition.aiErrorState.adjustGoals")}
+                  </Link>
+                </div>
+                {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
+              </div>
+            ) : saveMessage ? (
+              <p className="muted">{saveMessage}</p>
+            ) : null}
+          </section>
+
+              {!loading && !error ? nutritionPlanDetails : null}
+
+              <section className="card">
+
+                
                 <h2 className="section-title section-title-sm">{t("nutrition.dailyTargetTitle")}</h2>
                 <div className="info-grid mt-16">
                   <div className="info-item">

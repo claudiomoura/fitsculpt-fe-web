@@ -17,6 +17,23 @@ export type NavSectionGroup = {
   items: NavItem[];
 };
 
+export function isPathActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
+  if (href === "/app") return pathname === "/app";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function getMostSpecificActiveHref(pathname: string | null, sections: NavSectionGroup[]): string | null {
+  if (!pathname) return null;
+
+  const hrefs = sections.flatMap((section) => section.items.map((item) => item.href));
+  const activeHrefs = hrefs.filter((href) => isPathActive(pathname, href));
+
+  if (!activeHrefs.length) return null;
+
+  return activeHrefs.sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
 
 export type MobileTab = {
   id: string;
@@ -36,25 +53,25 @@ export const mainTabsMobile: MobileTab[] = [
   {
     id: "dashboard",
     href: "/app",
-    labelKey: "nav.dashboard",
+    labelKey: "nav.progress",
     icon: "info",
   },
   {
     id: "plan",
     href: "/app/entrenamiento",
-    labelKey: "nav.plan",
+    labelKey: "nav.trainingCalendar",
     icon: "dumbbell",
   },
   {
     id: "library",
     href: "/app/biblioteca",
-    labelKey: "nav.library",
+    labelKey: "nav.exerciseLibrary",
     icon: "book",
   },
   {
     id: "nutrition",
     href: "/app/nutricion",
-    labelKey: "nav.nutrition",
+    labelKey: "nav.nutritionCalendar",
     icon: "sparkles",
   },
   {
@@ -71,7 +88,7 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.summary",
     items: [
       { id: "today", href: "/app/hoy", labelKey: "nav.today" },
-      { id: "dashboard", href: "/app", labelKey: "nav.dashboard" },
+      { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
     ],
@@ -80,16 +97,18 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "training",
     labelKey: "navSections.training",
     items: [
-      { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingPlan" },
-      { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
+      { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
+      { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
+      { id: "library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
     ],
   },
   {
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutrition" },
-      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.dietPlans" },
+      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutritionCalendar" },
+      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans" },
+      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary" },
       { id: "macros", href: "/app/macros", labelKey: "nav.macros" },
     ],
   },
