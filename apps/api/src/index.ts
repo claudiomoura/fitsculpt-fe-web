@@ -21,7 +21,7 @@ import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLeve
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
-import "dotenv/config";
+import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
@@ -1170,6 +1170,33 @@ const aiNutritionSchema = z.object({
   mealDistribution: mealDistributionSchema.optional(),
 });
 
+const aiGenerateTrainingSchema = z.object({
+  userId: z.string().min(1).optional(),
+  daysPerWeek: z.number().int().min(1).max(7),
+  goal: z.enum(["cut", "maintain", "bulk"]),
+  experienceLevel: z.enum(["beginner", "intermediate", "advanced"]),
+  constraints: z.string().optional(),
+});
+
+const aiGenerateNutritionSchema = z.object({
+  userId: z.string().min(1).optional(),
+  mealsPerDay: z.number().int().min(2).max(6),
+  targetKcal: z.number().int().min(600).max(4000),
+  startDate: z.string().min(1).optional(),
+  daysCount: z.number().int().min(1).max(14).optional(),
+  macroTargets: z.object({
+    proteinG: z.number().min(0),
+    carbsG: z.number().min(0),
+    fatsG: z.number().min(0),
+  }),
+  dietType: z
+    .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
+    .optional(),
+  dietaryPrefs: z
+    .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
+    .optional(),
+});
+
 const aiTipSchema = z.object({
   name: z.string().min(1).optional(),
   goal: z.enum(["cut", "maintain", "bulk"]).optional(),
@@ -1263,7 +1290,7 @@ const aiNutritionPlanResponseSchema = z
   .object({
     title: z.string().min(1),
     startDate: isoDateSchema.nullable(),
-    dailyCalories: z.coerce.number().min(1200).max(4000),
+    dailyCalories: z.coerce.number().min(600).max(4000),
     proteinG: z.coerce.number().min(50).max(300),
     fatG: z.coerce.number().min(30).max(200),
     carbsG: z.coerce.number().min(50).max(600),
@@ -2024,7 +2051,8 @@ async function saveTrainingPlan(
 function buildNutritionPrompt(
   data: z.infer<typeof aiNutritionSchema>,
   recipes: RecipePromptItem[] = [],
-  strict = false
+  strict = false,
+  retryFeedback?: string
 ) {
   const distribution =
     typeof data.mealDistribution === "string"
@@ -2073,6 +2101,14 @@ function buildNutritionPrompt(
     `Distribución de comidas: ${distribution} ${distributionPercentages}.`,
     "Cada día debe incluir dayLabel en español (por ejemplo Lunes, Martes, Miércoles).",
     "Usa siempre type y macros en cada comida.",
+    "REGLA MATEMÁTICA OBLIGATORIA POR COMIDA: macros.calories = round(4*protein + 4*carbs + 9*fats).",
+    "REGLA MATEMÁTICA OBLIGATORIA POR DÍA: la suma de meal.macros.calories de ese día debe ser igual (con desvío mínimo) a dailyCalories.",
+    `REGLA MATEMÁTICA OBLIGATORIA GLOBAL: dailyCalories debe ser exactamente ${data.calories}.`,
+    "REGLA DE CONSISTENCIA: no dejes comidas con calories incompatibles con sus macros; si ajustas macros, recalcula calories de esa comida.",
+    "REGLA DE CIERRE DIARIO: valida proteína, carbohidratos y grasas por día y corrige expected vs actual antes de responder.",
+    strict ? "REINTENTO OBLIGATORIO: corrige explícitamente incoherencias por comida y por día." : "",
+    strict && retryFeedback ? `ERRORES DETECTADOS EN INTENTO PREVIO: ${retryFeedback}` : "",
+    "Antes de responder, revalida internamente todas las sumas y corrige cualquier desvío numérico.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
@@ -2297,12 +2333,146 @@ function logNutritionMealsPerDay(
   );
 }
 
+function roundNutritionGrams(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+function normalizeNutritionCaloriesPerDay(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  targetKcal: number
+): z.infer<typeof aiNutritionPlanResponseSchema> {
+  const days = plan.days.map((day) => {
+    const meals = day.meals.map((meal) => ({
+      ...meal,
+      macros: { ...meal.macros },
+      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+    }));
+
+    if (meals.length === 0) {
+      return { ...day, meals };
+    }
+
+    const totalCalories = meals.reduce((acc, meal) => acc + Math.max(0, meal.macros.calories), 0);
+    const fallbackShare = 1 / meals.length;
+    let assignedCalories = 0;
+
+    const normalizedMeals = meals.map((meal, index) => {
+      if (index === meals.length - 1) {
+        const calories = targetKcal - assignedCalories;
+        return {
+          ...meal,
+          macros: {
+            ...meal.macros,
+            calories,
+          },
+        };
+      }
+
+      const share = totalCalories > 0 ? Math.max(0, meal.macros.calories) / totalCalories : fallbackShare;
+      const calories = Math.round(targetKcal * share);
+      assignedCalories += calories;
+      return {
+        ...meal,
+        macros: {
+          ...meal.macros,
+          calories,
+        },
+      };
+    });
+
+    return { ...day, meals: normalizedMeals };
+  });
+
+  return {
+    ...plan,
+    dailyCalories: targetKcal,
+    days,
+  };
+}
+
+function normalizeNutritionMacrosPerDay(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  macroTargets?: z.infer<typeof aiGenerateNutritionSchema>["macroTargets"] | null
+): z.infer<typeof aiNutritionPlanResponseSchema> {
+  if (!macroTargets) return plan;
+
+  const days = plan.days.map((day) => {
+    const meals = day.meals.map((meal) => ({
+      ...meal,
+      macros: { ...meal.macros },
+      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+    }));
+
+    if (meals.length === 0) {
+      return { ...day, meals };
+    }
+
+    const totalCalories = meals.reduce((acc, meal) => acc + Math.max(0, meal.macros.calories), 0);
+    const fallbackShare = 1 / meals.length;
+    let assignedProtein = 0;
+    let assignedCarbs = 0;
+    let assignedFats = 0;
+
+    const normalizedMeals = meals.map((meal, index) => {
+      if (index === meals.length - 1) {
+        const protein = roundNutritionGrams(macroTargets.proteinG - assignedProtein);
+        const carbs = roundNutritionGrams(macroTargets.carbsG - assignedCarbs);
+        const fats = roundNutritionGrams(macroTargets.fatsG - assignedFats);
+
+        return {
+          ...meal,
+          macros: {
+            calories: Math.round(protein * 4 + carbs * 4 + fats * 9),
+            protein,
+            carbs,
+            fats,
+          },
+        };
+      }
+
+      const share = totalCalories > 0 ? Math.max(0, meal.macros.calories) / totalCalories : fallbackShare;
+      const protein = roundNutritionGrams(macroTargets.proteinG * share);
+      const carbs = roundNutritionGrams(macroTargets.carbsG * share);
+      const fats = roundNutritionGrams(macroTargets.fatsG * share);
+
+      assignedProtein += protein;
+      assignedCarbs += carbs;
+      assignedFats += fats;
+
+      return {
+        ...meal,
+        macros: {
+          calories: Math.round(protein * 4 + carbs * 4 + fats * 9),
+          protein,
+          carbs,
+          fats,
+        },
+      };
+    });
+
+    return { ...day, meals: normalizedMeals };
+  });
+
+  return {
+    ...plan,
+    proteinG: macroTargets.proteinG,
+    carbsG: macroTargets.carbsG,
+    fatG: macroTargets.fatsG,
+    days,
+  };
+}
+
 function parseNutritionPlanPayload(payload: Record<string, unknown>, startDate: Date, daysCount: number) {
   try {
     return normalizeNutritionPlanDays(aiNutritionPlanResponseSchema.parse(payload), startDate, daysCount);
   } catch (error) {
     app.log.warn({ err: error, payload }, "ai nutrition response invalid");
-    throw createHttpError(502, "AI_PARSE_ERROR");
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reasonCode: "SCHEMA_PARSE",
+      details: {
+        parserError: error instanceof z.ZodError ? error.flatten() : String(error),
+      },
+    });
   }
 }
 
@@ -2318,7 +2488,10 @@ function assertNutritionMatchesRequest(
         "nutrition plan days mismatch"
       );
     }
-    throw createHttpError(502, "AI_PARSE_ERROR", { expectedDays, actualDays: plan.days.length });
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reasonCode: "MISSING_FIELDS",
+      details: { expectedDays, actualDays: plan.days.length },
+    });
   }
   const invalid = plan.days.find((day) => day.meals.length !== expectedMealsPerDay);
   if (invalid) {
@@ -2332,13 +2505,238 @@ function assertNutritionMatchesRequest(
         "nutrition plan meals mismatch"
       );
     }
-    throw createHttpError(502, "AI_PARSE_ERROR", {
-      expectedMealsPerDay,
-      actualMealsPerDay: invalid.meals.length,
-      dayLabel: invalid.dayLabel,
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reasonCode: "MISSING_FIELDS",
+      details: {
+        expectedMealsPerDay,
+        actualMealsPerDay: invalid.meals.length,
+        dayLabel: invalid.dayLabel,
+      },
     });
   }
 }
+
+function getNutritionInvalidOutputDebug(error: unknown) {
+  const typed = error as { debug?: Record<string, unknown>; code?: string; message?: string };
+  const reason = typed.debug?.reason;
+  if (typed.debug?.reasonCode && typed.debug?.details) {
+    return {
+      cause: "INVALID_AI_OUTPUT",
+      reasonCode: typed.debug.reasonCode,
+      details: typed.debug.details,
+    };
+  }
+  if (reason === "MEALS_PER_DAY_MISMATCH" || reason === "DAY_COUNT_MISMATCH") {
+    return { cause: "INVALID_AI_OUTPUT", reasonCode: "MISSING_FIELDS", details: typed.debug ?? {} };
+  }
+  if (typeof reason === "string" && reason.includes("MISMATCH")) {
+    return {
+      cause: "INVALID_AI_OUTPUT",
+      reasonCode: "MATH_MISMATCH",
+      details: {
+        ...(typed.debug ?? {}),
+        persisted: false,
+      },
+    };
+  }
+  if (typed.code === "AI_PARSE_ERROR") {
+    return {
+      cause: "INVALID_AI_OUTPUT",
+      reasonCode: "SCHEMA_PARSE",
+      details: { message: typed.message ?? "AI_PARSE_ERROR" },
+    };
+  }
+  return {
+    cause: "INVALID_AI_OUTPUT",
+    reasonCode: "REQUEST_MISMATCH",
+    details: typed.debug ?? { message: typed.message ?? "Unknown validation error" },
+  };
+}
+
+function summarizeNutritionMath(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
+  return {
+    dailyCalories: plan.dailyCalories,
+    totalDays: plan.days.length,
+    days: plan.days.map((day) => {
+      const totals = day.meals.reduce(
+        (acc, meal) => {
+          acc.calories += meal.macros.calories;
+          acc.protein += meal.macros.protein;
+          acc.carbs += meal.macros.carbs;
+          acc.fats += meal.macros.fats;
+          return acc;
+        },
+        { calories: 0, protein: 0, carbs: 0, fats: 0 }
+      );
+      return {
+        dayLabel: day.dayLabel,
+        meals: day.meals.length,
+        totals,
+      };
+    }),
+  };
+}
+
+function buildRetryFeedback(error: unknown) {
+  const typed = error as { debug?: Record<string, unknown> };
+  const debug = typed?.debug;
+  if (!debug || typeof debug !== "object") return "";
+  const reason = typeof debug.reason === "string" ? debug.reason : null;
+  const dayLabel = typeof debug.dayLabel === "string" ? debug.dayLabel : "día desconocido";
+  const diff = (debug.diff ?? {}) as Record<string, unknown>;
+  const expected =
+    typeof debug.expected === "number"
+      ? debug.expected
+      : typeof diff.expected === "number"
+        ? diff.expected
+        : null;
+  const actual =
+    typeof debug.actual === "number"
+      ? debug.actual
+      : typeof diff.actual === "number"
+        ? diff.actual
+        : null;
+  const tolerance =
+    typeof debug.tolerance === "number"
+      ? debug.tolerance
+      : typeof diff.tolerance === "number"
+        ? diff.tolerance
+        : null;
+  if (!reason || expected === null || actual === null) return "";
+  return `${reason} en ${dayLabel}: expected=${expected}, actual=${actual}${tolerance !== null ? `, tolerance=±${tolerance}` : ""}`;
+}
+
+function assertNutritionRequestMapping(
+  payload: z.infer<typeof aiGenerateNutritionSchema>,
+  nutritionInput: z.infer<typeof aiNutritionSchema>,
+  expectedDaysCount: number
+) {
+  const mismatches: Record<string, unknown> = {};
+  if (payload.startDate && nutritionInput.startDate !== payload.startDate) {
+    mismatches.startDate = { expected: payload.startDate, actual: nutritionInput.startDate };
+  }
+  if (nutritionInput.daysCount !== expectedDaysCount) {
+    mismatches.daysCount = { expected: expectedDaysCount, actual: nutritionInput.daysCount };
+  }
+  if (payload.dietType && nutritionInput.dietType !== payload.dietType) {
+    mismatches.dietType = { expected: payload.dietType, actual: nutritionInput.dietType };
+  }
+  if (Object.keys(mismatches).length > 0) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reasonCode: "REQUEST_MISMATCH",
+      details: mismatches,
+    });
+  }
+}
+
+
+function assertTrainingLevelConsistency(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  experienceLevel: z.infer<typeof aiGenerateTrainingSchema>["experienceLevel"]
+) {
+  const minExercises = experienceLevel === "advanced" ? 4 : 3;
+  const maxExercises = experienceLevel === "beginner" ? 4 : 5;
+  for (const day of plan.days) {
+    if (day.exercises.length < minExercises || day.exercises.length > maxExercises) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        reason: "TRAINING_LEVEL_VOLUME_MISMATCH",
+        experienceLevel,
+        minExercises,
+        maxExercises,
+        dayLabel: day.label,
+        actualExercises: day.exercises.length,
+      });
+    }
+  }
+}
+
+const animalKeywords = {
+  meat: ["pollo", "res", "ternera", "cerdo", "pavo", "jamon", "jamón", "carne"],
+  seafood: ["atun", "atún", "salmón", "salmon", "merluza", "bacalao", "camar", "gamba", "langost"],
+  dairyOrEgg: ["huevo", "huevos", "queso", "leche", "yogur", "yogurt"],
+};
+
+function assertDietaryPreferenceCompliance(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  dietaryPref: z.infer<typeof aiGenerateNutritionSchema>["dietaryPrefs"]
+) {
+  if (!dietaryPref) return;
+  for (const day of plan.days) {
+    for (const meal of day.meals) {
+      const ingredientsText = (meal.ingredients ?? []).map((ingredient) => ingredient.name).join(" ");
+      const haystack = `${meal.title} ${meal.description ?? ""} ${ingredientsText}`.toLowerCase();
+      const hasMeat = animalKeywords.meat.some((keyword) => haystack.includes(keyword));
+      const hasSeafood = animalKeywords.seafood.some((keyword) => haystack.includes(keyword));
+      const hasDairyOrEgg = animalKeywords.dairyOrEgg.some((keyword) => haystack.includes(keyword));
+
+      if (dietaryPref === "vegetarian" && (hasMeat || hasSeafood)) {
+        throw createHttpError(400, "INVALID_AI_OUTPUT", {
+          reason: "DIETARY_PREF_VIOLATION",
+          dietaryPref,
+          dayLabel: day.dayLabel,
+          mealTitle: meal.title,
+        });
+      }
+      if (dietaryPref === "vegan" && (hasMeat || hasSeafood || hasDairyOrEgg)) {
+        throw createHttpError(400, "INVALID_AI_OUTPUT", {
+          reason: "DIETARY_PREF_VIOLATION",
+          dietaryPref,
+          dayLabel: day.dayLabel,
+          mealTitle: meal.title,
+        });
+      }
+      if (dietaryPref === "pescatarian" && hasMeat) {
+        throw createHttpError(400, "INVALID_AI_OUTPUT", {
+          reason: "DIETARY_PREF_VIOLATION",
+          dietaryPref,
+          dayLabel: day.dayLabel,
+          mealTitle: meal.title,
+        });
+      }
+    }
+  }
+}
+
+function assertNutritionMath(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  constraints: z.infer<typeof aiGenerateNutritionSchema>
+) {
+  const mathIssue = validateNutritionMath(plan, constraints);
+  if (mathIssue) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reason: mathIssue.reason,
+      dayLabel: mathIssue.dayLabel,
+      mealTitle: mathIssue.mealTitle,
+      diff: mathIssue.diff,
+      expected: mathIssue.diff.expected,
+      actual: mathIssue.diff.actual,
+      tolerance: mathIssue.diff.tolerance,
+    });
+  }
+
+  assertDietaryPreferenceCompliance(plan, constraints.dietaryPrefs);
+}
+
+
+function summarizeTrainingPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
+  return {
+    title: plan.title,
+    totalDays: plan.days.length,
+    totalExercises: plan.days.reduce((acc, day) => acc + day.exercises.length, 0),
+    dailyFocus: plan.days.map((day) => ({ label: day.label, focus: day.focus, exercises: day.exercises.length })),
+  };
+}
+
+function summarizeNutritionPlan(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
+  return {
+    title: plan.title,
+    totalDays: plan.days.length,
+    mealsPerDay: plan.days[0]?.meals.length ?? 0,
+    dailyCalories: plan.dailyCalories,
+    macros: { proteinG: plan.proteinG, carbsG: plan.carbsG, fatsG: plan.fatG },
+  };
+}
+
 
 const exerciseMetadataByName: Record<
   string,
@@ -3501,7 +3899,12 @@ const data = (await response.json()) as {
     throw createHttpError(502, "AI_EMPTY_RESPONSE");
   }
   try {
-    app.log.info({ attempt, rawResponse: content }, "ai raw response");
+    app.log.info(
+      process.env.NODE_ENV === "production"
+        ? { attempt, responseChars: content.length }
+        : { attempt, responsePreview: content.slice(0, 300), responseChars: content.length },
+      "ai response received"
+    );
     const parsedPayload = (options?.parser ?? parser)(content);
     return {
       payload: parsedPayload,
@@ -3625,7 +4028,7 @@ function buildVerifyEmail(params: { name?: string | null; verifyUrl: string }) {
 
   const html = `
   <!doctype html>
-  <html lang="es">
+<html lang="es" data-scroll-behavior="smooth">
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -5239,6 +5642,290 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
       ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (request, reply) => {
+  try {
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan/generate" }));
+    const payload = aiGenerateTrainingSchema.parse(request.body);
+    if (payload.userId && payload.userId !== user.id) {
+      throw createHttpError(400, "INVALID_INPUT", { message: "userId must match authenticated user" });
+    }
+
+    const profileRecord = await getOrCreateProfile(user.id);
+    const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
+    const trainingPreferences = (profile.trainingPreferences ?? {}) as Record<string, unknown>;
+    const levelFromProfile =
+      trainingPreferences.level === "beginner" ||
+      trainingPreferences.level === "intermediate" ||
+      trainingPreferences.level === "advanced"
+        ? trainingPreferences.level
+        : payload.experienceLevel;
+
+    const trainingInput: z.infer<typeof aiTrainingSchema> = {
+      age: typeof profile.age === "number" ? profile.age : 30,
+      sex: profile.sex === "female" ? "female" : "male",
+      level: payload.experienceLevel ?? levelFromProfile,
+      goal: payload.goal,
+      equipment: trainingPreferences.equipment === "home" ? "home" : "gym",
+      daysPerWeek: payload.daysPerWeek,
+      sessionTime:
+        trainingPreferences.sessionTime === "short" ||
+        trainingPreferences.sessionTime === "medium" ||
+        trainingPreferences.sessionTime === "long"
+          ? trainingPreferences.sessionTime
+          : "medium",
+      focus:
+        trainingPreferences.focus === "upperLower" || trainingPreferences.focus === "ppl"
+          ? trainingPreferences.focus
+          : "full",
+      timeAvailableMinutes:
+        trainingPreferences.workoutLength === "30m"
+          ? 30
+          : trainingPreferences.workoutLength === "60m"
+            ? 60
+            : 45,
+      includeCardio: typeof trainingPreferences.includeCardio === "boolean" ? trainingPreferences.includeCardio : true,
+      includeMobilityWarmups:
+        typeof trainingPreferences.includeMobilityWarmups === "boolean"
+          ? trainingPreferences.includeMobilityWarmups
+          : true,
+      startDate: toIsoDateString(new Date()),
+      daysCount: payload.daysPerWeek,
+      restrictions: payload.constraints,
+      injuries: typeof profile.injuries === "string" ? profile.injuries : undefined,
+      goals: Array.isArray(profile.goals) ? (profile.goals.filter((goal) => typeof goal === "string") as any) : undefined,
+    };
+
+    const expectedDays = trainingInput.daysPerWeek;
+    const startDate = parseDateInput(trainingInput.startDate) ?? new Date();
+
+    let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null = null;
+    let aiResult: OpenAiResponse | null = null;
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const prompt = `${buildTrainingPrompt(trainingInput, attempt > 0)} ${
+          attempt > 0
+            ? "REINTENTO OBLIGATORIO: corrige la salida para que cumpla exactamente los días solicitados y volumen por nivel."
+            : ""
+        }`;
+        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+          responseFormat: {
+            type: "json_schema",
+            json_schema: {
+              name: "training_plan",
+              schema: trainingPlanJsonSchema as any,
+              strict: true,
+            },
+          },
+          model: "gpt-4o-mini",
+          maxTokens: 4000,
+          retryOnParseError: false,
+        });
+        const candidate = parseTrainingPlanPayload(result.payload, startDate, trainingInput.daysCount ?? expectedDays, expectedDays);
+        assertTrainingMatchesRequest(candidate, expectedDays);
+        assertTrainingLevelConsistency(candidate, payload.experienceLevel);
+        parsedPlan = candidate;
+        aiResult = result;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (!parsedPlan) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        message: "No se pudo generar un plan de entrenamiento válido tras reintento.",
+        cause: (lastError as { code?: string })?.code ?? "UNKNOWN",
+      });
+    }
+
+    await upsertExercisesFromPlan(parsedPlan);
+    const savedPlan = await saveTrainingPlan(user.id, parsedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
+    await safeStoreAiContent(user.id, "training", "ai", parsedPlan);
+
+    return reply.status(200).send({
+      planId: savedPlan.id,
+      summary: summarizeTrainingPlan(parsedPlan),
+      plan: parsedPlan,
+      aiRequestId: aiResult?.requestId ?? null,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (request, reply) => {
+  try {
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/nutrition-plan/generate" }));
+    const payload = aiGenerateNutritionSchema.parse(request.body);
+    if (payload.userId && payload.userId !== user.id) {
+      throw createHttpError(400, "INVALID_INPUT", { message: "userId must match authenticated user" });
+    }
+
+    const profileRecord = await getOrCreateProfile(user.id);
+    const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
+    const nutritionPreferences = (profile.nutritionPreferences ?? {}) as Record<string, unknown>;
+
+    const nutritionInput: z.infer<typeof aiNutritionSchema> = {
+      age: typeof profile.age === "number" ? profile.age : 30,
+      sex: profile.sex === "female" ? "female" : "male",
+      goal:
+        profile.goal === "cut" || profile.goal === "maintain" || profile.goal === "bulk"
+          ? profile.goal
+          : "maintain",
+      mealsPerDay: payload.mealsPerDay,
+      calories: payload.targetKcal,
+      startDate: payload.startDate || toIsoDateString(new Date()),
+      daysCount: payload.daysCount ?? 7,
+      dietaryRestrictions: [payload.dietType, nutritionPreferences.dietaryPrefs]
+        .filter((item): item is string => typeof item === "string" && item.length > 0)
+        .join(", "),
+      dietType:
+        payload.dietType ??
+        (nutritionPreferences.dietType === "balanced" ||
+        nutritionPreferences.dietType === "mediterranean" ||
+        nutritionPreferences.dietType === "keto" ||
+        nutritionPreferences.dietType === "vegetarian" ||
+        nutritionPreferences.dietType === "vegan" ||
+        nutritionPreferences.dietType === "pescatarian" ||
+        nutritionPreferences.dietType === "paleo" ||
+        nutritionPreferences.dietType === "flexible"
+          ? nutritionPreferences.dietType
+          : undefined),
+      allergies: Array.isArray(nutritionPreferences.allergies)
+        ? nutritionPreferences.allergies.filter((item): item is string => typeof item === "string")
+        : [],
+      preferredFoods: typeof nutritionPreferences.preferredFoods === "string" ? nutritionPreferences.preferredFoods : "",
+      dislikedFoods: typeof nutritionPreferences.dislikedFoods === "string" ? nutritionPreferences.dislikedFoods : "",
+      mealDistribution: nutritionPreferences.mealDistribution as z.infer<typeof mealDistributionSchema> | undefined,
+    };
+
+    const startDate = payload.startDate ? parseDateInput(payload.startDate) ?? new Date() : new Date();
+    const daysCount = payload.daysCount ?? 7;
+    assertNutritionRequestMapping(payload, nutritionInput, daysCount);
+    let parsedPlan: z.infer<typeof aiNutritionPlanResponseSchema> | null = null;
+    let aiResult: OpenAiResponse | null = null;
+    let lastError: unknown = null;
+    let lastRawOutput = "";
+    let retryFeedback = "";
+    const resolvedDietType = payload.dietType ?? nutritionInput.dietType ?? "balanced";
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const prompt = `${buildNutritionPrompt(nutritionInput, [], attempt > 0, retryFeedback)} ` +
+          `Macros objetivo por día (con tolerancia): proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
+          `Calorías objetivo por día: ${payload.targetKcal}. ` +
+          "REGLA DURA: cada día debe cumplir proteína total >= objetivo de proteína (no menos). " +
+          "REGLA DURA: cada comida debe incluir una fuente proteica clara y suficiente para aportar proteína real. " +
+          (resolvedDietType === "vegetarian"
+            ? "REGLA DURA VEGETARIANO: prioriza tofu, tempeh, seitán, legumbres, huevos, lácteos altos en proteína (si aplica) y proteína vegetal en polvo cuando haga falta. No uses carnes ni pescado. "
+            : "") +
+          "VERIFICACIÓN FINAL OBLIGATORIA: antes de responder, revisa expected vs actual por día y ajusta para que proteína/carbohidratos/grasas queden dentro de ±5g del objetivo diario sin cambiar calorías objetivo. " +
+          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día. En el error previo faltó proteína: debes incrementarla sin cambiar targetKcal." : ""}`;
+        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+          responseFormat: {
+            type: "json_schema",
+            json_schema: {
+              name: "nutrition_plan",
+              schema: nutritionPlanJsonSchema as any,
+              strict: true,
+            },
+          },
+          model: "gpt-4o-mini",
+          maxTokens: 4000,
+          retryOnParseError: false,
+        });
+
+        lastRawOutput = JSON.stringify(result.payload);
+        const candidate = parseNutritionPlanPayload(result.payload, startDate, daysCount);
+        assertNutritionMatchesRequest(candidate, payload.mealsPerDay, daysCount);
+        const beforeNormalize = summarizeNutritionMath(candidate);
+        const calNormalized = normalizeNutritionCaloriesPerDay(candidate, payload.targetKcal);
+        const macroNormalized = normalizeNutritionMacrosPerDay(calNormalized, payload.macroTargets);
+        const finalNormalized = normalizeNutritionCaloriesPerDay(macroNormalized, payload.targetKcal);
+        const afterNormalize = summarizeNutritionMath(finalNormalized);
+        app.log.info(
+          {
+            attempt,
+            beforeNormalize,
+            afterNormalize,
+          },
+          "nutrition normalization summary"
+        );
+        assertNutritionMath(finalNormalized, payload);
+        parsedPlan = finalNormalized;
+        aiResult = result;
+        break;
+      } catch (error) {
+        lastError = error;
+        retryFeedback = buildRetryFeedback(error);
+      }
+    }
+
+    if (!parsedPlan) {
+      const debug = getNutritionInvalidOutputDebug(lastError);
+      app.log.info(
+        {
+          userId: user.id,
+          startDate: payload.startDate ?? toIsoDateString(startDate),
+          daysCount,
+          persisted: false,
+          planId: null,
+          reasonCode: debug.reasonCode,
+        },
+        "nutrition plan generation result"
+      );
+      app.log.warn(
+        {
+          request: {
+            mealsPerDay: payload.mealsPerDay,
+            targetKcal: payload.targetKcal,
+            macroTargets: payload.macroTargets,
+            startDate: payload.startDate,
+            daysCount: payload.daysCount,
+            dietType: payload.dietType,
+          },
+          rawOutputPreview: process.env.NODE_ENV === "production" ? undefined : lastRawOutput.slice(0, 2000),
+          reasonCode: debug.reasonCode,
+          details: debug.details,
+        },
+        "nutrition generation invalid ai output"
+      );
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        message: "No se pudo generar un plan nutricional válido tras reintento.",
+        ...debug,
+      });
+    }
+
+    const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
+    await upsertRecipesFromPlan(parsedPlan);
+    await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
+
+    app.log.info(
+      {
+        userId: user.id,
+        startDate: payload.startDate ?? toIsoDateString(startDate),
+        daysCount,
+        persisted: true,
+        planId: savedPlan.id,
+      },
+      "nutrition plan generation result"
+    );
+
+    return reply.status(200).send({
+      planId: savedPlan.id,
+      summary: summarizeNutritionPlan(parsedPlan),
+      plan: parsedPlan,
+      aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
     return handleRequestError(reply, error);

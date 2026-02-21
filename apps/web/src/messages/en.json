@@ -28,7 +28,7 @@
     "adminPreview": "Admin Preview",
     "adminLabs": "Labs",
     "trainerClients": "Trainer clients",
-    "trainerPlans": "Trainer plans",
+    "trainerPlans": "Gym plans",
     "trainerExercises": "Trainer exercises",
     "newExercise": "New exercise",
     "onboarding": "Onboarding",
@@ -855,7 +855,36 @@
     "aiGenerate": "Generate with AI",
     "aiGenerating": "Generating with AI...",
     "aiSuccess": "AI plan saved.",
+    "aiSuccessModal": {
+      "title": "Nutrition plan created",
+      "description": "Your plan was generated successfully with AI.",
+      "summaryTitle": "Plan summary",
+      "planTitle": "Title",
+      "startDate": "Start date",
+      "daysCount": "Days",
+      "targetCalories": "Target kcal",
+      "targetMacros": "Target macros (P/C/F)",
+      "dayPreviewTitle": "Quick day preview",
+      "aiBlockTitle": "AI",
+      "tokensUsed": "Tokens consumed",
+      "currentBalance": "Current balance",
+      "viewPlan": "View plan",
+      "close": "Close"
+    },
     "aiError": "We couldn't generate the plan with AI.",
+    "aiErrorState": {
+      "title": "Generation failed",
+      "invalidOutputTitle": "We couldn't build your plan this time",
+      "invalidOutputDescription": "The generated nutrition output was invalid. You can retry safely.",
+      "genericDescription": "We couldn't generate your nutrition plan right now. Please try again.",
+      "toast": "Nutrition plan generation failed.",
+      "detailsCta": "Details",
+      "generateSimple": "Generate with simpler constraints",
+      "adjustGoals": "Adjust goals",
+      "retryLimit": "Retry limit reached for now. Please adjust goals or try later.",
+      "genericReason": "It does not match your target",
+      "actionableDiff": "{{reason}}: target {{expected}}g, received {{actual}}g (~{{delta}}g short)"
+    },
     "aiRateLimit": "You've reached the AI request limit. Try again later.",
     "resetPlan": "Reset plan",
     "shoppingTitle": "Shopping list",
@@ -1896,7 +1925,8 @@
     "tokensRemaining": "AI tokens remaining:",
     "tokensReset": "Resets",
     "insufficientTokens": "You don't have enough tokens to use AI.",
-    "notPro": "AI generation is a Pro feature. Upgrade to Pro to use it."
+    "notPro": "AI generation is a Pro feature. Upgrade to Pro to use it.",
+    "tokenConsumed": "1 AI token was consumed for this usage"
   },
   "billing": {
     "title": "Billing",
@@ -2090,11 +2120,18 @@
         "myUnsupported": "This environment cannot identify your exercises yet.",
         "my": "You have not created exercises yet.",
         "fitsculpt": "No public FitSculpt exercises are available yet.",
-        "unknown": "Some exercises could not be classified and are hidden to avoid incorrect labeling."
+        "unknown": "Some exercises could not be classified and are hidden to avoid incorrect labeling.",
+        "gym": "There are no gym exercises yet.",
+        "gymUnavailable": "Not available yet.",
+        "unclassified": "Only backend-supported sections are shown. Some exercises could not be classified using explicit ownership signals."
+      },
+      "sections": {
+        "gym": "Gym",
+        "listAriaLabel": "Exercises list"
       }
     },
     "plans": {
-      "title": "Trainer plans",
+      "title": "Gym plans",
       "description": "Create and review manual plans available for assignment.",
       "openList": "Open plans",
       "createTitle": "Create manual plan",
@@ -2151,9 +2188,9 @@
       "lockedBadge": "Locked",
       "tabs": {
         "title": "Plans library",
-        "ariaLabel": "Trainer plans tabs",
+        "ariaLabel": "Gym plans tabs",
         "fitsculptPlans": "FitSculpt Plans",
-        "myPlans": "My plans",
+        "myPlans": "Gym plans",
         "fitsculpt": "FitSculpt plans"
       },
       "fitsculpt": {
@@ -2163,7 +2200,7 @@
       },
       "myPlans": {
         "noGymTitle": "Gym context is required",
-        "noGymDescription": "We could not determine your gym context for trainer plans.",
+        "noGymDescription": "We could not determine your gym context for gym plans.",
         "goToGym": "Go to gym"
       },
       "wizard": {
@@ -2182,7 +2219,7 @@
         "selectDayForEditor": "Select a workout day to open the workout editor.",
         "workoutEditorTitle": "Workout editor",
         "workoutEditorDescription": "Editing day {day}.",
-        "workoutNameLabel": "Workout name",
+        "workoutNameLabel": "Exercise name",
         "exerciseSectionTitle": "Add exercises",
         "exerciseUnavailable": "Exercise add is not available in this environment.",
         "loadTargetLabel": "Load target",
@@ -2213,7 +2250,12 @@
         "backToSchedule": "Back to schedule",
         "selectedDaysCount": "{count} selected days",
         "exerciseUnavailableNeutral": "Adding exercises in this wizard is not available in this environment. Draft data stays local until plan creation.",
-        "editDayChip": "Edit {day}"
+        "editDayChip": "Edit {day}",
+        "exerciseSearchLabel": "Search exercise in library",
+        "exerciseSearchPlaceholder": "Type at least 2 characters",
+        "exerciseSearchError": "We couldn't search exercises right now.",
+        "exerciseSearchEmpty": "No exercises found for that search.",
+        "selectedExercisesEmpty": "No exercises selected for this day yet."
       },
       "emptyPublic": "No FitSculpt plans available yet.",
       "comingSoon": "Feature coming soon",
@@ -3010,7 +3052,7 @@
     },
     "trainer": {
       "list": {
-        "title": "Trainer plans",
+        "title": "Gym plans",
         "empty": "No plans available yet.",
         "error": "We could not load plans right now.",
         "notAvailable": "Plans are not available in this environment."

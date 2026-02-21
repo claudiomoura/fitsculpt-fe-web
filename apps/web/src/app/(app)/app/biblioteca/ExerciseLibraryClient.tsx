@@ -9,7 +9,7 @@ import {
   useExerciseRecents,
 } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
-import type { Exercise, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
+import type { Exercise, TrainingPlanDetail } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/Toast";
 import { EmptyState, ErrorState, ExerciseCard, SkeletonExerciseList } from "@/components/exercise-library";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
 import { fetchExercisesList } from "@/services/exercises";
+import { addExerciseToPlanDay, getTrainerPlanDetail, listTrainerGymPlans } from "@/services/trainer";
 
 const PAGE_SIZE = 24;
 
@@ -87,6 +88,7 @@ export default function ExerciseLibraryClient() {
   const [pendingExercise, setPendingExercise] = useState<Exercise | ExerciseRecent | null>(null);
   const [addingExercise, setAddingExercise] = useState(false);
   const [addExerciseError, setAddExerciseError] = useState<string | null>(null);
+  const [submitNotSupported, setSubmitNotSupported] = useState(false);
   const { notify } = useToast();
 
   useEffect(() => {
@@ -224,52 +226,15 @@ export default function ExerciseLibraryClient() {
       setPlansLoading(true);
       setPlansError(null);
       setTargetPlans([]);
+      setSubmitNotSupported(false);
 
       try {
-        if (athleteUserId) {
-          const assignmentResponse = await fetch(`/api/trainer/clients/${athleteUserId}/assigned-plan`, {
-            cache: "no-store",
-            credentials: "include",
-          });
-          if (!assignmentResponse.ok) {
-            throw new Error("ASSIGNMENT_ERROR");
-          }
-
-          const assignmentData = (await assignmentResponse.json()) as { assignedPlan?: { id?: string } | null };
-          const assignedPlanId = assignmentData.assignedPlan?.id;
-
-          if (!assignedPlanId) {
-            if (!active) return;
-            setPlansLoading(false);
-            return;
-          }
-
-          const detailResponse = await fetch(`/api/training-plans/${assignedPlanId}`, {
-            cache: "no-store",
-            credentials: "include",
-          });
-
-          if (!detailResponse.ok) {
-            throw new Error("PLAN_DETAIL_ERROR");
-          }
-
-          const detail = (await detailResponse.json()) as TrainingPlanDetail;
-          if (!active) return;
-          setTargetPlans([detail]);
-          setPlansLoading(false);
-          return;
-        }
-
-        const listResponse = await fetch("/api/training-plans?limit=20", {
-          cache: "no-store",
-          credentials: "include",
-        });
-        if (!listResponse.ok) {
+        const listResult = await listTrainerGymPlans({ limit: 200 });
+        if (!listResult.ok) {
           throw new Error("PLAN_LIST_ERROR");
         }
 
-        const listData = (await listResponse.json()) as { items?: TrainingPlanListItem[] };
-        const planIds = (listData.items ?? []).map((item) => item.id).filter(Boolean);
+        const planIds = listResult.data.items.map((item) => item.id).filter((planId) => Boolean(planId));
 
         if (planIds.length === 0) {
           if (!active) return;
@@ -277,19 +242,13 @@ export default function ExerciseLibraryClient() {
           return;
         }
 
-        const details = await Promise.all(
-          planIds.map(async (planId) => {
-            const detailResponse = await fetch(`/api/training-plans/${planId}`, {
-              cache: "no-store",
-              credentials: "include",
-            });
-            if (!detailResponse.ok) return null;
-            return (await detailResponse.json()) as TrainingPlanDetail;
-          })
-        );
+        const detailResults = await Promise.all(planIds.map((planId) => getTrainerPlanDetail(planId)));
+        const details = detailResults
+          .filter((result): result is { ok: true; data: TrainingPlanDetail } => result.ok)
+          .map((result) => result.data);
 
         if (!active) return;
-        setTargetPlans(details.filter((detail): detail is TrainingPlanDetail => detail !== null));
+        setTargetPlans(details);
         setPlansLoading(false);
       } catch (_err) {
         if (!active) return;
@@ -302,16 +261,17 @@ export default function ExerciseLibraryClient() {
     return () => {
       active = false;
     };
-  }, [athleteUserId, planRetryKey, t]);
+  }, [planRetryKey, t]);
 
   const openDayPicker = (exercise: Exercise | ExerciseRecent) => {
     setPendingExercise(exercise);
     setAddExerciseError(null);
+    setSubmitNotSupported(false);
     setPickerOpen(true);
   };
 
   const addExerciseToPlans = async (planIds: string[]) => {
-    if (!pendingExercise?.id || planIds.length === 0 || addingExercise) return;
+    if (!pendingExercise?.id || planIds.length === 0 || addingExercise || submitNotSupported) return;
 
     setAddingExercise(true);
     setAddExerciseError(null);
@@ -327,40 +287,51 @@ export default function ExerciseLibraryClient() {
         return;
       }
 
-      const responses = await Promise.all(
-        selectedPlans.map(async (plan) => {
-          const dayId = plan.days?.[0]?.id;
-          if (!dayId) return false;
+      const failures: string[] = [];
 
-          const response = await fetch(`/api/training-plans/${plan.id}/days/${dayId}/exercises`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            cache: "no-store",
-            body: JSON.stringify({
-              exerciseId: pendingExercise.id,
-              ...(athleteUserId ? { athleteUserId } : {}),
-            }),
-          });
+      for (const plan of selectedPlans) {
+        const dayId = plan.days?.[0]?.id;
+        if (!dayId) {
+          failures.push(plan.title);
+          continue;
+        }
 
-          return response.ok;
-        })
-      );
+        const result = await addExerciseToPlanDay({
+          planId: plan.id,
+          dayId,
+          exerciseId: pendingExercise.id,
+          ...(athleteUserId ? { athleteUserId } : {}),
+        });
+
+        if (!result.ok) {
+          if (result.reason === "notSupported") {
+            setSubmitNotSupported(true);
+            setAddExerciseError(t("trainer.planDetail.notAvailableInEnvironment"));
+            setAddingExercise(false);
+            return;
+          }
+          failures.push(plan.title);
+        }
+      }
 
       setAddingExercise(false);
 
-      if (responses.some((ok) => !ok)) {
-        setAddExerciseError(t("library.addToPlansSubmitError"));
+      const successCount = selectedPlans.length - failures.length;
+      if (successCount > 0) {
+        notify({
+          title: t("library.addToPlansSuccessTitle"),
+          description: t("library.addToPlansSuccessDescription")
+            .replace("{exercise}", pendingExercise.name)
+            .replace("{count}", String(successCount)),
+          variant: "success",
+        });
+      }
+
+      if (failures.length > 0) {
+        setAddExerciseError(`${t("library.addToPlansSubmitError")} (${failures.join(", ")})`);
         return;
       }
 
-      notify({
-        title: t("library.addToPlansSuccessTitle"),
-        description: t("library.addToPlansSuccessDescription")
-          .replace("{exercise}", pendingExercise.name)
-          .replace("{count}", String(selectedPlans.length)),
-        variant: "success",
-      });
       setPickerOpen(false);
       setPendingExercise(null);
     } catch (_err) {
@@ -628,7 +599,8 @@ export default function ExerciseLibraryClient() {
         loadError={plansError}
         isSubmitting={addingExercise}
         submitError={addExerciseError}
-        canSubmit={targetPlans.some((plan) => (plan.days?.length ?? 0) > 0)}
+        canSubmit={!submitNotSupported && targetPlans.some((plan) => (plan.days?.length ?? 0) > 0)}
+        submitUnavailable={submitNotSupported}
         allowMultiSelect
         onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}

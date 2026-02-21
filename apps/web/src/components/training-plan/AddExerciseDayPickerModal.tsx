@@ -21,6 +21,7 @@ type Props = {
   isSubmitting: boolean;
   submitError: string | null;
   canSubmit: boolean;
+  submitUnavailable: boolean;
   allowMultiSelect: boolean;
   emptyCtaHref: string;
   onClose: () => void;
@@ -37,6 +38,7 @@ export default function AddExerciseDayPickerModal({
   isSubmitting,
   submitError,
   canSubmit,
+  submitUnavailable,
   allowMultiSelect,
   emptyCtaHref,
   onClose,
@@ -76,9 +78,11 @@ export default function AddExerciseDayPickerModal({
           <Button variant="secondary" onClick={onClose}>
             {t("ui.cancel")}
           </Button>
-          <Button onClick={() => onConfirm(selectedPlanIds)} disabled={!hasSelection || isSubmitting || !canSubmit} loading={isSubmitting}>
-            {t("library.addToPlansConfirm")}
-          </Button>
+          {!submitUnavailable ? (
+            <Button onClick={() => onConfirm(selectedPlanIds)} disabled={!hasSelection || isSubmitting || !canSubmit} loading={isSubmitting}>
+              {t("library.addToPlansConfirm")}
+            </Button>
+          ) : null}
         </div>
       }
     >
@@ -129,6 +133,7 @@ export default function AddExerciseDayPickerModal({
           </fieldset>
         ) : null}
 
+        {submitUnavailable ? <p className="muted">{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
         {submitError ? <p className="muted">{submitError}</p> : null}
       </div>
     </Modal>

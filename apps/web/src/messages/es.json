@@ -28,7 +28,7 @@
     "adminPreview": "Vista previa admin",
     "adminLabs": "Labs",
     "trainerClients": "Clientes del entrenador",
-    "trainerPlans": "Planes del entrenador",
+    "trainerPlans": "Planes del gimnasio",
     "trainerExercises": "Ejercicios del entrenador",
     "newExercise": "Nuevo ejercicio",
     "onboarding": "Onboarding",
@@ -859,7 +859,36 @@
     "aiGenerate": "Generar con IA",
     "aiGenerating": "Generando IA...",
     "aiSuccess": "Plan IA guardado.",
+    "aiSuccessModal": {
+      "title": "Plan nutricional creado",
+      "description": "Tu plan se generó correctamente con IA.",
+      "summaryTitle": "Resumen del plan",
+      "planTitle": "Título",
+      "startDate": "Fecha de inicio",
+      "daysCount": "Días",
+      "targetCalories": "Kcal objetivo",
+      "targetMacros": "Macros objetivo (P/C/G)",
+      "dayPreviewTitle": "Vista rápida del día",
+      "aiBlockTitle": "IA",
+      "tokensUsed": "Tokens consumidos",
+      "currentBalance": "Balance actual",
+      "viewPlan": "Ver plan",
+      "close": "Cerrar"
+    },
     "aiError": "No pudimos generar el plan con IA.",
+    "aiErrorState": {
+      "title": "No se pudo generar",
+      "invalidOutputTitle": "No pudimos crear tu plan esta vez",
+      "invalidOutputDescription": "La salida generada por IA no fue válida. Puedes reintentar de forma segura.",
+      "genericDescription": "No pudimos generar tu plan de nutrición ahora mismo. Inténtalo de nuevo.",
+      "toast": "Falló la generación del plan de nutrición.",
+      "detailsCta": "Detalles",
+      "generateSimple": "Generar con restricciones simples",
+      "adjustGoals": "Ajustar objetivos",
+      "retryLimit": "Se alcanzó el límite de reintentos por ahora. Ajusta objetivos o inténtalo más tarde.",
+      "genericReason": "No coincide con el objetivo",
+      "actionableDiff": "{{reason}}: objetivo {{expected}}g, recibido {{actual}}g (faltan ~{{delta}}g)"
+    },
     "aiRateLimit": "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.",
     "resetPlan": "Reiniciar plan",
     "shoppingTitle": "Lista de compras",
@@ -1899,7 +1928,8 @@
     "tokensRemaining": "Tokens IA restantes:",
     "tokensReset": "Renueva",
     "insufficientTokens": "No tienes tokens suficientes para usar la IA.",
-    "notPro": "La generación con IA es una función Pro. Mejora a Pro para usarla."
+    "notPro": "La generación con IA es una función Pro. Mejora a Pro para usarla.",
+    "tokenConsumed": "Se ha consumido 1 token por uso de IA"
   },
   "billing": {
     "title": "Facturación",
@@ -2093,11 +2123,18 @@
         "myUnsupported": "Este entorno aún no permite identificar tus ejercicios.",
         "my": "Todavía no creaste ejercicios.",
         "fitsculpt": "Todavía no hay ejercicios públicos de FitSculpt.",
-        "unknown": "Algunos ejercicios no se pudieron clasificar y se ocultan para evitar etiquetas incorrectas."
+        "unknown": "Algunos ejercicios no se pudieron clasificar y se ocultan para evitar etiquetas incorrectas.",
+        "gym": "Todavía no hay ejercicios del gimnasio.",
+        "gymUnavailable": "No disponible por ahora.",
+        "unclassified": "Mostramos solo secciones soportadas por backend. Algunos ejercicios no se pudieron clasificar con señales explícitas."
+      },
+      "sections": {
+        "gym": "Gym",
+        "listAriaLabel": "Lista de ejercicios"
       }
     },
     "plans": {
-      "title": "Planes del entrenador",
+      "title": "Planes del gimnasio",
       "description": "Crea y revisa los planes manuales disponibles para asignar.",
       "openList": "Abrir planes",
       "createTitle": "Crear plan manual",
@@ -2154,9 +2191,9 @@
       "lockedBadge": "Bloqueado",
       "tabs": {
         "title": "Biblioteca de planes",
-        "ariaLabel": "Pestañas de planes del entrenador",
+        "ariaLabel": "Pestañas de planes del gimnasio",
         "fitsculptPlans": "Planes FitSculpt",
-        "myPlans": "Mis planes",
+        "myPlans": "Planes del gimnasio",
         "fitsculpt": "Planes FitSculpt"
       },
       "fitsculpt": {
@@ -2166,7 +2203,7 @@
       },
       "myPlans": {
         "noGymTitle": "Se requiere contexto de gimnasio",
-        "noGymDescription": "No pudimos determinar tu contexto de gimnasio para planes de entrenador.",
+        "noGymDescription": "No pudimos determinar el contexto de tu gimnasio para los planes del gimnasio.",
         "goToGym": "Ir a gimnasio"
       },
       "wizard": {
@@ -2185,7 +2222,7 @@
         "selectDayForEditor": "Selecciona un día de entrenamiento para abrir el editor.",
         "workoutEditorTitle": "Editor de entrenamiento",
         "workoutEditorDescription": "Editando el día {day}.",
-        "workoutNameLabel": "Nombre del entrenamiento",
+        "workoutNameLabel": "Nombre del ejercicio",
         "exerciseSectionTitle": "Agregar ejercicios",
         "exerciseUnavailable": "Agregar ejercicios no está disponible en este entorno.",
         "loadTargetLabel": "Objetivo de carga",
@@ -2216,7 +2253,12 @@
         "backToSchedule": "Volver al calendario",
         "selectedDaysCount": "{count} días seleccionados",
         "exerciseUnavailableNeutral": "Agregar ejercicios en este asistente no está disponible en este entorno. Los datos del borrador se mantienen locales hasta crear el plan.",
-        "editDayChip": "Editar {day}"
+        "editDayChip": "Editar {day}",
+        "exerciseSearchLabel": "Buscar ejercicio en biblioteca",
+        "exerciseSearchPlaceholder": "Escribe al menos 2 caracteres",
+        "exerciseSearchError": "No se pudo buscar ejercicios en este momento.",
+        "exerciseSearchEmpty": "No encontramos ejercicios para esa búsqueda.",
+        "selectedExercisesEmpty": "Aún no hay ejercicios seleccionados para este día."
       },
       "emptyPublic": "Aún no hay planes FitSculpt disponibles.",
       "comingSoon": "Funcionalidad próximamente",
@@ -3012,7 +3054,7 @@
     },
     "trainer": {
       "list": {
-        "title": "Planes del entrenador",
+        "title": "Planes del gimnasio",
         "empty": "Aún no hay planes disponibles.",
         "error": "No pudimos cargar los planes ahora.",
         "notAvailable": "Los planes no están disponibles en este entorno."

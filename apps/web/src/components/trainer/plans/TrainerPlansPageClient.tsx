@@ -13,6 +13,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import ExerciseLibrarySelector from "@/components/exercises/ExerciseLibrarySelector";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
@@ -45,8 +46,14 @@ type WorkoutSetDraft = {
   restSeconds: number;
 };
 
+type WorkoutDayExerciseRef = {
+  exerciseId: string;
+  name: string;
+};
+
 type WorkoutDayDraft = {
   workoutName: string;
+  exercises: WorkoutDayExerciseRef[];
   loadTarget: LoadTarget;
   loadType: LoadType;
   sets: WorkoutSetDraft[];
@@ -63,6 +70,7 @@ function createWeekSchedule(weeks: number): boolean[][] {
 function dayDraft(): WorkoutDayDraft {
   return {
     workoutName: "",
+    exercises: [],
     loadTarget: "hypertrophy",
     loadType: "classic",
     sets: [{ setNumber: 1, repsMin: 8, repsMax: 12, restSeconds: 60 }],
@@ -662,6 +670,36 @@ export default function TrainerPlansPageClient() {
 
                     <div className="form-stack" style={{ gap: 8 }}>
                       <span className="muted">{t("trainer.plans.wizard.exerciseSectionTitle")}</span>
+                      <ExerciseLibrarySelector
+                        disabled={creating}
+                        selectedExercises={selectedDayDraft.exercises}
+                        onSelect={(exercise) => updateSelectedDayDraft((prev) => {
+                          if (prev.exercises.some((item) => item.exerciseId === exercise.exerciseId)) return prev;
+                          return { ...prev, exercises: [...prev.exercises, exercise] };
+                        })}
+                      />
+                      {selectedDayDraft.exercises.length > 0 ? (
+                        <ul className="form-stack" style={{ margin: 0, listStyle: "none", paddingInlineStart: 0, gap: 6 }}>
+                          {selectedDayDraft.exercises.map((exercise) => (
+                            <li key={exercise.exerciseId} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+                              <span>{exercise.name}</span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => updateSelectedDayDraft((prev) => ({
+                                  ...prev,
+                                  exercises: prev.exercises.filter((item) => item.exerciseId !== exercise.exerciseId),
+                                }))}
+                              >
+                                {t("ui.remove")}
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.selectedExercisesEmpty")}</p>
+                      )}
                       <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.exerciseUnavailableNeutral")}</p>
                     </div>
 

@@ -30,6 +30,7 @@ type Props = {
 type ExerciseDraft = {
   sets?: number;
   reps?: string;
+  setReps?: string[];
   rest?: number;
   notes?: string;
   tempo?: string;
@@ -38,9 +39,13 @@ type ExerciseDraft = {
 const NOT_SUPPORTED_STATUSES = new Set([404, 405, 501]);
 
 function toExerciseDraft(exercise: TrainingPlanExercise): ExerciseDraft {
+  const normalizedSets = typeof exercise.sets === "number" && exercise.sets > 0 ? exercise.sets : 1;
+  const normalizedReps = typeof exercise.reps === "string" ? exercise.reps : "";
+
   return {
     ...(typeof exercise.sets === "number" ? { sets: exercise.sets } : {}),
     ...(typeof exercise.reps === "string" ? { reps: exercise.reps } : {}),
+    setReps: Array.from({ length: normalizedSets }, () => normalizedReps),
     ...(typeof exercise.rest === "number" ? { rest: exercise.rest } : {}),
     ...(typeof exercise.notes === "string" ? { notes: exercise.notes } : {}),
     ...(typeof exercise.tempo === "string" ? { tempo: exercise.tempo } : {}),
@@ -58,9 +63,14 @@ function hasAnyEditableFields(exercise: TrainingPlanExercise): boolean {
 function hasDraftChanges(base: ExerciseDraft, next: ExerciseDraft): boolean {
   return base.sets !== next.sets
     || base.reps !== next.reps
+    || JSON.stringify(base.setReps ?? []) !== JSON.stringify(next.setReps ?? [])
     || base.rest !== next.rest
     || base.notes !== next.notes
     || base.tempo !== next.tempo;
+}
+
+function supportsBackendSetReps(): boolean {
+  return false;
 }
 
 export default function TrainerDayEditorClient({ planId, day }: Props) {
@@ -202,6 +212,15 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
 
   const onSaveExercise = useCallback(async (exercise: TrainingPlanExercise) => {
     if (!selectedDay || savingExerciseId) return;
+
+    if (!supportsBackendSetReps()) {
+      notify({
+        title: t("common.error"),
+        description: t("trainer.planDetail.notAvailableInEnvironment"),
+        variant: "error",
+      });
+      return;
+    }
 
     const draft = exerciseDrafts[exercise.id] ?? toExerciseDraft(exercise);
     const payload = {
@@ -399,6 +418,12 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
             {selectedDay.exercises.map((exercise) => {
               const baseDraft = toExerciseDraft(exercise);
               const draft = exerciseDrafts[exercise.id] ?? baseDraft;
+              const effectiveSetCount = Math.max(
+                1,
+                typeof draft.sets === "number" ? draft.sets : Array.isArray(draft.setReps) ? draft.setReps.length : 1,
+              );
+              const setReps = Array.from({ length: effectiveSetCount }, (_, index) => draft.setReps?.[index] ?? "");
+              const setEditorSupported = supportsBackendSetReps();
               const canEditThisExercise = !updateNotSupported && hasAnyEditableFields(exercise);
               const changed = hasDraftChanges(baseDraft, draft);
               const isSaving = savingExerciseId === exercise.id;
@@ -410,19 +435,36 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
                   {typeof exercise.sets === "number" ? (
                     <label className="form-stack" style={{ gap: 6 }}>
                       <span className="muted">{t("trainer.plans.editExercise.sets")}</span>
-                      <input
-                        type="number"
-                        min={1}
-                        value={typeof draft.sets === "number" ? draft.sets : ""}
-                        onChange={(event) => setExerciseDrafts((prev) => ({
-                          ...prev,
-                          [exercise.id]: {
-                            ...draft,
-                            sets: Math.max(1, Number(event.target.value) || 1),
-                          },
-                        }))}
-                        disabled={!canEditThisExercise || isSaving}
-                      />
+                      <span className="muted" style={{ fontWeight: 600 }}>{effectiveSetCount}</span>
+                      <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 0, listStyle: "none", gap: 8 }}>
+                        {setReps.map((setRepsValue, index) => (
+                          <li key={`${exercise.id}-set-${index + 1}`}>
+                            <label className="form-stack" style={{ gap: 6 }}>
+                              <span className="muted">{t("trainer.plans.setLabel", { set: index + 1 })}</span>
+                              <input
+                                value={setRepsValue}
+                                onChange={(event) => setExerciseDrafts((prev) => {
+                                  const currentDraft = prev[exercise.id] ?? baseDraft;
+                                  const currentReps = Array.from(
+                                    { length: effectiveSetCount },
+                                    (_, repIndex) => currentDraft.setReps?.[repIndex] ?? "",
+                                  );
+                                  currentReps[index] = event.target.value;
+
+                                  return {
+                                    ...prev,
+                                    [exercise.id]: {
+                                      ...currentDraft,
+                                      setReps: currentReps,
+                                    },
+                                  };
+                                })}
+                                disabled={!canEditThisExercise || isSaving}
+                              />
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
                       <div style={{ display: "flex", gap: 8 }}>
                         <Button
                           type="button"
@@ -438,6 +480,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
                               [exercise.id]: {
                                 ...currentDraft,
                                 sets: currentSets + 1,
+                                setReps: [...(currentDraft.setReps ?? Array.from({ length: currentSets }, (_, index) => index === 0 ? currentDraft.reps ?? "" : "")), ""],
                               },
                             };
                           })}
@@ -458,6 +501,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
                               [exercise.id]: {
                                 ...currentDraft,
                                 sets: Math.max(1, currentSets - 1),
+                                setReps: (currentDraft.setReps ?? Array.from({ length: currentSets }, (_, index) => index === 0 ? currentDraft.reps ?? "" : "")).slice(0, Math.max(1, currentSets - 1)),
                               },
                             };
                           })}
@@ -465,6 +509,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
                           {t("trainer.plans.editExercise.removeSet")}
                         </Button>
                       </div>
+                      {!setEditorSupported ? <p className="muted" style={{ margin: 0 }}>{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
                     </label>
                   ) : null}
 
@@ -472,15 +517,16 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
                     <label className="form-stack" style={{ gap: 6 }}>
                       <span className="muted">{t("trainer.plans.editExercise.reps")}</span>
                       <input
-                        value={draft.reps ?? ""}
+                        value={setReps[0] ?? draft.reps ?? ""}
                         onChange={(event) => setExerciseDrafts((prev) => ({
                           ...prev,
                           [exercise.id]: {
                             ...draft,
                             reps: event.target.value,
+                            setReps: [event.target.value, ...(draft.setReps ?? []).slice(1)],
                           },
                         }))}
-                        disabled={!canEditThisExercise || isSaving}
+                        disabled={!canEditThisExercise || isSaving || !setEditorSupported}
                       />
                     </label>
                   ) : null}
@@ -541,7 +587,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
                   {!hasAnyEditableFields(exercise) ? <p className="muted">{t("trainer.plans.editExercise.noEditableFields")}</p> : null}
 
                   {canEditThisExercise ? (
-                    <button type="button" className="btn" disabled={!changed || isSaving} onClick={() => void onSaveExercise(exercise)}>
+                    <button type="button" className="btn" disabled={!changed || isSaving || !setEditorSupported} onClick={() => void onSaveExercise(exercise)}>
                       {t("trainer.plans.save")}
                     </button>
                   ) : null}

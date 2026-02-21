@@ -98,7 +98,7 @@ function tryParseJson(value: unknown): unknown {
 
 export async function requestAiTrainingPlan(profile: ProfileData, input: TrainingPreferencesInput): Promise<TrainingPlanAiResult> {
   const startDate = toDateKey(startOfWeek(new Date()));
-  const response = await fetch("/api/ai/training-plan", {
+  const response = await fetch("/api/ai/training-plan/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -106,7 +106,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       name: profile.name || undefined,
       age: profile.age,
       sex: profile.sex,
-      level: input.level,
+      experienceLevel: input.level,
       goal: input.goal,
       goals: profile.goals,
       equipment: input.equipment,
@@ -130,6 +130,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       | { error?: string; message?: string; retryAfterSec?: number }
       | null;
     if (payload?.error === "INSUFFICIENT_TOKENS") throw new Error("INSUFFICIENT_TOKENS");
+    if (response.status === 400 && payload?.message) throw new Error(payload.message);
     if (response.status === 429) throw new Error(payload?.message ?? "RATE_LIMITED");
     throw new Error("AI_GENERATION_FAILED");
   }

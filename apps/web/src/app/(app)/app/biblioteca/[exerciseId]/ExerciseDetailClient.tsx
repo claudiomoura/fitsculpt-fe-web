@@ -493,7 +493,7 @@ export default function ExerciseDetailClient({
         onClose={() => {
           setPickerOpen(false);
           setAddExerciseError(null);
-        }}
+        } }
         exerciseName={exercise.name}
         plans={targetPlans.map((plan) => ({ id: plan.id, title: plan.title, daysCount: plan.days.length }))}
         loadingPlans={plansLoading}
@@ -504,8 +504,7 @@ export default function ExerciseDetailClient({
         allowMultiSelect
         onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
-        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"}
-      />
+        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"} submitUnavailable={false}      />
     </section>
   );
 }
