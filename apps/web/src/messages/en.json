@@ -2182,7 +2182,7 @@
         "selectDayForEditor": "Select a workout day to open the workout editor.",
         "workoutEditorTitle": "Workout editor",
         "workoutEditorDescription": "Editing day {day}.",
-        "workoutNameLabel": "Workout name",
+        "workoutNameLabel": "Exercise name",
         "exerciseSectionTitle": "Add exercises",
         "exerciseUnavailable": "Exercise add is not available in this environment.",
         "loadTargetLabel": "Load target",
@@ -2213,7 +2213,12 @@
         "backToSchedule": "Back to schedule",
         "selectedDaysCount": "{count} selected days",
         "exerciseUnavailableNeutral": "Adding exercises in this wizard is not available in this environment. Draft data stays local until plan creation.",
-        "editDayChip": "Edit {day}"
+        "editDayChip": "Edit {day}",
+        "exerciseSearchLabel": "Search exercise in library",
+        "exerciseSearchPlaceholder": "Type at least 2 characters",
+        "exerciseSearchError": "We couldn't search exercises right now.",
+        "exerciseSearchEmpty": "No exercises found for that search.",
+        "selectedExercisesEmpty": "No exercises selected for this day yet."
       },
       "emptyPublic": "No FitSculpt plans available yet.",
       "comingSoon": "Feature coming soon",

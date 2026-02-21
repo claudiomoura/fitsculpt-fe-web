@@ -2185,7 +2185,7 @@
         "selectDayForEditor": "Selecciona un día de entrenamiento para abrir el editor.",
         "workoutEditorTitle": "Editor de entrenamiento",
         "workoutEditorDescription": "Editando el día {day}.",
-        "workoutNameLabel": "Nombre del entrenamiento",
+        "workoutNameLabel": "Nombre del ejercicio",
         "exerciseSectionTitle": "Agregar ejercicios",
         "exerciseUnavailable": "Agregar ejercicios no está disponible en este entorno.",
         "loadTargetLabel": "Objetivo de carga",
@@ -2216,7 +2216,12 @@
         "backToSchedule": "Volver al calendario",
         "selectedDaysCount": "{count} días seleccionados",
         "exerciseUnavailableNeutral": "Agregar ejercicios en este asistente no está disponible en este entorno. Los datos del borrador se mantienen locales hasta crear el plan.",
-        "editDayChip": "Editar {day}"
+        "editDayChip": "Editar {day}",
+        "exerciseSearchLabel": "Buscar ejercicio en biblioteca",
+        "exerciseSearchPlaceholder": "Escribe al menos 2 caracteres",
+        "exerciseSearchError": "No se pudo buscar ejercicios en este momento.",
+        "exerciseSearchEmpty": "No encontramos ejercicios para esa búsqueda.",
+        "selectedExercisesEmpty": "Aún no hay ejercicios seleccionados para este día."
       },
       "emptyPublic": "Aún no hay planes FitSculpt disponibles.",
       "comingSoon": "Funcionalidad próximamente",
