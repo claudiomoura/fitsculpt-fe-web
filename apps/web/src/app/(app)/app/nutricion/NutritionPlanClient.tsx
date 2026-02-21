@@ -1622,8 +1622,14 @@ useEffect(() => {
     void handleAiPlan();
   };
 
-  const nutritionPlanDetails = profile ? (
-    <section className="card">
+const nutritionPlanDetails = profile ? (
+  <section className="card">
+    <div className="section-head section-head-actions">
+      <div>
+        <h2 className="section-title section-title-sm">{t("nutrition.planDetails.title")}</h2>
+        <p className="section-subtitle">{t("nutrition.planDetails.subtitle")}</p>
+      </div>
+
       <button
         type="button"
         className="btn secondary fit-content"
@@ -1631,23 +1637,38 @@ useEffect(() => {
         aria-controls="nutrition-plan-details"
         onClick={() => setIsPlanDetailsOpen((prev) => !prev)}
       >
-        {isPlanDetailsOpen
-          ? `${t("nutrition.planDetails.hide")}: ${t("nutrition.planDetails.title")}`
-          : `${t("nutrition.planDetails.show")}: ${t("nutrition.planDetails.title")}`}
+        {isPlanDetailsOpen ? t("ui.hide") : t("ui.show")}
         <Icon
           name="chevron-down"
           size={16}
           className="ml-6"
-          style={{ transform: isPlanDetailsOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 160ms ease" }}
+          style={{
+            transform: isPlanDetailsOpen ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 160ms ease",
+          }}
         />
       </button>
+    </div>
 
-      <div id="nutrition-plan-details" role="region" aria-label={t("nutrition.planDetails.title")} hidden={!isPlanDetailsOpen} className="mt-16">
-        <div className="inline-actions-sm mb-12">
-          <Link href="/app/nutricion/editar" className="btn secondary">
-            {t("nutrition.editPlan")}
-          </Link>
-        </div>
+    <div
+      id="nutrition-plan-details"
+      role="region"
+      aria-label={t("nutrition.planDetails.title")}
+      hidden={!isPlanDetailsOpen}
+      className="mt-16"
+    >
+      <div className="inline-actions-sm mb-12">
+        <Link href="/app/nutricion/editar" className="btn secondary">
+          {t("nutrition.editPlan")}
+        </Link>
+      </div>
+
+      {aiTokenBalance !== null ? (
+        <p className="muted mt-8 plan-token-line">
+          {t("ai.tokensRemaining")} {aiTokenBalance}
+          {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
+        </p>
+      ) : null}
 
         {aiTokenBalance !== null ? (
           <p className="muted mt-8 plan-token-line">
@@ -1740,93 +1761,7 @@ useEffect(() => {
     <div className="page">
       {!isManualView ? (
         <>
-          <section className="card">
-            <div className="section-head section-head-actions">
-              <div>
-                <h2 className="section-title section-title-sm">{t("nutrition.formTitle")}</h2>
-                <p className="section-subtitle">{t("nutrition.tips")}</p>
-              </div>
-
-              <div className="section-actions plan-page-actions">
-                {/* <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
-                  {t("nutrition.generate")}
-                </button> */}
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={isAiDisabled}
-                  onClick={handleGenerateClick}
-                >
-                  {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                </button>
-                {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-                  {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
-                </button> */}
-                <Link href="/app/nutricion/editar" className="btn secondary">
-                  {t("nutrition.editPlan")}
-                </Link>
-              </div>
-            </div>
-
-            {isAiLocked ? (
-              <div className="feature-card mt-12">
-                <strong>{t("aiLockedTitle")}</strong>
-                <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
-              </div>
-            ) : null}
-
-            {loading ? (
-              <div className="form-stack">
-                <Skeleton variant="line" className="w-40" />
-                <Skeleton variant="line" className="w-70" />
-              </div>
-            ) : error ? (
-              <div className="status-card status-card--warning">
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{t("nutrition.errorTitle")}</strong>
-                </div>
-                <p className="muted">{error}</p>
-                <div className="inline-actions-sm">
-                  <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
-                    {t("ui.retry")}
-                  </button>
-                  <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>
-                    {t("ui.back")}
-                  </button>
-                </div>
-              </div>
-            ) : aiError ? (
-              <div className="status-card status-card--warning" role="alert" aria-live="polite">
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{aiError.title}</strong>
-                </div>
-                <p className="muted">{aiError.description}</p>
-                {aiError.actionableHint ? <p className="muted">{aiError.actionableHint}</p> : null}
-                {aiError.details ? (
-                  <details>
-                    <summary>{t("nutrition.aiErrorState.detailsCta")}</summary>
-                    <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{aiError.details}</pre>
-                  </details>
-                ) : null}
-                <div className="inline-actions-sm">
-                  <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
-                    {t("ui.retry")}
-                  </button>
-                  <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
-                    {t("nutrition.aiErrorState.generateSimple")}
-                  </button>
-                  <Link href="/app/nutricion/editar" className="btn secondary fit-content">
-                    {t("nutrition.aiErrorState.adjustGoals")}
-                  </Link>
-                </div>
-                {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
-              </div>
-            ) : saveMessage ? (
-              <p className="muted">{saveMessage}</p>
-            ) : null}
-          </section>
+          
 
           {loading ? (
             <section className="card">
@@ -2191,9 +2126,99 @@ useEffect(() => {
                 )}
               </section>
 
+              <section className="card">
+            <div className="section-head section-head-actions">
+              <div>
+                <h2 className="section-title section-title-sm">{t("nutrition.formTitle")}</h2>
+                <p className="section-subtitle">{t("nutrition.tips")}</p>
+              </div>
+
+              <div className="section-actions plan-page-actions">
+                {/* <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
+                  {t("nutrition.generate")}
+                </button> 
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={isAiDisabled}
+                  onClick={handleGenerateClick}
+                >
+                  {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                </button>
+                {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
+                  {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
+                </button> */}
+                <Link href="/app/nutricion/editar" className="btn secondary">
+                  {t("nutrition.editPlan")}
+                </Link>
+              </div>
+            </div>
+
+            {isAiLocked ? (
+              <div className="feature-card mt-12">
+                <strong>{t("aiLockedTitle")}</strong>
+                <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
+              </div>
+            ) : null}
+
+            {loading ? (
+              <div className="form-stack">
+                <Skeleton variant="line" className="w-40" />
+                <Skeleton variant="line" className="w-70" />
+              </div>
+            ) : error ? (
+              <div className="status-card status-card--warning">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("nutrition.errorTitle")}</strong>
+                </div>
+                <p className="muted">{error}</p>
+                <div className="inline-actions-sm">
+                  <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                    {t("ui.retry")}
+                  </button>
+                  <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>
+                    {t("ui.back")}
+                  </button>
+                </div>
+              </div>
+            ) : aiError ? (
+              <div className="status-card status-card--warning" role="alert" aria-live="polite">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{aiError.title}</strong>
+                </div>
+                <p className="muted">{aiError.description}</p>
+                {aiError.actionableHint ? <p className="muted">{aiError.actionableHint}</p> : null}
+                {aiError.details ? (
+                  <details>
+                    <summary>{t("nutrition.aiErrorState.detailsCta")}</summary>
+                    <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{aiError.details}</pre>
+                  </details>
+                ) : null}
+                <div className="inline-actions-sm">
+                  <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
+                    {t("ui.retry")}
+                  </button>
+                  <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
+                    {t("nutrition.aiErrorState.generateSimple")}
+                  </button>
+                  <Link href="/app/nutricion/editar" className="btn secondary fit-content">
+                    {t("nutrition.aiErrorState.adjustGoals")}
+                  </Link>
+                </div>
+                {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
+              </div>
+            ) : saveMessage ? (
+              <p className="muted">{saveMessage}</p>
+            ) : null}
+          </section>
+
               {!loading && !error ? nutritionPlanDetails : null}
 
               <section className="card">
+
+                
                 <h2 className="section-title section-title-sm">{t("nutrition.dailyTargetTitle")}</h2>
                 <div className="info-grid mt-16">
                   <div className="info-item">
