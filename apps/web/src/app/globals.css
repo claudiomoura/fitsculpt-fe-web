@@ -2208,6 +2208,36 @@ label {
   gap: 12px;
 }
 
+
+.plan-page-actions {
+  justify-content: flex-end;
+}
+
+.plan-token-line {
+  margin-top: 12px;
+}
+
+.plan-summary-chips {
+  margin-top: 12px;
+}
+
+.plan-summary-chips .badge,
+.plan-summary-chips .ui-badge {
+  padding: 6px 12px;
+}
+
+@media (max-width: 768px) {
+  .plan-page-actions {
+    width: 100%;
+  }
+
+  .plan-page-actions .btn,
+  .plan-page-actions .ui-button {
+    width: 100%;
+  }
+}
+
+
 .list-grid {
   display: grid;
   gap: 16px;
