@@ -876,6 +876,17 @@
       "close": "Cerrar"
     },
     "aiError": "No pudimos generar el plan con IA.",
+    "aiErrorState": {
+      "title": "No se pudo generar",
+      "invalidOutputTitle": "No pudimos crear tu plan esta vez",
+      "invalidOutputDescription": "La salida generada por IA no fue válida. Puedes reintentar de forma segura.",
+      "genericDescription": "No pudimos generar tu plan de nutrición ahora mismo. Inténtalo de nuevo.",
+      "toast": "Falló la generación del plan de nutrición.",
+      "detailsCta": "Detalles",
+      "generateSimple": "Generar con restricciones simples",
+      "adjustGoals": "Ajustar objetivos",
+      "retryLimit": "Se alcanzó el límite de reintentos por ahora. Ajusta objetivos o inténtalo más tarde."
+    },
     "aiRateLimit": "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.",
     "resetPlan": "Reiniciar plan",
     "shoppingTitle": "Lista de compras",
