@@ -10,6 +10,7 @@ import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabi
 import { extractGymMembership } from "@/lib/gymMembership";
 import { isExerciseVisibleForGym } from "@/lib/exerciseVisibility";
 import type { Exercise } from "@/lib/types";
+import { splitExercisesByOwnership } from "@/services/exercises";
 
 type LoadState = "loading" | "ready" | "error";
 type CreateCapabilityState = "can_create" | "cannot_create" | "unknown";
@@ -43,6 +44,7 @@ function getProfileUserId(profile: AuthUser): string | null {
     null
   );
 }
+
 
 function getExerciseThumbnail(exercise: Exercise): string | null {
   const rawExercise = exercise as Exercise & Record<string, unknown>;
@@ -139,7 +141,9 @@ export default function TrainerExercisesClient() {
   }, [loadExercises]);
 
   const tabData = useMemo(() => {
-    return splitExercisesByOwnership(exercises, viewerUserId);
+    const { fitsculptExercises, myExercises, hasOwnershipSignals } = splitExercisesByOwnership(exercises, viewerUserId);
+
+    return { fitsculptExercises, myExercises, hasOwnershipSignals };
   }, [exercises, viewerUserId]);
 
   const listBody = useMemo(() => {
@@ -164,17 +168,17 @@ export default function TrainerExercisesClient() {
       );
     }
 
-    const visibleExercises = activeTab === "my" ? tabData.mine : tabData.fitSculpt;
+    const visibleExercises = activeTab === "my" ? tabData.myExercises : tabData.fitsculptExercises;
 
     if (visibleExercises.length === 0) {
       return (
         <div className="card" role="status">
           <p className="muted">
-            {activeTab === "my" && !tabData.hasOwnershipSignals
-              ? t("trainer.exercises.empty.myUnsupported")
-              : activeTab === "my"
+            {activeTab === "my"
+              ? tabData.hasOwnershipSignals
                 ? t("trainer.exercises.empty.my")
-                : t("trainer.exercises.empty.fitsculpt")}
+                : t("trainer.exercises.empty.myUnsupported")
+              : t("trainer.exercises.empty.fitsculpt")}
           </p>
         </div>
       );
@@ -226,7 +230,7 @@ export default function TrainerExercisesClient() {
         ))}
       </ul>
     );
-  }, [activeTab, exercisesState, loadExercises, t, tabData.fitSculpt, tabData.hasOwnershipSignals, tabData.mine]);
+  }, [activeTab, exercisesState, loadExercises, t, tabData.fitsculptExercises, tabData.hasOwnershipSignals, tabData.myExercises]);
 
   if (permissionState === "loading") {
     return <p className="muted">{t("trainer.loading")}</p>;
@@ -251,7 +255,7 @@ export default function TrainerExercisesClient() {
     <div className="section-stack">
       <div className="feature-card form-stack">
         <h2 style={{ margin: 0 }}>{t("trainer.exercises.tabs.library")}</h2>
-        {createCapability === "can_create" ? (
+        {createCapability !== "cannot_create" ? (
           <Link href="/app/trainer/exercises/new" className="btn primary" style={{ width: "fit-content" }}>
             {t("training.manualCreate")}
           </Link>

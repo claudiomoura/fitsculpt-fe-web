@@ -39,64 +39,65 @@ export type ExerciseListResult = {
   };
 };
 
-export type ExerciseOwnershipBuckets = {
-  fitSculpt: Exercise[];
-  mine: Exercise[];
-  hasOwnershipSignals: boolean;
-};
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
-}
+type UnknownExercise = Exercise & Record<string, unknown>;
 
 function asText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
-function resolveExerciseOwnerId(exercise: Exercise): string | null {
-  const rawExercise = exercise as Exercise & Record<string, unknown>;
-  const owner = asRecord(rawExercise.owner);
-  const user = asRecord(rawExercise.user);
-
-  return asText(rawExercise.userId) ?? asText(owner?.id) ?? asText(user?.id) ?? null;
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
 }
 
-function resolveIsUserCreated(exercise: Exercise): boolean | null {
-  const rawExercise = exercise as Exercise & Record<string, unknown>;
+function getExerciseUserId(exercise: Exercise): string | null {
+  const rawExercise = exercise as UnknownExercise;
+  return asText(rawExercise.userId);
+}
 
-  if (typeof rawExercise.isUserCreated === "boolean") {
-    return rawExercise.isUserCreated;
+function getIsUserCreated(exercise: Exercise): boolean | null {
+  const rawExercise = exercise as UnknownExercise;
+  return asBoolean(rawExercise.isUserCreated);
+}
+
+export function isExerciseOwnedByUser(exercise: Exercise, viewerUserId: string | null): boolean {
+  const exerciseUserId = getExerciseUserId(exercise);
+  if (viewerUserId && exerciseUserId && exerciseUserId === viewerUserId) {
+    return true;
   }
 
-  const source = asText(rawExercise.source)?.toLowerCase();
-  if (!source) return null;
-
-  if (source === "user" || source === "trainer") return true;
-  if (source === "fitsculpt" || source === "global") return false;
-
-  return null;
+  return getIsUserCreated(exercise) === true;
 }
 
-export function splitExercisesByOwnership(exercises: Exercise[], viewerUserId: string | null): ExerciseOwnershipBuckets {
-  const mine = exercises.filter((exercise) => {
-    const ownerId = resolveExerciseOwnerId(exercise);
-    const isUserCreated = resolveIsUserCreated(exercise);
+export type ExercisesByOwnership = {
+  fitsculptExercises: Exercise[];
+  myExercises: Exercise[];
+  hasOwnershipSignals: boolean;
+};
 
-    return Boolean((viewerUserId && ownerId && ownerId === viewerUserId) || isUserCreated === true);
-  });
+export function splitExercisesByOwnership(exercises: Exercise[], viewerUserId: string | null): ExercisesByOwnership {
+  const myExercises: Exercise[] = [];
+  const fitsculptExercises: Exercise[] = [];
 
-  const mineIds = new Set(mine.map((exercise) => exercise.id));
+  let hasOwnershipSignals = false;
 
-  return {
-    mine,
-    fitSculpt: exercises.filter((exercise) => !mineIds.has(exercise.id)),
-    hasOwnershipSignals: exercises.some((exercise) => {
-      const ownerId = resolveExerciseOwnerId(exercise);
-      const isUserCreated = resolveIsUserCreated(exercise);
+  for (const exercise of exercises) {
+    const hasUserId = getExerciseUserId(exercise) !== null;
+    const isUserCreated = getIsUserCreated(exercise);
+    const hasIsUserCreatedSignal = isUserCreated !== null;
 
-      return ownerId !== null || isUserCreated !== null;
-    }),
-  };
+    if (hasUserId || hasIsUserCreatedSignal) {
+      hasOwnershipSignals = true;
+    }
+
+    if (isExerciseOwnedByUser(exercise, viewerUserId)) {
+      myExercises.push(exercise);
+      continue;
+    }
+
+    fitsculptExercises.push(exercise);
+  }
+
+  return { fitsculptExercises, myExercises, hasOwnershipSignals };
 }
 
 function sanitizeOptions(values?: string[] | null) {

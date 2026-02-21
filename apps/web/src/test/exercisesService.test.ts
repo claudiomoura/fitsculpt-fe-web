@@ -68,23 +68,27 @@ describe("fetchExercisesList", () => {
 
 
 describe("splitExercisesByOwnership", () => {
-  it("classifies user-created exercises into the mine bucket", () => {
-    const result = splitExercisesByOwnership([
-      { id: "ex_global", name: "Squat", source: "fitsculpt" } as never,
-      { id: "ex_mine_1", name: "My Row", userId: "user_1" } as never,
-      { id: "ex_mine_2", name: "My Press", isUserCreated: true } as never,
-    ], "user_1");
+  it("classifies user-owned exercises using userId and isUserCreated", () => {
+    const source = [
+      { id: "ex_1", name: "Push-up" },
+      { id: "ex_2", name: "Squat", userId: "user_1" },
+      { id: "ex_3", name: "Burpee", isUserCreated: true },
+      { id: "ex_4", name: "Lunge", userId: "user_2", isUserCreated: false },
+    ];
 
-    expect(result.mine.map((exercise) => exercise.id)).toEqual(["ex_mine_1", "ex_mine_2"]);
-    expect(result.fitSculpt.map((exercise) => exercise.id)).toEqual(["ex_global"]);
+    const result = splitExercisesByOwnership(source as never[], "user_1");
+
+    expect(result.myExercises.map((item) => item.id)).toEqual(["ex_2", "ex_3"]);
+    expect(result.fitsculptExercises.map((item) => item.id)).toEqual(["ex_1", "ex_4"]);
     expect(result.hasOwnershipSignals).toBe(true);
   });
 
-  it("keeps exercises in FitSculpt bucket when ownership cannot be determined", () => {
-    const result = splitExercisesByOwnership([{ id: "ex_unknown", name: "Unknown" }], "user_1");
+  it("returns no ownership signals when payload does not expose ownership fields", () => {
+    const source = [{ id: "ex_1", name: "Push-up" }];
+    const result = splitExercisesByOwnership(source as never[], "user_1");
 
-    expect(result.mine).toEqual([]);
-    expect(result.fitSculpt.map((exercise) => exercise.id)).toEqual(["ex_unknown"]);
+    expect(result.myExercises).toEqual([]);
+    expect(result.fitsculptExercises.map((item) => item.id)).toEqual(["ex_1"]);
     expect(result.hasOwnershipSignals).toBe(false);
   });
 });

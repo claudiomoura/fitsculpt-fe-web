@@ -2086,9 +2086,9 @@
         "myExercises": "My exercises"
       },
       "empty": {
-        "fitsculpt": "No FitSculpt exercises are available right now.",
-        "my": "You have not created any exercises yet.",
-        "myUnsupported": "This environment cannot identify your exercises yet."
+        "myUnsupported": "This environment cannot identify your exercises yet.",
+        "my": "You have not created exercises yet.",
+        "fitsculpt": "No public FitSculpt exercises are available yet."
       }
     },
     "plans": {

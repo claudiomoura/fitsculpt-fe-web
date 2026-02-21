@@ -12,17 +12,11 @@ async function supportsExercisesRead(): Promise<boolean> {
   }
 }
 
-async function supportsExerciseCreate(): Promise<"can_create" | "cannot_create" | "unknown"> {
-  const canReadExercises = await supportsExercisesRead();
-  return canReadExercises ? "can_create" : "unknown";
-}
-
 export async function auditTrainerExerciseCapabilities(): Promise<TrainerExerciseCapabilities> {
   const canReadExercises = await supportsExercisesRead();
-  const createExercise = canReadExercises ? await supportsExerciseCreate() : "cannot_create";
 
   return {
-    createExercise,
+    createExercise: canReadExercises ? "unknown" : "cannot_create",
     canUploadMedia: false,
   };
 }
