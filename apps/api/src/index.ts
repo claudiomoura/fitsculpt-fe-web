@@ -1182,11 +1182,16 @@ const aiGenerateNutritionSchema = z.object({
   userId: z.string().min(1).optional(),
   mealsPerDay: z.number().int().min(2).max(6),
   targetKcal: z.number().int().min(600).max(4000),
+  startDate: z.string().min(1).optional(),
+  daysCount: z.number().int().min(1).max(14).optional(),
   macroTargets: z.object({
     proteinG: z.number().min(0),
     carbsG: z.number().min(0),
     fatsG: z.number().min(0),
   }),
+  dietType: z
+    .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
+    .optional(),
   dietaryPrefs: z
     .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
     .optional(),
@@ -2324,7 +2329,12 @@ function parseNutritionPlanPayload(payload: Record<string, unknown>, startDate: 
     return normalizeNutritionPlanDays(aiNutritionPlanResponseSchema.parse(payload), startDate, daysCount);
   } catch (error) {
     app.log.warn({ err: error, payload }, "ai nutrition response invalid");
-    throw createHttpError(502, "AI_PARSE_ERROR");
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reasonCode: "SCHEMA_PARSE",
+      details: {
+        parserError: error instanceof z.ZodError ? error.flatten() : String(error),
+      },
+    });
   }
 }
 
@@ -2340,7 +2350,10 @@ function assertNutritionMatchesRequest(
         "nutrition plan days mismatch"
       );
     }
-    throw createHttpError(502, "AI_PARSE_ERROR", { expectedDays, actualDays: plan.days.length });
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reasonCode: "MISSING_FIELDS",
+      details: { expectedDays, actualDays: plan.days.length },
+    });
   }
   const invalid = plan.days.find((day) => day.meals.length !== expectedMealsPerDay);
   if (invalid) {
@@ -2354,10 +2367,66 @@ function assertNutritionMatchesRequest(
         "nutrition plan meals mismatch"
       );
     }
-    throw createHttpError(502, "AI_PARSE_ERROR", {
-      expectedMealsPerDay,
-      actualMealsPerDay: invalid.meals.length,
-      dayLabel: invalid.dayLabel,
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reasonCode: "MISSING_FIELDS",
+      details: {
+        expectedMealsPerDay,
+        actualMealsPerDay: invalid.meals.length,
+        dayLabel: invalid.dayLabel,
+      },
+    });
+  }
+}
+
+function getNutritionInvalidOutputDebug(error: unknown) {
+  const typed = error as { debug?: Record<string, unknown>; code?: string; message?: string };
+  const reason = typed.debug?.reason;
+  if (typed.debug?.reasonCode && typed.debug?.details) {
+    return {
+      cause: "INVALID_AI_OUTPUT",
+      reasonCode: typed.debug.reasonCode,
+      details: typed.debug.details,
+    };
+  }
+  if (reason === "MEALS_PER_DAY_MISMATCH" || reason === "DAY_COUNT_MISMATCH") {
+    return { cause: "INVALID_AI_OUTPUT", reasonCode: "MISSING_FIELDS", details: typed.debug ?? {} };
+  }
+  if (typeof reason === "string" && reason.includes("MISMATCH")) {
+    return { cause: "INVALID_AI_OUTPUT", reasonCode: "MATH_MISMATCH", details: typed.debug ?? {} };
+  }
+  if (typed.code === "AI_PARSE_ERROR") {
+    return {
+      cause: "INVALID_AI_OUTPUT",
+      reasonCode: "SCHEMA_PARSE",
+      details: { message: typed.message ?? "AI_PARSE_ERROR" },
+    };
+  }
+  return {
+    cause: "INVALID_AI_OUTPUT",
+    reasonCode: "REQUEST_MISMATCH",
+    details: typed.debug ?? { message: typed.message ?? "Unknown validation error" },
+  };
+}
+
+function assertNutritionRequestMapping(
+  payload: z.infer<typeof aiGenerateNutritionSchema>,
+  nutritionInput: z.infer<typeof aiNutritionSchema>,
+  expectedDaysCount: number
+) {
+  const mismatches: Record<string, unknown> = {};
+  if (payload.startDate && nutritionInput.startDate !== payload.startDate) {
+    mismatches.startDate = { expected: payload.startDate, actual: nutritionInput.startDate };
+  }
+  if (nutritionInput.daysCount !== expectedDaysCount) {
+    mismatches.daysCount = { expected: expectedDaysCount, actual: nutritionInput.daysCount };
+  }
+  if (payload.dietType && nutritionInput.dietType !== payload.dietType) {
+    mismatches.dietType = { expected: payload.dietType, actual: nutritionInput.dietType };
+  }
+  if (Object.keys(mismatches).length > 0) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reasonCode: "REQUEST_MISMATCH",
+      details: mismatches,
     });
   }
 }
@@ -5613,13 +5682,13 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
           : "maintain",
       mealsPerDay: payload.mealsPerDay,
       calories: payload.targetKcal,
-      startDate: toIsoDateString(new Date()),
-      daysCount: 7,
-      dietaryRestrictions: [payload.dietaryPrefs, nutritionPreferences.dietaryPrefs]
+      startDate: payload.startDate || toIsoDateString(new Date()),
+      daysCount: payload.daysCount ?? 7,
+      dietaryRestrictions: [payload.dietType, nutritionPreferences.dietaryPrefs]
         .filter((item): item is string => typeof item === "string" && item.length > 0)
         .join(", "),
       dietType:
-        payload.dietaryPrefs ??
+        payload.dietType ??
         (nutritionPreferences.dietType === "balanced" ||
         nutritionPreferences.dietType === "mediterranean" ||
         nutritionPreferences.dietType === "keto" ||
@@ -5640,9 +5709,11 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
 
     const startDate = parseDateInput(nutritionInput.startDate) ?? new Date();
     const daysCount = nutritionInput.daysCount ?? 7;
+    assertNutritionRequestMapping(payload, nutritionInput, daysCount);
     let parsedPlan: z.infer<typeof aiNutritionPlanResponseSchema> | null = null;
     let aiResult: OpenAiResponse | null = null;
     let lastError: unknown = null;
+    let lastRawOutput = "";
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
@@ -5664,6 +5735,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
           retryOnParseError: false,
         });
 
+        lastRawOutput = JSON.stringify(result.payload);
         const candidate = parseNutritionPlanPayload(result.payload, startDate, daysCount);
         assertNutritionMatchesRequest(candidate, payload.mealsPerDay, daysCount);
         assertNutritionMath(candidate, payload);
@@ -5676,9 +5748,26 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
     }
 
     if (!parsedPlan) {
+      const debug = getNutritionInvalidOutputDebug(lastError);
+      app.log.warn(
+        {
+          request: {
+            mealsPerDay: payload.mealsPerDay,
+            targetKcal: payload.targetKcal,
+            macroTargets: payload.macroTargets,
+            startDate: payload.startDate,
+            daysCount: payload.daysCount,
+            dietType: payload.dietType,
+          },
+          rawOutput: lastRawOutput.slice(0, 2000),
+          reasonCode: debug.reasonCode,
+          details: debug.details,
+        },
+        "nutrition generation invalid ai output"
+      );
       throw createHttpError(400, "INVALID_AI_OUTPUT", {
         message: "No se pudo generar un plan nutricional válido tras reintento.",
-        cause: (lastError as { code?: string })?.code ?? "UNKNOWN",
+        ...debug,
       });
     }
 
