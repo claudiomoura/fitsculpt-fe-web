@@ -5689,13 +5689,20 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
     let lastError: unknown = null;
     let lastRawOutput = "";
     let retryFeedback = "";
+    const resolvedDietType = payload.dietType ?? nutritionInput.dietType ?? "balanced";
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const prompt = `${buildNutritionPrompt(nutritionInput, [], attempt > 0, retryFeedback)} ` +
           `Macros objetivo por día (con tolerancia): proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
           `Calorías objetivo por día: ${payload.targetKcal}. ` +
-          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día." : ""}`;
+          "REGLA DURA: cada día debe cumplir proteína total >= objetivo de proteína (no menos). " +
+          "REGLA DURA: cada comida debe incluir una fuente proteica clara y suficiente para aportar proteína real. " +
+          (resolvedDietType === "vegetarian"
+            ? "REGLA DURA VEGETARIANO: prioriza tofu, tempeh, seitán, legumbres, huevos, lácteos altos en proteína (si aplica) y proteína vegetal en polvo cuando haga falta. No uses carnes ni pescado. "
+            : "") +
+          "VERIFICACIÓN FINAL OBLIGATORIA: antes de responder, revisa expected vs actual por día y ajusta para que proteína/carbohidratos/grasas queden dentro de ±5g del objetivo diario sin cambiar calorías objetivo. " +
+          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día. En el error previo faltó proteína: debes incrementarla sin cambiar targetKcal." : ""}`;
         const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
           responseFormat: {
             type: "json_schema",
