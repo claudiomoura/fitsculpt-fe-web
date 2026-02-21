@@ -913,7 +913,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }));
   };
 
-  const trainingPlanDetails = form ? (
+  const trainingPlanDetails = (
     <section className="card">
       <button
         type="button"
@@ -922,7 +922,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         aria-controls="training-plan-details"
         onClick={() => setIsPlanDetailsOpen((prev) => !prev)}
       >
-        {isPlanDetailsOpen ? t("ui.hidePlanDetails") : t("ui.showPlanDetails")}
+        {isPlanDetailsOpen ? t("training.planDetails.hide") : t("training.planDetails.show")}
         <Icon
           name="chevron-down"
           size={16}
@@ -931,116 +931,79 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         />
       </button>
 
-      <div id="training-plan-details" role="region" aria-label={t("training.formTitle")} hidden={!isPlanDetailsOpen} className="mt-12">
-        <div className="badge-list plan-summary-chips">
-          <Badge>
-            {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
-          </Badge>
-          <Badge>
-            {t("training.level")}: {t(form.level === "beginner" ? "training.levelBeginner" : form.level === "intermediate" ? "training.levelIntermediate" : "training.levelAdvanced")}
-          </Badge>
-          <Badge>{t("training.daysPerWeek")}: {form.daysPerWeek}</Badge>
-          <Badge>
-            {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
-          </Badge>
-          <Badge>
-            {t("training.sessionTime")}: {t(form.sessionTime === "short" ? "training.sessionTimeShort" : form.sessionTime === "long" ? "training.sessionTimeLong" : "training.sessionTimeMedium")}
-          </Badge>
-          <Badge>
-            {t("training.focus")}: {t(form.focus === "ppl" ? "training.focusPushPullLegs" : form.focus === "upperLower" ? "training.focusUpperLower" : "training.focusFullBody")}
-          </Badge>
-        </div>
+      <div id="training-plan-details" role="region" aria-label={t("training.planDetails.title")} hidden={!isPlanDetailsOpen} className="mt-12">
+        <h2 className="section-title section-title-sm">{t("training.planDetails.title")}</h2>
 
-        <p className="muted mt-12">
-          {t("training.preferencesHint")}
-        </p>
+        {aiTokenBalance !== null ? (
+          <p className="muted mt-8 plan-token-line">
+            {t("ai.tokensRemaining")} {aiTokenBalance}
+            {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
+          </p>
+        ) : null}
+
+        {isAiLocked ? (
+          <div className="feature-card mt-12">
+            <strong>{t("aiLockedTitle")}</strong>
+            <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
+          </div>
+        ) : null}
+
+        {loading ? (
+          <div className="form-stack mt-12">
+            <Skeleton variant="line" className="w-40" />
+            <Skeleton variant="line" className="w-60" />
+          </div>
+        ) : error ? (
+          <div className="status-card status-card--warning mt-12">
+            <div className="inline-actions-sm">
+              <Icon name="warning" />
+              <strong>{t("training.errorTitle")}</strong>
+            </div>
+            <p className="muted">{error}</p>
+            <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+              {t("ui.retry")}
+            </button>
+          </div>
+        ) : saveMessage ? (
+          <p className="muted mt-12">{saveMessage}</p>
+        ) : null}
+
+        {form ? (
+          <>
+            <div className="badge-list plan-summary-chips mt-12">
+              <Badge>
+                {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
+              </Badge>
+              <Badge>
+                {t("training.level")}: {t(form.level === "beginner" ? "training.levelBeginner" : form.level === "intermediate" ? "training.levelIntermediate" : "training.levelAdvanced")}
+              </Badge>
+              <Badge>{t("training.daysPerWeek")}: {form.daysPerWeek}</Badge>
+              <Badge>
+                {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
+              </Badge>
+              <Badge>
+                {t("training.sessionTime")}: {t(form.sessionTime === "short" ? "training.sessionTimeShort" : form.sessionTime === "long" ? "training.sessionTimeLong" : "training.sessionTimeMedium")}
+              </Badge>
+              <Badge>
+                {t("training.focus")}: {t(form.focus === "ppl" ? "training.focusPushPullLegs" : form.focus === "upperLower" ? "training.focusUpperLower" : "training.focusFullBody")}
+              </Badge>
+            </div>
+
+            <p className="muted mt-12">{t("training.preferencesHint")}</p>
+
+            <Link href="/app/entrenamiento/editar" className="btn secondary mt-12 fit-content">
+              {t("training.editPlan")}
+            </Link>
+          </>
+        ) : null}
       </div>
     </section>
-  ) : null;
+  );
 
   return (
     <div className="page">
       {!isManualView ? (
         <>
-          <section className="card">
-<div className="section-head section-head-actions">
-  <div className="min-w-0">
-    <h2 className="section-title section-title-sm">{t("training.formTitle")}</h2>
-    <p className="section-subtitle">{t("training.tips")}</p>
-  </div>
-
-  <div className="section-actions plan-page-actions">
-    {/* <button type="button" className="btn" disabled={!form} onClick={() => loadProfile({ current: true })}>
-      {t("training.generate")}
-    </button> */}
-
-    <button
-      type="button"
-      className="btn"
-      disabled={isAiDisabled}
-      onClick={handleGenerateClick}
-    >
-      {aiLoading ? t("training.aiGenerating") : t("training.aiGenerate")}
-    </button>
-
-    {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-      {saving ? t("training.savePlanSaving") : t("training.savePlan")}
-    </button> */}
-
-    <Link href="/app/entrenamiento/editar" className="btn secondary">
-      {t("training.editPlan")}
-    </Link>
-  </div>
-</div>
-
-            {aiTokenBalance !== null ? (
-              <p className="muted mt-8 plan-token-line">
-                {t("ai.tokensRemaining")} {aiTokenBalance}
-                {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
-              </p>
-            ) : null}
-
-            {isAiLocked ? (
-              <div className="feature-card mt-12">
-                <strong>{t("aiLockedTitle")}</strong>
-                <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
-              </div>
-            ) : null}
-
-
-            {loading ? (
-              <div className="form-stack">
-                <Skeleton variant="line" className="w-40" />
-                <Skeleton variant="line" className="w-60" />
-              </div>
-            ) : error ? (
-              <div className="status-card status-card--warning">
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{t("training.errorTitle")}</strong>
-                </div>
-                <p className="muted">{error}</p>
-                <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
-                  {t("ui.retry")}
-                </button>
-              </div>
-            ) : saveMessage ? (
-              <p className="muted">{saveMessage}</p>
-            ) : form ? (
-              <>
-                <div className="badge-list plan-summary-chips">
-                  <Badge>
-                    {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
-                  </Badge>
-                  <Badge>{t("training.daysPerWeek")}: {form.daysPerWeek}</Badge>
-                  <Badge>
-                    {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
-                  </Badge>
-                </div>
-              </>
-            ) : null}
-          </section>
-
           {!loading && !error && profile && !isProfileComplete(profile) ? (
             <section className="card">
               <div className="empty-state">
@@ -1403,8 +1366,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </section>
           ) : null}
 
-          {!loading && !error && hasPlan ? trainingPlanDetails : null}
-
           {hasPlan && (
             <section className="card">
               <div className="section-head">
@@ -1424,6 +1385,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </div>
             </section>
           )}
+
+          {!loading && !error && hasPlan ? trainingPlanDetails : null}
         </>
       ) : null}
 
