@@ -79,6 +79,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
   const [results, setResults] = useState<Exercise[]>([]);
   const [isAddingExercise, setIsAddingExercise] = useState(false);
   const [addError, setAddError] = useState(false);
+  const [addNotSupported, setAddNotSupported] = useState(false);
   const [deleteExerciseNotSupported, setDeleteExerciseNotSupported] = useState(false);
   const [updateNotSupported, setUpdateNotSupported] = useState(false);
   const [exerciseDrafts, setExerciseDrafts] = useState<Record<string, ExerciseDraft>>({});
@@ -112,6 +113,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
     setDeleteDayNotSupported(false);
     setDeleteExerciseNotSupported(false);
     setUpdateNotSupported(false);
+    setAddNotSupported(false);
     setLoading(false);
   }, [normalizedDay, planId]);
 
@@ -169,7 +171,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
 
 
   const onAddExercise = useCallback(async (exerciseId: string) => {
-    if (!selectedDay || isAddingExercise) return;
+    if (!selectedDay || isAddingExercise || addNotSupported) return;
 
     setIsAddingExercise(true);
     setAddError(false);
@@ -180,16 +182,23 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
     });
 
     if (!result.ok) {
-      setAddError(true);
+      if (NOT_SUPPORTED_STATUSES.has(result.status ?? 0) || result.reason === "notSupported") {
+        setAddNotSupported(true);
+      } else {
+        setAddError(true);
+      }
+
       setIsAddingExercise(false);
       return;
     }
+
+    setAddNotSupported(false);
 
     setQuery("");
     setResults([]);
     setIsAddingExercise(false);
     await loadDay();
-  }, [isAddingExercise, loadDay, planId, selectedDay]);
+  }, [addNotSupported, isAddingExercise, loadDay, planId, selectedDay]);
 
   const onSaveExercise = useCallback(async (exercise: TrainingPlanExercise) => {
     if (!selectedDay || savingExerciseId) return;
@@ -217,9 +226,10 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
         markTrainerPlanEditCapabilityUnsupported(planId, "canUpdateDayExercise", { dayId: selectedDay.id, exerciseId: exercise.id });
       }
 
+      const unsupported = NOT_SUPPORTED_STATUSES.has(result.status ?? 0) || result.reason === "notSupported";
       notify({
         title: t("common.error"),
-        description: result.message ?? t("trainer.plans.updateExerciseError"),
+        description: unsupported ? t("trainer.plans.cannotUpdateExerciseInEnvironment") : (result.message ?? t("trainer.plans.updateExerciseError")),
         variant: "error",
       });
       setSavingExerciseId(null);
@@ -247,9 +257,10 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
         markTrainerPlanEditCapabilityUnsupported(planId, "canDeleteDay", { dayId: selectedDay.id });
       }
 
+      const unsupported = NOT_SUPPORTED_STATUSES.has(result.status ?? 0) || result.reason === "notSupported";
       notify({
         title: t("common.error"),
-        description: result.message ?? t("trainer.plans.deleteDayError"),
+        description: unsupported ? t("trainer.plans.cannotDeleteDayInEnvironment") : (result.message ?? t("trainer.plans.deleteDayError")),
         variant: "error",
       });
       setIsDeletingDay(false);
@@ -278,9 +289,10 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
         markTrainerPlanEditCapabilityUnsupported(planId, "canDeleteDayExercise", { dayId: selectedDay.id, exerciseId });
       }
 
+      const unsupported = NOT_SUPPORTED_STATUSES.has(result.status ?? 0) || result.reason === "notSupported";
       notify({
         title: t("common.error"),
-        description: result.message ?? t("trainer.plans.deleteExerciseError"),
+        description: unsupported ? t("trainer.plans.cannotDeleteExerciseInEnvironment") : (result.message ?? t("trainer.plans.deleteExerciseError")),
         variant: "error",
       });
       setIsDeletingExerciseId(null);
@@ -355,7 +367,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
             }
           }}
           placeholder={t("trainer.plans.searchExercisesPlaceholder")}
-          disabled={isAddingExercise}
+          disabled={isAddingExercise || addNotSupported}
         />
 
         {searching ? <p className="muted">{t("trainer.plans.searchingExercises")}</p> : null}
@@ -368,7 +380,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
           <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 20 }}>
             {results.map((exercise) => (
               <li key={exercise.id}>
-                <button type="button" className="btn secondary" disabled={isAddingExercise} onClick={() => void onAddExercise(exercise.id)}>
+                <button type="button" className="btn secondary" disabled={isAddingExercise || addNotSupported} onClick={() => void onAddExercise(exercise.id)}>
                   {exercise.name}
                 </button>
               </li>
@@ -376,6 +388,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
           </ul>
         ) : null}
 
+        {addNotSupported ? <p className="muted">{t("trainer.plans.addExerciseNotSupported")}</p> : null}
         {addError ? <p className="muted">{t("trainer.plans.addExerciseError")}</p> : null}
       </div>
 
@@ -549,7 +562,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
             })}
           </ul>
         )}
-        {updateNotSupported || deleteExerciseNotSupported ? <p className="muted">{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
+        {addNotSupported || updateNotSupported || deleteExerciseNotSupported ? <p className="muted">{t("trainer.planDetail.notAvailableInEnvironment")}</p> : null}
         {updateNotSupported ? <p className="muted">{t("trainer.plans.editExercise.notSupported")}</p> : null}
       </div>
 
