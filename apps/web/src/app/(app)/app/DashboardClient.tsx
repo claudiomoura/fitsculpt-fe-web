@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { toDateKey } from "@/lib/calendar";
+import { addDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { ProfileData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
+import { NUTRITION_ADHERENCE_STORAGE_KEY } from "@/lib/nutritionAdherence";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
@@ -35,79 +36,30 @@ type UserFood = {
 type TrackingPayload = {
   checkins?: CheckinEntry[];
   foodLog?: FoodEntry[];
+  workoutLog?: WorkoutEntry[];
 };
 
-type ChartPoint = {
-  label: string;
-  value: number;
+type WorkoutEntry = {
+  id: string;
+  date: string;
+  durationMin?: number;
 };
 
-const defaultFoodProfiles: Record<string, { labelKey: string; protein: number; carbs: number; fat: number }> = {
-  salmon: { labelKey: "foods.salmon", protein: 20, carbs: 0, fat: 13 },
-  eggs: { labelKey: "foods.eggs", protein: 13, carbs: 1.1, fat: 10 },
-  chicken: { labelKey: "foods.chicken", protein: 31, carbs: 0, fat: 3.6 },
-  rice: { labelKey: "foods.brownRice", protein: 2.7, carbs: 28, fat: 0.3 },
-  quinoa: { labelKey: "foods.quinoa", protein: 4.4, carbs: 21, fat: 1.9 },
-  yogurt: { labelKey: "foods.greekYogurt", protein: 10, carbs: 4, fat: 4 },
-  potatoes: { labelKey: "foods.potato", protein: 2, carbs: 17, fat: 0.1 },
-  avocado: { labelKey: "foods.avocado", protein: 2, carbs: 9, fat: 15 },
+type WorkoutSessionEntry = {
+  sets?: number | null;
+  reps?: number | null;
 };
 
-function buildSeries(checkins: CheckinEntry[], key: "weightKg" | "bodyFatPercent") {
-  return [...checkins]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map((entry) => {
-      const value = Number(entry[key]);
-      if (!Number.isFinite(value)) return null;
-      return { label: entry.date, value };
-    })
-    .filter((entry): entry is ChartPoint => entry !== null);
-}
+type WorkoutSession = {
+  finishedAt?: string | null;
+  startedAt?: string;
+  entries?: WorkoutSessionEntry[] | null;
+};
 
-function LineChart({ data, unit, label }: { data: ChartPoint[]; unit: string; label: string }) {
-  if (data.length === 0) return null;
-
-  const values = data.map((point) => point.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(1, max - min);
-  const width = 120;
-  const height = 40;
-  const padding = 6;
-
-  const points = data.map((point, index) => {
-    const x = padding + (index / Math.max(1, data.length - 1)) * (width - padding * 2);
-    const y = padding + (1 - (point.value - min) / range) * (height - padding * 2);
-    return { x, y };
-  });
-
-  const path = points.map((point) => `${point.x},${point.y}`).join(" ");
-  const latest = data[data.length - 1];
-
-  return (
-    <div className="chart-wrapper">
-      <div className="chart-meta">
-        <strong>
-          {latest.value} {unit}
-        </strong>
-        <span className="muted">{latest.label}</span>
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="chart-svg" role="img" aria-label={label}>
-        <polyline
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={path}
-        />
-        {points.map((point, index) => (
-          <circle key={index} cx={point.x} cy={point.y} r="2.2" fill="var(--accent)" />
-        ))}
-      </svg>
-    </div>
-  );
-}
+type WorkoutItem = {
+  id: string;
+  sessions?: WorkoutSession[] | null;
+};
 
 function ProgressRing({
   value,
@@ -154,6 +106,8 @@ export default function DashboardClient() {
   const { t, locale } = useLanguage();
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
+  const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutItem[]>([]);
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +126,7 @@ export default function DashboardClient() {
         if (active) {
           setCheckins(data.checkins ?? []);
           setFoodLog(data.foodLog ?? []);
+          setWorkoutLog(data.workoutLog ?? []);
         }
       } catch (_err) {
         if (active) setError(t("dashboard.chartError"));
@@ -199,6 +154,24 @@ export default function DashboardClient() {
       }
     };
     void loadUserFoods();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadWorkouts = async () => {
+      try {
+        const response = await fetch("/api/workouts", { cache: "no-store", credentials: "include" });
+        if (!response.ok) return;
+        const data = (await response.json()) as WorkoutItem[];
+        if (active) setWorkouts(Array.isArray(data) ? data : []);
+      } catch (_err) {
+        if (active) setWorkouts([]);
+      }
+    };
+    void loadWorkouts();
     return () => {
       active = false;
     };
@@ -322,10 +295,235 @@ export default function DashboardClient() {
     [locale]
   );
 
-  const weightSeries = useMemo(() => buildSeries(checkins, "weightKg"), [checkins]);
-  const bodyFatSeries = useMemo(() => buildSeries(checkins, "bodyFatPercent"), [checkins]);
-  const hasWeightData = weightSeries.length > 0;
-  const hasBodyFatData = bodyFatSeries.length > 0;
+  const currentWeekDays = useMemo(() => {
+    const start = addDays(new Date(), -(WEEK_DAYS - 1));
+    return Array.from({ length: WEEK_DAYS }, (_, index) => toDateKey(addDays(start, index)));
+  }, []);
+  const previousWeekDays = useMemo(() => {
+    const start = addDays(new Date(), -(WEEK_DAYS * 2 - 1));
+    return Array.from({ length: WEEK_DAYS }, (_, index) => toDateKey(addDays(start, index)));
+  }, []);
+
+  const currentWeekSet = useMemo(() => new Set(currentWeekDays), [currentWeekDays]);
+  const previousWeekSet = useMemo(() => new Set(previousWeekDays), [previousWeekDays]);
+
+  const workoutSessionDates = useMemo(
+    () =>
+      workouts.flatMap((workout) =>
+        (workout.sessions ?? []).map((session) => {
+          const source = session.finishedAt ?? session.startedAt;
+          const parsed = parseDate(source ?? null);
+          return parsed ? toDateKey(parsed) : null;
+        })
+      ),
+    [workouts]
+  );
+  const trackedWorkoutDates = useMemo(() => workoutLog.map((entry) => entry.date), [workoutLog]);
+
+  const weeklyKpis = useMemo<WeeklyKpi[]>(() => {
+    const dayIndexMap = new Map(currentWeekDays.map((day, index) => [day, index]));
+    const prevDayIndexMap = new Map(previousWeekDays.map((day, index) => [day, index]));
+
+    const sessionsByDay = Array.from({ length: WEEK_DAYS }, () => 0);
+    let currentSessions = 0;
+    let previousSessions = 0;
+    [...workoutSessionDates, ...trackedWorkoutDates].forEach((dateKey) => {
+      if (!dateKey) return;
+      const currentDayIndex = dayIndexMap.get(dateKey);
+      if (typeof currentDayIndex === "number") {
+        currentSessions += 1;
+        sessionsByDay[currentDayIndex] += 1;
+        return;
+      }
+      if (prevDayIndexMap.has(dateKey)) previousSessions += 1;
+    });
+
+    const volumeByDay = Array.from({ length: WEEK_DAYS }, () => 0);
+    let currentVolume = 0;
+    let previousVolume = 0;
+    workouts.forEach((workout) => {
+      (workout.sessions ?? []).forEach((session) => {
+        const source = session.finishedAt ?? session.startedAt;
+        const parsed = parseDate(source ?? null);
+        if (!parsed) return;
+        const dateKey = toDateKey(parsed);
+        const volume = (session.entries ?? []).reduce((sum, entry) => {
+          const sets = Number(entry.sets ?? 0);
+          const reps = Number(entry.reps ?? 0);
+          if (!Number.isFinite(sets) || !Number.isFinite(reps)) return sum;
+          return sum + Math.max(0, sets) * Math.max(0, reps);
+        }, 0);
+        const currentDayIndex = dayIndexMap.get(dateKey);
+        if (typeof currentDayIndex === "number") {
+          currentVolume += volume;
+          volumeByDay[currentDayIndex] += volume;
+          return;
+        }
+        if (prevDayIndexMap.has(dateKey)) previousVolume += volume;
+      });
+    });
+
+    let adherenceStore: Record<string, string[]> = {};
+    if (typeof window !== "undefined") {
+      try {
+        adherenceStore = JSON.parse(window.localStorage.getItem(NUTRITION_ADHERENCE_STORAGE_KEY) ?? "{}") as Record<string, string[]>;
+      } catch (_err) {
+        adherenceStore = {};
+      }
+    }
+    const adherenceByDay = currentWeekDays.map((day) => (Array.isArray(adherenceStore[day]) ? adherenceStore[day].length : 0));
+    const adherenceDaysCurrent = adherenceByDay.filter((count) => count > 0).length;
+    const adherenceDaysPrevious = previousWeekDays.filter(
+      (day) => Array.isArray(adherenceStore[day]) && adherenceStore[day].length > 0
+    ).length;
+
+    const caloriesByDay = Array.from({ length: WEEK_DAYS }, () => 0);
+    const calorieDays = new Set<string>();
+    foodLog.forEach((entry) => {
+      const currentDayIndex = dayIndexMap.get(entry.date);
+      if (typeof currentDayIndex !== "number") return;
+      const profile = entry.foodKey.startsWith("user:")
+        ? userFoodMap.get(entry.foodKey.replace("user:", ""))
+        : defaultFoodProfiles[entry.foodKey];
+      if (!profile) return;
+      const baseCalories = "calories" in profile ? profile.calories : profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
+      const calories = baseCalories * (entry.grams / 100);
+      caloriesByDay[currentDayIndex] += calories;
+      calorieDays.add(entry.date);
+    });
+    const averageCalories = calorieDays.size > 0 ? caloriesByDay.reduce((sum, value) => sum + value, 0) / calorieDays.size : 0;
+
+    const weightByDay = Array.from({ length: WEEK_DAYS }, () => 0);
+    let currentWeightEntries = 0;
+    checkins.forEach((entry) => {
+      const dayIndex = dayIndexMap.get(entry.date);
+      if (typeof dayIndex !== "number") return;
+      const weight = Number(entry.weightKg);
+      if (!Number.isFinite(weight)) return;
+      weightByDay[dayIndex] = weight;
+      currentWeightEntries += 1;
+    });
+
+    const activityDaysCurrent = new Set<string>();
+    const activityDaysPrevious = new Set<string>();
+    const ingest = (dateKey: string | null) => {
+      if (!dateKey) return;
+      if (currentWeekSet.has(dateKey)) activityDaysCurrent.add(dateKey);
+      if (previousWeekSet.has(dateKey)) activityDaysPrevious.add(dateKey);
+    };
+    [...workoutSessionDates, ...trackedWorkoutDates].forEach((dateKey) => ingest(dateKey));
+    foodLog.forEach((entry) => ingest(entry.date));
+    checkins.forEach((entry) => ingest(entry.date));
+    currentWeekDays.forEach((day) => {
+      if (adherenceByDay[dayIndexMap.get(day) ?? -1] > 0) ingest(day);
+    });
+    previousWeekDays.forEach((day) => {
+      if (Array.isArray(adherenceStore[day]) && adherenceStore[day].length > 0) ingest(day);
+    });
+
+    let currentStreak = 0;
+    for (let i = currentWeekDays.length - 1; i >= 0; i -= 1) {
+      if (!activityDaysCurrent.has(currentWeekDays[i])) break;
+      currentStreak += 1;
+    }
+
+    const formatDelta = (current: number, previous: number, suffix = "") => {
+      if (previous === 0) return undefined;
+      const diff = current - previous;
+      const sign = diff > 0 ? "+" : "";
+      return `${sign}${diff}${suffix} vs ${t("dashboard.kpiPreviousWeek")}`;
+    };
+
+    const kpis: WeeklyKpi[] = [
+      {
+        key: "sessions",
+        title: t("dashboard.kpiSessionsTitle"),
+        valueLabel: String(currentSessions),
+        helperLabel: t("dashboard.kpiSessionsHelper"),
+        deltaLabel: formatDelta(currentSessions, previousSessions),
+        bars: sessionsByDay,
+        ctaHref: "/app/entrenamientos",
+        ctaLabel: t("dashboard.kpiGoCalendar"),
+      },
+      {
+        key: "volume",
+        title: t("dashboard.kpiVolumeTitle"),
+        valueLabel: `${Math.round(currentVolume)}`,
+        helperLabel: t("dashboard.kpiVolumeHelper"),
+        deltaLabel: formatDelta(Math.round(currentVolume), Math.round(previousVolume)),
+        bars: volumeByDay,
+        ctaHref: "/app/entrenamientos",
+        ctaLabel: t("dashboard.kpiGoToday"),
+      },
+      {
+        key: "adherence",
+        title: t("dashboard.kpiAdherenceTitle"),
+        valueLabel: `${Math.round((adherenceDaysCurrent / WEEK_DAYS) * 100)}%`,
+        helperLabel: `${adherenceDaysCurrent}/${WEEK_DAYS} ${t("dashboard.kpiDays")}`,
+        deltaLabel: formatDelta(adherenceDaysCurrent, adherenceDaysPrevious, ` ${t("dashboard.kpiDaysShort")}`),
+        bars: adherenceByDay,
+        ctaHref: "/app/nutricion",
+        ctaLabel: t("dashboard.kpiGoToday"),
+      },
+      {
+        key: "streak",
+        title: t("dashboard.kpiStreakTitle"),
+        valueLabel: `${currentStreak} ${t("dashboard.kpiDaysShort")}`,
+        helperLabel: t("dashboard.kpiStreakHelper"),
+        deltaLabel: formatDelta(activityDaysCurrent.size, activityDaysPrevious.size, ` ${t("dashboard.kpiDaysShort")}`),
+        bars: currentWeekDays.map((day) => (activityDaysCurrent.has(day) ? 1 : 0)),
+        ctaHref: "/app/hoy",
+        ctaLabel: t("dashboard.kpiGoToday"),
+      },
+    ];
+
+    if (nutritionTargets?.calories && calorieDays.size > 0) {
+      kpis.splice(3, 0, {
+        key: "calories",
+        title: t("dashboard.kpiCaloriesTitle"),
+        valueLabel: `${Math.round(averageCalories)} ${t("units.kcal")}`,
+        helperLabel: `${t("dashboard.kpiCaloriesGoal")} ${nutritionTargets.calories} ${t("units.kcal")}`,
+        deltaLabel: `${Math.round(averageCalories - nutritionTargets.calories)} ${t("units.kcal")}`,
+        bars: caloriesByDay,
+        ctaHref: "/app/hoy",
+        ctaLabel: t("dashboard.kpiGoToday"),
+      });
+    }
+
+    if (currentWeightEntries > 0) {
+      const lastWeight = [...checkins]
+        .filter((entry) => currentWeekSet.has(entry.date))
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .at(-1);
+      if (lastWeight) {
+        kpis.splice(Math.min(4, kpis.length), 0, {
+          key: "weight",
+          title: t("dashboard.kpiWeightTitle"),
+          valueLabel: `${lastWeight.weightKg.toFixed(1)} ${t("units.kilograms")}`,
+          helperLabel: t("dashboard.kpiWeightHelper"),
+          bars: weightByDay,
+          ctaHref: "/app/seguimiento",
+          ctaLabel: t("dashboard.progressCta"),
+        });
+      }
+    }
+
+    return kpis;
+  }, [
+    checkins,
+    currentWeekDays,
+    currentWeekSet,
+    foodLog,
+    nutritionTargets?.calories,
+    previousWeekDays,
+    previousWeekSet,
+    t,
+    trackedWorkoutDates,
+    userFoodMap,
+    workouts,
+    workoutSessionDates,
+  ]);
+
   const handleRetry = () => window.location.reload();
 
   return (
@@ -606,7 +804,7 @@ export default function DashboardClient() {
         <div className="section-head">
           <div>
             <h2 className="section-title section-title-sm">{t("dashboard.progressTitle")}</h2>
-            <p className="section-subtitle">{t("dashboard.progressSubtitle")}</p>
+            <p className="section-subtitle">{t("dashboard.kpiSubtitle")}</p>
           </div>
           <ButtonLink variant="secondary" href="/app/seguimiento">
             {t("dashboard.progressCta")}
@@ -639,59 +837,52 @@ export default function DashboardClient() {
               </ButtonLink>
             </div>
           </div>
-        ) : checkins.length === 0 ? (
+        ) : weeklyKpis.length === 0 ? (
           <div className="empty-state dashboard-empty">
             <div className="empty-state-icon">
               <Icon name="info" />
             </div>
             <div>
-              <p className="muted m-0">{t("dashboard.progressEmpty")}</p>
-              <p className="muted m-0">{t("dashboard.progressEmptyHint")}</p>
+              <p className="muted m-0">{t("dashboard.kpiEmptyTitle")}</p>
             </div>
-            <ButtonLink href="/app/seguimiento" className="fit-content">
-              {t("dashboard.progressEmptyCta")}
-            </ButtonLink>
+            <div className="dashboard-summary-actions">
+              <ButtonLink href="/app/hoy" className="fit-content">
+                {t("dashboard.kpiGoToday")}
+              </ButtonLink>
+              <ButtonLink variant="secondary" href="/app/entrenamientos" className="fit-content">
+                {t("dashboard.kpiGoCalendar")}
+              </ButtonLink>
+            </div>
           </div>
         ) : (
-          <div className="dashboard-charts">
-            <div className="feature-card chart-card">
-              <div className="chart-header">
-                <h3>{t("dashboard.weightChartTitle")}</h3>
-                <span className="muted">{t("dashboard.weightChartSubtitle")}</span>
-              </div>
-              {hasWeightData ? (
-                <LineChart data={weightSeries} unit={t("units.kilograms")} label={t("dashboard.weightChartAria")} />
-              ) : (
-                <div className="empty-state">
-                  <div>
-                    <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
-                    <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
+          <div className="dashboard-kpi-grid">
+            {weeklyKpis.map((kpi) => {
+              const maxBar = Math.max(...(kpi.bars ?? [0]), 1);
+              return (
+                <article key={kpi.key} className="feature-card dashboard-kpi-card">
+                  <div className="stack-sm">
+                    <span className="muted">{kpi.title}</span>
+                    <strong className="dashboard-kpi-value">{kpi.valueLabel}</strong>
+                    <span className="muted">{kpi.helperLabel}</span>
+                    {kpi.deltaLabel ? <span className="status-pill status-exact">{kpi.deltaLabel}</span> : null}
                   </div>
-                  <ButtonLink href="/app/seguimiento" className="fit-content">
-                    {t("dashboard.progressEmptyCta")}
+                  {kpi.bars && kpi.bars.length > 0 ? (
+                    <div className="dashboard-kpi-bars" aria-hidden="true">
+                      {kpi.bars.map((value, index) => (
+                        <span
+                          key={`${kpi.key}-bar-${index}`}
+                          className="dashboard-kpi-bar"
+                          style={{ height: `${Math.max(8, (value / maxBar) * 100)}%` }}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  <ButtonLink variant="ghost" href={kpi.ctaHref} className="fit-content">
+                    {kpi.ctaLabel}
                   </ButtonLink>
-                </div>
-              )}
-            </div>
-            <div className="feature-card chart-card">
-              <div className="chart-header">
-                <h3>{t("dashboard.bodyFatChartTitle")}</h3>
-                <span className="muted">{t("dashboard.bodyFatChartSubtitle")}</span>
-              </div>
-              {hasBodyFatData ? (
-                <LineChart data={bodyFatSeries} unit={t("units.percent")} label={t("dashboard.bodyFatChartAria")} />
-              ) : (
-                <div className="empty-state">
-                  <div>
-                    <p className="muted m-0">{t("dashboard.bodyFatEmptyTitle")}</p>
-                    <p className="muted m-0">{t("dashboard.bodyFatEmptySubtitle")}</p>
-                  </div>
-                  <ButtonLink href="/app/seguimiento" className="fit-content">
-                    {t("dashboard.progressEmptyCta")}
-                  </ButtonLink>
-                </div>
-              )}
-            </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
