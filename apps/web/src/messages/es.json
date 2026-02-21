@@ -2131,6 +2131,16 @@
       "searchExercisesEmpty": "No se encontraron ejercicios para esta búsqueda.",
       "dayExercisesTitle": "Ejercicios de este día",
       "dayNotFound": "No se encontró el día seleccionado en este plan.",
+      "deleteDay": "Eliminar día",
+      "deleteDayConfirmTitle": "Eliminar día del plan",
+      "deleteDayConfirmDescription": "Esta acción no se puede deshacer.",
+      "deleteDaySuccess": "Día eliminado correctamente.",
+      "deleteDayError": "No pudimos eliminar este día.",
+      "deleteExercise": "Eliminar ejercicio",
+      "deleteExerciseConfirmTitle": "Eliminar ejercicio del día",
+      "deleteExerciseConfirmDescription": "Esta acción no se puede deshacer.",
+      "deleteExerciseSuccess": "Ejercicio eliminado correctamente.",
+      "deleteExerciseError": "No pudimos eliminar este ejercicio.",
       "createSuccessTitle": "Plan creado",
       "createSuccessDescription": "Tu nuevo plan está listo para editar.",
       "lockedBadge": "Bloqueado",
@@ -2245,7 +2255,18 @@
       "restSeconds": "Descanso (seg)",
       "intensityNotes": "Notas de intensidad",
       "removeSet": "Eliminar serie",
-      "removeSetDisabledHint": "Se requiere al menos una serie."
+      "removeSetDisabledHint": "Se requiere al menos una serie.",
+      "updateExerciseSuccess": "Ejercicio actualizado correctamente.",
+      "updateExerciseError": "No pudimos guardar los cambios del ejercicio.",
+      "editExercise": {
+        "sets": "Series",
+        "reps": "Repeticiones",
+        "rest": "Descanso (seg)",
+        "notes": "Notas",
+        "tempo": "Tempo",
+        "noEditableFields": "No hay campos editables disponibles para este ejercicio.",
+        "notSupported": "La edición de detalles del ejercicio no está soportada en este entorno."
+      }
     },
     "planDetail": {
       "edit": "Editar",

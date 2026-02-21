@@ -180,6 +180,9 @@ Implementado:
 
 * Listado base de planes
 * Asignación manual básica
+* Editor por día ahora permite editar y persistir `sets/reps/rest/notes/tempo` únicamente cuando esos campos existen en el payload del backend.
+* Estados de no-soporte limpios para `PATCH` no disponible (404/405/501), sin romper la página.
+* Ajustes de UX en modal de creación: scroll interno + barra de acciones sticky para evitar que "Add set" saque controles fuera de pantalla.
 
 No validado:
 ⚠ Plantilla dinámica por nº días no cerrada
@@ -187,8 +190,8 @@ No validado:
 ⚠ Remove client no auditado en BE
 
 Estado:
-Base funcional.
-No validado como herramienta comercial sólida.
+Base funcional con edición granular de ejercicios en día.
+Pendiente validación E2E en entorno gym real.
 
 ---
 

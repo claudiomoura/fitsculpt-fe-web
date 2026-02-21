@@ -15,7 +15,14 @@ import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
-import { createTrainerPlan, getTrainerPlanDetail, listCurrentGymTrainerPlans } from "@/services/trainer/plans";
+import {
+  createTrainerPlan,
+  deleteTrainerPlan,
+  deleteTrainerPlanDay,
+  getTrainerPlanDetail,
+  getTrainerPlanEditCapabilities,
+  listCurrentGymTrainerPlans,
+} from "@/services/trainer/plans";
 
 type LoadState = "loading" | "ready";
 type PlansTabId = "fitsculptPlans" | "myPlans";
@@ -88,6 +95,12 @@ export default function TrainerPlansPageClient() {
 
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DetailState>({ loading: false, error: false, item: null });
+  const [deletePlanTarget, setDeletePlanTarget] = useState<TrainingPlanListItem | null>(null);
+  const [deleteDayTarget, setDeleteDayTarget] = useState<{ id: string; label: string } | null>(null);
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [deletingDayId, setDeletingDayId] = useState<string | null>(null);
+  const [canDeletePlanById, setCanDeletePlanById] = useState<Record<string, boolean>>({});
+  const [canDeleteSelectedPlanDay, setCanDeleteSelectedPlanDay] = useState(false);
 
   const loadPlans = useCallback(async () => {
     setListState("loading");
@@ -130,6 +143,47 @@ export default function TrainerPlansPageClient() {
 
     return () => window.clearTimeout(timer);
   }, [canAccessTrainerArea, loadPlans]);
+
+  useEffect(() => {
+    if (plans.length === 0) {
+      setCanDeletePlanById({});
+      return;
+    }
+
+    let cancelled = false;
+    async function loadDeleteCapabilities() {
+      const entries = await Promise.all(plans.map(async (plan) => {
+        const caps = await getTrainerPlanEditCapabilities(plan.id);
+        return [plan.id, caps.canDeletePlan] as const;
+      }));
+
+      if (cancelled) return;
+      setCanDeletePlanById(Object.fromEntries(entries));
+    }
+
+    void loadDeleteCapabilities();
+    return () => {
+      cancelled = true;
+    };
+  }, [plans]);
+
+  useEffect(() => {
+    if (!detail.item?.id || !detail.item.days?.[0]?.id) {
+      setCanDeleteSelectedPlanDay(false);
+      return;
+    }
+
+    let cancelled = false;
+    async function loadDetailCapabilities() {
+      const caps = await getTrainerPlanEditCapabilities(detail.item!.id, detail.item!.days[0].id);
+      if (cancelled) return;
+      setCanDeleteSelectedPlanDay(caps.canDeleteDay);
+    }
+    void loadDetailCapabilities();
+    return () => {
+      cancelled = true;
+    };
+  }, [detail.item]);
 
   const toggleScheduleDay = (weekIndex: number, dayIndex: number) => {
     setScheduleGrid((prev) => prev.map((week, rowIndex) => {
@@ -208,6 +262,55 @@ export default function TrainerPlansPageClient() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const onDeletePlan = async () => {
+    if (!deletePlanTarget || deletingPlanId) return;
+    setDeletingPlanId(deletePlanTarget.id);
+    const result = await deleteTrainerPlan(deletePlanTarget.id);
+    setDeletingPlanId(null);
+
+    if (!result.ok) {
+      const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
+      notify({
+        title: t("trainer.plans.actions.delete"),
+        description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteError"),
+        variant: "error",
+      });
+      return;
+    }
+
+    setDeletePlanTarget(null);
+    setPlans((prev) => prev.filter((entry) => entry.id !== deletePlanTarget.id));
+    if (selectedPlanId === deletePlanTarget.id) {
+      setSelectedPlanId(null);
+      setDetail({ loading: false, error: false, item: null });
+    }
+    notify({ title: t("trainer.plans.actions.delete"), description: t("trainer.plans.deleteSuccess"), variant: "success" });
+  };
+
+  const onDeleteDay = async () => {
+    if (!detail.item?.id || !deleteDayTarget || deletingDayId) return;
+    setDeletingDayId(deleteDayTarget.id);
+    const result = await deleteTrainerPlanDay(detail.item.id, deleteDayTarget.id);
+    setDeletingDayId(null);
+
+    if (!result.ok) {
+      const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
+      notify({
+        title: t("trainer.planDetail.deleteDay"),
+        description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteDayError"),
+        variant: "error",
+      });
+      return;
+    }
+
+    setDeleteDayTarget(null);
+    setDetail((prev) => (prev.item ? {
+      ...prev,
+      item: { ...prev.item, days: prev.item.days.filter((d) => d.id !== result.data.dayId) },
+    } : prev));
+    notify({ title: t("trainer.planDetail.deleteDay"), description: t("trainer.plans.deleteDaySuccess"), variant: "success" });
   };
 
   if (accessLoading || gymLoading) return <LoadingState ariaLabel={t("trainer.loading")} lines={3} />;
@@ -299,6 +402,14 @@ export default function TrainerPlansPageClient() {
                           </div>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                             <Button variant="secondary" onClick={() => void loadPlanDetail(plan.id)}>{t("trainer.plans.selectPlan")}</Button>
+                            <Button
+                              variant="ghost"
+                              disabled={!canDeletePlanById[plan.id]}
+                              onClick={() => setDeletePlanTarget(plan)}
+                              title={!canDeletePlanById[plan.id] ? t("trainer.plans.actions.deleteUnsupported") : undefined}
+                            >
+                              {t("trainer.plans.actions.delete")}
+                            </Button>
                             <ButtonLink href={`/app/entrenamiento/editar?planId=${plan.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`} variant="secondary">
                               {t("trainer.plans.editDay")}
                             </ButtonLink>
@@ -336,6 +447,15 @@ export default function TrainerPlansPageClient() {
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       <strong>{day.label}</strong>
                       <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item?.id ?? ""}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>{t("trainer.plans.editDay")}</Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={!canDeleteSelectedPlanDay}
+                        onClick={() => setDeleteDayTarget({ id: day.id, label: day.label })}
+                        title={!canDeleteSelectedPlanDay ? t("trainer.planDetail.notAvailableInEnvironment") : undefined}
+                      >
+                        {t("trainer.planDetail.deleteDay")}
+                      </Button>
                     </div>
                     {day.exercises.length === 0 ? <p className="muted">{t("trainer.plans.dayExercisesEmpty")}</p> : (
                       <ul style={{ margin: 0, paddingInlineStart: 20 }}>
@@ -351,6 +471,30 @@ export default function TrainerPlansPageClient() {
       </Card>
 
       <Modal
+        open={Boolean(deletePlanTarget)}
+        onClose={() => !deletingPlanId && setDeletePlanTarget(null)}
+        title={t("trainer.plans.deleteConfirmTitle")}
+        description={t("trainer.plans.deleteConfirmDescription")}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="secondary" onClick={() => setDeletePlanTarget(null)} disabled={Boolean(deletingPlanId)}>{t("ui.cancel")}</Button>
+          <Button variant="danger" onClick={() => void onDeletePlan()} loading={Boolean(deletingPlanId)} disabled={!deletePlanTarget || Boolean(deletingPlanId)}>{t("trainer.plans.actions.delete")}</Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(deleteDayTarget)}
+        onClose={() => !deletingDayId && setDeleteDayTarget(null)}
+        title={t("trainer.plans.deleteDayConfirmTitle")}
+        description={t("trainer.plans.deleteDayConfirmDescription")}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <Button variant="secondary" onClick={() => setDeleteDayTarget(null)} disabled={Boolean(deletingDayId)}>{t("ui.cancel")}</Button>
+          <Button variant="danger" onClick={() => void onDeleteDay()} loading={Boolean(deletingDayId)} disabled={!deleteDayTarget || Boolean(deletingDayId)}>{t("trainer.plans.actions.delete")}</Button>
+        </div>
+      </Modal>
+
+      <Modal
         open={createModalOpen}
         onClose={() => {
           if (!creating) {
@@ -361,7 +505,7 @@ export default function TrainerPlansPageClient() {
         title={t(createStep === "basics" ? "trainer.plans.wizard.basicsTitle" : "trainer.plans.wizard.scheduleTitle")}
         description={t(createStep === "basics" ? "trainer.plans.wizard.basicsDescription" : "trainer.plans.wizard.scheduleDescription")}
       >
-        <form className="form-stack" onSubmit={(event) => void onCreate(event)}>
+        <form className="form-stack" onSubmit={(event) => void onCreate(event)} style={{ maxHeight: "min(78vh, 760px)", overflowY: "auto", paddingInlineEnd: 2 }}>
           {createError ? <p className="muted" role="alert">{createErrorMessage ?? t("trainer.plans.createError")}</p> : null}
 
           {createStep === "basics" ? (
@@ -470,6 +614,7 @@ export default function TrainerPlansPageClient() {
 
                     <div className="form-stack" style={{ gap: 8 }}>
                       <strong>{t("trainer.plans.wizard.setEditorTitle")}</strong>
+                      <div className="form-stack" style={{ gap: 8, maxHeight: "40vh", overflowY: "auto", paddingInlineEnd: 2 }}>
                       {selectedDayDraft.sets.map((setItem, setIndex) => (
                         <div key={`set-${setIndex + 1}`} style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(90px, 1fr))", gap: 8 }}>
                           <Input
@@ -518,6 +663,7 @@ export default function TrainerPlansPageClient() {
                           />
                         </div>
                       ))}
+                      </div>
                       <Button
                         type="button"
                         variant="secondary"
@@ -538,7 +684,7 @@ export default function TrainerPlansPageClient() {
             </>
           )}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap", position: "sticky", bottom: 0, background: "var(--card, #111)", paddingTop: 10 }}>
             {createStep === "schedule" ? (
               <Button type="button" variant="ghost" onClick={() => setCreateStep("basics")} disabled={creating}>{t("trainer.plans.wizard.backToBasics")}</Button>
             ) : null}

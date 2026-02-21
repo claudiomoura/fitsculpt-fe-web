@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
+import { splitExercisesByOwnership } from "@/services/exercises";
 import { getUserRoleFlags } from "@/lib/userCapabilities";
 import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabilityAudit";
 import { extractGymMembership } from "@/lib/gymMembership";
@@ -61,6 +63,7 @@ function getExerciseThumbnail(exercise: Exercise): string | null {
 
 export default function TrainerExercisesClient() {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const [permissionState, setPermissionState] = useState<LoadState>("loading");
   const [exercisesState, setExercisesState] = useState<LoadState>("loading");
   const [canAccessTrainer, setCanAccessTrainer] = useState(false);
@@ -69,7 +72,11 @@ export default function TrainerExercisesClient() {
   const [canUploadMedia, setCanUploadMedia] = useState(false);
   const [viewerGymId, setViewerGymId] = useState<string | null>(null);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<ExercisesTab>("fitsculpt");
+  const [activeTab, setActiveTab] = useState<ExercisesTab>(() => (searchParams?.get("tab") === "my" ? "my" : "fitsculpt"));
+
+  useEffect(() => {
+    setActiveTab(searchParams?.get("tab") === "my" ? "my" : "fitsculpt");
+  }, [searchParams]);
 
   const loadExercises = useCallback(async () => {
     setExercisesState("loading");

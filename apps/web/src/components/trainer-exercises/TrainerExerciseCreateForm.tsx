@@ -124,11 +124,11 @@ export default function TrainerExerciseCreateForm() {
       });
 
       if (createdId) {
-        router.push(`/app/biblioteca/${createdId}`);
+        router.push("/app/trainer/exercises?tab=my");
         return;
       }
 
-      router.push("/app/trainer/exercises");
+      router.push("/app/trainer/exercises?tab=my");
     } catch (_err) {
       notify({
         title: t("trainer.error"),
