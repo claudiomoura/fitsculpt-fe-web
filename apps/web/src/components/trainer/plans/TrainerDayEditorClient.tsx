@@ -10,7 +10,14 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise, TrainingPlanExercise, TrainingPlanDay } from "@/lib/types";
-import { addExerciseToPlanDay, getTrainerPlanDetail, getTrainerPlanEditCapabilities, updatePlanDayExercise } from "@/services/trainer/plans";
+import {
+  addExerciseToPlanDay,
+  deleteTrainerPlanDay,
+  deleteTrainerPlanDayExercise,
+  getTrainerPlanDetail,
+  getTrainerPlanEditCapabilities,
+  updatePlanDayExercise,
+} from "@/services/trainer/plans";
 import { fetchExercisesList } from "@/services/exercises";
 import { Modal } from "@/components/ui/Modal";
 
@@ -76,12 +83,11 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
   const [updateNotSupported, setUpdateNotSupported] = useState(false);
   const [exerciseDrafts, setExerciseDrafts] = useState<Record<string, ExerciseDraft>>({});
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
-const [canDeleteDay, setCanDeleteDay] = useState(false);
-const [deleteDayConfirmOpen, setDeleteDayConfirmOpen] = useState(false);
-const [isDeletingDay, setIsDeletingDay] = useState(false);
-
-const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
-const [isDeletingExerciseId, setIsDeletingExerciseId] = useState<string | null>(null);
+  const [canDeleteDay, setCanDeleteDay] = useState(false);
+  const [deleteDayConfirmOpen, setDeleteDayConfirmOpen] = useState(false);
+  const [isDeletingDay, setIsDeletingDay] = useState(false);
+  const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
+  const [isDeletingExerciseId, setIsDeletingExerciseId] = useState<string | null>(null);
   const normalizedDay = useMemo(() => day.trim(), [day]);
 
   const loadDay = useCallback(async () => {
@@ -247,6 +253,58 @@ const [isDeletingExerciseId, setIsDeletingExerciseId] = useState<string | null>(
     setSavingExerciseId(null);
     await loadDay();
   }, [exerciseDrafts, loadDay, notify, planId, savingExerciseId, selectedDay, t]);
+
+  const onDeleteDay = useCallback(async () => {
+    if (!selectedDay || isDeletingDay) return;
+
+    setIsDeletingDay(true);
+    const result = await deleteTrainerPlanDay(planId, selectedDay.id);
+
+    if (!result.ok) {
+      notify({
+        title: t("common.error"),
+        description: result.message ?? t("trainer.plans.deleteDayError"),
+        variant: "error",
+      });
+      setIsDeletingDay(false);
+      return;
+    }
+
+    notify({
+      title: t("common.success"),
+      description: t("trainer.plans.deleteDaySuccess"),
+      variant: "success",
+    });
+    setDeleteDayConfirmOpen(false);
+    setIsDeletingDay(false);
+    await loadDay();
+  }, [isDeletingDay, loadDay, notify, planId, selectedDay, t]);
+
+  const onDeleteExercise = useCallback(async (exerciseId: string) => {
+    if (!selectedDay || isDeletingExerciseId || !exerciseId.trim()) return;
+
+    setIsDeletingExerciseId(exerciseId);
+    const result = await deleteTrainerPlanDayExercise(planId, selectedDay.id, exerciseId);
+
+    if (!result.ok) {
+      notify({
+        title: t("common.error"),
+        description: result.message ?? t("trainer.plans.deleteExerciseError"),
+        variant: "error",
+      });
+      setIsDeletingExerciseId(null);
+      return;
+    }
+
+    notify({
+      title: t("common.success"),
+      description: t("trainer.plans.deleteExerciseSuccess"),
+      variant: "success",
+    });
+    setDeleteExerciseId(null);
+    setIsDeletingExerciseId(null);
+    await loadDay();
+  }, [isDeletingExerciseId, loadDay, notify, planId, selectedDay, t]);
 
   if (accessLoading || gymLoading) {
     return <LoadingState ariaLabel={t("trainer.loading")} lines={3} />;
@@ -440,6 +498,18 @@ const [isDeletingExerciseId, setIsDeletingExerciseId] = useState<string | null>(
                     <button type="button" className="btn" disabled={!changed || isSaving} onClick={() => void onSaveExercise(exercise)}>
                       {t("trainer.plans.save")}
                     </button>
+                  ) : null}
+
+                  {canDeleteExercise ? (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setDeleteExerciseId(exercise.id)}
+                      disabled={Boolean(isDeletingExerciseId)}
+                    >
+                      {t("trainer.plans.actions.delete")}
+                    </Button>
                   ) : null}
                 </li>
               );
