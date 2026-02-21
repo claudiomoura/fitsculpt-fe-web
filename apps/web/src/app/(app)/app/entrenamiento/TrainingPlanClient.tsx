@@ -263,6 +263,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
   const [canManageManualDays] = useState<boolean>(false);
   const [calendarView, setCalendarView] = useState<"day" | "week" | "month" | "agenda">("day");
+  const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
     const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
@@ -981,29 +982,59 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             ) : saveMessage ? (
               <p className="muted">{saveMessage}</p>
             ) : form ? (
-              <div className="badge-list">
-                <Badge>
-                  {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
-                </Badge>
-                <Badge>
-                  {t("training.level")}: {t(form.level === "beginner" ? "training.levelBeginner" : form.level === "intermediate" ? "training.levelIntermediate" : "training.levelAdvanced")}
-                </Badge>
-                <Badge>{t("training.daysPerWeek")}: {form.daysPerWeek}</Badge>
-                <Badge>
-                  {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
-                </Badge>
-                <Badge>
-                  {t("training.sessionTime")}: {t(form.sessionTime === "short" ? "training.sessionTimeShort" : form.sessionTime === "long" ? "training.sessionTimeLong" : "training.sessionTimeMedium")}
-                </Badge>
-                <Badge>
-                  {t("training.focus")}: {t(form.focus === "ppl" ? "training.focusPushPullLegs" : form.focus === "upperLower" ? "training.focusUpperLower" : "training.focusFullBody")}
-                </Badge>
-              </div>
-            ) : null}
+              <>
+                <div className="badge-list">
+                  <Badge>
+                    {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
+                  </Badge>
+                  <Badge>{t("training.daysPerWeek")}: {form.daysPerWeek}</Badge>
+                  <Badge>
+                    {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
+                  </Badge>
+                </div>
 
-            <p className="muted mt-12">
-              {t("training.preferencesHint")}
-            </p>
+                <button
+                  type="button"
+                  className="btn secondary fit-content mt-12"
+                  aria-expanded={isPlanDetailsOpen}
+                  aria-controls="training-plan-details"
+                  onClick={() => setIsPlanDetailsOpen((prev) => !prev)}
+                >
+                  {isPlanDetailsOpen ? t("ui.hidePlanDetails") : t("ui.showPlanDetails")}
+                  <Icon
+                    name="chevron-down"
+                    size={16}
+                    className="ml-6"
+                    style={{ transform: isPlanDetailsOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 160ms ease" }}
+                  />
+                </button>
+
+                <div id="training-plan-details" role="region" aria-label={t("training.formTitle")} hidden={!isPlanDetailsOpen} className="mt-12">
+                  <div className="badge-list">
+                    <Badge>
+                      {t("training.goal")}: {t(form.goal === "cut" ? "training.goalCut" : form.goal === "bulk" ? "training.goalBulk" : "training.goalMaintain")}
+                    </Badge>
+                    <Badge>
+                      {t("training.level")}: {t(form.level === "beginner" ? "training.levelBeginner" : form.level === "intermediate" ? "training.levelIntermediate" : "training.levelAdvanced")}
+                    </Badge>
+                    <Badge>{t("training.daysPerWeek")}: {form.daysPerWeek}</Badge>
+                    <Badge>
+                      {t("training.equipment")}: {form.equipment === "gym" ? t("training.equipmentGym") : t("training.equipmentHome")}
+                    </Badge>
+                    <Badge>
+                      {t("training.sessionTime")}: {t(form.sessionTime === "short" ? "training.sessionTimeShort" : form.sessionTime === "long" ? "training.sessionTimeLong" : "training.sessionTimeMedium")}
+                    </Badge>
+                    <Badge>
+                      {t("training.focus")}: {t(form.focus === "ppl" ? "training.focusPushPullLegs" : form.focus === "upperLower" ? "training.focusUpperLower" : "training.focusFullBody")}
+                    </Badge>
+                  </div>
+
+                  <p className="muted mt-12">
+                    {t("training.preferencesHint")}
+                  </p>
+                </div>
+              </>
+            ) : null}
           </section>
 
           {!loading && !error && profile && !isProfileComplete(profile) ? (
