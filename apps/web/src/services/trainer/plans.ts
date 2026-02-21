@@ -6,6 +6,9 @@ type TrainingPlanListPayload = {
   items?: TrainingPlanListItem[];
   data?: TrainingPlanListItem[];
   plans?: TrainingPlanListItem[];
+  gyms?: Array<{
+    plans?: TrainingPlanListItem[];
+  }>;
   total?: number;
 };
 
@@ -160,6 +163,11 @@ function getItems(payload: TrainingPlanListPayload): TrainingPlanListItem[] {
   if (Array.isArray(payload.items)) return payload.items;
   if (Array.isArray(payload.data)) return payload.data;
   if (Array.isArray(payload.plans)) return payload.plans;
+
+  if (Array.isArray(payload.gyms)) {
+    return payload.gyms.flatMap((gym) => (Array.isArray(gym?.plans) ? gym.plans : []));
+  }
+
   return [];
 }
 
