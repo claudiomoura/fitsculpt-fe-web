@@ -90,6 +90,7 @@ export default function TrainerPlansPageClient() {
 
   const [createStep, setCreateStep] = useState<CreateStep>("basics");
   const [scheduleWeeks, setScheduleWeeks] = useState(4);
+  const [manualDaysPerWeek, setManualDaysPerWeek] = useState(3);
   const [scheduleGrid, setScheduleGrid] = useState<boolean[][]>(createWeekSchedule(4));
   const [selectedScheduleCell, setSelectedScheduleCell] = useState<string | null>(null);
   const [dayDrafts, setDayDrafts] = useState<Record<string, WorkoutDayDraft>>({});
@@ -161,7 +162,18 @@ export default function TrainerPlansPageClient() {
     scheduleGrid.flatMap((week, weekIndex) => week.flatMap((enabled, dayIndex) => (enabled ? [`${weekIndex + 1}-${dayIndex + 1}`] : [])))
   ), [scheduleGrid]);
 
-  const selectedDayCount = selectedScheduleCells.length;
+
+  const selectedWeekdayIndexes = useMemo(() => {
+    const weekdaySet = new Set<number>();
+    scheduleGrid.forEach((week) => {
+      week.forEach((enabled, dayIndex) => {
+        if (enabled) weekdaySet.add(dayIndex);
+      });
+    });
+    return Array.from(weekdaySet).sort((a, b) => a - b);
+  }, [scheduleGrid]);
+
+  const selectedWeekdayCount = selectedWeekdayIndexes.length;
 
   const selectedScheduleCellForEditor = useMemo(() => {
     if (selectedScheduleCell && selectedScheduleCells.includes(selectedScheduleCell)) return selectedScheduleCell;
@@ -171,12 +183,9 @@ export default function TrainerPlansPageClient() {
   const selectedDayDraft = useMemo(() => (selectedScheduleCellForEditor ? dayDrafts[selectedScheduleCellForEditor] : null), [dayDrafts, selectedScheduleCellForEditor]);
 
   const derivedDaysPerWeek = useMemo(() => {
-    const highestSelectedPerWeek = scheduleGrid.reduce((highest, week) => {
-      const selectedInWeek = week.filter(Boolean).length;
-      return Math.max(highest, selectedInWeek);
-    }, 0);
-    return Math.max(1, Math.min(7, highestSelectedPerWeek || selectedDayCount || 1));
-  }, [scheduleGrid, selectedDayCount]);
+    if (selectedWeekdayCount > 0) return selectedWeekdayCount;
+    return Math.max(1, Math.min(7, manualDaysPerWeek));
+  }, [manualDaysPerWeek, selectedWeekdayCount]);
 
   const updateSelectedDayDraft = (updater: (prev: WorkoutDayDraft) => WorkoutDayDraft) => {
     if (!selectedScheduleCellForEditor) return;
@@ -201,13 +210,14 @@ export default function TrainerPlansPageClient() {
     setTitle("");
     setCreateStep("basics");
     setScheduleWeeks(4);
+    setManualDaysPerWeek(3);
     setScheduleGrid(createWeekSchedule(4));
     setSelectedScheduleCell(null);
     setDayDrafts({});
   };
 
   const onCreate = async () => {
-    if (!title.trim() || creating || selectedDayCount < 1) return;
+    if (!title.trim() || creating || derivedDaysPerWeek < 1) return;
 
     setCreating(true);
     setCreateError(false);
@@ -253,7 +263,7 @@ export default function TrainerPlansPageClient() {
     }
 
     if (createStep === "schedule") {
-      if (selectedDayCount < 1) return;
+      if (derivedDaysPerWeek < 1) return;
       setCreateStep("workouts");
       return;
     }
@@ -573,6 +583,21 @@ export default function TrainerPlansPageClient() {
             <>
               <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.weekRange", { start: 1, end: scheduleWeeks })}</p>
 
+              <Input
+                type="number"
+                min={1}
+                max={7}
+                label={t("training.daysPerWeek")}
+                value={derivedDaysPerWeek}
+                disabled={createDisabled || creating || selectedWeekdayCount > 0}
+                onChange={(event) => setManualDaysPerWeek(Math.max(1, Math.min(7, Number(event.target.value) || 1)))}
+              />
+              {selectedWeekdayCount > 0 ? (
+                <p className="muted" style={{ margin: 0 }}>
+                  {t("trainer.plans.wizard.selectedDaysCount", { count: selectedWeekdayCount })}
+                </p>
+              ) : null}
+
               <div className="form-stack" style={{ gap: 6 }}>
                 {scheduleGrid.map((week, weekIndex) => (
                   <div key={`week-${weekIndex + 1}`} style={{ display: "grid", gridTemplateColumns: "80px repeat(7, minmax(44px, 1fr))", gap: 6, alignItems: "center" }}>
@@ -598,14 +623,14 @@ export default function TrainerPlansPageClient() {
                 ))}
               </div>
 
-              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.selectedDaysCount", { count: selectedDayCount })}</p>
+              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.selectedDaysCount", { count: derivedDaysPerWeek })}</p>
               <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.localOnlyHint")}</p>
             </>
           ) : null}
 
           {createStep === "workouts" ? (
             <>
-              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.selectedDaysCount", { count: selectedDayCount })}</p>
+              <p className="muted" style={{ margin: 0 }}>{t("trainer.plans.wizard.selectedDaysCount", { count: derivedDaysPerWeek })}</p>
               {selectedScheduleCells.length > 0 ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {selectedScheduleCells.map((cellKey) => (
@@ -756,10 +781,10 @@ export default function TrainerPlansPageClient() {
               <Button type="submit" disabled={createDisabled || creating || !title.trim()}>{t("trainer.plans.wizard.continue")}</Button>
             ) : null}
             {createStep === "schedule" ? (
-              <Button type="submit" disabled={createDisabled || creating || selectedDayCount < 1}>{t("trainer.plans.wizard.continueToWorkouts")}</Button>
+              <Button type="submit" disabled={createDisabled || creating || derivedDaysPerWeek < 1}>{t("trainer.plans.wizard.continueToWorkouts")}</Button>
             ) : null}
             {createStep === "workouts" ? (
-              <Button type="submit" disabled={createDisabled || creating || !title.trim() || selectedDayCount < 1} loading={creating}>{t("trainer.plans.create")}</Button>
+              <Button type="submit" disabled={createDisabled || creating || !title.trim() || derivedDaysPerWeek < 1} loading={creating}>{t("trainer.plans.create")}</Button>
             ) : null}
           </div>
         </form>
