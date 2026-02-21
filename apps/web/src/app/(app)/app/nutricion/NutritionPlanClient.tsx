@@ -304,6 +304,44 @@ function clampInt(value: unknown, min: number, max: number, fallback: number) {
   return Math.min(max, Math.max(min, n));
 }
 
+function computeAiMacroTargets(profile: ProfileData, targetKcal: number) {
+  const weightKg = clamp(Number(profile.weightKg) || 0, 35, 250);
+  const proteinGPerKg = Number(profile.macroPreferences?.proteinGPerKg);
+  const fatGPerKg = Number(profile.macroPreferences?.fatGPerKg);
+
+  const proteinG = Math.max(0, (Number.isFinite(proteinGPerKg) && proteinGPerKg > 0 ? proteinGPerKg : 1.8) * weightKg);
+  const fatsG = Math.max(0, (Number.isFinite(fatGPerKg) && fatGPerKg > 0 ? fatGPerKg : 0.8) * weightKg);
+  const carbsG = Math.max(0, (targetKcal - proteinG * 4 - fatsG * 9) / 4);
+
+  return {
+    proteinG: round(proteinG),
+    carbsG: round(carbsG),
+    fatsG: round(fatsG),
+  };
+}
+
+function extractAiFieldErrorsMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const details = (payload as { details?: unknown }).details;
+  if (!details || typeof details !== "object") return null;
+  const fieldErrors = (details as { fieldErrors?: unknown }).fieldErrors;
+  if (!fieldErrors || typeof fieldErrors !== "object") return null;
+
+  const entries = Object.entries(fieldErrors)
+    .map(([field, message]) => {
+      if (Array.isArray(message) && typeof message[0] === "string") {
+        return `${field}: ${message[0]}`;
+      }
+      if (typeof message === "string") {
+        return `${field}: ${message}`;
+      }
+      return null;
+    })
+    .filter((message): message is string => Boolean(message));
+
+  return entries.length > 0 ? entries.join(" · ") : null;
+}
+
 
 function activityMultiplier(activity: Activity) {
   switch (activity) {
@@ -1155,6 +1193,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       const startDate = toDateKey(startOfWeek(new Date()));
       const mealsPerDay = Math.min(6, Math.max(2, Number(profile.nutritionPreferences.mealsPerDay ?? 3)));
       const calories = plan?.dailyCalories ?? 2000;
+      const targetKcal = clampInt(calories, 600, 4000, 2000);
+      const macroTargets = computeAiMacroTargets(profile, targetKcal);
       const response = await fetch("/api/ai/nutrition-plan/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1166,6 +1206,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
           goal: profile.goal,
           mealsPerDay,
           calories,
+          targetKcal,
+          macroTargets,
           startDate,
           daysCount: 7,
           dietType: profile.nutritionPreferences.dietType,
@@ -1181,13 +1223,19 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as
-          | { error?: string; message?: string; retryAfterSec?: number }
+          | { error?: string; message?: string; retryAfterSec?: number; details?: { fieldErrors?: unknown } }
           | null;
         if (payload?.error === "INSUFFICIENT_TOKENS") {
           throw new Error(t("ai.insufficientTokens"));
         }
-        if (response.status === 400 && payload?.message) {
-          throw new Error(payload.message);
+        if (response.status === 400) {
+          const fieldErrorsMessage = extractAiFieldErrorsMessage(payload);
+          if (fieldErrorsMessage) {
+            throw new Error(fieldErrorsMessage);
+          }
+          if (payload?.message) {
+            throw new Error(payload.message);
+          }
         }
         if (response.status === 429) {
           const message = payload?.message ?? t("nutrition.aiRateLimit");
