@@ -21,8 +21,8 @@ import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLeve
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
+import { normalizeNutritionPlan } from "./ai/normalizeNutritionPlan.js";
 import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
-import "dotenv/config";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
@@ -2117,55 +2117,6 @@ function buildNutritionPrompt(
   ]
     .filter(Boolean)
     .join(" ");
-}
-
-function normalizeNutritionCaloriesPerDay(
-  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
-  targetKcal: number
-): z.infer<typeof aiNutritionPlanResponseSchema> {
-  const days = plan.days.map((day) => {
-    const meals = day.meals.map((meal) => ({
-      ...meal,
-      macros: { ...meal.macros },
-      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
-    }));
-    if (meals.length === 0) return { ...day, meals };
-
-    for (const meal of meals) {
-      const macroBasedCalories = Math.round(meal.macros.protein * 4 + meal.macros.carbs * 4 + meal.macros.fats * 9);
-      if (Math.abs(meal.macros.calories - macroBasedCalories) > 35) {
-        meal.macros.calories = Math.max(1, macroBasedCalories);
-      }
-    }
-
-    let remainingDelta = targetKcal - meals.reduce((sum, meal) => sum + meal.macros.calories, 0);
-    if (remainingDelta !== 0) {
-      const direction = remainingDelta > 0 ? 1 : -1;
-      const maxIterations = Math.abs(remainingDelta) * meals.length;
-      let iterations = 0;
-
-      while (remainingDelta !== 0 && iterations < maxIterations) {
-        for (const meal of meals) {
-          if (remainingDelta === 0) break;
-          if (direction < 0 && meal.macros.calories <= 1) continue;
-          meal.macros.calories += direction;
-          remainingDelta -= direction;
-        }
-        iterations += 1;
-        if (direction < 0 && meals.every((meal) => meal.macros.calories <= 1)) {
-          break;
-        }
-      }
-    }
-
-    return { ...day, meals };
-  });
-
-  return {
-    ...plan,
-    dailyCalories: targetKcal,
-    days,
-  };
 }
 
 function buildTipPrompt(data: z.infer<typeof aiTipSchema>) {
@@ -5763,7 +5714,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
         const candidate = parseNutritionPlanPayload(result.payload, startDate, daysCount);
         assertNutritionMatchesRequest(candidate, payload.mealsPerDay, daysCount);
         const beforeNormalize = summarizeNutritionMath(candidate);
-        const normalizedCandidate = normalizeNutritionCaloriesPerDay(candidate, payload.targetKcal);
+        const normalizedCandidate = normalizeNutritionPlan(candidate);
         const afterNormalize = summarizeNutritionMath(normalizedCandidate);
         app.log.info(
           {
