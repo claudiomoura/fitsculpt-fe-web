@@ -140,7 +140,17 @@ type BffGymMembership = {
 type BffGymListItem = {
   id: string;
   name: string;
+  code?: string;
+  activationCode?: string;
+  membersCount?: number;
+  requestsCount?: number;
 };
+
+type BffGymListPayload =
+  | BffGymListItem[]
+  | {
+      gyms?: BffGymListItem[];
+    };
 
 type BffJoinRequest = {
   id: string;
@@ -254,6 +264,34 @@ function parseGymList(payload: BffGymListItem[] | BffDataEnvelope<BffGymListItem
   return unwrapDataEnvelope(payload).map((gym) => ({ id: gym.id, name: gym.name }));
 }
 
+function parseAdminGymList(payload: unknown): { gyms: GymListItem[] } | null {
+  const source = payload && typeof payload === "object" ? (payload as { gyms?: unknown }) : null;
+  const gymsPayload = Array.isArray(payload) ? payload : source?.gyms;
+  if (!Array.isArray(gymsPayload)) return null;
+
+  const gyms = gymsPayload.flatMap((entry) => {
+    const row = entry && typeof entry === "object" ? (entry as Partial<BffGymListItem>) : null;
+    const id = asString(row?.id);
+    const name = asString(row?.name);
+
+    if (!id || !name) return [];
+
+    const membersCount = typeof row?.membersCount === "number" && Number.isFinite(row.membersCount) ? row.membersCount : undefined;
+    const requestsCount = typeof row?.requestsCount === "number" && Number.isFinite(row.requestsCount) ? row.requestsCount : undefined;
+
+    return [{
+      id,
+      name,
+      ...(asString(row?.code) ? { code: asString(row?.code)! } : {}),
+      ...(asString(row?.activationCode) ? { activationCode: asString(row?.activationCode)! } : {}),
+      ...(membersCount !== undefined ? { membersCount } : {}),
+      ...(requestsCount !== undefined ? { requestsCount } : {}),
+    }];
+  });
+
+  return { gyms };
+}
+
 function parseJoinRequestList(payload: BffJoinRequest[] | BffDataEnvelope<BffJoinRequest[]>): JoinRequestListItem[] {
   return unwrapDataEnvelope(payload).map((request) => ({
     id: request.id,
@@ -278,6 +316,18 @@ export async function fetchGymsList(): Promise<ServiceResult<GymListItem[]>> {
   if (!response.ok) return response;
 
   return { ok: true, data: parseGymList(response.data) };
+}
+
+export async function fetchAdminGymsList(): Promise<ServiceResult<{ gyms: GymListItem[] }>> {
+  const response = await readJsonResponse<BffGymListPayload>("/api/admin/gyms");
+  if (!response.ok) return response;
+
+  const normalized = parseAdminGymList(response.data);
+  if (!normalized) {
+    return { ok: false, reason: "validation", message: "Unexpected admin gyms response shape" };
+  }
+
+  return { ok: true, data: normalized };
 }
 
 export async function requestGymJoin(gymId: string): Promise<ServiceResult<null>> {

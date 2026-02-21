@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { leaveGymMembership } from "@/services/gym";
+import { fetchAdminGymsList, leaveGymMembership } from "@/services/gym";
 
 function mockResponse(input: { ok: boolean; status: number; payload?: unknown }): Response {
   return {
@@ -61,5 +61,38 @@ describe("gym service", () => {
       "/api/gyms/membership",
       expect.objectContaining({ method: "DELETE" }),
     );
+  });
+
+  it("normalizes admin gyms from array payload", async () => {
+    const fetchMock = vi.fn(async () =>
+      mockResponse({ ok: true, status: 200, payload: [{ id: "gym_1", name: "Gym 1" }] }),
+    );
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const result = await fetchAdminGymsList();
+
+    expect(result).toEqual({ ok: true, data: { gyms: [{ id: "gym_1", name: "Gym 1" }] } });
+  });
+
+  it("normalizes admin gyms from { gyms } payload", async () => {
+    const fetchMock = vi.fn(async () =>
+      mockResponse({ ok: true, status: 200, payload: { gyms: [{ id: "gym_2", name: "Gym 2" }] } }),
+    );
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const result = await fetchAdminGymsList();
+
+    expect(result).toEqual({ ok: true, data: { gyms: [{ id: "gym_2", name: "Gym 2" }] } });
+  });
+
+  it("returns validation error for unexpected admin gyms shape", async () => {
+    const fetchMock = vi.fn(async () => mockResponse({ ok: true, status: 200, payload: { items: [] } }));
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const result = await fetchAdminGymsList();
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("Expected failure");
+    expect(result.reason).toBe("validation");
   });
 });
