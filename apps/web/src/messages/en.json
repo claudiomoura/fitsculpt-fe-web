@@ -1676,6 +1676,7 @@
       "sections": {
         "fitsculpt": "FitSculpt plans",
         "gym": "Gym plans",
+        "assigned": "Assigned plan",
         "ai": "AI plans"
       },
       "sectionError": "We could not load this section right now.",

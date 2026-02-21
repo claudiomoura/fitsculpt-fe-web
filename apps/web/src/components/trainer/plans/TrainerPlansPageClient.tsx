@@ -287,8 +287,8 @@ export default function TrainerPlansPageClient() {
     if (!result.ok) {
       const unsupported = result.status === 404 || result.status === 405 || result.status === 501;
       if (unsupported) {
-        setDeleteDayNotSupportedByPlanId((prev) => ({ ...prev, [detail.item.id]: true }));
-        markTrainerPlanEditCapabilityUnsupported(detail.item.id, "canDeleteDay", { dayId: deleteDayTarget.id });
+        setDeleteDayNotSupportedByPlanId((prev) => ({ ...prev, [currentPlanId]: true }));
+        markTrainerPlanEditCapabilityUnsupported(currentPlanId, "canDeleteDay", { dayId: target.id });
       }
 
       notify({
@@ -301,7 +301,7 @@ export default function TrainerPlansPageClient() {
     }
 
     setDeleteDayTarget(null);
-    setDeleteDayNotSupportedByPlanId((prev) => ({ ...prev, [detail.item.id]: false }));
+    setDeleteDayNotSupportedByPlanId((prev) => ({ ...prev, [currentPlanId]: false }));
     setDetail((prev) => (prev.item ? {
       ...prev,
       item: { ...prev.item, days: prev.item.days.filter((d) => d.id !== result.data.dayId) },
