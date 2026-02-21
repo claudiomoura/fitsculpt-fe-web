@@ -251,7 +251,7 @@ export default function TrainerPlansPageClient() {
 
       notify({
         title: t("trainer.plans.actions.delete"),
-        description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteError"),
+        description: unsupported ? t("trainer.plans.cannotDeletePlanInEnvironment") : t("trainer.plans.deleteError"),
         variant: "error",
       });
       setDeletingPlanId(null);
@@ -293,7 +293,7 @@ export default function TrainerPlansPageClient() {
 
       notify({
         title: t("trainer.planDetail.deleteDay"),
-        description: unsupported ? t("trainer.plans.actions.deleteUnsupported") : t("trainer.plans.deleteDayError"),
+        description: unsupported ? t("trainer.plans.cannotDeleteDayInEnvironment") : t("trainer.plans.deleteDayError"),
         variant: "error",
       });
       setDeletingDayId(null);

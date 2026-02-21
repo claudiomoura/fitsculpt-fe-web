@@ -10,7 +10,7 @@ export async function POST(
   const parsed = await readJsonBody(request);
   if (!parsed.ok) return parsed.response;
 
-  return proxyToBackend(`/training-plans/${id}/days/${dayId}/exercises`, { method: "POST", body: parsed.body });
+  return proxyToBackend(`/trainer/plans/${id}/days/${dayId}/exercises`, { method: "POST", body: parsed.body });
 }
 
 export async function OPTIONS() {
