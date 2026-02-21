@@ -727,6 +727,11 @@
   },
   "nutrition": {
     "formTitle": "Datos del plan",
+    "planDetails": {
+      "title": "Datos del plan",
+      "show": "Mostrar",
+      "hide": "Ocultar"
+    },
     "mealsPerDay": "Comidas por día",
     "dietTypeLabel": "Tipo de dieta",
     "dietType": {
