@@ -1170,6 +1170,28 @@ const aiNutritionSchema = z.object({
   mealDistribution: mealDistributionSchema.optional(),
 });
 
+const aiGenerateTrainingSchema = z.object({
+  userId: z.string().min(1).optional(),
+  daysPerWeek: z.number().int().min(1).max(7),
+  goal: z.enum(["cut", "maintain", "bulk"]),
+  experienceLevel: z.enum(["beginner", "intermediate", "advanced"]),
+  constraints: z.string().optional(),
+});
+
+const aiGenerateNutritionSchema = z.object({
+  userId: z.string().min(1).optional(),
+  mealsPerDay: z.number().int().min(2).max(6),
+  targetKcal: z.number().int().min(600).max(4000),
+  macroTargets: z.object({
+    proteinG: z.number().min(0),
+    carbsG: z.number().min(0),
+    fatsG: z.number().min(0),
+  }),
+  dietaryPrefs: z
+    .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
+    .optional(),
+});
+
 const aiTipSchema = z.object({
   name: z.string().min(1).optional(),
   goal: z.enum(["cut", "maintain", "bulk"]).optional(),
@@ -1263,7 +1285,7 @@ const aiNutritionPlanResponseSchema = z
   .object({
     title: z.string().min(1),
     startDate: isoDateSchema.nullable(),
-    dailyCalories: z.coerce.number().min(1200).max(4000),
+    dailyCalories: z.coerce.number().min(600).max(4000),
     proteinG: z.coerce.number().min(50).max(300),
     fatG: z.coerce.number().min(30).max(200),
     carbsG: z.coerce.number().min(50).max(600),
@@ -2339,6 +2361,211 @@ function assertNutritionMatchesRequest(
     });
   }
 }
+
+const NUTRITION_KCAL_TOLERANCE = 0;
+const NUTRITION_MACRO_TOLERANCE = 0;
+
+function assertWithinTolerance(actual: number, expected: number, tolerance: number) {
+  return Math.abs(actual - expected) <= tolerance;
+}
+
+function assertTrainingLevelConsistency(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  experienceLevel: z.infer<typeof aiGenerateTrainingSchema>['experienceLevel']
+) {
+  const minExercises = experienceLevel === "advanced" ? 4 : 3;
+  const maxExercises = experienceLevel === "beginner" ? 4 : 5;
+  for (const day of plan.days) {
+    if (day.exercises.length < minExercises || day.exercises.length > maxExercises) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        reason: "TRAINING_LEVEL_VOLUME_MISMATCH",
+        experienceLevel,
+        minExercises,
+        maxExercises,
+        dayLabel: day.label,
+        actualExercises: day.exercises.length,
+      });
+    }
+  }
+}
+
+const animalKeywords = {
+  meat: ["pollo", "res", "ternera", "cerdo", "pavo", "jamon", "jamón", "carne"],
+  seafood: ["atun", "atún", "salmón", "salmon", "merluza", "bacalao", "camar", "gamba", "langost"],
+  dairyOrEgg: ["huevo", "huevos", "queso", "leche", "yogur", "yogurt"],
+};
+
+function assertDietaryPreferenceCompliance(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  dietaryPref: z.infer<typeof aiGenerateNutritionSchema>["dietaryPrefs"]
+) {
+  if (!dietaryPref) return;
+  for (const day of plan.days) {
+    for (const meal of day.meals) {
+      const ingredientsText = (meal.ingredients ?? []).map((ingredient) => ingredient.name).join(" ");
+      const haystack = `${meal.title} ${meal.description ?? ""} ${ingredientsText}`.toLowerCase();
+      const hasMeat = animalKeywords.meat.some((keyword) => haystack.includes(keyword));
+      const hasSeafood = animalKeywords.seafood.some((keyword) => haystack.includes(keyword));
+      const hasDairyOrEgg = animalKeywords.dairyOrEgg.some((keyword) => haystack.includes(keyword));
+
+      if (dietaryPref === "vegetarian" && (hasMeat || hasSeafood)) {
+        throw createHttpError(400, "INVALID_AI_OUTPUT", {
+          reason: "DIETARY_PREF_VIOLATION",
+          dietaryPref,
+          dayLabel: day.dayLabel,
+          mealTitle: meal.title,
+        });
+      }
+      if (dietaryPref === "vegan" && (hasMeat || hasSeafood || hasDairyOrEgg)) {
+        throw createHttpError(400, "INVALID_AI_OUTPUT", {
+          reason: "DIETARY_PREF_VIOLATION",
+          dietaryPref,
+          dayLabel: day.dayLabel,
+          mealTitle: meal.title,
+        });
+      }
+      if (dietaryPref === "pescatarian" && hasMeat) {
+        throw createHttpError(400, "INVALID_AI_OUTPUT", {
+          reason: "DIETARY_PREF_VIOLATION",
+          dietaryPref,
+          dayLabel: day.dayLabel,
+          mealTitle: meal.title,
+        });
+      }
+    }
+  }
+}
+
+function assertNutritionMath(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  constraints: z.infer<typeof aiGenerateNutritionSchema>
+) {
+  if (!assertWithinTolerance(plan.dailyCalories, constraints.targetKcal, NUTRITION_KCAL_TOLERANCE)) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reason: "DAILY_CALORIES_MISMATCH",
+      expected: constraints.targetKcal,
+      actual: plan.dailyCalories,
+      tolerance: NUTRITION_KCAL_TOLERANCE,
+    });
+  }
+  if (!assertWithinTolerance(plan.proteinG, constraints.macroTargets.proteinG, NUTRITION_MACRO_TOLERANCE)) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reason: "PROTEIN_MISMATCH",
+      expected: constraints.macroTargets.proteinG,
+      actual: plan.proteinG,
+      tolerance: NUTRITION_MACRO_TOLERANCE,
+    });
+  }
+  if (!assertWithinTolerance(plan.carbsG, constraints.macroTargets.carbsG, NUTRITION_MACRO_TOLERANCE)) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reason: "CARBS_MISMATCH",
+      expected: constraints.macroTargets.carbsG,
+      actual: plan.carbsG,
+      tolerance: NUTRITION_MACRO_TOLERANCE,
+    });
+  }
+  if (!assertWithinTolerance(plan.fatG, constraints.macroTargets.fatsG, NUTRITION_MACRO_TOLERANCE)) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      reason: "FATS_MISMATCH",
+      expected: constraints.macroTargets.fatsG,
+      actual: plan.fatG,
+      tolerance: NUTRITION_MACRO_TOLERANCE,
+    });
+  }
+
+  for (const day of plan.days) {
+    if (day.meals.length !== constraints.mealsPerDay) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        reason: "MEALS_PER_DAY_MISMATCH",
+        expectedMealsPerDay: constraints.mealsPerDay,
+        actualMealsPerDay: day.meals.length,
+        dayLabel: day.dayLabel,
+      });
+    }
+    const dayTotals = day.meals.reduce(
+      (acc, meal) => {
+        acc.calories += meal.macros.calories;
+        acc.protein += meal.macros.protein;
+        acc.carbs += meal.macros.carbs;
+        acc.fats += meal.macros.fats;
+        return acc;
+      },
+      { calories: 0, protein: 0, carbs: 0, fats: 0 }
+    );
+
+    if (!assertWithinTolerance(dayTotals.calories, constraints.targetKcal, NUTRITION_KCAL_TOLERANCE)) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        reason: "DAY_TOTAL_CALORIES_MISMATCH",
+        expected: constraints.targetKcal,
+        actual: dayTotals.calories,
+        dayLabel: day.dayLabel,
+      });
+    }
+
+    if (!assertWithinTolerance(dayTotals.protein, constraints.macroTargets.proteinG, NUTRITION_MACRO_TOLERANCE)) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        reason: "DAY_TOTAL_PROTEIN_MISMATCH",
+        expected: constraints.macroTargets.proteinG,
+        actual: dayTotals.protein,
+        dayLabel: day.dayLabel,
+      });
+    }
+
+    if (!assertWithinTolerance(dayTotals.carbs, constraints.macroTargets.carbsG, NUTRITION_MACRO_TOLERANCE)) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        reason: "DAY_TOTAL_CARBS_MISMATCH",
+        expected: constraints.macroTargets.carbsG,
+        actual: dayTotals.carbs,
+        dayLabel: day.dayLabel,
+      });
+    }
+
+    if (!assertWithinTolerance(dayTotals.fats, constraints.macroTargets.fatsG, NUTRITION_MACRO_TOLERANCE)) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        reason: "DAY_TOTAL_FATS_MISMATCH",
+        expected: constraints.macroTargets.fatsG,
+        actual: dayTotals.fats,
+        dayLabel: day.dayLabel,
+      });
+    }
+
+    if (constraints.mealsPerDay === 2) {
+      const expectedMealKcal = constraints.targetKcal / 2;
+      const invalidMeal = day.meals.find((meal) => !assertWithinTolerance(meal.macros.calories, expectedMealKcal, 0));
+      if (invalidMeal) {
+        throw createHttpError(400, "INVALID_AI_OUTPUT", {
+          reason: "TWO_MEAL_SPLIT_MISMATCH",
+          expectedMealKcal,
+          actualMealKcal: invalidMeal.macros.calories,
+          dayLabel: day.dayLabel,
+          mealTitle: invalidMeal.title,
+        });
+      }
+    }
+  }
+
+  assertDietaryPreferenceCompliance(plan, constraints.dietaryPrefs);
+}
+
+function summarizeTrainingPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
+  return {
+    title: plan.title,
+    totalDays: plan.days.length,
+    totalExercises: plan.days.reduce((acc, day) => acc + day.exercises.length, 0),
+    dailyFocus: plan.days.map((day) => ({ label: day.label, focus: day.focus, exercises: day.exercises.length })),
+  };
+}
+
+function summarizeNutritionPlan(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
+  return {
+    title: plan.title,
+    totalDays: plan.days.length,
+    mealsPerDay: plan.days[0]?.meals.length ?? 0,
+    dailyCalories: plan.dailyCalories,
+    macros: { proteinG: plan.proteinG, carbsG: plan.carbsG, fatsG: plan.fatG },
+  };
+}
+
 
 const exerciseMetadataByName: Record<
   string,
@@ -3501,7 +3728,12 @@ const data = (await response.json()) as {
     throw createHttpError(502, "AI_EMPTY_RESPONSE");
   }
   try {
-    app.log.info({ attempt, rawResponse: content }, "ai raw response");
+    app.log.info(
+      process.env.NODE_ENV === "production"
+        ? { attempt, responseChars: content.length }
+        : { attempt, responsePreview: content.slice(0, 300), responseChars: content.length },
+      "ai response received"
+    );
     const parsedPayload = (options?.parser ?? parser)(content);
     return {
       payload: parsedPayload,
@@ -5239,6 +5471,226 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
       ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (request, reply) => {
+  try {
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan/generate" }));
+    const payload = aiGenerateTrainingSchema.parse(request.body);
+    if (payload.userId && payload.userId !== user.id) {
+      throw createHttpError(400, "INVALID_INPUT", { message: "userId must match authenticated user" });
+    }
+
+    const profileRecord = await getOrCreateProfile(user.id);
+    const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
+    const trainingPreferences = (profile.trainingPreferences ?? {}) as Record<string, unknown>;
+    const levelFromProfile =
+      trainingPreferences.level === "beginner" ||
+      trainingPreferences.level === "intermediate" ||
+      trainingPreferences.level === "advanced"
+        ? trainingPreferences.level
+        : payload.experienceLevel;
+
+    const trainingInput: z.infer<typeof aiTrainingSchema> = {
+      age: typeof profile.age === "number" ? profile.age : 30,
+      sex: profile.sex === "female" ? "female" : "male",
+      level: payload.experienceLevel ?? levelFromProfile,
+      goal: payload.goal,
+      equipment: trainingPreferences.equipment === "home" ? "home" : "gym",
+      daysPerWeek: payload.daysPerWeek,
+      sessionTime:
+        trainingPreferences.sessionTime === "short" ||
+        trainingPreferences.sessionTime === "medium" ||
+        trainingPreferences.sessionTime === "long"
+          ? trainingPreferences.sessionTime
+          : "medium",
+      focus:
+        trainingPreferences.focus === "upperLower" || trainingPreferences.focus === "ppl"
+          ? trainingPreferences.focus
+          : "full",
+      timeAvailableMinutes:
+        trainingPreferences.workoutLength === "30m"
+          ? 30
+          : trainingPreferences.workoutLength === "60m"
+            ? 60
+            : 45,
+      includeCardio: typeof trainingPreferences.includeCardio === "boolean" ? trainingPreferences.includeCardio : true,
+      includeMobilityWarmups:
+        typeof trainingPreferences.includeMobilityWarmups === "boolean"
+          ? trainingPreferences.includeMobilityWarmups
+          : true,
+      startDate: toIsoDateString(new Date()),
+      daysCount: payload.daysPerWeek,
+      restrictions: payload.constraints,
+      injuries: typeof profile.injuries === "string" ? profile.injuries : undefined,
+      goals: Array.isArray(profile.goals) ? (profile.goals.filter((goal) => typeof goal === "string") as any) : undefined,
+    };
+
+    const expectedDays = trainingInput.daysPerWeek;
+    const startDate = parseDateInput(trainingInput.startDate) ?? new Date();
+
+    let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null = null;
+    let aiResult: OpenAiResponse | null = null;
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const prompt = `${buildTrainingPrompt(trainingInput, attempt > 0)} ${
+          attempt > 0
+            ? "REINTENTO OBLIGATORIO: corrige la salida para que cumpla exactamente los días solicitados y volumen por nivel."
+            : ""
+        }`;
+        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+          responseFormat: {
+            type: "json_schema",
+            json_schema: {
+              name: "training_plan",
+              schema: trainingPlanJsonSchema as any,
+              strict: true,
+            },
+          },
+          model: "gpt-4o-mini",
+          maxTokens: 4000,
+          retryOnParseError: false,
+        });
+        const candidate = parseTrainingPlanPayload(result.payload, startDate, trainingInput.daysCount ?? expectedDays, expectedDays);
+        assertTrainingMatchesRequest(candidate, expectedDays);
+        assertTrainingLevelConsistency(candidate, payload.experienceLevel);
+        parsedPlan = candidate;
+        aiResult = result;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (!parsedPlan) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        message: "No se pudo generar un plan de entrenamiento válido tras reintento.",
+        cause: (lastError as { code?: string })?.code ?? "UNKNOWN",
+      });
+    }
+
+    await upsertExercisesFromPlan(parsedPlan);
+    const savedPlan = await saveTrainingPlan(user.id, parsedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
+    await safeStoreAiContent(user.id, "training", "ai", parsedPlan);
+
+    return reply.status(200).send({
+      planId: savedPlan.id,
+      summary: summarizeTrainingPlan(parsedPlan),
+      plan: parsedPlan,
+      aiRequestId: aiResult?.requestId ?? null,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (request, reply) => {
+  try {
+    const authRequest = request as AuthenticatedRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/nutrition-plan/generate" }));
+    const payload = aiGenerateNutritionSchema.parse(request.body);
+    if (payload.userId && payload.userId !== user.id) {
+      throw createHttpError(400, "INVALID_INPUT", { message: "userId must match authenticated user" });
+    }
+
+    const profileRecord = await getOrCreateProfile(user.id);
+    const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
+    const nutritionPreferences = (profile.nutritionPreferences ?? {}) as Record<string, unknown>;
+
+    const nutritionInput: z.infer<typeof aiNutritionSchema> = {
+      age: typeof profile.age === "number" ? profile.age : 30,
+      sex: profile.sex === "female" ? "female" : "male",
+      goal:
+        profile.goal === "cut" || profile.goal === "maintain" || profile.goal === "bulk"
+          ? profile.goal
+          : "maintain",
+      mealsPerDay: payload.mealsPerDay,
+      calories: payload.targetKcal,
+      startDate: toIsoDateString(new Date()),
+      daysCount: 7,
+      dietaryRestrictions: [payload.dietaryPrefs, nutritionPreferences.dietaryPrefs]
+        .filter((item): item is string => typeof item === "string" && item.length > 0)
+        .join(", "),
+      dietType:
+        payload.dietaryPrefs ??
+        (nutritionPreferences.dietType === "balanced" ||
+        nutritionPreferences.dietType === "mediterranean" ||
+        nutritionPreferences.dietType === "keto" ||
+        nutritionPreferences.dietType === "vegetarian" ||
+        nutritionPreferences.dietType === "vegan" ||
+        nutritionPreferences.dietType === "pescatarian" ||
+        nutritionPreferences.dietType === "paleo" ||
+        nutritionPreferences.dietType === "flexible"
+          ? nutritionPreferences.dietType
+          : undefined),
+      allergies: Array.isArray(nutritionPreferences.allergies)
+        ? nutritionPreferences.allergies.filter((item): item is string => typeof item === "string")
+        : [],
+      preferredFoods: typeof nutritionPreferences.preferredFoods === "string" ? nutritionPreferences.preferredFoods : "",
+      dislikedFoods: typeof nutritionPreferences.dislikedFoods === "string" ? nutritionPreferences.dislikedFoods : "",
+      mealDistribution: nutritionPreferences.mealDistribution as z.infer<typeof mealDistributionSchema> | undefined,
+    };
+
+    const startDate = parseDateInput(nutritionInput.startDate) ?? new Date();
+    const daysCount = nutritionInput.daysCount ?? 7;
+    let parsedPlan: z.infer<typeof aiNutritionPlanResponseSchema> | null = null;
+    let aiResult: OpenAiResponse | null = null;
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const prompt = `${buildNutritionPrompt(nutritionInput, [], attempt > 0)} ` +
+          `Macros objetivo exactos por día: proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
+          `Calorías exactas por día: ${payload.targetKcal}. ` +
+          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige los números para cumplir calorías y macros EXACTOS, y meals por día exactos." : ""}`;
+        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+          responseFormat: {
+            type: "json_schema",
+            json_schema: {
+              name: "nutrition_plan",
+              schema: nutritionPlanJsonSchema as any,
+              strict: true,
+            },
+          },
+          model: "gpt-4o-mini",
+          maxTokens: 4000,
+          retryOnParseError: false,
+        });
+
+        const candidate = parseNutritionPlanPayload(result.payload, startDate, daysCount);
+        assertNutritionMatchesRequest(candidate, payload.mealsPerDay, daysCount);
+        assertNutritionMath(candidate, payload);
+        parsedPlan = candidate;
+        aiResult = result;
+        break;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (!parsedPlan) {
+      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+        message: "No se pudo generar un plan nutricional válido tras reintento.",
+        cause: (lastError as { code?: string })?.code ?? "UNKNOWN",
+      });
+    }
+
+    const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
+    await upsertRecipesFromPlan(parsedPlan);
+    await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
+
+    return reply.status(200).send({
+      planId: savedPlan.id,
+      summary: summarizeNutritionPlan(parsedPlan),
+      plan: parsedPlan,
+      aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
     return handleRequestError(reply, error);
