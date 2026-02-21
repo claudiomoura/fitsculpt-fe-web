@@ -12,6 +12,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise, TrainingPlanExercise, TrainingPlanDay } from "@/lib/types";
 import { addExerciseToPlanDay, getTrainerPlanDetail, getTrainerPlanEditCapabilities, updatePlanDayExercise } from "@/services/trainer/plans";
 import { fetchExercisesList } from "@/services/exercises";
+import { Modal } from "@/components/ui/Modal";
 
 type Props = {
   planId: string;
@@ -75,7 +76,12 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
   const [updateNotSupported, setUpdateNotSupported] = useState(false);
   const [exerciseDrafts, setExerciseDrafts] = useState<Record<string, ExerciseDraft>>({});
   const [savingExerciseId, setSavingExerciseId] = useState<string | null>(null);
+const [canDeleteDay, setCanDeleteDay] = useState(false);
+const [deleteDayConfirmOpen, setDeleteDayConfirmOpen] = useState(false);
+const [isDeletingDay, setIsDeletingDay] = useState(false);
 
+const [deleteExerciseId, setDeleteExerciseId] = useState<string | null>(null);
+const [isDeletingExerciseId, setIsDeletingExerciseId] = useState<string | null>(null);
   const normalizedDay = useMemo(() => day.trim(), [day]);
 
   const loadDay = useCallback(async () => {
