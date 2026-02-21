@@ -1631,7 +1631,9 @@ useEffect(() => {
         aria-controls="nutrition-plan-details"
         onClick={() => setIsPlanDetailsOpen((prev) => !prev)}
       >
-        {isPlanDetailsOpen ? t("ui.hidePlanDetails") : t("ui.showPlanDetails")}
+        {isPlanDetailsOpen
+          ? `${t("nutrition.planDetails.hide")}: ${t("nutrition.planDetails.title")}`
+          : `${t("nutrition.planDetails.show")}: ${t("nutrition.planDetails.title")}`}
         <Icon
           name="chevron-down"
           size={16}
@@ -1640,7 +1642,46 @@ useEffect(() => {
         />
       </button>
 
-      <div id="nutrition-plan-details" role="region" aria-label={t("nutrition.formTitle")} hidden={!isPlanDetailsOpen} className="mt-16">
+      <div id="nutrition-plan-details" role="region" aria-label={t("nutrition.planDetails.title")} hidden={!isPlanDetailsOpen} className="mt-16">
+        <div className="inline-actions-sm mb-12">
+          <Link href="/app/nutricion/editar" className="btn secondary">
+            {t("nutrition.editPlan")}
+          </Link>
+        </div>
+
+        {aiTokenBalance !== null ? (
+          <p className="muted mt-8 plan-token-line">
+            {t("ai.tokensRemaining")} {aiTokenBalance}
+            {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
+          </p>
+        ) : null}
+
+        {exportMessage ? (
+          <p className="muted mt-8">{exportMessage}</p>
+        ) : null}
+
+        <div className="export-actions mt-12">
+          <button type="button" className="btn secondary" onClick={handleExportCsv}>
+            {t("nutrition.exportCsv")}
+          </button>
+          <button type="button" className="btn" onClick={handleCopyShoppingList}>
+            {t("nutrition.exportCopyList")}
+          </button>
+          <button type="button" className="btn secondary" disabled title={t("nutrition.comingSoon")}>
+            {t("nutrition.exportPdf")}
+          </button>
+        </div>
+
+        <div className="badge-list plan-summary-chips mt-12">
+          <Badge>
+            {t("macros.goal")}: {t(profile.goal === "cut" ? "macros.goalCut" : profile.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
+          </Badge>
+          <Badge>{t("nutrition.mealsPerDay")}: {profile.nutritionPreferences.mealsPerDay}</Badge>
+          <Badge>
+            {t("nutrition.cookingTime")}: {t(profile.nutritionPreferences.cookingTime === "quick" ? "nutrition.cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "nutrition.cookingTimeOptionLong" : "nutrition.cookingTimeOptionMedium")}
+          </Badge>
+        </div>
+
         <div className="info-grid">
           <div className="info-item">
             <div className="info-label">{t("macros.weight")}</div>
@@ -1727,35 +1768,12 @@ useEffect(() => {
               </div>
             </div>
 
-            {aiTokenBalance !== null ? (
-              <p className="muted mt-8 plan-token-line">
-                {t("ai.tokensRemaining")} {aiTokenBalance}
-                {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
-              </p>
-            ) : null}
-
             {isAiLocked ? (
               <div className="feature-card mt-12">
                 <strong>{t("aiLockedTitle")}</strong>
                 <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
               </div>
             ) : null}
-
-            {exportMessage && (
-              <p className="muted mt-8">{exportMessage}</p>
-            )}
-
-            <div className="export-actions mt-12">
-              <button type="button" className="btn secondary" onClick={handleExportCsv}>
-                {t("nutrition.exportCsv")}
-              </button>
-              <button type="button" className="btn secondary" disabled title={t("nutrition.comingSoon")}>
-                {t("nutrition.exportPdf")}
-              </button>
-              <button type="button" className="btn" onClick={handleCopyShoppingList}>
-                {t("nutrition.exportCopyList")}
-              </button>
-            </div>
 
             {loading ? (
               <div className="form-stack">
@@ -1807,19 +1825,6 @@ useEffect(() => {
               </div>
             ) : saveMessage ? (
               <p className="muted">{saveMessage}</p>
-            ) : profile ? (
-              <>
-                <div className="badge-list plan-summary-chips">
-                  <Badge>
-                    {t("macros.goal")}: {t(profile.goal === "cut" ? "macros.goalCut" : profile.goal === "bulk" ? "macros.goalBulk" : "macros.goalMaintain")}
-                  </Badge>
-                  <Badge>{t("nutrition.mealsPerDay")}: {profile.nutritionPreferences.mealsPerDay}</Badge>
-                  <Badge>
-                    {t("nutrition.cookingTime")}: {t(profile.nutritionPreferences.cookingTime === "quick" ? "nutrition.cookingTimeOptionQuick" : profile.nutritionPreferences.cookingTime === "long" ? "nutrition.cookingTimeOptionLong" : "nutrition.cookingTimeOptionMedium")}
-                  </Badge>
-                </div>
-
-              </>
             ) : null}
           </section>
 
@@ -1874,7 +1879,6 @@ useEffect(() => {
             </section>
           ) : hasPlan ? (
             <>
-              {!loading && !error ? nutritionPlanDetails : null}
               <section className="card" ref={generatedPlanSectionRef}>
                 <div className="section-head section-head-actions">
                   <div>
@@ -2186,6 +2190,8 @@ useEffect(() => {
                   </>
                 )}
               </section>
+
+              {!loading && !error ? nutritionPlanDetails : null}
 
               <section className="card">
                 <h2 className="section-title section-title-sm">{t("nutrition.dailyTargetTitle")}</h2>
