@@ -20,6 +20,7 @@ import {
 } from "@/services/trainer/plans";
 import { fetchExercisesList } from "@/services/exercises";
 import { Modal } from "@/components/ui/Modal";
+import { findTrainingPlanDayByQuery } from "@/components/trainer/plans/dayMatching";
 
 type Props = {
   planId: string;
@@ -102,7 +103,7 @@ export default function TrainerDayEditorClient({ planId, day }: Props) {
       return;
     }
 
-    const match = (result.data.days ?? []).find((dayItem) => dayItem.date.startsWith(normalizedDay));
+    const match = findTrainingPlanDayByQuery(result.data.days ?? [], normalizedDay);
     setSelectedDay(match ?? null);
     setExerciseDrafts((match?.exercises ?? []).reduce<Record<string, ExerciseDraft>>((acc, exercise) => {
       acc[exercise.id] = toExerciseDraft(exercise);
