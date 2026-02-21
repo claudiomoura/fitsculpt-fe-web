@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
-import type { NutritionPlanData, ProfileData, TrainingPlanData } from "@/lib/profile";
+import { toDateKey } from "@/lib/calendar";
+import type { ProfileData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
-import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
@@ -36,11 +35,6 @@ type UserFood = {
 type TrackingPayload = {
   checkins?: CheckinEntry[];
   foodLog?: FoodEntry[];
-};
-
-type TodaySummary = {
-  training?: { label: string; focus: string; duration: number } | null;
-  nutrition?: { label: string; meals: number } | null;
 };
 
 type ChartPoint = {
@@ -165,7 +159,6 @@ export default function DashboardClient() {
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [summary, setSummary] = useState<TodaySummary | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -242,51 +235,6 @@ export default function DashboardClient() {
         fat: profile.nutritionPlan.fatG,
       }
     : null;
-
-  useEffect(() => {
-    if (!profile || !profileReady) {
-      setSummary(null);
-      return;
-    }
-    const buildTrainingSummary = (plan?: TrainingPlanData | null) => {
-      if (!plan?.days?.length) return null;
-      const todayKey = toDateKey(new Date());
-      const dayFromDate = plan.days.find((day) => {
-        const parsed = parseDate(day.date);
-        return parsed ? toDateKey(parsed) === todayKey : false;
-      });
-      if (dayFromDate) {
-        return { label: dayFromDate.label, focus: dayFromDate.focus, duration: dayFromDate.duration };
-      }
-      const start = parseDate(plan.startDate);
-      if (!start) return null;
-      const index = differenceInDays(new Date(), start);
-      if (index < 0 || index >= plan.days.length) return null;
-      const day = plan.days[index];
-      return { label: day.label, focus: day.focus, duration: day.duration };
-    };
-    const buildNutritionSummary = (plan?: NutritionPlanData | null) => {
-      if (!plan?.days?.length) return null;
-      const todayKey = toDateKey(new Date());
-      const dayFromDate = plan.days.find((day) => {
-        const parsed = parseDate(day.date);
-        return parsed ? toDateKey(parsed) === todayKey : false;
-      });
-      if (dayFromDate) {
-        return { label: dayFromDate.dayLabel, meals: dayFromDate.meals.length };
-      }
-      const start = parseDate(plan.startDate);
-      if (!start) return null;
-      const index = differenceInDays(new Date(), start);
-      if (index < 0 || index >= plan.days.length) return null;
-      const day = plan.days[index];
-      return { label: day.dayLabel, meals: day.meals.length };
-    };
-
-    const training = buildTrainingSummary(profile.trainingPlan);
-    const nutrition = buildNutritionSummary(profile.nutritionPlan);
-    setSummary({ training, nutrition });
-  }, [profile, profileReady]);
 
   const userFoodMap = useMemo(() => new Map(userFoods.map((food) => [food.id, food])), [userFoods]);
 
@@ -405,7 +353,7 @@ export default function DashboardClient() {
                 </div>
               </div>
             </div>
-            {Array.from({ length: 3 }).map((_, index) => (
+            {Array.from({ length: 1 }).map((_, index) => (
               <div key={`dashboard-summary-skeleton-${index}`} className="feature-card dashboard-summary-card">
                 <Skeleton variant="line" className="w-40" />
                 <Skeleton variant="line" className="w-60" />
@@ -512,66 +460,6 @@ export default function DashboardClient() {
                     </div>
                   </>
                 )}
-              </div>
-            </div>
-            <div className="feature-card dashboard-summary-card">
-              <span className="muted">{t("dashboard.todayTrainingTitle")}</span>
-              {summary?.training ? (
-                <>
-                  <strong className="mt-6">{summary.training.focus}</strong>
-                  <p className="muted mt-6">
-                    {summary.training.duration} {t("training.minutesLabel")}
-                  </p>
-                  {summary.training.label ? <Badge>{summary.training.label}</Badge> : null}
-                  <ButtonLink variant="secondary" href="/app/entrenamiento">
-                    {t("dashboard.todayTrainingCta")}
-                  </ButtonLink>
-                </>
-              ) : (
-                <>
-                  <strong className="mt-6">{t("dashboard.restDayTitle")}</strong>
-                  <p className="muted mt-6">{t("dashboard.restDaySubtitle")}</p>
-                  <ButtonLink variant="secondary" href="/app/entrenamiento">
-                    {t("dashboard.restDayCta")}
-                  </ButtonLink>
-                </>
-              )}
-            </div>
-            <div className="feature-card dashboard-summary-card">
-              <span className="muted">{t("dashboard.todayNutritionTitle")}</span>
-              {summary?.nutrition ? (
-                <>
-                  <strong className="mt-6">{t("dashboard.todayNutritionPrimaryLabel")}</strong>
-                  <p className="muted mt-6">
-                    {summary.nutrition.meals} {t("dashboard.todayMealsLabel")}
-                    {nutritionTargets?.calories
-                      ? ` · ${nutritionTargets.calories} ${t("units.kcal")}`
-                      : ""}
-                  </p>
-                  {summary.nutrition.label ? <Badge>{summary.nutrition.label}</Badge> : null}
-                </>
-              ) : (
-                <>
-                  <strong className="mt-6">{t("dashboard.todayNutritionPrimaryLabel")}</strong>
-                  <p className="muted mt-6">{t("dashboard.todayNutritionEmpty")}</p>
-                </>
-              )}
-              <ButtonLink variant="secondary" href="/app/nutricion">
-                {t("dashboard.todayNutritionCta")}
-              </ButtonLink>
-            </div>
-            <div className="feature-card dashboard-summary-card stack-md">
-              <div>
-                <strong>{t("dashboard.quickActionsTitle")}</strong>
-                <p className="muted mt-6">{t("dashboard.quickActionsSubtitle")}</p>
-              </div>
-              <div className="list-grid">
-                <ButtonLink href="/app/workouts">
-                  {t("dashboard.aiTrainingCta")}
-                </ButtonLink>
-                <ButtonLink href="/app/nutricion?ai=1">
-                  {t("dashboard.aiNutritionCta")}
-                </ButtonLink>
               </div>
             </div>
           </div>
