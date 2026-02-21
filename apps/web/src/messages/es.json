@@ -2260,6 +2260,8 @@
       "updateExerciseError": "No pudimos guardar los cambios del ejercicio.",
       "editExercise": {
         "sets": "Series",
+        "addSet": "Añadir serie",
+        "removeSet": "Eliminar serie",
         "reps": "Repeticiones",
         "rest": "Descanso (seg)",
         "notes": "Notas",

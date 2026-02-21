@@ -2257,6 +2257,8 @@
       "updateExerciseError": "We couldn't save exercise changes.",
       "editExercise": {
         "sets": "Sets",
+        "addSet": "Add set",
+        "removeSet": "Remove set",
         "reps": "Reps",
         "rest": "Rest (sec)",
         "notes": "Notes",
