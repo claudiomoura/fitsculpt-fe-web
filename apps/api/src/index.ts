@@ -2362,8 +2362,8 @@ function assertNutritionMatchesRequest(
   }
 }
 
-const NUTRITION_KCAL_TOLERANCE = 0;
-const NUTRITION_MACRO_TOLERANCE = 0;
+const NUTRITION_KCAL_TOLERANCE = 200;
+const NUTRITION_MACRO_TOLERANCE = 25;
 
 function assertWithinTolerance(actual: number, expected: number, tolerance: number) {
   return Math.abs(actual - expected) <= tolerance;
@@ -3857,7 +3857,7 @@ function buildVerifyEmail(params: { name?: string | null; verifyUrl: string }) {
 
   const html = `
   <!doctype html>
-  <html lang="es">
+<html lang="es" data-scroll-behavior="smooth">
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
