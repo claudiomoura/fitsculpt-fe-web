@@ -10,6 +10,13 @@ Objetivo: ejecutar un recorrido único y repetible para Release Candidate con:
 
 ---
 
+## Related quick checks
+
+- For mobile RC PASS/FAIL execution (2 viewports), use `docs/rc-checklist.md`.
+- For accepted RC limits/no-go criteria, see `docs/known-limitations.md`.
+
+---
+
 ## 0) Pre-requisitos (2 min)
 
 - API en `http://localhost:4000` y Web en `http://localhost:3000`.
