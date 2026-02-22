@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 import { Button } from "@/components/ui/Button";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import {
   fetchPendingGymJoinRequests,
   reviewGymJoinRequest,
@@ -84,10 +85,12 @@ export default function GymJoinRequestsManager() {
     }
   };
 
-  if (accessLoading) return <p className="muted">{t("admin.gymRequestsLoading")}</p>;
-  if (!isAdmin && !isDev) return <p className="muted">{t("admin.unauthorized")}</p>;
+  if (accessLoading) return <LoadingState ariaLabel={t("admin.gymRequestsLoading")} title={t("admin.gymRequestsLoading")} lines={2} />;
+  if (!isAdmin && !isDev) return <EmptyState title={t("admin.unauthorized")} wrapInCard icon="warning" />;
 
-  if (loading) return <p className="muted">{t("admin.gymRequestsLoading")}</p>;
+  if (loading) {
+    return <LoadingState ariaLabel={t("admin.gymRequestsLoading")} title={t("admin.gymRequestsLoading")} lines={3} />;
+  }
 
   if (unsupported) {
     return (
@@ -98,19 +101,23 @@ export default function GymJoinRequestsManager() {
     );
   }
 
-  if (error) {
+  if (error) return <ErrorState title={t("admin.gymRequestsError")} retryLabel={t("admin.gymRequestsRetry")} onRetry={() => void load()} wrapInCard />;
+
+  if (!requests.length) {
     return (
-      <div className="form-stack">
-        <p className="muted">{t("admin.gymRequestsError")}</p>
-        <Button variant="secondary" onClick={() => void load()}>{t("admin.gymRequestsRetry")}</Button>
-      </div>
+      <EmptyState
+        title={t("admin.gymRequestsEmpty")}
+        wrapInCard
+        actions={[{ label: t("admin.gymRequestsRetry"), onClick: () => void load(), variant: "secondary" }]}
+      />
     );
   }
 
-  if (!requests.length) return <p className="muted">{t("admin.gymRequestsEmpty")}</p>;
-
   return (
     <div className="form-stack">
+      <div className="row" style={{ justifyContent: "flex-end" }}>
+        <Button variant="secondary" onClick={() => void load()} disabled={Boolean(actingId)}>{t("admin.gymRequestsRetry")}</Button>
+      </div>
       {actionError ? <p className="muted">{actionError}</p> : null}
       {actionsUnsupported ? <p className="muted">{t("gym.admin.members.unavailable")}</p> : null}
       {requests.map((request) => (
