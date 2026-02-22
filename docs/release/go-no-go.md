@@ -1,38 +1,36 @@
-# GO/NO-GO Decision Template (Release RC)
+# GO/NO-GO Decision (Release RC Final)
 
-**Dependency statement:** This PR can run now on origin/dev
+**Dependency statement:** This PR depends on PR-03 being merged (and is recommended after PR-02).
 
-## Uso
-Este documento define criterios objetivos para decisión release. Completar con evidencia verificable; evitar criterios subjetivos.
-
-## Referencias obligatorias
+## Referencias
 - CI Release Gates: `.github/workflows/ci.yml`
 - PR Quality Gates: `.github/workflows/pr-quality-gates.yml`
 - Contract tests (API): `docs/prs/sprint-01-pr-02-contract-test-exercises-imageurl.md`
 - E2E lite: `docs/e2e.md`
-- RC checklist (Sprint 6): `docs/rc-checklist.md`
-- Freeze policy: `docs/release/release-freeze.md`
+- RC checklist run: `docs/release/rc-checklist-run-2026-02-22.md`
 - Bug bash log: `docs/release/bug-bash-log.md`
+- Known issues: `docs/release/known-issues.md`
+- Demo script oficial: `docs/release/demo-script-official.md`
 
-## Checklist de decisión (objetivo)
+## Checklist de decisión
 | Check | Evidence link | PASS/FAIL | Owner | Notes |
 |---|---|---|---|---|
-| CI Release Gates en verde | `<link job/re-run>` | PENDING | Dev Owner | |
-| PR Quality Gates en verde | `<link job/re-run>` | PENDING | Dev Owner | |
-| Contract tests API | `<link run/report>` | PENDING | BE Owner | |
-| E2E lite | `<link run/report>` | PENDING | QA Owner | |
-| RC checklist Sprint 6 completado | `docs/rc-checklist.md` + `<evidence>` | PENDING | QA Owner | |
-| Sin bugs abiertos P0/P1 en bug bash | `docs/release/bug-bash-log.md` | PENDING | QA Lead | |
-| Scope freeze respetado (solo fixes) | `docs/release/release-freeze.md` + PR diff | PENDING | Release Owner | |
+| CI Release Gates en verde | `<pendiente: link workflow run>` | PENDING | Dev Owner | Falta anexar evidencia de entorno release |
+| PR Quality Gates en verde | `<pendiente: link workflow run>` | PENDING | Dev Owner | Falta anexar evidencia de entorno release |
+| Contract tests API | `<pendiente: link run/report>` | PENDING | BE Owner | Falta anexar evidencia final |
+| E2E lite | `<pendiente: link run/report>` | PENDING | QA Owner | Falta anexar evidencia final |
+| RC checklist Sprint 6 completado | `docs/release/rc-checklist-run-2026-02-22.md` | PENDING | QA Owner | Registro aún incompleto |
+| Sin bugs abiertos P0/P1 en bug bash | `docs/release/bug-bash-log.md` | PASS | QA Lead | Sin P0/P1 abiertos al cierre de PR-04 |
+| Scope freeze respetado (solo fixes) | PR-04 diff + `docs/release/release-freeze.md` | PASS | Release Owner | Solo fix P0 FE + docs release |
+| 0 console errors en flows demo | `<pendiente: evidencia consola>` | PENDING | QA Owner | Requiere corrida oficial de demo script |
 
-## Reglas de decisión
-- Si **todos** los checks están en PASS => candidato **GO**.
-- Si **uno o más** checks están en FAIL => **NO-GO**.
-- Si hay estado PENDING en checks obligatorios => **NO-GO** hasta completar evidencia.
+## Reglas de decisión aplicadas
+- Si todos los checks obligatorios están en PASS => GO.
+- Si existe FAIL o PENDING en checks obligatorios => NO-GO.
 
-## Decision: GO/NO-GO
-- **Release Candidate:** `<tag/sha>`
-- **Resultado final:** `GO` / `NO-GO`
-- **Release Owner (nombre):** `<owner>`
-- **Fecha/Hora (UTC):** `<yyyy-mm-dd hh:mm>`
-- **Justificación (1-3 líneas):** `<razón objetiva basada en checks>`
+## Decisión final
+- **Release Candidate:** `sprint-07/pr-04-release-final-package-and-frontend-fixes`
+- **Resultado final:** **NO-GO**
+- **Release Owner:** `Release/Frontend`
+- **Fecha/Hora (UTC):** `2026-02-22 00:00`
+- **Justificación:** Persisten checks obligatorios en estado PENDING (CI/contract/E2E/RC evidence y consola limpia del demo script). Se mantiene NO-GO hasta anexar evidencias verificables.

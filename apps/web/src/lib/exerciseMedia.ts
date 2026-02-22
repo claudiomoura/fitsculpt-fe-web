@@ -11,7 +11,9 @@ type DemoMedia = {
 
 type MediaCandidate = {
   imageUrl?: unknown;
+  imageUrls?: unknown;
   image_url?: unknown;
+  image_urls?: unknown;
   thumbnailUrl?: unknown;
   thumbnail_url?: unknown;
   mediaUrl?: unknown;
@@ -31,13 +33,30 @@ function asText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
+function firstUrlFromList(value: unknown): string | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  for (const entry of value) {
+    const text = asText(entry);
+    if (text) {
+      return text;
+    }
+  }
+
+  return null;
+}
+
 export function getExerciseThumbUrl(exercise: unknown): string | null {
   if (!exercise || typeof exercise !== "object") return null;
   const e = exercise as MediaCandidate;
 
   const urls = [
     e.imageUrl,
+    firstUrlFromList(e.imageUrls),
     e.image_url,
+    firstUrlFromList(e.image_urls),
     e.thumbnailUrl,
     e.thumbnail_url,
     e.mediaUrl,
