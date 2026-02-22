@@ -54,3 +54,7 @@ Objetivo: validar 5 flujos core de demo sin tocar `fs_token`, `/api/*` ni rutas 
 - Link a este doc: `docs/demo-smoke-test.md`
 - Checklist completado (5/5 PASS + 0 console errors)
 - Opcional: 2–3 capturas (Biblioteca lista, Biblioteca detalle, Console limpia)
+
+
+## Related smoke (entitlements)
+- Para validación FREE vs PRO/GYM y gating premium: `docs/entitlements-smoke.md`.
