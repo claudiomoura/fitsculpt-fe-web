@@ -2865,6 +2865,11 @@ function slugifyName(name: string) {
 }
 
 function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
+  const normalizedImageUrls = [
+    ...(exercise.imageUrls ?? []),
+    ...(typeof exercise.imageUrl === "string" ? [exercise.imageUrl] : []),
+  ].filter((url): url is string => typeof url === "string" && url.trim().length > 0);
+
   const main =
     typeof exercise.mainMuscleGroup === "string" && exercise.mainMuscleGroup.trim()
       ? exercise.mainMuscleGroup
@@ -2888,9 +2893,8 @@ function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
     name: exercise.name,
     sourceId: exercise.sourceId ?? null,
     equipment: exercise.equipment ?? null,
-    imageUrls: (exercise.imageUrls ?? []).filter((url): url is string => typeof url === "string" && url.trim().length > 0),
-    imageUrl:
-      (exercise.imageUrls ?? []).find((url): url is string => typeof url === "string" && url.trim().length > 0) ?? null,
+    imageUrls: normalizedImageUrls,
+    imageUrl: normalizedImageUrls[0] ?? null,
     description: exercise.description ?? null,
     mediaUrl: exercise.mediaUrl ?? null,
     technique: exercise.technique ?? null,
