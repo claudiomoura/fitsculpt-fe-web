@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { buildEffectiveEntitlements } from "../entitlements.js";
-import { buildAuthMeResponse } from "../auth/schemas.js";
+import { authMeResponseSchema, buildAuthMeResponse } from "../auth/schemas.js";
 
 function run() {
   const entitlements = buildEffectiveEntitlements({ plan: "STRENGTH_AI", isAdmin: false });
@@ -19,15 +19,37 @@ function run() {
     aiTokenBalance: 7,
     aiTokenRenewalAt: new Date("2026-03-01T00:00:00.000Z"),
     entitlements,
-    activeMembership: null,
+    activeMembership: {
+      gym: {
+        id: "gym_123",
+        name: "Demo Gym",
+      },
+      status: "ACTIVE",
+      role: "TRAINER",
+    },
   });
 
-  assert.deepEqual(response.effectiveEntitlements, response.entitlements);
-  assert.equal(response.effectiveEntitlements.version, "2026-02-01");
-  assert.equal(response.subscriptionPlan, "PRO");
-  assert.equal(response.plan, "PRO");
+  const parsed = authMeResponseSchema.parse(response);
+  assert.deepEqual(parsed.effectiveEntitlements, parsed.entitlements);
+  assert.equal(parsed.effectiveEntitlements.version, "2026-02-01");
+  assert.equal(parsed.effectiveEntitlements.modules.ai.enabled, true);
+  assert.equal(parsed.subscriptionPlan, "PRO");
+  assert.equal(parsed.plan, "PRO");
+  assert.equal(parsed.gymMembershipState, "active");
+  assert.equal(parsed.gymId, "gym_123");
+  assert.equal(parsed.gymName, "Demo Gym");
+  assert.equal(parsed.isTrainer, true);
 
-  console.log("auth me entitlements tests passed");
+  // Contract guard: if critical field names drift this must fail.
+  const driftedPayload = {
+    ...parsed,
+    entitlements: undefined,
+    effectiveEntitlements: undefined,
+    entitlementz: parsed.effectiveEntitlements,
+  };
+  assert.throws(() => authMeResponseSchema.parse(driftedPayload));
+
+  console.log("auth me entitlements contract tests passed");
 }
 
 run();
