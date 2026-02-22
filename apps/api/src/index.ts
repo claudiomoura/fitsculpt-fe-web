@@ -2828,6 +2828,47 @@ function slugifyName(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
+  const normalizedImageUrls = [
+    ...(exercise.imageUrls ?? []),
+    ...(typeof exercise.imageUrl === "string" ? [exercise.imageUrl] : []),
+  ].filter((url): url is string => typeof url === "string" && url.trim().length > 0);
+
+  const main =
+    typeof exercise.mainMuscleGroup === "string" && exercise.mainMuscleGroup.trim()
+      ? exercise.mainMuscleGroup
+      : Array.isArray(exercise.primaryMuscles)
+        ? exercise.primaryMuscles.find((muscle) => typeof muscle === "string" && muscle.trim())
+        : null;
+
+  const secondarySource = Array.isArray(exercise.secondaryMuscleGroups)
+    ? exercise.secondaryMuscleGroups
+    : Array.isArray(exercise.secondaryMuscles)
+      ? exercise.secondaryMuscles
+      : [];
+
+  const secondaryMuscleGroups = secondarySource.filter(
+    (muscle): muscle is string => typeof muscle === "string" && muscle.trim().length > 0
+  );
+
+  return {
+    id: exercise.id,
+    slug: exercise.slug ?? slugifyName(exercise.name),
+    name: exercise.name,
+    sourceId: exercise.sourceId ?? null,
+    equipment: exercise.equipment ?? null,
+    imageUrls: normalizedImageUrls,
+    imageUrl: normalizedImageUrls[0] ?? null,
+    description: exercise.description ?? null,
+    mediaUrl: exercise.mediaUrl ?? null,
+    technique: exercise.technique ?? null,
+    tips: exercise.tips ?? null,
+    mainMuscleGroup: main ?? null,
+    secondaryMuscleGroups,
+  };
+}
+
+
 async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata, options?: { source?: string; sourceId?: string; imageUrls?: string[] }) {
   const now = new Date();
   const slug = slugifyName(name);
