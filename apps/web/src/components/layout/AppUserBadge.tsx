@@ -90,9 +90,11 @@ export default function AppUserBadge({ mobileMenuOpen, onMobileMenuOpen }: AppUs
           {initials}
         </div>
       )}
-      <span className="nav-user-name">
-        {profile?.name || t("ui.userFallback")}
-      </span>
+      {!isMobileViewport && (
+        <span className="nav-user-name">
+          {profile?.name || t("ui.userFallback")}
+        </span>
+      )}
     </>
   );
   return (
