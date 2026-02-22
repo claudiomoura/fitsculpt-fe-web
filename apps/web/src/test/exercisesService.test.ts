@@ -68,46 +68,34 @@ describe("fetchExercisesList", () => {
 
 
 describe("splitExercisesByOwnership", () => {
-  it("classifies user-owned exercises using userId and isUserCreated", () => {
+  it("classifies by scoped fields when payload includes scope metadata", () => {
     const source = [
-      { id: "ex_1", name: "Push-up" },
-      { id: "ex_2", name: "Squat", userId: "user_1" },
-      { id: "ex_3", name: "Burpee", isUserCreated: true },
-      { id: "ex_4", name: "Lunge", userId: "user_2", isUserCreated: false },
+      { id: "ex_1", name: "Global", scope: "global" },
+      { id: "ex_2", name: "Gym", ownerGymId: "gym_1" },
+      { id: "ex_3", name: "Private", isPublic: false },
     ];
 
-    const result = splitExercisesByOwnership(source as never[], "user_1");
+    const result = splitExercisesByOwnership(source as never[], "user_1", { gymId: "gym_1" });
 
-    expect(result.myExercises.map((item) => item.id)).toEqual(["ex_2", "ex_3"]);
-    expect(result.fitsculptExercises.map((item) => item.id)).toEqual(["ex_4"]);
-    expect(result.unknownExercises.map((item) => item.id)).toEqual(["ex_1"]);
-    expect(result.hasOwnershipSignals).toBe(true);
+    expect(result.fitsculptExercises.map((item) => item.id)).toEqual(["ex_1"]);
+    expect(result.gymExercises.map((item) => item.id)).toEqual(["ex_2", "ex_3"]);
+    expect(result.unclassifiedExercises).toEqual([]);
+    expect(result.supportsScopedSections).toBe(true);
   });
 
-  it("uses source and sourceId conventions before falling back to userId", () => {
+  it("falls back to unclassified section when scoped metadata is missing", () => {
     const source = [
       { id: "ex_1", name: "Custom one", source: "user" },
-      { id: "ex_2", name: "Custom two", sourceId: "user:user_2" },
-      { id: "ex_3", name: "Global one", source: "global" },
-      { id: "ex_4", name: "Global two", sourceId: "fitsculpt:press" },
-      { id: "ex_5", name: "Unknown" },
+      { id: "ex_2", name: "Global one", source: "global" },
+      { id: "ex_3", name: "Unknown" },
     ];
 
     const result = splitExercisesByOwnership(source as never[], "user_2");
 
-    expect(result.myExercises.map((item) => item.id)).toEqual(["ex_1", "ex_2"]);
-    expect(result.fitsculptExercises.map((item) => item.id)).toEqual(["ex_3", "ex_4"]);
-    expect(result.unknownExercises.map((item) => item.id)).toEqual(["ex_5"]);
-    expect(result.hasOwnershipSignals).toBe(true);
-  });
-
-  it("returns no ownership signals when payload does not expose ownership fields", () => {
-    const source = [{ id: "ex_1", name: "Push-up" }];
-    const result = splitExercisesByOwnership(source as never[], "user_1");
-
-    expect(result.myExercises).toEqual([]);
-    expect(result.fitsculptExercises).toEqual([]);
-    expect(result.unknownExercises.map((item) => item.id)).toEqual(["ex_1"]);
-    expect(result.hasOwnershipSignals).toBe(false);
+    expect(result.fitsculptExercises.map((item) => item.id)).toEqual(["ex_2"]);
+    expect(result.gymExercises).toEqual([]);
+    expect(result.unclassifiedExercises.map((item) => item.id)).toEqual(["ex_1", "ex_3"]);
+    expect(result.supportsScopedSections).toBe(false);
   });
 });
+
