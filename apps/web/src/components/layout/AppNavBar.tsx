@@ -34,6 +34,14 @@ export default function AppNavBar() {
   useEffect(() => {
     let active = true;
     const load = async () => {
+      if (!document.cookie.includes("fs_token=")) {
+        if (active) {
+          setUser(null);
+          setBilling(null);
+        }
+        return;
+      }
+
       try {
         const [authResponse, billingResponse] = await Promise.all([
           fetch("/api/auth/me", { cache: "no-store" }),
