@@ -20,6 +20,7 @@ import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLevelJsonFromText } from "./aiParsing.js";
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
+import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
 import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
@@ -4642,27 +4643,14 @@ app.get("/auth/me", async (request, reply) => {
     });
     const entitlements = getUserEntitlements(user);
     const aiTokenPayload = getAiTokenPayload(user, entitlements);
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
+    return buildAuthMeResponse({
+      user,
       role: effectiveIsAdmin ? "ADMIN" : user.role,
-      emailVerifiedAt: user.emailVerifiedAt,
-      lastLoginAt: user.lastLoginAt,
-      subscriptionPlan: entitlements.legacy.tier,
-      plan: entitlements.legacy.tier,
-      subscriptionStatus: user.subscriptionStatus,
-      currentPeriodEnd: user.currentPeriodEnd,
       aiTokenBalance: aiTokenPayload.aiTokenBalance,
       aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
       entitlements,
-      gymMembershipState: activeMembership ? "active" : "none",
-      gymId: activeMembership?.gym.id,
-      gymName: activeMembership?.gym.name,
-      isTrainer:
-        activeMembership?.status === "ACTIVE" &&
-        (activeMembership?.role === "TRAINER" || activeMembership?.role === "ADMIN"),
-    };
+      activeMembership,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
