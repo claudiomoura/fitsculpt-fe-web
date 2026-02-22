@@ -19,3 +19,10 @@
 - Vision-based food logging (foto comida)
 - Modelo predictivo abandono
 - Evaluación científica inicial
+
+Q3:
+- MVP Future Body Projection (simulación básica peso + composición)
+
+Q4:
+- Visualización corporal generativa
+- Test A/B impacto en retención

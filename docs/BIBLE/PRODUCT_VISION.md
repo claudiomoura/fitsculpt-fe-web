@@ -42,3 +42,16 @@ FitSculpt será:
 - Ajuste automático basado en comportamiento real
 - Modelo explicable
 - Base científica evaluable
+
+## Future Self Visualization
+
+FitSculpt permite al usuario visualizar su cuerpo proyectado a 3, 6 y 12 meses
+si mantiene su nivel actual de consistencia.
+
+Objetivo:
+- Aumentar motivación
+- Reducir abandono
+- Mostrar progreso potencial tangible
+
+La visualización está basada en datos reales del usuario,
+no en imágenes genéricas.
