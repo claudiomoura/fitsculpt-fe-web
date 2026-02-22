@@ -58,3 +58,34 @@ Objetivo: validar 5 flujos core de demo sin tocar `fs_token`, `/api/*` ni rutas 
 
 ## Related smoke (entitlements)
 - Para validación FREE vs PRO/GYM y gating premium: `docs/entitlements-smoke.md`.
+
+## Gym Pilot (E2E, 4 pasos)
+
+Objetivo: validar flujo demo sin callejones: **user join → admin accept → assign plan → user sees plan**.
+
+### Preparación mínima
+- Tener 2 sesiones activas (ideal incógnito en navegadores/perfiles separados):
+  - **Usuario miembro** (quien solicita ingreso y valida plan).
+  - **Admin/Trainer de gimnasio** (quien aprueba y asigna plan).
+- Abrir DevTools en ambas sesiones y mantener **Console visible** durante todo el flujo.
+
+### Flujo
+1) **Usuario solicita ingreso**
+- Paso: abrir `/app/gym`, seleccionar gym o usar código, y enviar solicitud.
+- Expected result: estado del usuario cambia a `PENDING` y no hay pantallas en blanco.
+
+2) **Admin/Trainer revisa y acepta**
+- Paso: abrir `/app/gym/admin` (o `/app/admin/gym-requests` si aplica al rol) y aceptar solicitud pendiente.
+- Expected result: solicitud desaparece de pendientes o queda reflejada como procesada.
+
+3) **Admin/Trainer asigna plan**
+- Paso: en el panel de miembros del gym, usar **Asignar plan** para el usuario aceptado.
+- Expected result: asignación exitosa y feedback de éxito visible (sin dead-end).
+
+4) **Usuario confirma plan visible**
+- Paso: volver a sesión de usuario, refrescar `/app/gym` y abrir `Ir a mi plan`.
+- Expected result: usuario con membresía `ACTIVE`, navegación correcta a su plan y sin errores.
+
+### Evidencia requerida para PR
+- 4 screenshots (uno por cada paso).
+- 1 screenshot con consola limpia (sin errores) durante el flujo.
