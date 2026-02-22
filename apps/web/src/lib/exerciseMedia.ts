@@ -9,12 +9,39 @@ type DemoMedia = {
   poster?: string;
 };
 
+type MediaCandidate = {
+  imageUrl?: unknown;
+  thumbnailUrl?: unknown;
+  mediaUrl?: unknown;
+  gifUrl?: unknown;
+  videoUrl?: unknown;
+  media?: { url?: unknown; thumbnailUrl?: unknown };
+};
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
 
 function asText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+export function getExerciseThumbUrl(exercise: unknown): string | null {
+  if (!exercise || typeof exercise !== "object") return null;
+  const e = exercise as MediaCandidate;
+
+  const urls = [
+    e.imageUrl,
+    e.thumbnailUrl,
+    e.mediaUrl,
+    e.gifUrl,
+    e.videoUrl,
+    e.media?.thumbnailUrl,
+    e.media?.url,
+  ];
+
+  const match = urls.find((u) => typeof u === "string" && u.trim().length > 0);
+  return typeof match === "string" ? match : null;
 }
 
 function resolveExerciseThumbnail(exercise?: Exercise | null): string | null {
@@ -24,9 +51,7 @@ function resolveExerciseThumbnail(exercise?: Exercise | null): string | null {
 
   return (
     asText(exercise.posterUrl) ??
-    asText(exercise.imageUrl) ??
-    asText(rawExercise.thumbnailUrl) ??
-    asText(rawExercise.mediaUrl) ??
+    getExerciseThumbUrl(exercise) ??
     asText(media?.thumbnailUrl) ??
     null
   );
