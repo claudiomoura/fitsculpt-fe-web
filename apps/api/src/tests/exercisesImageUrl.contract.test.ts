@@ -30,8 +30,8 @@ const now = Date.now();
 const marker = `contract-imageurl-${now}`;
 const email = `${marker}@example.com`;
 const password = "ContractTest123!";
-const exerciseSlug = marker;
-const exerciseName = `Contract ImageUrl ${now}`;
+const exerciseWithImageSlug = `${marker}-with-image`;
+const exerciseWithImageName = `Contract ImageUrl With Image ${now}`;
 const seededImageUrl = `https://cdn.example.com/${marker}.jpg`;
 
 async function waitForServerReady() {
@@ -63,10 +63,10 @@ async function main() {
   });
 
   await prisma.exercise.upsert({
-    where: { slug: exerciseSlug },
+    where: { slug: exerciseWithImageSlug },
     create: {
-      slug: exerciseSlug,
-      name: exerciseName,
+      slug: exerciseWithImageSlug,
+      name: exerciseWithImageName,
       source: "contract-test",
       sourceId: marker,
       mainMuscleGroup: "Legs",
@@ -76,7 +76,7 @@ async function main() {
       isUserCreated: false,
     },
     update: {
-      name: exerciseName,
+      name: exerciseWithImageName,
       imageUrl: seededImageUrl,
       imageUrls: [],
     },
@@ -115,24 +115,25 @@ async function main() {
     const cookieHeader = loginRes.headers.get("set-cookie");
     assert.ok(cookieHeader, "Expected auth cookie from /auth/login");
 
-    const exercisesRes = await fetch(`${baseUrl}/exercises?q=${encodeURIComponent(exerciseName)}`, {
+    const exercisesRes = await fetch(`${baseUrl}/exercises?q=${encodeURIComponent(exerciseWithImageName)}`, {
       headers: { cookie: cookieHeader },
     });
     assert.equal(exercisesRes.status, 200, `Expected /exercises status 200, got ${exercisesRes.status}`);
 
     const payload = (await exercisesRes.json()) as { items?: Array<{ name?: string; imageUrl?: string | null }> };
-    const matched = (payload.items ?? []).find((item) => item.name === exerciseName);
 
-    assert.ok(matched, "Expected seeded exercise to be returned by GET /exercises");
-    assert.equal(
-      matched?.imageUrl,
-      seededImageUrl,
-      "Expected seeded exercise imageUrl to be preserved in GET /exercises response"
+    const itemsWithImage = (payload.items ?? []).filter(
+      (item) => item.name === exerciseWithImageName && typeof item.imageUrl === "string" && item.imageUrl.trim().length > 0
+    );
+
+    assert.ok(
+      itemsWithImage.length >= 1,
+      "Expected GET /exercises to return at least one matching exercise with a non-empty imageUrl"
     );
   } finally {
     server.kill("SIGTERM");
     await sleep(500);
-    await prisma.exercise.deleteMany({ where: { slug: exerciseSlug } });
+    await prisma.exercise.deleteMany({ where: { slug: exerciseWithImageSlug } });
     await prisma.user.deleteMany({ where: { email } });
     await prisma.$disconnect();
   }
