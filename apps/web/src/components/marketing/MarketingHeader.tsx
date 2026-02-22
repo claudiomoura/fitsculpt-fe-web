@@ -65,8 +65,8 @@ export function MarketingHeader() {
           <Image
             src="/fitsculpt-logo-transparent.png"
             alt="FitSculpt"
-            width={164}
-            height={36}
+            width={42}
+            height={42}
             priority
             className="h-8 w-auto"
           />

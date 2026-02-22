@@ -100,11 +100,11 @@ export default function AppNavBar() {
       <div className="nav-inner">
         <Link href="/" className="nav-brand">
           <img
-            src="/branding/logo.png"
+            src="/fitsculpt-logo-transparent.png"
             alt="FitSculpt"
-            width={24}
-            height={24}
-            className="nav-brand-logo"
+            width={42}
+            height={42}
+            className="h-8 w-auto"
           />
           {t("appName")}
         </Link>
