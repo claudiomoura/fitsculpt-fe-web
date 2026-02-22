@@ -1,57 +1,56 @@
-# Smoke Test Demo (10 min) — PR-03
+# Demo Smoke Test (manual, 1 página, <10 min)
 
-Objetivo: validar rapidamente que a demo está utilizável em fluxos core sem tocar em auth (`fs_token`) nem em rotas existentes.
+Objetivo: validar 5 flujos core de demo sin tocar `fs_token`, `/api/*` ni rutas existentes.
 
-## Pré-requisitos
-- API local em `http://localhost:4000` e Web em `http://localhost:3000`.
-- DB com seed demo aplicada (`apps/api`: `npm run db:seed` com `ALLOW_SEED=1`).
-- Conta demo (default seed):
-  - Email: `demo-admin@fitsculpt.local`
-  - Password: `DemoAdmin123!`
-- Ambiente limpo: abrir janela anónima e DevTools (Console + Network).
+## Pre-requisitos (copy/paste)
+1. API en `http://localhost:4000` y Web en `http://localhost:3000`.
+2. Variables de entorno mínimas:
+   - Web: `BACKEND_URL`, `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_API_BASE_URL` → `http://localhost:4000`.
+   - API: `DATABASE_URL`, `JWT_SECRET`, `COOKIE_SECRET`, `CORS_ORIGIN=http://localhost:3000`, `APP_BASE_URL=http://localhost:3000`, `ALLOW_SEED=1`.
+3. Seed demo aplicada (si existe en el entorno):
+   - `cd apps/api && npm run db:seed`
+4. Usuario demo (si existe por seed):
+   - Email: `demo-admin@fitsculpt.local`
+   - Password: `DemoAdmin123!`
+5. Ejecutar en ventana incógnito con DevTools abierto (Console visible todo el recorrido).
 
-## Script de smoke (5 flows, alvo <10 min)
-1. **Login (email/password)**
-   - Ir a `/login`, autenticar com conta demo.
-   - **Expected result:** login concluído e navegação para `/app` (ou `next` informado).
+## Regla global obligatoria
+- **0 console errors** durante todo el smoke. Si aparece 1 error, el smoke queda en **FAIL**.
 
-2. **`/app` protegido (sem sessão bloqueia/redireciona)**
-   - Em aba anónima sem cookies, abrir diretamente `/app`.
-   - **Expected result:** redireciona para `/login?next=%2Fapp` (ou bloqueia acesso autenticado).
+## Smoke script (5 checks)
+1) **Login**
+- Paso: entrar a `/login` e iniciar sesión con usuario demo.
+- Expected result: login exitoso y navegación a `/app` (o `next` correcto).
 
-3. **Tab bar mobile (navegação)**
-   - Em viewport mobile (ex.: 390x844), dentro de `/app`, tocar em 3 tabs (ex.: Hoy, Biblioteca, Perfil).
-   - **Expected result:** navegação funcional sem layout quebrado/overflow.
+2) **`/app` protegido**
+- Paso: en otra ventana incógnito sin sesión, abrir `/app` directo.
+- Expected result: no permite acceso directo; redirige a `/login?next=%2Fapp` (o equivalente de login).
 
-4. **Hoje + 1 ação**
-   - Abrir `/app/hoy` e executar 1 ação rápida (ex.: abrir treino/seguimiento).
-   - **Expected result:** ação dispara navegação/estado esperado e regressa sem erro.
+3) **Tab bar mobile (navegación)**
+- Paso: en viewport mobile (ej. 390x844), tocar 3 tabs (ej. Hoy, Biblioteca, Perfil).
+- Expected result: navega entre tabs sin pantalla rota, sin overlap ni overflow crítico.
 
-5. **Biblioteca: lista + detalhe (imagem real quando existir)**
-   - Abrir `/app/biblioteca`, entrar em 1 item e abrir detalhe.
-   - **Expected result:** lista renderiza, detalhe abre corretamente, imagem real aparece quando o item possui imagem.
+4) **Hoy + 1 acción**
+- Paso: abrir `/app/hoy` y ejecutar 1 acción rápida (ej. abrir entrenamiento/seguimiento y volver).
+- Expected result: la acción responde, cambia estado o navega correctamente, y vuelve sin error.
 
-## Critérios de aprovação (PASS/FAIL)
-- 5/5 flows aprovados no tempo alvo (<10 min).
-- Resultados esperados acima observáveis e checáveis.
-- **Console: 0 errors** durante o percurso core (warnings não bloqueantes devem ser anotados).
+5) **Biblioteca: lista + detalle**
+- Paso: abrir `/app/biblioteca`, seleccionar un item y abrir detalle.
+- Expected result: lista visible, detalle abre, y si el item tiene imagen real se renderiza correctamente.
 
-## Evidência e registro (colar no PR)
-Preencher e anexar (screenshot ou texto):
+## Checklist final (marcar ejecución)
+> Aprobación demo: **5/5 PASS** + **0 console errors**
 
-- [ ] Login email/password — PASS/FAIL
-- [ ] `/app` protegido sem sessão — PASS/FAIL
-- [ ] Tab bar mobile navega sem regressão — PASS/FAIL
-- [ ] Hoje + 1 ação — PASS/FAIL
-- [ ] Biblioteca lista + detalhe (+ imagem quando existir) — PASS/FAIL
-- [ ] Console 0 errors — PASS/FAIL
-- **Resultado final:** `X/5 PASS` (obrigatório `5/5 PASS` para aprovação).
+- [ ] 1. Login — PASS
+- [ ] 2. `/app` protegido sin sesión — PASS
+- [ ] 3. Tab bar mobile navega bien — PASS
+- [ ] 4. Hoy + 1 acción — PASS
+- [ ] 5. Biblioteca lista + detalle — PASS
+- [ ] Regla global: 0 console errors — PASS
 
-### Exemplo de registro (5/5 PASS)
-- Login email/password: **PASS**
-- `/app` protegido sem sessão: **PASS**
-- Tab bar mobile: **PASS**
-- Hoje + 1 ação: **PASS**
-- Biblioteca lista + detalhe: **PASS**
-- Console: **0 errors (PASS)**
-- **Resultado final: 5/5 PASS**
+**Resultado final:** `__/5 PASS` (debe ser `5/5 PASS`)
+
+## Evidencia mínima para PR
+- Link a este doc: `docs/demo-smoke-test.md`
+- Checklist completado (5/5 PASS + 0 console errors)
+- Opcional: 2–3 capturas (Biblioteca lista, Biblioteca detalle, Console limpia)
