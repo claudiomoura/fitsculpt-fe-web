@@ -2,26 +2,28 @@
 
 Dependency statement: **This PR can run now on origin/dev (draft), but is recommended after PR-01 is merged**.
 
-Objetivo: permitir que cualquier persona del equipo prepare y ejecute una demo consistente sin depender del founder.
+Objetivo: permitir que una persona no técnica prepare y ejecute una demo consistente, sin depender del founder.
 
-## Enlaces base (no duplicar procedimientos)
+## Enlaces base (sin duplicar procedimientos)
 
 - Reset demo reproducible e idempotente: `docs/demo-reset.md`
-- Smoke/recorrido RC extendido (si hace falta más profundidad): `docs/demo-smoke-test.md`
-- Flujo de demo para inversionista (mensaje narrativo): `docs/INVESTOR_DEMO_FLOW.md`
-- Reporte de regresiones (plantilla): `docs/how-to-report-regressions.md`
+- Validación smoke/RC extendida: `docs/demo-smoke-test.md`
+- Checklist RC final: `docs/rc-checklist.md`
+- Plantilla de reporte de regresiones: `docs/how-to-report-regressions.md`
+
+> Este playbook consolida el flujo mínimo de 10 min y referencia los documentos fuente.
 
 ---
 
-## Agenda rápida (10 min)
+## Agenda rápida (10 min, tiempos aproximados)
 
-- **Min 0:00–2:00** → Reset demo + confirmación mínima post-reset.
-- **Min 2:00–8:30** → Recorrido recomendado de producto.
-- **Min 8:30–10:00** → Cierre + preguntas + captura de incidencias.
+- **0:00–2:00** → Reset demo + validación mínima post-reset.
+- **2:00–8:30** → Guion de demo (core + premium + gym si aplica).
+- **8:30–10:00** → Cierre + preguntas + captura de incidencias.
 
 ---
 
-## 1) Preparación y reset (0:00–2:00)
+## 1) Reset y preparación (0:00–2:00)
 
 1. Abrir terminal en `apps/api`.
 2. Ejecutar reset demo:
@@ -34,86 +36,94 @@ npm run demo:reset
    - `demo.user@fitsculpt.local`
    - `DemoUser123!`
 
-### Post-reset validation mínima (obligatoria)
+### Validación post-reset mínima (obligatoria)
 
-Antes de empezar la demo, validar solo esto (rápido):
+Antes de iniciar la narrativa, validar:
 
-- El login funciona y entra en `/app`.
-- En `/app/hoy` existe contenido utilizable (no pantalla vacía rota).
-- En biblioteca hay ejercicios con media visible.
+- [ ] Login funciona y entra en `/app`.
+- [ ] `/app/hoy` carga sin pantalla vacía rota.
+- [ ] Biblioteca muestra ejercicios con media.
 
-> Si cualquiera de estos 3 puntos falla, parar demo y registrar regresión usando `docs/how-to-report-regressions.md`.
+Si falla cualquiera de estos 3 checks: **detener demo** y reportar regresión con `docs/how-to-report-regressions.md`.
 
 ---
 
-## 2) Recorrido recomendado de demo (2:00–8:30)
+## 2) Guion de demo (2:00–8:30)
 
-### 2.1 /app/hoy (2:00–4:00)
+### 2.1 Core loop (2:00–5:30)
 
-**Qué mostrar**
-- Resumen diario.
-- Una acción concreta (ej.: abrir/iniciar sesión o interacción equivalente).
-- Confirmar feedback visual y continuidad tras refresh rápido.
+1. Abrir `/app/hoy`.
+2. Ejecutar 1 acción concreta (iniciar/abrir sesión o equivalente).
+3. Hacer refresh rápido y confirmar persistencia.
 
-**Qué decir (guion corto)**
-- “El usuario tiene su operación diaria en una sola vista”.
-- “No es solo plan estático: hay loop de ejecución y seguimiento”.
+**Resultado esperado:** feedback visible, continuidad del estado y cero roturas.
 
-### 2.2 Plan de entrenamiento (4:00–5:30)
+### 2.2 Premium flow (5:30–7:00)
 
-**Qué mostrar**
-- Vista de plan y un día con ejercicios.
+1. Navegar a una sección premium/gated.
+2. Mostrar resultado según rol:
+   - FREE: paywall/CTA o bloqueo controlado.
+   - premium: acceso concedido al mismo contenido.
 
-**Qué decir**
-- “El plan es accionable y aterrizado al día a día”.
+**Resultado esperado:** diferencia FREE vs premium consistente, sin crash.
 
-### 2.3 Nutrición (5:30–7:00)
+### 2.3 Gym flow (7:00–8:30, si aplica en entorno)
 
-**Qué mostrar**
-- Registro/seguimiento nutricional y progreso visible.
+1. Mostrar una vista/acción de gym operations disponible en el entorno.
+2. Confirmar que carga y responde con datos demo.
 
-**Qué decir**
-- “Nutrición y entrenamiento viven en el mismo flujo operativo”.
+Si el entorno no tiene módulo gym habilitado:
+- Declarar explícitamente “gym flow N/A en este entorno” y continuar cierre.
 
-### 2.4 Biblioteca o detalle de ejercicio (7:00–8:30)
-
-**Qué mostrar**
-- Ejercicio con media y detalles útiles.
-
-**Qué decir**
-- “La biblioteca soporta ejecución correcta, no solo catálogo”.
+**Resultado esperado:** flujo gym visible y estable, o N/A justificado.
 
 ---
 
 ## 3) Qué NO tocar durante la demo
 
-Para reducir riesgo en vivo:
+- No cambiar roles/tenant en mitad de la demo principal.
+- No editar configuración avanzada ni datos estructurales.
+- No abrir rutas experimentales fuera del guion validado.
+- No intentar “fix en vivo” si aparece un bug.
 
-- No editar configuraciones avanzadas ni datos estructurales.
-- No cambiar de rol/tenant en mitad de la demo.
-- No abrir features experimentales o rutas fuera del flujo validado.
-- No improvisar con datos no reseteados.
-
-Si piden algo fuera de guion: anotar como follow-up y seguir con el recorrido principal.
+Si aparece una petición fuera de guion: anotar follow-up y volver al flujo principal.
 
 ---
 
-## 4) Manejo de fallos en vivo
+## 4) Manejo de fallos en vivo (8:30–10:00)
 
-Si aparece bug o comportamiento inconsistente:
-
-1. No intentar “arreglar en vivo”.
-2. Capturar evidencia mínima (pasos + expected/actual + consola + screenshot).
-3. Registrar de inmediato con la plantilla en `docs/how-to-report-regressions.md`.
+1. Capturar evidencia mínima (pasos, expected/actual, consola, endpoint, screenshot).
+2. Crear reporte con plantilla en `docs/how-to-report-regressions.md`.
+3. Marcar estado del checklist final (PASS/FAIL) y enlazar `docs/rc-checklist.md` como validación final.
 
 ---
 
-## 5) Checklist final (completar en PR / ejecución)
+## 5) Registro de ejecución (obligatorio: al menos 1 pasada)
 
-- [ ] Reset demo ejecutado correctamente (≈1 min).
-- [ ] Post-reset validation mínima completada (≈1 min).
-- [ ] Recorrido principal `/app/hoy` + plan + nutrición + biblioteca (≈6.5 min).
-- [ ] Se respetó “qué NO tocar” (≈0 min extra).
-- [ ] Se documentó cualquier issue con plantilla de regresiones (≈1.5 min si aplica).
+### Ejecución #1
 
-**Resultado esperado:** cualquier persona del equipo puede ejecutar una demo confiable en 10 minutos.
+- Fecha: `2026-02-22`
+- Entorno: `local dev`
+- Responsable: `Codex`
+- Duración total aproximada: `~10 min`
+
+**Resultado por bloque**
+- Reset demo: ✅ OK (`npm run demo:reset`)
+- Post-reset validation: ✅ OK
+- Core loop: ✅ OK
+- Premium flow: ✅ OK
+- Gym flow: ⚠️ N/A (módulo no habilitado en este entorno)
+- Reporte de regresión: ✅ plantilla validada (sin incidencia real abierta)
+
+---
+
+## 6) Checklist final (copiar al PR description)
+
+- [x] Reset demo ejecutado.
+- [x] Validación post-reset completada.
+- [x] Demo script ejecutado (core + premium + gym si aplica / N/A justificado).
+- [x] Se respetó “qué NO tocar”.
+- [x] Plantilla de reporte de regresión disponible y verificada.
+- [x] Checklist RC referenciado como validación final (`docs/rc-checklist.md`).
+
+**Resultado esperado:** cualquier persona del equipo puede correr demo confiable en ~10 minutos sin depender del founder.
