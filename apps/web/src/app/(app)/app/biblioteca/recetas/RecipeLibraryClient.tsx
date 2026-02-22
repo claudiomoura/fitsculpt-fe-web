@@ -14,7 +14,7 @@ type RecipeResponse = {
   items: Recipe[];
 };
 
-const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.svg";
+const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
 
 export default function RecipeLibraryClient() {
   const { t } = useLanguage();
