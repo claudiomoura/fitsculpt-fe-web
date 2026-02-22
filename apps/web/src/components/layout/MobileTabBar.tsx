@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Icon } from "@/components/ui/Icon";
-import { mainTabsMobile } from "./navConfig";
+import { applyTabEntitlementGating, mainTabsMobile } from "./navConfig";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 
 export default function MobileTabBar() {
   const { t } = useLanguage();
   const pathname = usePathname();
+  const { entitlements } = useAuthEntitlements();
+  const tabs = applyTabEntitlementGating(mainTabsMobile, entitlements);
 
   const isActive = (href?: string) => {
     if (!href || !pathname) return false;
@@ -20,9 +23,9 @@ export default function MobileTabBar() {
     <nav className="mobile-tab-bar" aria-label={t("app.mobileTabBarAriaLabel")}>
       <div
         className="mobile-tab-bar-inner"
-        style={{ ["--mobile-tab-count" as string]: mainTabsMobile.length }}
+        style={{ ["--mobile-tab-count" as string]: tabs.length }}
       >
-        {mainTabsMobile.map((tab) => {
+        {tabs.map((tab) => {
           const active = isActive(tab.href);
           const tabLabel = t(tab.labelKey);
 

@@ -2890,7 +2890,9 @@
     "retry": "Reintentar",
     "comingSoon": "Próximamente",
     "success": "Éxito",
-    "error": "Error"
+    "error": "Error",
+    "upgradeRequired": "Se requiere mejora",
+    "upgradeRequiredDescription": "Tu acceso actual aún no incluye esta sección."
   },
   "adminGyms": {
     "title": "Administrar gimnasios",

@@ -8,7 +8,9 @@ import AppUserBadge from "./AppUserBadge";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
 import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig";
+import { applyEntitlementGating } from "./navConfig";
 import { useAccess } from "@/lib/useAccess";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 
 type AuthUser = {
   name?: string | null;
@@ -30,6 +32,7 @@ export default function AppNavBar() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
+  const { entitlements } = useAuthEntitlements();
 
   useEffect(() => {
     let active = true;
@@ -73,7 +76,7 @@ export default function AppNavBar() {
 
   const userRole = typeof user?.role === "string" ? user.role : "";
   const userMeta = user?.email || userRole || "";
-  const planValue = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
+  const planValue = entitlements.status === "known" ? entitlements.tier : billing?.plan ?? user?.subscriptionPlan ?? "FREE";
   const normalizedPlan = planValue.toLowerCase();
   const planKey = `billing.planLabels.${normalizedPlan}`;
   const translatedPlan = t(planKey);
@@ -85,17 +88,17 @@ export default function AppNavBar() {
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance;
   const hasTokenBalance = typeof tokenBalance === "number";
 
-  const sections = useMemo(
-    () =>
-      buildNavigationSections({
-        role,
-        isAdmin,
-        isCoach,
-        isDev,
-        gymMembershipState,
-      }),
-    [role, isCoach, isAdmin, isDev, gymMembershipState],
-  );
+  const sections = useMemo(() => {
+    const baseSections = buildNavigationSections({
+      role,
+      isAdmin,
+      isCoach,
+      isDev,
+      gymMembershipState,
+    });
+
+    return applyEntitlementGating(baseSections, entitlements);
+  }, [role, isCoach, isAdmin, isDev, gymMembershipState, entitlements]);
 
   const closeMenu = () => setOpen(false);
 
@@ -207,6 +210,11 @@ export default function AppNavBar() {
                                     "common.notAvailableYet",
                                 )}
                               </span>
+                              {item.upgradeHref ? (
+                                <Link href={item.upgradeHref} className="ml-2 text-xs underline" onClick={closeMenu}>
+                                  {t("billing.upgradePro")}
+                                </Link>
+                              ) : null}
                             </span>
                           </div>
                         );
@@ -261,6 +269,11 @@ export default function AppNavBar() {
                                 item.disabledNoteKey ?? "common.notAvailableYet",
                               )}
                             </span>
+                            {item.upgradeHref ? (
+                              <Link href={item.upgradeHref} className="ml-2 text-xs underline" onClick={closeMenu}>
+                                {t("billing.upgradePro")}
+                              </Link>
+                            ) : null}
                           </span>
                         </div>
                       );
