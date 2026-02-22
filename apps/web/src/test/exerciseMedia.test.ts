@@ -20,6 +20,16 @@ describe("getExerciseThumbUrl", () => {
     expect(url).toBe("https://cdn/media.gif");
   });
 
+  it("supports snake_case media fields from backend payloads", () => {
+    const url = getExerciseThumbUrl({
+      image_url: "https://cdn/snake-image.jpg",
+      thumbnail_url: "https://cdn/snake-thumb.jpg",
+      media: { thumbnail_url: "https://cdn/snake-nested-thumb.jpg" },
+    });
+
+    expect(url).toBe("https://cdn/snake-image.jpg");
+  });
+
   it("returns null when no valid media url exists", () => {
     expect(getExerciseThumbUrl({ imageUrl: "  " })).toBeNull();
     expect(getExerciseThumbUrl(null)).toBeNull();
