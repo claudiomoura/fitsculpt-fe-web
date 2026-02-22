@@ -1318,8 +1318,17 @@ label {
 }
 
 .nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 700;
   font-size: 18px;
+}
+
+.nav-brand-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .nav-links {
@@ -3285,10 +3294,13 @@ label {
   .nav-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    gap: 0;
     margin-left: 0;
     grid-column: 3;
     justify-self: end;
+    width: 40px;
+    padding-inline: 0;
   }
 
   .nav-utility {

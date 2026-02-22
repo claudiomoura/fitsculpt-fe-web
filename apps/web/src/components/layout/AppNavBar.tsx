@@ -99,6 +99,13 @@ export default function AppNavBar() {
     <header className="site-header">
       <div className="nav-inner">
         <Link href="/" className="nav-brand">
+          <img
+            src="/branding/logo.png"
+            alt="FitSculpt"
+            width={24}
+            height={24}
+            className="nav-brand-logo"
+          />
           {t("appName")}
         </Link>
 
@@ -127,13 +134,10 @@ export default function AppNavBar() {
             className="nav-toggle"
             aria-expanded={open}
             aria-controls="app-nav-drawer"
-            aria-label={open ? t("ui.close") : t("ui.menu")}
+            aria-label="Abrir menú"
             onClick={() => setOpen((prev) => !prev)}
           >
             <span aria-hidden="true">{open ? "✕" : "☰"}</span>
-            <span className="nav-toggle-label">
-              {open ? t("ui.close") : t("ui.menu")}
-            </span>
           </button>
         </div>
       </div>
