@@ -111,3 +111,29 @@ Definir un tablero/reporte semanal operable hoy para monitorear señales post-re
 - **Sin plataforma nueva:** este reporte no agrega provider de analytics ni nuevos endpoints.
 - **Limitación principal:** sin eventos dedicados (`core_action_completed`, `upgrade_cta_click`) en producción, las métricas dependen de proxy sobre persistencia y cohorte.
 - **Requiere implementación (futuro):** extracción automatizada reproducible (script/job) y contrato de eventos de producto para reducir ambigüedad.
+
+
+## Instrumentación mínima Weekly Review (PR-04)
+
+Para cerrar MVP medible de Weekly Review sin introducir plataforma nueva:
+
+- Evento de apertura: `weekly_review_opened`
+- Evento de decisión: `weekly_review_recommendation_decision` con `decision=accepted|dismissed` y `recommendationId`
+
+### Dónde se registra hoy (proxy sin analytics externo)
+
+- Cliente web guarda eventos en `localStorage` con key: `fitsculpt.weeklyReview.events`.
+- Se conserva un buffer acotado (últimos 50 eventos) para validación QA/manual.
+- También se emite `CustomEvent("fitsculpt:weekly-review-telemetry")` para debug local.
+
+### Cómo validar rápido
+
+1. Abrir `/app/weekly-review`.
+2. En DevTools, inspeccionar `localStorage.getItem("fitsculpt.weeklyReview.events")`.
+3. Pulsar `Accept` y `Not now` en recomendaciones disponibles.
+4. Confirmar que se agregan eventos de `decision` con `recommendationId` y timestamp.
+
+### Relación con métricas sprint 6/8
+
+- Estos eventos no sustituyen WCAA proxy/Activation/W1; sirven como señal de interacción sobre la capa de recomendaciones semanales.
+- El cálculo oficial semanal mantiene las definiciones de `docs/metrics-definition.md` y este runbook (`Activation D0–D2`, `WCAA proxy`, `W1 proxy`).

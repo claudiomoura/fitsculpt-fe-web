@@ -68,7 +68,24 @@ Expected result:
 
 ---
 
-## 3) Smoke entitlements (FREE vs premium) (3–4 min)
+## 3) Weekly Review smoke (1–2 min)
+
+1. **Carga Weekly Review**
+   - Paso: en sesión autenticada abrir `/app/weekly-review`.
+   - Expected: renderiza título y resumen/recomendaciones (o estado vacío controlado), sin crash.
+
+2. **Acciones de recomendación (si disponibles)**
+   - Paso: pulsar `Accept` o `Not now` en una recomendación visible.
+   - Expected: la UI responde sin errores; navegación general se mantiene estable.
+
+3. **No-regresión core loop**
+   - Paso: volver a `/app/hoy` tras revisar Weekly Review.
+   - Expected: `/app/hoy` sigue operativo y con persistencia normal.
+
+---
+
+## 4) Smoke entitlements (FREE vs premium) (3–4 min)
+
 
 > Si el entorno no tiene usuario premium semillado, usar override/admin o el mecanismo equivalente disponible en el entorno.
 
@@ -86,7 +103,7 @@ Expected result:
 
 ---
 
-## 4) Checklist final RC (PASS/FAIL)
+## 5) Checklist final RC (PASS/FAIL)
 
 > Criterio de aprobación: **todos los checks en PASS** + **0 console errors**.
 
@@ -95,6 +112,7 @@ Expected result:
 - [x] `/app` protegido redirige correctamente sin sesión.
 - [x] Core loop en `/app/hoy` permite acción válida.
 - [x] Persistencia confirmada después de refresh.
+- [x] Weekly Review carga correctamente y no rompe el retorno a `/app/hoy`.
 - [x] Entitlements: FREE bloqueado de forma controlada en contenido premium.
 - [x] Entitlements: premium accede al mismo contenido correctamente.
 - [x] Regla global: 0 console errors durante el recorrido.
