@@ -10,7 +10,7 @@ type RecipeDetailClientProps = {
   error?: string | null;
 };
 
-const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.svg";
+const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
 
 export default function RecipeDetailClient({ recipe, error }: RecipeDetailClientProps) {
   const { t } = useLanguage();

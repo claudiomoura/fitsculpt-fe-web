@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
+import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 import {
   type ExerciseRecent,
   useExerciseRecents,
@@ -17,6 +17,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { EmptyState, ErrorState, ExerciseCard, SkeletonExerciseList } from "@/components/exercise-library";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
+import { getUserProfile } from "@/lib/profileService";
+import { getUserRoleFlags } from "@/lib/userCapabilities";
 import { fetchExercisesList } from "@/services/exercises";
 import { addExerciseToPlanDay, getTrainerPlanDetail, listTrainerGymPlans } from "@/services/trainer";
 
@@ -229,6 +231,14 @@ export default function ExerciseLibraryClient() {
       setSubmitNotSupported(false);
 
       try {
+        const profile = await getUserProfile();
+        const roleFlags = getUserRoleFlags(profile);
+        if (!roleFlags.isTrainer && !roleFlags.isAdmin) {
+          if (!active) return;
+          setTargetPlans([]);
+          return;
+        }
+
         const listResult = await listTrainerGymPlans({ limit: 200 });
         if (!listResult.ok) {
           throw new Error("PLAN_LIST_ERROR");
@@ -249,10 +259,11 @@ export default function ExerciseLibraryClient() {
 
         if (!active) return;
         setTargetPlans(details);
-        setPlansLoading(false);
-      } catch (_err) {
+      } catch {
         if (!active) return;
         setPlansError(t("library.addToPlansLoadError"));
+      } finally {
+        if (!active) return;
         setPlansLoading(false);
       }
     };
@@ -350,7 +361,7 @@ export default function ExerciseLibraryClient() {
   const renderExerciseCard = (exercise: Exercise | ExerciseRecent, fallbackKey: string) => {
     const muscles = getExerciseMuscles(exercise);
     const exerciseId = exercise.id;
-    const coverUrl = getExerciseCoverUrl(exercise) || "/placeholders/exercise-cover.svg";
+    const coverUrl = getExerciseThumbUrl(exercise) ?? "/placeholders/exercise-cover.jpg";
     const isFavorite = Boolean(exerciseId && favorites.includes(exerciseId));
     const isFavoritePending = Boolean(exerciseId && pendingFavoriteIds.includes(exerciseId));
     const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");

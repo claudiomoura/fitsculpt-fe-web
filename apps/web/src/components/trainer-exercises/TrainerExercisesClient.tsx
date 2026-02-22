@@ -157,7 +157,7 @@ export default function TrainerExercisesClient() {
                       src={getExerciseThumbnail(exercise) ?? ""}
                       alt={t("library.thumbnailAlt").replace("{exercise}", exercise.name)}
                       onError={(event) => {
-                        event.currentTarget.src = "/placeholders/exercise-cover.svg";
+                        event.currentTarget.src = "/placeholders/exercise-cover.jpg";
                       }}
                       width={72}
                       height={72}

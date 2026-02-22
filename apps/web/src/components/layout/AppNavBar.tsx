@@ -8,7 +8,9 @@ import AppUserBadge from "./AppUserBadge";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
 import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig";
+import { applyEntitlementGating } from "./navConfig";
 import { useAccess } from "@/lib/useAccess";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 
 type AuthUser = {
   name?: string | null;
@@ -30,10 +32,19 @@ export default function AppNavBar() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
+  const { entitlements } = useAuthEntitlements();
 
   useEffect(() => {
     let active = true;
     const load = async () => {
+      if (!document.cookie.includes("fs_token=")) {
+        if (active) {
+          setUser(null);
+          setBilling(null);
+        }
+        return;
+      }
+
       try {
         const [authResponse, billingResponse] = await Promise.all([
           fetch("/api/auth/me", { cache: "no-store" }),
@@ -65,7 +76,7 @@ export default function AppNavBar() {
 
   const userRole = typeof user?.role === "string" ? user.role : "";
   const userMeta = user?.email || userRole || "";
-  const planValue = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
+  const planValue = entitlements.status === "known" ? entitlements.tier : billing?.plan ?? user?.subscriptionPlan ?? "FREE";
   const normalizedPlan = planValue.toLowerCase();
   const planKey = `billing.planLabels.${normalizedPlan}`;
   const translatedPlan = t(planKey);
@@ -77,17 +88,17 @@ export default function AppNavBar() {
   const tokenBalance = billing?.tokens ?? user?.aiTokenBalance;
   const hasTokenBalance = typeof tokenBalance === "number";
 
-  const sections = useMemo(
-    () =>
-      buildNavigationSections({
-        role,
-        isAdmin,
-        isCoach,
-        isDev,
-        gymMembershipState,
-      }),
-    [role, isCoach, isAdmin, isDev, gymMembershipState],
-  );
+  const sections = useMemo(() => {
+    const baseSections = buildNavigationSections({
+      role,
+      isAdmin,
+      isCoach,
+      isDev,
+      gymMembershipState,
+    });
+
+    return applyEntitlementGating(baseSections, entitlements);
+  }, [role, isCoach, isAdmin, isDev, gymMembershipState, entitlements]);
 
   const closeMenu = () => setOpen(false);
 
@@ -99,6 +110,13 @@ export default function AppNavBar() {
     <header className="site-header">
       <div className="nav-inner">
         <Link href="/" className="nav-brand">
+          <img
+            src="/fitsculpt-logo-transparent.png"
+            alt="FitSculpt"
+            width={42}
+            height={42}
+            className="h-8 w-auto"
+          />
           {t("appName")}
         </Link>
 
@@ -127,13 +145,10 @@ export default function AppNavBar() {
             className="nav-toggle"
             aria-expanded={open}
             aria-controls="app-nav-drawer"
-            aria-label={open ? t("ui.close") : t("ui.menu")}
+            aria-label="Abrir menú"
             onClick={() => setOpen((prev) => !prev)}
           >
             <span aria-hidden="true">{open ? "✕" : "☰"}</span>
-            <span className="nav-toggle-label">
-              {open ? t("ui.close") : t("ui.menu")}
-            </span>
           </button>
         </div>
       </div>
@@ -195,6 +210,11 @@ export default function AppNavBar() {
                                     "common.notAvailableYet",
                                 )}
                               </span>
+                              {item.upgradeHref ? (
+                                <Link href={item.upgradeHref} className="ml-2 text-xs underline" onClick={closeMenu}>
+                                  {t("billing.upgradePro")}
+                                </Link>
+                              ) : null}
                             </span>
                           </div>
                         );
@@ -249,6 +269,11 @@ export default function AppNavBar() {
                                 item.disabledNoteKey ?? "common.notAvailableYet",
                               )}
                             </span>
+                            {item.upgradeHref ? (
+                              <Link href={item.upgradeHref} className="ml-2 text-xs underline" onClick={closeMenu}>
+                                {t("billing.upgradePro")}
+                              </Link>
+                            ) : null}
                           </span>
                         </div>
                       );

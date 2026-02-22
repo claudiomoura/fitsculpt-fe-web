@@ -20,12 +20,23 @@ import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLevelJsonFromText } from "./aiParsing.js";
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
+import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
+import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
+import {
+  defaultTracking,
+  trackingDeleteSchema,
+  trackingEntryCreateSchema,
+  trackingSchema,
+} from "./tracking/schemas.js";
+import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/service.js";
+import { resetDemoState } from "./dev/demoSeed.js";
+import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 
 
 const env = getEnv();
@@ -1021,52 +1032,6 @@ async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
   (request as AuthenticatedRequest).currentEntitlements = entitlements;
 }
 
-const checkinSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  weightKg: z.number(),
-  chestCm: z.number(),
-  waistCm: z.number(),
-  hipsCm: z.number(),
-  bicepsCm: z.number(),
-  thighCm: z.number(),
-  calfCm: z.number(),
-  neckCm: z.number(),
-  bodyFatPercent: z.number(),
-  energy: z.number(),
-  hunger: z.number(),
-  notes: z.string(),
-  recommendation: z.string(),
-  frontPhotoUrl: z.string().nullable(),
-  sidePhotoUrl: z.string().nullable(),
-});
-
-const foodEntrySchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  foodKey: z.string(),
-  grams: z.number(),
-});
-
-const workoutEntrySchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  name: z.string(),
-  durationMin: z.number(),
-  notes: z.string(),
-});
-
-const trackingSchema = z.object({
-  checkins: z.array(checkinSchema),
-  foodLog: z.array(foodEntrySchema),
-  workoutLog: z.array(workoutEntrySchema),
-});
-
-const trackingDeleteSchema = z.object({
-  collection: z.enum(["checkins", "foodLog", "workoutLog"]),
-  id: z.string().min(1),
-});
-
 const userFoodSchema = z.object({
   name: z.string().min(1),
   calories: z.number().nonnegative(),
@@ -1076,12 +1041,6 @@ const userFoodSchema = z.object({
   unit: z.enum(["100g", "serving", "unit"]),
   brand: z.string().optional().nullable(),
 });
-
-const defaultTracking = {
-  checkins: [],
-  foodLog: [],
-  workoutLog: [],
-};
 
 const defaultTrainingPreferences = {
   level: "beginner",
@@ -2814,43 +2773,6 @@ function getExerciseMetadata(name: string) {
   return exerciseMetadataByName[name.toLowerCase()];
 }
 
-type ExerciseRow = {
-  id: string;
-  sourceId?: string | null;
-  slug?: string | null;
-  name: string;
-  source?: string | null;
-  equipment: string | null;
-  imageUrls?: string[] | null;
-  description: string | null;
-  imageUrl?: string | null;
-  mediaUrl?: string | null;
-  technique?: string | null;
-  tips?: string | null;
-  mainMuscleGroup?: string | null;
-  secondaryMuscleGroups?: string[] | null;
-  primaryMuscles?: string[] | null;
-  secondaryMuscles?: string[] | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type ExerciseApiDto = {
-  id: string;
-  slug: string;
-  name: string;
-  sourceId: string | null;
-  equipment: string | null;
-  imageUrls: string[];
-  imageUrl: string | null;
-  mainMuscleGroup: string | null;
-  secondaryMuscleGroups: string[];
-  description: string | null;
-  mediaUrl: string | null;
-  technique: string | null;
-  tips: string | null;
-};
-
 function hasExerciseClient() {
   return typeof (prisma as PrismaClient & { exercise?: unknown }).exercise !== "undefined";
 }
@@ -2863,43 +2785,6 @@ function slugifyName(name: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
-
-function normalizeExercisePayload(exercise: ExerciseRow): ExerciseApiDto {
-  const main =
-    typeof exercise.mainMuscleGroup === "string" && exercise.mainMuscleGroup.trim()
-      ? exercise.mainMuscleGroup
-      : Array.isArray(exercise.primaryMuscles)
-        ? exercise.primaryMuscles.find((muscle) => typeof muscle === "string" && muscle.trim())
-        : null;
-
-  const secondarySource = Array.isArray(exercise.secondaryMuscleGroups)
-    ? exercise.secondaryMuscleGroups
-    : Array.isArray(exercise.secondaryMuscles)
-      ? exercise.secondaryMuscles
-      : [];
-
-  const secondaryMuscleGroups = secondarySource.filter(
-    (muscle): muscle is string => typeof muscle === "string" && muscle.trim().length > 0
-  );
-
-  return {
-    id: exercise.id,
-    slug: exercise.slug ?? slugifyName(exercise.name),
-    name: exercise.name,
-    sourceId: exercise.sourceId ?? null,
-    equipment: exercise.equipment ?? null,
-    imageUrls: (exercise.imageUrls ?? []).filter((url): url is string => typeof url === "string" && url.trim().length > 0),
-    imageUrl:
-      (exercise.imageUrls ?? []).find((url): url is string => typeof url === "string" && url.trim().length > 0) ?? null,
-    description: exercise.description ?? null,
-    mediaUrl: exercise.mediaUrl ?? null,
-    technique: exercise.technique ?? null,
-    tips: exercise.tips ?? null,
-    mainMuscleGroup: main ?? null,
-    secondaryMuscleGroups,
-  };
-}
-
 
 async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata, options?: { source?: string; sourceId?: string; imageUrls?: string[] }) {
   const now = new Date();
@@ -3084,6 +2969,7 @@ async function listExercises(params: {
           slug: true,
           name: true,
           equipment: true,
+          imageUrls: true,
           description: true,
           imageUrl: true,
           mediaUrl: true,
@@ -3118,7 +3004,7 @@ async function listExercises(params: {
   const hasFilters = Boolean(params.q || (params.equipment && params.equipment !== "all") || (params.primaryMuscle && params.primaryMuscle !== "all"));
 
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrls", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
     ${params.cursor
@@ -3173,7 +3059,7 @@ async function getExerciseById(id: string) {
   }
 
   const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrls", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     WHERE "id" = ${id}
     LIMIT 1
@@ -3216,6 +3102,7 @@ async function createExercise(input: z.infer<typeof createExerciseSchema>) {
       slug: true,
       name: true,
       equipment: true,
+      imageUrls: true,
       description: true,
       imageUrl: true,
       mediaUrl: true,
@@ -3927,7 +3814,7 @@ const feedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
-type TrackingSnapshot = {
+type FeedTrackingSnapshot = {
   checkins?: Array<{ id?: string; date?: string; weightKg?: number }>;
   foodLog?: Array<{ id?: string; date?: string }>;
   workoutLog?: Array<{ id?: string; date?: string }>;
@@ -3949,9 +3836,9 @@ function getRecentEntries<T extends { date?: string }>(entries: T[], days: numbe
   });
 }
 
-function buildFeedSummary(profile: Record<string, unknown> | null, tracking: TrackingSnapshot | null) {
+function buildFeedSummary(profile: Record<string, unknown> | null, tracking: FeedTrackingSnapshot | null) {
   const name = typeof profile?.name === "string" ? profile.name : "tu";
-  const normalizedTracking: TrackingSnapshot = tracking ?? {};
+  const normalizedTracking: FeedTrackingSnapshot = tracking ?? {};
   const checkins = Array.isArray(normalizedTracking.checkins) ? normalizedTracking.checkins : [];
   const foodLog = Array.isArray(normalizedTracking.foodLog) ? normalizedTracking.foodLog : [];
   const workoutLog = Array.isArray(normalizedTracking.workoutLog) ? normalizedTracking.workoutLog : [];
@@ -4715,27 +4602,14 @@ app.get("/auth/me", async (request, reply) => {
     });
     const entitlements = getUserEntitlements(user);
     const aiTokenPayload = getAiTokenPayload(user, entitlements);
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
+    return buildAuthMeResponse({
+      user,
       role: effectiveIsAdmin ? "ADMIN" : user.role,
-      emailVerifiedAt: user.emailVerifiedAt,
-      lastLoginAt: user.lastLoginAt,
-      subscriptionPlan: entitlements.legacy.tier,
-      plan: entitlements.legacy.tier,
-      subscriptionStatus: user.subscriptionStatus,
-      currentPeriodEnd: user.currentPeriodEnd,
       aiTokenBalance: aiTokenPayload.aiTokenBalance,
       aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
       entitlements,
-      gymMembershipState: activeMembership ? "active" : "none",
-      gymId: activeMembership?.gym.id,
-      gymName: activeMembership?.gym.name,
-      isTrainer:
-        activeMembership?.status === "ACTIVE" &&
-        (activeMembership?.role === "TRAINER" || activeMembership?.role === "ADMIN"),
-    };
+      activeMembership,
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5097,26 +4971,65 @@ app.put("/tracking", async (request, reply) => {
   }
 });
 
+app.post("/tracking", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const payload = trackingEntryCreateSchema.parse(request.body);
+    const profile = await getOrCreateProfile(user.id);
+    const nextTracking = upsertTrackingEntry(profile.tracking, payload);
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const updated = await prisma.userProfile.upsert({
+          where: { userId: user.id },
+          create: {
+            userId: user.id,
+            profile: Prisma.DbNull,
+            tracking: nextTracking,
+          },
+          update: {
+            tracking: nextTracking,
+          },
+        });
+
+        return reply.status(201).send(normalizeTrackingSnapshot(updated.tracking));
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.delete("/tracking/:collection/:id", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const params = trackingDeleteSchema.parse(request.params);
     const profile = await getOrCreateProfile(user.id);
-    const currentTracking =
-      typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as TrackingSnapshot) : defaultTracking;
-const rawList = currentTracking[params.collection];
-const currentList = Array.isArray(rawList) ? rawList : [];
-const nextList = currentList.filter((entry) => entry.id !== params.id);
+    const currentTracking = normalizeTrackingSnapshot(profile.tracking);
+    const rawList = currentTracking[params.collection];
+    const currentList = Array.isArray(rawList) ? rawList : [];
+    const nextList = currentList.filter((entry) => entry.id !== params.id);
 
     const nextTracking = { ...currentTracking, [params.collection]: nextList };
     const updated = await prisma.userProfile.update({
       where: { userId: user.id },
       data: { tracking: nextTracking },
     });
-    return updated.tracking ?? defaultTracking;
+    return normalizeTrackingSnapshot(updated.tracking);
   } catch (error) {
     return handleRequestError(reply, error);
   }
+});
+
+registerWeeklyReviewRoute(app, {
+  requireUser,
+  getOrCreateProfile,
+  handleRequestError,
 });
 
 app.get("/user-foods", async (request, reply) => {
@@ -6076,7 +5989,7 @@ app.post("/feed/generate", async (request, reply) => {
     const profileData =
       typeof profile.profile === "object" && profile.profile ? (profile.profile as Record<string, unknown>) : null;
     const trackingData =
-      typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as TrackingSnapshot) : null;
+      typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as FeedTrackingSnapshot) : null;
     const summary = buildFeedSummary(profileData, trackingData);
     const post = await prisma.feedPost.create({
       data: {
@@ -6234,8 +6147,24 @@ const assignTrainingPlanBodySchema = z
     trainingPlanId: z.string().min(1).optional(),
     templatePlanId: z.string().min(1).optional(),
   })
-  .refine((value) => Boolean(value.trainingPlanId || value.templatePlanId), {
-    message: "trainingPlanId is required",
+  .superRefine((value, ctx) => {
+    const hasTrainingPlanId = Boolean(value.trainingPlanId);
+    const hasTemplatePlanId = Boolean(value.templatePlanId);
+
+    if (!hasTrainingPlanId && !hasTemplatePlanId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "trainingPlanId or templatePlanId is required",
+      });
+      return;
+    }
+
+    if (hasTrainingPlanId && hasTemplatePlanId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide only one of trainingPlanId or templatePlanId",
+      });
+    }
   });
 const trainerMemberParamsSchema = z.object({
   userId: z.string().min(1),
@@ -6807,7 +6736,21 @@ app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (reque
         },
       }),
       prisma.trainingPlan.findFirst({
-        where: { id: selectedPlanId, userId: requester.id },
+        where: {
+          id: selectedPlanId,
+          OR: [
+            { userId: requester.id },
+            {
+              gymAssignments: {
+                some: {
+                  gymId,
+                  status: "ACTIVE",
+                  role: "MEMBER",
+                },
+              },
+            },
+          ],
+        },
         select: {
           id: true,
           title: true,
@@ -9170,6 +9113,20 @@ app.post("/dev/seed-recipes", async (_request, reply) => {
     return reply.status(200).send({ ok: true, seeded });
   } catch (err) {
     app.log.error({ err }, "seed recipes failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR" });
+  }
+});
+
+app.post("/dev/reset-demo", async (_request, reply) => {
+  try {
+    if (process.env.NODE_ENV === "production") {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const result = await resetDemoState(prisma);
+    return reply.status(200).send({ ok: true, ...result });
+  } catch (err) {
+    app.log.error({ err }, "reset demo failed");
     return reply.status(500).send({ error: "INTERNAL_ERROR" });
   }
 });

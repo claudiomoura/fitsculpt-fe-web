@@ -1,25 +1,6 @@
-export type AuthMePayload = {
-  subscriptionPlan?: string | null;
-  plan?: string | null;
-  entitlements?: {
-    plan?: {
-      base?: string;
-      effective?: string;
-    };
-    role?: {
-      isAdmin?: boolean;
-      adminOverride?: boolean;
-    };
-    modules?: {
-      ai?: { enabled?: boolean };
-      strength?: { enabled?: boolean };
-      nutrition?: { enabled?: boolean };
-    };
-    legacy?: {
-      tier?: string;
-    };
-  } | null;
-};
+import type { AuthMeResponse } from "@/lib/types";
+
+export type AuthMePayload = AuthMeResponse;
 
 export type EntitlementTier = "FREE" | "PRO" | "GYM";
 
@@ -29,13 +10,15 @@ export type UiEntitlements =
       tier: EntitlementTier;
       features: {
         canUseAI: boolean;
-        hasProSupport: boolean;
-        hasGymAccess: boolean;
+        canUseNutrition: boolean;
+        canUseStrength: boolean;
       };
     }
   | {
       status: "unknown";
     };
+
+export type EntitlementFeature = "ai" | "nutrition" | "strength";
 
 function normalizeTier(plan?: string | null): EntitlementTier | null {
   if (typeof plan !== "string") return null;
@@ -57,6 +40,11 @@ function normalizeTier(plan?: string | null): EntitlementTier | null {
 }
 
 export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
+  const modules = payload.entitlements?.modules;
+  if (!modules) {
+    return { status: "unknown" };
+  }
+
   const tier = normalizeTier(
     payload.entitlements?.legacy?.tier ?? payload.entitlements?.plan?.effective ?? payload.plan ?? payload.subscriptionPlan,
   );
@@ -65,17 +53,33 @@ export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
     return { status: "unknown" };
   }
 
-  const modules = payload.entitlements?.modules;
-  const canUseAI = typeof modules?.ai?.enabled === "boolean" ? modules.ai.enabled : tier === "PRO";
-  const hasGymAccess = typeof modules?.strength?.enabled === "boolean" ? modules.strength.enabled && tier === "GYM" : tier === "GYM";
+  const canUseAI = modules.ai?.enabled === true;
+  const canUseNutrition = modules.nutrition?.enabled === true;
+  const canUseStrength = modules.strength?.enabled === true;
 
   return {
     status: "known",
     tier,
     features: {
       canUseAI,
-      hasProSupport: tier === "PRO" || tier === "GYM",
-      hasGymAccess,
+      canUseNutrition,
+      canUseStrength,
     },
   };
+}
+
+export function canAccessFeature(entitlements: UiEntitlements, feature: EntitlementFeature): boolean {
+  if (entitlements.status !== "known") {
+    return false;
+  }
+
+  if (feature === "ai") {
+    return entitlements.features.canUseAI;
+  }
+
+  if (feature === "nutrition") {
+    return entitlements.features.canUseNutrition;
+  }
+
+  return entitlements.features.canUseStrength;
 }

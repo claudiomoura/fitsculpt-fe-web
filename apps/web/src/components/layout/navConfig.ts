@@ -1,4 +1,5 @@
 import { canAccessAdmin, type RoleAccessInput } from "@/config/roleAccess";
+import { canAccessFeature, type EntitlementFeature, type UiEntitlements } from "@/lib/entitlements";
 
 export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin" | "trainer" | "development";
 
@@ -9,6 +10,8 @@ export type NavItem = {
   meta?: string;
   disabled?: boolean;
   disabledNoteKey?: string;
+  feature?: EntitlementFeature;
+  upgradeHref?: string;
 };
 
 export type NavSectionGroup = {
@@ -41,6 +44,8 @@ export type MobileTab = {
   labelKey: string;
   icon: "sparkles" | "dumbbell" | "book" | "info" | "check";
   badgeCount?: number;
+  feature?: EntitlementFeature;
+  upgradeHref?: string;
 };
 
 export const mainTabsMobile: MobileTab[] = [
@@ -73,6 +78,8 @@ export const mainTabsMobile: MobileTab[] = [
     href: "/app/nutricion",
     labelKey: "nav.nutritionCalendar",
     icon: "sparkles",
+    feature: "nutrition",
+    upgradeHref: "/app/settings/billing",
   },
   {
     id: "tracking",
@@ -91,6 +98,7 @@ export const sidebarUser: NavSectionGroup[] = [
       { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
+      { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
     ],
   },
   {
@@ -106,10 +114,10 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutritionCalendar" },
-      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans" },
-      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary" },
-      { id: "macros", href: "/app/macros", labelKey: "nav.macros" },
+      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
     ],
   },
   {
@@ -117,7 +125,7 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.account",
     items: [
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
-      { id: "gym", href: "/app/gym", labelKey: "nav.gym" },
+      { id: "gym", href: "/app/gym", labelKey: "nav.gym", feature: "strength", upgradeHref: "/pricing" },
       { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
     ],
   },
@@ -199,7 +207,8 @@ export const sidebarDevelopment: NavSectionGroup[] = [
       },
       { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
       { id: "dev-dashboard", href: "/app/dashboard", labelKey: "nav.dashboard", meta: "/app/dashboard" },
-      { id: "dev-workouts", href: "/app/workouts", labelKey: "nav.workouts", meta: "/app/workouts" },
+      { id: "dev-weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview", meta: "/app/weekly-review" },
+      { id: "dev-workouts", href: "/app/entrenamiento", labelKey: "nav.workouts", meta: "/app/workouts" },
       {
         id: "dev-training-edit",
         href: "/app/entrenamiento/editar",
@@ -298,4 +307,27 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
   }
 
   return [...userSections, ...sidebarAdmin, ...sidebarTrainer, ...sidebarDevelopment];
+}
+
+export function applyEntitlementGating(sections: NavSectionGroup[], entitlements: UiEntitlements): NavSectionGroup[] {
+  return sections
+    .map((section) => ({
+      ...section,
+      items: section.items.map((item) => {
+        if (!item.feature || canAccessFeature(entitlements, item.feature)) {
+          return item;
+        }
+
+        return {
+          ...item,
+          disabled: true,
+          disabledNoteKey: item.disabledNoteKey ?? "common.upgradeRequired",
+        };
+      }),
+    }))
+    .filter((section) => section.items.length > 0);
+}
+
+export function applyTabEntitlementGating(tabs: MobileTab[], entitlements: UiEntitlements): MobileTab[] {
+  return tabs.filter((tab) => !tab.feature || canAccessFeature(entitlements, tab.feature));
 }

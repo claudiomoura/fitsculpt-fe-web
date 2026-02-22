@@ -45,7 +45,8 @@
     "nutritionCalendar": "Calendario de nutrición",
     "nutritionPlans": "Planes de nutrición",
     "exerciseLibrary": "Biblioteca de ejercicios",
-    "trainingPlans": "Planes de entrenamiento"
+    "trainingPlans": "Planes de entrenamiento",
+    "weeklyReview": "Revisión semanal"
   },
   "navSections": {
     "summary": "Resumen",
@@ -152,7 +153,17 @@
     "viewTodayPlanDescription": "Consulta el calendario de entrenamiento y nutrición del día.",
     "viewTodayPlanOutcome": "Abre tu calendario para revisar lo planificado hoy.",
     "viewTodayPlanCta": "Ver plan de hoy",
-    "viewTodayPlanUnavailable": "Todavía no hay plan de hoy disponible."
+    "viewTodayPlanUnavailable": "Todavía no hay plan de hoy disponible.",
+    "completeTodayActionTitle": "Completar 1 acción",
+    "completeTodayActionDescription": "Guarda tu progreso de hoy en tracking con un toque.",
+    "completeTodayActionOutcome": "Escribe el registro de tracking de hoy y confirma el progreso al instante.",
+    "completeTodayActionSuccess": "La acción de hoy se guardó correctamente.",
+    "completeTodayActionError": "No pudimos guardar la acción de hoy. Inténtalo de nuevo.",
+    "completeTodayActionCta": "Completar 1 acción",
+    "completeTodayActionDoneCta": "Acción completada",
+    "completeTodayActionUnavailable": "La acción de hoy no está disponible ahora mismo.",
+    "todayActionDefaultNotes": "Acción rápida de hoy completada desde Hoy.",
+    "todayActionDefaultRecommendation": "Mantener el plan actual"
   },
   "today": {
     "title": "Acciones de hoy",
@@ -1413,7 +1424,13 @@
     "errorTitle": "Problema al cargar datos",
     "workoutLength30": "30 min",
     "workoutLength45": "45 min",
-    "workoutLength60": "60 min"
+    "workoutLength60": "60 min",
+    "macroTitle": "Ajustes de fórmula",
+    "macroAdvancedToggle": "Ajuste avanzado (opcional)",
+    "macroProteinPlaceholder": "Ej: 2.0",
+    "macroFatPlaceholder": "Ej: 0.8",
+    "macroCutPercentPlaceholder": "Ej: 20",
+    "macroBulkPercentPlaceholder": "Ej: 10"
   },
   "tracking": {
     "sectionCheckins": "Check-ins semanales",
@@ -1565,7 +1582,15 @@
     "adjustmentChangedDays": "Días actualizados: {count}",
     "adjustmentAddedExercises": "Ejercicios añadidos: {count}",
     "adjustmentRemovedExercises": "Ejercicios eliminados: {count}",
-    "adjustmentDurationDelta": "Cambio total de duración: {minutes} min"
+    "adjustmentDurationDelta": "Cambio total de duración: {minutes} min",
+    "chestCm": "Pecho (cm)",
+    "waistCm": "Cintura (cm)",
+    "hipsCm": "Cadera (cm)",
+    "bicepsCm": "Bíceps (cm)",
+    "thighCm": "Muslo (cm)",
+    "calfCm": "Gemelo (cm)",
+    "neckCm": "Cuello (cm)",
+    "bodyFatPercent": "% grasa corporal"
   },
   "onboarding": {
     "title": "Bienvenido a FitSculpt",
@@ -2876,7 +2901,9 @@
     "retry": "Reintentar",
     "comingSoon": "Próximamente",
     "success": "Éxito",
-    "error": "Error"
+    "error": "Error",
+    "upgradeRequired": "Se requiere mejora",
+    "upgradeRequiredDescription": "Tu acceso actual aún no incluye esta sección."
   },
   "adminGyms": {
     "title": "Administrar gimnasios",
@@ -3157,5 +3184,28 @@
         "confirm": "Eliminar plan"
       }
     }
+  },
+  "weeklyReview": {
+    "title": "Revisión semanal",
+    "subtitle": "Resumen mobile-first de tu semana con recomendaciones accionables.",
+    "loadingTitle": "Cargando revisión semanal",
+    "loadingDescription": "Preparando tu resumen y recomendaciones.",
+    "unavailableTitle": "Revisión semanal no disponible",
+    "unavailableDescription": "Este módulo aún no está disponible para tu cuenta.",
+    "errorTitle": "No pudimos cargar tu revisión semanal",
+    "errorDescription": "Reintenta para recuperar tu resumen de la semana.",
+    "emptyTitle": "Aún no hay datos semanales",
+    "emptyDescription": "Completa tu primera acción para habilitar recomendaciones.",
+    "emptyCta": "Ir a acciones de hoy",
+    "summaryTitle": "Resumen de la semana",
+    "summaryCheckins": "Check-ins",
+    "summaryWorkouts": "Entrenamientos",
+    "summaryNutrition": "Registros nutrición",
+    "summaryEnergy": "Energía promedio",
+    "lockedDescription": "Esta recomendación usa IA y requiere un plan Pro/Gym.",
+    "lockedCta": "Ver planes",
+    "accept": "Aceptar",
+    "nowNo": "Ahora no",
+    "undo": "Deshacer"
   }
 }

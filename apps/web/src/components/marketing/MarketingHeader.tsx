@@ -38,6 +38,7 @@ export function MarketingHeader() {
 
   useEffect(() => {
     // Cierra menú en cambios de ruta
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset menu state after navigation
     setIsMenuOpen(false);
 
     // Deriva sección activa desde hash (solo en client)
@@ -45,16 +46,19 @@ export function MarketingHeader() {
     const id = hash.startsWith("#") ? hash.slice(1) : "";
 
     if (id === "planes" || id === "caracteristicas" || id === "testimonios") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync active nav section to route hash
       setActiveSection(id);
       return;
     }
 
     // Fallback por pathname si no hay hash
     if (pathname.startsWith("/pricing")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync pricing route to plans section
       setActiveSection("planes");
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear active section when route has no section context
     setActiveSection(null);
   }, [pathname]);
 
@@ -65,8 +69,8 @@ export function MarketingHeader() {
           <Image
             src="/fitsculpt-logo-transparent.png"
             alt="FitSculpt"
-            width={164}
-            height={36}
+            width={42}
+            height={42}
             priority
             className="h-8 w-auto"
           />

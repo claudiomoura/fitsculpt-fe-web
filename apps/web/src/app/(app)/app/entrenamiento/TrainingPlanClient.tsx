@@ -1203,7 +1203,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                   onKeyDown={(event) => handleExerciseKeyDown(event, exercise.id, selectedVisiblePlanDay.date)}
                                 >
                                   <img
-                                    src="/placeholders/exercise-cover.svg"
+                                    src="/placeholders/exercise-cover.jpg"
                                     alt={t("library.mediaAlt")}
                                     className="exercise-thumb"
                                   />

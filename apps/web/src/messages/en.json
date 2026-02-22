@@ -45,7 +45,8 @@
     "nutritionCalendar": "Nutrition calendar",
     "nutritionPlans": "Nutrition plans",
     "exerciseLibrary": "Exercise library",
-    "trainingPlans": "Training plans"
+    "trainingPlans": "Training plans",
+    "weeklyReview": "Weekly review"
   },
   "navSections": {
     "summary": "Summary",
@@ -152,7 +153,17 @@
     "viewTodayPlanDescription": "Check today's training and nutrition calendar.",
     "viewTodayPlanOutcome": "Opens your calendar to review today's planned items.",
     "viewTodayPlanCta": "View today's plan",
-    "viewTodayPlanUnavailable": "Today's plan is not available yet."
+    "viewTodayPlanUnavailable": "Today's plan is not available yet.",
+    "completeTodayActionTitle": "Complete 1 action",
+    "completeTodayActionDescription": "Save today's progress in tracking with one tap.",
+    "completeTodayActionOutcome": "Writes today's tracking entry and confirms progress instantly.",
+    "completeTodayActionSuccess": "Today's action saved successfully.",
+    "completeTodayActionError": "We could not save today's action. Try again.",
+    "completeTodayActionCta": "Complete 1 action",
+    "completeTodayActionDoneCta": "Action completed",
+    "completeTodayActionUnavailable": "Today action is unavailable right now.",
+    "todayActionDefaultNotes": "Today quick action completed from Hoy.",
+    "todayActionDefaultRecommendation": "Keep current plan"
   },
   "today": {
     "title": "Today actions",
@@ -1410,7 +1421,13 @@
     "errorTitle": "Issue loading data",
     "workoutLength30": "30 min",
     "workoutLength45": "45 min",
-    "workoutLength60": "60 min"
+    "workoutLength60": "60 min",
+    "macroTitle": "Formula settings",
+    "macroAdvancedToggle": "Advanced override (optional)",
+    "macroProteinPlaceholder": "E.g. 2.0",
+    "macroFatPlaceholder": "E.g. 0.8",
+    "macroCutPercentPlaceholder": "E.g. 20",
+    "macroBulkPercentPlaceholder": "E.g. 10"
   },
   "tracking": {
     "sectionCheckins": "Weekly check-ins",
@@ -1562,7 +1579,15 @@
     "adjustmentChangedDays": "Days updated: {count}",
     "adjustmentAddedExercises": "Exercises added: {count}",
     "adjustmentRemovedExercises": "Exercises removed: {count}",
-    "adjustmentDurationDelta": "Total duration change: {minutes} min"
+    "adjustmentDurationDelta": "Total duration change: {minutes} min",
+    "chestCm": "Chest (cm)",
+    "waistCm": "Waist (cm)",
+    "hipsCm": "Hips (cm)",
+    "bicepsCm": "Biceps (cm)",
+    "thighCm": "Thigh (cm)",
+    "calfCm": "Calf (cm)",
+    "neckCm": "Neck (cm)",
+    "bodyFatPercent": "Body fat %"
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",
@@ -2874,7 +2899,9 @@
     "retry": "Retry",
     "comingSoon": "Coming soon",
     "success": "Success",
-    "error": "Error"
+    "error": "Error",
+    "upgradeRequired": "Upgrade required",
+    "upgradeRequiredDescription": "Your current access does not include this section yet."
   },
   "adminGyms": {
     "title": "Manage gyms",
@@ -3155,5 +3182,28 @@
         "confirm": "Delete plan"
       }
     }
+  },
+  "weeklyReview": {
+    "title": "Weekly review",
+    "subtitle": "Mobile-first recap of your week with actionable recommendations.",
+    "loadingTitle": "Loading weekly review",
+    "loadingDescription": "Preparing your summary and recommendations.",
+    "unavailableTitle": "Weekly review unavailable",
+    "unavailableDescription": "This module is not available for your account yet.",
+    "errorTitle": "We could not load your weekly review",
+    "errorDescription": "Retry to fetch your weekly recap.",
+    "emptyTitle": "No weekly data yet",
+    "emptyDescription": "Complete your first action to unlock recommendations.",
+    "emptyCta": "Go to today actions",
+    "summaryTitle": "Week summary",
+    "summaryCheckins": "Check-ins",
+    "summaryWorkouts": "Workouts",
+    "summaryNutrition": "Nutrition logs",
+    "summaryEnergy": "Avg. energy",
+    "lockedDescription": "This recommendation is AI-based and requires Pro/Gym.",
+    "lockedCta": "View plans",
+    "accept": "Accept",
+    "nowNo": "Not now",
+    "undo": "Undo"
   }
 }

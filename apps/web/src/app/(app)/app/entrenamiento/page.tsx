@@ -17,7 +17,7 @@ export default async function TrainingPlanPage() {
             <ButtonLink href="/app/entrenamiento?ai=1">
               {t("training.aiGenerate")}
             </ButtonLink>
-            <ButtonLink variant="secondary" href="/app/workouts">
+            <ButtonLink variant="secondary" href="/app/entrenamientos">
               {t("training.manualCreate")}
             </ButtonLink>
           </div>

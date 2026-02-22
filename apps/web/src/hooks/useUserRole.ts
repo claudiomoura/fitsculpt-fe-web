@@ -38,7 +38,13 @@ export function useUserRole(): UserRoleState {
     setError(null);
 
     try {
-            const response = await fetch("/api/auth/me", {
+      if (!document.cookie.includes("fs_token=")) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/auth/me", {
         cache: "no-store",
         signal,
       });
