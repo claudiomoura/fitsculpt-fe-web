@@ -1415,6 +1415,7 @@
     "workoutLength45": "45 min",
     "workoutLength60": "60 min",
     "macroTitle": "Ajustes de fórmula",
+    "macroAdvancedToggle": "Ajuste avanzado (opcional)",
     "macroProteinPlaceholder": "Ej: 2.0",
     "macroFatPlaceholder": "Ej: 0.8",
     "macroCutPercentPlaceholder": "Ej: 20",

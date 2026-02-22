@@ -33,6 +33,11 @@ type SaveState = "idle" | "saving" | "success" | "error";
 const FIRST_STEP = 0;
 const LAST_STEP = 5;
 
+const FORMULA_DEFAULTS: Record<MacroFormula, { proteinGPerKg: number; fatGPerKg: number; cutPercent: number; bulkPercent: number }> = {
+  katch: { proteinGPerKg: 1.8, fatGPerKg: 0.8, cutPercent: 15, bulkPercent: 10 },
+  mifflin: { proteinGPerKg: 1.8, fatGPerKg: 0.8, cutPercent: 15, bulkPercent: 10 },
+};
+
 const parseNumberInput = (value: string) => (value.trim() === "" ? null : Number(value));
 const hasPositiveNumber = (value: number | null | undefined) => Number.isFinite(value) && (value ?? 0) > 0;
 const renderFieldLabel = (label: string, required = false) => (
@@ -58,6 +63,11 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [step, setStep] = useState<number>(FIRST_STEP);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [showAdvancedMacros, setShowAdvancedMacros] = useState(false);
+  const [isProteinTouched, setIsProteinTouched] = useState(false);
+  const [isFatTouched, setIsFatTouched] = useState(false);
+  const [isCutTouched, setIsCutTouched] = useState(false);
+  const [isBulkTouched, setIsBulkTouched] = useState(false);
 
   const updateProfile = useCallback(<K extends keyof ProfileData>(key: K, value: ProfileData[K]) => {
     setProfile((prev) => ({ ...prev, [key]: value }));
@@ -130,6 +140,10 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       const data = (await response.json()) as Partial<ProfileData> | null;
       const merged = mergeProfileData(data ?? undefined);
       setProfile(merged);
+      setIsProteinTouched(merged.macroPreferences.proteinGPerKg !== null);
+      setIsFatTouched(merged.macroPreferences.fatGPerKg !== null);
+      setIsCutTouched(merged.macroPreferences.cutPercent !== null);
+      setIsBulkTouched(merged.macroPreferences.bulkPercent !== null);
       setLoadState(data && Object.keys(data).length > 0 ? "ready" : "empty");
     } catch (_err) {
       setLoadState("error");
@@ -139,6 +153,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   useState(() => {
     void loadProfile();
   });
+
 
   const objectiveOptions: Array<{ value: Goal; label: string }> = useMemo(
     () => [
@@ -366,11 +381,31 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       </section>}
 
       {step === 4 && <section className="card form-stack"><h3 className="section-title">{t("profile.macroTitle")}</h3>
-      <label className="form-stack">{renderFieldLabel(t("profile.macroFormula"), true)}<select value={profile.macroPreferences.formula} onChange={(e) => updateMacroPreference("formula", e.target.value as MacroFormula | "")}><option value="">{t("profile.selectPlaceholder")}</option>{macroFormulaOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-      <label className="form-stack">{t("profile.macroProtein")}<input type="number" placeholder={t("profile.macroProteinPlaceholder")} value={profile.macroPreferences.proteinGPerKg ?? ""} onChange={(e) => updateMacroPreference("proteinGPerKg", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("profile.macroFat")}<input type="number" placeholder={t("profile.macroFatPlaceholder")} value={profile.macroPreferences.fatGPerKg ?? ""} onChange={(e) => updateMacroPreference("fatGPerKg", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("profile.macroCutPercent")}<input type="number" placeholder={t("profile.macroCutPercentPlaceholder")} value={profile.macroPreferences.cutPercent ?? ""} onChange={(e) => updateMacroPreference("cutPercent", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("profile.macroBulkPercent")}<input type="number" placeholder={t("profile.macroBulkPercentPlaceholder")} value={profile.macroPreferences.bulkPercent ?? ""} onChange={(e) => updateMacroPreference("bulkPercent", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{renderFieldLabel(t("profile.macroFormula"), true)}<select value={profile.macroPreferences.formula} onChange={(e) => {
+        const nextFormula = e.target.value as MacroFormula | "";
+        updateMacroPreference("formula", nextFormula);
+        if (!nextFormula) {
+          return;
+        }
+        const defaults = FORMULA_DEFAULTS[nextFormula];
+        if (!isProteinTouched) {
+          updateMacroPreference("proteinGPerKg", defaults.proteinGPerKg);
+        }
+        if (!isFatTouched) {
+          updateMacroPreference("fatGPerKg", defaults.fatGPerKg);
+        }
+        if (!isCutTouched) {
+          updateMacroPreference("cutPercent", defaults.cutPercent);
+        }
+        if (!isBulkTouched) {
+          updateMacroPreference("bulkPercent", defaults.bulkPercent);
+        }
+      }}><option value="">{t("profile.selectPlaceholder")}</option>{macroFormulaOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+      <label className="checkbox-row"><input type="checkbox" checked={showAdvancedMacros} onChange={(e) => setShowAdvancedMacros(e.target.checked)} />{t("profile.macroAdvancedToggle")}</label>
+      <label className="form-stack">{t("profile.macroProtein")}<input type="number" disabled={!showAdvancedMacros} placeholder={t("profile.macroProteinPlaceholder")} value={profile.macroPreferences.proteinGPerKg ?? ""} onChange={(e) => { setIsProteinTouched(true); updateMacroPreference("proteinGPerKg", parseNumberInput(e.target.value)); }} /></label>
+      <label className="form-stack">{t("profile.macroFat")}<input type="number" disabled={!showAdvancedMacros} placeholder={t("profile.macroFatPlaceholder")} value={profile.macroPreferences.fatGPerKg ?? ""} onChange={(e) => { setIsFatTouched(true); updateMacroPreference("fatGPerKg", parseNumberInput(e.target.value)); }} /></label>
+      <label className="form-stack">{t("profile.macroCutPercent")}<input type="number" disabled={!showAdvancedMacros} placeholder={t("profile.macroCutPercentPlaceholder")} value={profile.macroPreferences.cutPercent ?? ""} onChange={(e) => { setIsCutTouched(true); updateMacroPreference("cutPercent", parseNumberInput(e.target.value)); }} /></label>
+      <label className="form-stack">{t("profile.macroBulkPercent")}<input type="number" disabled={!showAdvancedMacros} placeholder={t("profile.macroBulkPercentPlaceholder")} value={profile.macroPreferences.bulkPercent ?? ""} onChange={(e) => { setIsBulkTouched(true); updateMacroPreference("bulkPercent", parseNumberInput(e.target.value)); }} /></label>
       <label className="form-stack">{safeLabel("tracking.chestCm", "Chest (cm)")}<input type="number" value={profile.measurements.chestCm ?? ""} onChange={(e) => updateMeasurement("chestCm", parseNumberInput(e.target.value))} /></label>
       <label className="form-stack">{safeLabel("tracking.waistCm", "Waist (cm)")}<input type="number" value={profile.measurements.waistCm ?? ""} onChange={(e) => updateMeasurement("waistCm", parseNumberInput(e.target.value))} /></label>
       <label className="form-stack">{safeLabel("tracking.hipsCm", "Hips (cm)")}<input type="number" value={profile.measurements.hipsCm ?? ""} onChange={(e) => updateMeasurement("hipsCm", parseNumberInput(e.target.value))} /></label>
