@@ -28,6 +28,13 @@ import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchem
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
+import {
+  defaultTracking,
+  trackingDeleteSchema,
+  trackingEntryCreateSchema,
+  trackingSchema,
+} from "./tracking/schemas.js";
+import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/service.js";
 
 
 const env = getEnv();
@@ -1023,52 +1030,6 @@ async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
   (request as AuthenticatedRequest).currentEntitlements = entitlements;
 }
 
-const checkinSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  weightKg: z.number(),
-  chestCm: z.number(),
-  waistCm: z.number(),
-  hipsCm: z.number(),
-  bicepsCm: z.number(),
-  thighCm: z.number(),
-  calfCm: z.number(),
-  neckCm: z.number(),
-  bodyFatPercent: z.number(),
-  energy: z.number(),
-  hunger: z.number(),
-  notes: z.string(),
-  recommendation: z.string(),
-  frontPhotoUrl: z.string().nullable(),
-  sidePhotoUrl: z.string().nullable(),
-});
-
-const foodEntrySchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  foodKey: z.string(),
-  grams: z.number(),
-});
-
-const workoutEntrySchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  name: z.string(),
-  durationMin: z.number(),
-  notes: z.string(),
-});
-
-const trackingSchema = z.object({
-  checkins: z.array(checkinSchema),
-  foodLog: z.array(foodEntrySchema),
-  workoutLog: z.array(workoutEntrySchema),
-});
-
-const trackingDeleteSchema = z.object({
-  collection: z.enum(["checkins", "foodLog", "workoutLog"]),
-  id: z.string().min(1),
-});
-
 const userFoodSchema = z.object({
   name: z.string().min(1),
   calories: z.number().nonnegative(),
@@ -1078,12 +1039,6 @@ const userFoodSchema = z.object({
   unit: z.enum(["100g", "serving", "unit"]),
   brand: z.string().optional().nullable(),
 });
-
-const defaultTracking = {
-  checkins: [],
-  foodLog: [],
-  workoutLog: [],
-};
 
 const defaultTrainingPreferences = {
   level: "beginner",
@@ -3855,7 +3810,7 @@ const feedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
-type TrackingSnapshot = {
+type FeedTrackingSnapshot = {
   checkins?: Array<{ id?: string; date?: string; weightKg?: number }>;
   foodLog?: Array<{ id?: string; date?: string }>;
   workoutLog?: Array<{ id?: string; date?: string }>;
@@ -3877,9 +3832,9 @@ function getRecentEntries<T extends { date?: string }>(entries: T[], days: numbe
   });
 }
 
-function buildFeedSummary(profile: Record<string, unknown> | null, tracking: TrackingSnapshot | null) {
+function buildFeedSummary(profile: Record<string, unknown> | null, tracking: FeedTrackingSnapshot | null) {
   const name = typeof profile?.name === "string" ? profile.name : "tu";
-  const normalizedTracking: TrackingSnapshot = tracking ?? {};
+  const normalizedTracking: FeedTrackingSnapshot = tracking ?? {};
   const checkins = Array.isArray(normalizedTracking.checkins) ? normalizedTracking.checkins : [];
   const foodLog = Array.isArray(normalizedTracking.foodLog) ? normalizedTracking.foodLog : [];
   const workoutLog = Array.isArray(normalizedTracking.workoutLog) ? normalizedTracking.workoutLog : [];
@@ -5012,23 +4967,46 @@ app.put("/tracking", async (request, reply) => {
   }
 });
 
+app.post("/tracking", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const payload = trackingEntryCreateSchema.parse(request.body);
+    const profile = await getOrCreateProfile(user.id);
+    const nextTracking = upsertTrackingEntry(profile.tracking, payload);
+    const updated = await prisma.userProfile.upsert({
+      where: { userId: user.id },
+      create: {
+        userId: user.id,
+        profile: Prisma.DbNull,
+        tracking: nextTracking,
+      },
+      update: {
+        tracking: nextTracking,
+      },
+    });
+
+    return reply.status(201).send(normalizeTrackingSnapshot(updated.tracking));
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.delete("/tracking/:collection/:id", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const params = trackingDeleteSchema.parse(request.params);
     const profile = await getOrCreateProfile(user.id);
-    const currentTracking =
-      typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as TrackingSnapshot) : defaultTracking;
-const rawList = currentTracking[params.collection];
-const currentList = Array.isArray(rawList) ? rawList : [];
-const nextList = currentList.filter((entry) => entry.id !== params.id);
+    const currentTracking = normalizeTrackingSnapshot(profile.tracking);
+    const rawList = currentTracking[params.collection];
+    const currentList = Array.isArray(rawList) ? rawList : [];
+    const nextList = currentList.filter((entry) => entry.id !== params.id);
 
     const nextTracking = { ...currentTracking, [params.collection]: nextList };
     const updated = await prisma.userProfile.update({
       where: { userId: user.id },
       data: { tracking: nextTracking },
     });
-    return updated.tracking ?? defaultTracking;
+    return normalizeTrackingSnapshot(updated.tracking);
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -5991,7 +5969,7 @@ app.post("/feed/generate", async (request, reply) => {
     const profileData =
       typeof profile.profile === "object" && profile.profile ? (profile.profile as Record<string, unknown>) : null;
     const trackingData =
-      typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as TrackingSnapshot) : null;
+      typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as FeedTrackingSnapshot) : null;
     const summary = buildFeedSummary(profileData, trackingData);
     const post = await prisma.feedPost.create({
       data: {
