@@ -17,6 +17,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { EmptyState, ErrorState, ExerciseCard, SkeletonExerciseList } from "@/components/exercise-library";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
+import { getUserProfile } from "@/lib/profileService";
+import { getUserRoleFlags } from "@/lib/userCapabilities";
 import { fetchExercisesList } from "@/services/exercises";
 import { addExerciseToPlanDay, getTrainerPlanDetail, listTrainerGymPlans } from "@/services/trainer";
 
@@ -229,6 +231,14 @@ export default function ExerciseLibraryClient() {
       setSubmitNotSupported(false);
 
       try {
+        const profile = await getUserProfile();
+        const roleFlags = getUserRoleFlags(profile);
+        if (!roleFlags.isTrainer && !roleFlags.isAdmin) {
+          if (!active) return;
+          setTargetPlans([]);
+          return;
+        }
+
         const listResult = await listTrainerGymPlans({ limit: 200 });
         if (!listResult.ok) {
           throw new Error("PLAN_LIST_ERROR");
@@ -249,10 +259,11 @@ export default function ExerciseLibraryClient() {
 
         if (!active) return;
         setTargetPlans(details);
-        setPlansLoading(false);
-      } catch (_err) {
+      } catch {
         if (!active) return;
         setPlansError(t("library.addToPlansLoadError"));
+      } finally {
+        if (!active) return;
         setPlansLoading(false);
       }
     };
