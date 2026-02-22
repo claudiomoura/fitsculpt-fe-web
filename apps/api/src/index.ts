@@ -6127,8 +6127,24 @@ const assignTrainingPlanBodySchema = z
     trainingPlanId: z.string().min(1).optional(),
     templatePlanId: z.string().min(1).optional(),
   })
-  .refine((value) => Boolean(value.trainingPlanId || value.templatePlanId), {
-    message: "trainingPlanId is required",
+  .superRefine((value, ctx) => {
+    const hasTrainingPlanId = Boolean(value.trainingPlanId);
+    const hasTemplatePlanId = Boolean(value.templatePlanId);
+
+    if (!hasTrainingPlanId && !hasTemplatePlanId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "trainingPlanId or templatePlanId is required",
+      });
+      return;
+    }
+
+    if (hasTrainingPlanId && hasTemplatePlanId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide only one of trainingPlanId or templatePlanId",
+      });
+    }
   });
 const trainerMemberParamsSchema = z.object({
   userId: z.string().min(1),
@@ -6700,7 +6716,21 @@ app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (reque
         },
       }),
       prisma.trainingPlan.findFirst({
-        where: { id: selectedPlanId, userId: requester.id },
+        where: {
+          id: selectedPlanId,
+          OR: [
+            { userId: requester.id },
+            {
+              gymAssignments: {
+                some: {
+                  gymId,
+                  status: "ACTIVE",
+                  role: "MEMBER",
+                },
+              },
+            },
+          ],
+        },
         select: {
           id: true,
           title: true,
