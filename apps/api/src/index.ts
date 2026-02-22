@@ -2968,6 +2968,7 @@ async function listExercises(params: {
           slug: true,
           name: true,
           equipment: true,
+          imageUrls: true,
           description: true,
           imageUrl: true,
           mediaUrl: true,
@@ -3002,7 +3003,7 @@ async function listExercises(params: {
   const hasFilters = Boolean(params.q || (params.equipment && params.equipment !== "all") || (params.primaryMuscle && params.primaryMuscle !== "all"));
 
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrls", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
     ${params.cursor
@@ -3057,7 +3058,7 @@ async function getExerciseById(id: string) {
   }
 
   const rows = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
-    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
+    SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrls", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     WHERE "id" = ${id}
     LIMIT 1
@@ -3100,6 +3101,7 @@ async function createExercise(input: z.infer<typeof createExerciseSchema>) {
       slug: true,
       name: true,
       equipment: true,
+      imageUrls: true,
       description: true,
       imageUrl: true,
       mediaUrl: true,
