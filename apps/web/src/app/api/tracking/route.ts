@@ -27,6 +27,14 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  return writeTracking(request, "PUT");
+}
+
+export async function POST(request: Request) {
+  return writeTracking(request, "POST");
+}
+
+async function writeTracking(request: Request, method: "PUT" | "POST") {
   const authCookie = await getAuthCookie();
   if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -35,7 +43,7 @@ export async function PUT(request: Request) {
   const body = await request.json();
   try {
     const response = await fetch(`${getBackendUrl()}/tracking`, {
-      method: "PUT",
+      method,
       headers: {
         "Content-Type": "application/json",
         cookie: authCookie,
