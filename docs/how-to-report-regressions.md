@@ -1,13 +1,20 @@
-# How to report regressions (demo / QA)
+# Cómo reportar regresiones (demo / QA)
 
-Objetivo: reportar regresiones con contexto suficiente para reproducir y priorizar sin idas y vueltas.
+Objetivo: reportar regresiones con información suficiente para reproducir, priorizar y asignar sin idas y vueltas.
 
-## Regla rápida
+## Cuándo reportar
 
-- Si un flujo que antes funcionaba ahora falla o se degrada, reportarlo como **regression**.
-- Reportar en el momento con evidencia mínima.
+Reportar como **regression** cuando un flujo que antes funcionaba ahora:
+- falla,
+- se degrada,
+- o se comporta distinto sin cambio intencional.
 
-## Plantilla breve (copiar/pegar)
+## Regla operativa
+
+- Reportar en el momento.
+- Si afecta demo en vivo, priorizar evidencia mínima y abrir reporte antes de intentar cualquier fix.
+
+## Plantilla (copiar / pegar)
 
 ```md
 ## Regression report
@@ -43,10 +50,11 @@ Objetivo: reportar regresiones con contexto suficiente para reproducir y prioriz
 **Network / endpoint affected**
 - Method + URL:
 - Status code:
-- Response (relevante):
+- Request payload (si aplica):
+- Response (fragmento relevante):
 
 **Screenshot / video**
-- Adjuntar evidencia visual (1 imagen mínima)
+- Adjuntar evidencia visual (mínimo 1 screenshot)
 
 **Impact / severity**
 - [ ] Blocker (rompe demo o flujo crítico)
@@ -56,14 +64,21 @@ Objetivo: reportar regresiones con contexto suficiente para reproducir y prioriz
 
 **Notes**
 - workaround temporal (si existe):
+- alcance (solo demo / también producción / unknown):
 ```
 
-## Calidad mínima del reporte
+## Criterio de calidad mínimo
 
-Un reporte de regresión está completo cuando incluye:
+Un reporte está completo si incluye:
+- pasos reproducibles,
+- expected vs actual,
+- consola,
+- endpoint afectado (si aplica),
+- evidencia visual.
 
-- Pasos reproducibles.
-- Expected vs Actual.
-- Consola (o confirmación de que no hubo errores).
-- Endpoint afectado (si aplica).
-- Screenshot o video corto.
+## Ejemplo corto
+
+- **Title:** `[Regression] /app/hoy: botón iniciar no persiste tras refresh`
+- **Expected:** al refrescar, estado de sesión iniciado se mantiene.
+- **Actual:** vuelve a estado inicial y muestra spinner infinito.
+- **Endpoint:** `POST /workouts/:id/start` → `500`.
