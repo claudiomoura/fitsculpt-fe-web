@@ -30,6 +30,23 @@ describe("getExerciseThumbUrl", () => {
     expect(url).toBe("https://cdn/snake-image.jpg");
   });
 
+  it("uses first imageUrls entry when imageUrl is missing", () => {
+    const url = getExerciseThumbUrl({
+      imageUrls: ["", "https://cdn/list-image.jpg"],
+      thumbnailUrl: "https://cdn/thumb.jpg",
+    });
+
+    expect(url).toBe("https://cdn/list-image.jpg");
+  });
+
+  it("supports snake_case image_urls arrays", () => {
+    const url = getExerciseThumbUrl({
+      image_urls: ["https://cdn/snake-list.jpg"],
+    });
+
+    expect(url).toBe("https://cdn/snake-list.jpg");
+  });
+
   it("returns null when no valid media url exists", () => {
     expect(getExerciseThumbUrl({ imageUrl: "  " })).toBeNull();
     expect(getExerciseThumbUrl(null)).toBeNull();
