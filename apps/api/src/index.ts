@@ -4976,19 +4976,29 @@ app.post("/tracking", async (request, reply) => {
     const payload = trackingEntryCreateSchema.parse(request.body);
     const profile = await getOrCreateProfile(user.id);
     const nextTracking = upsertTrackingEntry(profile.tracking, payload);
-    const updated = await prisma.userProfile.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        profile: Prisma.DbNull,
-        tracking: nextTracking,
-      },
-      update: {
-        tracking: nextTracking,
-      },
-    });
 
-    return reply.status(201).send(normalizeTrackingSnapshot(updated.tracking));
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const updated = await prisma.userProfile.upsert({
+          where: { userId: user.id },
+          create: {
+            userId: user.id,
+            profile: Prisma.DbNull,
+            tracking: nextTracking,
+          },
+          update: {
+            tracking: nextTracking,
+          },
+        });
+
+        return reply.status(201).send(normalizeTrackingSnapshot(updated.tracking));
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError;
   } catch (error) {
     return handleRequestError(reply, error);
   }

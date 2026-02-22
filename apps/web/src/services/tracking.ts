@@ -51,12 +51,17 @@ export async function createTrackingEntry<TCollection extends TrackingCollection
   collection: TCollection,
   item: TrackingEntryByCollection[TCollection]
 ): Promise<TrackingSnapshot> {
-  const response = await fetch("/api/tracking", {
+  const requestInit: RequestInit = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ collection, item }),
-  });
+  };
+
+  let response = await fetch("/api/tracking", requestInit);
+  if (response.status >= 500) {
+    response = await fetch("/api/tracking", requestInit);
+  }
 
   if (!response.ok) {
     throw new Error(`TRACKING_WRITE_FAILED:${response.status}`);

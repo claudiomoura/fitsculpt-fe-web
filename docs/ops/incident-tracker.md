@@ -1,6 +1,6 @@
 # Incident Tracker (Single Source of Truth)
 
-**Dependency statement:** This PR can run now on origin/dev.
+**Dependency statement:** This PR depends on PR-01 being merged.
 
 Objetivo: registrar **todos** los incidentes post-release en una sola lista operativa, con prioridad clara y dueño explícito.
 
@@ -25,7 +25,7 @@ Objetivo: registrar **todos** los incidentes post-release en una sola lista oper
 
 | ID | Fecha (UTC) | Sev | Título | Owner | Estado | Reproducibilidad | Impacto | Workaround | Canal/Link | CI/Jobs + Smoke/E2E | Postmortem |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| INC-2026-02-22-001 | 2026-02-22 14:10 | P1 | `POST /api/tracking` responde 500 intermitente tras login | BE on-call (`@backend-oncall`) | Monitoring | Intermitente (~35%) | Usuarios no pueden guardar progreso en `/app/hoy` | Reintentar 1 vez y fallback a cola local hasta hotfix | `#incidents` + ticket `REL-241` | CI: `.github/workflows/pr-quality-gates.yml` (último run PASS). Smoke: `docs/demo-smoke-test.md` (re-ejecutado PASS). E2E: `docs/e2e.md` (suite lite PASS). | N/A (P1) |
+| INC-2026-02-22-001 | 2026-02-22 14:10 | P1 | `POST /api/tracking` responde 500 intermitente tras login | BE on-call (`@backend-oncall`) | Fixed | Intermitente (~35%) | Usuarios no pueden guardar progreso en `/app/hoy` | Reintento automático 1 vez en FE + reintento de persistencia 1 vez en BE | `#incidents` + ticket `REL-241` + PR `sprint-08/pr-03-post-release-fixes-p0-p1` | Repro: click en "Completar 1 acción" en `/app/hoy` tras login reciente y observar fallo intermitente. Fix: `apps/web/src/services/tracking.ts` añade retry para `5xx` y `apps/api/src/index.ts` añade retry de upsert en `POST /tracking`. Verificación: tests API PASS (`apps/api npm test`) y validación del fix de retry en FE/BE (pendiente validación completa en CI gates/contract/E2E lite del PR). | N/A (P1) |
 
 ## Checklist mínimo por incidente
 
