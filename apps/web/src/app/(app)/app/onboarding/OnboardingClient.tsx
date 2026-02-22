@@ -46,6 +46,14 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   const { t } = useLanguage();
   const router = useRouter();
 
+  const safeLabel = useCallback(
+    (key: string, fallback: string) => {
+      const label = t(key);
+      return label === key ? fallback : label;
+    },
+    [t]
+  );
+
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [step, setStep] = useState<number>(FIRST_STEP);
@@ -299,7 +307,8 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       hasPositiveNumber(profile.age) &&
       hasPositiveNumber(profile.heightCm) &&
       hasPositiveNumber(profile.weightKg)) ||
-    step > 0;
+    (step === 4 && Boolean(profile.macroPreferences.formula)) ||
+    (step > 0 && step !== 4);
 
   if (loadState === "loading") {
     return <div className="page"><section className="card"><h2 className="section-title">{t("onboarding.title")}</h2><p className="section-subtitle">{t("onboarding.loadingState")}</p></section></div>;
@@ -357,19 +366,19 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       </section>}
 
       {step === 4 && <section className="card form-stack"><h3 className="section-title">{t("profile.macroTitle")}</h3>
-      <label className="form-stack">{t("profile.macroFormula")}<select value={profile.macroPreferences.formula} onChange={(e) => updateMacroPreference("formula", e.target.value as MacroFormula | "")}><option value="">{t("profile.selectPlaceholder")}</option>{macroFormulaOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-      <label className="form-stack">{t("profile.macroProtein")}<input type="number" value={profile.macroPreferences.proteinGPerKg ?? ""} onChange={(e) => updateMacroPreference("proteinGPerKg", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("profile.macroFat")}<input type="number" value={profile.macroPreferences.fatGPerKg ?? ""} onChange={(e) => updateMacroPreference("fatGPerKg", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("profile.macroCutPercent")}<input type="number" value={profile.macroPreferences.cutPercent ?? ""} onChange={(e) => updateMacroPreference("cutPercent", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("profile.macroBulkPercent")}<input type="number" value={profile.macroPreferences.bulkPercent ?? ""} onChange={(e) => updateMacroPreference("bulkPercent", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("tracking.chestCm")}<input type="number" value={profile.measurements.chestCm ?? ""} onChange={(e) => updateMeasurement("chestCm", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("tracking.waistCm")}<input type="number" value={profile.measurements.waistCm ?? ""} onChange={(e) => updateMeasurement("waistCm", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("tracking.hipsCm")}<input type="number" value={profile.measurements.hipsCm ?? ""} onChange={(e) => updateMeasurement("hipsCm", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("tracking.bicepsCm")}<input type="number" value={profile.measurements.bicepsCm ?? ""} onChange={(e) => updateMeasurement("bicepsCm", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("tracking.thighCm")}<input type="number" value={profile.measurements.thighCm ?? ""} onChange={(e) => updateMeasurement("thighCm", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("tracking.calfCm")}<input type="number" value={profile.measurements.calfCm ?? ""} onChange={(e) => updateMeasurement("calfCm", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("tracking.neckCm")}<input type="number" value={profile.measurements.neckCm ?? ""} onChange={(e) => updateMeasurement("neckCm", parseNumberInput(e.target.value))} /></label>
-      <label className="form-stack">{t("tracking.bodyFatPercent")}<input type="number" value={profile.measurements.bodyFatPercent ?? ""} onChange={(e) => updateMeasurement("bodyFatPercent", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{renderFieldLabel(t("profile.macroFormula"), true)}<select value={profile.macroPreferences.formula} onChange={(e) => updateMacroPreference("formula", e.target.value as MacroFormula | "")}><option value="">{t("profile.selectPlaceholder")}</option>{macroFormulaOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+      <label className="form-stack">{t("profile.macroProtein")}<input type="number" placeholder={t("profile.macroProteinPlaceholder")} value={profile.macroPreferences.proteinGPerKg ?? ""} onChange={(e) => updateMacroPreference("proteinGPerKg", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{t("profile.macroFat")}<input type="number" placeholder={t("profile.macroFatPlaceholder")} value={profile.macroPreferences.fatGPerKg ?? ""} onChange={(e) => updateMacroPreference("fatGPerKg", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{t("profile.macroCutPercent")}<input type="number" placeholder={t("profile.macroCutPercentPlaceholder")} value={profile.macroPreferences.cutPercent ?? ""} onChange={(e) => updateMacroPreference("cutPercent", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{t("profile.macroBulkPercent")}<input type="number" placeholder={t("profile.macroBulkPercentPlaceholder")} value={profile.macroPreferences.bulkPercent ?? ""} onChange={(e) => updateMacroPreference("bulkPercent", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{safeLabel("tracking.chestCm", "Chest (cm)")}<input type="number" value={profile.measurements.chestCm ?? ""} onChange={(e) => updateMeasurement("chestCm", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{safeLabel("tracking.waistCm", "Waist (cm)")}<input type="number" value={profile.measurements.waistCm ?? ""} onChange={(e) => updateMeasurement("waistCm", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{safeLabel("tracking.hipsCm", "Hips (cm)")}<input type="number" value={profile.measurements.hipsCm ?? ""} onChange={(e) => updateMeasurement("hipsCm", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{safeLabel("tracking.bicepsCm", "Biceps (cm)")}<input type="number" value={profile.measurements.bicepsCm ?? ""} onChange={(e) => updateMeasurement("bicepsCm", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{safeLabel("tracking.thighCm", "Thigh (cm)")}<input type="number" value={profile.measurements.thighCm ?? ""} onChange={(e) => updateMeasurement("thighCm", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{safeLabel("tracking.calfCm", "Calf (cm)")}<input type="number" value={profile.measurements.calfCm ?? ""} onChange={(e) => updateMeasurement("calfCm", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{safeLabel("tracking.neckCm", "Neck (cm)")}<input type="number" value={profile.measurements.neckCm ?? ""} onChange={(e) => updateMeasurement("neckCm", parseNumberInput(e.target.value))} /></label>
+      <label className="form-stack">{safeLabel("tracking.bodyFatPercent", "Body fat (%)")}<input type="number" value={profile.measurements.bodyFatPercent ?? ""} onChange={(e) => updateMeasurement("bodyFatPercent", parseNumberInput(e.target.value))} /></label>
       </section>}
 
       {step === 5 && <section className="card form-stack"><h3 className="section-title">{t("profile.notes")}</h3>

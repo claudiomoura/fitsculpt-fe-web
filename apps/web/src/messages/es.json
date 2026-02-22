@@ -1413,7 +1413,12 @@
     "errorTitle": "Problema al cargar datos",
     "workoutLength30": "30 min",
     "workoutLength45": "45 min",
-    "workoutLength60": "60 min"
+    "workoutLength60": "60 min",
+    "macroTitle": "Ajustes de fórmula",
+    "macroProteinPlaceholder": "Ej: 2.0",
+    "macroFatPlaceholder": "Ej: 0.8",
+    "macroCutPercentPlaceholder": "Ej: 20",
+    "macroBulkPercentPlaceholder": "Ej: 10"
   },
   "tracking": {
     "sectionCheckins": "Check-ins semanales",
@@ -1565,7 +1570,15 @@
     "adjustmentChangedDays": "Días actualizados: {count}",
     "adjustmentAddedExercises": "Ejercicios añadidos: {count}",
     "adjustmentRemovedExercises": "Ejercicios eliminados: {count}",
-    "adjustmentDurationDelta": "Cambio total de duración: {minutes} min"
+    "adjustmentDurationDelta": "Cambio total de duración: {minutes} min",
+    "chestCm": "Pecho (cm)",
+    "waistCm": "Cintura (cm)",
+    "hipsCm": "Cadera (cm)",
+    "bicepsCm": "Bíceps (cm)",
+    "thighCm": "Muslo (cm)",
+    "calfCm": "Gemelo (cm)",
+    "neckCm": "Cuello (cm)",
+    "bodyFatPercent": "% grasa corporal"
   },
   "onboarding": {
     "title": "Bienvenido a FitSculpt",

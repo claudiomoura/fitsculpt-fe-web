@@ -1410,7 +1410,12 @@
     "errorTitle": "Issue loading data",
     "workoutLength30": "30 min",
     "workoutLength45": "45 min",
-    "workoutLength60": "60 min"
+    "workoutLength60": "60 min",
+    "macroTitle": "Formula settings",
+    "macroProteinPlaceholder": "E.g. 2.0",
+    "macroFatPlaceholder": "E.g. 0.8",
+    "macroCutPercentPlaceholder": "E.g. 20",
+    "macroBulkPercentPlaceholder": "E.g. 10"
   },
   "tracking": {
     "sectionCheckins": "Weekly check-ins",
@@ -1562,7 +1567,15 @@
     "adjustmentChangedDays": "Days updated: {count}",
     "adjustmentAddedExercises": "Exercises added: {count}",
     "adjustmentRemovedExercises": "Exercises removed: {count}",
-    "adjustmentDurationDelta": "Total duration change: {minutes} min"
+    "adjustmentDurationDelta": "Total duration change: {minutes} min",
+    "chestCm": "Chest (cm)",
+    "waistCm": "Waist (cm)",
+    "hipsCm": "Hips (cm)",
+    "bicepsCm": "Biceps (cm)",
+    "thighCm": "Thigh (cm)",
+    "calfCm": "Calf (cm)",
+    "neckCm": "Neck (cm)",
+    "bodyFatPercent": "Body fat %"
   },
   "onboarding": {
     "title": "Welcome to FitSculpt",
