@@ -46,6 +46,7 @@ export function ExerciseCard({
         alt={`${mediaAltPrefix} ${name}`}
         className="exercise-card-media"
         onError={(event) => {
+          if (event.currentTarget.src.endsWith("/placeholders/exercise-cover.jpg")) return;
           event.currentTarget.src = "/placeholders/exercise-cover.jpg";
         }}
       />

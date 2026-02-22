@@ -11,11 +11,16 @@ type DemoMedia = {
 
 type MediaCandidate = {
   imageUrl?: unknown;
+  image_url?: unknown;
   thumbnailUrl?: unknown;
+  thumbnail_url?: unknown;
   mediaUrl?: unknown;
+  media_url?: unknown;
   gifUrl?: unknown;
+  gif_url?: unknown;
   videoUrl?: unknown;
-  media?: { url?: unknown; thumbnailUrl?: unknown };
+  video_url?: unknown;
+  media?: { url?: unknown; thumbnailUrl?: unknown; thumbnail_url?: unknown };
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -32,11 +37,17 @@ export function getExerciseThumbUrl(exercise: unknown): string | null {
 
   const urls = [
     e.imageUrl,
+    e.image_url,
     e.thumbnailUrl,
+    e.thumbnail_url,
     e.mediaUrl,
+    e.media_url,
     e.gifUrl,
+    e.gif_url,
     e.videoUrl,
+    e.video_url,
     e.media?.thumbnailUrl,
+    e.media?.thumbnail_url,
     e.media?.url,
   ];
 
