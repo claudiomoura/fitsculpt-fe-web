@@ -22,6 +22,7 @@ import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
+import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
@@ -2813,43 +2814,6 @@ type ExerciseMetadata = {
 function getExerciseMetadata(name: string) {
   return exerciseMetadataByName[name.toLowerCase()];
 }
-
-type ExerciseRow = {
-  id: string;
-  sourceId?: string | null;
-  slug?: string | null;
-  name: string;
-  source?: string | null;
-  equipment: string | null;
-  imageUrls?: string[] | null;
-  description: string | null;
-  imageUrl?: string | null;
-  mediaUrl?: string | null;
-  technique?: string | null;
-  tips?: string | null;
-  mainMuscleGroup?: string | null;
-  secondaryMuscleGroups?: string[] | null;
-  primaryMuscles?: string[] | null;
-  secondaryMuscles?: string[] | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type ExerciseApiDto = {
-  id: string;
-  slug: string;
-  name: string;
-  sourceId: string | null;
-  equipment: string | null;
-  imageUrls: string[];
-  imageUrl: string | null;
-  mainMuscleGroup: string | null;
-  secondaryMuscleGroups: string[];
-  description: string | null;
-  mediaUrl: string | null;
-  technique: string | null;
-  tips: string | null;
-};
 
 function hasExerciseClient() {
   return typeof (prisma as PrismaClient & { exercise?: unknown }).exercise !== "undefined";
