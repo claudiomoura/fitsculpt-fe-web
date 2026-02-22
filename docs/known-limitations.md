@@ -9,7 +9,7 @@ Lista explícita de límites conocidos para evitar sorpresas en demo/QA.
 - **Cobertura mobile validada solo en 2 viewports objetivo** (375x812 y 390x844). Otros tamaños quedan fuera del alcance de este RC checklist corto.
 - **Warnings de consola no bloquean RC** mientras no existan `console error` y la UX sea estable.
 
-## No-go (bloquea RC)
+## Qué NO es limitación (bloquea RC)
 
 - Cualquier `console error` durante el recorrido.
 - Loop de redirección en login/rutas protegidas.
@@ -18,4 +18,4 @@ Lista explícita de límites conocidos para evitar sorpresas en demo/QA.
 
 ## Relación con el checklist
 
-Este documento complementa `docs/rc-checklist.md` y se usa como contexto al marcar PASS/FAIL.
+Este documento complementa `docs/rc-checklist.md` y se usa como contexto al marcar PASS/FAIL y decidir GO/NO-GO.
