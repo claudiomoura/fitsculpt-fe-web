@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { getExerciseCoverUrl } from "@/lib/exerciseMedia";
+import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 import {
   type ExerciseRecent,
   useExerciseRecents,
@@ -350,7 +350,7 @@ export default function ExerciseLibraryClient() {
   const renderExerciseCard = (exercise: Exercise | ExerciseRecent, fallbackKey: string) => {
     const muscles = getExerciseMuscles(exercise);
     const exerciseId = exercise.id;
-    const coverUrl = getExerciseCoverUrl(exercise) || "/placeholders/exercise-cover.svg";
+    const coverUrl = getExerciseThumbUrl(exercise) ?? "/placeholders/exercise-cover.svg";
     const isFavorite = Boolean(exerciseId && favorites.includes(exerciseId));
     const isFavoritePending = Boolean(exerciseId && pendingFavoriteIds.includes(exerciseId));
     const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");
