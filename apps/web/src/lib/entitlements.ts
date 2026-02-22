@@ -1,25 +1,6 @@
-export type AuthMePayload = {
-  subscriptionPlan?: string | null;
-  plan?: string | null;
-  entitlements?: {
-    plan?: {
-      base?: string;
-      effective?: string;
-    };
-    role?: {
-      isAdmin?: boolean;
-      adminOverride?: boolean;
-    };
-    modules?: {
-      ai?: { enabled?: boolean };
-      strength?: { enabled?: boolean };
-      nutrition?: { enabled?: boolean };
-    };
-    legacy?: {
-      tier?: string;
-    };
-  } | null;
-};
+import type { AuthMeResponse } from "@/lib/types";
+
+export type AuthMePayload = AuthMeResponse;
 
 export type EntitlementTier = "FREE" | "PRO" | "GYM";
 

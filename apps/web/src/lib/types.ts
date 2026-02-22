@@ -188,3 +188,28 @@ export type NutritionPlanDetail = {
   daysCount: number;
   days: NutritionPlanDetailDay[];
 };
+
+export type AuthMeEntitlements = {
+  plan?: {
+    base?: string;
+    effective?: string;
+  };
+  role?: {
+    isAdmin?: boolean;
+    adminOverride?: boolean;
+  };
+  modules?: {
+    ai?: { enabled?: boolean };
+    strength?: { enabled?: boolean };
+    nutrition?: { enabled?: boolean };
+  };
+  legacy?: {
+    tier?: string;
+  };
+};
+
+export type AuthMeResponse = {
+  subscriptionPlan?: string | null;
+  plan?: string | null;
+  entitlements?: AuthMeEntitlements | null;
+};
