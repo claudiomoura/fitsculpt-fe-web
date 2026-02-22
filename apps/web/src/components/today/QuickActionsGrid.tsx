@@ -8,6 +8,8 @@ export type TodayQuickAction = {
   outcome: string;
   ctaLabel: string;
   href?: string;
+  onClick?: () => void;
+  loading?: boolean;
   disabledHint?: string;
 };
 
@@ -19,7 +21,7 @@ export default function QuickActionsGrid({ actions }: QuickActionsGridProps) {
   return (
     <div className="today-actions-grid">
       {actions.map((action) => {
-        const isDisabled = !action.href;
+        const isDisabled = !action.href && !action.onClick;
 
         return (
           <div key={action.id} className={`feature-card today-action-card ${isDisabled ? "is-disabled" : ""}`}>
@@ -33,6 +35,16 @@ export default function QuickActionsGrid({ actions }: QuickActionsGridProps) {
               <ButtonLink as={Link} href={action.href} variant="secondary" size="lg" className="today-action-button">
                 {action.ctaLabel}
               </ButtonLink>
+            ) : action.onClick ? (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="today-action-button"
+                onClick={action.onClick}
+                loading={action.loading}
+              >
+                {action.ctaLabel}
+              </Button>
             ) : (
               <Button variant="secondary" size="lg" className="today-action-button" disabled>
                 {action.ctaLabel}

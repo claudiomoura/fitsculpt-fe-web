@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createTrackingEntry } from "@/services/tracking";
 import QuickActionsGrid, { type TodayQuickAction } from "@/components/today/QuickActionsGrid";
 import { EmptyState } from "@/components/states/EmptyState";
 import { ErrorState } from "@/components/states/ErrorState";
@@ -10,11 +11,13 @@ import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 
 type ViewStatus = "loading" | "success" | "empty" | "error";
+type CheckinActionStatus = "idle" | "loading" | "success" | "error";
 
 type ActionAvailability = {
   trainingReady: boolean;
   foodReady: boolean;
   planReady: boolean;
+  checkinReady: boolean;
 };
 
 type TrainingPlansPayload = {
@@ -57,7 +60,9 @@ export default function TodayQuickActionsClient() {
     trainingReady: false,
     foodReady: false,
     planReady: false,
+    checkinReady: true,
   });
+  const [checkinActionStatus, setCheckinActionStatus] = useState<CheckinActionStatus>("idle");
 
   const loadQuickActions = useCallback(async () => {
     setStatus("loading");
@@ -108,12 +113,12 @@ export default function TodayQuickActionsClient() {
       }
 
       const planReady = trainingReady || foodReady;
-      const nextAvailability = { trainingReady, foodReady, planReady };
+      const nextAvailability = { trainingReady, foodReady, planReady, checkinReady: true };
       setAvailability(nextAvailability);
 
       const hasEnabledAction = Object.values(nextAvailability).some(Boolean);
       setStatus(hasEnabledAction ? "success" : "empty");
-    } catch (_err) {
+    } catch {
       setStatus("error");
     }
   }, []);
@@ -127,9 +132,63 @@ export default function TodayQuickActionsClient() {
     };
   }, [loadQuickActions]);
 
+
+
+  const handleLogTodayCheckin = useCallback(async () => {
+    if (checkinActionStatus === "loading") return;
+    setCheckinActionStatus("loading");
+
+    const now = new Date();
+    const todayDate = toDateKey(now);
+    const timestamp = now.getTime();
+
+    try {
+      await createTrackingEntry("checkins", {
+        id: `today-checkin-${timestamp}`,
+        date: todayDate,
+        weightKg: 0,
+        chestCm: 0,
+        waistCm: 0,
+        hipsCm: 0,
+        bicepsCm: 0,
+        thighCm: 0,
+        calfCm: 0,
+        neckCm: 0,
+        bodyFatPercent: 0,
+        energy: 0,
+        hunger: 0,
+        notes: t("quickActions.todayActionDefaultNotes"),
+        recommendation: t("quickActions.todayActionDefaultRecommendation"),
+        frontPhotoUrl: null,
+        sidePhotoUrl: null,
+      });
+      setCheckinActionStatus("success");
+    } catch {
+      setCheckinActionStatus("error");
+    }
+  }, [checkinActionStatus, t]);
+
   const returnToHoy = encodeURIComponent("/app/hoy");
   const actions = useMemo<TodayQuickAction[]>(() => {
     return [
+      {
+        id: "complete-today-action",
+        title: t("quickActions.completeTodayActionTitle"),
+        description: t("quickActions.completeTodayActionDescription"),
+        outcome:
+          checkinActionStatus === "success"
+            ? t("quickActions.completeTodayActionSuccess")
+            : checkinActionStatus === "error"
+              ? t("quickActions.completeTodayActionError")
+              : t("quickActions.completeTodayActionOutcome"),
+        ctaLabel:
+          checkinActionStatus === "success"
+            ? t("quickActions.completeTodayActionDoneCta")
+            : t("quickActions.completeTodayActionCta"),
+        onClick: availability.checkinReady ? () => void handleLogTodayCheckin() : undefined,
+        loading: checkinActionStatus === "loading",
+        disabledHint: t("quickActions.completeTodayActionUnavailable"),
+      },
       {
         id: "register-training",
         title: t("quickActions.registerTrainingTitle"),
@@ -158,7 +217,7 @@ export default function TodayQuickActionsClient() {
         disabledHint: t("quickActions.viewTodayPlanUnavailable"),
       },
     ];
-  }, [availability, returnToHoy, t]);
+  }, [availability, checkinActionStatus, handleLogTodayCheckin, returnToHoy, t]);
 
   if (status === "loading") {
     return <LoadingState ariaLabel={t("quickActions.loadingAria")} lines={4} showCard={false} />;

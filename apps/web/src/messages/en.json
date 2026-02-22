@@ -152,7 +152,17 @@
     "viewTodayPlanDescription": "Check today's training and nutrition calendar.",
     "viewTodayPlanOutcome": "Opens your calendar to review today's planned items.",
     "viewTodayPlanCta": "View today's plan",
-    "viewTodayPlanUnavailable": "Today's plan is not available yet."
+    "viewTodayPlanUnavailable": "Today's plan is not available yet.",
+    "completeTodayActionTitle": "Complete 1 action",
+    "completeTodayActionDescription": "Save today's progress in tracking with one tap.",
+    "completeTodayActionOutcome": "Writes today's tracking entry and confirms progress instantly.",
+    "completeTodayActionSuccess": "Today's action saved successfully.",
+    "completeTodayActionError": "We could not save today's action. Try again.",
+    "completeTodayActionCta": "Complete 1 action",
+    "completeTodayActionDoneCta": "Action completed",
+    "completeTodayActionUnavailable": "Today action is unavailable right now.",
+    "todayActionDefaultNotes": "Today quick action completed from Hoy.",
+    "todayActionDefaultRecommendation": "Keep current plan"
   },
   "today": {
     "title": "Today actions",
