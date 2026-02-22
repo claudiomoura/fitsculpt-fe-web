@@ -6,20 +6,43 @@ import { usePathname } from "next/navigation";
 import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
+import { EmptyState, LoadingState, ErrorState } from "@/components/states";
+import { applyEntitlementGating } from "./navConfig";
 
 export default function AppSidebar() {
   const { t } = useLanguage();
   const pathname = usePathname();
   const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
+  const { entitlements, loading, error, reload } = useAuthEntitlements();
 
-  const sections = useMemo(
-    () => buildNavigationSections({ role, isAdmin, isCoach, isDev, gymMembershipState }),
-    [role, isCoach, isAdmin, isDev, gymMembershipState],
-  );
+  const sections = useMemo(() => {
+    const baseSections = buildNavigationSections({ role, isAdmin, isCoach, isDev, gymMembershipState });
+    return applyEntitlementGating(baseSections, entitlements);
+  }, [role, isCoach, isAdmin, isDev, gymMembershipState, entitlements]);
 
   const activeHref = getMostSpecificActiveHref(pathname, sections);
 
   const isActive = (href: string) => activeHref === href;
+
+  if (loading) {
+    return <LoadingState ariaLabel={t("ui.loading")} title={t("ui.loading")} showCard={false} lines={2} className="px-4 py-3" />;
+  }
+
+  if (error) {
+    return <ErrorState title={t("common.error")} description={error} retryLabel={t("common.retry")} onRetry={() => void reload()} wrapInCard />;
+  }
+
+  if (!sections.length) {
+    return (
+      <EmptyState
+        title={t("common.notAvailable")}
+        description={t("nav.billing")}
+        actions={[{ label: t("billing.upgradePro"), href: "/app/settings/billing", variant: "primary" }]}
+        wrapInCard
+      />
+    );
+  }
 
   return (
     <aside className="app-sidebar" aria-label={t("appName")}>
@@ -40,6 +63,11 @@ export default function AppSidebar() {
                           {t(item.labelKey)}
                           {item.disabledNoteKey ? (
                             <span className="text-xs text-[var(--text-muted)]"> {t(item.disabledNoteKey)}</span>
+                          ) : null}
+                          {item.upgradeHref ? (
+                            <Link href={item.upgradeHref} className="ml-2 text-xs underline">
+                              {t("billing.upgradePro")}
+                            </Link>
                           ) : null}
                         </span>
                       </div>

@@ -2888,7 +2888,9 @@
     "retry": "Retry",
     "comingSoon": "Coming soon",
     "success": "Success",
-    "error": "Error"
+    "error": "Error",
+    "upgradeRequired": "Upgrade required",
+    "upgradeRequiredDescription": "Your current access does not include this section yet."
   },
   "adminGyms": {
     "title": "Manage gyms",
