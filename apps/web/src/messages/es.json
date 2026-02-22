@@ -152,7 +152,17 @@
     "viewTodayPlanDescription": "Consulta el calendario de entrenamiento y nutrición del día.",
     "viewTodayPlanOutcome": "Abre tu calendario para revisar lo planificado hoy.",
     "viewTodayPlanCta": "Ver plan de hoy",
-    "viewTodayPlanUnavailable": "Todavía no hay plan de hoy disponible."
+    "viewTodayPlanUnavailable": "Todavía no hay plan de hoy disponible.",
+    "completeTodayActionTitle": "Completar 1 acción",
+    "completeTodayActionDescription": "Guarda tu progreso de hoy en tracking con un toque.",
+    "completeTodayActionOutcome": "Escribe el registro de tracking de hoy y confirma el progreso al instante.",
+    "completeTodayActionSuccess": "La acción de hoy se guardó correctamente.",
+    "completeTodayActionError": "No pudimos guardar la acción de hoy. Inténtalo de nuevo.",
+    "completeTodayActionCta": "Completar 1 acción",
+    "completeTodayActionDoneCta": "Acción completada",
+    "completeTodayActionUnavailable": "La acción de hoy no está disponible ahora mismo.",
+    "todayActionDefaultNotes": "Acción rápida de hoy completada desde Hoy.",
+    "todayActionDefaultRecommendation": "Mantener el plan actual"
   },
   "today": {
     "title": "Acciones de hoy",
