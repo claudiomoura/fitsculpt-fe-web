@@ -4,6 +4,8 @@
 
 Objetivo: validar en mobile el RC con una lista corta, repetible y ejecutable en **10–12 min**.
 
+> Final RC execution guide: `docs/rc-runbook.md` (usar este checklist como evidencia PASS/FAIL).
+
 ## Alcance
 
 - Flujos core: login, `/app` protegido, hoy → acción → persistencia, biblioteca, entitlements/gating, gym pilot (si aplica al RC).
