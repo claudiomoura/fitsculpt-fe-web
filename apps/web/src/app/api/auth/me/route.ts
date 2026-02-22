@@ -8,14 +8,22 @@ function getAuthCookie(token?: string) {
 
 export async function GET() {
   const token = (await cookies()).get("fs_token")?.value;
+  if (!token) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
   const authCookie = getAuthCookie(token);
   const headers: Record<string, string> = {};
   if (authCookie) headers.cookie = authCookie;
 
-  const response = await fetch(`${getBackendUrl()}/auth/me`, {
-    headers,
-    cache: "no-store",
-  });
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+  try {
+    const response = await fetch(`${getBackendUrl()}/auth/me`, {
+      headers,
+      cache: "no-store",
+    });
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch {
+    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 503 });
+  }
 }
