@@ -109,3 +109,137 @@ Official contract:
 ```
 
 `assignedPlan` can be `null` when no plan is assigned.
+
+## 6) Auth session + entitlements
+
+Endpoint: `GET /auth/me`
+
+Official contract: includes duplicated entitlement payload (`entitlements` and `effectiveEntitlements`) for backward compatibility and stable membership fields.
+
+```json
+{
+  "id": "user_1",
+  "email": "user@example.com",
+  "name": "User",
+  "role": "USER",
+  "subscriptionPlan": "PRO",
+  "plan": "PRO",
+  "subscriptionStatus": "ACTIVE",
+  "aiTokenBalance": 7,
+  "entitlements": {
+    "version": "2026-02-01",
+    "plan": { "base": "STRENGTH_AI", "effective": "STRENGTH_AI" },
+    "role": { "isAdmin": false, "adminOverride": false },
+    "modules": {
+      "strength": { "enabled": true, "reason": "plan" },
+      "nutrition": { "enabled": false, "reason": "none" },
+      "ai": { "enabled": true, "reason": "plan" }
+    },
+    "legacy": { "tier": "PRO", "canUseAI": true }
+  },
+  "effectiveEntitlements": {
+    "version": "2026-02-01",
+    "plan": { "base": "STRENGTH_AI", "effective": "STRENGTH_AI" },
+    "role": { "isAdmin": false, "adminOverride": false },
+    "modules": {
+      "strength": { "enabled": true, "reason": "plan" },
+      "nutrition": { "enabled": false, "reason": "none" },
+      "ai": { "enabled": true, "reason": "plan" }
+    },
+    "legacy": { "tier": "PRO", "canUseAI": true }
+  },
+  "gymMembershipState": "active",
+  "gymId": "gym_123",
+  "gymName": "Demo Gym",
+  "isTrainer": true
+}
+```
+
+## 7) Tracking write
+
+Endpoint: `POST /tracking`
+
+Official contract: request uses discriminated union by `collection`; response returns full normalized snapshot.
+
+```json
+{
+  "collection": "checkins",
+  "item": {
+    "id": "checkin-1",
+    "date": "2026-02-22",
+    "weightKg": 79.5,
+    "chestCm": 100,
+    "waistCm": 85,
+    "hipsCm": 95,
+    "bicepsCm": 35,
+    "thighCm": 56,
+    "calfCm": 38,
+    "neckCm": 40,
+    "bodyFatPercent": 18,
+    "energy": 4,
+    "hunger": 2,
+    "notes": "Good week",
+    "recommendation": "Keep current plan",
+    "frontPhotoUrl": null,
+    "sidePhotoUrl": null
+  }
+}
+```
+
+```json
+{
+  "checkins": [
+    {
+      "id": "checkin-1",
+      "date": "2026-02-22",
+      "weightKg": 79.5,
+      "chestCm": 100,
+      "waistCm": 85,
+      "hipsCm": 95,
+      "bicepsCm": 35,
+      "thighCm": 56,
+      "calfCm": 38,
+      "neckCm": 40,
+      "bodyFatPercent": 18,
+      "energy": 4,
+      "hunger": 2,
+      "notes": "Good week",
+      "recommendation": "Keep current plan",
+      "frontPhotoUrl": null,
+      "sidePhotoUrl": null
+    }
+  ],
+  "foodLog": [],
+  "workoutLog": []
+}
+```
+
+## 8) Billing status (active endpoint)
+
+Endpoint: `GET /billing/status`
+
+Official contract: returns effective plan flags, token state and available plans.
+
+```json
+{
+  "plan": "PRO",
+  "isPaid": true,
+  "isPro": true,
+  "tokens": 420,
+  "tokensExpiresAt": "2026-03-01T00:00:00.000Z",
+  "subscriptionStatus": "ACTIVE",
+  "availablePlans": ["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]
+}
+```
+
+```json
+{
+  "plan": "FREE",
+  "isPaid": false,
+  "isPro": false,
+  "tokens": 0,
+  "tokensExpiresAt": null,
+  "subscriptionStatus": null,
+  "availablePlans": ["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]
+}
+```
