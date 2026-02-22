@@ -1,15 +1,23 @@
-# Known Issues — RC Final
+# Known Issues — Release Ops
 
-**Dependency statement:** This PR depends on PR-03 being merged (and is recommended after PR-02).
+**Dependency statement:** This PR can run now on origin/dev.
+
+Fuente única de incidentes activos e históricos: `docs/ops/incident-tracker.md`.
 
 ## Estado actual
-- No hay issues **P0/P1** abiertos registrados en bug bash al cierre de este paquete.
-- Quedan pendientes de cierre operativo los checks de CI/contract/E2E del entorno release para marcar GO definitivo.
 
-## Lista de issues conocidos
-| ID | Severidad | Área | Descripción | Mitigación | Estado |
-|---|---|---|---|---|---|
-| KI-001 | P2 | Release Ops | Evidencias externas (links de CI, contract tests y E2E lite) pendientes de anexar en decisión final | Completar corrida RC en entorno release y actualizar `go-no-go.md` con links de jobs/reportes | OPEN |
+- P0 abiertos: **0**
+- P1 abiertos: **1**
+- P2 abiertos: **0**
 
-## Notas
-- Si aparece cualquier P0/P1 en demo flow, el estado debe cambiar a **NO-GO** hasta remediación + verificación.
+## Vista resumida (sin duplicar detalle)
+
+| ID | Sev | Estado | Owner | Nota |
+|---|---|---|---|---|
+| INC-2026-02-22-001 | P1 | Monitoring | BE on-call | Tracking write intermitente; workaround activo; smoke/e2e re-validados. |
+
+## Reglas
+
+- Si hay cualquier P0 abierto: estado release = **NO-GO**.
+- El detalle completo (impacto, reproducibilidad, workaround, links) vive solo en el tracker.
+- Al cerrar un incidente, actualizar primero el tracker y luego este resumen.

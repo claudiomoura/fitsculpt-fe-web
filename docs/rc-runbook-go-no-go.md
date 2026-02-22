@@ -1,119 +1,68 @@
-# RC Runbook — GO/NO-GO operativo (Sprint 6 cierre)
+# RC Runbook — GO/NO-GO operativo v1.1
 
-**Dependency statement:** This PR depends on PR-01 and PR-02 being merged (and PR-03 if applicable).
+**Dependency statement:** This PR can run now on origin/dev.
 
-Objetivo: que la decisión de release/demo sea objetiva, repetible y auditable en una sola pasada (`reset → smoke → checklist`).
+Objetivo: decisión de release objetiva y repetible en una sola pasada (`reset -> smoke -> checklist`) con guía de diagnóstico rápido ante fallos críticos.
 
-## 1) Freeze scope (obligatorio)
-
-Durante RC **no entran cambios de producto**. Solo se permiten:
-- fixes críticos de release (bloqueantes de GO),
-- ajustes de configuración/entorno,
-- documentación/evidencia de ejecución.
-
-Todo lo demás va a backlog post-demo.
-
-## 2) Responsables
-
-- **Release owner (decisión final GO/NO-GO):** Tech Lead / QA Lead de guardia.
-- **Ejecutor runbook:** QA owner del sprint.
-- **Soporte fixes rápidos:** Backend + Frontend on-call.
-- **Aprobación de rollback:** Release owner + responsable técnico del módulo afectado.
-
-## 3) Entradas y links obligatorios
+## 1) Entradas obligatorias
 
 - CI gates: `.github/workflows/pr-quality-gates.yml`
-- Contract tests (API): `docs/prs/sprint-01-pr-02-contract-test-exercises-imageurl.md`
-- E2E lite: `docs/e2e.md`
-- Checklist RC (mobile): `docs/rc-checklist.md`
-- Demo playbook: `docs/demo-playbook.md`
-- Smoke + reset operativo: `docs/demo-smoke-test.md`, `docs/demo-reset.md`
+- E2E/smoke base: `docs/e2e.md`, `docs/demo-smoke-test.md`
+- Checklist RC: `docs/rc-checklist.md`
+- Incident tracker (SSOT): `docs/ops/incident-tracker.md`
+- Triage workflow: `docs/ops/triage.md`
 
-## 4) Ejecución (1 pasada real)
+## 2) Stop-the-line
 
-### Paso A — Reset (stop the line)
-Desde `apps/api` ejecutar 2 veces:
+1. `npm run demo:reset` (2 veces) en `apps/api`.
+2. Smoke completo (`docs/demo-smoke-test.md`).
+3. RC checklist PASS en viewports definidos.
+4. Consola limpia (0 errors).
 
-```bash
-npm run demo:reset
-npm run demo:reset
-```
+Si falla cualquier punto: **NO-GO** y abrir/actualizar incidente en el tracker.
 
-Si no hay 2/2 OK: **NO-GO**.
+## 3) Diagnóstico rápido v1.1 (qué revisar si falla X)
 
-### Paso B — Smoke (stop the line)
-Ejecutar recorrido completo en `docs/demo-smoke-test.md`.
+### A) Auth/login falla
 
-Si falla login, guard `/app`, persistencia o entitlements FREE/premium: **NO-GO**.
+- Revisar estado de sesión/token y respuesta de login.
+- Verificar errores 401/403/5xx en API auth.
+- Reintentar flujo limpio tras `demo:reset`.
+- Si impacto masivo: clasificar P0.
 
-### Paso C — RC checklist (stop the line)
-Completar `docs/rc-checklist.md` en `375x812` y `390x844`.
+### B) Tracking write falla (`/api/tracking`)
 
-Si cualquier check aplicable queda FAIL: **NO-GO**.
+- Confirmar status code y payload mínimo válido.
+- Revisar logs de persistencia y errores 5xx.
+- Validar workaround temporal (cola/reintento) si existe.
+- Si usuario no puede guardar progreso: P1/P0 según alcance.
 
-### Paso D — Consola limpia (stop the line)
-Durante toda la corrida: **0 console errors**.
+### C) Gating premium inconsistente
 
-Si aparece 1 error: **NO-GO**.
+- Validar rol/entitlement del usuario demo.
+- Contrastar comportamiento FREE vs premium en misma ruta.
+- Verificar que no haya crash y que el bloqueo sea controlado.
 
-## 5) Criterio GO / NO-GO
+### D) Biblioteca media no carga
+
+- Revisar requests de media y placeholders.
+- Confirmar que el listado no quede en pantalla vacía bloqueante.
+- Si rompe flujo core de demo, elevar severidad.
+
+## 4) Criterio GO / NO-GO
 
 ### GO
-- Reset demo idempotente: 2/2 OK.
-- Smoke RC en PASS.
-- RC checklist PASS en ambos viewports.
-- Consola limpia (0 errors).
-- CI gates en PASS + pruebas relevantes en verde (contract + e2e lite si aplica).
+- Reset 2/2 OK.
+- Smoke y checklist PASS.
+- Console 0 errors.
+- CI PASS y sin incidentes P0/P1 abiertos.
 
 ### NO-GO
-- Falla cualquier paso stop-the-line.
-- CI en rojo.
-- Falta evidencia mínima en PR.
+- Cualquier stop-the-line en FAIL.
+- Incidente P0/P1 sin mitigación verificada.
 
-## 6) Qué hacer si NO-GO (plan de fixes + rollback)
+## 5) Evidencia mínima en PR
 
-1. **Freeze inmediato de merge** a release branch.
-2. Abrir incidencia con evidencia mínima: pasos, expected/actual, consola, captura, commit/PR.
-3. Aplicar fix mínimo de release (sin ampliar scope).
-4. Re-ejecutar runbook completo desde Paso A.
-5. Si no hay fix seguro en ventana RC: **rollback** al último commit/tag estable validado.
-
-## 7) Evidencia requerida en PR (obligatoria)
-
-Pegar este bloque en la descripción del PR:
-
-```md
-## RC Evidence
-- Reset demo (2x): PASS/FAIL + salida terminal
-- Smoke RC: PASS/FAIL + notas
-- RC checklist mobile: PASS/FAIL (375x812, 390x844)
-- Console: 0 errors (captura)
-- CI gates: <link>
-- Contract tests: <link>
-- E2E lite: <link>
-- RC checklist doc: <link>
-- Demo playbook: <link>
-```
-
-## 8) Evidencia de 1 ejecución real (esta PR)
-
-Fecha: `2026-02-22`  
-Entorno: `local`  
-Ejecutor: `Codex`
-
-- Reset demo (intento #1): **FAIL**
-- Resultado runbook: **NO-GO**
-- Razón bloqueante: error de runtime al ejecutar `npm run demo:reset`.
-
-Salida relevante de consola:
-
-```text
-/workspace/fitsculpt-fe-web/apps/api/src/prismaClient.ts:1
-import { Prisma, PrismaClient } from "@prisma/client";
-         ^
-SyntaxError: The requested module '@prisma/client' does not provide an export named 'Prisma'
-```
-
-Acción siguiente recomendada:
-- Corregir incompatibilidad `@prisma/client`/runtime en API.
-- Repetir runbook completo desde Paso A y adjuntar nuevas capturas/evidencia limpia.
+- Resultado reset/smoke/checklist.
+- Links de CI/jobs y e2e/smoke.
+- Referencia a incidente (si aplica) y estado final.

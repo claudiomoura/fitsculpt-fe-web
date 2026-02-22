@@ -1,6 +1,6 @@
 # Playbook de demo operativa (10 minutos)
 
-Dependency statement: **This PR can run now on origin/dev (draft), but is recommended after PR-01 is merged**.
+Dependency statement: **This PR can run now on origin/dev.**
 
 Objetivo: permitir que una persona no técnica prepare y ejecute una demo consistente, sin depender del founder.
 
@@ -20,6 +20,16 @@ Objetivo: permitir que una persona no técnica prepare y ejecute una demo consis
 - **0:00–2:00** → Reset demo + validación mínima post-reset.
 - **2:00–8:30** → Guion de demo (core + premium + gym si aplica).
 - **8:30–10:00** → Cierre + preguntas + captura de incidencias.
+
+---
+
+
+## 0) Si algo falla durante demo (nuevo)
+
+1. Abrir/actualizar incidente en `docs/ops/incident-tracker.md`.
+2. Clasificar severidad con `docs/ops/triage.md` (P0/P1/P2).
+3. Si es P0/P1: pausar demo y comunicar estado en canal de incidentes.
+4. Reanudar solo tras mitigación + smoke PASS.
 
 ---
 
