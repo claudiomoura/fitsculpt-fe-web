@@ -98,6 +98,7 @@ export const sidebarUser: NavSectionGroup[] = [
       { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
+      { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
     ],
   },
   {
@@ -206,6 +207,7 @@ export const sidebarDevelopment: NavSectionGroup[] = [
       },
       { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
       { id: "dev-dashboard", href: "/app/dashboard", labelKey: "nav.dashboard", meta: "/app/dashboard" },
+      { id: "dev-weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview", meta: "/app/weekly-review" },
       { id: "dev-workouts", href: "/app/entrenamiento", labelKey: "nav.workouts", meta: "/app/workouts" },
       {
         id: "dev-training-edit",

@@ -45,7 +45,8 @@
     "nutritionCalendar": "Calendario de nutrición",
     "nutritionPlans": "Planes de nutrición",
     "exerciseLibrary": "Biblioteca de ejercicios",
-    "trainingPlans": "Planes de entrenamiento"
+    "trainingPlans": "Planes de entrenamiento",
+    "weeklyReview": "Revisión semanal"
   },
   "navSections": {
     "summary": "Resumen",
@@ -3183,5 +3184,28 @@
         "confirm": "Eliminar plan"
       }
     }
+  },
+  "weeklyReview": {
+    "title": "Revisión semanal",
+    "subtitle": "Resumen mobile-first de tu semana con recomendaciones accionables.",
+    "loadingTitle": "Cargando revisión semanal",
+    "loadingDescription": "Preparando tu resumen y recomendaciones.",
+    "unavailableTitle": "Revisión semanal no disponible",
+    "unavailableDescription": "Este módulo aún no está disponible para tu cuenta.",
+    "errorTitle": "No pudimos cargar tu revisión semanal",
+    "errorDescription": "Reintenta para recuperar tu resumen de la semana.",
+    "emptyTitle": "Aún no hay datos semanales",
+    "emptyDescription": "Completa tu primera acción para habilitar recomendaciones.",
+    "emptyCta": "Ir a acciones de hoy",
+    "summaryTitle": "Resumen de la semana",
+    "summaryCheckins": "Check-ins",
+    "summaryWorkouts": "Entrenamientos",
+    "summaryNutrition": "Registros nutrición",
+    "summaryEnergy": "Energía promedio",
+    "lockedDescription": "Esta recomendación usa IA y requiere un plan Pro/Gym.",
+    "lockedCta": "Ver planes",
+    "accept": "Aceptar",
+    "nowNo": "Ahora no",
+    "undo": "Deshacer"
   }
 }

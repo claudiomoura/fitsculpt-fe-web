@@ -45,7 +45,8 @@
     "nutritionCalendar": "Nutrition calendar",
     "nutritionPlans": "Nutrition plans",
     "exerciseLibrary": "Exercise library",
-    "trainingPlans": "Training plans"
+    "trainingPlans": "Training plans",
+    "weeklyReview": "Weekly review"
   },
   "navSections": {
     "summary": "Summary",
@@ -3181,5 +3182,28 @@
         "confirm": "Delete plan"
       }
     }
+  },
+  "weeklyReview": {
+    "title": "Weekly review",
+    "subtitle": "Mobile-first recap of your week with actionable recommendations.",
+    "loadingTitle": "Loading weekly review",
+    "loadingDescription": "Preparing your summary and recommendations.",
+    "unavailableTitle": "Weekly review unavailable",
+    "unavailableDescription": "This module is not available for your account yet.",
+    "errorTitle": "We could not load your weekly review",
+    "errorDescription": "Retry to fetch your weekly recap.",
+    "emptyTitle": "No weekly data yet",
+    "emptyDescription": "Complete your first action to unlock recommendations.",
+    "emptyCta": "Go to today actions",
+    "summaryTitle": "Week summary",
+    "summaryCheckins": "Check-ins",
+    "summaryWorkouts": "Workouts",
+    "summaryNutrition": "Nutrition logs",
+    "summaryEnergy": "Avg. energy",
+    "lockedDescription": "This recommendation is AI-based and requires Pro/Gym.",
+    "lockedCta": "View plans",
+    "accept": "Accept",
+    "nowNo": "Not now",
+    "undo": "Undo"
   }
 }
