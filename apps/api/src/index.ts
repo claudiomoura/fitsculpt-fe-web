@@ -35,6 +35,7 @@ import {
   trackingSchema,
 } from "./tracking/schemas.js";
 import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/service.js";
+import { resetDemoState } from "./dev/demoSeed.js";
 
 
 const env = getEnv();
@@ -9093,6 +9094,20 @@ app.post("/dev/seed-recipes", async (_request, reply) => {
     return reply.status(200).send({ ok: true, seeded });
   } catch (err) {
     app.log.error({ err }, "seed recipes failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR" });
+  }
+});
+
+app.post("/dev/reset-demo", async (_request, reply) => {
+  try {
+    if (process.env.NODE_ENV === "production") {
+      return reply.status(403).send({ error: "FORBIDDEN" });
+    }
+
+    const result = await resetDemoState(prisma);
+    return reply.status(200).send({ ok: true, ...result });
+  } catch (err) {
+    app.log.error({ err }, "reset demo failed");
     return reply.status(500).send({ error: "INTERNAL_ERROR" });
   }
 });
