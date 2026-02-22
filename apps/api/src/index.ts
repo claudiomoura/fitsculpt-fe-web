@@ -36,6 +36,7 @@ import {
 } from "./tracking/schemas.js";
 import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/service.js";
 import { resetDemoState } from "./dev/demoSeed.js";
+import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 
 
 const env = getEnv();
@@ -5023,6 +5024,12 @@ app.delete("/tracking/:collection/:id", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
+});
+
+registerWeeklyReviewRoute(app, {
+  requireUser,
+  getOrCreateProfile,
+  handleRequestError,
 });
 
 app.get("/user-foods", async (request, reply) => {
