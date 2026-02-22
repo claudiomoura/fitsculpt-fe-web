@@ -9,9 +9,31 @@ type DemoMedia = {
   poster?: string;
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function asText(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function resolveExerciseThumbnail(exercise?: Exercise | null): string | null {
+  if (!exercise) return null;
+  const rawExercise = exercise as Exercise & Record<string, unknown>;
+  const media = asRecord(rawExercise.media);
+
+  return (
+    asText(exercise.posterUrl) ??
+    asText(exercise.imageUrl) ??
+    asText(rawExercise.thumbnailUrl) ??
+    asText(rawExercise.mediaUrl) ??
+    asText(media?.thumbnailUrl) ??
+    null
+  );
+}
+
 export function getExerciseCoverUrl(exercise?: Exercise | null): string {
-  if (!exercise) return COVER_PLACEHOLDER;
-  return exercise.posterUrl ?? exercise.imageUrl ?? COVER_PLACEHOLDER;
+  return resolveExerciseThumbnail(exercise) ?? COVER_PLACEHOLDER;
 }
 
 export function getExerciseDemoUrl(exercise?: Exercise | null): DemoMedia {
@@ -24,7 +46,7 @@ export function getExerciseDemoUrl(exercise?: Exercise | null): DemoMedia {
     return {
       kind: "video",
       url: videoUrl,
-      poster: exercise.posterUrl ?? exercise.imageUrl ?? COVER_PLACEHOLDER,
+      poster: resolveExerciseThumbnail(exercise) ?? COVER_PLACEHOLDER,
     };
   }
 
