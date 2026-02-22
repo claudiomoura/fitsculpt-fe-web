@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import FeatureUnavailableState from "@/components/access/FeatureUnavailableState";
@@ -9,6 +9,7 @@ import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { useWeeklyReview } from "@/lib/useWeeklyReview";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { WeeklyReviewRecommendation } from "@/types/weeklyReview";
+import { trackWeeklyReviewEvent } from "@/lib/weeklyReviewTelemetry";
 
 type RecommendationStatus = "idle" | "accepted" | "dismissed";
 
@@ -31,6 +32,10 @@ export default function WeeklyReviewClient() {
     return recommendations.slice(0, 3);
   }, [data]);
 
+
+  useEffect(() => {
+    trackWeeklyReviewEvent({ event: "weekly_review_opened", timestamp: new Date().toISOString() });
+  }, []);
   if (loading) {
     return <LoadingState title={t("weeklyReview.loadingTitle")} ariaLabel={t("ui.loading")} lines={4} />;
   }
@@ -117,7 +122,15 @@ export default function WeeklyReviewClient() {
                     type="button"
                     variant="primary"
                     size="sm"
-                    onClick={() => setDecisions((prev) => ({ ...prev, [recommendation.id]: "accepted" }))}
+                    onClick={() => {
+                      trackWeeklyReviewEvent({
+                        event: "weekly_review_recommendation_decision",
+                        timestamp: new Date().toISOString(),
+                        recommendationId: recommendation.id,
+                        decision: "accepted",
+                      });
+                      setDecisions((prev) => ({ ...prev, [recommendation.id]: "accepted" }));
+                    }}
                   >
                     {t("weeklyReview.accept")}
                   </Button>
@@ -125,7 +138,15 @@ export default function WeeklyReviewClient() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setDecisions((prev) => ({ ...prev, [recommendation.id]: "dismissed" }))}
+                    onClick={() => {
+                      trackWeeklyReviewEvent({
+                        event: "weekly_review_recommendation_decision",
+                        timestamp: new Date().toISOString(),
+                        recommendationId: recommendation.id,
+                        decision: "dismissed",
+                      });
+                      setDecisions((prev) => ({ ...prev, [recommendation.id]: "dismissed" }));
+                    }}
                   >
                     {t("weeklyReview.nowNo")}
                   </Button>
