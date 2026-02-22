@@ -1,15 +1,31 @@
-import TrainingCalendarClient from "./TrainingCalendarClient";
-import { getServerT } from "@/lib/serverI18n";
+import { redirect } from "next/navigation";
 
-export default async function EntrenamientosPage() {
-  const { t } = await getServerT();
-  return (
-    <div className="page">
-      <section className="card">
-        <h1 className="section-title">{t("app.workoutsTitle")}</h1>
-        <p className="section-subtitle">{t("training.calendar.subtitle")}</p>
-      </section>
-      <TrainingCalendarClient />
-    </div>
-  );
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function toQueryString(params?: Record<string, string | string[] | undefined>) {
+  if (!params) return "";
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item) query.append(key, item);
+      });
+      return;
+    }
+
+    if (value) {
+      query.set(key, value);
+    }
+  });
+
+  const serialized = query.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+export default async function EntrenamientosPage({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : undefined;
+  redirect(`/app/entrenamiento${toQueryString(params)}`);
 }

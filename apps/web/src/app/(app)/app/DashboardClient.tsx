@@ -456,7 +456,7 @@ export default function DashboardClient() {
         helperLabel: t("dashboard.kpiSessionsHelper"),
         deltaLabel: formatDelta(currentSessions, previousSessions),
         bars: sessionsByDay,
-        ctaHref: "/app/entrenamientos",
+        ctaHref: "/app/entrenamiento",
         ctaLabel: t("dashboard.kpiGoCalendar"),
       },
       {
@@ -466,7 +466,7 @@ export default function DashboardClient() {
         helperLabel: t("dashboard.kpiVolumeHelper"),
         deltaLabel: formatDelta(Math.round(currentVolume), Math.round(previousVolume)),
         bars: volumeByDay,
-        ctaHref: "/app/entrenamientos",
+        ctaHref: "/app/entrenamiento",
         ctaLabel: t("dashboard.kpiGoToday"),
       },
       {
@@ -882,7 +882,7 @@ export default function DashboardClient() {
               <ButtonLink href="/app/hoy" className="fit-content">
                 {t("dashboard.kpiGoToday")}
               </ButtonLink>
-              <ButtonLink variant="secondary" href="/app/entrenamientos" className="fit-content">
+              <ButtonLink variant="secondary" href="/app/entrenamiento" className="fit-content">
                 {t("dashboard.kpiGoCalendar")}
               </ButtonLink>
             </div>
