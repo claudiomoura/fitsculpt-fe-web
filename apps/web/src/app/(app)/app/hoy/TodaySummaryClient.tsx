@@ -456,7 +456,7 @@ const notesErrorActions: ErrorAction[] = [
             alt={`${t("library.mediaAlt")} ${item.name}`}
             className="exercise-card-media"
             onError={(event) => {
-              event.currentTarget.src = "/placeholders/exercise-cover.svg";
+              event.currentTarget.src = "/placeholders/exercise-cover.jpg";
             }}
           />
           <h3>{item.name}</h3>

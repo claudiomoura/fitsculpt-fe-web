@@ -46,7 +46,7 @@ export function ExerciseCard({
         alt={`${mediaAltPrefix} ${name}`}
         className="exercise-card-media"
         onError={(event) => {
-          event.currentTarget.src = "/placeholders/exercise-cover.svg";
+          event.currentTarget.src = "/placeholders/exercise-cover.jpg";
         }}
       />
       <h3>{name}</h3>
