@@ -35,6 +35,12 @@ const LAST_STEP = 5;
 
 const parseNumberInput = (value: string) => (value.trim() === "" ? null : Number(value));
 const hasPositiveNumber = (value: number | null | undefined) => Number.isFinite(value) && (value ?? 0) > 0;
+const renderFieldLabel = (label: string, required = false) => (
+  <>
+    {label}
+    {required ? " *" : ""}
+  </>
+);
 
 export default function OnboardingClient({ nextUrl, ai }: Props) {
   const { t } = useLanguage();
@@ -290,41 +296,10 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   const isStepValid =
     (step === 0 &&
-      profile.name.trim().length > 0 &&
-      profile.sex !== "" &&
       hasPositiveNumber(profile.age) &&
       hasPositiveNumber(profile.heightCm) &&
-      hasPositiveNumber(profile.weightKg) &&
-      profile.activity !== "") ||
-    (step === 1 && profile.goal !== "" && hasPositiveNumber(profile.goalWeightKg)) ||
-    (step === 2 &&
-      profile.trainingPreferences.level !== "" &&
-      hasPositiveNumber(profile.trainingPreferences.daysPerWeek) &&
-      profile.trainingPreferences.sessionTime !== "" &&
-      profile.trainingPreferences.focus !== "" &&
-      profile.trainingPreferences.equipment !== "" &&
-      profile.trainingPreferences.workoutLength !== "" &&
-      profile.trainingPreferences.timerSound !== "") ||
-    (step === 3 &&
-      hasPositiveNumber(profile.nutritionPreferences.mealsPerDay) &&
-      profile.nutritionPreferences.dietType !== "" &&
-      profile.nutritionPreferences.cookingTime !== "" &&
-      profile.nutritionPreferences.mealDistribution.preset !== "") ||
-    (step === 4 &&
-      profile.macroPreferences.formula !== "" &&
-      hasPositiveNumber(profile.macroPreferences.proteinGPerKg) &&
-      hasPositiveNumber(profile.macroPreferences.fatGPerKg) &&
-      Number.isFinite(profile.macroPreferences.cutPercent) &&
-      Number.isFinite(profile.macroPreferences.bulkPercent) &&
-      hasPositiveNumber(profile.measurements.chestCm) &&
-      hasPositiveNumber(profile.measurements.waistCm) &&
-      hasPositiveNumber(profile.measurements.hipsCm) &&
-      hasPositiveNumber(profile.measurements.bicepsCm) &&
-      hasPositiveNumber(profile.measurements.thighCm) &&
-      hasPositiveNumber(profile.measurements.calfCm) &&
-      hasPositiveNumber(profile.measurements.neckCm) &&
-      hasPositiveNumber(profile.measurements.bodyFatPercent)) ||
-    (step === 5);
+      hasPositiveNumber(profile.weightKg)) ||
+    step > 0;
 
   if (loadState === "loading") {
     return <div className="page"><section className="card"><h2 className="section-title">{t("onboarding.title")}</h2><p className="section-subtitle">{t("onboarding.loadingState")}</p></section></div>;
@@ -353,9 +328,9 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       {step === 0 && <section className="card form-stack"><h3 className="section-title">{t("profile.basicsTitle")}</h3>
         <label className="form-stack">{t("profile.name")}<input value={profile.name} onChange={(e) => updateProfile("name", e.target.value)} /></label>
         <label className="form-stack">{t("profile.sex")}<select value={profile.sex} onChange={(e) => updateProfile("sex", e.target.value as Sex | "")}><option value="">{t("profile.selectPlaceholder")}</option><option value="male">{t("profile.sexMale")}</option><option value="female">{t("profile.sexFemale")}</option></select></label>
-        <label className="form-stack">{t("profile.age")}<input type="number" value={profile.age ?? ""} onChange={(e) => updateProfile("age", parseNumberInput(e.target.value))} /></label>
-        <label className="form-stack">{t("profile.height")}<input type="number" value={profile.heightCm ?? ""} onChange={(e) => updateProfile("heightCm", parseNumberInput(e.target.value))} /></label>
-        <label className="form-stack">{t("profile.weight")}<input type="number" value={profile.weightKg ?? ""} onChange={(e) => updateProfile("weightKg", parseNumberInput(e.target.value))} /></label>
+        <label className="form-stack">{renderFieldLabel(t("profile.age"), true)}<input type="number" value={profile.age ?? ""} onChange={(e) => updateProfile("age", parseNumberInput(e.target.value))} /></label>
+        <label className="form-stack">{renderFieldLabel(t("profile.height"), true)}<input type="number" value={profile.heightCm ?? ""} onChange={(e) => updateProfile("heightCm", parseNumberInput(e.target.value))} /></label>
+        <label className="form-stack">{renderFieldLabel(t("profile.weight"), true)}<input type="number" value={profile.weightKg ?? ""} onChange={(e) => updateProfile("weightKg", parseNumberInput(e.target.value))} /></label>
         <label className="form-stack">{t("profile.activity")}<select value={profile.activity} onChange={(e) => updateProfile("activity", e.target.value as Activity | "")}><option value="">{t("profile.selectPlaceholder")}</option>{activityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </section>}
 
