@@ -106,6 +106,8 @@ type NutritionAiErrorState = {
   canRetry: boolean;
 };
 
+const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
+
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
   try {
     const billingResponse = await fetch("/api/billing/status", { cache: "no-store", credentials: "include" });
@@ -293,7 +295,7 @@ const getMealMediaUrl = (meal: NutritionMeal) => {
     candidate.media?.url,
   ];
   const match = urls.find((url) => typeof url === "string" && url.trim().length > 0);
-  return typeof match === "string" ? match : null;
+  return typeof match === "string" ? match : RECIPE_PLACEHOLDER;
 };
 
 const getMealInstructions = (meal: NutritionMeal) => {
