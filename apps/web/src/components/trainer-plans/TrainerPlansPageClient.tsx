@@ -841,6 +841,7 @@ function ExerciseEditor({
   const [step, setStep] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- keep editor draft synchronized with selected exercise
     setDraft(exercise ? { ...exercise, sets: normalizeSets(exercise.sets) } : null);
   }, [exercise]);
 

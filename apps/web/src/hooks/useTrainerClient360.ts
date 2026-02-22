@@ -69,6 +69,7 @@ export function useTrainerClient360(clientId: string): TrainerClient360State {
   }, [clientId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- trigger async load on client change
     void load();
   }, [load]);
 
