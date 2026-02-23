@@ -1,6 +1,15 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import {
+  DenseTable,
+  DenseTableBody,
+  DenseTableCell,
+  DenseTableHead,
+  DenseTableHeadCell,
+  DenseTableRow,
+  ProHeader,
+} from "@/design-system/components";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getLocaleCode } from "@/lib/i18n";
 
@@ -184,6 +193,12 @@ export default function AdminUsersClient() {
 
   return (
     <div className="form-stack">
+      <ProHeader
+        title={t("admin.management")}
+        subtitle={t("admin.actionsHint")}
+        compact
+      />
+
       <section className="card">
         <h2 className="section-title" style={{ fontSize: 18 }}>{t("admin.createUserTitle")}</h2>
         <form className="form-stack" onSubmit={createUser}>
@@ -252,42 +267,57 @@ export default function AdminUsersClient() {
             <div className="info-value">{data?.total ?? 0}</div>
           </div>
 
-          {data?.users.map((user) => (
-            <div key={user.id} className="feature-card">
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <div>
-                  <strong>{user.email}</strong>
-                  <div className="muted">{user.name || t("admin.noName")}</div>
-                  <div className="badge-list" style={{ marginTop: 8 }}>
-                    <span className="badge">{user.role}</span>
-                    <span className="badge">{user.subscriptionPlan}</span>
-                    <span className="badge">{user.provider || user.method}</span>
-                    <span className="badge">
-                      {user.subscriptionStatus ?? "-"}
-                    </span>
-                  </div>
-                </div>
-                <button type="button" className="btn secondary" onClick={() => openEdit(user)}>
-                  {t("ui.edit")}
-                </button>
-              </div>
-              <div className="muted" style={{ marginTop: 8 }}>
-                {t("admin.createdAt")}: {new Date(user.createdAt).toLocaleDateString(localeCode)}
-              </div>
-              <div className="muted">
-                {t("admin.lastLogin")}: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString(localeCode) : "-"}
-              </div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                {t("admin.subscriptionPlanLabel")}: {user.subscriptionPlan} · {user.subscriptionStatus ?? "-"}
-              </div>
-              <div className="muted">
-                {t("admin.tokensBalanceLabel")}: {user.aiTokenBalance} · {t("admin.tokensAllowanceLabel")}: {user.aiTokenMonthlyAllowance}
-              </div>
-              <div className="muted">
-                {t("ui.notAvailable")}
-              </div>
-            </div>
-          ))}
+          <DenseTable aria-label={t("admin.management")}>
+            <DenseTableHead>
+              <DenseTableRow>
+                <DenseTableHeadCell>{t("auth.email")}</DenseTableHeadCell>
+                <DenseTableHeadCell>{t("admin.roleLabel")}</DenseTableHeadCell>
+                <DenseTableHeadCell>{t("admin.subscriptionPlanLabel")}</DenseTableHeadCell>
+                <DenseTableHeadCell>{t("admin.tokensBalanceLabel")}</DenseTableHeadCell>
+                <DenseTableHeadCell>{t("admin.lastLogin")}</DenseTableHeadCell>
+                <DenseTableHeadCell className="text-right">{t("admin.actions")}</DenseTableHeadCell>
+              </DenseTableRow>
+            </DenseTableHead>
+            <DenseTableBody>
+              {data?.users.map((user) => (
+                <DenseTableRow key={user.id} interactive>
+                  <DenseTableCell>
+                    <div className="form-stack" style={{ gap: 2 }}>
+                      <strong>{user.email}</strong>
+                      <span className="muted">{user.name || t("admin.noName")}</span>
+                    </div>
+                  </DenseTableCell>
+                  <DenseTableCell>
+                    <div className="badge-list" style={{ marginTop: 0 }}>
+                      <span className="badge">{user.role}</span>
+                      <span className="badge">{user.provider || user.method}</span>
+                    </div>
+                  </DenseTableCell>
+                  <DenseTableCell>
+                    <div className="form-stack" style={{ gap: 2 }}>
+                      <span>{user.subscriptionPlan}</span>
+                      <span className="muted">{user.subscriptionStatus ?? "-"}</span>
+                    </div>
+                  </DenseTableCell>
+                  <DenseTableCell>
+                    <span>{user.aiTokenBalance}</span>
+                    <span className="muted"> / {user.aiTokenMonthlyAllowance}</span>
+                  </DenseTableCell>
+                  <DenseTableCell>
+                    <div className="form-stack" style={{ gap: 2 }}>
+                      <span>{new Date(user.createdAt).toLocaleDateString(localeCode)}</span>
+                      <span className="muted">{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString(localeCode) : "-"}</span>
+                    </div>
+                  </DenseTableCell>
+                  <DenseTableCell className="text-right">
+                    <button type="button" className="btn secondary" onClick={() => openEdit(user)}>
+                      {t("ui.edit")}
+                    </button>
+                  </DenseTableCell>
+                </DenseTableRow>
+              ))}
+            </DenseTableBody>
+          </DenseTable>
 
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <button
