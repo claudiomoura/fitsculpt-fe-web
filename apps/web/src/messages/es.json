@@ -102,7 +102,8 @@
     "previousWeek": "Semana anterior",
     "nextWeek": "Semana siguiente",
     "previousWeekAria": "Ir a la semana anterior",
-    "nextWeekAria": "Ir a la semana siguiente"
+    "nextWeekAria": "Ir a la semana siguiente",
+    "viewList": "Lista"
   },
   "plan": {
     "replicatedWeekLabel": "Semana replicada del plan actual"
