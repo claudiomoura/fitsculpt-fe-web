@@ -17,3 +17,8 @@ export * from './SegmentedControl';
 export * from './WeekGridCompact';
 export * from './MealCardCompact';
 export * from './Accordion';
+export * from './WorkoutHeroCard';
+export * from './WorkoutProgressBar';
+export * from './ExerciseCardCompact';
+export * from './PeriodizationTimeline';
+export * from './TrainingWeekGridCompact';
