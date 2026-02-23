@@ -1164,20 +1164,20 @@ main {
 
 .status-under {
   background: rgba(250, 204, 21, 0.16);
-  color: #facc15;
-  border-color: rgba(250, 204, 21, 0.35);
+  color: var(--status-warning);
+  border-color: color-mix(in srgb, var(--status-warning) 45%, transparent);
 }
 
 .status-over {
   background: rgba(248, 113, 113, 0.16);
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.35);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 45%, transparent);
 }
 
 .status-exact {
   background: rgba(74, 222, 128, 0.16);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.35);
+  color: var(--status-success);
+  border-color: color-mix(in srgb, var(--status-success) 45%, transparent);
 }
 
 .today-calories-card {
@@ -1222,15 +1222,15 @@ main {
 }
 
 .progress-ring.status-under .progress-ring-value {
-  stroke: #facc15;
+  stroke: var(--status-warning);
 }
 
 .progress-ring.status-over .progress-ring-value {
-  stroke: #f87171;
+  stroke: var(--color-danger);
 }
 
 .progress-ring.status-exact .progress-ring-value {
-  stroke: #4ade80;
+  stroke: var(--status-success);
 }
 
 .profile-avatar-card {
@@ -2997,6 +2997,12 @@ label {
 .dashboard-kpi-value {
   font-size: 1.5rem;
   line-height: 1.2;
+}
+
+
+.dashboard-kpi-card:focus-within {
+  outline: 3px solid var(--color-ring);
+  outline-offset: 2px;
 }
 
 .dashboard-kpi-bars {
