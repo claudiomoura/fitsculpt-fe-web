@@ -1215,7 +1215,14 @@
       "title": "Datos del plan",
       "show": "Mostrar datos del plan",
       "hide": "Ocultar datos del plan"
-    }
+    },
+    "selectedPlanLoadError": "No pudimos cargar el plan seleccionado.",
+    "selectedPlanFallbackToAssigned": "No pudimos acceder al plan seleccionado. Mostramos tu plan asignado.",
+    "calendarViewToggleAria": "Seleccionar vista del calendario de entrenamiento",
+    "calendarViewOptionAria": "Cambiar a vista {{view}}",
+    "activePlanLabel": "Plan activo",
+    "activePlanSelected": "Seleccionado",
+    "activePlanAssigned": "Asignado"
   },
   "profile": {
     "formTitle": "Perfil y métricas",

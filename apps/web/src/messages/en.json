@@ -1212,7 +1212,14 @@
       "title": "Plan details",
       "show": "Show plan details",
       "hide": "Hide plan details"
-    }
+    },
+    "selectedPlanLoadError": "We couldn't load the selected plan.",
+    "selectedPlanFallbackToAssigned": "We couldn't access the selected plan. Showing your assigned plan instead.",
+    "calendarViewToggleAria": "Select training calendar view",
+    "calendarViewOptionAria": "Switch to {{view}} view",
+    "activePlanLabel": "Active plan",
+    "activePlanSelected": "Selected",
+    "activePlanAssigned": "Assigned"
   },
   "profile": {
     "formTitle": "Profile and metrics",

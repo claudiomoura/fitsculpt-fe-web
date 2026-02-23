@@ -402,7 +402,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           setActivePlan(null);
           setActivePlanOrigin(null);
           if (selectedPlanId) {
-            setActivePlanError("No pudimos cargar el plan seleccionado.");
+            setActivePlanError(t("training.selectedPlanLoadError"));
           }
           return;
         }
@@ -411,7 +411,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           setActivePlan(null);
           setActivePlanOrigin(null);
           if (selectedPlanId) {
-            setActivePlanError("No pudimos cargar el plan seleccionado.");
+            setActivePlanError(t("training.selectedPlanLoadError"));
           }
           return;
         }
@@ -420,21 +420,21 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         setActivePlan(payload.plan ?? null);
         setActivePlanOrigin(payload.plan ? "assigned" : null);
         if (selectedPlanId && payload.plan) {
-          setActivePlanError("No pudimos acceder al plan seleccionado. Mostramos tu plan asignado.");
+          setActivePlanError(t("training.selectedPlanFallbackToAssigned"));
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setActivePlan(null);
         setActivePlanOrigin(null);
         if (selectedPlanId) {
-          setActivePlanError("No pudimos cargar el plan seleccionado.");
+          setActivePlanError(t("training.selectedPlanLoadError"));
         }
       }
     };
 
     void loadActivePlan();
     return () => controller.abort();
-  }, [selectedPlanId]);
+  }, [selectedPlanId, t]);
 
   const plan = useMemo(() => (form ? generatePlan(form, locale, t) : null), [form, locale, t]);
   const visiblePlan = isManualView ? savedPlan ?? plan : activePlan;
@@ -1050,7 +1050,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <p className="section-subtitle">{t("training.calendarSubtitle")}</p>
                 </div>
                 <div className="section-actions calendar-actions">
-                  <div className="segmented-control">
+                  <div className="segmented-control" role="group" aria-label={t("training.calendarViewToggleAria")}>
                     {calendarOptions.map((option) => {
                       const isActive = calendarView === option.value;
                       return (
@@ -1058,6 +1058,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           key={option.value}
                           type="button"
                           className={`segmented-control-btn ${isActive ? "active" : ""}`}
+                          aria-pressed={isActive}
+                          aria-label={t("training.calendarViewOptionAria", { view: option.label })}
                           onClick={() => {
                             setCalendarView(option.value as typeof calendarView);
                           }}
@@ -1074,10 +1076,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 <div className="status-card" style={{ marginBottom: 12 }}>
                   <div className="inline-actions-sm" style={{ justifyContent: "space-between", width: "100%" }}>
                     <strong>
-                      Plan activo: {activePlan.title?.trim() || selectedPlanId || "-"}
+                      {t("training.activePlanLabel")}: {activePlan.title?.trim() || selectedPlanId || "-"}
                     </strong>
                     <Badge variant={activePlanOrigin === "selected" ? "success" : "default"}>
-                      {activePlanOrigin === "selected" ? "Seleccionado" : "Asignado"}
+                      {activePlanOrigin === "selected" ? t("training.activePlanSelected") : t("training.activePlanAssigned")}
                     </Badge>
                   </div>
                 </div>
