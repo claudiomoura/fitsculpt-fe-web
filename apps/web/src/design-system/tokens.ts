@@ -45,5 +45,29 @@ export const semanticColors = {
   focusRing: colorPalette.blue500,
 } as const;
 
+export const professionalSemanticColors = {
+  ...semanticColors,
+  background: colorPalette.slate100,
+  surface: colorPalette.slate50,
+  surfaceMuted: colorPalette.white,
+  textPrimary: colorPalette.slate800,
+  textSecondary: colorPalette.slate700,
+  borderDefault: colorPalette.slate300,
+  borderStrong: colorPalette.slate400,
+  primary: colorPalette.slate700,
+  primaryHover: colorPalette.slate800,
+  primarySoft: colorPalette.slate600,
+  focusRing: colorPalette.slate500,
+} as const;
+
+export const semanticColorVariants = {
+  default: semanticColors,
+  professional: professionalSemanticColors,
+} as const;
+
+export type SemanticColorVariant = keyof typeof semanticColorVariants;
+
+export const getSemanticColors = (variant: SemanticColorVariant = 'default') => semanticColorVariants[variant];
+
 export type ColorPaletteToken = keyof typeof colorPalette;
 export type SemanticColorToken = keyof typeof semanticColors;
