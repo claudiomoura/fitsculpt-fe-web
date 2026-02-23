@@ -138,3 +138,47 @@ const cardTransition = createTransition('surface', transition.surface.properties
 ```
 
 If you need a new transition behavior, add it to `motion.ts` first and reference it semantically from DS components.
+
+## Nutrition V2 building blocks
+
+These components are DS-only primitives for Nutrition Calendar V2. They are composable and can be imported without touching production screens.
+
+```tsx
+import {
+  Accordion,
+  HeaderCompact,
+  MealCardCompact,
+  ObjectiveGrid,
+  SegmentedControl,
+  WeekGridCompact,
+} from '@/design-system';
+```
+
+### `HeaderCompact`
+- Props: `title`, `subtitle?`, `leading?`, `trailing?`
+- Use for compact screen headers with optional icon button and right actions.
+
+### `ObjectiveGrid`
+- Props: `items` (`id`, `label`, `value`, `supportingText?`, `tone?`)
+- Renders a fixed 2x2 grid (`items.slice(0,4)`).
+
+### `SegmentedControl`
+- Props: `options`, `value`, `onChange?`
+- iOS-like segmented switch (for Mes/Semana/Lista toggles).
+
+### `WeekGridCompact`
+- Props: `days` (`id`, `label`, `date`, `selected?`, `complete?`), `onSelect?`
+- Renders compact 7-column day cards with 88px height.
+
+### `MealCardCompact`
+- Props: `title`, `subtitle?`, `kcal`, `imageSrc`, `imageAlt`
+- Row card with 72px thumbnail, kcal indicator and chevron affordance.
+
+### `Accordion`
+- Props: `items` (`id`, `title`, `content`, `subtitle?`), `defaultOpenId?`
+- Single-open accordion, suitable for Shopping List groups.
+
+### Motion contract for Nutrition V2 blocks
+- `hover:-translate-y-px`
+- `active:scale-[0.98]`
+- `transition: 150ms ease` via `createTransition('interactive')`
