@@ -331,6 +331,7 @@ const DAY_LABEL_KEYS = [
 export const DAY_LABELS: Record<Locale, string[]> = {
   es: ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
   en: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+  pt: ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"],
 };
 
 const ALLERGY_KEYWORDS: Record<string, string[]> = {

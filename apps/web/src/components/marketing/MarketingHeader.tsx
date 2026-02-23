@@ -122,6 +122,17 @@ export function MarketingHeader() {
             >
               {t("marketingPricing.header.language.en")}
             </button>
+            <button
+              type="button"
+              onClick={() => setLocale("pt")}
+              aria-pressed={locale === "pt"}
+              aria-label={t("marketingPricing.header.language.switchToPt")}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                locale === "pt" ? "bg-primary text-bg" : "text-text-muted hover:text-text"
+              }`}
+            >
+              {t("marketingPricing.header.language.pt")}
+            </button>
           </div>
 
           <Link
@@ -159,6 +170,17 @@ export function MarketingHeader() {
               }`}
             >
               {t("marketingPricing.header.language.en")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLocale("pt")}
+              aria-pressed={locale === "pt"}
+              aria-label={t("marketingPricing.header.language.switchToPt")}
+              className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                locale === "pt" ? "bg-primary text-bg" : "text-text-muted"
+              }`}
+            >
+              {t("marketingPricing.header.language.pt")}
             </button>
           </div>
 

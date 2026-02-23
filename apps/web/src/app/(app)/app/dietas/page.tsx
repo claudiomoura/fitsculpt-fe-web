@@ -6,8 +6,12 @@ export default async function DietPlansPage() {
   return (
     <div className="page">
       <section className="card">
-        <h1 className="section-title">{t("dietPlans.title")}</h1>
-        <p className="section-subtitle">{t("dietPlans.subtitle")}</p>
+        <div className="page-header">
+          <div className="page-header-body">
+            <h1 className="section-title">{t("dietPlans.title")}</h1>
+            <p className="section-subtitle">{t("dietPlans.subtitle")}</p>
+          </div>
+        </div>
       </section>
       <DietPlansClient />
     </div>
