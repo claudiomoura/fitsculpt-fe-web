@@ -2353,6 +2353,10 @@ label {
   border: 1px solid var(--border);
 }
 
+.exercise-card-media--placeholder {
+  display: block;
+}
+
 .skeleton-media {
   width: 100%;
   height: 160px;

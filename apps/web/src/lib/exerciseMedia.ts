@@ -30,7 +30,20 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function asText(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value : null;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (normalized.length === 0) return null;
+
+  const lower = normalized.toLowerCase();
+  if (["null", "undefined", "nan", "n/a", "none", "false", "true"].includes(lower)) {
+    return null;
+  }
+
+  if (/^(https?:\/\/|\/|data:|blob:)/i.test(normalized)) {
+    return normalized;
+  }
+
+  return null;
 }
 
 function firstUrlFromList(value: unknown): string | null {
@@ -70,8 +83,12 @@ export function getExerciseThumbUrl(exercise: unknown): string | null {
     e.media?.url,
   ];
 
-  const match = urls.find((u) => typeof u === "string" && u.trim().length > 0);
-  return typeof match === "string" ? match : null;
+  for (const candidate of urls) {
+    const match = asText(candidate);
+    if (match) return match;
+  }
+
+  return null;
 }
 
 function resolveExerciseThumbnail(exercise?: Exercise | null): string | null {
