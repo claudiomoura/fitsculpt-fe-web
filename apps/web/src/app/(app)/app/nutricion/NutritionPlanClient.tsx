@@ -463,6 +463,11 @@ function gramsForMacro(target: number, macroPer100: number) {
   return Math.max(0, Math.round((target / macroPer100) * 100));
 }
 
+function toMacroSegment(grams: number, total: number) {
+  if (!Number.isFinite(grams) || grams <= 0 || total <= 0) return 0;
+  return Math.max(0, Math.min(100, (grams / total) * 100));
+}
+
 function matchesRestrictedKeywords(text: string, keywords: string[]) {
   const normalized = text.toLowerCase();
   return keywords.some((keyword) => normalized.includes(keyword));
@@ -878,6 +883,47 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     return next;
   }, [visiblePlanEntries]);
   const selectedVisiblePlanDay = useMemo(() => visibleDayMap.get(toDateKey(selectedDate)) ?? null, [selectedDate, visibleDayMap]);
+  const highlightedDay = selectedVisiblePlanDay?.day ?? visiblePlan?.days[0] ?? null;
+  const highlightedDayKey = selectedVisiblePlanDay?.date ? toDateKey(selectedVisiblePlanDay.date) : toDateKey(selectedDate);
+  const highlightedMeals = highlightedDay?.meals ?? [];
+  const highlightedMealsTotals = useMemo(
+    () =>
+      highlightedMeals.reduce(
+        (acc, meal) => {
+          acc.calories += Number(meal.macros?.calories ?? 0);
+          acc.protein += Number(meal.macros?.protein ?? 0);
+          acc.carbs += Number(meal.macros?.carbs ?? 0);
+          acc.fats += Number(meal.macros?.fats ?? 0);
+          return acc;
+        },
+        { calories: 0, protein: 0, carbs: 0, fats: 0 }
+      ),
+    [highlightedMeals]
+  );
+  const highlightedMacroTotal = highlightedMealsTotals.protein + highlightedMealsTotals.carbs + highlightedMealsTotals.fats;
+  const macroRingSegments = [
+    {
+      key: "protein",
+      label: t("nutrition.protein"),
+      grams: highlightedMealsTotals.protein,
+      percent: toMacroSegment(highlightedMealsTotals.protein, highlightedMacroTotal),
+      color: "#6d5cff",
+    },
+    {
+      key: "carbs",
+      label: t("nutrition.carbs"),
+      grams: highlightedMealsTotals.carbs,
+      percent: toMacroSegment(highlightedMealsTotals.carbs, highlightedMacroTotal),
+      color: "#22c55e",
+    },
+    {
+      key: "fats",
+      label: t("nutrition.fat"),
+      grams: highlightedMealsTotals.fats,
+      percent: toMacroSegment(highlightedMealsTotals.fats, highlightedMacroTotal),
+      color: "#f59e0b",
+    },
+  ];
   const isSelectedDayReplicated = selectedVisiblePlanDay?.isReplicated ?? false;
   const weekDates = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
   const weekEntries = useMemo(() => weekDates.map((date) => visibleDayMap.get(toDateKey(date)) ?? null), [visibleDayMap, weekDates]);
@@ -2216,6 +2262,74 @@ const nutritionPlanDetails = profile ? (
               <p className="muted">{saveMessage}</p>
             ) : null}
           </section>
+
+              {!loading && !error ? (
+                <section className="card nutrition-premium-overview">
+                  <div className="section-head section-head-actions">
+                    <div>
+                      <h2 className="section-title section-title-sm">{t("nutrition.dailyTargetTitle")}</h2>
+                      <p className="section-subtitle">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</p>
+                    </div>
+                    <Button className="nutrition-dominant-cta" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
+                      {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                    </Button>
+                  </div>
+
+                  <div className="nutrition-premium-grid">
+                    <div className="nutrition-ring-card" aria-label={t("nutrition.dailyTargetTitle")}>
+                      <div
+                        className="nutrition-macro-ring"
+                        style={{
+                          background: `conic-gradient(${macroRingSegments
+                            .map((segment, index, all) => {
+                              const start = all.slice(0, index).reduce((sum, item) => sum + item.percent, 0);
+                              const end = start + segment.percent;
+                              return `${segment.color} ${start}% ${end}%`;
+                            })
+                            .join(", ")})`,
+                        }}
+                      >
+                        <div className="nutrition-macro-ring-center">
+                          <strong>{Math.round(highlightedMealsTotals.calories)}</strong>
+                          <span>{t("units.kcal")}</span>
+                        </div>
+                      </div>
+                      <ul className="list-reset nutrition-ring-legend">
+                        {macroRingSegments.map((segment) => (
+                          <li key={segment.key}>
+                            <span className="nutrition-ring-dot" style={{ backgroundColor: segment.color }} />
+                            <span>{segment.label}</span>
+                            <strong>{Math.round(segment.grams)}g</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h3 className="section-title section-title-sm">{t("nutrition.calendarTitle")}</h3>
+                      <div className="nutrition-meal-list mt-12">
+                        {highlightedMeals.length > 0 ? (
+                          highlightedMeals.map((meal, mealIndex) => {
+                            const mealKey = getMealKey(meal, highlightedDay?.dayLabel ?? "meal", mealIndex);
+                            return (
+                              <MealCard
+                                key={mealKey}
+                                title={getMealTitle(meal, t)}
+                                description={getMealDescription(meal)}
+                                meta={`${meal.macros.calories} ${t("units.kcal")}`}
+                                imageUrl={getMealMediaUrl(meal)}
+                                onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
+                              />
+                            );
+                          })
+                        ) : (
+                          <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              ) : null}
 
               {!loading && !error ? nutritionPlanDetails : null}
 

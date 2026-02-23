@@ -1,6 +1,6 @@
 # RC Smoke Test + Demo Reset (manual, 1 doc, 10–12 min)
 
-**Dependency statement:** This PR depends on PR-01 and PR-03 being merged.
+**Dependency statement:** This PR depends on PR-01 being merged (and is recommended after PR-02/PR-03).
 
 Objetivo: ejecutar un recorrido único y repetible para Release Candidate con:
 1) reset demo,
@@ -62,7 +62,11 @@ Expected result:
    - Paso: en sesión autenticada abrir `/app/hoy` y ejecutar 1 acción concreta (ejemplo: iniciar/abrir sesión y volver).
    - Expected: acción exitosa, feedback visible y sin pantalla rota.
 
-4. **Persistencia tras refresh**
+4. **Nutrición premium (macro ring + lista de comidas + CTA)**
+   - Paso: abrir `/app/nutricion` con usuario demo que tenga plan nutricional.
+   - Expected: se renderiza el macro ring, la lista de comidas del día y CTA principal de generación sin errores de consola.
+
+5. **Persistencia tras refresh**
    - Paso: refrescar la página (`Cmd/Ctrl + R`) y volver a `/app/hoy`.
    - Expected: el estado de la acción previa se mantiene (o se refleja el progreso esperado), sin perder sesión.
 
@@ -111,6 +115,7 @@ Expected result:
 - [x] Login demo funciona y navega a `/app`.
 - [x] `/app` protegido redirige correctamente sin sesión.
 - [x] Core loop en `/app/hoy` permite acción válida.
+- [x] Nutrición premium renderiza macro ring + lista de comidas + CTA principal sin errores de consola.
 - [x] Persistencia confirmada después de refresh.
 - [x] Weekly Review carga correctamente y no rompe el retorno a `/app/hoy`.
 - [x] Entitlements: FREE bloqueado de forma controlada en contenido premium.
