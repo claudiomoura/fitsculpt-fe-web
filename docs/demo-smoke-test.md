@@ -1,6 +1,6 @@
 # RC Smoke Test + Demo Reset (manual, 1 doc, 10–12 min)
 
-**Dependency statement:** This PR depends on PR-01 being merged (and is recommended after PR-02/PR-03).
+**Dependency statement:** This PR depends on PR-03 being merged.
 
 Objetivo: ejecutar un recorrido único y repetible para Release Candidate con:
 1) reset demo,
@@ -72,7 +72,25 @@ Expected result:
 
 ---
 
-## 3) Weekly Review smoke (1–2 min)
+## 3) Dashboard quick polish check (2 min)
+
+1. **Navegación + consistencia visual de KPIs**
+   - Paso: abrir `/app/dashboard` y revisar la sección de KPIs semanales.
+   - Expected: cards y barras se ven consistentes en spacing/altura, sin saltos visuales y con estados legibles en dark/light mode.
+
+2. **Accesibilidad básica (teclado + foco visible)**
+   - Paso: usar `Tab` sobre CTAs del dashboard (`/app/dashboard`).
+   - Expected: foco visible en botones/links y navegación por teclado sin bloqueos.
+
+3. **ES/EN/PT sanity**
+   - Paso: cambiar idioma entre ES/EN/PT en dashboard.
+   - Expected: la vista mantiene estructura estable, sin errores de render ni console errors.
+
+4. **Consola limpia**
+   - Paso: mantener DevTools abierta mientras se recorre dashboard.
+   - Expected: **0 console errors** durante todo el flujo.
+
+## 4) Weekly Review smoke (1–2 min)
 
 1. **Carga Weekly Review**
    - Paso: en sesión autenticada abrir `/app/weekly-review`.
@@ -88,7 +106,7 @@ Expected result:
 
 ---
 
-## 4) Smoke entitlements (FREE vs premium) (3–4 min)
+## 5) Smoke entitlements (FREE vs premium) (3–4 min)
 
 
 > Si el entorno no tiene usuario premium semillado, usar override/admin o el mecanismo equivalente disponible en el entorno.
@@ -107,7 +125,7 @@ Expected result:
 
 ---
 
-## 5) Checklist final RC (PASS/FAIL)
+## 6) Checklist final RC (PASS/FAIL)
 
 > Criterio de aprobación: **todos los checks en PASS** + **0 console errors**.
 
@@ -117,6 +135,7 @@ Expected result:
 - [x] Core loop en `/app/hoy` permite acción válida.
 - [x] Nutrición premium renderiza macro ring + lista de comidas + CTA principal sin errores de consola.
 - [x] Persistencia confirmada después de refresh.
+- [x] Dashboard (`/app/dashboard`) consistente y usable con foco visible en acciones.
 - [x] Weekly Review carga correctamente y no rompe el retorno a `/app/hoy`.
 - [x] Entitlements: FREE bloqueado de forma controlada en contenido premium.
 - [x] Entitlements: premium accede al mismo contenido correctamente.

@@ -298,7 +298,7 @@ export default function DashboardClient() {
           : "status-exact";
   const weightDateFormatter = useMemo(
     () =>
-      new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
+      new Intl.DateTimeFormat(locale === "es" ? "es-ES" : locale === "pt" ? "pt-PT" : "en-US", {
         day: "2-digit",
         month: "short",
       }),
@@ -900,7 +900,7 @@ export default function DashboardClient() {
             {weeklyKpis.map((kpi) => {
               const maxBar = Math.max(...(kpi.bars ?? [0]), 1);
               return (
-                <article key={kpi.key} className="feature-card dashboard-kpi-card">
+                <article key={kpi.key} className="feature-card dashboard-kpi-card" aria-label={`${kpi.title}: ${kpi.valueLabel}`}>
                   <div className="stack-sm">
                     <span className="muted">{kpi.title}</span>
                     <strong className="dashboard-kpi-value">{kpi.valueLabel}</strong>
@@ -908,7 +908,7 @@ export default function DashboardClient() {
                     {kpi.deltaLabel ? <span className="status-pill status-exact">{kpi.deltaLabel}</span> : null}
                   </div>
                   {kpi.bars && kpi.bars.length > 0 ? (
-                    <div className="dashboard-kpi-bars" aria-hidden="true">
+                    <div className="dashboard-kpi-bars" role="img" aria-label={`${kpi.title} ${kpi.bars.join(", ")}`}>
                       {kpi.bars.map((value, index) => (
                         <span
                           key={`${kpi.key}-bar-${index}`}

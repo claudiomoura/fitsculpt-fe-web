@@ -51,7 +51,11 @@ export function ChartContainer({
           {hasContent ? (
             children
           ) : (
-            <div className="flex h-full min-h-40 items-center justify-center text-sm text-text-muted">
+            <div
+              className="flex h-full min-h-40 items-center justify-center text-sm text-text-muted"
+              role="status"
+              aria-live="polite"
+            >
               {emptyState ?? 'No chart data available.'}
             </div>
           )}

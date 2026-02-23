@@ -30,7 +30,7 @@ describe('dashboard ui kit components', () => {
   });
 
   it('renders ChartContainer empty state and sizing classes', () => {
-    const { getByTestId, getByText } = render(
+    const { getByTestId, getByRole, getByText } = render(
       <ChartContainer
         data-testid="chart"
         title="Weekly trend"
@@ -41,5 +41,6 @@ describe('dashboard ui kit components', () => {
 
     expect(getByTestId('chart')).toHaveClass('rounded-2xl', 'border', 'bg-surface', 'p-6');
     expect(getByText('No chart data available.')).toBeInTheDocument();
+    expect(getByRole('status')).toHaveAttribute('aria-live', 'polite');
   });
 });
