@@ -40,7 +40,7 @@ export function StatCard({
     <section
       className={cn(
         'rounded-xl border border-border bg-surface p-6',
-        'transition-transform duration-150 ease-out hover:-translate-y-px',
+        'transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-px hover:border-border-subtle',
         className,
       )}
       style={{ boxShadow: elevation.sm }}

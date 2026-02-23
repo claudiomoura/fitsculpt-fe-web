@@ -30,10 +30,10 @@ export function FilterPills({ items, activeId, onSelect, className, ...props }: 
               onClick={() => onSelect?.(item.id)}
               aria-pressed={isActive}
               className={cn(
-                'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-150 ease-out',
+                'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all duration-200 ease-out',
                 isActive
                   ? 'border-primary bg-primary text-bg'
-                  : 'border-border bg-surface text-text hover:border-border-subtle hover:bg-surface-muted',
+                  : 'border-border bg-surface text-text hover:-translate-y-px hover:border-border-subtle hover:bg-surface-muted',
               )}
             >
               <span>{item.label}</span>
