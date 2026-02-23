@@ -55,7 +55,8 @@
     "account": "Account",
     "admin": "Admin",
     "development": "In development",
-    "trainer": "Trainer"
+    "trainer": "Trainer",
+    "more": "More"
   },
   "ui": {
     "menu": "Menu",
