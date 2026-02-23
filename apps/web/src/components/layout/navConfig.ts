@@ -1,7 +1,7 @@
 import { canAccessAdmin, type RoleAccessInput } from "@/config/roleAccess";
 import { canAccessFeature, type EntitlementFeature, type UiEntitlements } from "@/lib/entitlements";
 
-export type NavSection = "summary" | "training" | "nutrition" | "account" | "more" | "admin" | "trainer" | "development";
+export type NavSection = "fitness" | "training" | "nutrition" | "account" | "more" | "admin" | "trainer" | "development";
 
 export type NavItem = {
   id: string;
@@ -80,28 +80,34 @@ export const mainTabsMobile: MobileTab[] = [
 
 export const sidebarUser: NavSectionGroup[] = [
   {
-    id: "summary",
-    labelKey: "navSections.summary",
+    id: "fitness",
+    labelKey: "navSections.fitness",
     items: [
       { id: "today", href: "/app/hoy", labelKey: "nav.today" },
       { id: "training", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
-      { id: "library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
-      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
+      { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
+      { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
     ],
   },
   {
-    id: "more",
-    labelKey: "navSections.more",
+    id: "nutrition",
+    labelKey: "navSections.nutrition",
+    items: [
+      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+    ],
+  },
+  {
+    id: "account",
+    labelKey: "navSections.account",
     items: [
       { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
       { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
-      { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
-      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
       { id: "gym", href: "/app/gym", labelKey: "nav.gym", feature: "strength", upgradeHref: "/pricing" },
     ],
@@ -241,7 +247,7 @@ export const sidebarDevelopment: NavSectionGroup[] = [
 ];
 
 const sidebarAccountOnly: NavSectionGroup[] = sidebarUser
-  .filter((section) => section.id === "more")
+  .filter((section) => section.id === "account")
   .map((section) => ({
     ...section,
     items: [

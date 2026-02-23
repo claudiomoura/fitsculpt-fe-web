@@ -30,4 +30,24 @@ describe("navConfig", () => {
     expect(gymItem?.disabled).toBe(true);
     expect(gymItem?.disabledNoteKey).toBe("common.upgradeRequired");
   });
+
+  it("groups sidebar items into fitness, nutrition, and account sections", () => {
+    const fitnessSection = sidebarUser.find((section) => section.id === "fitness");
+    const nutritionSection = sidebarUser.find((section) => section.id === "nutrition");
+
+    expect(fitnessSection?.items.map((item) => item.href)).toEqual([
+      "/app/hoy",
+      "/app/entrenamiento",
+      "/app/biblioteca",
+      "/app/biblioteca/entrenamientos",
+    ]);
+
+    expect(nutritionSection?.items.map((item) => item.href)).toEqual([
+      "/app/nutricion",
+      "/app/biblioteca/recetas",
+      "/app/dietas",
+      "/app/macros",
+    ]);
+  });
+
 });
