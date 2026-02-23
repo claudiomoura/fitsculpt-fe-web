@@ -138,3 +138,88 @@ const cardTransition = createTransition('surface', transition.surface.properties
 ```
 
 If you need a new transition behavior, add it to `motion.ts` first and reference it semantically from DS components.
+
+## Nutrition V2 building blocks
+
+These components are prepared for Nutrition Calendar V2 flows and can be imported from `@/design-system`.
+
+### `HeaderCompact`
+
+```tsx
+<HeaderCompact
+  eyebrow="Nutrition"
+  title="This week"
+  subtitle="Plan and track meals"
+  trailing={<button className="btn-secondary">Edit</button>}
+/>
+```
+
+Props: `title`, `subtitle?`, `eyebrow?`, `leading?`, `trailing?`.
+
+### `ObjectiveGrid`
+
+```tsx
+<ObjectiveGrid
+  items={[
+    { id: 'cal', title: 'Calories', value: '2,100', supportingText: 'target/day' },
+    { id: 'pro', title: 'Protein', value: '130g' },
+    { id: 'carb', title: 'Carbs', value: '220g' },
+    { id: 'fat', title: 'Fat', value: '70g' },
+  ]}
+/>
+```
+
+Props: `items` (designed for 2x2 cards, renders max 4).
+
+### `SegmentedControl`
+
+```tsx
+<SegmentedControl
+  options={[
+    { id: 'month', label: 'Mes' },
+    { id: 'week', label: 'Semana' },
+    { id: 'list', label: 'Lista' },
+  ]}
+  activeId={view}
+  onChange={setView}
+/>
+```
+
+Props: `options`, `activeId`, `onChange?`.
+
+### `WeekGridCompact`
+
+```tsx
+<WeekGridCompact
+  days={weekDays}
+  onSelectDay={(dayId) => console.log(dayId)}
+/>
+```
+
+Props: `days` (`label`, `date`, `isToday?`, `isSelected?`, `hasMeals?`), `onSelectDay?`.
+
+### `MealCardCompact`
+
+```tsx
+<MealCardCompact
+  title="Greek Yogurt Bowl"
+  subtitle="Breakfast"
+  kcal={420}
+  chevron="›"
+/>
+```
+
+Props: `title`, `subtitle?`, `kcal`, `image?`, `chevron?` + native button props.
+
+### `Accordion`
+
+```tsx
+<Accordion title="Shopping list" subtitle="12 items" defaultOpen>
+  <ul className="m-0 list-disc pl-4 text-sm text-text">
+    <li>Chicken breast</li>
+    <li>Brown rice</li>
+  </ul>
+</Accordion>
+```
+
+Props: `title`, `subtitle?`, `defaultOpen?`, `rightSlot?`, `children`.
