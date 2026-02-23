@@ -10,7 +10,7 @@ export const authMeResponseSchema = z.object({
   lastLoginAt: z.date().nullable(),
   subscriptionPlan: z.enum(["FREE", "PRO"]),
   plan: z.enum(["FREE", "PRO"]),
-  subscriptionStatus: z.string(),
+  subscriptionStatus: z.string().nullable(),
   currentPeriodEnd: z.date().nullable(),
   aiTokenBalance: z.number().int().nonnegative().nullable(),
   aiTokenRenewalAt: z.date().nullable(),

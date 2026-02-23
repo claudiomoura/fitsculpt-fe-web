@@ -40,6 +40,29 @@ function run() {
   assert.equal(parsed.gymName, "Demo Gym");
   assert.equal(parsed.isTrainer, true);
 
+
+  const nullableStatusResponse = buildAuthMeResponse({
+    user: {
+      id: "user_2",
+      email: "nullable@example.com",
+      name: null,
+      emailVerifiedAt: null,
+      lastLoginAt: null,
+      subscriptionStatus: null,
+      currentPeriodEnd: null,
+    },
+    role: "USER",
+    aiTokenBalance: null,
+    aiTokenRenewalAt: null,
+    entitlements,
+    activeMembership: null,
+  });
+
+  const nullableParsed = authMeResponseSchema.parse(nullableStatusResponse);
+  assert.equal(nullableParsed.subscriptionStatus, null);
+  assert.equal(nullableParsed.gymMembershipState, "none");
+  assert.equal(nullableParsed.isTrainer, false);
+
   // Contract guard: if critical field names drift this must fail.
   const driftedPayload = {
     ...parsed,
