@@ -33,7 +33,7 @@ export function DenseTableRow({ className, interactive = false, ...props }: Dens
     <tr
       className={cn(
         'align-middle',
-        interactive ? 'transition-colors hover:bg-surface-muted/70' : undefined,
+        interactive ? 'transition-colors duration-200 ease-out hover:bg-surface-muted/70' : undefined,
         className,
       )}
       {...props}
