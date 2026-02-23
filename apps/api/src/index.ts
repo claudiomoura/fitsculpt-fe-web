@@ -7458,7 +7458,7 @@ app.post("/gyms/join-by-code", async (request, reply) => {
 
     return reply.status(200).send(
       serializeGymMembership({
-        status: membership.status,
+        status: membership.status as any,
         role: membership.role,
         gym: { id: gym.id, name: gym.name },
       }),
@@ -7544,7 +7544,7 @@ app.post("/gym/join-code", async (request, reply) => {
 
     return reply.status(200).send(
       serializeGymMembership({
-        status: membership.status,
+        status: membership.status as any,
         role: membership.role,
         gym: { id: gym.id, name: gym.name },
       }),
