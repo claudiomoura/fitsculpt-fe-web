@@ -3007,7 +3007,9 @@
         "es": "ES",
         "en": "EN",
         "switchToEs": "Switch language to Spanish",
-        "switchToEn": "Switch language to English"
+        "switchToEn": "Switch language to English",
+        "pt": "PT",
+        "switchToPt": "Switch to Portuguese"
       }
     },
     "hero": {
