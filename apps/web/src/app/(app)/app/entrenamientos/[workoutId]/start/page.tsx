@@ -1,21 +1,14 @@
-import WorkoutSessionClient from "./workoutSessionClient";
+import { ErrorBlock } from "@/design-system";
 import { getServerT } from "@/lib/serverI18n";
+import WorkoutSessionClient from "./workoutSessionClient";
 
 export default async function WorkoutSessionPage(props: { params: Promise<{ workoutId: string }> }) {
   const { t } = await getServerT();
   const { workoutId } = await props.params;
+
   if (!workoutId) {
-    return (
-      <div className="page">
-        <section className="card" style={{ maxWidth: 960, margin: "0 auto" }}>
-          <p className="muted">{t("workoutDetail.notFound")}</p>
-        </section>
-      </div>
-    );
+    return <ErrorBlock title={t("workoutDetail.notFound")} description={t("workoutDetail.notFound")} />;
   }
-  return (
-    <div className="page">
-      <WorkoutSessionClient workoutId={workoutId} />
-    </div>
-  );
+
+  return <WorkoutSessionClient workoutId={workoutId} />;
 }
