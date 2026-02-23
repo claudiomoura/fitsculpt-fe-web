@@ -4758,6 +4758,152 @@ html { scroll-behavior: smooth; }
   gap: 10px;
 }
 
+.nutrition-v2-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.nutrition-v2-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.nutrition-macro-ring--hero {
+  width: min(220px, 100%);
+  height: min(220px, 100%);
+}
+
+.nutrition-macro-ring-center--hero {
+  width: 132px;
+  height: 132px;
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.nutrition-macro-ring-center--hero strong {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.nutrition-macro-ring-center--hero span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.nutrition-ring-legend--compact {
+  gap: 6px;
+}
+
+.nutrition-v2-objective-grid article {
+  min-height: 64px;
+}
+
+.nutrition-v2-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nutrition-week-grid-v2 {
+  gap: 8px;
+}
+
+.nutrition-week-grid-v2 button[aria-pressed="true"] {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 50%, transparent), var(--shadow-sm);
+}
+
+.nutrition-week-grid-kpis {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.nutrition-week-kpi {
+  border: none;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-muted) 70%, var(--bg-card));
+  min-height: 42px;
+  display: grid;
+  gap: 2px;
+  place-items: center;
+  padding: 6px;
+  transition: transform 150ms ease;
+}
+
+.nutrition-week-kpi:hover { transform: translateY(-1px); }
+.nutrition-week-kpi:active { transform: scale(0.98); }
+
+.nutrition-week-kpi-dots {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.nutrition-week-kpi-kcal {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.nutrition-week-kpi.is-selected {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), var(--shadow-sm);
+}
+
+.nutrition-meal-list-v2 .meal-card {
+  min-height: 92px;
+}
+
+.meal-card--horizontal {
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  box-shadow: var(--shadow-sm);
+  padding: 10px;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.meal-card--horizontal:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.meal-card--horizontal:active {
+  transform: scale(0.98);
+}
+
+.meal-card--horizontal .meal-card-media {
+  width: 72px;
+  height: 72px;
+}
+
+.meal-card--horizontal .meal-card-thumb {
+  width: 72px;
+  height: 72px;
+  border: none;
+}
+
+.meal-card--horizontal::after {
+  content: "›";
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.nutrition-shopping-list-v2 {
+  display: grid;
+  gap: 8px;
+}
+
+.nutrition-shopping-list-v2 li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 @media (max-width: 840px) {
   .nutrition-premium-grid {
     grid-template-columns: 1fr;
@@ -4765,5 +4911,14 @@ html { scroll-behavior: smooth; }
 
   .nutrition-dominant-cta {
     width: 100%;
+  }
+
+  .nutrition-v2-hero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .nutrition-week-grid-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { Modal } from "@/components/ui/Modal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
+import { Accordion, HeaderCompact, ObjectiveGrid, SegmentedControl, WeekGridCompact } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
@@ -926,6 +927,50 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       { value: "list", label: t("calendar.viewList") },
     ],
     [t]
+  );
+  const objectiveItems = useMemo(
+    () => [
+      {
+        id: "objective-kcal",
+        label: t("nutrition.calories"),
+        value: `${visiblePlan?.dailyCalories ?? 0} ${t("units.kcal")}`,
+      },
+      {
+        id: "objective-protein",
+        label: t("nutrition.protein"),
+        value: `${visiblePlan?.proteinG ?? 0} ${t("nutrition.grams")}`,
+      },
+      {
+        id: "objective-carbs",
+        label: t("nutrition.carbs"),
+        value: `${visiblePlan?.carbsG ?? 0} ${t("nutrition.grams")}`,
+      },
+      {
+        id: "objective-fat",
+        label: t("nutrition.fat"),
+        value: `${visiblePlan?.fatG ?? 0} ${t("nutrition.grams")}`,
+      },
+    ],
+    [t, visiblePlan?.carbsG, visiblePlan?.dailyCalories, visiblePlan?.fatG, visiblePlan?.proteinG]
+  );
+  const weekGridDays = useMemo(
+    () =>
+      weekDates.map((date) => {
+        const dayKey = toDateKey(date);
+        const entry = visibleDayMap.get(dayKey);
+        const mealsForDay = entry?.day?.meals ?? [];
+        const dayCalories = mealsForDay.reduce((sum, meal) => sum + Number(meal.macros?.calories ?? 0), 0);
+        return {
+          id: dayKey,
+          label: date.toLocaleDateString(localeCode, { weekday: "short" }),
+          date: String(date.getDate()),
+          selected: isSameDay(date, selectedDate),
+          complete: mealsForDay.length > 0,
+          dayCalories,
+          mealCount: mealsForDay.length,
+        };
+      }),
+    [localeCode, selectedDate, visibleDayMap, weekDates]
   );
 
   useEffect(() => {
@@ -1935,277 +1980,239 @@ const nutritionPlanDetails = profile ? (
           </section>
 
               {!loading && !error ? (
-                <section className="card nutrition-premium-overview" ref={generatedPlanSectionRef}>
-                  <div className="section-head section-head-actions">
-                    <div>
-                      <h2 className="section-title section-title-sm">{t("nutrition.dailyTargetTitle")}</h2>
-                      <p className="section-subtitle">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</p>
+                <section className="card nutrition-v2-layout" ref={generatedPlanSectionRef}>
+                  <HeaderCompact
+                    title={t("nutrition.dailyTargetTitle")}
+                    subtitle={highlightedDay?.dayLabel ?? t("nutrition.viewToday")}
+                    trailing={(
+                      <Button className="nutrition-dominant-cta" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
+                        {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                      </Button>
+                    )}
+                  />
+
+                  <div className="nutrition-v2-hero" aria-label={t("nutrition.dailyTargetTitle")}>
+                    <div
+                      className="nutrition-macro-ring nutrition-macro-ring--hero"
+                      style={{
+                        background: `conic-gradient(${macroRingSegments
+                          .map((segment, index, all) => {
+                            const start = all.slice(0, index).reduce((sum, item) => sum + item.percent, 0);
+                            const finish = start + segment.percent;
+                            return `${segment.color} ${start}% ${finish}%`;
+                          })
+                          .join(", ")})`,
+                      }}
+                    >
+                      <div className="nutrition-macro-ring-center nutrition-macro-ring-center--hero">
+                        <strong>{Math.round(highlightedMealsTotals.calories)}</strong>
+                        <span>{t("nutrition.dailyTargetTitle")}</span>
+                      </div>
                     </div>
-                    <Button className="nutrition-dominant-cta" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
-                      {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                    </Button>
+                    <ul className="list-reset nutrition-ring-legend nutrition-ring-legend--compact">
+                      {macroRingSegments.map((segment) => (
+                        <li key={segment.key}>
+                          <span className="nutrition-ring-dot" style={{ backgroundColor: segment.color }} />
+                          <span>{segment.label}</span>
+                          <strong>{Math.round(segment.grams)}g</strong>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
 
-                  <div className="nutrition-premium-grid">
-                    <div className="nutrition-ring-card" aria-label={t("nutrition.dailyTargetTitle")}>
-                      <div
-                        className="nutrition-macro-ring"
-                        style={{
-                          background: `conic-gradient(${macroRingSegments
-                            .map((segment, index, all) => {
-                              const start = all.slice(0, index).reduce((sum, item) => sum + item.percent, 0);
-                              const end = start + segment.percent;
-                              return `${segment.color} ${start}% ${end}%`;
-                            })
-                            .join(", ")})`,
-                        }}
-                      >
-                        <div className="nutrition-macro-ring-center">
-                          <strong>{Math.round(highlightedMealsTotals.calories)}</strong>
-                          <span>{t("units.kcal")}</span>
-                        </div>
-                      </div>
-                      <ul className="list-reset nutrition-ring-legend">
-                        {macroRingSegments.map((segment) => (
-                          <li key={segment.key}>
-                            <span className="nutrition-ring-dot" style={{ backgroundColor: segment.color }} />
-                            <span>{segment.label}</span>
-                            <strong>{Math.round(segment.grams)}g</strong>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                  <ObjectiveGrid items={objectiveItems} className="nutrition-v2-objective-grid" />
 
-                    <div>
-                      <div className="section-head section-head-actions">
-                        <h3 className="section-title section-title-sm">{t("nutrition.calendarTitle")}</h3>
-                        <div className="segmented-control">
-                          {calendarOptions.map((option) => (
+                  <div className="nutrition-v2-calendar-head">
+                    <h3 className="section-title section-title-sm m-0">{t("nutrition.calendarTitle")}</h3>
+                    <SegmentedControl
+                      options={calendarOptions.map((option) => ({ id: option.value, label: option.label }))}
+                      value={calendarView}
+                      onChange={(id) => setCalendarView(id as typeof calendarView)}
+                    />
+                  </div>
+
+                  {calendarView === "month" ? (
+                    <div className="calendar-month">
+                      <div className="calendar-range">
+                        <strong>{monthLabel}</strong>
+                      </div>
+                      <div className="calendar-month-grid">
+                        {monthDates.map((date) => {
+                          const entry = visibleDayMap.get(toDateKey(date));
+                          const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
+                          return (
                             <button
-                              key={option.value}
+                              key={toDateKey(date)}
                               type="button"
-                              className={`segmented-control-btn ${calendarView === option.value ? "active" : ""}`}
-                              onClick={() => setCalendarView(option.value as typeof calendarView)}
+                              className={`calendar-month-cell ${isCurrentMonth ? "" : "is-muted"} ${entry ? "has-plan" : ""} ${isSameDay(date, today) ? "is-today" : ""}`}
+                              onClick={() => setSelectedDate(date)}
                             >
-                              {option.label}
+                              <span>{date.getDate()}</span>
+                              {entry ? <span className="calendar-dot" /> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {calendarView === "week" ? (
+                    <div className="calendar-week stack-sm">
+                      <div className="calendar-range">
+                        <button type="button" className="btn secondary fit-content" aria-label={t("calendar.previousWeekAria")} onClick={() => setSelectedDate((prev) => addWeeks(prev, -1))}>
+                          {t("calendar.previousWeek")}
+                        </button>
+                        <div>
+                          <strong>
+                            {t("nutrition.weekLabel")} {clampedWeekOffset + 1}
+                          </strong>
+                          <span className="muted">{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
+                        </div>
+                        <button type="button" className="btn secondary fit-content" aria-label={t("calendar.nextWeekAria")} onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))} disabled={weekOffset >= maxProjectedWeeksAhead}>
+                          {t("calendar.nextWeek")}
+                        </button>
+                      </div>
+                      {hasWeeklyMeals ? (
+                        <WeekGridCompact
+                          days={weekGridDays.map((day) => ({
+                            id: day.id,
+                            label: day.label,
+                            date: day.date,
+                            selected: day.selected,
+                            complete: false,
+                          }))}
+                          onSelect={(dayId) => {
+                            if (typeof dayId !== "string") return;
+                            const nextDate = parseDate(dayId);
+                            if (nextDate) setSelectedDate(nextDate);
+                          }}
+                          className="nutrition-week-grid-v2"
+                        />
+                      ) : (
+                        <div className="empty-state">
+                          <h3 className="m-0">{t("nutrition.weeklyEmptyTitle")}</h3>
+                          <p className="muted">{t("nutrition.weeklyEmptySubtitle")}</p>
+                        </div>
+                      )}
+                      {hasWeeklyMeals ? (
+                        <div className="nutrition-week-grid-kpis">
+                          {weekGridDays.map((day) => (
+                            <button key={`${day.id}-meta`} type="button" className={`nutrition-week-kpi ${day.selected ? "is-selected" : ""}`} onClick={() => {
+                              const nextDate = parseDate(day.id);
+                              if (nextDate) setSelectedDate(nextDate);
+                            }}>
+                              <span className="nutrition-week-kpi-dots">{"• ".repeat(Math.min(day.mealCount, 4)).trim() || "—"}</span>
+                              <span className="nutrition-week-kpi-kcal">{Math.round(day.dayCalories)} {t("units.kcal")}</span>
                             </button>
                           ))}
                         </div>
-                      </div>
-
-                      {calendarView === "month" ? (
-                        <>
-                          <div className="calendar-month">
-                            <div className="calendar-range">
-                              <strong>{monthLabel}</strong>
-                            </div>
-                            <div className="calendar-month-grid">
-                              {monthDates.map((date) => {
-                                const entry = visibleDayMap.get(toDateKey(date));
-                                const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
-                                return (
-                                  <button
-                                    key={toDateKey(date)}
-                                    type="button"
-                                    className={`calendar-month-cell ${isCurrentMonth ? "" : "is-muted"} ${entry ? "has-plan" : ""} ${isSameDay(date, today) ? "is-today" : ""}`}
-                                    onClick={() => setSelectedDate(date)}
-                                  >
-                                    <span>{date.getDate()}</span>
-                                    {entry ? <span className="calendar-dot" /> : null}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                          <div className="nutrition-meal-list mt-12">
-                            {highlightedMeals.length > 0 ? (
-                              highlightedMeals.map((meal, mealIndex) => {
-                                const mealKey = getMealKey(meal, highlightedDay?.dayLabel ?? "meal", mealIndex);
-                                return (
-                                  <MealCard
-                                    key={mealKey}
-                                    title={getMealTitle(meal, t)}
-                                    description={getMealDescription(meal)}
-                                    meta={`${meal.macros.calories} ${t("units.kcal")}`}
-                                    imageUrl={getMealMediaUrl(meal)}
-                                    onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
-                                  />
-                                );
-                              })
-                            ) : (
-                              <p className="muted">{t("nutrition.emptySubtitle")}</p>
-                            )}
-                          </div>
-                        </>
                       ) : null}
+                    </div>
+                  ) : null}
 
-                      {calendarView === "week" ? (
-                        <>
-                          <div className="calendar-week">
-                            <div className="calendar-range">
-                              <button type="button" className="btn secondary fit-content" aria-label={t("calendar.previousWeekAria")} onClick={() => setSelectedDate((prev) => addWeeks(prev, -1))}>
-                                {t("calendar.previousWeek")}
-                              </button>
-                              <div>
-                                <strong>
-                                  {t("nutrition.weekLabel")} {clampedWeekOffset + 1}
-                                </strong>
-                                <span className="muted">{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
-                              </div>
-                              <button type="button" className="btn secondary fit-content" aria-label={t("calendar.nextWeekAria")} onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))} disabled={weekOffset >= maxProjectedWeeksAhead}>
-                                {t("calendar.nextWeek")}
-                              </button>
+                  <div className="nutrition-v2-meals">
+                    <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
+                    <div className="nutrition-meal-list nutrition-meal-list-v2">
+                      {highlightedMeals.length > 0 ? (
+                        highlightedMeals.map((meal, mealIndex) => {
+                          const mealKey = getMealKey(meal, highlightedDay?.dayLabel ?? "meal", mealIndex);
+                          return (
+                            <MealCard
+                              key={mealKey}
+                              title={getMealTitle(meal, t)}
+                              description={getMealDescription(meal)}
+                              meta={`${meal.macros.calories} ${t("units.kcal")}`}
+                              imageUrl={getMealMediaUrl(meal)}
+                              onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
+                              className="meal-card--horizontal"
+                            />
+                          );
+                        })
+                      ) : (
+                        <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {calendarView === "list" ? (
+                    <div className="nutrition-meal-list mt-12">
+                      {visiblePlanEntries.length > 0 ? (
+                        visiblePlanEntries.map((entry) => (
+                          <div key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`} className="feature-card stack-sm">
+                            <div className="inline-actions-space">
+                              <strong>{entry.date.toLocaleDateString(localeCode, { weekday: "short", day: "numeric", month: "short" })}</strong>
+                              <span className="badge">{entry.day.dayLabel}</span>
                             </div>
-                            {hasWeeklyMeals ? (
-                              <div className="calendar-week-grid">
-                                {weekDates.map((date) => {
-                                  const entry = visibleDayMap.get(toDateKey(date));
+                            {entry.day.meals.length > 0 ? (
+                              <div className="nutrition-meal-list">
+                                {entry.day.meals.map((meal, mealIndex) => {
+                                  const dayKey = toDateKey(entry.date);
+                                  const mealKey = getMealKey(meal, dayKey, mealIndex);
                                   return (
-                                    <button
-                                      key={toDateKey(date)}
-                                      type="button"
-                                      className={`calendar-day-card ${entry ? "has-plan" : "is-empty"} ${isSameDay(date, today) ? "is-today" : ""}`}
-                                      onClick={() => setSelectedDate(date)}
-                                    >
-                                      <div className="calendar-day-card-header">
-                                        <span>{date.toLocaleDateString(localeCode, { weekday: "short" })}</span>
-                                        <strong>{date.getDate()}</strong>
-                                      </div>
-                                      {entry ? (
-                                        <div className="calendar-day-card-body">
-                                          <span className="badge">{entry.day.dayLabel}</span>
-                                          <p className="muted">{entry.day.meals.length} {t("nutrition.mealCountLabel")}</p>
-                                          <span className="calendar-dot" />
-                                        </div>
-                                      ) : (
-                                        <p className="muted">{safeT("nutrition.calendarEmptyShort", t("nutrition.emptySubtitle"))}</p>
-                                      )}
-                                    </button>
+                                    <MealCard
+                                      key={mealKey}
+                                      title={getMealTitle(meal, t)}
+                                      description={getMealDescription(meal)}
+                                      meta={`${meal.macros.calories} ${t("units.kcal")}`}
+                                      imageUrl={getMealMediaUrl(meal)}
+                                      onClick={() => {
+                                        setSelectedDate(entry.date);
+                                        openMealDetail(meal, dayKey, mealKey, entry.day.dayLabel);
+                                      }}
+                                      className="meal-card--horizontal"
+                                    />
                                   );
                                 })}
                               </div>
                             ) : (
-                              <div className="empty-state">
-                                <h3 className="m-0">{t("nutrition.weeklyEmptyTitle")}</h3>
-                                <p className="muted">{t("nutrition.weeklyEmptySubtitle")}</p>
-                              </div>
-                            )}
-                          </div>
-                          <div className="nutrition-meal-list mt-12">
-                            {highlightedMeals.length > 0 ? (
-                              highlightedMeals.map((meal, mealIndex) => {
-                                const mealKey = getMealKey(meal, highlightedDay?.dayLabel ?? "meal", mealIndex);
-                                return (
-                                  <MealCard
-                                    key={mealKey}
-                                    title={getMealTitle(meal, t)}
-                                    description={getMealDescription(meal)}
-                                    meta={`${meal.macros.calories} ${t("units.kcal")}`}
-                                    imageUrl={getMealMediaUrl(meal)}
-                                    onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
-                                  />
-                                );
-                              })
-                            ) : (
                               <p className="muted">{t("nutrition.emptySubtitle")}</p>
                             )}
                           </div>
-                        </>
-                      ) : null}
-
-                      {calendarView === "list" ? (
-                        <div className="nutrition-meal-list mt-12">
-                          {visiblePlanEntries.length > 0 ? (
-                            visiblePlanEntries.map((entry) => (
-                              <div key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`} className="feature-card stack-sm">
-                                <div className="inline-actions-space">
-                                  <strong>{entry.date.toLocaleDateString(localeCode, { weekday: "short", day: "numeric", month: "short" })}</strong>
-                                  <span className="badge">{entry.day.dayLabel}</span>
-                                </div>
-                                {entry.day.meals.length > 0 ? (
-                                  <div className="nutrition-meal-list">
-                                    {entry.day.meals.map((meal, mealIndex) => {
-                                      const dayKey = toDateKey(entry.date);
-                                      const mealKey = getMealKey(meal, dayKey, mealIndex);
-                                      return (
-                                        <MealCard
-                                          key={mealKey}
-                                          title={getMealTitle(meal, t)}
-                                          description={getMealDescription(meal)}
-                                          meta={`${meal.macros.calories} ${t("units.kcal")}`}
-                                          imageUrl={getMealMediaUrl(meal)}
-                                          onClick={() => {
-                                            setSelectedDate(entry.date);
-                                            openMealDetail(meal, dayKey, mealKey, entry.day.dayLabel);
-                                          }}
-                                        />
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <p className="muted">{t("nutrition.emptySubtitle")}</p>
-                                )}
-                              </div>
-                            ))
-                          ) : (
-                            <p className="muted">{t("nutrition.emptySubtitle")}</p>
-                          )}
-                        </div>
-                      ) : null}
+                        ))
+                      ) : (
+                        <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                      )}
                     </div>
+                  ) : null}
+
+                  <div className="nutrition-v2-shopping">
+                    <div className="inline-actions-space">
+                      <h3 className="section-title section-title-sm m-0">{t("nutrition.shoppingTitle")}</h3>
+                      <button
+                        type="button"
+                        className="btn secondary fit-content"
+                        onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
+                      >
+                        {t("nutrition.shoppingGenerate")}
+                      </button>
+                    </div>
+                    {shoppingList.length > 0 ? (
+                      <Accordion
+                        items={[
+                          {
+                            id: "shopping-list",
+                            title: t("nutrition.shoppingTitle"),
+                            subtitle: `${shoppingList.length} items`,
+                            content: (
+                              <ul className="list-reset nutrition-shopping-list-v2">
+                                {shoppingList.map((item) => (
+                                  <li key={item.name}>
+                                    <span>{item.name}</span>
+                                    <strong>{item.grams} g</strong>
+                                  </li>
+                                ))}
+                              </ul>
+                            ),
+                          },
+                        ]}
+                      />
+                    ) : null}
                   </div>
                 </section>
               ) : null}
 
               {!loading && !error ? nutritionPlanDetails : null}
 
-              <section className="card">
-
-                
-                <h2 className="section-title section-title-sm">{t("nutrition.dailyTargetTitle")}</h2>
-                <div className="info-grid mt-16">
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.calories")}</div>
-                    <div className="info-value">{visiblePlan?.dailyCalories ?? 0} kcal</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.protein")}</div>
-                    <div className="info-value">{visiblePlan?.proteinG ?? 0} g</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.fat")}</div>
-                    <div className="info-value">{visiblePlan?.fatG ?? 0} g</div>
-                  </div>
-                  <div className="info-item">
-                    <div className="info-label">{t("nutrition.carbs")}</div>
-                    <div className="info-value">{visiblePlan?.carbsG ?? 0} g</div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="card">
-                <h2 className="section-title section-title-sm">{t("nutrition.shoppingTitle")}</h2>
-                <button
-                  type="button"
-                  className="btn mt-8"
-                  onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
-                >
-                  {t("nutrition.shoppingGenerate")}
-                </button>
-                <div className="mt-12">
-                  {shoppingList.length === 0 ? (
-                    <p className="muted">{t("nutrition.shoppingEmpty")}</p>
-                  ) : (
-                    <ul className="list-reset">
-                      {shoppingList.map((item) => (
-                        <li key={item.name}>
-                          {item.name}: {item.grams} g
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </section>
             </>
           ) : null}
         </>
