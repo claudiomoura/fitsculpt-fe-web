@@ -4602,14 +4602,15 @@ app.get("/auth/me", async (request, reply) => {
     });
     const entitlements = getUserEntitlements(user);
     const aiTokenPayload = getAiTokenPayload(user, entitlements);
-    return buildAuthMeResponse({
-      user,
-      role: effectiveIsAdmin ? "ADMIN" : user.role,
-      aiTokenBalance: aiTokenPayload.aiTokenBalance,
-      aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
-      entitlements,
-      activeMembership,
-    });
+return buildAuthMeResponse({
+  user,
+  role: effectiveIsAdmin ? "ADMIN" : user.role,
+  aiTokenBalance: aiTokenPayload.aiTokenBalance,
+  aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
+  entitlements,
+  activeMembership: activeMembership as any,
+});
+
   } catch (error) {
     return handleRequestError(reply, error);
   }
