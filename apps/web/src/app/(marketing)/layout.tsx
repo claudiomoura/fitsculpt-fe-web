@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import PublicNav from "@/components/layout/PublicNav";
 
-export default async function PricingLayout({ children }: { children: React.ReactNode }) {
+export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const loggedIn = Boolean((await cookies()).get("fs_token")?.value);
 
   return (
