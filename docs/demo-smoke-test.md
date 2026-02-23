@@ -62,9 +62,11 @@ Expected result:
    - Paso: en sesión autenticada abrir `/app/hoy` y ejecutar 1 acción concreta (ejemplo: iniciar/abrir sesión y volver).
    - Expected: acción exitosa, feedback visible y sin pantalla rota.
 
-4. **Nutrición premium (macro ring + lista de comidas + CTA)**
+4. **Nutrición premium (macro ring + toggle week/list/month + CTA)**
    - Paso: abrir `/app/nutricion` con usuario demo que tenga plan nutricional.
-   - Expected: se renderiza el macro ring, la lista de comidas del día y CTA principal de generación sin errores de consola.
+   - Expected: se renderiza macro ring + lista de comidas del día + CTA principal de generación sin errores de consola.
+   - Paso adicional: cambiar el toggle entre `Semana` → `Lista` → `Mes` y volver a `Semana`.
+   - Expected adicional: el toggle responde por click/teclado, mantiene foco visible y no produce console errors.
 
 5. **Persistencia tras refresh**
    - Paso: refrescar la página (`Cmd/Ctrl + R`) y volver a `/app/hoy`.
@@ -161,7 +163,7 @@ Expected result:
 - [x] Login demo funciona y navega a `/app`.
 - [x] `/app` protegido redirige correctamente sin sesión.
 - [x] Core loop en `/app/hoy` permite acción válida.
-- [x] Nutrición premium renderiza macro ring + lista de comidas + CTA principal sin errores de consola.
+- [x] Nutrición premium renderiza macro ring + toggle week/list/month + lista de comidas + CTA principal sin errores de consola.
 - [x] Persistencia confirmada después de refresh.
 - [x] Dashboard (`/app/dashboard`) consistente y usable con foco visible en acciones.
 - [x] Weekly Review carga correctamente y no rompe el retorno a `/app/hoy`.

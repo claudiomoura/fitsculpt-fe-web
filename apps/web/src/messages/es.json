@@ -1026,7 +1026,10 @@
       }
     },
     "weeklyEmptyTitle": "Vista semanal no disponible",
-    "weeklyEmptySubtitle": "Aún no hay comidas para esta semana con los datos actuales."
+    "weeklyEmptySubtitle": "Aún no hay comidas para esta semana con los datos actuales.",
+    "calendarViewToggleAria": "Seleccionar vista del calendario de nutrición",
+    "selectDayAria": "Seleccionar día {{date}}",
+    "selectWeekDayAria": "Seleccionar {{day}} con {{meals}} comidas y {{calories}} kcal"
   },
   "training": {
     "formTitle": "Datos del plan",
