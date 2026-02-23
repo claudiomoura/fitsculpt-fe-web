@@ -5,11 +5,13 @@ type TreinadorCatchAllPageProps = {
 };
 
 const TRAINER_SEGMENT_ALIASES: Record<string, string> = {
+  cliente: "client",
   clientes: "clients",
   exercicios: "exercises",
   novo: "new",
   planos: "plans",
   solicitacoes: "requests",
+  solicitações: "requests",
 };
 
 export default async function TreinadorCatchAllPage({ params }: TreinadorCatchAllPageProps) {
