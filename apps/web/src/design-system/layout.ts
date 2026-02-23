@@ -1,4 +1,4 @@
-import { spacing } from './spacing';
+import { spacing, type SpacingToken } from './spacing';
 
 export const containerWidth = {
   sm: 640,
@@ -24,3 +24,27 @@ export const grid = {
   sectionGap: spacing[12],
   contentGap: spacing[6],
 } as const;
+
+export const spacingAliases = {
+  xs: 2,
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
+} as const;
+
+export type SpacingScaleValue = SpacingToken | `${SpacingToken}` | keyof typeof spacingAliases;
+
+export function resolveSpacingToken(value: SpacingScaleValue): SpacingToken {
+  if (value in spacingAliases) {
+    return spacingAliases[value as keyof typeof spacingAliases];
+  }
+
+  const numericValue = Number(value);
+
+  if (!Number.isNaN(numericValue) && numericValue in spacing) {
+    return numericValue as SpacingToken;
+  }
+
+  throw new Error(`Invalid spacing token: ${String(value)}`);
+}
