@@ -10,6 +10,7 @@ export const duration = {
 export const easing = {
   ease: 'ease',
   standard: 'cubic-bezier(0.2, 0, 0, 1)',
+  ease: 'ease',
   accelerate: 'cubic-bezier(0.3, 0, 1, 1)',
   decelerate: 'cubic-bezier(0, 0, 0, 1)',
   emphasized: 'cubic-bezier(0.2, 0, 0, 1.2)',
@@ -50,7 +51,7 @@ export const toMs = (value: number) => `${value}ms`;
 
 export const createTransition = (
   token: TransitionToken,
-  properties = transition[token].properties,
+  properties: readonly string[] = transition[token].properties,
 ) => properties.map((property) => `${property} ${toMs(transition[token].duration)} ${transition[token].easing}`).join(', ');
 
 export const interaction = {

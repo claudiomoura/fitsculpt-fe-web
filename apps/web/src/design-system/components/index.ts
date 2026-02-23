@@ -9,7 +9,6 @@ export * from './ChartContainer';
 export * from './SearchBarSticky';
 export * from './FilterPills';
 export * from './CardGrid';
-
 export * from './DenseTable';
 export * from './ProHeader';
 export * from './HeaderCompact';
