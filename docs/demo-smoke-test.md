@@ -104,6 +104,20 @@ Expected result:
    - Paso: mantener DevTools Console abierta durante interacción en biblioteca.
    - Expected: **0 console errors**.
 
+## 3.7) Header blur + gradient perf sanity (1 min)
+
+1. **Sticky header behavior**
+   - Paso: navegar entre `/app`, `/app/dashboard`, `/app/biblioteca` y hacer scroll arriba/abajo.
+   - Expected: header permanece legible y estable, con blur/gradiente sutil sin glitches ni halos agresivos.
+
+2. **Fallback cross-browser (si aplica)**
+   - Paso: validar en browser sin soporte completo de `backdrop-filter` (o simulación equivalente).
+   - Expected: se mantiene fondo translúcido legible sin blur (fallback controlado), sin degradar contraste de contenido.
+
+3. **No-jank quick check**
+   - Paso: repetir scroll rápido 2-3 veces en mobile viewport y desktop.
+   - Expected: sin stutter perceptible, sin layout shift visible en nav/drawer, y consola limpia.
+
 ## 4) Weekly Review smoke (1–2 min)
 
 1. **Carga Weekly Review**

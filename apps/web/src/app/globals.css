@@ -92,7 +92,8 @@
   --accent-soft: #ecfeff;
   --border: var(--color-border);
   --shadow: var(--shadow-md);
-  --header-bg: rgba(255, 255, 255, 0.92);
+  --header-bg: rgba(255, 255, 255, 0.88);
+  --header-gradient: linear-gradient(125deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 6%, transparent) 52%, transparent 100%);
   --badge-bg: #ecfeff;
   --badge-border: #bfdbfe;
   --badge-text: #1d4ed8;
@@ -178,7 +179,8 @@ html.theme-dark {
   --accent-soft: #10211f;
   --border: var(--color-border);
   --shadow: var(--shadow-md);
-  --header-bg: rgba(15, 17, 21, 0.9);
+  --header-bg: rgba(15, 17, 21, 0.8);
+  --header-gradient: linear-gradient(125deg, color-mix(in srgb, var(--color-primary) 12%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 10%, transparent) 52%, transparent 100%);
   --badge-bg: #10211f;
   --badge-border: #1e3a8a;
   --badge-text: #93c5fd;
@@ -663,6 +665,13 @@ main {
   display: grid;
   place-items: center;
   min-height: 180px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1310,8 +1319,15 @@ label {
   top: 0;
   z-index: 80;
   background: var(--header-bg);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(12px);
+  background-image: var(--header-gradient);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+}
+
+@supports ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
+  .site-header {
+    backdrop-filter: saturate(130%) blur(12px);
+    -webkit-backdrop-filter: saturate(130%) blur(12px);
+  }
 }
 
 .nav-inner {
