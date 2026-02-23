@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import {
+  DenseTable,
+  DenseTableBody,
+  DenseTableCell,
+  DenseTableHead,
+  DenseTableHeadCell,
+  DenseTableRow,
+  ProHeader,
+} from "@/design-system/components";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { probeTrainerClientsCapability, type TrainerClientsCapability } from "@/lib/trainerCapability";
@@ -125,70 +134,82 @@ export default function TrainerClientsListClient() {
       : capability.clients;
 
     return (
-      <ul className="form-stack" aria-label={t("trainer.clients.title")}> 
-        {clients.map((client) => {
-          const statusText = client.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active");
-          const avatar = getClientAvatar(client);
+      <section className="form-stack" aria-label={t("trainer.clients.title")}>
+        <ProHeader
+          title={t("trainer.clients.title")}
+          subtitle={t("trainer.clients.openClientAriaPrefix")}
+          compact
+        />
+        <DenseTable>
+          <DenseTableHead>
+            <DenseTableRow>
+              <DenseTableHeadCell>{t("trainer.clients.title")}</DenseTableHeadCell>
+              <DenseTableHeadCell>{t("trainer.clients.active")}</DenseTableHeadCell>
+              <DenseTableHeadCell className="text-right">{t("admin.actions")}</DenseTableHeadCell>
+            </DenseTableRow>
+          </DenseTableHead>
+          <DenseTableBody>
+            {clients.map((client) => {
+              const statusText = client.isBlocked ? t("trainer.clients.blocked") : t("trainer.clients.active");
+              const avatar = getClientAvatar(client);
 
-          return (
-            <li key={client.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
-              <Link
-                href={`/app/trainer/clients/${client.id}`}
-                className="sidebar-link"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: 14,
-                  textDecoration: "none",
-                }}
-                aria-label={`${t("trainer.clients.openClientAriaPrefix")} ${client.name}`}
-              >
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 999,
-                    overflow: "hidden",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 700,
-                    background: "color-mix(in srgb, var(--bg-muted) 70%, #0ea5e9 30%)",
-                    color: "var(--text-primary)",
-                    flexShrink: 0,
-                  }}
-                >
-                  {avatar.url ? (
-                    <img
-                      src={avatar.url}
-                      alt={t("trainer.clients.avatarAlt").replace("{name}", client.name)}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    avatar.initials
-                  )}
-                </span>
-
-                <span className="form-stack" style={{ gap: 2, minWidth: 0, flex: 1 }}>
-                  <strong style={{ overflowWrap: "anywhere" }}>{client.name}</strong>
-                  {client.email ? (
-                    <span className="muted" style={{ margin: 0, overflowWrap: "anywhere" }}>
-                      {client.email}
-                    </span>
-                  ) : null}
-                  <span className="muted" style={{ margin: 0 }}>
-                    {client.subscriptionStatus ?? t("ui.notAvailable")}
-                  </span>
-                </span>
-
-                <Badge variant={client.isBlocked ? "danger" : "success"}>{statusText}</Badge>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+              return (
+                <DenseTableRow key={client.id} interactive>
+                  <DenseTableCell>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: 999,
+                          overflow: "hidden",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          background: "var(--bg-muted)",
+                          color: "var(--text-primary)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {avatar.url ? (
+                          <img
+                            src={avatar.url}
+                            alt={t("trainer.clients.avatarAlt").replace("{name}", client.name)}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          avatar.initials
+                        )}
+                      </span>
+                      <span className="form-stack" style={{ gap: 1, minWidth: 0 }}>
+                        <strong style={{ overflowWrap: "anywhere" }}>{client.name}</strong>
+                        {client.email ? <span className="muted" style={{ margin: 0, overflowWrap: "anywhere" }}>{client.email}</span> : null}
+                      </span>
+                    </div>
+                  </DenseTableCell>
+                  <DenseTableCell>
+                    <div className="form-stack" style={{ gap: 2 }}>
+                      <Badge variant={client.isBlocked ? "danger" : "success"}>{statusText}</Badge>
+                      <span className="muted">{client.subscriptionStatus ?? t("ui.notAvailable")}</span>
+                    </div>
+                  </DenseTableCell>
+                  <DenseTableCell className="text-right">
+                    <Link
+                      href={`/app/trainer/clients/${client.id}`}
+                      className="btn secondary"
+                      aria-label={`${t("trainer.clients.openClientAriaPrefix")} ${client.name}`}
+                    >
+                      {t("ui.edit")}
+                    </Link>
+                  </DenseTableCell>
+                </DenseTableRow>
+              );
+            })}
+          </DenseTableBody>
+        </DenseTable>
+      </section>
     );
   }, [capability, listState, loadClients, t]);
 

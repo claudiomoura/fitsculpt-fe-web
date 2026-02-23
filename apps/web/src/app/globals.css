@@ -2273,6 +2273,57 @@ label {
   transform: translateY(-2px);
 }
 
+.app-frame[data-shell="admin"] .card,
+.app-frame[data-shell="admin"] .feature-card,
+.app-frame[data-shell="trainer"] .card,
+.app-frame[data-shell="trainer"] .feature-card {
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--text-primary) 8%, transparent);
+  border-color: color-mix(in srgb, var(--border) 88%, var(--text-primary) 12%);
+}
+
+.app-frame[data-shell="admin"] .feature-card:hover,
+.app-frame[data-shell="trainer"] .feature-card:hover {
+  transform: none;
+  border-color: color-mix(in srgb, var(--border) 82%, var(--text-primary) 18%);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text-primary) 10%, transparent);
+}
+
+.app-frame[data-shell="admin"] .btn,
+.app-frame[data-shell="trainer"] .btn {
+  border-radius: 10px;
+}
+
+.app-frame[data-shell="admin"] .btn:not(.secondary),
+.app-frame[data-shell="trainer"] .btn:not(.secondary) {
+  background: color-mix(in srgb, var(--text-primary) 90%, white 10%);
+  color: var(--bg-card);
+}
+
+.app-frame[data-shell="admin"] .btn:not(.secondary):hover,
+.app-frame[data-shell="trainer"] .btn:not(.secondary):hover {
+  background: color-mix(in srgb, var(--text-primary) 82%, white 18%);
+  transform: none;
+  box-shadow: none;
+}
+
+.app-frame[data-shell="admin"] .btn.secondary,
+.app-frame[data-shell="trainer"] .btn.secondary {
+  background: color-mix(in srgb, var(--bg-muted) 65%, var(--bg-card) 35%);
+  border-color: color-mix(in srgb, var(--border) 75%, var(--text-primary) 25%);
+}
+
+.app-frame[data-shell="admin"] .btn.secondary:hover,
+.app-frame[data-shell="trainer"] .btn.secondary:hover {
+  background: color-mix(in srgb, var(--bg-muted) 78%, var(--bg-card) 22%);
+}
+
+.app-frame[data-shell="admin"] .badge,
+.app-frame[data-shell="trainer"] .badge {
+  background: color-mix(in srgb, var(--bg-muted) 82%, var(--bg-card) 18%);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--border) 72%, var(--text-primary) 28%);
+}
+
 .meal-card {
   width: 100%;
   border: 1px solid var(--border);
