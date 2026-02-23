@@ -5,16 +5,23 @@ import { cn } from '@/lib/classNames';
 import { elevation } from '../elevation';
 import { createTransition } from '../motion';
 
-export type ObjectiveGridItem = {
+export type ObjectiveItem = {
   id: string;
-  title: string;
+  label: ReactNode;
   value: ReactNode;
   supportingText?: ReactNode;
-  icon?: ReactNode;
+  tone?: 'neutral' | 'primary' | 'success' | 'warning';
+};
+
+const toneClasses: Record<NonNullable<ObjectiveItem['tone']>, string> = {
+  neutral: 'text-text',
+  primary: 'text-primary',
+  success: 'text-success',
+  warning: 'text-warning',
 };
 
 export type ObjectiveGridProps = HTMLAttributes<HTMLDivElement> & {
-  items: [ObjectiveGridItem, ObjectiveGridItem, ObjectiveGridItem, ObjectiveGridItem] | ObjectiveGridItem[];
+  items: ObjectiveItem[];
 };
 
 export function ObjectiveGrid({ items, className, ...props }: ObjectiveGridProps) {
@@ -23,17 +30,11 @@ export function ObjectiveGrid({ items, className, ...props }: ObjectiveGridProps
       {items.slice(0, 4).map((item) => (
         <article
           key={item.id}
-          className="rounded-xl bg-surface p-3 hover:-translate-y-px"
-          style={{
-            boxShadow: elevation.sm,
-            transition: createTransition('interactive'),
-          }}
+          className="rounded-xl bg-surface p-3"
+          style={{ boxShadow: elevation.sm, transition: createTransition('interactive') }}
         >
-          <div className="flex items-start justify-between gap-2">
-            <p className="m-0 text-xs font-medium uppercase tracking-wide text-text-muted">{item.title}</p>
-            {item.icon ? <span className="text-text-muted">{item.icon}</span> : null}
-          </div>
-          <p className="m-0 mt-2 text-lg font-semibold leading-tight text-text">{item.value}</p>
+          <p className="m-0 text-xs text-text-muted">{item.label}</p>
+          <p className={cn('m-0 mt-1 text-base font-semibold leading-tight', toneClasses[item.tone ?? 'neutral'])}>{item.value}</p>
           {item.supportingText ? <p className="m-0 mt-1 text-xs text-text-muted">{item.supportingText}</p> : null}
         </article>
       ))}

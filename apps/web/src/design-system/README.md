@@ -141,85 +141,44 @@ If you need a new transition behavior, add it to `motion.ts` first and reference
 
 ## Nutrition V2 building blocks
 
-These components are prepared for Nutrition Calendar V2 flows and can be imported from `@/design-system`.
+These components are DS-only primitives for Nutrition Calendar V2. They are composable and can be imported without touching production screens.
+
+```tsx
+import {
+  Accordion,
+  HeaderCompact,
+  MealCardCompact,
+  ObjectiveGrid,
+  SegmentedControl,
+  WeekGridCompact,
+} from '@/design-system';
+```
 
 ### `HeaderCompact`
-
-```tsx
-<HeaderCompact
-  eyebrow="Nutrition"
-  title="This week"
-  subtitle="Plan and track meals"
-  trailing={<button className="btn-secondary">Edit</button>}
-/>
-```
-
-Props: `title`, `subtitle?`, `eyebrow?`, `leading?`, `trailing?`.
+- Props: `title`, `subtitle?`, `leading?`, `trailing?`
+- Use for compact screen headers with optional icon button and right actions.
 
 ### `ObjectiveGrid`
-
-```tsx
-<ObjectiveGrid
-  items={[
-    { id: 'cal', title: 'Calories', value: '2,100', supportingText: 'target/day' },
-    { id: 'pro', title: 'Protein', value: '130g' },
-    { id: 'carb', title: 'Carbs', value: '220g' },
-    { id: 'fat', title: 'Fat', value: '70g' },
-  ]}
-/>
-```
-
-Props: `items` (designed for 2x2 cards, renders max 4).
+- Props: `items` (`id`, `label`, `value`, `supportingText?`, `tone?`)
+- Renders a fixed 2x2 grid (`items.slice(0,4)`).
 
 ### `SegmentedControl`
-
-```tsx
-<SegmentedControl
-  options={[
-    { id: 'month', label: 'Mes' },
-    { id: 'week', label: 'Semana' },
-    { id: 'list', label: 'Lista' },
-  ]}
-  activeId={view}
-  onChange={setView}
-/>
-```
-
-Props: `options`, `activeId`, `onChange?`.
+- Props: `options`, `value`, `onChange?`
+- iOS-like segmented switch (for Mes/Semana/Lista toggles).
 
 ### `WeekGridCompact`
-
-```tsx
-<WeekGridCompact
-  days={weekDays}
-  onSelectDay={(dayId) => console.log(dayId)}
-/>
-```
-
-Props: `days` (`label`, `date`, `isToday?`, `isSelected?`, `hasMeals?`), `onSelectDay?`.
+- Props: `days` (`id`, `label`, `date`, `selected?`, `complete?`), `onSelect?`
+- Renders compact 7-column day cards with 88px height.
 
 ### `MealCardCompact`
-
-```tsx
-<MealCardCompact
-  title="Greek Yogurt Bowl"
-  subtitle="Breakfast"
-  kcal={420}
-  chevron="›"
-/>
-```
-
-Props: `title`, `subtitle?`, `kcal`, `image?`, `chevron?` + native button props.
+- Props: `title`, `subtitle?`, `kcal`, `imageSrc`, `imageAlt`
+- Row card with 72px thumbnail, kcal indicator and chevron affordance.
 
 ### `Accordion`
+- Props: `items` (`id`, `title`, `content`, `subtitle?`), `defaultOpenId?`
+- Single-open accordion, suitable for Shopping List groups.
 
-```tsx
-<Accordion title="Shopping list" subtitle="12 items" defaultOpen>
-  <ul className="m-0 list-disc pl-4 text-sm text-text">
-    <li>Chicken breast</li>
-    <li>Brown rice</li>
-  </ul>
-</Accordion>
-```
-
-Props: `title`, `subtitle?`, `defaultOpen?`, `rightSlot?`, `children`.
+### Motion contract for Nutrition V2 blocks
+- `hover:-translate-y-px`
+- `active:scale-[0.98]`
+- `transition: 150ms ease` via `createTransition('interactive')`

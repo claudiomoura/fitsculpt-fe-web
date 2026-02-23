@@ -8,6 +8,7 @@ export const duration = {
 } as const;
 
 export const easing = {
+  ease: 'ease',
   standard: 'cubic-bezier(0.2, 0, 0, 1)',
   ease: 'ease',
   accelerate: 'cubic-bezier(0.3, 0, 1, 1)',
@@ -36,10 +37,11 @@ export const transition = {
     easing: easing.emphasized,
     properties: ['transform', 'opacity'],
   },
+
   interactive: {
     duration: duration.hover,
     easing: easing.ease,
-    properties: ['transform', 'color', 'background-color', 'box-shadow'],
+    properties: ['transform', 'background-color', 'color', 'box-shadow'],
   },
 } as const;
 
