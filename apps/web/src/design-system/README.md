@@ -74,3 +74,34 @@ Use these reusable blocks for loading, empty, and error experiences in pages:
   retryAction={<button className="btn-secondary">Retry</button>}
 />
 ```
+
+## Professional Mode semantic tokens (Admin/Trainer)
+
+A semantic variant is available for professional experiences (for example admin and trainer layouts) without changing the default app shell.
+
+### What was added
+
+- `professionalSemanticColors` and `semanticColorVariants` in `tokens.ts`.
+- `professionalElevation` and `elevationVariants` in `elevation.ts`.
+- Helpers:
+  - `getSemanticColors(variant)`
+  - `getElevation(variant)`
+
+### Activation (layout-level)
+
+Keep default user app screens untouched. Activate professional mode only at admin/trainer layout boundaries:
+
+```ts
+import { getSemanticColors, getElevation } from '@/design-system';
+
+const proColors = getSemanticColors('professional');
+const proElevation = getElevation('professional');
+```
+
+Then map these to CSS variables or style context in the professional layout provider. If no variant is provided, `default` is used and existing tokens remain unchanged.
+
+### When to use Professional Mode
+
+- ✅ Admin backoffice and trainer dashboards
+- ✅ Internal operations UIs where denser/stronger hierarchy is needed
+- ❌ End-user shell by default (unless explicitly migrated in another PR)
