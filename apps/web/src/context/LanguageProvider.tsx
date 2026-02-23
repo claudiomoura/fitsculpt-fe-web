@@ -3,15 +3,12 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
-  DEFAULT_LOCALE,
   type Locale,
   type MessageValues,
   getLocaleCookie,
   getMessage,
   resolveLocale,
 } from "@/lib/i18n";
-
-const STORAGE_KEY = "fs-locale";
 
 type LanguageContextValue = {
   locale: Locale;
@@ -21,16 +18,18 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window === "undefined") return DEFAULT_LOCALE;
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Locale | null;
-    return resolveLocale(stored);
-  });
+export function LanguageProvider({
+  children,
+  initialLocale,
+}: {
+  children: ReactNode;
+  initialLocale?: string | null;
+}) {
+  const [locale, setLocaleState] = useState<Locale>(() => resolveLocale(initialLocale));
 
   useEffect(() => {
     document.documentElement.lang = locale;
-    window.localStorage.setItem(STORAGE_KEY, locale);
+    window.localStorage.setItem("fs-locale", locale);
     document.cookie = getLocaleCookie(locale);
   }, [locale]);
 

@@ -3,8 +3,6 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-const STORAGE_KEY = "fs-theme";
-
 export type Theme = "light" | "dark";
 
 type ThemeContextValue = {
@@ -15,22 +13,29 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
+function resolveTheme(value?: string | null): Theme {
+  return value === "light" || value === "dark" ? value : "dark";
+}
+
 function applyThemeClass(theme: Theme) {
   const root = document.documentElement;
   root.classList.toggle("theme-dark", theme === "dark");
   root.classList.toggle("theme-light", theme === "light");
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "dark";
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-    return stored === "light" || stored === "dark" ? stored : "dark";
-  });
+export function ThemeProvider({
+  children,
+  initialTheme,
+}: {
+  children: ReactNode;
+  initialTheme?: string | null;
+}) {
+  const [theme, setThemeState] = useState<Theme>(() => resolveTheme(initialTheme));
 
   useEffect(() => {
     applyThemeClass(theme);
-    window.localStorage.setItem(STORAGE_KEY, theme);
+    window.localStorage.setItem("fs-theme", theme);
+    document.cookie = `fs-theme=${theme}; path=/; max-age=31536000; samesite=lax`;
   }, [theme]);
 
   const setTheme = useCallback((nextTheme: Theme) => {
