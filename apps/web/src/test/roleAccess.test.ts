@@ -11,6 +11,10 @@ describe("role access helpers", () => {
     expect(canAccessTrainer({ role: "trainer" })).toBe(true);
   });
 
+  it("allows trainer access when backend marks isTrainer despite USER role", () => {
+    expect(canAccessTrainer({ role: "USER", isCoach: true, gymMembershipState: "in_gym" })).toBe(true);
+  });
+
   it("allows development access for dev role", () => {
     expect(canAccessDevelopment({ role: "dev" })).toBe(true);
     expect(canAccessDevelopment({ role: "developer" })).toBe(true);
