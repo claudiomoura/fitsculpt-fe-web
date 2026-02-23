@@ -841,6 +841,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   const hasPlan = Boolean(visiblePlan?.days.length);
+  const todayKey = toDateKey(today);
+  const selectedEntry = visibleDayMap.get(toDateKey(selectedDate))
+    ?? visibleDayMap.get(todayKey)
+    ?? projectedWeek.days[0]
+    ?? null;
+  const selectedEntryDate = selectedEntry?.date ?? selectedDate;
+  const selectedExercises = selectedEntry?.day.exercises ?? [];
+  const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => entry.date.getTime() < today.getTime()).length;
+  const totalPlannedSessions = Math.max(visiblePlanEntries.length, 1);
+  const progressPercent = Math.min(100, Math.round((estimatedCompletedSessions / totalPlannedSessions) * 100));
 
   useEffect(() => {
     if (!hasPlan) return;
@@ -990,7 +1000,50 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </div>
             </section>
           ) : hasPlan ? (
-            <section className="card">
+            <>
+              <section className="card training-header-compact">
+                <div className="training-hero">
+                  <div>
+                    <p className="training-hero-eyebrow">{t("training.todayTitle")}</p>
+                    <h2 className="section-title section-title-sm">{safeT("training.todayFocus", "Entrenamiento de hoy")}</h2>
+                    <p className="section-subtitle">
+                      {selectedEntry
+                        ? `${selectedEntry.day.focus} · ${selectedEntry.day.duration} ${t("training.minutesLabel")}`
+                        : t("training.calendarEmptyFocus")}
+                    </p>
+                  </div>
+                  <div className="training-hero-actions">
+                    <Link
+                      className="btn"
+                      href="/app/entrenamientos"
+                    >
+                      {safeT("training.startSession", "Iniciar sesión")}
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      onClick={() => setCalendarView("week")}
+                    >
+                      {t("training.viewWeek")}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="training-progress">
+                  <div className="training-progress-head">
+                    <strong>{safeT("training.progressTitle", "Progreso")}</strong>
+                    <span className="badge">{progressPercent}%</span>
+                  </div>
+                  <div className="training-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+                    <span className="training-progress-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <p className="muted">
+                    {estimatedCompletedSessions}/{totalPlannedSessions} {safeT("training.progressSessions", "sesiones completadas")}
+                  </p>
+                </div>
+              </section>
+
+              <section className="card">
               <div className="section-head section-head-actions">
                 <div>
                   <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
@@ -1208,6 +1261,50 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </>
               )}
             </section>
+
+            <section className="card">
+              <div className="section-head">
+                <div>
+                  <h2 className="section-title section-title-sm">{safeT("training.todayTrainingTitle", "Ejercicios de hoy")}</h2>
+                  <p className="section-subtitle">{selectedEntryDate.toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "short" })}</p>
+                </div>
+              </div>
+              <div className="exercise-list compact-exercise-list">
+                {selectedExercises.length === 0 ? (
+                  <p className="muted">{t("training.calendarEmptyDay")}</p>
+                ) : (
+                  selectedExercises.map((exercise, index) => (
+                    <article
+                      key={`${exercise.name}-${index}`}
+                      className={`exercise-mini-card exercise-mini-card-compact ${exercise.id ? "is-clickable" : "is-disabled"}`}
+                    >
+                      <div className="exercise-mini-top">
+                        <strong>{exercise.name}</strong>
+                        <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                      </div>
+                      <div className="inline-actions-sm">
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={!exercise.id}
+                          onClick={() => handleExerciseNavigate(exercise.id, selectedEntryDate)}
+                        >
+                          {safeT("training.execute", "Ejecutar")}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn secondary"
+                          onClick={() => setTechniqueModal({ dayLabel: selectedEntry?.day.label ?? t("training.todayTitle"), exercise })}
+                        >
+                          {t("training.viewTechnique")}
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+            </>
           ) : null}
 
           {hasPlan && (
