@@ -122,5 +122,17 @@
     "calendarViewToggleAria": "Selecionar vista do calendário de nutrição",
     "selectDayAria": "Selecionar dia {{date}}",
     "selectWeekDayAria": "Selecionar {{day}} com {{meals}} refeições e {{calories}} kcal"
+  },
+  "plan": {
+    "replicatedWeekLabel": "Semana replicada do plano atual"
+  },
+  "training": {
+    "selectedPlanLoadError": "Não foi possível carregar o plano selecionado.",
+    "selectedPlanFallbackToAssigned": "Não foi possível aceder ao plano selecionado. Estamos a mostrar o teu plano atribuído.",
+    "calendarViewToggleAria": "Selecionar vista do calendário de treino",
+    "calendarViewOptionAria": "Mudar para vista {{view}}",
+    "activePlanLabel": "Plano ativo",
+    "activePlanSelected": "Selecionado",
+    "activePlanAssigned": "Atribuído"
   }
 }

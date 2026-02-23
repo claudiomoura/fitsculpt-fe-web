@@ -68,6 +68,12 @@ Expected result:
    - Paso adicional: cambiar el toggle entre `Semana` → `Lista` → `Mes` y volver a `Semana`.
    - Expected adicional: el toggle responde por click/teclado, mantiene foco visible y no produce console errors.
 
+4. **Training calendar (week/month/list toggle + a11y)**
+   - Paso: abrir `/app/entrenamiento` con sesión autenticada y plan activo.
+   - Expected: se renderiza calendario de entrenamiento con vista `Semana` por defecto y detalles del día sin errores de consola.
+   - Paso adicional: cambiar el toggle entre `Mes` → `Lista` → `Semana` usando mouse y teclado (`Tab` + `Enter`/`Space`).
+   - Expected adicional: el toggle responde, expone labels accesibles (`aria-label` / `aria-pressed`), mantiene foco visible y no produce console errors.
+
 5. **Persistencia tras refresh**
    - Paso: refrescar la página (`Cmd/Ctrl + R`) y volver a `/app/hoy`.
    - Expected: el estado de la acción previa se mantiene (o se refleja el progreso esperado), sin perder sesión.
@@ -164,6 +170,7 @@ Expected result:
 - [x] `/app` protegido redirige correctamente sin sesión.
 - [x] Core loop en `/app/hoy` permite acción válida.
 - [x] Nutrición premium renderiza macro ring + toggle week/list/month + lista de comidas + CTA principal sin errores de consola.
+- [x] Training calendar (`/app/entrenamiento`) renderiza correctamente y el toggle week/month/list funciona con click/teclado + foco visible.
 - [x] Persistencia confirmada después de refresh.
 - [x] Dashboard (`/app/dashboard`) consistente y usable con foco visible en acciones.
 - [x] Weekly Review carga correctamente y no rompe el retorno a `/app/hoy`.
