@@ -8,22 +8,10 @@ import { isProfileComplete } from "@/lib/profileCompletion";
 import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
 import { NUTRITION_ADHERENCE_STORAGE_KEY } from "@/lib/nutritionAdherence";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
+import type { CheckinEntry, FoodEntry, TrackingSnapshot, WorkoutEntry } from "@/services/tracking";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
-
-type CheckinEntry = {
-  date: string;
-  weightKg: number;
-  bodyFatPercent: number;
-};
-
-type FoodEntry = {
-  id: string;
-  date: string;
-  foodKey: string;
-  grams: number;
-};
 
 type UserFood = {
   id: string;
@@ -34,17 +22,7 @@ type UserFood = {
   fat: number;
 };
 
-type TrackingPayload = {
-  checkins?: CheckinEntry[];
-  foodLog?: FoodEntry[];
-  workoutLog?: WorkoutEntry[];
-};
-
-type WorkoutEntry = {
-  id: string;
-  date: string;
-  durationMin?: number;
-};
+type TrackingPayload = Partial<TrackingSnapshot>;
 
 type WorkoutSessionEntry = {
   sets?: number | null;
@@ -73,6 +51,24 @@ type WeeklyKpi = {
   bars?: number[];
   ctaHref: string;
   ctaLabel: string;
+};
+
+const isDateKey = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const normalizeTrackingPayload = (payload: TrackingPayload) => {
+  const checkins = Array.isArray(payload.checkins)
+    ? payload.checkins.filter((entry) => entry && isDateKey(entry.date) && Number.isFinite(Number(entry.weightKg)))
+    : [];
+
+  const foodLog = Array.isArray(payload.foodLog)
+    ? payload.foodLog.filter((entry) => entry && isDateKey(entry.date) && typeof entry.foodKey === "string")
+    : [];
+
+  const workoutLog = Array.isArray(payload.workoutLog)
+    ? payload.workoutLog.filter((entry) => entry && isDateKey(entry.date))
+    : [];
+
+  return { checkins, foodLog, workoutLog };
 };
 
 function ProgressRing({
@@ -136,11 +132,11 @@ export default function DashboardClient() {
         setError(null);
         const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
         if (!response.ok) throw new Error("LOAD_ERROR");
-        const data = (await response.json()) as TrackingPayload;
+        const data = normalizeTrackingPayload((await response.json()) as TrackingPayload);
         if (active) {
-          setCheckins(data.checkins ?? []);
-          setFoodLog(data.foodLog ?? []);
-          setWorkoutLog(data.workoutLog ?? []);
+          setCheckins(data.checkins);
+          setFoodLog(data.foodLog);
+          setWorkoutLog(data.workoutLog);
         }
       } catch (_err) {
         if (active) setError(t("dashboard.chartError"));
@@ -447,6 +443,18 @@ export default function DashboardClient() {
       const sign = diff > 0 ? "+" : "";
       return `${sign}${diff}${suffix} vs ${t("dashboard.kpiPreviousWeek")}`;
     };
+
+    const hasWeeklyData =
+      currentSessions > 0 ||
+      currentVolume > 0 ||
+      adherenceDaysCurrent > 0 ||
+      activityDaysCurrent.size > 0 ||
+      calorieDays.size > 0 ||
+      currentWeightEntries > 0;
+
+    if (!hasWeeklyData) {
+      return [];
+    }
 
     const kpis: WeeklyKpi[] = [
       {
