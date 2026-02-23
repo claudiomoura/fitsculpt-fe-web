@@ -9,6 +9,11 @@ export * from './ChartContainer';
 export * from './SearchBarSticky';
 export * from './FilterPills';
 export * from './CardGrid';
-
 export * from './DenseTable';
 export * from './ProHeader';
+export * from './HeaderCompact';
+export * from './ObjectiveGrid';
+export * from './SegmentedControl';
+export * from './WeekGridCompact';
+export * from './MealCardCompact';
+export * from './Accordion';
