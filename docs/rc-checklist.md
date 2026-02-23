@@ -10,6 +10,7 @@ Objetivo: validar en mobile el RC con una lista corta, repetible y ejecutable en
 
 - Flujos core: login, `/app` protegido, hoy → acción → persistencia, biblioteca, entitlements/gating, gym pilot (si aplica al RC).
 - Criterio global obligatorio: **0 errores en consola** durante toda la corrida.
+- Criterio perf (sanity): navegación/scroll sin jank perceptible; header blur/gradients sutiles con fallback correcto cuando `backdrop-filter` no está disponible.
 - Viewports obligatorios:
   - **375 x 812** (iPhone X/11 Pro)
   - **390 x 844** (iPhone 12/13/14)
@@ -39,6 +40,7 @@ Objetivo: validar en mobile el RC con una lista corta, repetible y ejecutable en
 | M-07 | Gating Premium | Usuario premium (o override) accede al mismo contenido premium sin bloqueo | Abrir bug **FE/Entitlements** + **BE/Plans** (verificar claim/plan) | PASS | PASS |
 | M-08* | Gym pilot (si aplica) | Flujo abre y responde en mobile; con flag OFF muestra “no disponible” controlado | Si era parte del RC y falla: bug **FE/GymPilot**. Si no aplica: marcar N/A y justificar | N/A | N/A |
 | M-09 | Consola | **0 console errors** durante toda la corrida (warnings permitidos si no rompen UX) | Bloquea GO. Abrir bug al owner del flujo donde aparece el error + stacktrace | PASS | PASS |
+| M-10 | Perf sanity (header blur + gradients) | Header sticky mantiene blur sutil sin artifacts; en browsers sin soporte de blur mantiene fondo legible (fallback), scroll continuo sin tirones visibles | Abrir bug **FE/Performance** con browser/version + captura + tramo afectado | PASS | PASS |
 
 \* Si gym pilot no está incluido en este RC, marcar **N/A** y justificar en notas.
 
@@ -55,7 +57,7 @@ Objetivo: validar en mobile el RC con una lista corta, repetible y ejecutable en
 
 ## Regla de decisión
 
-- **PASS RC Mobile:** todos los checks aplicables en PASS + M-09 en PASS en ambos viewports.
+- **PASS RC Mobile:** todos los checks aplicables en PASS + M-09 y M-10 en PASS en ambos viewports.
 - **FAIL RC Mobile:** cualquier check aplicable en FAIL en cualquier viewport.
 
 ## Referencias

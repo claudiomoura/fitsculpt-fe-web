@@ -81,3 +81,12 @@ export const semanticTransitions = {
 } as const;
 
 export type SemanticTransitionToken = keyof typeof semanticTransitions;
+
+export const semanticGradients = {
+  headerSubtle:
+    'linear-gradient(125deg, color-mix(in srgb, var(--color-primary) 9%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 6%, transparent) 52%, transparent 100%)',
+  surfaceSubtle:
+    'linear-gradient(160deg, color-mix(in srgb, var(--color-primary) 6%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 4%, transparent) 100%)',
+} as const;
+
+export type SemanticGradientToken = keyof typeof semanticGradients;
