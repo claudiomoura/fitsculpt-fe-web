@@ -4583,7 +4583,7 @@ app.get("/auth/me", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const effectiveIsAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
-    const activeMembership = await prisma.gymMembership.findFirst({
+    const activeMembershipRecord = await prisma.gymMembership.findFirst({
       where: {
         userId: user.id,
         status: "ACTIVE",
@@ -4600,6 +4600,14 @@ app.get("/auth/me", async (request, reply) => {
       },
       orderBy: { updatedAt: "desc" },
     });
+    // /auth/me only exposes an *active* membership. We normalize the status
+    // to the literal "ACTIVE" so it matches the response contract type.
+    const activeMembership = activeMembershipRecord
+      ? {
+          ...activeMembershipRecord,
+          status: "ACTIVE" as const,
+        }
+      : null;
     const entitlements = getUserEntitlements(user);
     const aiTokenPayload = getAiTokenPayload(user, entitlements);
     return buildAuthMeResponse({
