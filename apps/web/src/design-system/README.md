@@ -52,3 +52,25 @@ Current scope is intentionally narrow to avoid false positives:
   - inline random padding/margin values in style objects
 
 This script is **opt-in** and not required by default lint CI unless explicitly wired.
+
+## Global state blocks
+
+Use these reusable blocks for loading, empty, and error experiences in pages:
+
+
+```tsx
+// Global state blocks
+<LoadingBlock title="Loading profile" description="Fetching latest data..." />
+
+<EmptyBlock
+  title="No workouts yet"
+  description="Create your first workout to get started."
+  action={<button className="btn-primary">Create workout</button>}
+/>
+
+<ErrorBlock
+  title="Something went wrong"
+  description="Please try again in a moment."
+  retryAction={<button className="btn-secondary">Retry</button>}
+/>
+```
