@@ -4538,3 +4538,87 @@ html { scroll-behavior: smooth; }
   color: rgba(255,255,255,0.60);
   font-size: 12px;
 }
+
+.nutrition-premium-overview {
+  display: grid;
+  gap: 16px;
+}
+
+.nutrition-premium-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.nutrition-dominant-cta {
+  min-width: 180px;
+}
+
+.nutrition-ring-card {
+  display: grid;
+  gap: 14px;
+}
+
+.nutrition-macro-ring {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+}
+
+.nutrition-macro-ring-center {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.nutrition-macro-ring-center strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.nutrition-macro-ring-center span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.nutrition-ring-legend {
+  display: grid;
+  gap: 8px;
+}
+
+.nutrition-ring-legend li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.nutrition-ring-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.nutrition-meal-list {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 840px) {
+  .nutrition-premium-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-dominant-cta {
+    width: 100%;
+  }
+}
