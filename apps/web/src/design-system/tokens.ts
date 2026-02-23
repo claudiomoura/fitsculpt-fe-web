@@ -1,3 +1,5 @@
+import { transition } from './motion';
+
 export const colorPalette = {
   white: '#FFFFFF',
   black: '#000000',
@@ -71,3 +73,11 @@ export const getSemanticColors = (variant: SemanticColorVariant = 'default') => 
 
 export type ColorPaletteToken = keyof typeof colorPalette;
 export type SemanticColorToken = keyof typeof semanticColors;
+
+export const semanticTransitions = {
+  hover: transition.color,
+  interactiveSurface: transition.surface,
+  interactiveTransform: transition.transform,
+} as const;
+
+export type SemanticTransitionToken = keyof typeof semanticTransitions;

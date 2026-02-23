@@ -106,23 +106,35 @@ Then map these to CSS variables or style context in the professional layout prov
 - ✅ Internal operations UIs where denser/stronger hierarchy is needed
 - ❌ End-user shell by default (unless explicitly migrated in another PR)
 
-## Density calibration (PR-02)
+## Motion tokens and transition utilities
 
-This PR introduces a subtle density calibration to improve breathing room without changing layouts aggressively.
+Use shared motion tokens for interactive states so components stay in the 150–200ms range.
 
-- Spacing scale increased softly on step `3+` (roughly 5–20% depending on token).
-- Typography line-heights were relaxed slightly for better readability, especially on mobile.
-- Elevation shadows now follow a more consistent progression (offset/blur/alpha) across variants.
+### Available tokens
 
-### Density guidance
+- `duration.hover` = `150ms`
+- `duration.normal` = `200ms`
+- `easing.standard` for most UI transitions
+- `transition.color`, `transition.surface`, `transition.transform`, `transition.emphasis`
 
-Use `densityScale` as the source-of-truth when introducing context-specific density options (for example, compact tables vs. default app pages):
+### Usage in DS components
 
 ```ts
-import { densityScale, spacing } from '@/design-system';
+import { createTransition, transition } from '@/design-system';
 
-const relaxedGap = spacing[6] * densityScale.relaxed;
+const buttonTransition = createTransition('color');
+// => "color 150ms cubic-bezier(0.2, 0, 0, 1), ..."
+
+const cardTransition = createTransition('surface', transition.surface.properties);
 ```
 
-Default app screens should continue to use the base tokens directly unless a page explicitly needs a compact/relaxed mode.
+```tsx
+// Example: inline style for a shared DS primitive
+<div
+  style={{
+    transition: createTransition('surface'),
+  }}
+/>
+```
 
+If you need a new transition behavior, add it to `motion.ts` first and reference it semantically from DS components.
