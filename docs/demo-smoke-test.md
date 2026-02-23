@@ -90,6 +90,20 @@ Expected result:
    - Paso: mantener DevTools abierta mientras se recorre dashboard.
    - Expected: **0 console errors** durante todo el flujo.
 
+## 3.5) Biblioteca QA/perf quick check (1–2 min)
+
+1. **Scroll y estabilidad visual**
+   - Paso: abrir `/app/biblioteca` y hacer scroll continuo en listado.
+   - Expected: scroll fluido, sin layout shift evidente al cargar más tarjetas.
+
+2. **Hover/focus disciplinado + accesibilidad básica**
+   - Paso: en desktop pasar mouse por cards y luego tabular acciones (favorito/agregar).
+   - Expected: hover sutil (sin glow excesivo), foco visible en links y botones, labels accesibles en acciones.
+
+3. **Consola limpia en biblioteca**
+   - Paso: mantener DevTools Console abierta durante interacción en biblioteca.
+   - Expected: **0 console errors**.
+
 ## 4) Weekly Review smoke (1–2 min)
 
 1. **Carga Weekly Review**
