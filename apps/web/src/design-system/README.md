@@ -105,3 +105,24 @@ Then map these to CSS variables or style context in the professional layout prov
 - ✅ Admin backoffice and trainer dashboards
 - ✅ Internal operations UIs where denser/stronger hierarchy is needed
 - ❌ End-user shell by default (unless explicitly migrated in another PR)
+
+## Density calibration (PR-02)
+
+This PR introduces a subtle density calibration to improve breathing room without changing layouts aggressively.
+
+- Spacing scale increased softly on step `3+` (roughly 5–20% depending on token).
+- Typography line-heights were relaxed slightly for better readability, especially on mobile.
+- Elevation shadows now follow a more consistent progression (offset/blur/alpha) across variants.
+
+### Density guidance
+
+Use `densityScale` as the source-of-truth when introducing context-specific density options (for example, compact tables vs. default app pages):
+
+```ts
+import { densityScale, spacing } from '@/design-system';
+
+const relaxedGap = spacing[6] * densityScale.relaxed;
+```
+
+Default app screens should continue to use the base tokens directly unless a page explicitly needs a compact/relaxed mode.
+

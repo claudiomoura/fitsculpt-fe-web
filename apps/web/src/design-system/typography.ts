@@ -22,9 +22,9 @@ export const fontWeight = {
 } as const;
 
 export const lineHeight = {
-  tight: 1.2,
-  normal: 1.5,
-  relaxed: 1.65,
+  tight: 1.25,
+  normal: 1.55,
+  relaxed: 1.7,
 } as const;
 
 export const letterSpacing = {
