@@ -1965,7 +1965,14 @@
     "loadErrorList": "No pudimos cargar tus planes.",
     "empty": "Todavía no tienes dietas guardadas.",
     "emptyCta": "Crear un plan de nutrición",
-    "daysLabel": "días"
+    "daysLabel": "días",
+    "searchLabel": "Buscar planes",
+    "searchHelper": "Filtra tus dietas guardadas por título.",
+    "sectionTitle": "Dietas guardadas",
+    "unavailable": "Las dietas aún no están disponibles en este entorno.",
+    "emptyDescription": "Crea un plan de nutrición para verlo listado aquí.",
+    "planMeta": "Inicio {date} · {days} días",
+    "viewDetail": "Ver detalle"
   },
   "dietPlanDetail": {
     "backToPlans": "Volver a dietas",
