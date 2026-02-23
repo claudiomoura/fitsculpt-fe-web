@@ -101,5 +101,26 @@
         "switchToPt": "Mudar para português"
       }
     }
+  },
+  "calendar": {
+    "today": "Hoje",
+    "viewDay": "Dia",
+    "viewWeek": "Semana",
+    "viewMonth": "Mês",
+    "viewList": "Lista",
+    "viewAgenda": "Agenda",
+    "previousWeek": "Semana anterior",
+    "nextWeek": "Próxima semana",
+    "previousWeekAria": "Ir para a semana anterior",
+    "nextWeekAria": "Ir para a próxima semana"
+  },
+  "nutrition": {
+    "calendarTitle": "Calendário de nutrição",
+    "weekLabel": "Semana",
+    "weeklyEmptyTitle": "Vista semanal indisponível",
+    "weeklyEmptySubtitle": "Ainda não existem refeições para esta semana com os dados atuais.",
+    "calendarViewToggleAria": "Selecionar vista do calendário de nutrição",
+    "selectDayAria": "Selecionar dia {{date}}",
+    "selectWeekDayAria": "Selecionar {{day}} com {{meals}} refeições e {{calories}} kcal"
   }
 }

@@ -1022,7 +1022,10 @@
       }
     },
     "weeklyEmptyTitle": "Weekly view unavailable",
-    "weeklyEmptySubtitle": "There are no meals for this week with the current data yet."
+    "weeklyEmptySubtitle": "There are no meals for this week with the current data yet.",
+    "calendarViewToggleAria": "Select nutrition calendar view",
+    "selectDayAria": "Select day {{date}}",
+    "selectWeekDayAria": "Select {{day}} with {{meals}} meals and {{calories}} kcal"
   },
   "training": {
     "formTitle": "Plan details",

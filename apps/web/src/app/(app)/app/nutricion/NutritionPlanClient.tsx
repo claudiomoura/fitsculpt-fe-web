@@ -2028,6 +2028,7 @@ const nutritionPlanDetails = profile ? (
                       options={calendarOptions.map((option) => ({ id: option.value, label: option.label }))}
                       value={calendarView}
                       onChange={(id) => setCalendarView(id as typeof calendarView)}
+                      ariaLabel={t("nutrition.calendarViewToggleAria")}
                     />
                   </div>
 
@@ -2046,6 +2047,7 @@ const nutritionPlanDetails = profile ? (
                               type="button"
                               className={`calendar-month-cell ${isCurrentMonth ? "" : "is-muted"} ${entry ? "has-plan" : ""} ${isSameDay(date, today) ? "is-today" : ""}`}
                               onClick={() => setSelectedDate(date)}
+                              aria-label={t("nutrition.selectDayAria", { date: date.toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "long" }) })}
                             >
                               <span>{date.getDate()}</span>
                               {entry ? <span className="calendar-dot" /> : null}
@@ -2097,7 +2099,7 @@ const nutritionPlanDetails = profile ? (
                       {hasWeeklyMeals ? (
                         <div className="nutrition-week-grid-kpis">
                           {weekGridDays.map((day) => (
-                            <button key={`${day.id}-meta`} type="button" className={`nutrition-week-kpi ${day.selected ? "is-selected" : ""}`} onClick={() => {
+                            <button key={`${day.id}-meta`} type="button" className={`nutrition-week-kpi ${day.selected ? "is-selected" : ""}`} aria-label={t("nutrition.selectWeekDayAria", { day: day.label, meals: day.mealCount, calories: Math.round(day.dayCalories) })} onClick={() => {
                               const nextDate = parseDate(day.id);
                               if (nextDate) setSelectedDate(nextDate);
                             }}>
