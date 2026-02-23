@@ -1,7 +1,8 @@
 import es from "@/messages/es.json";
 import en from "@/messages/en.json";
+import pt from "@/messages/pt.json";
 
-export const messages = { es, en } as const;
+export const messages = { es, en, pt } as const;
 
 export type Locale = keyof typeof messages;
 export type MessageValues = Record<string, string | number | boolean | null | undefined>;
@@ -9,21 +10,42 @@ export type MessageValues = Record<string, string | number | boolean | null | un
 export const DEFAULT_LOCALE: Locale = "es";
 
 export function resolveLocale(value?: string | null): Locale {
-  return value === "en" ? "en" : "es";
+  if (!value) return DEFAULT_LOCALE;
+
+  const normalized = value.toLowerCase();
+  if (normalized === "en" || normalized === "en-us") return "en";
+  if (normalized === "pt" || normalized === "pt-pt" || normalized === "pt_pt") return "pt";
+
+  return "es";
 }
 
 export function getMessage(locale: Locale, key: string, values?: MessageValues) {
   const parts = key.split(".");
-  let current: unknown = messages[locale];
-  for (const part of parts) {
-    if (typeof current !== "object" || current === null) return key;
-    current = (current as Record<string, unknown>)[part];
+  const fallbacks = [locale, "en", DEFAULT_LOCALE].filter((value, index, array): value is Locale => array.indexOf(value) === index);
+
+  let message: string | null = null;
+
+  for (const fallbackLocale of fallbacks) {
+    let current: unknown = messages[fallbackLocale];
+
+    for (const part of parts) {
+      if (typeof current !== "object" || current === null) {
+        current = null;
+        break;
+      }
+      current = (current as Record<string, unknown>)[part];
+    }
+
+    if (typeof current === "string") {
+      message = current;
+      break;
+    }
   }
-  if (typeof current !== "string") return key;
 
-  if (!values) return current;
+  if (!message) return key;
+  if (!values) return message;
 
-  return current.replace(/\{(\w+)\}/g, (_, token: string) => {
+  return message.replace(/\{(\w+)\}/g, (_, token: string) => {
     const value = values[token];
     return value === undefined ? `{${token}}` : String(value);
   });
@@ -34,5 +56,7 @@ export function getLocaleCookie(locale: Locale) {
 }
 
 export function getLocaleCode(locale: Locale) {
-  return locale === "en" ? "en-US" : "es-ES";
+  if (locale === "en") return "en-US";
+  if (locale === "pt") return "pt-PT";
+  return "es-ES";
 }

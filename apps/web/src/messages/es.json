@@ -3009,7 +3009,9 @@
         "es": "ES",
         "en": "EN",
         "switchToEs": "Cambiar idioma a español",
-        "switchToEn": "Cambiar idioma a inglés"
+        "switchToEn": "Cambiar idioma a inglés",
+        "pt": "PT",
+        "switchToPt": "Cambiar a portugués"
       }
     },
     "hero": {

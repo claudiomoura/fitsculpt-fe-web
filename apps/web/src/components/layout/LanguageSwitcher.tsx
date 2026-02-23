@@ -31,6 +31,15 @@ export default function LanguageSwitcher({ showLabel = false }: LanguageSwitcher
         >
           EN
         </button>
+        <button
+          type="button"
+          className={`nav-language-option ${locale === "pt" ? "is-active" : ""}`}
+          aria-pressed={locale === "pt"}
+          aria-label={`${t("ui.language")}: PT`}
+          onClick={() => setLocale("pt")}
+        >
+          PT
+        </button>
       </div>
     </div>
   );
