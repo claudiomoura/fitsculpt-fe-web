@@ -3045,10 +3045,24 @@ label {
   display: grid;
   gap: 10px;
   position: relative;
+  scroll-margin-top: 90px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .library-card:hover {
   text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-card {
+    transition: none;
+  }
+
+  .library-card:hover {
+    transform: none;
+  }
 }
 
 .library-card:focus-visible {
@@ -3073,10 +3087,25 @@ label {
   text-decoration: none;
 }
 
+.library-favorite-button:focus-visible,
+.library-add-button:focus-visible {
+  outline: 3px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
 .library-favorite-button {
   position: absolute;
   top: 12px;
   right: 12px;
+  z-index: 1;
+  min-height: 36px;
+  min-width: 44px;
+}
+
+.library-add-button {
+  position: absolute;
+  top: 12px;
+  right: 108px;
   z-index: 1;
   min-height: 36px;
   min-width: 44px;

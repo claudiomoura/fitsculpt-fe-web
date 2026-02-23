@@ -109,7 +109,8 @@ export function ExerciseCard({
       <Button
         variant="secondary"
         size="sm"
-        className="library-favorite-button"
+        className="library-add-button"
+        aria-label={addLabel}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
