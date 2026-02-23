@@ -11,7 +11,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
-    "e2e:ui": "playwright test --ui"
+    "e2e:ui": "playwright test --ui",
+    "lint:ds": "node scripts/lint-design-system-guardrails.mjs"
   },
   "dependencies": {
     "next": "16.1.1",
