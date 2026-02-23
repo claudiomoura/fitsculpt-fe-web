@@ -105,3 +105,36 @@ Then map these to CSS variables or style context in the professional layout prov
 - ✅ Admin backoffice and trainer dashboards
 - ✅ Internal operations UIs where denser/stronger hierarchy is needed
 - ❌ End-user shell by default (unless explicitly migrated in another PR)
+
+## Motion tokens and transition utilities
+
+Use shared motion tokens for interactive states so components stay in the 150–200ms range.
+
+### Available tokens
+
+- `duration.hover` = `150ms`
+- `duration.normal` = `200ms`
+- `easing.standard` for most UI transitions
+- `transition.color`, `transition.surface`, `transition.transform`, `transition.emphasis`
+
+### Usage in DS components
+
+```ts
+import { createTransition, transition } from '@/design-system';
+
+const buttonTransition = createTransition('color');
+// => "color 150ms cubic-bezier(0.2, 0, 0, 1), ..."
+
+const cardTransition = createTransition('surface', transition.surface.properties);
+```
+
+```tsx
+// Example: inline style for a shared DS primitive
+<div
+  style={{
+    transition: createTransition('surface'),
+  }}
+/>
+```
+
+If you need a new transition behavior, add it to `motion.ts` first and reference it semantically from DS components.
