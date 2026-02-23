@@ -1962,7 +1962,14 @@
     "loadErrorList": "We couldn't load your plans.",
     "empty": "You don't have diet plans yet.",
     "emptyCta": "Create a nutrition plan",
-    "daysLabel": "days"
+    "daysLabel": "days",
+    "searchLabel": "Search plans",
+    "searchHelper": "Filter your saved diet plans by title.",
+    "sectionTitle": "Saved diet plans",
+    "unavailable": "Diet plans are not available in this environment yet.",
+    "emptyDescription": "Create a nutrition plan to see it listed here.",
+    "planMeta": "Starts {date} · {days} days",
+    "viewDetail": "View detail"
   },
   "dietPlanDetail": {
     "backToPlans": "Back to diet plans",
