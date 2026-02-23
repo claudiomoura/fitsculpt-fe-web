@@ -7204,14 +7204,13 @@ function toLegacyGymMembershipState(state: StableGymMembershipState): "none" | "
 }
 
 function serializeGymMembership(
-  membership:
-    | {
-        status: "PENDING" | "ACTIVE" | "REJECTED";
-        role: "ADMIN" | "TRAINER" | "MEMBER";
-        gym: { id: string; name: string };
-      }
-    | null,
-) {
+  membership: {
+    gym: { id: string; name: string }
+    status: GymMembershipStatus
+    role: GymRole
+  } | null
+)
+ {
   const status = toStableGymMembershipState(membership?.status);
   const gym = status === "NONE" ? null : membership?.gym ?? null;
   const role = status === "NONE" ? null : membership?.role ?? null;
