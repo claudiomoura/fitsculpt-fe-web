@@ -369,6 +369,11 @@ npm run db:import:free-exercise-db --prefix apps/api
 Guard de seguridad:
 - en `NODE_ENV=production` no corre salvo que `ALLOW_IMPORT=1`.
 
+Fuente de datos por defecto:
+- usa el catálogo local `apps/web/public/exercise-db/exercises/*.json`.
+- si no encuentra JSON local, hace fallback al dataset remoto de `free-exercise-db`.
+- si la DB ya tiene el catálogo `source=free-exercise-db` (mismo o mayor tamaño), el import se omite.
+
 Bootstrap opcional:
 
 ```bash
