@@ -482,6 +482,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     router.push(`/app/biblioteca/${exerciseId}?${detailParams.toString()}`);
   };
 
+  const handleLibraryNavigate = (dayDate?: Date) => {
+    const ctxKey = storePlanContext();
+    const dayKey = dayDate ? toDateKey(dayDate) : null;
+    const params = new URLSearchParams();
+    params.set("from", "plan");
+    if (dayKey) {
+      params.set("dayKey", dayKey);
+    }
+    if (ctxKey) {
+      params.set("ctx", ctxKey);
+    }
+    router.push(`/app/biblioteca${params.toString() ? `?${params.toString()}` : ""}`);
+  };
+
   const getExerciseLibraryId = (exercise: Exercise) => {
     const normalizedExerciseId = exercise.exerciseId?.trim();
     return normalizedExerciseId ? normalizedExerciseId : undefined;
@@ -1192,7 +1206,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                 {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
                               </span>
                               {!exerciseLibraryId ? (
-                                <small className="muted">{safeT("training.techniqueUnavailable", "Técnica no disponible para este ejercicio")}</small>
+                                <button
+                                  type="button"
+                                  className="btn secondary"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleLibraryNavigate(dayDate ?? undefined);
+                                  }}
+                                >
+                                  {safeT("training.openFromLibrary", "Abrir en biblioteca")}
+                                </button>
                               ) : (
                                 <button
                                   type="button"
@@ -1373,7 +1396,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             </button>
                           </>
                         ) : (
-                          <small className="muted">{safeT("training.techniqueUnavailable", "Técnica no disponible para este ejercicio")}</small>
+                          <button
+                            type="button"
+                            className="btn secondary"
+                            onClick={() => handleLibraryNavigate(selectedEntryDate)}
+                          >
+                            {safeT("training.openFromLibrary", "Abrir en biblioteca")}
+                          </button>
                         )}
                       </div>
                     </article>
