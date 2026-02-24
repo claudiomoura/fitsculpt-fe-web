@@ -12,13 +12,15 @@ export async function fetchExerciseCatalog(prisma: PrismaClient): Promise<Exerci
         id: true,
         name: true,
         imageUrl: true,
+        equipment: true,
+        mainMuscleGroup: true,
       },
       orderBy: { name: "asc" },
     });
   }
 
   return prisma.$queryRaw<ExerciseCatalogItem[]>(Prisma.sql`
-    SELECT "id", "name", "imageUrl"
+    SELECT "id", "name", "imageUrl", "equipment", "mainMuscleGroup"
     FROM "Exercise"
     ORDER BY "name" ASC
   `);
