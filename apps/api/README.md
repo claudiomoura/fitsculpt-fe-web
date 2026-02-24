@@ -81,6 +81,22 @@ npm run prisma:migrate      # local only (NUNCA no Render)
 npm run test
 ```
 
+## Seed local de exercícios (demo)
+
+Para popular o catálogo de exercícios de forma reproduzível em ambiente local, execute:
+
+```bash
+curl -X POST http://localhost:4000/dev/seed-exercises
+```
+
+Depois valide:
+
+```bash
+curl http://localhost:4000/exercises
+```
+
+Guia rápido consolidado: `README/dev-setup.md`.
+
 
 ## Backups diarios (sin tocar producto)
 
