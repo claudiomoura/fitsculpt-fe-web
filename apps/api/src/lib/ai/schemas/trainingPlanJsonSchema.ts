@@ -33,6 +33,7 @@ export const trainingPlanJsonSchema = {
                   type: "object",
                   additionalProperties: false,
                   properties: {
+                    exerciseId: { type: ["string", "null"] },
                     name: { type: "string" },
                     sets: { type: "number" },
                     reps: { type: "string" },
