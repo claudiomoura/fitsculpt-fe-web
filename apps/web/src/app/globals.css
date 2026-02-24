@@ -284,10 +284,28 @@ main {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 24px;
-  max-width: 1200px;
+  max-width: 1620px;
   width: 100%;
   margin: 0 auto;
   padding: 24px 20px 64px;
+}
+
+.desktop-app-layout {
+  display: grid;
+  gap: 24px;
+}
+
+.desktop-app-layout-main {
+  min-width: 0;
+}
+
+.desktop-app-layout-right {
+  display: none;
+}
+
+.desktop-side-stack {
+  display: grid;
+  gap: 16px;
 }
 
 .app-content {
@@ -676,6 +694,21 @@ main {
   .site-header {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  .desktop-app-layout {
+    grid-template-columns: minmax(0, 1200px) 320px;
+    justify-content: center;
+    align-items: start;
+  }
+
+  .desktop-app-layout-right {
+    display: block;
+    position: sticky;
+    top: 88px;
+    align-self: start;
   }
 }
 

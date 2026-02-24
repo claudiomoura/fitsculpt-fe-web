@@ -14,8 +14,10 @@ import {
 } from "@/design-system";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Workout } from "@/lib/types";
+import AppLayout from "@/components/layout/AppLayout";
 import { HeroWorkout } from "@/components/workout/HeroWorkout";
 import { Periodization } from "@/components/workout/Periodization";
+import WeeklyStats from "@/components/workout/WeeklyStats";
 
 type LoadState = "loading" | "error" | "success";
 
@@ -66,6 +68,8 @@ export default function WorkoutTodayMobileClient() {
   }, [todayWorkout]);
 
   const total = Math.max(todayWorkout?.exercises?.length ?? 0, 1);
+  const estimatedMinutes = todayWorkout?.estimatedDurationMin ?? todayWorkout?.durationMin ?? 45;
+
   const periodizationPhases = useMemo(
     () => [
       { id: "acc", label: "Acumulación", weeks: 3, intensity: "medium" as const, selected: true },
@@ -104,7 +108,7 @@ export default function WorkoutTodayMobileClient() {
     );
   }
 
-  return (
+  const mainContent = (
     <PageContainer as="section" maxWidth="md" className="py-4 pb-24">
       <Stack gap="4">
         <HeaderCompact title="Entrenamiento de hoy" subtitle="Mobile Today" />
@@ -112,19 +116,14 @@ export default function WorkoutTodayMobileClient() {
         <HeroWorkout
           title={todayWorkout.name}
           subtitle={todayWorkout.notes ?? "Sesión enfocada en rendimiento y técnica."}
-          meta={`${todayWorkout.estimatedDurationMin ?? todayWorkout.durationMin ?? 45} min`}
+          meta={`${estimatedMinutes} min`}
           badge={todayWorkout.goal ?? "Hoy"}
           ctaLabel="Iniciar entrenamiento"
           ctaHref={`/app/entrenamientos/${todayWorkout.id}/start`}
         />
 
         <section className="rounded-2xl border border-border bg-surface p-4">
-          <WorkoutProgressBar
-            label="Progreso"
-            value={completed}
-            max={total}
-            valueLabel={`${completed} de ${total}`}
-          />
+          <WorkoutProgressBar label="Progreso" value={completed} max={total} valueLabel={`${completed} de ${total}`} />
         </section>
 
         <Stack gap="3">
@@ -145,4 +144,13 @@ export default function WorkoutTodayMobileClient() {
       </Stack>
     </PageContainer>
   );
+
+  const rightPanel = (
+    <div className="desktop-side-stack">
+      <WeeklyStats completedExercises={completed} totalExercises={total} estimatedMinutes={estimatedMinutes} />
+      <Periodization phases={periodizationPhases} />
+    </div>
+  );
+
+  return <AppLayout main={mainContent} rightPanel={rightPanel} />;
 }
