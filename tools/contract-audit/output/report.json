@@ -1,0 +1,255 @@
+{
+  "generatedAt": "2026-02-24T19:04:06.987Z",
+  "summary": {
+    "totalBffRoutes": 108,
+    "totalBackendRoutes": 105,
+    "matched": 91,
+    "missing": 17
+  },
+  "missing": [
+    {
+      "sourceFile": "apps/web/src/app/api/admin/gym-join-requests/[membershipId]/[action]/route.ts",
+      "method": "POST",
+      "bffPath": "/api/admin/gym-join-requests/:membershipId/:action",
+      "backendTarget": "/api/admin/gym-join-requests/:param/:param"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/plan/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/plan",
+      "backendTarget": "/api/admin/users/:param/plan"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/tokens/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/tokens",
+      "backendTarget": "/api/admin/users/:param/tokens"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/tokens-allowance/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/tokens-allowance",
+      "backendTarget": "/api/admin/users/:param/tokens-allowance"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/tokens/add/route.ts",
+      "method": "POST",
+      "bffPath": "/api/admin/users/:id/tokens/add",
+      "backendTarget": "/api/admin/users/:param/tokens/add"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/tokens/balance/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/tokens/balance",
+      "backendTarget": "/api/admin/users/:param/tokens/balance"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/assign-training-plan/route.ts",
+      "method": "POST",
+      "bffPath": "/api/trainer/assign-training-plan",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/capabilities/route.ts",
+      "method": "GET",
+      "bffPath": "/api/trainer/capabilities",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/clients/[id]/notes/route.ts",
+      "method": "GET",
+      "bffPath": "/api/trainer/clients/:id/notes",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/clients/[id]/notes/route.ts",
+      "method": "POST",
+      "bffPath": "/api/trainer/clients/:id/notes",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/join-requests/route.ts",
+      "method": "GET",
+      "bffPath": "/api/trainer/join-requests",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/join-requests/[membershipId]/[action]/route.ts",
+      "method": "POST",
+      "bffPath": "/api/trainer/join-requests/:membershipId/:action",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/join-requests/[membershipId]/accept/route.ts",
+      "method": "POST",
+      "bffPath": "/api/trainer/join-requests/:membershipId/accept",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/join-requests/[membershipId]/reject/route.ts",
+      "method": "POST",
+      "bffPath": "/api/trainer/join-requests/:membershipId/reject",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/members/route.ts",
+      "method": "GET",
+      "bffPath": "/api/trainer/members",
+      "backendTarget": null
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/route.ts",
+      "method": "PUT",
+      "bffPath": "/api/trainer/plans/:id",
+      "backendTarget": "/api/trainer/plans/:param"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/training-plans/active/route.ts",
+      "method": "POST",
+      "bffPath": "/api/training-plans/active",
+      "backendTarget": null
+    }
+  ],
+  "focusRoutes": [
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/block/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/block",
+      "backendTarget": "/api/admin/users/:param/block",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/plan/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/plan",
+      "backendTarget": "/api/admin/users/:param/plan",
+      "status": "missing"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/reset-password/route.ts",
+      "method": "POST",
+      "bffPath": "/api/admin/users/:id/reset-password",
+      "backendTarget": "/api/admin/users/:param/reset-password",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/tokens/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/tokens",
+      "backendTarget": "/api/admin/users/:param/tokens",
+      "status": "missing"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/tokens-allowance/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/tokens-allowance",
+      "backendTarget": "/api/admin/users/:param/tokens-allowance",
+      "status": "missing"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/tokens/add/route.ts",
+      "method": "POST",
+      "bffPath": "/api/admin/users/:id/tokens/add",
+      "backendTarget": "/api/admin/users/:param/tokens/add",
+      "status": "missing"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/tokens/balance/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/tokens/balance",
+      "backendTarget": "/api/admin/users/:param/tokens/balance",
+      "status": "missing"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/unblock/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/admin/users/:id/unblock",
+      "backendTarget": "/api/admin/users/:param/unblock",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/admin/users/[id]/verify-email/route.ts",
+      "method": "POST",
+      "bffPath": "/api/admin/users/:id/verify-email",
+      "backendTarget": "/api/admin/users/:param/verify-email",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/billing/plans/route.ts",
+      "method": "GET",
+      "bffPath": "/api/billing/plans",
+      "backendTarget": null,
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/route.ts",
+      "method": "GET",
+      "bffPath": "/api/trainer/plans",
+      "backendTarget": "/api/trainer/plans",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/route.ts",
+      "method": "POST",
+      "bffPath": "/api/trainer/plans",
+      "backendTarget": "/api/trainer/plans",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/route.ts",
+      "method": "DELETE",
+      "bffPath": "/api/trainer/plans/:id",
+      "backendTarget": "/api/trainer/plans/:param",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/route.ts",
+      "method": "GET",
+      "bffPath": "/api/trainer/plans/:id",
+      "backendTarget": "/api/trainer/plans/:param",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/trainer/plans/:id",
+      "backendTarget": "/api/trainer/plans/:param",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/route.ts",
+      "method": "PUT",
+      "bffPath": "/api/trainer/plans/:id",
+      "backendTarget": "/api/trainer/plans/:param",
+      "status": "missing"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/days/[dayId]/route.ts",
+      "method": "DELETE",
+      "bffPath": "/api/trainer/plans/:id/days/:dayId",
+      "backendTarget": "/api/trainer/plans/:param/days/:param",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/days/[dayId]/exercises/route.ts",
+      "method": "POST",
+      "bffPath": "/api/trainer/plans/:id/days/:dayId/exercises",
+      "backendTarget": "/api/trainer/plans/:param/days/:param/exercises",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/days/[dayId]/exercises/[exerciseId]/route.ts",
+      "method": "DELETE",
+      "bffPath": "/api/trainer/plans/:id/days/:dayId/exercises/:exerciseId",
+      "backendTarget": "/api/trainer/plans/:param/days/:param/exercises/:param",
+      "status": "matched"
+    },
+    {
+      "sourceFile": "apps/web/src/app/api/trainer/plans/[id]/days/[dayId]/exercises/[exerciseId]/route.ts",
+      "method": "PATCH",
+      "bffPath": "/api/trainer/plans/:id/days/:dayId/exercises/:exerciseId",
+      "backendTarget": "/api/trainer/plans/:param/days/:param/exercises/:param",
+      "status": "matched"
+    }
+  ]
+}
