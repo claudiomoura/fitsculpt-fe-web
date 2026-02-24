@@ -6665,6 +6665,7 @@ app.post("/training-plans", async (request, reply) => {
 });
 
 app.get("/training-plans/:id", async (request, reply) => {
+  const reqId = request.id;
   try {
     const user = await requireUser(request);
     const { id } = trainingPlanParamsSchema.parse(request.params);
@@ -6700,20 +6701,19 @@ app.get("/training-plans/:id", async (request, reply) => {
     return enrichedPlan;
   } catch (error) {
     if (error instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    }
+    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.statusCode) {
       return handleRequestError(reply, error);
     }
-
-    const typed = error as { statusCode?: number; code?: string };
-    if (typed.statusCode === 404) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-
-    logTrainingPlanUnexpectedError(request, error, "training plan by id failed");
-    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId: request.id });
+    request.log.error({ reqId, err: error }, "training-plan by id failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId });
   }
 });
 
 app.get("/training-plans/active", async (request, reply) => {
+  const reqId = request.id;
   try {
     const user = await requireUser(request);
     const { includeDays } = trainingPlanActiveQuerySchema.parse(request.query);
@@ -6738,7 +6738,7 @@ app.get("/training-plans/active", async (request, reply) => {
           ? {
               days: {
                 orderBy: { order: "asc" },
-                include: { exercises: { orderBy: { id: "asc" } }, },
+                include: { exercises: { orderBy: { id: "asc" } } },
               },
             }
           : undefined,
@@ -6797,16 +6797,14 @@ app.get("/training-plans/active", async (request, reply) => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    }
+    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.statusCode) {
       return handleRequestError(reply, error);
     }
-
-    const typed = error as { statusCode?: number; code?: string };
-    if (typed.statusCode === 404) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-
-    logTrainingPlanUnexpectedError(request, error, "active training plan failed");
-    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId: request.id });
+    request.log.error({ reqId, err: error }, "training-plan active failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId });
   }
 });
 
