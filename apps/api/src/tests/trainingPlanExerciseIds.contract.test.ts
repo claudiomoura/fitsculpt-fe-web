@@ -52,6 +52,31 @@ assert.equal(resolvedValidPlan.days[0]?.exercises[1]?.exerciseId, "ex_002");
 assert.equal(resolvedValidPlan.days[0]?.exercises[1]?.imageUrl, "https://cdn.example/press.jpg");
 assert.equal(resolvedValidPlan.days[0]?.exercises[2]?.exerciseId, "ex_003");
 
+const englishCatalog = [
+  {
+    id: "all-fours-quad-stretch-id",
+    name: "All Fours Quad Stretch",
+    imageUrl: "https://cdn.example/all-fours-quad-stretch.jpg",
+  },
+];
+
+const englishPlan: Plan = {
+  title: "English resolution",
+  days: [
+    {
+      label: "Day 1",
+      exercises: [{ name: "All Fours Quad Stretch", sets: 2, reps: "30s" }],
+    },
+  ],
+};
+
+const resolvedEnglishPlan = assertAllPlanExercisesExist(englishPlan, englishCatalog);
+assert.equal(resolvedEnglishPlan.days[0]?.exercises[0]?.exerciseId, "all-fours-quad-stretch-id");
+assert.equal(
+  resolvedEnglishPlan.days[0]?.exercises[0]?.imageUrl,
+  "https://cdn.example/all-fours-quad-stretch.jpg"
+);
+
 const invalidPlan: Plan = {
   title: "Plan inválido",
   days: [
@@ -67,7 +92,7 @@ const invalidPlan: Plan = {
 
 assert.throws(
   () => assertAllPlanExercisesExist(invalidPlan, catalog),
-  /Generated plan includes unresolved exercises: Día 2: Ejercicio fantasma, Día 2: Otro inventado/
+  /Generated plan includes unresolved exercises: Día 2: ejercicio fantasma, Día 2: otro inventado/
 );
 
 console.log("training plan exercise ids contract test passed");
