@@ -4,6 +4,10 @@ import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
 
 export const dynamic = "force-dynamic";
 
+function toGatewayStatus(status: number) {
+  return status >= 500 ? 502 : status;
+}
+
 export async function POST(request: Request) {
   const { header: authCookie, debug } = await getBackendAuthCookie(request);
   if (!authCookie) {
@@ -38,6 +42,23 @@ export async function POST(request: Request) {
 
     try {
       const data = JSON.parse(responseText);
+      if (!response.ok) {
+        if (typeof data?.error === "string") {
+          return NextResponse.json(data, { status: toGatewayStatus(response.status) });
+        }
+
+        return NextResponse.json(
+          {
+            error: "AI_REQUEST_FAILED",
+            debug: {
+              backendStatus: response.status,
+              reason: "INVALID_BACKEND_ERROR_PAYLOAD",
+            },
+          },
+          { status: toGatewayStatus(response.status) },
+        );
+      }
+
       return NextResponse.json(data, { status: response.status });
     } catch (_err) {
       return NextResponse.json(
