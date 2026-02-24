@@ -263,6 +263,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiLoading, setAiLoading] = useState(false);
   const [aiConfirmSaving, setAiConfirmSaving] = useState(false);
   const [aiPreviewPlan, setAiPreviewPlan] = useState<TrainingPlan | null>(null);
+  const [aiActionableError, setAiActionableError] = useState<string | null>(null);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
   const [canManageManualDays] = useState<boolean>(false);
@@ -741,6 +742,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
     setAiLoading(true);
     setError(null);
+    setAiActionableError(null);
     try {
       const result = await requestAiTrainingPlan(profile, {
         goal: form.goal,
@@ -763,6 +765,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     } catch (err) {
       if (err instanceof AiPlanRequestError && err.message === "INSUFFICIENT_TOKENS") {
         setError(t("ai.insufficientTokens"));
+      } else if (err instanceof AiPlanRequestError && err.status === 503 && err.code === "EXERCISE_CATALOG_UNAVAILABLE") {
+        setAiActionableError(err.hint?.trim() || "Catálogo no disponible — ejecuta seed");
       } else if (err instanceof Error && err.message === "INVALID_AI_OUTPUT") {
         setError(t("training.aiInvalidOutput"));
       } else if (err instanceof AiPlanRequestError && err.status === 400) {
@@ -1100,6 +1104,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
  
                 </div>
+
+                {aiActionableError ? (
+                  <div className="mt-12">
+                    <ErrorBlock
+                      title={t("training.errorTitle")}
+                      description={aiActionableError}
+                      retryAction={
+                        <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                          {t("ui.retry")}
+                        </button>
+                      }
+                    />
+                  </div>
+                ) : null}
 
                 <div className="training-progress">
                   <div className="training-progress-head">
