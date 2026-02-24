@@ -13,7 +13,7 @@ async function main() {
     await runStep('prisma db seed', ['node', ['scripts/prisma-runner.mjs', 'db', 'seed']]);
   }
 
-  const importExercises = process.env.IMPORT_EXERCISES === '1';
+  const importExercises = (process.env.IMPORT_EXERCISES === '1') || nodeEnv !== 'production';
   if (importExercises) {
     await runStep('db:import:free-exercise-db', ['npm', ['run', 'db:import:free-exercise-db']]);
   }
