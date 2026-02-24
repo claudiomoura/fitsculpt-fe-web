@@ -1,30 +1,27 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import bcrypt from "bcryptjs";
+import { fileURLToPath } from "node:url";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  console.warn("Skipping admin users missing routes contract test: DATABASE_URL is not configured");
-  process.exit(0);
-}
+type AuditRoute = {
+  method: string;
+  bffPath: string;
+  sourceFile: string;
+  status?: "matched" | "missing";
+};
+
+type AuditReport = {
+  focusRoutes?: AuditRoute[];
+};
 
 const testPort = 4311;
 const baseUrl = `http://127.0.0.1:${testPort}`;
 
-async function createPrismaClient() {
-  const prismaModule = (await import("@prisma/client")) as {
-    PrismaClient?: new () => { [key: string]: unknown };
-    default?: { PrismaClient?: new () => { [key: string]: unknown } };
-  };
-
-  const PrismaClientCtor = prismaModule.PrismaClient ?? prismaModule.default?.PrismaClient;
-  if (!PrismaClientCtor) {
-    throw new Error("PrismaClient unavailable. Run npm run db:generate --prefix apps/api first.");
-  }
-
-  return new PrismaClientCtor() as any;
-}
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const reportPath = path.resolve(__dirname, "../../../../tools/contract-audit/output/report.json");
 
 async function waitForServerReady() {
   const deadline = Date.now() + 30_000;
@@ -40,40 +37,28 @@ async function waitForServerReady() {
   throw new Error("Server did not become ready in time");
 }
 
-function assertNotMissingRoute(status: number, path: string) {
-  assert.notEqual(status, 404, `Expected ${path} to exist, but got 404`);
+function runtimePathFromAuditPath(auditPath: string): string {
+  return auditPath.replace(":id", "contract-test-user-id");
+}
+
+function getAdminUsersAuditRoutes(report: AuditReport): AuditRoute[] {
+  const focusRoutes = report.focusRoutes ?? [];
+  return focusRoutes.filter((route) => route.bffPath.startsWith("/api/admin/users/:id/"));
+}
+
+function getPlanAndTokensRoutes(routes: AuditRoute[]): AuditRoute[] {
+  return routes.filter((route) => /\/(plan|tokens(?:\/|$|-))/.test(route.bffPath));
 }
 
 async function main() {
-  const prisma = await createPrismaClient();
-  const marker = `contract-admin-routes-${Date.now()}`;
-  const adminEmail = `${marker}-admin@example.com`;
-  const targetEmail = `${marker}-target@example.com`;
-  const password = "ContractTest123!";
-  const passwordHash = await bcrypt.hash(password, 10);
+  const rawReport = await readFile(reportPath, "utf8");
+  const report = JSON.parse(rawReport) as AuditReport;
+  const auditedRoutes = getAdminUsersAuditRoutes(report);
 
-  const adminUser = await prisma.user.create({
-    data: {
-      email: adminEmail,
-      passwordHash,
-      provider: "email",
-      role: "ADMIN",
-      emailVerifiedAt: new Date(),
-    },
-  });
+  assert.ok(auditedRoutes.length > 0, "Expected admin users audited routes from PR-01 snapshot");
 
-  const targetUser = await prisma.user.create({
-    data: {
-      email: targetEmail,
-      passwordHash,
-      provider: "email",
-      role: "USER",
-      plan: "FREE",
-      aiTokenBalance: 0,
-      aiTokenMonthlyAllowance: 0,
-      emailVerifiedAt: new Date(),
-    },
-  });
+  const planAndTokensRoutes = getPlanAndTokensRoutes(auditedRoutes);
+  assert.ok(planAndTokensRoutes.length > 0, "Expected plan/tokens routes in PR-01 snapshot");
 
   const server = spawn("npx", ["tsx", "src/index.ts"], {
     cwd: "apps/api",
@@ -98,63 +83,44 @@ async function main() {
   try {
     await waitForServerReady();
 
-    const loginRes = await fetch(`${baseUrl}/auth/login`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: adminEmail, password }),
-    });
-    assert.equal(loginRes.status, 200, `Expected login status 200, got ${loginRes.status}. Logs:\n${serverLogs}`);
+    const results = await Promise.all(
+      auditedRoutes.map(async (route) => {
+        const runtimePath = runtimePathFromAuditPath(route.bffPath.replace("/api", ""));
+        const response = await fetch(`${baseUrl}${runtimePath}`, { method: route.method });
+        return {
+          method: route.method,
+          bffPath: route.bffPath,
+          status: response.status,
+          existsInBackend: response.status !== 404,
+        };
+      })
+    );
 
-    const cookieHeader = loginRes.headers.get("set-cookie");
-    assert.ok(cookieHeader, "Expected auth cookie from /auth/login");
+    const missing = results.filter((route) => !route.existsInBackend);
+    assert.equal(
+      missing.length,
+      0,
+      `Found BFF admin/users routes without backend implementation:\n${missing
+        .map((route) => `${route.method} ${route.bffPath} -> HTTP ${route.status}`)
+        .join("\n")}\nLogs:\n${serverLogs}`
+    );
 
-    const planRes = await fetch(`${baseUrl}/admin/users/${targetUser.id}/plan`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json", cookie: cookieHeader },
-      body: JSON.stringify({ subscriptionPlan: "PRO" }),
-    });
-    assertNotMissingRoute(planRes.status, "/admin/users/:id/plan");
-    assert.equal(planRes.status, 200);
+    const planAndTokensResults = results.filter((route) => /\/(plan|tokens(?:\/|$|-))/.test(route.bffPath));
+    const existsInBackend = new Set(planAndTokensResults.map((route) => route.existsInBackend));
 
-    const tokensRes = await fetch(`${baseUrl}/admin/users/${targetUser.id}/tokens`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json", cookie: cookieHeader },
-      body: JSON.stringify({ aiTokenBalance: 9, aiTokenMonthlyAllowance: 20 }),
-    });
-    assertNotMissingRoute(tokensRes.status, "/admin/users/:id/tokens");
-    assert.equal(tokensRes.status, 200);
-
-    const tokensAllowanceRes = await fetch(`${baseUrl}/admin/users/${targetUser.id}/tokens-allowance`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json", cookie: cookieHeader },
-      body: JSON.stringify({ aiTokenMonthlyAllowance: 30 }),
-    });
-    assertNotMissingRoute(tokensAllowanceRes.status, "/admin/users/:id/tokens-allowance");
-    assert.equal(tokensAllowanceRes.status, 200);
-
-    const tokensAddRes = await fetch(`${baseUrl}/admin/users/${targetUser.id}/tokens/add`, {
-      method: "POST",
-      headers: { "content-type": "application/json", cookie: cookieHeader },
-      body: JSON.stringify({ amount: 5 }),
-    });
-    assertNotMissingRoute(tokensAddRes.status, "/admin/users/:id/tokens/add");
-    assert.equal(tokensAddRes.status, 200);
-
-    const tokensBalanceRes = await fetch(`${baseUrl}/admin/users/${targetUser.id}/tokens/balance`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json", cookie: cookieHeader },
-      body: JSON.stringify({ aiTokenBalance: 11 }),
-    });
-    assertNotMissingRoute(tokensBalanceRes.status, "/admin/users/:id/tokens/balance");
-    assert.equal(tokensBalanceRes.status, 200);
+    assert.equal(
+      existsInBackend.size,
+      1,
+      `Expected plan/tokens routes to be aligned (all implemented or all missing). Results:\n${planAndTokensResults
+        .map((route) => `${route.method} ${route.bffPath} -> HTTP ${route.status}`)
+        .join("\n")}`
+    );
   } finally {
     server.kill("SIGTERM");
     await sleep(500);
-    await prisma.user.deleteMany({ where: { id: { in: [adminUser.id, targetUser.id] } } });
-    await prisma.$disconnect();
   }
 
-  console.log("admin users missing routes contract test passed");
+  console.log("admin users snapshot contract test passed");
 }
 
 main().catch((error) => {

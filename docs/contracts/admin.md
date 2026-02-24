@@ -49,3 +49,20 @@ Snapshot actual: `tools/contract-audit/output/report.json` y `tools/contract-aud
 | PATCH | `/api/admin/users/:id/tokens/balance` | **Implementar backend** |
 | PUT | `/api/trainer/plans/:id` | **Eliminar BFF** (backend ya expone PATCH para update) |
 
+
+## Ejecutar contract test Admin Users (BFF ↔ Backend)
+
+Este check usa el snapshot de PR-01 (`tools/contract-audit/output/report.json`) y valida en runtime que cada ruta BFF auditada de `/api/admin/users/:id/*` existe realmente en backend (no responde `404`).
+
+Comandos:
+
+```bash
+npm -w apps/api run test
+```
+
+Para validar DoD de este frente junto con FE:
+
+```bash
+npm -w apps/api run test
+npm -w apps/web run build
+```
