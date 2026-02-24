@@ -1184,6 +1184,7 @@ const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const aiTrainingExerciseSchema = z
   .object({
+    exerciseId: z.string().min(1).nullable().optional(),
     name: z.string().min(1),
     sets: aiTrainingSeriesSchema,
     reps: aiTrainingRepsSchema.nullable(),
@@ -1659,7 +1660,7 @@ function buildTipTemplate() {
   };
 }
 
-function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = false) {
+function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = false, exerciseCatalogPrompt = "") {
   const secondaryGoals = data.goals?.length ? data.goals.join(", ") : "no especificados";
   const cardio = typeof data.includeCardio === "boolean" ? (data.includeCardio ? "sí" : "no") : "no especificado";
   const mobility =
@@ -1671,7 +1672,11 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = fa
   return [
     "Eres un entrenador personal senior. Devuelve SOLO un objeto JSON válido, sin markdown ni texto extra.",
     "Esquema exacto:",
-'{"title":string,"startDate":string|null,"notes":string|null,"days":[{"date":string|null,"label":string,"focus":string,"duration":number,"exercises":[{"name":string,"sets":number,"reps":string|null,"tempo":string|null,"rest":number|null,"notes":string|null}]}]}',    "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
+    '{"title":string,"startDate":string|null,"notes":string|null,"days":[{"date":string|null,"label":string,"focus":string,"duration":number,"exercises":[{"exerciseId":string|null,"name":string,"sets":number,"reps":string|null,"tempo":string|null,"rest":number|null,"notes":string|null}]}]}',
+    "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
+    exerciseCatalogPrompt
+      ? `OBLIGATORIO: usa exerciseId reales de la biblioteca cuando estén disponibles. Biblioteca (id: nombre): ${exerciseCatalogPrompt}`
+      : "",
     "OBLIGATORIO: days.length debe ser EXACTAMENTE el número solicitado (si >7 usa 7).",
     "Máximo 7 días, máximo 5 ejercicios por día, mínimo 3 ejercicios por día.",
     strict ? "REINTENTO: si devuelves menos o más días, la respuesta será rechazada." : "",
@@ -1693,9 +1698,9 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = fa
     "Usa days.length = días por semana (límite 7). label en español consistente (ej: \"Día 1\", \"Día 2\").",
     `Asigna date (YYYY-MM-DD) iniciando en ${data.startDate ?? "la fecha indicada"} y distribuye ${data.daysPerWeek} sesiones dentro de ${daysCount} días.`,
     "En cada día incluye duration en minutos (number).",
-    "En cada ejercicio incluye name (español), sets (number) y reps (string). tempo/rest/notes solo si son cortos.",
+    "En cada ejercicio incluye exerciseId (string si existe), name (español), sets (number) y reps (string). tempo/rest/notes solo si son cortos.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
-    '{"title":"Plan semanal compacto","startDate":"2024-01-01","notes":"Enfoque simple.","days":[{"date":"2024-01-01","label":"Día 1","focus":"Full body","duration":45,"exercises":[{"name":"Sentadilla","sets":3,"reps":"8-10"},{"name":"Press banca","sets":3,"reps":"8-10"},{"name":"Remo con barra","sets":3,"reps":"8-10"}]}]}',
+    '{"title":"Plan semanal compacto","startDate":"2024-01-01","notes":"Enfoque simple.","days":[{"date":"2024-01-01","label":"Día 1","focus":"Full body","duration":45,"exercises":[{"exerciseId":"ex_001","name":"Sentadilla","sets":3,"reps":"8-10"},{"exerciseId":"ex_002","name":"Press banca","sets":3,"reps":"8-10"},{"exerciseId":"ex_003","name":"Remo con barra","sets":3,"reps":"8-10"}]}]}',
   ]
     .filter(Boolean)
     .join(" ");
@@ -2758,6 +2763,99 @@ const exerciseMetadataByName: Record<
 
 function normalizeExerciseName(name: string) {
   return name.trim().replace(/\s+/g, " ");
+}
+
+function normalizeExerciseNameKey(name: string) {
+  return normalizeExerciseName(name)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+type ExerciseCatalogItem = {
+  id: string;
+  name: string;
+};
+
+async function getExerciseCatalog(): Promise<ExerciseCatalogItem[]> {
+  if (hasExerciseClient()) {
+    return prisma.exercise.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  return prisma.$queryRaw<ExerciseCatalogItem[]>(Prisma.sql`
+    SELECT "id", "name"
+    FROM "Exercise"
+    ORDER BY "name" ASC
+  `);
+}
+
+function formatExerciseCatalogForPrompt(catalog: ExerciseCatalogItem[], limit = 120) {
+  if (!catalog.length) return "";
+  return catalog
+    .slice(0, limit)
+    .map((item) => `${item.id}: ${item.name}`)
+    .join(" | ");
+}
+
+function resolveTrainingPlanExerciseIds(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  catalog: ExerciseCatalogItem[]
+) {
+  const byId = new Map(catalog.map((item) => [item.id, item]));
+  const byName = new Map<string, ExerciseCatalogItem>();
+
+  for (const item of catalog) {
+    const key = normalizeExerciseNameKey(item.name);
+    if (!byName.has(key)) {
+      byName.set(key, item);
+    }
+  }
+
+  const unresolved: Array<{ day: string; exercise: string }> = [];
+
+  const days = plan.days.map((day) => ({
+    ...day,
+    exercises: day.exercises.map((exercise) => {
+      const normalizedName = normalizeExerciseName(exercise.name);
+      const idCandidate = exercise.exerciseId?.trim() ?? "";
+      const byProvidedId = idCandidate ? byId.get(idCandidate) : null;
+      const byProvidedName = byName.get(normalizeExerciseNameKey(normalizedName));
+      const resolved = byProvidedId ?? byProvidedName;
+
+      if (!resolved) {
+        unresolved.push({ day: day.label, exercise: normalizedName });
+        return {
+          ...exercise,
+          name: normalizedName,
+          exerciseId: null,
+        };
+      }
+
+      return {
+        ...exercise,
+        name: resolved.name,
+        exerciseId: resolved.id,
+      };
+    }),
+  }));
+
+  if (unresolved.length > 0) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      message: "Generated plan includes exercises that do not exist in the library.",
+      unresolvedExercises: unresolved,
+    });
+  }
+
+  return {
+    ...plan,
+    days,
+  };
 }
 
 type ExerciseMetadata = {
@@ -5178,6 +5276,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
     const data = aiTrainingSchema.parse(request.body);
+    const exerciseCatalog = await getExerciseCatalog();
     const expectedDays = Math.min(data.daysPerWeek, 7);
     const daysCount = Math.min(data.daysCount ?? 7, 14);
     const startDate = parseDateInput(data.startDate) ?? new Date();
@@ -5191,11 +5290,11 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       const normalized = normalizeTrainingPlanDays(template, startDate, daysCount, expectedDays);
       const personalized = applyPersonalization(normalized, { name: data.name });
       assertTrainingMatchesRequest(personalized, expectedDays);
-      await upsertExercisesFromPlan(personalized);
-      await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
-      await storeAiContent(user.id, "training", "template", personalized);
+      const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
+      await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+      await storeAiContent(user.id, "training", "template", resolvedPlan);
       return reply.status(200).send({
-        plan: personalized,
+        plan: resolvedPlan,
         ...aiMeta,
       });
     }
@@ -5206,11 +5305,11 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         const validated = parseTrainingPlanPayload(cached, startDate, daysCount, expectedDays);
         assertTrainingMatchesRequest(validated, expectedDays);
         const personalized = applyPersonalization(validated, { name: data.name });
-        await upsertExercisesFromPlan(personalized);
-        await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
-        await storeAiContent(user.id, "training", "cache", personalized);
+        const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
+        await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+        await storeAiContent(user.id, "training", "cache", resolvedPlan);
         return reply.status(200).send({
-          plan: personalized,
+          plan: resolvedPlan,
           ...aiMeta,
         });
       } catch (error) {
@@ -5235,7 +5334,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       | undefined;
 
     const fetchTrainingPayload = async (attempt: number) => {
-      const prompt = buildTrainingPrompt(data, attempt > 0);
+      const prompt = buildTrainingPrompt(data, attempt > 0, formatExerciseCatalogForPrompt(exerciseCatalog));
       const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
         responseFormat: {
           type: "json_schema",
@@ -5275,11 +5374,11 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         throw error;
       }
     }
-    await upsertExercisesFromPlan(parsedPayload);
-    await saveCachedAiPayload(cacheKey, "training", parsedPayload);
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
-    await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
-    await storeAiContent(user.id, "training", "ai", personalized);
+    const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
+    await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
+    await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+    await storeAiContent(user.id, "training", "ai", resolvedPlan);
     if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
@@ -5327,7 +5426,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       );
     }
     return reply.status(200).send({
-      plan: personalized,
+      plan: resolvedPlan,
       aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
       aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
       ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
@@ -5662,6 +5761,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
 
     const expectedDays = trainingInput.daysPerWeek;
     const startDate = parseDateInput(trainingInput.startDate) ?? new Date();
+    const exerciseCatalog = await getExerciseCatalog();
 
     let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -5669,7 +5769,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const prompt = `${buildTrainingPrompt(trainingInput, attempt > 0)} ${
+        const prompt = `${buildTrainingPrompt(trainingInput, attempt > 0, formatExerciseCatalogForPrompt(exerciseCatalog))} ${
           attempt > 0
             ? "REINTENTO OBLIGATORIO: corrige la salida para que cumpla exactamente los días solicitados y volumen por nivel."
             : ""
@@ -5705,14 +5805,15 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
       });
     }
 
-    await upsertExercisesFromPlan(parsedPlan);
-    const savedPlan = await saveTrainingPlan(user.id, parsedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
-    await safeStoreAiContent(user.id, "training", "ai", parsedPlan);
+    const resolvedPlan = resolveTrainingPlanExerciseIds(parsedPlan, exerciseCatalog);
+    await upsertExercisesFromPlan(resolvedPlan);
+    const savedPlan = await saveTrainingPlan(user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
+    await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
 
     return reply.status(200).send({
       planId: savedPlan.id,
-      summary: summarizeTrainingPlan(parsedPlan),
-      plan: parsedPlan,
+      summary: summarizeTrainingPlan(resolvedPlan),
+      plan: resolvedPlan,
       aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
