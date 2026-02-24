@@ -2818,6 +2818,16 @@ function resolveTrainingPlanExerciseIds(
   return resolvedPlan;
 }
 
+async function enrichTrainingPlanWithExerciseLibrary<TPlan extends { days?: Array<{ exercises?: Array<{ exerciseId?: string | null; imageUrl?: string | null; name: string }> }> }>(plan: TPlan): Promise<TPlan> {
+  if (!plan?.days?.length) {
+    return plan;
+  }
+
+  const catalog = await getExerciseCatalog();
+  const { plan: enrichedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(plan, catalog);
+  return enrichedPlan;
+}
+
 type ExerciseMetadata = {
   equipment?: string;
   description?: string | null;
@@ -6518,7 +6528,9 @@ app.get("/training-plans/:id", async (request, reply) => {
     if (!plan) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
-    return plan;
+
+    const enrichedPlan = await enrichTrainingPlanWithExerciseLibrary(plan);
+    return enrichedPlan;
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6556,9 +6568,13 @@ app.get("/training-plans/active", async (request, reply) => {
       });
 
       if (assignedPlan) {
+        const enrichedAssignedPlan = includeDays
+          ? await enrichTrainingPlanWithExerciseLibrary(assignedPlan)
+          : assignedPlan;
+
         return reply.status(200).send({
           source: "assigned",
-          plan: assignedPlan,
+          plan: enrichedAssignedPlan,
         });
       }
     }
@@ -6596,9 +6612,13 @@ app.get("/training-plans/active", async (request, reply) => {
       return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
     }
 
+    const enrichedOwnPlan = includeDays
+      ? await enrichTrainingPlanWithExerciseLibrary(ownPlan)
+      : ownPlan;
+
     return reply.status(200).send({
       source: "own",
-      plan: ownPlan,
+      plan: enrichedOwnPlan,
     });
   } catch (error) {
     return handleRequestError(reply, error);
