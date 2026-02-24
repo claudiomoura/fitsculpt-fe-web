@@ -27,7 +27,8 @@
     "db:studio": "node scripts/prisma-runner.mjs studio --schema prisma/schema.prisma",
     "db:dump": "node scripts/db-dump.mjs",
     "db:import:free-exercise-db": "tsx scripts/import-free-exercise-db.ts",
-    "demo:reset": "tsx scripts/reset-demo.ts"
+    "demo:reset": "tsx scripts/reset-demo.ts",
+    "backfill:trainingexercise-exerciseid": "tsx scripts/backfill-trainingexercise-exerciseid.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
