@@ -23,6 +23,10 @@ import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitl
 import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
+import {
+  type ExerciseCatalogItem,
+  resolveTrainingPlanExerciseIds as resolveTrainingPlanExerciseIdsWithCatalog,
+} from "./ai/trainingPlanExerciseResolution.js";
 import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
@@ -2761,21 +2765,6 @@ const exerciseMetadataByName: Record<
   },
 };
 
-function normalizeExerciseName(name: string) {
-  return name.trim().replace(/\s+/g, " ");
-}
-
-function normalizeExerciseNameKey(name: string) {
-  return normalizeExerciseName(name)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-type ExerciseCatalogItem = {
-  id: string;
-  name: string;
-};
 
 async function getExerciseCatalog(): Promise<ExerciseCatalogItem[]> {
   if (hasExerciseClient()) {
@@ -2807,43 +2796,7 @@ function resolveTrainingPlanExerciseIds(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   catalog: ExerciseCatalogItem[]
 ) {
-  const byId = new Map(catalog.map((item) => [item.id, item]));
-  const byName = new Map<string, ExerciseCatalogItem>();
-
-  for (const item of catalog) {
-    const key = normalizeExerciseNameKey(item.name);
-    if (!byName.has(key)) {
-      byName.set(key, item);
-    }
-  }
-
-  const unresolved: Array<{ day: string; exercise: string }> = [];
-
-  const days = plan.days.map((day) => ({
-    ...day,
-    exercises: day.exercises.map((exercise) => {
-      const normalizedName = normalizeExerciseName(exercise.name);
-      const idCandidate = exercise.exerciseId?.trim() ?? "";
-      const byProvidedId = idCandidate ? byId.get(idCandidate) : null;
-      const byProvidedName = byName.get(normalizeExerciseNameKey(normalizedName));
-      const resolved = byProvidedId ?? byProvidedName;
-
-      if (!resolved) {
-        unresolved.push({ day: day.label, exercise: normalizedName });
-        return {
-          ...exercise,
-          name: normalizedName,
-          exerciseId: null,
-        };
-      }
-
-      return {
-        ...exercise,
-        name: resolved.name,
-        exerciseId: resolved.id,
-      };
-    }),
-  }));
+  const { plan: resolvedPlan, unresolved } = resolveTrainingPlanExerciseIdsWithCatalog(plan, catalog);
 
   if (unresolved.length > 0) {
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
@@ -2852,10 +2805,7 @@ function resolveTrainingPlanExerciseIds(
     });
   }
 
-  return {
-    ...plan,
-    days,
-  };
+  return resolvedPlan;
 }
 
 type ExerciseMetadata = {
