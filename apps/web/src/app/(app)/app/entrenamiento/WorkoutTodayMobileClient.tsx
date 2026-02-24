@@ -14,6 +14,7 @@ import {
   WorkoutProgressBar,
 } from "@/design-system";
 import { useLanguage } from "@/context/LanguageProvider";
+import { dayKey } from "@/lib/date/dayKey";
 import type { Workout } from "@/lib/types";
 import AppLayout from "@/components/layout/AppLayout";
 import { HeroWorkout } from "@/components/workout/HeroWorkout";
@@ -38,13 +39,6 @@ function parseDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function toIsoDay(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function startOfWeek(date: Date) {
   const base = new Date(date);
   const day = base.getDay();
@@ -59,10 +53,10 @@ function buildWeekDays(reference: Date): WeekDay[] {
     const day = new Date(weekStart);
     day.setDate(weekStart.getDate() + index);
     return {
-      id: toIsoDay(day),
+      id: dayKey(day) ?? "",
       label: WEEKDAY_LABELS[day.getDay()] ?? "",
       dateNumber: day.getDate(),
-      iso: toIsoDay(day),
+      iso: dayKey(day) ?? "",
     };
   });
 }
@@ -73,7 +67,7 @@ export default function WorkoutTodayMobileClient() {
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [selectedDay, setSelectedDay] = useState(() => toIsoDay(new Date()));
+  const [selectedDay, setSelectedDay] = useState(() => dayKey(new Date()) ?? "");
 
   const loadWorkouts = useCallback(async () => {
     setState("loading");
@@ -107,7 +101,8 @@ export default function WorkoutTodayMobileClient() {
   const workoutsByDay = useMemo(() => {
     const map = new Map<string, Workout[]>();
     parsedWorkouts.forEach(({ workout, date }) => {
-      const key = toIsoDay(date);
+      const key = dayKey(date);
+      if (!key) return;
       const prev = map.get(key) ?? [];
       map.set(key, [...prev, workout]);
     });
@@ -115,7 +110,7 @@ export default function WorkoutTodayMobileClient() {
   }, [parsedWorkouts]);
 
   const selectedWorkout = workoutsByDay.get(selectedDay)?.[0] ?? null;
-  const todayIso = toIsoDay(new Date());
+  const todayIso = dayKey(new Date()) ?? "";
   const todayWorkout = workoutsByDay.get(todayIso)?.[0] ?? null;
 
   useEffect(() => {
@@ -160,14 +155,14 @@ export default function WorkoutTodayMobileClient() {
   const weekDays = useMemo(() => {
     const today = new Date();
     return buildWeekDays(today).map((day) => {
-      const hasCompletedWorkout = (workoutsByDay.get(day.iso) ?? []).some((workout) => (workout.sessions?.[0]?.entries?.length ?? 0) > 0);
+      const hasSession = (workoutsByDay.get(day.iso) ?? []).length > 0;
       const isToday = day.iso === todayIso;
       return {
         id: day.id,
         label: day.label,
         date: day.dateNumber,
         selected: day.iso === selectedDay,
-        complete: hasCompletedWorkout,
+        complete: hasSession,
         isToday,
       };
     });
@@ -223,7 +218,9 @@ export default function WorkoutTodayMobileClient() {
         <section className="rounded-2xl border border-border bg-surface p-4">
           <h2 className="text-base font-semibold text-text">Semana</h2>
           <WeekGridCompact
-            {...({ onSelect: (id: string) => setSelectedDay(id) } as any)}
+            onSelect={(id) => {
+              if (typeof id === "string") setSelectedDay(id);
+            }}
             className="mt-3"
             days={weekDays.map((day) => ({
               id: day.id,
