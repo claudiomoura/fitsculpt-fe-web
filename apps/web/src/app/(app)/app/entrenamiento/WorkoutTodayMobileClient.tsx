@@ -190,19 +190,42 @@ export default function WorkoutTodayMobileClient() {
 
         <section className="rounded-2xl border border-border bg-surface p-4">
           <h2 className="text-base font-semibold text-text">Semana</h2>
-          <TrainingWeekGridCompact
-            onSelect={(id) => {
-              if (typeof id !== "string") return;
-              const normalizedDay = dayKey(id);
-              if (!normalizedDay) return;
-              setManualSelectedDay(normalizedDay);
-              const params = new URLSearchParams(searchParams.toString());
-              params.set("day", normalizedDay);
-              router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-            }}
-            className="mt-3"
-            days={weekDays}
-          />
+<div className="mt-3 grid grid-cols-7 gap-2">
+  {weekDays.map((d) => (
+    <button
+      key={d.id}
+      type="button"
+      onClick={() => {
+        const normalizedDay = typeof d.id === "string" ? d.id : null;
+        if (!normalizedDay) return;
+
+        setManualSelectedDay(normalizedDay);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("day", normalizedDay);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      }}
+      className={[
+        "rounded-xl border px-2 py-2 text-left transition",
+        "bg-surface border-border hover:border-accent/40",
+        d.selected ? "border-accent/70 ring-1 ring-accent/30" : "",
+      ].join(" ")}
+    >
+      <div className="text-xs text-text/70">{d.label}</div>
+      <div className="mt-1 flex items-center justify-between">
+        <div className="text-sm font-semibold text-text">{d.date}</div>
+        {d.complete ? (
+          <span className="inline-flex h-5 items-center rounded-full bg-accent/15 px-2 text-[11px] text-text">
+            OK
+          </span>
+        ) : (
+          <span className="inline-flex h-5 items-center rounded-full bg-white/5 px-2 text-[11px] text-text/70">
+            -
+          </span>
+        )}
+      </div>
+    </button>
+  ))}
+</div>
         </section>
 
         <section className="rounded-2xl border border-border bg-surface p-4">
@@ -215,7 +238,7 @@ export default function WorkoutTodayMobileClient() {
               description="Cuando tu entrenador cargue ejercicios, aparecerán aquí automáticamente."
             />
           ) : exercises.length ? (
-            <Stack gap="3" className="mt-3">
+            <Stack gap="3" className="mt-3 divide-y divide-white/5">
               {exercises.map((exercise, index) => (
                 <ExerciseCardCompact
                   key={`${exercise.id ?? exercise.name}-${index}`}

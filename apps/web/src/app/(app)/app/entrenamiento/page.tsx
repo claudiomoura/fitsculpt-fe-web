@@ -1,5 +1,5 @@
-import WorkoutTodayMobileClient from "./WorkoutTodayMobileClient";
+import TrainingPlanClient from "./TrainingPlanClient";
 
 export default function TrainingPlanPage() {
-  return <WorkoutTodayMobileClient />;
+  return <TrainingPlanClient mode="suggested" />;
 }
