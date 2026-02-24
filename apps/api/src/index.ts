@@ -34,6 +34,7 @@ import {
 } from "./ai/trainingPlanExerciseResolution.js";
 import { buildDeterministicTrainingFallbackPlan } from "./ai/training-plan/fallbackBuilder.js";
 import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
+import { normalizeExerciseName } from "./utils/normalizeExerciseName.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
@@ -3183,11 +3184,21 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
   const names = new Map<string, string>();
   plan.days.forEach((day) => {
     day.exercises.forEach((exercise) => {
-      const normalized = normalizeExerciseName(exercise.name);
-      if (!normalized) return;
-      const key = normalized.toLowerCase();
-      if (!names.has(key)) {
-        names.set(key, normalized);
+      try {
+        if (!exercise?.name) {
+          app.log.warn({ day: day.label, exercise }, "skipping exercise upsert because name is missing");
+          return;
+        }
+        const normalized = normalizeExerciseName(exercise.name);
+        if (!normalized) {
+          app.log.warn({ day: day.label, name: exercise.name }, "skipping exercise upsert because normalized name is empty");
+          return;
+        }
+        if (!names.has(normalized)) {
+          names.set(normalized, normalized);
+        }
+      } catch (error) {
+        app.log.warn({ err: error, day: day.label, exercise }, "failed to normalize exercise for upsert");
       }
     });
   });
