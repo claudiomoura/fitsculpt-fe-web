@@ -3719,14 +3719,33 @@ type OpenAiOptions = {
   retryOnParseError?: boolean;
 };
 
+const OPENAI_KEY_PLACEHOLDERS = new Set([
+  "replace-if-using-openai",
+  "replace_me",
+  "changeme",
+  "your-openai-api-key",
+  "sk-xxx",
+]);
+
+function hasConfiguredOpenAiKey(value?: string | null) {
+  if (!value) return false;
+  const normalized = value.trim();
+  if (!normalized) return false;
+  if (OPENAI_KEY_PLACEHOLDERS.has(normalized.toLowerCase())) return false;
+  if (!normalized.startsWith("sk-")) return false;
+  return true;
+}
+
 async function callOpenAi(
   prompt: string,
   attempt = 0,
   parser: (content: string) => Record<string, unknown> = extractJson,
   options?: OpenAiOptions
 ): Promise<OpenAiResponse> {
-  if (!env.OPENAI_API_KEY) {
-    throw createHttpError(503, "AI_UNAVAILABLE");
+  if (!hasConfiguredOpenAiKey(env.OPENAI_API_KEY)) {
+    throw createHttpError(503, "AI_NOT_CONFIGURED", {
+      reason: "OPENAI_API_KEY_MISSING_OR_PLACEHOLDER",
+    });
   }
   const systemMessage =
     attempt === 0
@@ -3752,19 +3771,37 @@ async function callOpenAi(
       temperature: attempt === 0 ? 0.4 : 0.2,
     }),
   });
-if (!response.ok) {
-  const errText = await response.text().catch(() => "");
-  const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
-  app.log.error(
-    { status: response.status, requestId, errText: errText.slice(0, 2000) },
-    "openai request failed"
-  );
-  throw createHttpError(502, "AI_REQUEST_FAILED", {
-    status: response.status,
-    requestId,
-    ...(process.env.NODE_ENV === "production" ? {} : { errText: errText.slice(0, 2000) }),
-  });
-}
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
+    const providerCode = (() => {
+      if (!errText) return undefined;
+      try {
+        const parsed = JSON.parse(errText) as { error?: { code?: string } };
+        return parsed.error?.code;
+      } catch {
+        return undefined;
+      }
+    })();
+
+    if (response.status === 401 || providerCode === "invalid_api_key") {
+      app.log.error({ status: response.status, requestId, providerCode }, "openai auth request failed");
+      throw createHttpError(503, "AI_AUTH_FAILED", {
+        status: response.status,
+        requestId,
+      });
+    }
+
+    app.log.error(
+      { status: response.status, requestId, providerCode, errText: errText.slice(0, 2000) },
+      "openai request failed"
+    );
+    throw createHttpError(502, "AI_REQUEST_FAILED", {
+      status: response.status,
+      requestId,
+      ...(process.env.NODE_ENV === "production" ? {} : { errText: errText.slice(0, 2000) }),
+    });
+  }
 
 
   const requestId =
