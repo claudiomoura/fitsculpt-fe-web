@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { AiPlanRequestError, requestAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
+import { requestAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
+import { defaultProfile } from "@/lib/profile";
 
-const profile = {
+const profile: Parameters<typeof requestAiTrainingPlan>[0] = {
+  ...defaultProfile,
   name: "Test",
   age: 30,
   sex: "male",
@@ -10,12 +12,13 @@ const profile = {
   injuries: "",
   notes: "",
   trainingPreferences: {
+    ...defaultProfile.trainingPreferences,
     includeCardio: false,
     includeMobilityWarmups: false,
-    workoutLength: "medium",
-    timerSound: true,
+    workoutLength: "45m",
+    timerSound: "ding",
   },
-} as any;
+};
 
 describe("requestAiTrainingPlan", () => {
   it("propagates backend 503 EXERCISE_CATALOG_UNAVAILABLE with hint", async () => {
