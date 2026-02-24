@@ -7349,6 +7349,33 @@ const adminCreateUserSchema = z.object({
   aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
 });
 
+const adminUserIdParamsSchema = z.object({
+  id: z.string().min(1),
+});
+
+const adminUserPlanUpdateSchema = z.object({
+  subscriptionPlan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]),
+});
+
+const adminUserTokensUpdateSchema = z.object({
+  aiTokenBalance: z.number().int().min(0).optional(),
+  aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
+}).refine((payload) => payload.aiTokenBalance !== undefined || payload.aiTokenMonthlyAllowance !== undefined, {
+  message: "At least one token field must be provided.",
+});
+
+const adminUserTokenAllowanceUpdateSchema = z.object({
+  aiTokenMonthlyAllowance: z.number().int().min(0),
+});
+
+const adminUserTokenAddSchema = z.object({
+  amount: z.number().int().positive(),
+});
+
+const adminUserTokenBalanceUpdateSchema = z.object({
+  aiTokenBalance: z.number().int().min(0),
+});
+
 const gymsListQuerySchema = z.object({
   q: z.string().trim().min(1).optional(),
 });
@@ -9226,6 +9253,136 @@ app.patch("/admin/users/:id/unblock", async (request, reply) => {
       data: { isBlocked: false },
     });
     return { id: user.id, isBlocked: user.isBlocked };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/plan", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { subscriptionPlan } = adminUserPlanUpdateSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { plan: subscriptionPlan },
+      select: {
+        id: true,
+        plan: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      subscriptionPlan: user.plan,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/tokens", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { aiTokenBalance, aiTokenMonthlyAllowance } = adminUserTokensUpdateSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        ...(aiTokenBalance !== undefined ? { aiTokenBalance } : {}),
+        ...(aiTokenMonthlyAllowance !== undefined ? { aiTokenMonthlyAllowance } : {}),
+      },
+      select: {
+        id: true,
+        aiTokenBalance: true,
+        aiTokenMonthlyAllowance: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      aiTokenBalance: user.aiTokenBalance,
+      aiTokenMonthlyAllowance: user.aiTokenMonthlyAllowance,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/tokens-allowance", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { aiTokenMonthlyAllowance } = adminUserTokenAllowanceUpdateSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { aiTokenMonthlyAllowance },
+      select: {
+        id: true,
+        aiTokenMonthlyAllowance: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      aiTokenMonthlyAllowance: user.aiTokenMonthlyAllowance,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/admin/users/:id/tokens/add", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { amount } = adminUserTokenAddSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        aiTokenBalance: {
+          increment: amount,
+        },
+      },
+      select: {
+        id: true,
+        aiTokenBalance: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      aiTokenBalance: user.aiTokenBalance,
+      amountAdded: amount,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/tokens/balance", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { aiTokenBalance } = adminUserTokenBalanceUpdateSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { aiTokenBalance },
+      select: {
+        id: true,
+        aiTokenBalance: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      aiTokenBalance: user.aiTokenBalance,
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }

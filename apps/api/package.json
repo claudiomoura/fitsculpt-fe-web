@@ -17,7 +17,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "repair:user-columns": "tsx scripts/repair-user-columns.ts",
-    "test": "tsx src/tests/authUtils.test.ts src/tests/aiParsing.test.ts src/tests/entitlements.test.ts src/tests/auth-me.entitlements.test.ts src/tests/stripeErrors.test.ts src/tests/nutritionMathValidation.test.ts src/tests/normalizeNutritionPlan.test.ts src/tests/exercisesImageUrl.contract.test.ts src/tests/tracking.write.contract.test.ts src/tests/billing-status.contract.test.ts src/tests/gymPilot.contract.test.ts src/tests/weeklyReview.contract.test.ts src/tests/trainingPlanExerciseIds.contract.test.ts src/tests/trainingPlanFallback.contract.test.ts",
+    "test": "tsx src/tests/authUtils.test.ts src/tests/aiParsing.test.ts src/tests/entitlements.test.ts src/tests/auth-me.entitlements.test.ts src/tests/stripeErrors.test.ts src/tests/nutritionMathValidation.test.ts src/tests/normalizeNutritionPlan.test.ts src/tests/exercisesImageUrl.contract.test.ts src/tests/tracking.write.contract.test.ts src/tests/billing-status.contract.test.ts src/tests/gymPilot.contract.test.ts src/tests/weeklyReview.contract.test.ts src/tests/trainingPlanExerciseIds.contract.test.ts src/tests/trainingPlanFallback.contract.test.ts src/tests/adminUsersMissingRoutes.contract.test.ts",
     "verify-email": "tsx scripts/verify-email.ts",
     "db:seed": "prisma db seed",
     "db:bootstrap": "node scripts/db-bootstrap.mjs",
