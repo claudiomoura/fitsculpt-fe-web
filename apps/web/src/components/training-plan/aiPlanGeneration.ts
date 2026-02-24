@@ -34,11 +34,15 @@ export type TrainingPlanAiResult = {
 
 export class AiPlanRequestError extends Error {
   status: number;
+  code?: string;
+  hint?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, options?: { code?: string; hint?: string }) {
     super(message);
     this.name = "AiPlanRequestError";
     this.status = status;
+    this.code = options?.code;
+    this.hint = options?.hint;
   }
 }
 
@@ -137,14 +141,30 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
-      | { error?: string; message?: string; retryAfterSec?: number }
+      | { error?: string; message?: string; retryAfterSec?: number; hint?: string }
       | null;
-    if (payload?.error === "INSUFFICIENT_TOKENS") throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status);
-    if (response.status === 400) {
-      throw new AiPlanRequestError(payload?.message ?? "AI_INPUT_INVALID", response.status);
+    if (payload?.error === "INSUFFICIENT_TOKENS") {
+      throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status, {
+        code: payload.error,
+        hint: payload.hint,
+      });
     }
-    if (response.status === 429) throw new AiPlanRequestError(payload?.message ?? "RATE_LIMITED", response.status);
-    throw new AiPlanRequestError("AI_GENERATION_FAILED", response.status);
+    if (response.status === 400) {
+      throw new AiPlanRequestError(payload?.message ?? "AI_INPUT_INVALID", response.status, {
+        code: payload?.error,
+        hint: payload?.hint,
+      });
+    }
+    if (response.status === 429) {
+      throw new AiPlanRequestError(payload?.message ?? "RATE_LIMITED", response.status, {
+        code: payload?.error,
+        hint: payload?.hint,
+      });
+    }
+    throw new AiPlanRequestError("AI_GENERATION_FAILED", response.status, {
+      code: payload?.error,
+      hint: payload?.hint,
+    });
   }
 
   const rawData = tryParseJson(await response.json());
