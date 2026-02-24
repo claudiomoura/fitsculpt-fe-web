@@ -217,7 +217,7 @@ export default function WorkoutTodayMobileClient() {
 
         <section className="rounded-2xl border border-border bg-surface p-4">
           <h2 className="text-base font-semibold text-text">Semana</h2>
-          <WeekGridCompact
+          <TrainingWeekGridCompact
             onSelect={(id) => {
               if (typeof id === "string") setSelectedDay(id);
             }}
