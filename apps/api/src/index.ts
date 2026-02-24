@@ -2818,14 +2818,20 @@ function resolveTrainingPlanExerciseIds(
   return resolvedPlan;
 }
 
-async function enrichTrainingPlanWithExerciseLibrary<TPlan extends { days?: Array<{ exercises?: Array<{ exerciseId?: string | null; imageUrl?: string | null; name: string }> }> }>(plan: TPlan): Promise<TPlan> {
-  if (!plan?.days?.length) {
+async function enrichTrainingPlanWithExerciseLibraryData(plan: Record<string, unknown>) {
+  if (!plan || !Array.isArray((plan as { days?: unknown }).days)) {
     return plan;
   }
 
   const catalog = await getExerciseCatalog();
-  const { plan: enrichedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(plan, catalog);
-  return enrichedPlan;
+  const { plan: resolvedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(
+    plan as {
+      days: Array<{ label: string; exercises: Array<{ name: string; exerciseId?: string | null; imageUrl?: string | null }> }>;
+    },
+    catalog
+  );
+
+  return resolvedPlan;
 }
 
 type ExerciseMetadata = {
@@ -6554,8 +6560,7 @@ app.get("/training-plans/:id", async (request, reply) => {
     if (!plan) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
-
-    const enrichedPlan = await enrichTrainingPlanWithExerciseLibrary(plan);
+    const enrichedPlan = await enrichTrainingPlanWithExerciseLibraryData(plan);
     return enrichedPlan;
   } catch (error) {
     return handleRequestError(reply, error);
@@ -6594,13 +6599,13 @@ app.get("/training-plans/active", async (request, reply) => {
       });
 
       if (assignedPlan) {
-        const enrichedAssignedPlan = includeDays
-          ? await enrichTrainingPlanWithExerciseLibrary(assignedPlan)
+        const enrichedPlan = includeDays
+          ? await enrichTrainingPlanWithExerciseLibraryData(assignedPlan)
           : assignedPlan;
 
         return reply.status(200).send({
           source: "assigned",
-          plan: enrichedAssignedPlan,
+          plan: enrichedPlan,
         });
       }
     }
@@ -6638,9 +6643,7 @@ app.get("/training-plans/active", async (request, reply) => {
       return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
     }
 
-    const enrichedOwnPlan = includeDays
-      ? await enrichTrainingPlanWithExerciseLibrary(ownPlan)
-      : ownPlan;
+    const enrichedOwnPlan = includeDays ? await enrichTrainingPlanWithExerciseLibraryData(ownPlan) : ownPlan;
 
     return reply.status(200).send({
       source: "own",
