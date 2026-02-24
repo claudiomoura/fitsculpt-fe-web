@@ -34,6 +34,7 @@ import {
 } from "./ai/trainingPlanExerciseResolution.js";
 import { buildDeterministicTrainingFallbackPlan } from "./ai/training-plan/fallbackBuilder.js";
 import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
+import { fetchExerciseCatalog } from "./exercises/fetchExerciseCatalog.js";
 import { normalizeExerciseName } from "./utils/normalizeExerciseName.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
@@ -2775,25 +2776,6 @@ const exerciseMetadataByName: Record<
 };
 
 
-async function getExerciseCatalog(): Promise<ExerciseCatalogItem[]> {
-  if (hasExerciseClient()) {
-    return prisma.exercise.findMany({
-      select: {
-        id: true,
-        name: true,
-        imageUrl: true,
-      },
-      orderBy: { name: "asc" },
-    });
-  }
-
-  return prisma.$queryRaw<ExerciseCatalogItem[]>(Prisma.sql`
-    SELECT "id", "name", "imageUrl"
-    FROM "Exercise"
-    ORDER BY "name" ASC
-  `);
-}
-
 function formatExerciseCatalogForPrompt(catalog: ExerciseCatalogItem[], limit = 120) {
   if (!catalog.length) return "";
   return catalog
@@ -2823,7 +2805,7 @@ async function enrichTrainingPlanWithExerciseLibraryData(plan: Record<string, un
     return plan;
   }
 
-  const catalog = await getExerciseCatalog();
+  const catalog = await fetchExerciseCatalog(prisma);
   const { plan: resolvedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(
     plan as {
       days: Array<{ label: string; exercises: Array<{ name: string; exerciseId?: string | null; imageUrl?: string | null }> }>;
@@ -5111,7 +5093,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
     const data = aiTrainingSchema.parse(request.body);
-    const exerciseCatalog = await getExerciseCatalog();
+    const exerciseCatalog = await fetchExerciseCatalog(prisma);
     const expectedDays = Math.min(data.daysPerWeek, 7);
     const daysCount = Math.min(data.daysCount ?? 7, 14);
     const startDate = parseDateInput(data.startDate) ?? new Date();
@@ -5596,7 +5578,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
 
     const expectedDays = trainingInput.daysPerWeek;
     const startDate = parseDateInput(trainingInput.startDate) ?? new Date();
-    const exerciseCatalog = await getExerciseCatalog();
+    const exerciseCatalog = await fetchExerciseCatalog(prisma);
 
     let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -5683,14 +5665,14 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
     if (typed.code === "AI_REQUEST_FAILED" || typed.code === "AI_AUTH_FAILED") {
       const debug = resolveTrainingProviderFailureDebug(error);
       const cause = resolveTrainingProviderFailureCause(error);
-      return reply.status(502).send({
+      return reply.status(503).send({
         error: "AI_REQUEST_FAILED",
         ...(debug ? { debug: { ...debug, cause } } : { debug: { cause } }),
       });
     }
 
     app.log.error({ err: error, route: "/ai/training-plan/generate" }, "training plan generation failed");
-    return reply.status(502).send({ error: "AI_REQUEST_FAILED", debug: { cause: "UNEXPECTED_ERROR" } });
+    return reply.status(503).send({ error: "TRAINING_PLAN_GENERATION_FAILED", debug: { cause: "UNEXPECTED_ERROR" } });
   }
 });
 
