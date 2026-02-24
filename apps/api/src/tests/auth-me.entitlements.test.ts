@@ -33,6 +33,12 @@ function run() {
   assert.deepEqual(parsed.effectiveEntitlements, parsed.entitlements);
   assert.equal(parsed.effectiveEntitlements.version, "2026-02-01");
   assert.equal(parsed.effectiveEntitlements.modules.ai.enabled, true);
+  assert.equal(typeof parsed.modules.strength, "boolean");
+  assert.equal(typeof parsed.modules.nutrition, "boolean");
+  assert.equal(typeof parsed.modules.ai, "boolean");
+  assert.equal(parsed.modules.strength, true);
+  assert.equal(parsed.modules.nutrition, false);
+  assert.equal(parsed.modules.ai, true);
   assert.equal(parsed.subscriptionPlan, "PRO");
   assert.equal(parsed.plan, "PRO");
   assert.equal(parsed.gymMembershipState, "active");
@@ -60,6 +66,9 @@ function run() {
 
   const nullableParsed = authMeResponseSchema.parse(nullableStatusResponse);
   assert.equal(nullableParsed.subscriptionStatus, null);
+  assert.equal(typeof nullableParsed.modules.strength, "boolean");
+  assert.equal(typeof nullableParsed.modules.nutrition, "boolean");
+  assert.equal(typeof nullableParsed.modules.ai, "boolean");
   assert.equal(nullableParsed.gymMembershipState, "none");
   assert.equal(nullableParsed.isTrainer, false);
 

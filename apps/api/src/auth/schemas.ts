@@ -14,6 +14,11 @@ export const authMeResponseSchema = z.object({
   currentPeriodEnd: z.date().nullable(),
   aiTokenBalance: z.number().int().nonnegative().nullable(),
   aiTokenRenewalAt: z.date().nullable(),
+  modules: z.object({
+    strength: z.boolean(),
+    nutrition: z.boolean(),
+    ai: z.boolean(),
+  }),
   entitlements: effectiveEntitlementsSchema,
   effectiveEntitlements: effectiveEntitlementsSchema,
   gymMembershipState: z.enum(["active", "none"]),
@@ -64,6 +69,11 @@ export function buildAuthMeResponse(params: {
     currentPeriodEnd: params.user.currentPeriodEnd,
     aiTokenBalance: params.aiTokenBalance,
     aiTokenRenewalAt: params.aiTokenRenewalAt,
+    modules: {
+      strength: params.entitlements.modules.strength.enabled,
+      nutrition: params.entitlements.modules.nutrition.enabled,
+      ai: params.entitlements.modules.ai.enabled,
+    },
     entitlements: params.entitlements,
     effectiveEntitlements: params.entitlements,
     gymMembershipState: params.activeMembership ? "active" : "none",
