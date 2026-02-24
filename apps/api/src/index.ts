@@ -19,6 +19,11 @@ import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLevelJsonFromText } from "./aiParsing.js";
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
+import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiClient.js";
+import {
+  resolveTrainingProviderFailureCause,
+  resolveTrainingProviderFailureDebug,
+} from "./ai/training-plan/errorHandling.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
@@ -3735,165 +3740,14 @@ function buildRecipeSeedItem(name: string, index: number): RecipeSeedItem {
   };
 }
 
-type OpenAiUsage = {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-};
-
-type OpenAiResponse = {
-  payload: Record<string, unknown>;
-  usage: OpenAiUsage | null;
-  model: string | null;
-  requestId: string | null;
-};
-
-type OpenAiResponseFormat =
-  | { type: "json_object" }
-  | {
-      type: "json_schema";
-      json_schema: {
-        name: string;
-        schema: Record<string, unknown>;
-        strict?: boolean;
-      };
-    };
-
-type OpenAiOptions = {
-  parser?: (content: string) => Record<string, unknown>;
-  maxTokens?: number;
-  responseFormat?: OpenAiResponseFormat;
-  model?: string;
-  retryOnParseError?: boolean;
-};
-
-const OPENAI_KEY_PLACEHOLDERS = new Set([
-  "replace-if-using-openai",
-  "replace_me",
-  "changeme",
-  "your-openai-api-key",
-  "sk-xxx",
-]);
-
-function hasConfiguredOpenAiKey(value?: string | null) {
-  if (!value) return false;
-  const normalized = value.trim();
-  if (!normalized) return false;
-  if (OPENAI_KEY_PLACEHOLDERS.has(normalized.toLowerCase())) return false;
-  if (!normalized.startsWith("sk-")) return false;
-  return true;
-}
-
-async function callOpenAi(
-  prompt: string,
-  attempt = 0,
-  parser: (content: string) => Record<string, unknown> = extractJson,
-  options?: OpenAiOptions
-): Promise<OpenAiResponse> {
-  if (!hasConfiguredOpenAiKey(env.OPENAI_API_KEY)) {
-    throw createHttpError(503, "AI_NOT_CONFIGURED", {
-      reason: "OPENAI_API_KEY_MISSING_OR_PLACEHOLDER",
-    });
-  }
-  const systemMessage =
-    attempt === 0
-      ? "Devuelve exclusivamente JSON valido. Sin markdown. Sin texto extra."
-      : "DEVUELVE SOLO JSON VÁLIDO. Sin markdown. Sin texto extra.";
-  const responseFormat = options?.responseFormat ?? { type: "json_object" };
-  const maxTokens = options?.maxTokens ?? 250;
-  const model = options?.model ?? "gpt-3.5-turbo";
-  const response = await fetch(`${env.OPENAI_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      response_format: responseFormat,
-      messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: maxTokens,
-      temperature: attempt === 0 ? 0.4 : 0.2,
-    }),
-  });
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "");
-    const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
-    const providerCode = (() => {
-      if (!errText) return undefined;
-      try {
-        const parsed = JSON.parse(errText) as { error?: { code?: string } };
-        return parsed.error?.code;
-      } catch {
-        return undefined;
-      }
-    })();
-
-    if (response.status === 401 || providerCode === "invalid_api_key") {
-      app.log.error({ status: response.status, requestId, providerCode }, "openai auth request failed");
-      throw createHttpError(503, "AI_AUTH_FAILED", {
-        status: response.status,
-        requestId,
-      });
-    }
-
-    app.log.error(
-      { status: response.status, requestId, providerCode, errText: errText.slice(0, 2000) },
-      "openai request failed"
-    );
-    throw createHttpError(502, "AI_REQUEST_FAILED", {
-      status: response.status,
-      requestId,
-      ...(process.env.NODE_ENV === "production" ? {} : { errText: errText.slice(0, 2000) }),
-    });
-  }
-
-
-  const requestId =
-    response.headers.get("x-request-id") ??
-    response.headers.get("openai-request-id") ??
-    response.headers.get("x-openai-request-id");
-const data = (await response.json()) as {
-  model?: string;
-  usage?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-  };
-  choices?: Array<{ message?: { content?: string } }>;
-};
-
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw createHttpError(502, "AI_EMPTY_RESPONSE");
-  }
-  try {
-    app.log.info(
-      process.env.NODE_ENV === "production"
-        ? { attempt, responseChars: content.length }
-        : { attempt, responsePreview: content.slice(0, 300), responseChars: content.length },
-      "ai response received"
-    );
-    const parsedPayload = (options?.parser ?? parser)(content);
-    return {
-      payload: parsedPayload,
-      usage: data.usage ?? null,
-      model: data.model ?? null,
-      requestId,
-    };
-  } catch (error) {
-    const typed = error as { code?: string };
-    const retryOnParseError = options?.retryOnParseError ?? true;
-    if (typed.code === "AI_PARSE_ERROR" && attempt === 0 && retryOnParseError) {
-      app.log.warn({ err: error }, "ai response parse failed, retrying with strict json request");
-      return callOpenAi(prompt, 1, parser, options);
-    }
-    throw error;
-  }
-}
+const { callOpenAi } = createOpenAiClient({
+  apiKey: env.OPENAI_API_KEY,
+  fallbackApiKey: env.OPENAI_KEY,
+  baseUrl: env.OPENAI_BASE_URL,
+  isProduction: process.env.NODE_ENV === "production",
+  logger: app.log,
+  createHttpError,
+});
 
 const feedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -5749,9 +5603,11 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
     }
 
     if (!parsedPlan) {
+      const providerFailureDebug = resolveTrainingProviderFailureDebug(lastError);
       throw createHttpError(400, "INVALID_AI_OUTPUT", {
         message: "No se pudo generar un plan de entrenamiento válido tras reintento.",
-        cause: (lastError as { code?: string })?.code ?? "UNKNOWN",
+        cause: resolveTrainingProviderFailureCause(lastError),
+        ...(providerFailureDebug ?? {}),
       });
     }
 
