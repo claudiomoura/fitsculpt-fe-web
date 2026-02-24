@@ -1,7 +1,8 @@
 # free-exercise-db → Exercise mapping
 
 Source dataset consumed at runtime by importer script:
-- Default URL: `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json`
+- Primary source (default): local JSON files in `apps/web/public/exercise-db/exercises/*.json`
+- Remote fallback: `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json`
 - Script: `apps/api/scripts/import-free-exercise-db.ts`
 
 ## Imported fields
@@ -27,6 +28,7 @@ Source dataset consumed at runtime by importer script:
 ## Runtime guards
 
 - Import is blocked in production unless `ALLOW_IMPORT=1`.
+- Import auto-skips when existing `Exercise` catalog (`source=free-exercise-db`) is already populated with at least the dataset size.
 - Upsert is idempotent by unique `sourceId`.
 
 ## Commands

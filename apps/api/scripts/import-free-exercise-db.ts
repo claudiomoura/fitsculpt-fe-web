@@ -1,6 +1,11 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, extname, join } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+const DEFAULT_DATASET_URL =
+  "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
+const DEFAULT_LOCAL_EXERCISES_DIR = "../../web/public/exercise-db/exercises";
+const DEFAULT_IMAGE_BASE_URL = "/exercise-db/exercises";
 
 type FreeExerciseRecord = {
   id?: string;
@@ -19,6 +24,7 @@ type FreeExerciseRecord = {
 type PrismaExerciseClient = {
   count: (args: unknown) => Promise<number>;
   findUnique: (args: unknown) => Promise<{ id: string } | null>;
+  count: (args: unknown) => Promise<number>;
   upsert: (args: unknown) => Promise<unknown>;
 };
 
@@ -79,9 +85,9 @@ function normalizeStringArray(value: unknown): string[] {
   );
 }
 
-function datasetRootDir() {
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
-  return join(scriptDir, "../../web/public/exercise-db/exercises");
+function buildImageUrl(sourceExerciseId: string, imageName: string): string {
+  const imageBase = process.env.FREE_EXERCISE_DB_IMAGE_BASE_URL ?? DEFAULT_IMAGE_BASE_URL;
+  return `${imageBase.replace(/\/$/, "")}/${encodeURIComponent(sourceExerciseId)}/${encodeURIComponent(imageName)}`;
 }
 
 function loadDatasetFromFilesystem(): FreeExerciseRecord[] {
@@ -129,22 +135,71 @@ function buildTechniqueAndTips(record: FreeExerciseRecord): { technique: string 
   return { technique, tips };
 }
 
+async function loadDatasetFromLocalDir(dirPath: string): Promise<FreeExerciseRecord[]> {
+  const fileNames = await readdir(dirPath);
+  const jsonFiles = fileNames.filter((fileName) => fileName.toLowerCase().endsWith(".json")).sort();
+  const records: FreeExerciseRecord[] = [];
+
+  for (const fileName of jsonFiles) {
+    const filePath = join(dirPath, fileName);
+    const payload = JSON.parse(await readFile(filePath, "utf8")) as unknown;
+
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      continue;
+    }
+
+    records.push(payload as FreeExerciseRecord);
+  }
+
+  return records;
+}
+
+async function resolveDatasetSource(): Promise<{ records: FreeExerciseRecord[]; source: "remote" | "local"; location: string }> {
+  const datasetUrl = process.env.FREE_EXERCISE_DB_URL?.trim();
+  if (datasetUrl) {
+    return {
+      records: await fetchDataset(datasetUrl),
+      source: "remote",
+      location: datasetUrl,
+    };
+  }
+
+  const scriptDir = dirname(fileURLToPath(import.meta.url));
+  const localDir = join(scriptDir, DEFAULT_LOCAL_EXERCISES_DIR);
+  const localRecords = await loadDatasetFromLocalDir(localDir);
+  if (localRecords.length > 0) {
+    return {
+      records: localRecords,
+      source: "local",
+      location: localDir,
+    };
+  }
+
+  return {
+    records: await fetchDataset(DEFAULT_DATASET_URL),
+    source: "remote",
+    location: DEFAULT_DATASET_URL,
+  };
+}
+
 async function main() {
   assertImportAllowed();
   prisma = await createPrismaClient();
 
+  const { records, source, location } = await resolveDatasetSource();
+
   const existingCatalogCount = await prisma.exercise.count({
     where: {
-      OR: [{ source: "free-exercise-db" }, { sourceId: { startsWith: "free-exercise-db:" } }],
+      source: "free-exercise-db",
     },
   });
 
-  if (existingCatalogCount > 0) {
-    console.log(`Skipping import: existing free-exercise-db catalog found (${existingCatalogCount} rows).`);
+  if (existingCatalogCount >= records.length && records.length > 0) {
+    console.log(
+      `free-exercise-db import skipped: existing=${existingCatalogCount}, dataset=${records.length}, source=${source}, location=${location}`
+    );
     return;
   }
-
-  const records = loadDatasetFromFilesystem();
 
   let created = 0;
   let updated = 0;
@@ -181,6 +236,7 @@ async function main() {
       create: {
         source: "free-exercise-db",
         sourceId,
+        source: "free-exercise-db",
         slug: slugBase,
         name,
         equipment,
@@ -214,7 +270,7 @@ async function main() {
   }
 
   console.log(
-    `free-exercise-db import complete (local files): total=${records.length}, created=${created}, updated=${updated}, skipped=${skipped}`
+    `free-exercise-db import complete: total=${records.length}, created=${created}, updated=${updated}, skipped=${skipped}, source=${source}, location=${location}`
   );
 }
 
