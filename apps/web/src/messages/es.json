@@ -1952,6 +1952,7 @@
     "metricFallback": "Sin dato",
     "lastLog": "Último registro",
     "exerciseLink": "Ver detalles del ejercicio",
+    "exerciseLinkUnavailable": "Detalle no disponible en biblioteca",
     "targetMuscles": "Músculos objetivo",
     "startWorkout": "Iniciar entrenamiento",
     "sessionSubtitle": "Registra la sesión mientras entrenas.",

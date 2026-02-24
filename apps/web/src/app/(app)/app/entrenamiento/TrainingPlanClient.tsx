@@ -280,10 +280,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const restoredContext = useRef(false);
   const renderedTokenToastId = useRef(0);
   const urlSyncInitialized = useRef(false);
-  const [techniqueModal, setTechniqueModal] = useState<{
-    dayLabel: string;
-    exercise: Exercise;
-  } | null>(null);
   const isManualView = mode === "manual";
 
   const loadProfile = async (activeRef: { current: boolean }) => {
@@ -1471,58 +1467,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             <p className="muted">{t("training.manualPlanEmpty")}</p>
           )}
         </section>
-      ) : null}
-
-      {techniqueModal ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setTechniqueModal(null)}>
-          <div
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="exercise-technique-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="modal-header">
-              <div>
-                <h3 id="exercise-technique-title" className="modal-header-title">{techniqueModal.exercise.name}</h3>
-                <p className="muted modal-header-subtitle">
-                  {t("training.techniqueSubtitle")} {techniqueModal.dayLabel}
-                </p>
-              </div>
-              <button type="button" className="btn secondary" onClick={() => setTechniqueModal(null)}>
-                {t("ui.closeLabel")}
-              </button>
-            </div>
-            <div className="modal-content-stack">
-              <img
-                src="/placeholders/exercise-demo.svg"
-                alt={t("training.techniquePlaceholderAlt")}
-                className="modal-image"
-              />
-              <div className="feature-card">
-                <strong>{t("ui.technique")}</strong>
-                <p className="muted modal-section-copy">
-                  {t("training.techniquePlaceholder")}
-                </p>
-                <p className="modal-section-copy">
-                  {t("training.techniqueSets")}: {techniqueModal.exercise.sets}
-                </p>
-                {techniqueModal.exercise.reps && (
-                  <p className="muted modal-section-copy-tight">
-                    {t("training.techniqueReps")}: {techniqueModal.exercise.reps}
-                  </p>
-                )}
-              </div>
-              <div className="feature-card">
-                <strong>{t("ui.tips")}</strong>
-                <ul className="list-muted">
-                  <li>{t("training.techniqueTipOne")}</li>
-                  <li>{t("training.techniqueTipTwo")}</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
       ) : null}
 
       <AiPlanPreviewModal

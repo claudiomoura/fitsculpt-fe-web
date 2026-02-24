@@ -1949,6 +1949,7 @@
     "metricFallback": "No data",
     "lastLog": "Last log",
     "exerciseLink": "View exercise details",
+    "exerciseLinkUnavailable": "Exercise detail unavailable in library",
     "targetMuscles": "Target muscles",
     "startWorkout": "Start workout",
     "sessionSubtitle": "Log the session as you train.",

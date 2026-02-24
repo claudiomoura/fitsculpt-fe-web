@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import type { Workout, WorkoutExercise } from "@/lib/types";
 import { getServerT } from "@/lib/serverI18n";
@@ -269,7 +270,13 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
               return (
                 <div key={exerciseKey} className="feature-card workout-exercise-card">
                   <div className="workout-exercise-media">
-                    <img src="/placeholders/exercise-demo.svg" alt={exercise.name ?? t("workoutDetail.exerciseFallback")} />
+                    {exercise.exerciseId ?? exercise.id ? (
+                      <Link className="btn secondary" href={`/app/biblioteca/${exercise.exerciseId ?? exercise.id}`}>
+                        {t("workoutDetail.exerciseLink")}
+                      </Link>
+                    ) : (
+                      <p className="muted">{t("workoutDetail.exerciseLinkUnavailable")}</p>
+                    )}
                   </div>
                   <div className="workout-exercise-content">
                     <div className="inline-actions-space">
