@@ -6390,6 +6390,28 @@ const trainerAssignPlanResultSchema = {
   startDate: true,
   daysCount: true,
 } as const;
+
+const trainingExerciseLegacySafeSelect = {
+  id: true,
+  dayId: true,
+  name: true,
+  sets: true,
+  reps: true,
+  tempo: true,
+  rest: true,
+  notes: true,
+} as const;
+
+const trainingDayIncludeWithLegacySafeExercises = {
+  orderBy: { order: "asc" },
+  include: {
+    exercises: {
+      orderBy: { id: "asc" },
+      select: trainingExerciseLegacySafeSelect,
+    },
+  },
+} as const;
+
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -6686,12 +6708,7 @@ app.get("/training-plans/:id", async (request, reply) => {
         ],
       },
       include: {
-        days: {
-          orderBy: { order: "asc" },
-          include: {
-            exercises: { orderBy: { id: "asc" } },
-          },
-        },
+        days: trainingDayIncludeWithLegacySafeExercises,
       },
     });
     if (!plan) {
@@ -6736,10 +6753,7 @@ app.get("/training-plans/active", async (request, reply) => {
         where: { id: activePlanId },
         include: includeDays
           ? {
-              days: {
-                orderBy: { order: "asc" },
-                include: { exercises: { orderBy: { id: "asc" } } },
-              },
+              days: trainingDayIncludeWithLegacySafeExercises,
             }
           : undefined,
       });
@@ -6761,10 +6775,7 @@ app.get("/training-plans/active", async (request, reply) => {
           where: { userId: user.id },
           orderBy: { createdAt: "desc" },
           include: {
-            days: {
-              orderBy: { order: "asc" },
-              include: { exercises: { orderBy: { id: "asc" } } },
-            },
+            days: trainingDayIncludeWithLegacySafeExercises,
           },
         })
       : await prisma.trainingPlan.findFirst({
@@ -8089,10 +8100,7 @@ app.post("/trainer/plans", async (request, reply) => {
         },
       },
       include: {
-        days: {
-          orderBy: { order: "asc" },
-          include: { exercises: { orderBy: { id: "asc" } } },
-        },
+        days: trainingDayIncludeWithLegacySafeExercises,
       },
     });
 
@@ -8125,12 +8133,7 @@ app.get("/trainer/plans/:planId", async (request, reply) => {
         ],
       },
       include: {
-        days: {
-          orderBy: { order: "asc" },
-          include: {
-            exercises: { orderBy: { id: "asc" } },
-          },
-        },
+        days: trainingDayIncludeWithLegacySafeExercises,
       },
     });
 
@@ -8202,10 +8205,7 @@ app.patch("/trainer/plans/:planId", async (request, reply) => {
       return tx.trainingPlan.findUnique({
         where: { id: existing.id },
         include: {
-          days: {
-            orderBy: { order: "asc" },
-            include: { exercises: { orderBy: { id: "asc" } } },
-          },
+          days: trainingDayIncludeWithLegacySafeExercises,
         },
       });
     });
