@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { resolveTrainingPlanExerciseIds } from "../ai/trainingPlanExerciseResolution.js";
+import {
+  findInvalidTrainingPlanExerciseIds,
+  resolveTrainingPlanExerciseIds,
+} from "../ai/trainingPlanExerciseResolution.js";
 
 type Plan = {
   title: string;
@@ -94,5 +97,35 @@ assert.throws(
   () => assertAllPlanExercisesExist(invalidPlan, catalog),
   /Generated plan includes unresolved exercises: Día 2: ejercicio fantasma, Día 2: otro inventado/
 );
+
+
+const exerciseIdsMissingOrUnknownPlan: Plan = {
+  title: "Plan con IDs inválidos",
+  days: [
+    {
+      label: "Día 3",
+      exercises: [
+        { exerciseId: null, name: "Sentadilla", sets: 3, reps: "8-10" },
+        { exerciseId: "unknown-id", name: "Press banca", sets: 3, reps: "8-10" },
+      ],
+    },
+  ],
+};
+
+const invalidExerciseIds = findInvalidTrainingPlanExerciseIds(exerciseIdsMissingOrUnknownPlan, catalog);
+assert.deepEqual(invalidExerciseIds, [
+  {
+    day: "Día 3",
+    exercise: "sentadilla",
+    exerciseId: null,
+    reason: "MISSING_EXERCISE_ID",
+  },
+  {
+    day: "Día 3",
+    exercise: "press banca",
+    exerciseId: "unknown-id",
+    reason: "UNKNOWN_EXERCISE_ID",
+  },
+]);
 
 console.log("training plan exercise ids contract test passed");
