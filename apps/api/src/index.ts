@@ -5248,6 +5248,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
           level: data.level,
           goal: data.goal,
           startDate,
+          equipment: data.equipment,
         },
         exerciseCatalog
       );
@@ -5689,6 +5690,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
           level: trainingInput.level,
           goal: trainingInput.goal,
           startDate,
+          equipment: trainingInput.equipment,
         },
         exerciseCatalog
       );
@@ -5712,6 +5714,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
           level: trainingInput.level,
           goal: trainingInput.goal,
           startDate,
+          equipment: trainingInput.equipment,
         },
         exerciseCatalog
       );

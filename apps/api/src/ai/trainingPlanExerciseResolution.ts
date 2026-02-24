@@ -22,6 +22,8 @@ export type ExerciseCatalogItem = {
   id: string;
   name: string;
   imageUrl?: string | null;
+  equipment?: string | null;
+  mainMuscleGroup?: string | null;
 };
 
 export type InvalidExerciseIdIssue = {

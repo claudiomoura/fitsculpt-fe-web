@@ -7,6 +7,11 @@ const FOCUS_PATTERNS: Record<string, string[]> = {
   core: ["plancha", "abdominal", "crunch", "core", "russian twist", "hollow"],
 };
 
+type PickExerciseOptions = {
+  equipment?: "gym" | "home";
+  seed?: string;
+};
+
 function normalize(value: string) {
   return value
     .trim()
@@ -25,9 +30,52 @@ function uniqueById(exercises: ExerciseCatalogItem[]) {
   });
 }
 
-export function pickExercisesForFocus(catalog: ExerciseCatalogItem[], focus: string, count: number) {
+function hashString(input: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededSort(catalog: ExerciseCatalogItem[], seed: string) {
+  return [...catalog].sort((a, b) => {
+    const aHash = hashString(`${seed}:${a.id}:${normalize(a.name)}`);
+    const bHash = hashString(`${seed}:${b.id}:${normalize(b.name)}`);
+    if (aHash !== bHash) return aHash - bHash;
+    return a.id.localeCompare(b.id);
+  });
+}
+
+function supportsEquipment(exercise: ExerciseCatalogItem, equipment: "gym" | "home") {
+  if (!exercise.equipment || !exercise.equipment.trim()) {
+    return true;
+  }
+  const normalized = normalize(exercise.equipment);
+  if (equipment === "home") {
+    return (
+      normalized.includes("bodyweight") ||
+      normalized.includes("peso corporal") ||
+      normalized.includes("mancuerna") ||
+      normalized.includes("banda") ||
+      normalized.includes("kettlebell") ||
+      normalized.includes("home")
+    );
+  }
+  return true;
+}
+
+export function pickExercisesForFocus(catalog: ExerciseCatalogItem[], focus: string, count: number, options: PickExerciseOptions = {}) {
   const normalizedFocus = normalize(focus);
-  const ordered = [...catalog].sort((a, b) => a.name.localeCompare(b.name));
+  const seed = options.seed ?? normalizedFocus;
+  const ordered = seededSort(catalog, seed);
+  const targetEquipment = options.equipment;
+  const byEquipment =
+    targetEquipment && catalog.some((exercise) => supportsEquipment(exercise, targetEquipment))
+      ? ordered.filter((exercise) => supportsEquipment(exercise, targetEquipment))
+      : ordered;
+
   const patterns =
     normalizedFocus.includes("pierna")
       ? FOCUS_PATTERNS.pierna
@@ -39,12 +87,12 @@ export function pickExercisesForFocus(catalog: ExerciseCatalogItem[], focus: str
             ? FOCUS_PATTERNS.core
             : [];
 
-  const primary = ordered.filter((exercise) => {
+  const primary = byEquipment.filter((exercise) => {
     const exerciseName = normalize(exercise.name);
     return patterns.some((pattern) => exerciseName.includes(pattern));
   });
 
-  const fallback = ordered.filter((exercise) => !primary.some((candidate) => candidate.id === exercise.id));
+  const fallback = byEquipment.filter((exercise) => !primary.some((candidate) => candidate.id === exercise.id));
   const selection = uniqueById([...primary, ...fallback]).slice(0, count);
 
   if (selection.length === 0) {

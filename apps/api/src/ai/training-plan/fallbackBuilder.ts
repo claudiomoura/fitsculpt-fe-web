@@ -9,6 +9,7 @@ export type DeterministicFallbackInput = {
   level: TrainingLevel;
   goal: TrainingGoal;
   startDate: Date;
+  equipment?: "gym" | "home";
 };
 
 const dayFocusOrder = [
@@ -65,7 +66,10 @@ export function buildDeterministicTrainingFallbackPlan(input: DeterministicFallb
 
   const days = Array.from({ length: input.daysPerWeek }).map((_, index) => {
     const focus = dayFocusOrder[index % dayFocusOrder.length]!;
-    const selected = pickExercisesForFocus(catalog, focus, resolveExerciseCount(input.level)).map((exercise) => ({
+    const selected = pickExercisesForFocus(catalog, focus, resolveExerciseCount(input.level), {
+      equipment: input.equipment,
+      seed: `${toIsoDateString(input.startDate)}:${index}:${focus}:${input.goal}:${input.level}:${input.equipment ?? "any"}`,
+    }).map((exercise) => ({
       exerciseId: exercise.id,
       name: exercise.name,
     }));
