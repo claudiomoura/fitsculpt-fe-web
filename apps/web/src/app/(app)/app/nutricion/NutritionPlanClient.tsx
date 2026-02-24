@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { hasNutritionAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { Modal } from "@/components/ui/Modal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
 import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
@@ -693,7 +693,6 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<AiEntitlementProfile["subscriptionPlan"]>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
@@ -767,10 +766,9 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
-      setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
-      setAiEntitled(hasAiEntitlement(data));
+      setAiEntitled(hasNutritionAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
     } catch (_err) {
     }
@@ -1557,7 +1555,7 @@ useEffect(() => {
     void handleAiPlan();
   };
 
-  const isAiLocked = !aiEntitled || (subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0);
+  const isAiLocked = !aiEntitled;
   const isAiDisabled = aiLoading || isAiLocked;
 
   const generatedPlanPreviewDay = useMemo(() => {
