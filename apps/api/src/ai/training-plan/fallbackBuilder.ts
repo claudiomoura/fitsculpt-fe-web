@@ -21,6 +21,16 @@ const dayFocusOrder = [
   "Full body técnico",
 ];
 
+const noCatalogExercisePool: Record<string, string[]> = {
+  "Pierna + Core": ["Sentadilla goblet", "Zancadas caminando", "Plancha frontal"],
+  "Empuje (Pecho/Hombro/Tríceps)": ["Flexiones", "Press militar con mancuernas", "Fondos en banco"],
+  "Tirón (Espalda/Bíceps)": ["Remo con banda", "Curl de bíceps con mancuernas", "Face pull con banda"],
+  "Pierna posterior + Glúteo": ["Peso muerto rumano con mancuernas", "Hip thrust", "Puente de glúteos"],
+  "Torso mixto": ["Press inclinado con mancuernas", "Remo con mancuerna", "Elevaciones laterales"],
+  "Condicionamiento + Core": ["Burpees", "Mountain climbers", "Plancha lateral"],
+  "Full body técnico": ["Sentadilla", "Flexiones", "Remo con banda"],
+};
+
 function toIsoDateString(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -59,13 +69,18 @@ function resolveExerciseCount(level: TrainingLevel) {
 }
 
 export function buildDeterministicTrainingFallbackPlan(input: DeterministicFallbackInput, catalog: ExerciseCatalogItem[]) {
-  if (catalog.length === 0) {
-    throw new Error("EXERCISE_CATALOG_EMPTY");
-  }
-
   const days = Array.from({ length: input.daysPerWeek }).map((_, index) => {
     const focus = dayFocusOrder[index % dayFocusOrder.length]!;
-    const selected = pickExercisesForFocus(catalog, focus, resolveExerciseCount(input.level));
+    const selected =
+      catalog.length > 0
+        ? pickExercisesForFocus(catalog, focus, resolveExerciseCount(input.level)).map((exercise) => ({
+            exerciseId: exercise.id,
+            name: exercise.name,
+          }))
+        : (noCatalogExercisePool[focus] ?? noCatalogExercisePool["Full body técnico"]).map((name) => ({
+            exerciseId: null,
+            name,
+          }));
 
     return {
       date: toIsoDateString(addDays(input.startDate, index * 2)),
@@ -73,7 +88,7 @@ export function buildDeterministicTrainingFallbackPlan(input: DeterministicFallb
       focus,
       duration: input.level === "advanced" ? 70 : input.level === "intermediate" ? 60 : 50,
       exercises: selected.map((exercise) => ({
-        exerciseId: exercise.id,
+        exerciseId: exercise.exerciseId,
         name: exercise.name,
         sets: resolveSetRange(input.level),
         reps: resolveReps(input.goal),

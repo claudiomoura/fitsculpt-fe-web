@@ -32,18 +32,23 @@ for (const day of plan.days) {
   }
 }
 
-assert.throws(
-  () =>
-    buildDeterministicTrainingFallbackPlan(
-      {
-        daysPerWeek: 3,
-        level: "beginner",
-        goal: "cut",
-        startDate: new Date("2026-01-05T00:00:00.000Z"),
-      },
-      []
-    ),
-  /EXERCISE_CATALOG_EMPTY/
+const fallbackWithoutCatalog = buildDeterministicTrainingFallbackPlan(
+  {
+    daysPerWeek: 3,
+    level: "beginner",
+    goal: "cut",
+    startDate: new Date("2026-01-05T00:00:00.000Z"),
+  },
+  []
 );
+
+assert.equal(fallbackWithoutCatalog.days.length, 3);
+for (const day of fallbackWithoutCatalog.days) {
+  assert.equal(day.exercises.length, 3);
+  for (const exercise of day.exercises) {
+    assert.equal(exercise.exerciseId, null);
+    assert.ok(exercise.name.length > 0);
+  }
+}
 
 console.log("training fallback contract test passed");
