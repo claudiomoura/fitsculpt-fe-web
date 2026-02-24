@@ -12,6 +12,7 @@ import type { CheckinEntry, FoodEntry, TrackingSnapshot, WorkoutEntry } from "@/
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 
 type UserFood = {
   id: string;
@@ -121,6 +122,7 @@ export default function DashboardClient() {
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { entitlements, loading: entitlementsLoading, error: entitlementsError } = useAuthEntitlements();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -793,24 +795,54 @@ export default function DashboardClient() {
           </div>
         </div>
         <div className="list-grid dashboard-ai-grid">
-          <div className="feature-card stack-md">
-            <div>
-              <strong>{t("dashboard.aiTrainingTitle")}</strong>
-              <p className="muted mt-6">{t("dashboard.aiTrainingSubtitle")}</p>
+          {entitlementsLoading ? (
+            <div className="feature-card stack-md">
+              <strong>{t("ui.loading")}</strong>
+              <p className="muted mt-6">{t("ui.loading")}</p>
             </div>
-            <ButtonLink href="/app/entrenamiento?ai=1">
-              {t("dashboard.aiTrainingCta")}
-            </ButtonLink>
-          </div>
-          <div className="feature-card stack-md">
-            <div>
-              <strong>{t("dashboard.aiNutritionTitle")}</strong>
-              <p className="muted mt-6">{t("dashboard.aiNutritionSubtitle")}</p>
+          ) : entitlementsError ? (
+            <div className="feature-card stack-md">
+              <strong>{t("common.error")}</strong>
+              <p className="muted mt-6">{entitlementsError}</p>
             </div>
-            <ButtonLink href="/app/nutricion?ai=1">
-              {t("dashboard.aiNutritionCta")}
-            </ButtonLink>
-          </div>
+          ) : entitlements.status !== "known" ? (
+            <div className="feature-card stack-md">
+              <strong>{t("access.notAvailableTitle")}</strong>
+              <p className="muted mt-6">{t("access.notAvailableDescription")}</p>
+            </div>
+          ) : (
+            <>
+              {entitlements.features.canUseStrength ? (
+                <div className="feature-card stack-md">
+                  <div>
+                    <strong>{t("dashboard.aiTrainingTitle")}</strong>
+                    <p className="muted mt-6">{t("dashboard.aiTrainingSubtitle")}</p>
+                  </div>
+                  <ButtonLink href="/app/entrenamiento?ai=1">
+                    {t("dashboard.aiTrainingCta")}
+                  </ButtonLink>
+                </div>
+              ) : null}
+              {entitlements.features.canUseNutrition ? (
+                <div className="feature-card stack-md">
+                  <div>
+                    <strong>{t("dashboard.aiNutritionTitle")}</strong>
+                    <p className="muted mt-6">{t("dashboard.aiNutritionSubtitle")}</p>
+                  </div>
+                  <ButtonLink href="/app/nutricion?ai=1">
+                    {t("dashboard.aiNutritionCta")}
+                  </ButtonLink>
+                </div>
+              ) : null}
+              {!entitlements.features.canUseStrength && !entitlements.features.canUseNutrition ? (
+                <div className="feature-card stack-md">
+                  <strong>{t("common.upgradeRequired")}</strong>
+                  <p className="muted mt-6">{t("common.upgradeRequiredDescription")}</p>
+                  <ButtonLink href="/app/settings/billing">{t("billing.upgradePro")}</ButtonLink>
+                </div>
+              ) : null}
+            </>
+          )}
           <div className="feature-card stack-md">
             <div>
               <strong>{t("dashboard.aiWeeklySummaryTitle")}</strong>

@@ -16,7 +16,6 @@ describe("navConfig", () => {
   it("locks items that require unavailable entitlements", () => {
     const gated = applyEntitlementGating(sidebarUser, {
       status: "known",
-      tier: "FREE",
       features: {
         canUseAI: false,
         canUseNutrition: false,

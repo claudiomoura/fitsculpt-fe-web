@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { hasStrengthAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { AiPlanRequestError, requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
 import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 import { useToast } from "@/components/ui/Toast";
@@ -251,7 +251,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<AiEntitlementProfile["subscriptionPlan"]>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [activePlan, setActivePlan] = useState<TrainingPlan | null>(null);
@@ -364,10 +363,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         aiTokenBalance?: number;
         aiTokenRenewalAt?: string | null;
       };
-      setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiTokenRenewalAt(data.aiTokenRenewalAt ?? null);
-      setAiEntitled(hasAiEntitlement(data));
+      setAiEntitled(hasStrengthAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
     } catch (_err) {
     }
@@ -915,7 +913,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       variant: "success",
     });
   }, [hasPlan, notify, pendingTokenToastId, t]);
-  const isAiLocked = !aiEntitled || (subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0);
+  const isAiLocked = !aiEntitled;
   const isAiDisabled = aiLoading || isAiLocked || !form;
   const handleRetry = () => {
     if (profile && form && !aiLoading) {

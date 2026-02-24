@@ -80,7 +80,7 @@ export default function AppNavBar() {
 
   const userRole = typeof user?.role === "string" ? user.role : "";
   const userMeta = user?.email || userRole || "";
-  const planValue = entitlements.status === "known" ? entitlements.tier : billing?.plan ?? user?.subscriptionPlan ?? "FREE";
+  const planValue = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
   const normalizedPlan = planValue.toLowerCase();
   const planKey = `billing.planLabels.${normalizedPlan}`;
   const translatedPlan = t(planKey);
