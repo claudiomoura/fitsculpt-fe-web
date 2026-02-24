@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -31,6 +32,7 @@ import { ErrorBlock } from "@/design-system";
 type Exercise = {
   id?: string;
   exerciseId?: string;
+  imageUrl?: string;
   name: string;
   sets: string | number;
   reps?: string;
@@ -480,7 +482,17 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     router.push(`/app/biblioteca/${exerciseId}?${detailParams.toString()}`);
   };
 
- const getExerciseLibraryId = (exercise: Exercise) => exercise.exerciseId ?? exercise.id;
+  const getExerciseLibraryId = (exercise: Exercise) => {
+    const normalizedExerciseId = exercise.exerciseId?.trim();
+    return normalizedExerciseId ? normalizedExerciseId : undefined;
+  };
+
+  const getExerciseImageUrl = (exercise: Exercise) => {
+    const normalizedImageUrl = exercise.imageUrl?.trim();
+    return normalizedImageUrl && normalizedImageUrl.length > 0
+      ? normalizedImageUrl
+      : "/placeholders/exercise-cover.jpg";
+  };
 
   const handleExerciseKeyDown = (event: KeyboardEvent<HTMLDivElement>, exerciseId?: string, dayDate?: Date) => {
     if (!exerciseId) return;
@@ -1168,6 +1180,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                               onClick={() => handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined)}
                               onKeyDown={(event) => handleExerciseKeyDown(event, exerciseLibraryId, dayDate ?? undefined)}
                             >
+                              <Image
+                                className="exercise-thumb"
+                                src={getExerciseImageUrl(exercise)}
+                                alt={exercise.name}
+                                width={72}
+                                height={72}
+                              />
                               <strong>{exercise.name}</strong>
                               <span className="muted">
                                 {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
@@ -1324,6 +1343,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       key={`${exercise.name}-${index}`}
                       className={`exercise-mini-card exercise-mini-card-compact ${exerciseLibraryId ? "is-clickable" : "is-disabled"}`}
                     >
+                      <Image
+                        className="exercise-thumb"
+                        src={getExerciseImageUrl(exercise)}
+                        alt={exercise.name}
+                        width={72}
+                        height={72}
+                      />
                       <div className="exercise-mini-top">
                         <strong>{exercise.name}</strong>
                         <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
