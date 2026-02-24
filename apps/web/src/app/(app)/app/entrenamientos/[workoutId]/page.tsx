@@ -172,7 +172,13 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
               return (
                 <div key={`${exercise.name}-${index}`} className="feature-card workout-exercise-card">
                   <div className="workout-exercise-media">
-                    <img src="/placeholders/exercise-demo.svg" alt={exercise.name ?? t("workoutDetail.exerciseFallback")} />
+                    {exerciseId ? (
+                      <Link className="btn secondary" href={`/app/biblioteca/${exerciseId}`}>
+                        {t("workoutDetail.exerciseLink")}
+                      </Link>
+                    ) : (
+                      <p className="muted">{t("workoutDetail.exerciseLinkUnavailable")}</p>
+                    )}
                   </div>
                   <div className="workout-exercise-content">
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
@@ -182,11 +188,6 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
                           {load ? `${load} · ` : ""}{t("workoutDetail.exerciseIndex")}{index + 1}
                         </p>
                       </div>
-                      {exerciseId ? (
-                        <Link className="btn secondary" href={`/app/biblioteca/${exerciseId}`}>
-                          {t("workoutDetail.exerciseLink")}
-                        </Link>
-                      ) : null}
                     </div>
                     {setLines.length > 0 ? (
                       <ul className="workout-set-list">
