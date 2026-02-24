@@ -234,17 +234,20 @@ model TrainingDay {
 }
 
 model TrainingExercise {
-  id       String      @id @default(cuid())
-  dayId    String
-  name     String
-  sets     Int
-  reps     String?
-  tempo    String?
-  rest     Int?
-  notes    String?
-  day      TrainingDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  id         String      @id @default(cuid())
+  dayId      String
+  exerciseId String?
+  imageUrl   String?
+  name       String
+  sets       Int
+  reps       String?
+  tempo      String?
+  rest       Int?
+  notes      String?
+  day        TrainingDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
 
   @@index([dayId])
+  @@index([exerciseId])
 }
 
 model WorkoutExercise {

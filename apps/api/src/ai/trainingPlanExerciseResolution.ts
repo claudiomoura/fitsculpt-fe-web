@@ -1,5 +1,8 @@
+import { normalizeExerciseName as normalizeExerciseNameBase } from "../utils/normalizeExerciseName.js";
+
 export type TrainingPlanExercise = {
   exerciseId?: string | null;
+  imageUrl?: string | null;
   name: string;
   [key: string]: unknown;
 };
@@ -18,17 +21,17 @@ export type TrainingPlanLike<TDay extends TrainingPlanDay = TrainingPlanDay> = {
 export type ExerciseCatalogItem = {
   id: string;
   name: string;
+  imageUrl?: string | null;
 };
 
 function normalizeExerciseName(name: string) {
-  return name.trim().replace(/\s+/g, " ");
+  return normalizeExerciseNameBase(name)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function normalizeExerciseNameKey(name: string) {
-  return normalizeExerciseName(name)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  return normalizeExerciseName(name);
 }
 
 export function resolveTrainingPlanExerciseIds<TPlan extends TrainingPlanLike>(plan: TPlan, catalog: ExerciseCatalogItem[]) {
@@ -59,6 +62,7 @@ export function resolveTrainingPlanExerciseIds<TPlan extends TrainingPlanLike>(p
           ...exercise,
           name: normalizedName,
           exerciseId: null,
+          imageUrl: null,
         };
       }
 
@@ -66,6 +70,7 @@ export function resolveTrainingPlanExerciseIds<TPlan extends TrainingPlanLike>(p
         ...exercise,
         name: resolved.name,
         exerciseId: resolved.id,
+        imageUrl: resolved.imageUrl ?? null,
       };
     }),
   }));

@@ -2007,6 +2007,8 @@ async function saveTrainingPlan(
           order: index,
           exercises: {
             create: day.exercises.map((exercise) => ({
+              exerciseId: exercise.exerciseId ?? null,
+              imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
               name: exercise.name,
               sets: exercise.sets,
               reps: exercise.reps,
@@ -2779,13 +2781,14 @@ async function getExerciseCatalog(): Promise<ExerciseCatalogItem[]> {
       select: {
         id: true,
         name: true,
+        imageUrl: true,
       },
       orderBy: { name: "asc" },
     });
   }
 
   return prisma.$queryRaw<ExerciseCatalogItem[]>(Prisma.sql`
-    SELECT "id", "name"
+    SELECT "id", "name", "imageUrl"
     FROM "Exercise"
     ORDER BY "name" ASC
   `);
@@ -6610,7 +6613,7 @@ app.post("/training-plans/:planId/days/:dayId/exercises", async (request, reply)
 
     const exercise = await prisma.exercise.findUnique({
       where: { id: exerciseId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, imageUrl: true },
     });
 
     if (!exercise) {
@@ -6671,6 +6674,8 @@ app.post("/training-plans/:planId/days/:dayId/exercises", async (request, reply)
     const created = await prisma.trainingExercise.create({
       data: {
         dayId,
+        exerciseId: exercise.id,
+        imageUrl: exercise.imageUrl,
         name: exercise.name,
         sets: 3,
         reps: "10-12",
@@ -8126,7 +8131,7 @@ app.post("/trainer/plans/:planId/days/:dayId/exercises", async (request, reply) 
       }),
       prisma.exercise.findUnique({
         where: { id: exerciseId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, imageUrl: true },
       }),
     ]);
 
@@ -8141,6 +8146,8 @@ app.post("/trainer/plans/:planId/days/:dayId/exercises", async (request, reply) 
     const created = await prisma.trainingExercise.create({
       data: {
         dayId: day.id,
+        exerciseId: exercise.id,
+        imageUrl: exercise.imageUrl,
         name: exercise.name,
         sets: 3,
         reps: "10-12",

@@ -7,6 +7,7 @@ type Plan = {
     label: string;
     exercises: Array<{
       exerciseId?: string | null;
+      imageUrl?: string | null;
       name: string;
       sets: number;
       reps: string;
@@ -14,7 +15,7 @@ type Plan = {
   }>;
 };
 
-function assertAllPlanExercisesExist(plan: Plan, catalog: Array<{ id: string; name: string }>) {
+function assertAllPlanExercisesExist(plan: Plan, catalog: Array<{ id: string; name: string; imageUrl?: string | null }>) {
   const result = resolveTrainingPlanExerciseIds(plan, catalog);
 
   if (result.unresolved.length > 0) {
@@ -27,7 +28,7 @@ function assertAllPlanExercisesExist(plan: Plan, catalog: Array<{ id: string; na
 
 const catalog = [
   { id: "ex_001", name: "Sentadilla" },
-  { id: "ex_002", name: "Press banca" },
+  { id: "ex_002", name: "Press banca", imageUrl: "https://cdn.example/press.jpg" },
   { id: "ex_003", name: "Remo con barra" },
 ];
 
@@ -39,7 +40,7 @@ const validPlan: Plan = {
       exercises: [
         { exerciseId: "ex_001", name: "Sentadilla", sets: 3, reps: "8-10" },
         { exerciseId: null, name: "Press banca", sets: 3, reps: "8-10" },
-        { name: " Remo  con barra ", sets: 3, reps: "8-10" },
+        { name: " Remo  con barra!!! ", sets: 3, reps: "8-10" },
       ],
     },
   ],
@@ -48,6 +49,7 @@ const validPlan: Plan = {
 const resolvedValidPlan = assertAllPlanExercisesExist(validPlan, catalog);
 assert.equal(resolvedValidPlan.days[0]?.exercises[0]?.exerciseId, "ex_001");
 assert.equal(resolvedValidPlan.days[0]?.exercises[1]?.exerciseId, "ex_002");
+assert.equal(resolvedValidPlan.days[0]?.exercises[1]?.imageUrl, "https://cdn.example/press.jpg");
 assert.equal(resolvedValidPlan.days[0]?.exercises[2]?.exerciseId, "ex_003");
 
 const invalidPlan: Plan = {
