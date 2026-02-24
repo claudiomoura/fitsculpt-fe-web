@@ -2884,6 +2884,38 @@ function normalizePlanForExerciseResolution(plan: Record<string, unknown>) {
   };
 }
 
+function serializeTrainingPlanDaysWithNullableExerciseId(plan: Record<string, unknown>) {
+  const rawDays = Array.isArray((plan as { days?: unknown }).days) ? ((plan as { days: unknown[] }).days ?? []) : null;
+
+  if (!rawDays) {
+    return plan;
+  }
+
+  return {
+    ...plan,
+    days: rawDays.map((day) => {
+      const typedDay = (day ?? {}) as {
+        exercises?: unknown;
+      };
+      const rawExercises = Array.isArray(typedDay.exercises) ? typedDay.exercises : [];
+
+      return {
+        ...(typedDay as Record<string, unknown>),
+        exercises: rawExercises.map((exercise) => {
+          const typedExercise = (exercise ?? {}) as {
+            exerciseId?: unknown;
+          };
+
+          return {
+            ...(typedExercise as Record<string, unknown>),
+            exerciseId: typeof typedExercise.exerciseId === "string" ? typedExercise.exerciseId : null,
+          };
+        }),
+      };
+    }),
+  };
+}
+
 async function enrichTrainingPlanWithExerciseLibraryData(plan: Record<string, unknown>) {
   if (!plan || !Array.isArray((plan as { days?: unknown }).days)) {
     return plan;
@@ -2893,7 +2925,7 @@ async function enrichTrainingPlanWithExerciseLibraryData(plan: Record<string, un
   const normalizedPlan = normalizePlanForExerciseResolution(plan);
   const { plan: resolvedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(normalizedPlan, catalog);
 
-  return resolvedPlan;
+  return serializeTrainingPlanDaysWithNullableExerciseId(resolvedPlan);
 }
 
 function logTrainingPlanUnexpectedError(request: FastifyRequest, error: unknown, context: string) {
