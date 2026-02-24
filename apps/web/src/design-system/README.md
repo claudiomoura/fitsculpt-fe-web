@@ -1,184 +1,51 @@
 # Design System Guardrails
 
-This folder is the **safe zone** for design-system primitives and layout helpers.
+This folder contains canonical design-system primitives and tokens.
 
-## Contribution rules (new code)
+## Required rules
 
-1. **Use semantic tokens, not raw colors in components**
-   - ✅ Good: `var(--color-primary)`, `bg-primary`, `text-text`
-   - ❌ Avoid: direct `#00F5C3` / `#fff` in component code
-2. **Use spacing scale, not random padding/margin values**
-   - ✅ Good: Tailwind scale classes (`p-2`, `p-4`, `gap-6`) or shared DS vars
-   - ❌ Avoid: arbitrary values like `p-[13px]`, `style={{ padding: 11 }}`
-3. **Prefer DS layout primitives for page structure**
-   - Use `PageContainer` for top-level app page spacing constraints.
-   - Use `Stack` for vertical rhythm between sections.
+1. **No inline styling drift in feature code**
+   - Do not add ad-hoc `style={{ ... }}` for colors, spacing, or typography in screens/components.
+   - Add or reuse design-system tokens, then consume them semantically.
+2. **One primary CTA per block**
+   - Each logical block/card/section should expose only one visual primary action.
+   - Secondary/tertiary actions must use muted styles.
+3. **Use only DS semantic tokens**
+   - Use `semanticColors` tokens (including `bgPrimary`, `bgCard`, `borderSubtle`, `accentPrimary`, `accentSecondary`, `textPrimary`, `textSecondary`).
+   - Avoid hardcoded color literals in component code.
+4. **Spacing scale is fixed**
+   - Allowed spacing tokens: **8, 16, 24, 32, 48**.
+   - If another value is needed, propose DS update first; do not add random values.
+5. **Typography styles must come from DS exports**
+   - Use `typography.H1`, `typography.H2`, `typography.H3`, `typography.Body`, `typography.Small`, `typography.Caption`.
+6. **States are mandatory**
+   - Every user-facing flow should define: loading, empty, error, success/ready states.
+7. **Mobile-first implementation**
+   - Start from mobile layout and enhance progressively for larger breakpoints.
 
-> If a new token/spacing value is needed, add it to the token layer first and then consume it semantically.
+## Tokens snapshot
 
-## Usage examples
+### Semantic colors (required)
+- `bgPrimary`
+- `bgCard`
+- `borderSubtle`
+- `accentPrimary`
+- `accentSecondary`
+- `textPrimary`
+- `textSecondary`
 
-```tsx
-// Page-level layout
-<PageContainer>
-  <Stack gap="6">
-    <PageHeader title="Dashboard" />
-    <Card>...</Card>
-  </Stack>
-</PageContainer>
-```
+### Spacing
+- `8`, `16`, `24`, `32`, `48`
 
-```tsx
-// Good: semantic token in CSS variable
-<div style={{ borderColor: "var(--color-border)" }} />
+### Typography
+- `H1`, `H2`, `H3`, `Body`, `Small`, `Caption`
 
-// Avoid: hardcoded color and random spacing
-<div style={{ borderColor: "#e2e8f0", padding: 13 }} />
-```
-
-## Lightweight guardrail script
+## Quick check
 
 Run from `apps/web`:
 
 ```bash
-npm run lint:ds
+npm run lint
+npm run typecheck
+npm run build
 ```
-
-Current scope is intentionally narrow to avoid false positives:
-- Scans only `src/design-system/`
-- Checks for:
-  - hex color literals
-  - arbitrary Tailwind spacing (`p-[...]`, `m-[...]`)
-  - inline random padding/margin values in style objects
-
-This script is **opt-in** and not required by default lint CI unless explicitly wired.
-
-## Global state blocks
-
-Use these reusable blocks for loading, empty, and error experiences in pages:
-
-
-```tsx
-// Global state blocks
-<LoadingBlock title="Loading profile" description="Fetching latest data..." />
-
-<EmptyBlock
-  title="No workouts yet"
-  description="Create your first workout to get started."
-  action={<button className="btn-primary">Create workout</button>}
-/>
-
-<ErrorBlock
-  title="Something went wrong"
-  description="Please try again in a moment."
-  retryAction={<button className="btn-secondary">Retry</button>}
-/>
-```
-
-## Professional Mode semantic tokens (Admin/Trainer)
-
-A semantic variant is available for professional experiences (for example admin and trainer layouts) without changing the default app shell.
-
-### What was added
-
-- `professionalSemanticColors` and `semanticColorVariants` in `tokens.ts`.
-- `professionalElevation` and `elevationVariants` in `elevation.ts`.
-- Helpers:
-  - `getSemanticColors(variant)`
-  - `getElevation(variant)`
-
-### Activation (layout-level)
-
-Keep default user app screens untouched. Activate professional mode only at admin/trainer layout boundaries:
-
-```ts
-import { getSemanticColors, getElevation } from '@/design-system';
-
-const proColors = getSemanticColors('professional');
-const proElevation = getElevation('professional');
-```
-
-Then map these to CSS variables or style context in the professional layout provider. If no variant is provided, `default` is used and existing tokens remain unchanged.
-
-### When to use Professional Mode
-
-- ✅ Admin backoffice and trainer dashboards
-- ✅ Internal operations UIs where denser/stronger hierarchy is needed
-- ❌ End-user shell by default (unless explicitly migrated in another PR)
-
-## Motion tokens and transition utilities
-
-Use shared motion tokens for interactive states so components stay in the 150–200ms range.
-
-### Available tokens
-
-- `duration.hover` = `150ms`
-- `duration.normal` = `200ms`
-- `easing.standard` for most UI transitions
-- `transition.color`, `transition.surface`, `transition.transform`, `transition.emphasis`
-
-### Usage in DS components
-
-```ts
-import { createTransition, transition } from '@/design-system';
-
-const buttonTransition = createTransition('color');
-// => "color 150ms cubic-bezier(0.2, 0, 0, 1), ..."
-
-const cardTransition = createTransition('surface', transition.surface.properties);
-```
-
-```tsx
-// Example: inline style for a shared DS primitive
-<div
-  style={{
-    transition: createTransition('surface'),
-  }}
-/>
-```
-
-If you need a new transition behavior, add it to `motion.ts` first and reference it semantically from DS components.
-
-## Nutrition V2 building blocks
-
-These components are DS-only primitives for Nutrition Calendar V2. They are composable and can be imported without touching production screens.
-
-```tsx
-import {
-  Accordion,
-  HeaderCompact,
-  MealCardCompact,
-  ObjectiveGrid,
-  SegmentedControl,
-  WeekGridCompact,
-} from '@/design-system';
-```
-
-### `HeaderCompact`
-- Props: `title`, `subtitle?`, `leading?`, `trailing?`
-- Use for compact screen headers with optional icon button and right actions.
-
-### `ObjectiveGrid`
-- Props: `items` (`id`, `label`, `value`, `supportingText?`, `tone?`)
-- Renders a fixed 2x2 grid (`items.slice(0,4)`).
-
-### `SegmentedControl`
-- Props: `options`, `value`, `onChange?`
-- iOS-like segmented switch (for Mes/Semana/Lista toggles).
-
-### `WeekGridCompact`
-- Props: `days` (`id`, `label`, `date`, `selected?`, `complete?`), `onSelect?`
-- Renders compact 7-column day cards with 88px height.
-
-### `MealCardCompact`
-- Props: `title`, `subtitle?`, `kcal`, `imageSrc`, `imageAlt`
-- Row card with 72px thumbnail, kcal indicator and chevron affordance.
-
-### `Accordion`
-- Props: `items` (`id`, `title`, `content`, `subtitle?`), `defaultOpenId?`
-- Single-open accordion, suitable for Shopping List groups.
-
-### Motion contract for Nutrition V2 blocks
-- `hover:-translate-y-px`
-- `active:scale-[0.98]`
-- `transition: 150ms ease` via `createTransition('interactive')`

@@ -5,20 +5,11 @@ export const densityScale = {
 } as const;
 
 export const spacing = {
-  0: 0,
-  1: 4,
-  2: 8,
-  3: 14,
-  4: 18,
-  5: 22,
-  6: 26,
-  8: 34,
-  10: 42,
-  12: 50,
-  16: 66,
-  20: 82,
-  24: 98,
-  32: 130,
+  8: 8,
+  16: 16,
+  24: 24,
+  32: 32,
+  48: 48,
 } as const;
 
 export const radius = {

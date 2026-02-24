@@ -5,20 +5,11 @@ import { cn } from '@/lib/classNames';
 import { type SpacingScaleValue, resolveSpacingToken } from '../layout';
 
 const spacingToClass = {
-  0: '0',
-  1: '1',
-  2: '2',
-  3: '3',
-  4: '4',
-  5: '5',
-  6: '6',
   8: '8',
-  10: '10',
-  12: '12',
   16: '16',
-  20: '20',
   24: '24',
   32: '32',
+  48: '48',
 } as const;
 
 type MaxWidth = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
@@ -53,17 +44,17 @@ function toPaddingClass(prefix: 'px' | 'md:px' | 'lg:px', value: SpacingScaleVal
 function getPaddingClasses(padding: PageContainerProps['padding']) {
   if (padding == null) {
     return [
-      toPaddingClass('px', '4'),
-      toPaddingClass('md:px', '6'),
-      toPaddingClass('lg:px', '8'),
+      toPaddingClass('px', '8'),
+      toPaddingClass('md:px', '16'),
+      toPaddingClass('lg:px', '24'),
     ];
   }
 
   if (typeof padding === 'object') {
     return [
-      toPaddingClass('px', padding.base ?? '4'),
-      toPaddingClass('md:px', padding.md ?? padding.base ?? '6'),
-      toPaddingClass('lg:px', padding.lg ?? padding.md ?? padding.base ?? '8'),
+      toPaddingClass('px', padding.base ?? '8'),
+      toPaddingClass('md:px', padding.md ?? padding.base ?? '16'),
+      toPaddingClass('lg:px', padding.lg ?? padding.md ?? padding.base ?? '24'),
     ];
   }
 

@@ -7,7 +7,7 @@ describe('design-system layout primitives', () => {
   it('renders PageContainer with responsive spacing scale defaults', () => {
     const { getByTestId } = render(<PageContainer data-testid="page" />);
 
-    expect(getByTestId('page')).toHaveClass('px-4', 'md:px-6', 'lg:px-8', 'max-w-screen-xl');
+    expect(getByTestId('page')).toHaveClass('px-8', 'md:px-16', 'lg:px-24', 'max-w-screen-xl');
   });
 
   it('renders Stack using spacing aliases and layout props', () => {
@@ -16,7 +16,7 @@ describe('design-system layout primitives', () => {
     );
 
     expect(getByTestId('stack')).toHaveClass(
-      'gap-6',
+      'gap-24',
       'flex-row',
       'items-center',
       'justify-between',
