@@ -480,7 +480,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     router.push(`/app/biblioteca/${exerciseId}?${detailParams.toString()}`);
   };
 
-  const getExerciseLibraryId = (exercise: Exercise) => exercise.exerciseId;
+ const getExerciseLibraryId = (exercise: Exercise) => exercise.exerciseId ?? exercise.id;
 
   const handleExerciseKeyDown = (event: KeyboardEvent<HTMLDivElement>, exerciseId?: string, dayDate?: Date) => {
     if (!exerciseId) return;
@@ -1050,9 +1050,19 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       className="btn secondary"
                       onClick={() => setCalendarView("week")}
                     >
+                      
                       {t("training.viewWeek")}
                     </button>
                   </div>
+                  <button
+  type="button"
+  className="btn secondary"
+  onClick={handleGenerateClick}
+  disabled={isAiDisabled}
+  title={isAiLocked ? (aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")) : ""}
+>
+  {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
+</button>
                 </div>
 
                 <div className="training-progress">
