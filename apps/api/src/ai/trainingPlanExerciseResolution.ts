@@ -9,7 +9,7 @@ export type TrainingPlanExercise = {
 
 export type TrainingPlanDay<TExercise extends TrainingPlanExercise = TrainingPlanExercise> = {
   label: string;
-  exercises: TExercise[];
+  exercises?: TExercise[] | null;
   [key: string]: unknown;
 };
 
@@ -58,7 +58,7 @@ export function resolveTrainingPlanExerciseIds<TPlan extends TrainingPlanLike>(p
 
   const days = plan.days.map((day) => ({
     ...day,
-    exercises: day.exercises.map((exercise) => {
+    exercises: (Array.isArray(day.exercises) ? day.exercises : []).map((exercise) => {
       const normalizedName = normalizeExerciseName(exercise.name);
       const idCandidate = exercise.exerciseId?.trim() ?? "";
       const byProvidedId = idCandidate ? byId.get(idCandidate) : null;
@@ -101,7 +101,7 @@ export function findInvalidTrainingPlanExerciseIds<TPlan extends TrainingPlanLik
   const issues: InvalidExerciseIdIssue[] = [];
 
   for (const day of plan.days) {
-    for (const exercise of day.exercises) {
+    for (const exercise of Array.isArray(day.exercises) ? day.exercises : []) {
       const normalizedName = normalizeExerciseName(exercise.name);
       const candidate = exercise.exerciseId?.trim() ?? "";
 

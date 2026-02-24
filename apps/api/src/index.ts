@@ -6613,6 +6613,7 @@ app.post("/training-plans", async (request, reply) => {
 });
 
 app.get("/training-plans/:id", async (request, reply) => {
+  const reqId = request.id;
   try {
     const user = await requireUser(request);
     const { id } = trainingPlanParamsSchema.parse(request.params);
@@ -6647,11 +6648,20 @@ app.get("/training-plans/:id", async (request, reply) => {
     const enrichedPlan = await enrichTrainingPlanWithExerciseLibraryData(plan);
     return enrichedPlan;
   } catch (error) {
-    return handleRequestError(reply, error);
+    if (error instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    }
+    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.statusCode) {
+      return handleRequestError(reply, error);
+    }
+    request.log.error({ reqId, err: error }, "training-plan by id failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId });
   }
 });
 
 app.get("/training-plans/active", async (request, reply) => {
+  const reqId = request.id;
   try {
     const user = await requireUser(request);
     const { includeDays } = trainingPlanActiveQuerySchema.parse(request.query);
@@ -6676,7 +6686,7 @@ app.get("/training-plans/active", async (request, reply) => {
           ? {
               days: {
                 orderBy: { order: "asc" },
-                include: { exercises: { orderBy: { id: "asc" } }, },
+                include: { exercises: { orderBy: { id: "asc" } } },
               },
             }
           : undefined,
@@ -6724,7 +6734,7 @@ app.get("/training-plans/active", async (request, reply) => {
         });
 
     if (!ownPlan) {
-      return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
+      return reply.status(404).send({ error: "NOT_FOUND" });
     }
 
     const enrichedOwnPlan = includeDays ? await enrichTrainingPlanWithExerciseLibraryData(ownPlan) : ownPlan;
@@ -6734,7 +6744,15 @@ app.get("/training-plans/active", async (request, reply) => {
       plan: enrichedOwnPlan,
     });
   } catch (error) {
-    return handleRequestError(reply, error);
+    if (error instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    }
+    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.statusCode) {
+      return handleRequestError(reply, error);
+    }
+    request.log.error({ reqId, err: error }, "training-plan active failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId });
   }
 });
 

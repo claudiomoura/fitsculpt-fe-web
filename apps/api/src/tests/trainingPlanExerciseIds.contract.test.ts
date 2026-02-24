@@ -128,4 +128,22 @@ assert.deepEqual(invalidExerciseIds, [
   },
 ]);
 
+
+const sparsePlan = {
+  title: "Plan sparse",
+  days: [
+    {
+      label: "Día 4",
+      exercises: null,
+    },
+  ],
+} as unknown as Plan;
+
+const resolvedSparsePlan = resolveTrainingPlanExerciseIds(sparsePlan, catalog);
+assert.deepEqual(resolvedSparsePlan.unresolved, []);
+assert.deepEqual(resolvedSparsePlan.plan.days[0]?.exercises, []);
+
+const sparseIssues = findInvalidTrainingPlanExerciseIds(sparsePlan, catalog);
+assert.deepEqual(sparseIssues, []);
+
 console.log("training plan exercise ids contract test passed");
