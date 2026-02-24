@@ -1,6 +1,6 @@
 # RC Smoke Test + Demo Reset (manual, 1 doc, 10–12 min)
 
-**Dependency statement:** This PR depends on PR-03 being merged.
+**Dependency statement:** This PR depends on PR-03 and PR-04 being merged.
 
 Objetivo: ejecutar un recorrido único y repetible para Release Candidate con:
 1) reset demo,
@@ -74,7 +74,12 @@ Expected result:
    - Paso adicional: cambiar el toggle entre `Mes` → `Lista` → `Semana` usando mouse y teclado (`Tab` + `Enter`/`Space`).
    - Expected adicional: el toggle responde, expone labels accesibles (`aria-label` / `aria-pressed`), mantiene foco visible y no produce console errors.
 
-5. **Persistencia tras refresh**
+
+5. **Desktop wrappers (1440x1024)**
+   - Paso: abrir `/app/entrenamiento` y `/app/nutricion` en viewport desktop `1440x1024`.
+   - Expected: layout con sidebar `240px`, main centrado máx `1200px`, right panel `320px`, sin duplicar lógica de negocio y sin errores en consola.
+
+6. **Persistencia tras refresh**
    - Paso: refrescar la página (`Cmd/Ctrl + R`) y volver a `/app/hoy`.
    - Expected: el estado de la acción previa se mantiene (o se refleja el progreso esperado), sin perder sesión.
 
@@ -171,6 +176,7 @@ Expected result:
 - [x] Core loop en `/app/hoy` permite acción válida.
 - [x] Nutrición premium renderiza macro ring + toggle week/list/month + lista de comidas + CTA principal sin errores de consola.
 - [x] Training calendar (`/app/entrenamiento`) renderiza correctamente y el toggle week/month/list funciona con click/teclado + foco visible.
+- [x] Desktop wrappers en `/app/entrenamiento` y `/app/nutricion` cumplen 240/1200/320 en viewport 1440x1024.
 - [x] Persistencia confirmada después de refresh.
 - [x] Dashboard (`/app/dashboard`) consistente y usable con foco visible en acciones.
 - [x] Weekly Review carga correctamente y no rompe el retorno a `/app/hoy`.

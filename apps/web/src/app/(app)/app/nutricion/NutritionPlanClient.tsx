@@ -28,6 +28,8 @@ import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access
 import { Modal } from "@/components/ui/Modal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
 import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
+import AppLayout from "@/components/layout/AppLayout";
+import NutritionStats from "@/components/nutrition/NutritionStats";
 import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
 import { Accordion, HeaderCompact, ObjectiveGrid, SegmentedControl } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
@@ -1836,7 +1838,19 @@ const nutritionPlanDetails = profile ? (
     </section>
   ) : null;
 
-  return (
+  const rightPanel = hasPlan ? (
+    <div className="desktop-side-stack">
+      <NutritionStats
+        calories={highlightedMealsTotals.calories}
+        protein={highlightedMealsTotals.protein}
+        carbs={highlightedMealsTotals.carbs}
+        fats={highlightedMealsTotals.fats}
+        shoppingItems={shoppingList.length}
+      />
+    </div>
+  ) : null;
+
+  const pageContent = (
     <div className="page">
       {!isManualView ? (
         <>
@@ -2510,4 +2524,6 @@ const nutritionPlanDetails = profile ? (
       </Modal>
     </div>
   );
+
+  return <AppLayout main={pageContent} rightPanel={rightPanel} />;
 }

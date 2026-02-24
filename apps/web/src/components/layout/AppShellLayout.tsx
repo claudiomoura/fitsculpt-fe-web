@@ -1,5 +1,5 @@
 import AppNavBar from "@/components/layout/AppNavBar";
-import AppSidebar from "@/components/layout/AppSidebar";
+import Sidebar from "@/components/layout/Sidebar";
 import MobileTabBar from "@/components/layout/MobileTabBar";
 
 type AppShellLayoutProps = {
@@ -12,7 +12,7 @@ export default function AppShellLayout({ children, shell }: AppShellLayoutProps)
     <div className="app-frame" data-shell={shell}>
       <AppNavBar />
       <div className="app-shell">
-        <AppSidebar />
+        <Sidebar />
         <main className="app-content page-with-tabbar-safe-area">{children}</main>
       </div>
       <MobileTabBar />
