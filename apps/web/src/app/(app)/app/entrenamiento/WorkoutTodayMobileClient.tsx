@@ -16,8 +16,8 @@ import {
 } from "@/design-system";
 import { useLanguage } from "@/context/LanguageProvider";
 import { dayKey, todayLocalDayKey } from "@/lib/date/dayKey";
-import type { Workout } from "@/lib/types";
-import { listWorkoutDays } from "@/services/workout.service";
+import type { TrainingPlanDay } from "@/lib/types";
+import { getActiveWorkoutPlanDays } from "@/services/workout.service";
 import AppLayout from "@/components/layout/AppLayout";
 import { HeroWorkout } from "@/components/workout/HeroWorkout";
 import WeeklyStats from "@/components/workout/WeeklyStats";
@@ -31,7 +31,7 @@ type WeekDay = {
   iso: string;
 };
 
-const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=300&q=80";
+const PLACEHOLDER_IMAGE = "/placeholders/exercise-cover.jpg";
 const WEEKDAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 function parseDate(value?: string | null) {
@@ -56,19 +56,20 @@ export default function WorkoutTodayMobileClient() {
   const searchParams = useSearchParams();
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [planDays, setPlanDays] = useState<TrainingPlanDay[]>([]);
   const [manualSelectedDay, setManualSelectedDay] = useState<string | null>(null);
 
   const loadWorkouts = useCallback(async () => {
     setState("loading");
     setError(null);
-    const result = await listWorkoutDays();
+    const result = await getActiveWorkoutPlanDays();
     if (!result.ok) {
       setError(t("workouts.loadError"));
       setState("error");
       return;
     }
-    setWorkouts(Array.isArray(result.data) ? result.data : []);
+
+    setPlanDays(result.data.plan?.days ?? []);
     setState("success");
   }, [t]);
 
@@ -79,68 +80,55 @@ export default function WorkoutTodayMobileClient() {
     return () => window.clearTimeout(timer);
   }, [loadWorkouts]);
 
-  const parsedWorkouts = useMemo(
+  const parsedDays = useMemo(
     () =>
-      workouts
-        .map((workout) => ({ workout, date: parseDate(workout.scheduledAt) }))
-        .filter((item): item is { workout: Workout; date: Date } => item.date instanceof Date),
-    [workouts],
+      planDays
+        .map((day) => ({ day, date: parseDate(day.date) }))
+        .filter((item): item is { day: TrainingPlanDay; date: Date } => item.date instanceof Date),
+    [planDays],
   );
 
-  const workoutsByDay = useMemo(() => {
-    const map = new Map<string, Workout[]>();
-    parsedWorkouts.forEach(({ workout, date }) => {
+  const daysByIso = useMemo(() => {
+    const map = new Map<string, TrainingPlanDay>();
+    parsedDays.forEach(({ day, date }) => {
       const key = dayKey(date);
-      if (!key) return;
-      map.set(key, [...(map.get(key) ?? []), workout]);
+      if (!key || map.has(key)) return;
+      map.set(key, day);
     });
     return map;
-  }, [parsedWorkouts]);
+  }, [parsedDays]);
 
   const workoutDays = useMemo(() => {
-    const seen = new Set<string>();
-    return parsedWorkouts
+    return parsedDays
       .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .filter(({ date }) => {
-        const key = dayKey(date);
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
       .map(({ date }) => toWeekDay(date));
-  }, [parsedWorkouts]);
+  }, [parsedDays]);
 
   const todayIso = todayLocalDayKey();
-  const queryDay = dayKey(searchParams.get("day"));
+  const queryDay = searchParams.get("day");
   const dayKeyCandidate = manualSelectedDay ?? queryDay ?? todayIso;
   const firstDayWithExercises = useMemo(
     () =>
       workoutDays.find((day) => {
-        const workout = workoutsByDay.get(day.iso)?.[0] ?? null;
-        return (workout?.exercises?.length ?? 0) > 0;
+        const planDay = daysByIso.get(day.iso);
+        return (planDay?.exercises?.length ?? 0) > 0;
       }),
-    [workoutDays, workoutsByDay],
+    [daysByIso, workoutDays],
   );
 
-  const candidateWorkout = workoutsByDay.get(dayKeyCandidate)?.[0] ?? null;
-  const shouldFallback = !manualSelectedDay && (!candidateWorkout || (candidateWorkout.exercises?.length ?? 0) === 0);
+  const candidatePlanDay = daysByIso.get(dayKeyCandidate) ?? null;
+  const shouldFallback = !manualSelectedDay && (!candidatePlanDay || (candidatePlanDay.exercises?.length ?? 0) === 0);
   const activeDayKey = shouldFallback ? firstDayWithExercises?.iso ?? dayKeyCandidate : dayKeyCandidate;
-  const activeWorkout = workoutsByDay.get(activeDayKey)?.[0] ?? null;
+  const selectedDay = daysByIso.get(activeDayKey) ?? null;
 
-  const completed = useMemo(() => {
-    if (!activeWorkout?.sessions?.length) return 0;
-    const session = activeWorkout.sessions[0];
-    if (!session?.entries?.length) return 0;
-    return session.entries.length;
-  }, [activeWorkout]);
-
-  const total = Math.max(activeWorkout?.exercises?.length ?? 0, 1);
-  const estimatedMinutes = activeWorkout?.estimatedDurationMin ?? activeWorkout?.durationMin ?? 45;
+  const completed = 0;
+  const total = Math.max(selectedDay?.exercises?.length ?? 0, 1);
+  const estimatedMinutes = selectedDay?.duration ?? 45;
 
   const weekDays = useMemo(() => {
     return workoutDays.map((day) => {
-      const workout = workoutsByDay.get(day.iso)?.[0] ?? null;
-      const hasExercises = (workout?.exercises?.length ?? 0) > 0;
+      const planDay = daysByIso.get(day.iso);
+      const hasExercises = (planDay?.exercises?.length ?? 0) > 0;
       return {
         id: day.id,
         label: day.iso === todayIso ? `${day.label} · Hoy` : day.label,
@@ -149,7 +137,7 @@ export default function WorkoutTodayMobileClient() {
         complete: hasExercises,
       };
     });
-  }, [activeDayKey, todayIso, workoutDays, workoutsByDay]);
+  }, [activeDayKey, todayIso, workoutDays, daysByIso]);
 
   if (state === "loading") {
     return <LoadingBlock title="Cargando entrenamiento" description="Estamos preparando tu sesión de hoy." />;
@@ -179,8 +167,8 @@ export default function WorkoutTodayMobileClient() {
     );
   }
 
-  const hasAnyExercises = workoutDays.some((day) => (workoutsByDay.get(day.iso)?.[0]?.exercises?.length ?? 0) > 0);
-  const exercises = activeWorkout?.exercises ?? [];
+  const hasAnyExercises = workoutDays.some((day) => (daysByIso.get(day.iso)?.exercises?.length ?? 0) > 0);
+  const exercises = selectedDay?.exercises ?? [];
 
   const mainContent = (
     <PageContainer as="section" maxWidth="md" className="py-4 pb-24">
@@ -188,10 +176,10 @@ export default function WorkoutTodayMobileClient() {
         <HeaderCompact title="Entrenamiento de hoy" subtitle="Tu planificación semanal" />
 
         <HeroWorkout
-          title={activeWorkout?.name ?? "Planifica tu próxima sesión"}
-          subtitle={activeWorkout?.notes ?? "Mantén el ritmo revisando tu planificación semanal."}
+          title={selectedDay?.label ?? "Planifica tu próxima sesión"}
+          subtitle={selectedDay?.focus ?? "Mantén el ritmo revisando tu planificación semanal."}
           meta={`${estimatedMinutes} min`}
-          badge={activeWorkout?.goal ?? "Plan activo"}
+          badge="Plan activo"
           ctaLabel="Generar con IA"
           ctaHref="/app/workouts"
         />
@@ -233,7 +221,6 @@ export default function WorkoutTodayMobileClient() {
                   key={`${exercise.id ?? exercise.name}-${index}`}
                   name={exercise.name}
                   detail={`${exercise.sets ?? "3"} series · ${exercise.reps ?? "10"} reps`}
-                  volume={exercise.rpe ? `RPE ${exercise.rpe}` : undefined}
                   imageSrc={PLACEHOLDER_IMAGE}
                   imageAlt={exercise.name}
                   progress={completed > index ? 100 : 0}
