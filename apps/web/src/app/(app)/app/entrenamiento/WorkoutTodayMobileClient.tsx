@@ -10,7 +10,7 @@ import {
   LoadingBlock,
   PageContainer,
   Stack,
-  WeekGridCompact,
+  TrainingWeekGridCompact,
   WorkoutProgressBar,
 } from "@/design-system";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -193,7 +193,7 @@ export default function WorkoutTodayMobileClient() {
   const mainContent = (
     <PageContainer as="section" maxWidth="md" className="py-4 pb-24">
       <Stack gap="4">
-        <HeaderCompact title="Entrenamiento de hoy" subtitle="Mobile Today" />
+        <HeaderCompact title="Entrenamiento de hoy" subtitle="Tu planificación semanal" />
 
         <HeroWorkout
           title={activeWorkout?.name ?? "Planifica tu próxima sesión"}
@@ -233,7 +233,7 @@ export default function WorkoutTodayMobileClient() {
         </section>
 
         <section className="rounded-2xl border border-border bg-surface p-4">
-          <h2 className="text-base font-semibold text-text">{showSelectedWorkout ? "Ejercicios del día seleccionado" : "Ejercicios de hoy"}</h2>
+          <HeaderCompact title={showSelectedWorkout ? "Ejercicios del día seleccionado" : "Ejercicios de hoy"} />
           {showSelectedWorkout && exercises.length ? (
             <Stack gap="3" className="mt-3">
               {exercises.map((exercise, index) => (
