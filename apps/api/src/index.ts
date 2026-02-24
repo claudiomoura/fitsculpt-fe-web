@@ -5648,7 +5648,33 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
       aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
-    return handleRequestError(reply, error);
+    if (error instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    }
+
+    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.code === "AI_NOT_CONFIGURED") {
+      return reply.status(503).send({
+        error: "AI_NOT_CONFIGURED",
+        ...(typed.debug ? { debug: typed.debug } : {}),
+      });
+    }
+
+    if (typed.code === "AI_PARSE_ERROR" || typed.code === "AI_EMPTY_RESPONSE" || typed.code === "INVALID_AI_OUTPUT") {
+      return reply.status(422).send({ error: "INVALID_AI_OUTPUT" });
+    }
+
+    if (typed.code === "AI_REQUEST_FAILED" || typed.code === "AI_AUTH_FAILED") {
+      const debug = resolveTrainingProviderFailureDebug(error);
+      const cause = resolveTrainingProviderFailureCause(error);
+      return reply.status(502).send({
+        error: "AI_REQUEST_FAILED",
+        ...(debug ? { debug: { ...debug, cause } } : { debug: { cause } }),
+      });
+    }
+
+    app.log.error({ err: error, route: "/ai/training-plan/generate" }, "training plan generation failed");
+    return reply.status(502).send({ error: "AI_REQUEST_FAILED", debug: { cause: "UNEXPECTED_ERROR" } });
   }
 });
 
