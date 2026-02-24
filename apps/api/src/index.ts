@@ -32,6 +32,7 @@ import {
   type ExerciseCatalogItem,
   resolveTrainingPlanExerciseIds as resolveTrainingPlanExerciseIdsWithCatalog,
 } from "./ai/trainingPlanExerciseResolution.js";
+import { buildDeterministicTrainingFallbackPlan } from "./ai/training-plan/fallbackBuilder.js";
 import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
@@ -5603,12 +5604,22 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
     }
 
     if (!parsedPlan) {
-      const providerFailureDebug = resolveTrainingProviderFailureDebug(lastError);
-      throw createHttpError(400, "INVALID_AI_OUTPUT", {
-        message: "No se pudo generar un plan de entrenamiento válido tras reintento.",
-        cause: resolveTrainingProviderFailureCause(lastError),
-        ...(providerFailureDebug ?? {}),
-      });
+      app.log.warn(
+        {
+          userId: user.id,
+          cause: (lastError as { code?: string; message?: string })?.code ?? "UNKNOWN",
+        },
+        "training plan AI failed, returning deterministic fallback"
+      );
+      parsedPlan = buildDeterministicTrainingFallbackPlan(
+        {
+          daysPerWeek: trainingInput.daysPerWeek,
+          level: trainingInput.level,
+          goal: trainingInput.goal,
+          startDate,
+        },
+        exerciseCatalog
+      );
     }
 
     const resolvedPlan = resolveTrainingPlanExerciseIds(parsedPlan, exerciseCatalog);
