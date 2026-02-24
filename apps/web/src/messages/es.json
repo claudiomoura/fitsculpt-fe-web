@@ -939,7 +939,7 @@
     "aiErrorState": {
       "title": "No se pudo generar",
       "invalidOutputTitle": "No pudimos crear tu plan esta vez",
-      "invalidOutputDescription": "La salida generada por IA no fue válida. Puedes reintentar de forma segura.",
+      "invalidOutputDescription": "No se pudo generar un plan válido. Prueba con 3 comidas/día o ajusta calorías/macros.",
       "genericDescription": "No pudimos generar tu plan de nutrición ahora mismo. Inténtalo de nuevo.",
       "toast": "Falló la generación del plan de nutrición.",
       "detailsCta": "Detalles",
