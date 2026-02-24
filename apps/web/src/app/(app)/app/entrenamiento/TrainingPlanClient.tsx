@@ -893,6 +893,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     ?? null;
   const selectedEntryDate = selectedEntry?.date ?? selectedDate;
   const selectedExercises = selectedEntry?.day.exercises ?? [];
+  const dayEditorPlanId = selectedPlanId.trim();
+  const dayEditorDay = toDateKey(selectedEntryDate);
+  const canOpenDayEditor = Boolean(dayEditorPlanId && dayEditorDay);
+  const dayEditorHref = `/app/entrenamiento/editar?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
   const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => entry.date.getTime() < today.getTime()).length;
   const totalPlannedSessions = Math.max(visiblePlanEntries.length, 1);
   const progressPercent = Math.min(100, Math.round((estimatedCompletedSessions / totalPlannedSessions) * 100));
@@ -1006,9 +1010,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
             <p className="muted mt-12">{t("training.preferencesHint")}</p>
 
-            <Link href="/app/entrenamiento/editar" className="btn secondary mt-12 fit-content">
-              {t("training.editPlan")}
-            </Link>
+            {canOpenDayEditor ? (
+              <Link href={dayEditorHref} className="btn secondary mt-12 fit-content">
+                {t("training.editPlan")}
+              </Link>
+            ) : (
+              <p className="muted mt-12">
+                {safeT("training.editPlanRequiresSelection", "Editar ejercicios requiere seleccionar un plan activo.")}
+              </p>
+            )}
           </>
         ) : null}
       </div>
