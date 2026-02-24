@@ -1045,16 +1045,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                     >
                       {safeT("training.startSession", "Iniciar sesión")}
                     </Link>
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      onClick={() => setCalendarView("week")}
+                   {/* <Link
+                      className="btn"
+                      href="/app/entrenamientos"
                     >
                       
                       {t("training.viewWeek")}
-                    </button>
-                  </div>
-                  <button
+                    </Link> */}
+                                     <button
   type="button"
   className="btn secondary"
   onClick={handleGenerateClick}
@@ -1063,6 +1061,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 >
   {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
 </button>
+                  </div>
+ 
                 </div>
 
                 <div className="training-progress">
