@@ -21,3 +21,6 @@ export function dayKey(value?: string | Date | null): string | null {
   return Number.isNaN(parsed.getTime()) ? null : dayKeyFromDate(parsed);
 }
 
+export function todayLocalDayKey(): string {
+  return dayKeyFromDate(new Date());
+}

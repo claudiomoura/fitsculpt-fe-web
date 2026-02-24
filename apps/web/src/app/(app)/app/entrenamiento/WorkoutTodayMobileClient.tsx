@@ -15,12 +15,11 @@ import {
   WorkoutProgressBar,
 } from "@/design-system";
 import { useLanguage } from "@/context/LanguageProvider";
-import { dayKey } from "@/lib/date/dayKey";
+import { dayKey, todayLocalDayKey } from "@/lib/date/dayKey";
 import type { Workout } from "@/lib/types";
 import { listWorkoutDays } from "@/services/workout.service";
 import AppLayout from "@/components/layout/AppLayout";
 import { HeroWorkout } from "@/components/workout/HeroWorkout";
-import { Periodization } from "@/components/workout/Periodization";
 import WeeklyStats from "@/components/workout/WeeklyStats";
 
 type LoadState = "loading" | "error" | "success";
@@ -41,26 +40,13 @@ function parseDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function startOfWeek(date: Date) {
-  const base = new Date(date);
-  const day = base.getDay();
-  base.setHours(0, 0, 0, 0);
-  base.setDate(base.getDate() - day);
-  return base;
-}
-
-function buildWeekDays(reference: Date): WeekDay[] {
-  const weekStart = startOfWeek(reference);
-  return Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(weekStart);
-    day.setDate(weekStart.getDate() + index);
-    return {
-      id: dayKey(day) ?? "",
-      label: WEEKDAY_LABELS[day.getDay()] ?? "",
-      dateNumber: day.getDate(),
-      iso: dayKey(day) ?? "",
-    };
-  });
+function toWeekDay(date: Date): WeekDay {
+  return {
+    id: dayKey(date) ?? "",
+    label: WEEKDAY_LABELS[date.getDay()] ?? "",
+    dateNumber: date.getDate(),
+    iso: dayKey(date) ?? "",
+  };
 }
 
 export default function WorkoutTodayMobileClient() {
@@ -71,7 +57,7 @@ export default function WorkoutTodayMobileClient() {
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [selectedDayState, setSelectedDayState] = useState(() => dayKey(new Date()) ?? "");
+  const [manualSelectedDay, setManualSelectedDay] = useState<string | null>(null);
 
   const loadWorkouts = useCallback(async () => {
     setState("loading");
@@ -106,29 +92,40 @@ export default function WorkoutTodayMobileClient() {
     parsedWorkouts.forEach(({ workout, date }) => {
       const key = dayKey(date);
       if (!key) return;
-      const prev = map.get(key) ?? [];
-      map.set(key, [...prev, workout]);
+      map.set(key, [...(map.get(key) ?? []), workout]);
     });
     return map;
   }, [parsedWorkouts]);
 
-  const todayIso = dayKey(new Date()) ?? "";
-  const todayWorkout = workoutsByDay.get(todayIso)?.[0] ?? null;
-  const requestedDay = dayKey(searchParams.get("day"));
-  const selectedDay = requestedDay ?? selectedDayState;
-  const normalizedSelectedDay = selectedDay || todayIso;
-  const selectedWorkout = workoutsByDay.get(normalizedSelectedDay)?.[0] ?? null;
-
-  const nextWorkout = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+  const workoutDays = useMemo(() => {
+    const seen = new Set<string>();
     return parsedWorkouts
-      .filter(({ date }) => date.getTime() > today.getTime())
-      .sort((a, b) => a.date.getTime() - b.date.getTime())[0]?.workout ?? null;
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .filter(({ date }) => {
+        const key = dayKey(date);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(({ date }) => toWeekDay(date));
   }, [parsedWorkouts]);
 
-  const activeWorkout = selectedWorkout ?? todayWorkout;
+  const todayIso = todayLocalDayKey();
+  const queryDay = dayKey(searchParams.get("day"));
+  const dayKeyCandidate = manualSelectedDay ?? queryDay ?? todayIso;
+  const firstDayWithExercises = useMemo(
+    () =>
+      workoutDays.find((day) => {
+        const workout = workoutsByDay.get(day.iso)?.[0] ?? null;
+        return (workout?.exercises?.length ?? 0) > 0;
+      }),
+    [workoutDays, workoutsByDay],
+  );
+
+  const candidateWorkout = workoutsByDay.get(dayKeyCandidate)?.[0] ?? null;
+  const shouldFallback = !manualSelectedDay && (!candidateWorkout || (candidateWorkout.exercises?.length ?? 0) === 0);
+  const activeDayKey = shouldFallback ? firstDayWithExercises?.iso ?? dayKeyCandidate : dayKeyCandidate;
+  const activeWorkout = workoutsByDay.get(activeDayKey)?.[0] ?? null;
 
   const completed = useMemo(() => {
     if (!activeWorkout?.sessions?.length) return 0;
@@ -140,31 +137,19 @@ export default function WorkoutTodayMobileClient() {
   const total = Math.max(activeWorkout?.exercises?.length ?? 0, 1);
   const estimatedMinutes = activeWorkout?.estimatedDurationMin ?? activeWorkout?.durationMin ?? 45;
 
-  const periodizationPhases = useMemo(
-    () => [
-      { id: "acc", label: "Acumulación", weeks: 3, intensity: "medium" as const, selected: true },
-      { id: "int", label: "Intensificación", weeks: 2, intensity: "high" as const },
-      { id: "deload", label: "Deload", weeks: 1, intensity: "deload" as const },
-      { id: "peak", label: "Peak", weeks: 2, intensity: "high" as const },
-    ],
-    [],
-  );
-
   const weekDays = useMemo(() => {
-    const today = new Date();
-    return buildWeekDays(today).map((day) => {
-      const hasSession = (workoutsByDay.get(day.iso) ?? []).length > 0;
-      const isToday = day.iso === todayIso;
+    return workoutDays.map((day) => {
+      const workout = workoutsByDay.get(day.iso)?.[0] ?? null;
+      const hasExercises = (workout?.exercises?.length ?? 0) > 0;
       return {
         id: day.id,
-        label: day.label,
+        label: day.iso === todayIso ? `${day.label} · Hoy` : day.label,
         date: day.dateNumber,
-        selected: day.iso === normalizedSelectedDay,
-        complete: hasSession,
-        isToday,
+        selected: day.iso === activeDayKey,
+        complete: hasExercises,
       };
     });
-  }, [normalizedSelectedDay, todayIso, workoutsByDay]);
+  }, [activeDayKey, todayIso, workoutDays, workoutsByDay]);
 
   if (state === "loading") {
     return <LoadingBlock title="Cargando entrenamiento" description="Estamos preparando tu sesión de hoy." />;
@@ -184,9 +169,18 @@ export default function WorkoutTodayMobileClient() {
     );
   }
 
+  if (!workoutDays.length) {
+    return (
+      <EmptyBlock
+        title="No hay entrenamientos disponibles"
+        description="Todavía no tienes días programados en tu plan activo."
+        action={<Link className="btn" href="/app/workouts">Crear entrenamiento</Link>}
+      />
+    );
+  }
+
+  const hasAnyExercises = workoutDays.some((day) => (workoutsByDay.get(day.iso)?.[0]?.exercises?.length ?? 0) > 0);
   const exercises = activeWorkout?.exercises ?? [];
-  const showTodayEmpty = !todayWorkout;
-  const showSelectedWorkout = !!selectedWorkout;
 
   const mainContent = (
     <PageContainer as="section" maxWidth="md" className="py-4 pb-24">
@@ -195,18 +189,11 @@ export default function WorkoutTodayMobileClient() {
 
         <HeroWorkout
           title={activeWorkout?.name ?? "Planifica tu próxima sesión"}
-          subtitle={
-            activeWorkout?.notes ??
-            (showTodayEmpty
-              ? "Hoy no tienes sesión programada. Mantén el ritmo revisando la semana."
-              : "Sesión enfocada en rendimiento y técnica.")
-          }
+          subtitle={activeWorkout?.notes ?? "Mantén el ritmo revisando tu planificación semanal."}
           meta={`${estimatedMinutes} min`}
-          badge={activeWorkout?.goal ?? (showTodayEmpty ? "Descanso" : "Hoy")}
+          badge={activeWorkout?.goal ?? "Plan activo"}
           ctaLabel="Generar con IA"
           ctaHref="/app/workouts"
-          secondaryCtaLabel={showTodayEmpty && nextWorkout ? "Ver próxima sesión" : undefined}
-          secondaryCtaHref={showTodayEmpty && nextWorkout ? `/app/entrenamientos/${nextWorkout.id}` : undefined}
         />
 
         <section className="rounded-2xl border border-border bg-surface p-4">
@@ -220,45 +207,24 @@ export default function WorkoutTodayMobileClient() {
               if (typeof id !== "string") return;
               const normalizedDay = dayKey(id);
               if (!normalizedDay) return;
-              setSelectedDayState(normalizedDay);
+              setManualSelectedDay(normalizedDay);
               const params = new URLSearchParams(searchParams.toString());
               params.set("day", normalizedDay);
               router.replace(`${pathname}?${params.toString()}`, { scroll: false });
             }}
             className="mt-3"
-            days={weekDays.map((day) => ({
-              id: day.id,
-              label: day.isToday ? `${day.label} · Hoy` : day.label,
-              date: day.date,
-              selected: day.selected,
-              complete: day.complete,
-            }))}
+            days={weekDays}
           />
         </section>
 
         <section className="rounded-2xl border border-border bg-surface p-4">
-          <HeaderCompact title={showSelectedWorkout ? "Ejercicios del día seleccionado" : "Ejercicios de hoy"} />
-          {showSelectedWorkout && exercises.length ? (
-            <Stack gap="3" className="mt-3">
-              {exercises.map((exercise, index) => (
-                <ExerciseCardCompact
-                  key={`${exercise.id ?? exercise.name}-${index}`}
-                  name={exercise.name}
-                  detail={`${exercise.sets ?? "3"} series · ${exercise.reps ?? "10"} reps`}
-                  volume={exercise.rpe ? `RPE ${exercise.rpe}` : undefined}
-                  imageSrc={PLACEHOLDER_IMAGE}
-                  imageAlt={exercise.name}
-                  progress={completed > index ? 100 : 0}
-                />
-              ))}
-            </Stack>
-          ) : showTodayEmpty ? (
+          <HeaderCompact title="Ejercicios" />
+          {!hasAnyExercises ? (
             <EmptyBlock
               centered={false}
               className="py-6"
-              title="No tienes entrenamiento para hoy"
-              description="Puedes crear uno nuevo o navegar a otro día desde la semana."
-              action={<Link className="btn" href="/app/workouts">Crear entrenamiento</Link>}
+              title="Tu plan aún no tiene ejercicios"
+              description="Cuando tu entrenador cargue ejercicios, aparecerán aquí automáticamente."
             />
           ) : exercises.length ? (
             <Stack gap="3" className="mt-3">
@@ -278,14 +244,11 @@ export default function WorkoutTodayMobileClient() {
             <EmptyBlock
               centered={false}
               className="py-6"
-              title="Esta sesión no tiene ejercicios cargados"
-              description="Selecciona otro día en la semana o crea un nuevo entrenamiento."
-              action={<Link className="btn" href="/app/workouts">Crear entrenamiento</Link>}
+              title="Este día no tiene ejercicios"
+              description="Selecciona otro día de la semana para continuar tu rutina."
             />
           )}
         </section>
-
-        <Periodization phases={periodizationPhases} />
       </Stack>
     </PageContainer>
   );
@@ -293,7 +256,6 @@ export default function WorkoutTodayMobileClient() {
   const rightPanel = (
     <div className="desktop-side-stack">
       <WeeklyStats completedExercises={completed} totalExercises={total} estimatedMinutes={estimatedMinutes} />
-      <Periodization phases={periodizationPhases} />
     </div>
   );
 
