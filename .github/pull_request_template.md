@@ -5,6 +5,13 @@
 ## Dependency statement (mandatory)
 This PR depends on PR-01 and PR-02 being merged (and PR-03 if applicable).
 
+## Local release gate (mandatory before review)
+- [ ] `npm run release:check` executado na raiz
+- [ ] FE PASS (`build` + `typecheck` + `test`)
+- [ ] BE PASS (`build` + `test`)
+- [ ] Output completo do `release:check` anexado no PR
+- [ ] Link para documentação de validação pré-merge (`README/dev-setup.md`)
+
 ## Freeze scope (mandatory)
 - [ ] No product/architecture change (docs + QA/release process only)
 - [ ] Only release-critical fixes allowed during RC
