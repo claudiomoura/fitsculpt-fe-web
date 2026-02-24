@@ -2838,20 +2838,72 @@ function resolveTrainingPlanExerciseIds(
   return resolvedPlan;
 }
 
+function normalizePlanForExerciseResolution(plan: Record<string, unknown>) {
+  const rawDays = Array.isArray((plan as { days?: unknown }).days) ? ((plan as { days: unknown[] }).days ?? []) : [];
+
+  return {
+    ...plan,
+    days: rawDays.map((day, dayIndex) => {
+      const typedDay = (day ?? {}) as {
+        label?: unknown;
+        exercises?: unknown;
+      };
+      const rawExercises = Array.isArray(typedDay.exercises) ? typedDay.exercises : [];
+
+      return {
+        ...(typedDay as Record<string, unknown>),
+        label: typeof typedDay.label === "string" ? typedDay.label : `Day ${dayIndex + 1}`,
+        exercises: rawExercises.map((exercise) => {
+          const typedExercise = (exercise ?? {}) as {
+            name?: unknown;
+            exerciseId?: unknown;
+            imageUrl?: unknown;
+            exercise?: { name?: unknown; imageUrl?: unknown } | null;
+          };
+          const fallbackName =
+            typeof typedExercise.exercise?.name === "string"
+              ? typedExercise.exercise.name
+              : typeof typedExercise.name === "string"
+                ? typedExercise.name
+                : "Unknown exercise";
+
+          return {
+            ...(typedExercise as Record<string, unknown>),
+            name: fallbackName,
+            exerciseId: typeof typedExercise.exerciseId === "string" ? typedExercise.exerciseId : null,
+            imageUrl:
+              typeof typedExercise.imageUrl === "string"
+                ? typedExercise.imageUrl
+                : typeof typedExercise.exercise?.imageUrl === "string"
+                  ? typedExercise.exercise.imageUrl
+                  : null,
+          };
+        }),
+      };
+    }),
+  };
+}
+
 async function enrichTrainingPlanWithExerciseLibraryData(plan: Record<string, unknown>) {
   if (!plan || !Array.isArray((plan as { days?: unknown }).days)) {
     return plan;
   }
 
   const catalog = await fetchExerciseCatalog(prisma);
-  const { plan: resolvedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(
-    plan as {
-      days: Array<{ label: string; exercises: Array<{ name: string; exerciseId?: string | null; imageUrl?: string | null }> }>;
-    },
-    catalog
-  );
+  const normalizedPlan = normalizePlanForExerciseResolution(plan);
+  const { plan: resolvedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(normalizedPlan, catalog);
 
   return resolvedPlan;
+}
+
+function logTrainingPlanUnexpectedError(request: FastifyRequest, error: unknown, context: string) {
+  request.log.error(
+    {
+      reqId: request.id,
+      err: error,
+    },
+    context
+  );
 }
 
 type ExerciseMetadata = {
@@ -6647,7 +6699,17 @@ app.get("/training-plans/:id", async (request, reply) => {
     const enrichedPlan = await enrichTrainingPlanWithExerciseLibraryData(plan);
     return enrichedPlan;
   } catch (error) {
-    return handleRequestError(reply, error);
+    if (error instanceof z.ZodError) {
+      return handleRequestError(reply, error);
+    }
+
+    const typed = error as { statusCode?: number; code?: string };
+    if (typed.statusCode === 404) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    logTrainingPlanUnexpectedError(request, error, "training plan by id failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId: request.id });
   }
 });
 
@@ -6724,7 +6786,7 @@ app.get("/training-plans/active", async (request, reply) => {
         });
 
     if (!ownPlan) {
-      return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
+      return reply.status(404).send({ error: "NOT_FOUND" });
     }
 
     const enrichedOwnPlan = includeDays ? await enrichTrainingPlanWithExerciseLibraryData(ownPlan) : ownPlan;
@@ -6734,7 +6796,17 @@ app.get("/training-plans/active", async (request, reply) => {
       plan: enrichedOwnPlan,
     });
   } catch (error) {
-    return handleRequestError(reply, error);
+    if (error instanceof z.ZodError) {
+      return handleRequestError(reply, error);
+    }
+
+    const typed = error as { statusCode?: number; code?: string };
+    if (typed.statusCode === 404) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+
+    logTrainingPlanUnexpectedError(request, error, "active training plan failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId: request.id });
   }
 });
 
