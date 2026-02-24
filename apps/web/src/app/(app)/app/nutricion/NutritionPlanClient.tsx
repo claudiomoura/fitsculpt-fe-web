@@ -27,7 +27,9 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { Modal } from "@/components/ui/Modal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
-import { Accordion, HeaderCompact, ObjectiveGrid, SegmentedControl, WeekGridCompact } from "@/design-system/components";
+import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
+import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
+import { Accordion, HeaderCompact, ObjectiveGrid, SegmentedControl } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
@@ -1991,34 +1993,7 @@ const nutritionPlanDetails = profile ? (
                     )}
                   />
 
-                  <div className="nutrition-v2-hero" aria-label={t("nutrition.dailyTargetTitle")}>
-                    <div
-                      className="nutrition-macro-ring nutrition-macro-ring--hero"
-                      style={{
-                        background: `conic-gradient(${macroRingSegments
-                          .map((segment, index, all) => {
-                            const start = all.slice(0, index).reduce((sum, item) => sum + item.percent, 0);
-                            const finish = start + segment.percent;
-                            return `${segment.color} ${start}% ${finish}%`;
-                          })
-                          .join(", ")})`,
-                      }}
-                    >
-                      <div className="nutrition-macro-ring-center nutrition-macro-ring-center--hero">
-                        <strong>{Math.round(highlightedMealsTotals.calories)}</strong>
-                        <span>{t("nutrition.dailyTargetTitle")}</span>
-                      </div>
-                    </div>
-                    <ul className="list-reset nutrition-ring-legend nutrition-ring-legend--compact">
-                      {macroRingSegments.map((segment) => (
-                        <li key={segment.key}>
-                          <span className="nutrition-ring-dot" style={{ backgroundColor: segment.color }} />
-                          <span>{segment.label}</span>
-                          <strong>{Math.round(segment.grams)}g</strong>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
 
                   <ObjectiveGrid items={objectiveItems} className="nutrition-v2-objective-grid" />
 
@@ -2059,57 +2034,34 @@ const nutritionPlanDetails = profile ? (
                   ) : null}
 
                   {calendarView === "week" ? (
-                    <div className="calendar-week stack-sm">
-                      <div className="calendar-range">
-                        <button type="button" className="btn secondary fit-content" aria-label={t("calendar.previousWeekAria")} onClick={() => setSelectedDate((prev) => addWeeks(prev, -1))}>
-                          {t("calendar.previousWeek")}
-                        </button>
-                        <div>
-                          <strong>
-                            {t("nutrition.weekLabel")} {clampedWeekOffset + 1}
-                          </strong>
-                          <span className="muted">{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
-                        </div>
-                        <button type="button" className="btn secondary fit-content" aria-label={t("calendar.nextWeekAria")} onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))} disabled={weekOffset >= maxProjectedWeeksAhead}>
-                          {t("calendar.nextWeek")}
-                        </button>
-                      </div>
-                      {hasWeeklyMeals ? (
-                        <WeekGridCompact
-                          days={weekGridDays.map((day) => ({
-                            id: day.id,
-                            label: day.label,
-                            date: day.date,
-                            selected: day.selected,
-                            complete: false,
-                          }))}
-                          onSelect={(dayId) => {
-                            if (typeof dayId !== "string") return;
-                            const nextDate = parseDate(dayId);
-                            if (nextDate) setSelectedDate(nextDate);
-                          }}
-                          className="nutrition-week-grid-v2"
-                        />
-                      ) : (
-                        <div className="empty-state">
-                          <h3 className="m-0">{t("nutrition.weeklyEmptyTitle")}</h3>
-                          <p className="muted">{t("nutrition.weeklyEmptySubtitle")}</p>
-                        </div>
-                      )}
-                      {hasWeeklyMeals ? (
-                        <div className="nutrition-week-grid-kpis">
-                          {weekGridDays.map((day) => (
-                            <button key={`${day.id}-meta`} type="button" className={`nutrition-week-kpi ${day.selected ? "is-selected" : ""}`} aria-label={t("nutrition.selectWeekDayAria", { day: day.label, meals: day.mealCount, calories: Math.round(day.dayCalories) })} onClick={() => {
-                              const nextDate = parseDate(day.id);
-                              if (nextDate) setSelectedDate(nextDate);
-                            }}>
-                              <span className="nutrition-week-kpi-dots">{"• ".repeat(Math.min(day.mealCount, 4)).trim() || "—"}</span>
-                              <span className="nutrition-week-kpi-kcal">{Math.round(day.dayCalories)} {t("units.kcal")}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
+                    <WeeklyCalendar
+                      previousWeekLabel={t("calendar.previousWeek")}
+                      nextWeekLabel={t("calendar.nextWeek")}
+                      previousWeekAriaLabel={t("calendar.previousWeekAria")}
+                      nextWeekAriaLabel={t("calendar.nextWeekAria")}
+                      weekLabel={t("nutrition.weekLabel")}
+                      weekNumber={clampedWeekOffset + 1}
+                      weekRangeLabel={`${weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → ${addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}`}
+                      nextWeekDisabled={weekOffset >= maxProjectedWeeksAhead}
+                      hasWeeklyMeals={hasWeeklyMeals}
+                      emptyTitle={t("nutrition.weeklyEmptyTitle")}
+                      emptySubtitle={t("nutrition.weeklyEmptySubtitle")}
+                      days={weekGridDays}
+                      kcalLabel={t("units.kcal")}
+                      onPreviousWeek={() => setSelectedDate((prev) => addWeeks(prev, -1))}
+                      onNextWeek={() => setSelectedDate((prev) => addWeeks(prev, 1))}
+                      onSelectDay={(dayId) => {
+                        const nextDate = parseDate(dayId);
+                        if (nextDate) setSelectedDate(nextDate);
+                      }}
+                      selectWeekDayAria={(day) =>
+                        t("nutrition.selectWeekDayAria", {
+                          day: day.label,
+                          meals: day.mealCount,
+                          calories: Math.round(day.dayCalories),
+                        })
+                      }
+                    />
                   ) : null}
 
                   <div className="nutrition-v2-meals">
