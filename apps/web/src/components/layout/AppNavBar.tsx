@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -29,6 +29,10 @@ export default function AppNavBar() {
   const { t } = useLanguage();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const toggleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
@@ -100,7 +104,45 @@ export default function AppNavBar() {
     return applyEntitlementGating(baseSections, entitlements);
   }, [role, isCoach, isAdmin, isDev, gymMembershipState, entitlements]);
 
-  const closeMenu = () => setOpen(false);
+  const closeMenu = (focusTarget?: HTMLButtonElement | null) => {
+    const drawerElement = drawerRef.current;
+    const activeElement =
+      typeof document !== "undefined" ? document.activeElement : null;
+
+    if (
+      drawerElement &&
+      activeElement instanceof HTMLElement &&
+      drawerElement.contains(activeElement)
+    ) {
+      (focusTarget ?? triggerRef.current ?? toggleButtonRef.current)?.focus();
+    }
+
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+
+    closeButtonRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    const drawerElement = drawerRef.current;
+    if (drawerElement) {
+      drawerElement.inert = !open;
+    }
+
+    const pageMain = document.querySelector("main");
+    if (pageMain instanceof HTMLElement) {
+      pageMain.inert = open;
+    }
+
+    return () => {
+      if (pageMain instanceof HTMLElement) {
+        pageMain.inert = false;
+      }
+    };
+  }, [open]);
 
   const activeHref = getMostSpecificActiveHref(pathname, sections);
 
@@ -141,12 +183,22 @@ export default function AppNavBar() {
           </div>
 
           <button
+            ref={toggleButtonRef}
             type="button"
             className="nav-toggle"
             aria-expanded={open}
             aria-controls="app-nav-drawer"
             aria-label="Abrir menú"
-            onClick={() => setOpen((prev) => !prev)}
+            onClick={(event) => {
+              triggerRef.current = event.currentTarget;
+
+              if (open) {
+                closeMenu(event.currentTarget);
+                return;
+              }
+
+              setOpen(true);
+            }}
           >
             <span aria-hidden="true">{open ? "✕" : "☰"}</span>
           </button>
@@ -156,12 +208,12 @@ export default function AppNavBar() {
       <div
         className={`nav-drawer-backdrop ${open ? "is-open" : ""}`}
         role="presentation"
-        onClick={closeMenu}
+        onClick={() => closeMenu()}
       />
       <aside
+        ref={drawerRef}
         id="app-nav-drawer"
         className={`nav-drawer ${open ? "is-open" : ""}`}
-        aria-hidden={!open}
       >
         <div className="nav-drawer-header">
           <div>
@@ -174,10 +226,11 @@ export default function AppNavBar() {
             ) : null}
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             className="nav-toggle"
             aria-label={t("ui.close")}
-            onClick={closeMenu}
+            onClick={() => closeMenu()}
           >
             {t("ui.close")}
           </button>
@@ -211,7 +264,7 @@ export default function AppNavBar() {
                                 )}
                               </span>
                               {item.upgradeHref ? (
-                                <Link href={item.upgradeHref} className="ml-2 text-xs underline" onClick={closeMenu}>
+                                <Link href={item.upgradeHref} className="ml-2 text-xs underline" onClick={() => closeMenu()}>
                                   {t("billing.upgradePro")}
                                 </Link>
                               ) : null}
@@ -226,7 +279,7 @@ export default function AppNavBar() {
                           href={item.href}
                           className={`nav-drawer-link ${active ? "is-active" : ""}`}
                           aria-current={active ? "page" : undefined}
-                          onClick={closeMenu}
+                          onClick={() => closeMenu()}
                         >
                           <span>{t(item.labelKey)}</span>
                           {item.meta ? (
@@ -270,7 +323,7 @@ export default function AppNavBar() {
                               )}
                             </span>
                             {item.upgradeHref ? (
-                              <Link href={item.upgradeHref} className="ml-2 text-xs underline" onClick={closeMenu}>
+                              <Link href={item.upgradeHref} className="ml-2 text-xs underline" onClick={() => closeMenu()}>
                                 {t("billing.upgradePro")}
                               </Link>
                             ) : null}
@@ -285,7 +338,7 @@ export default function AppNavBar() {
                         href={item.href}
                         className={`nav-drawer-link ${active ? "is-active" : ""}`}
                         aria-current={active ? "page" : undefined}
-                        onClick={closeMenu}
+                        onClick={() => closeMenu()}
                       >
                         <span>{t(item.labelKey)}</span>
                         {item.meta ? (
