@@ -32,3 +32,44 @@ export const letterSpacing = {
   normal: '0',
   wide: '0.01em',
 } as const;
+
+export const typography = {
+  H1: {
+    fontSize: fontSize['4xl'],
+    fontWeight: fontWeight.bold,
+    lineHeight: lineHeight.tight,
+    letterSpacing: letterSpacing.tight,
+  },
+  H2: {
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.semibold,
+    lineHeight: lineHeight.tight,
+    letterSpacing: letterSpacing.tight,
+  },
+  H3: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.semibold,
+    lineHeight: lineHeight.normal,
+    letterSpacing: letterSpacing.normal,
+  },
+  Body: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.regular,
+    lineHeight: lineHeight.normal,
+    letterSpacing: letterSpacing.normal,
+  },
+  Small: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.regular,
+    lineHeight: lineHeight.normal,
+    letterSpacing: letterSpacing.normal,
+  },
+  Caption: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    lineHeight: lineHeight.normal,
+    letterSpacing: letterSpacing.wide,
+  },
+} as const;
+
+export type TypographyToken = keyof typeof typography;

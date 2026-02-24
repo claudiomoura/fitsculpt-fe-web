@@ -5,20 +5,11 @@ import { cn } from '@/lib/classNames';
 import { type SpacingScaleValue, resolveSpacingToken } from '../layout';
 
 const spacingToClass = {
-  0: '0',
-  1: '1',
-  2: '2',
-  3: '3',
-  4: '4',
-  5: '5',
-  6: '6',
   8: '8',
-  10: '10',
-  12: '12',
   16: '16',
-  20: '20',
   24: '24',
   32: '32',
+  48: '48',
 } as const;
 
 type Direction = 'vertical' | 'horizontal';
@@ -56,7 +47,7 @@ const justifyClasses: Record<Justify, string> = {
 };
 
 export function Stack({
-  gap = '6',
+  gap = '24',
   direction = 'vertical',
   align = 'stretch',
   justify = 'start',
