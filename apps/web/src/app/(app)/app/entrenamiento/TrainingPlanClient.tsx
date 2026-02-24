@@ -29,6 +29,7 @@ import { useToast } from "@/components/ui/Toast";
 
 type Exercise = {
   id?: string;
+  exerciseId?: string;
   name: string;
   sets: string | number;
   reps?: string;
@@ -481,6 +482,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
     router.push(`/app/biblioteca/${exerciseId}?${detailParams.toString()}`);
   };
+
+  const getExerciseLibraryId = (exercise: Exercise) => exercise.exerciseId;
 
   const handleExerciseKeyDown = (event: KeyboardEvent<HTMLDivElement>, exerciseId?: string, dayDate?: Date) => {
     if (!exerciseId) return;
@@ -1122,38 +1125,44 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           </span>
                         </summary>
                         <div className="list-grid mt-12">
-                          {day.exercises.map((exercise, exerciseIdx) => (
+                          {day.exercises.map((exercise, exerciseIdx) => {
+                            const exerciseLibraryId = getExerciseLibraryId(exercise);
+                            return (
                             <div
                               key={`${exercise.name}-${exerciseIdx}`}
-                              className={`exercise-mini-card ${exercise.id ? "is-clickable" : "is-disabled"}`}
-                              role={exercise.id ? "button" : undefined}
-                              tabIndex={exercise.id ? 0 : undefined}
-                              aria-disabled={!exercise.id}
+                              className={`exercise-mini-card ${exerciseLibraryId ? "is-clickable" : "is-disabled"}`}
+                              role={exerciseLibraryId ? "button" : undefined}
+                              tabIndex={exerciseLibraryId ? 0 : undefined}
+                              aria-disabled={!exerciseLibraryId}
                               aria-label={
-                                exercise.id
+                                exerciseLibraryId
                                   ? `${t("training.exerciseLink")}: ${exercise.name}`
                                   : `${exercise.name}: ${t("training.exerciseUnavailable")}`
                               }
-                              onClick={() => handleExerciseNavigate(exercise.id, dayDate ?? undefined)}
-                              onKeyDown={(event) => handleExerciseKeyDown(event, exercise.id, dayDate ?? undefined)}
+                              onClick={() => handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined)}
+                              onKeyDown={(event) => handleExerciseKeyDown(event, exerciseLibraryId, dayDate ?? undefined)}
                             >
                               <strong>{exercise.name}</strong>
                               <span className="muted">
                                 {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
                               </span>
-                              {!exercise.id ? <small className="muted">{t("training.exerciseUnavailable")}</small> : null}
-                              <button
-                                type="button"
-                                className="btn secondary"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setTechniqueModal({ dayLabel: day.label, exercise });
-                                }}
-                              >
-                                {t("training.viewTechnique")}
-                              </button>
+                              {!exerciseLibraryId ? (
+                                <small className="muted">{safeT("training.techniqueUnavailable", "Técnica no disponible para este ejercicio")}</small>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn secondary"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined);
+                                  }}
+                                >
+                                  {t("training.viewTechnique")}
+                                </button>
+                              )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </details>
                       );
@@ -1282,34 +1291,42 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 {selectedExercises.length === 0 ? (
                   <p className="muted">{t("training.calendarEmptyDay")}</p>
                 ) : (
-                  selectedExercises.map((exercise, index) => (
+                  selectedExercises.map((exercise, index) => {
+                    const exerciseLibraryId = getExerciseLibraryId(exercise);
+                    return (
                     <article
                       key={`${exercise.name}-${index}`}
-                      className={`exercise-mini-card exercise-mini-card-compact ${exercise.id ? "is-clickable" : "is-disabled"}`}
+                      className={`exercise-mini-card exercise-mini-card-compact ${exerciseLibraryId ? "is-clickable" : "is-disabled"}`}
                     >
                       <div className="exercise-mini-top">
                         <strong>{exercise.name}</strong>
                         <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
                       </div>
                       <div className="inline-actions-sm">
-                        <button
-                          type="button"
-                          className="btn"
-                          disabled={!exercise.id}
-                          onClick={() => handleExerciseNavigate(exercise.id, selectedEntryDate)}
-                        >
-                          {safeT("training.execute", "Ejecutar")}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn secondary"
-                          onClick={() => setTechniqueModal({ dayLabel: selectedEntry?.day.label ?? t("training.todayTitle"), exercise })}
-                        >
-                          {t("training.viewTechnique")}
-                        </button>
+                        {exerciseLibraryId ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => handleExerciseNavigate(exerciseLibraryId, selectedEntryDate)}
+                            >
+                              {safeT("training.execute", "Ejecutar")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn secondary"
+                              onClick={() => handleExerciseNavigate(exerciseLibraryId, selectedEntryDate)}
+                            >
+                              {t("training.viewTechnique")}
+                            </button>
+                          </>
+                        ) : (
+                          <small className="muted">{safeT("training.techniqueUnavailable", "Técnica no disponible para este ejercicio")}</small>
+                        )}
                       </div>
                     </article>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </section>

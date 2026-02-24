@@ -1128,6 +1128,7 @@
     "weekPeakDesc": "Push intensity with heavier sets and fewer reps.",
     "weekDeloadDesc": "Reduce load and volume to recover and reset.",
     "viewTechnique": "View technique",
+    "techniqueUnavailable": "Technique not available for this exercise",
     "setLabel": "Set",
     "repsLabel": "reps",
     "techniqueSubtitle": "Details for",
