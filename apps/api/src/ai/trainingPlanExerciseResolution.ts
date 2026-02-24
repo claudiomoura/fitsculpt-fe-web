@@ -24,6 +24,13 @@ export type ExerciseCatalogItem = {
   imageUrl?: string | null;
 };
 
+export type InvalidExerciseIdIssue = {
+  day: string;
+  exercise: string;
+  exerciseId: string | null;
+  reason: "MISSING_EXERCISE_ID" | "UNKNOWN_EXERCISE_ID";
+};
+
 function normalizeExerciseName(name: string) {
   return normalizeExerciseNameBase(name)
     .normalize("NFD")
@@ -82,4 +89,40 @@ export function resolveTrainingPlanExerciseIds<TPlan extends TrainingPlanLike>(p
     } as TPlan,
     unresolved,
   };
+}
+
+export function findInvalidTrainingPlanExerciseIds<TPlan extends TrainingPlanLike>(
+  plan: TPlan,
+  catalog: ExerciseCatalogItem[]
+): InvalidExerciseIdIssue[] {
+  const validIds = new Set(catalog.map((item) => item.id));
+  const issues: InvalidExerciseIdIssue[] = [];
+
+  for (const day of plan.days) {
+    for (const exercise of day.exercises) {
+      const normalizedName = normalizeExerciseName(exercise.name);
+      const candidate = exercise.exerciseId?.trim() ?? "";
+
+      if (!candidate) {
+        issues.push({
+          day: day.label,
+          exercise: normalizedName,
+          exerciseId: null,
+          reason: "MISSING_EXERCISE_ID",
+        });
+        continue;
+      }
+
+      if (!validIds.has(candidate)) {
+        issues.push({
+          day: day.label,
+          exercise: normalizedName,
+          exerciseId: candidate,
+          reason: "UNKNOWN_EXERCISE_ID",
+        });
+      }
+    }
+  }
+
+  return issues;
 }
