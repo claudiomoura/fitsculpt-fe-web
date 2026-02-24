@@ -27,7 +27,12 @@ import {
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
-import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
+import { NUTRITION_MATH_TOLERANCES, validateNutritionMath } from "./ai/nutritionMathValidation.js";
+import {
+  buildMealKcalGuidance,
+  buildRetryFeedbackFromContext,
+  buildTwoMealSplitRetryInstruction,
+} from "./ai/nutritionRetry.js";
 import {
   findInvalidTrainingPlanExerciseIds,
   type ExerciseCatalogItem,
@@ -2094,6 +2099,7 @@ function buildNutritionPrompt(
       : "Si no hay recetas base disponibles, crea platos sencillos y coherentes.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
+    buildMealKcalGuidance(data.calories, data.mealsPerDay, NUTRITION_MATH_TOLERANCES.twoMealSplitKcalAbsolute),
     `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
     `Tipo de dieta: ${data.dietType ?? "equilibrada"}.`,
     `Alergias: ${data.allergies?.join(", ") ?? "ninguna"}.`,
@@ -2582,29 +2588,10 @@ function buildRetryFeedback(error: unknown) {
   const typed = error as { debug?: Record<string, unknown> };
   const debug = typed?.debug;
   if (!debug || typeof debug !== "object") return "";
-  const reason = typeof debug.reason === "string" ? debug.reason : null;
-  const dayLabel = typeof debug.dayLabel === "string" ? debug.dayLabel : "día desconocido";
-  const diff = (debug.diff ?? {}) as Record<string, unknown>;
-  const expected =
-    typeof debug.expected === "number"
-      ? debug.expected
-      : typeof diff.expected === "number"
-        ? diff.expected
-        : null;
-  const actual =
-    typeof debug.actual === "number"
-      ? debug.actual
-      : typeof diff.actual === "number"
-        ? diff.actual
-        : null;
-  const tolerance =
-    typeof debug.tolerance === "number"
-      ? debug.tolerance
-      : typeof diff.tolerance === "number"
-        ? diff.tolerance
-        : null;
-  if (!reason || expected === null || actual === null) return "";
-  return `${reason} en ${dayLabel}: expected=${expected}, actual=${actual}${tolerance !== null ? `, tolerance=±${tolerance}` : ""}`;
+
+  const targetedInstruction = buildTwoMealSplitRetryInstruction(debug);
+  const genericFeedback = buildRetryFeedbackFromContext(debug);
+  return [targetedInstruction, genericFeedback].filter((item) => item.length > 0).join(" ");
 }
 
 function assertNutritionRequestMapping(
@@ -5930,7 +5917,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
             ? "REGLA DURA VEGETARIANO: prioriza tofu, tempeh, seitán, legumbres, huevos, lácteos altos en proteína (si aplica) y proteína vegetal en polvo cuando haga falta. No uses carnes ni pescado. "
             : "") +
           "VERIFICACIÓN FINAL OBLIGATORIA: antes de responder, revisa expected vs actual por día y ajusta para que proteína/carbohidratos/grasas queden dentro de ±5g del objetivo diario sin cambiar calorías objetivo. " +
-          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día. En el error previo faltó proteína: debes incrementarla sin cambiar targetKcal." : ""}`;
+          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día sin cambiar targetKcal total." : ""}`;
         const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
           responseFormat: {
             type: "json_schema",
