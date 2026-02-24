@@ -201,6 +201,28 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
   return reply.status(500).send({ error: "INTERNAL_ERROR" });
 }
 
+async function loadExerciseCatalogForAi() {
+  try {
+    const exerciseCatalog = await fetchExerciseCatalog(prisma);
+    if (exerciseCatalog.length === 0) {
+      throw createHttpError(503, "EXERCISE_CATALOG_UNAVAILABLE", {
+        cause: "CATALOG_EMPTY",
+        hint: "Run /dev/seed-exercises",
+      });
+    }
+    return exerciseCatalog;
+  } catch (error) {
+    const typed = error as { code?: string; statusCode?: number };
+    if (typed.code === "EXERCISE_CATALOG_UNAVAILABLE" && typed.statusCode === 503) {
+      throw error;
+    }
+    throw createHttpError(503, "EXERCISE_CATALOG_UNAVAILABLE", {
+      cause: "CATALOG_INACCESSIBLE",
+      hint: "Check Exercise catalog availability in DB",
+    });
+  }
+}
+
 function requireStripeSecret() {
   if (!env.STRIPE_SECRET_KEY) {
     throw createHttpError(500, "STRIPE_NOT_CONFIGURED");
@@ -5109,7 +5131,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
     const data = aiTrainingSchema.parse(request.body);
-    const exerciseCatalog = await fetchExerciseCatalog(prisma);
+    const exerciseCatalog = await loadExerciseCatalogForAi();
     const expectedDays = Math.min(data.daysPerWeek, 7);
     const daysCount = Math.min(data.daysCount ?? 7, 14);
     const startDate = parseDateInput(data.startDate) ?? new Date();
@@ -5616,7 +5638,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
 
     const expectedDays = trainingInput.daysPerWeek;
     const startDate = parseDateInput(trainingInput.startDate) ?? new Date();
-    const exerciseCatalog = await fetchExerciseCatalog(prisma);
+    const exerciseCatalog = await loadExerciseCatalogForAi();
 
     let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -5711,6 +5733,16 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
     }
 
     const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.code === "EXERCISE_CATALOG_UNAVAILABLE") {
+      return reply.status(503).send({
+        error: "EXERCISE_CATALOG_UNAVAILABLE",
+        debug: {
+          cause: typeof typed.debug?.cause === "string" ? typed.debug.cause : "CATALOG_INACCESSIBLE",
+          ...(typeof typed.debug?.hint === "string" ? { hint: typed.debug.hint } : {}),
+        },
+      });
+    }
+
     if (typed.code === "AI_NOT_CONFIGURED") {
       return reply.status(503).send({
         error: "AI_NOT_CONFIGURED",
@@ -5732,7 +5764,14 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
     }
 
     app.log.error({ err: error, route: "/ai/training-plan/generate" }, "training plan generation failed");
-    return reply.status(503).send({ error: "TRAINING_PLAN_GENERATION_FAILED", debug: { cause: "UNEXPECTED_ERROR" } });
+    return reply.status(503).send({
+      error: "TRAINING_PLAN_GENERATION_FAILED",
+      debug: {
+        cause: "UNEXPECTED_ERROR",
+        reqId: request.id,
+        message: "Unexpected error while generating training plan",
+      },
+    });
   }
 });
 
