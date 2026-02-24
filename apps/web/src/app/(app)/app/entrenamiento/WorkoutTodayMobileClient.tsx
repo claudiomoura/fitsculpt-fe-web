@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   EmptyBlock,
   ErrorBlock,
@@ -16,6 +17,7 @@ import {
 import { useLanguage } from "@/context/LanguageProvider";
 import { dayKey } from "@/lib/date/dayKey";
 import type { Workout } from "@/lib/types";
+import { listWorkoutDays } from "@/services/workout.service";
 import AppLayout from "@/components/layout/AppLayout";
 import { HeroWorkout } from "@/components/workout/HeroWorkout";
 import { Periodization } from "@/components/workout/Periodization";
@@ -61,33 +63,34 @@ function buildWeekDays(reference: Date): WeekDay[] {
   });
 }
 
-
 export default function WorkoutTodayMobileClient() {
   const { t } = useLanguage();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  const [selectedDay, setSelectedDay] = useState(() => dayKey(new Date()) ?? "");
+  const [selectedDayState, setSelectedDayState] = useState(() => dayKey(new Date()) ?? "");
 
   const loadWorkouts = useCallback(async () => {
     setState("loading");
     setError(null);
-    try {
-      const response = await fetch("/api/workouts", { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error("WORKOUTS_REQUEST_FAILED");
-      }
-      const data = (await response.json()) as Workout[];
-      setWorkouts(Array.isArray(data) ? data : []);
-      setState("success");
-    } catch (_error) {
+    const result = await listWorkoutDays();
+    if (!result.ok) {
       setError(t("workouts.loadError"));
       setState("error");
+      return;
     }
+    setWorkouts(Array.isArray(result.data) ? result.data : []);
+    setState("success");
   }, [t]);
 
   useEffect(() => {
-    void loadWorkouts();
+    const timer = window.setTimeout(() => {
+      void loadWorkouts();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [loadWorkouts]);
 
   const parsedWorkouts = useMemo(
@@ -109,17 +112,12 @@ export default function WorkoutTodayMobileClient() {
     return map;
   }, [parsedWorkouts]);
 
-  const selectedWorkout = workoutsByDay.get(selectedDay)?.[0] ?? null;
   const todayIso = dayKey(new Date()) ?? "";
   const todayWorkout = workoutsByDay.get(todayIso)?.[0] ?? null;
-
-  useEffect(() => {
-    setSelectedDay((current) => {
-      if (current === todayIso) return current;
-      if (workoutsByDay.has(current)) return current;
-      return todayIso;
-    });
-  }, [todayIso, workoutsByDay]);
+  const requestedDay = dayKey(searchParams.get("day"));
+  const selectedDay = requestedDay ?? selectedDayState;
+  const normalizedSelectedDay = selectedDay || todayIso;
+  const selectedWorkout = workoutsByDay.get(normalizedSelectedDay)?.[0] ?? null;
 
   const nextWorkout = useMemo(() => {
     const today = new Date();
@@ -161,12 +159,12 @@ export default function WorkoutTodayMobileClient() {
         id: day.id,
         label: day.label,
         date: day.dateNumber,
-        selected: day.iso === selectedDay,
+        selected: day.iso === normalizedSelectedDay,
         complete: hasSession,
         isToday,
       };
     });
-  }, [selectedDay, todayIso, workoutsByDay]);
+  }, [normalizedSelectedDay, todayIso, workoutsByDay]);
 
   if (state === "loading") {
     return <LoadingBlock title="Cargando entrenamiento" description="Estamos preparando tu sesión de hoy." />;
@@ -219,7 +217,13 @@ export default function WorkoutTodayMobileClient() {
           <h2 className="text-base font-semibold text-text">Semana</h2>
           <TrainingWeekGridCompact
             onSelect={(id) => {
-              if (typeof id === "string") setSelectedDay(id);
+              if (typeof id !== "string") return;
+              const normalizedDay = dayKey(id);
+              if (!normalizedDay) return;
+              setSelectedDayState(normalizedDay);
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("day", normalizedDay);
+              router.replace(`${pathname}?${params.toString()}`, { scroll: false });
             }}
             className="mt-3"
             days={weekDays.map((day) => ({
