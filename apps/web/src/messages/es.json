@@ -1131,6 +1131,7 @@
     "weekPeakDesc": "Sube la intensidad con cargas mayores.",
     "weekDeloadDesc": "Reduce volumen para recuperar y volver más fuerte.",
     "viewTechnique": "Ver técnica",
+    "openFromLibrary": "Abrir en biblioteca",
     "techniqueUnavailable": "Técnica no disponible para este ejercicio",
     "setLabel": "Serie",
     "repsLabel": "reps",
