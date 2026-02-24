@@ -65,7 +65,7 @@ function readSessionRole(token: string): SessionRole {
 }
 
 function startsWithAny(pathname: string, prefixes: string[]) {
-  return prefixes.some((prefix) => pathname.startsWith(prefix));
+  return prefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function isTrainerPath(pathname: string) {
