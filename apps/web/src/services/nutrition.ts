@@ -42,6 +42,13 @@ export type NutritionGenerateResponse = {
   plan?: unknown;
   aiTokenBalance?: number;
   aiTokenRenewalAt?: string | null;
+  usage?: {
+    total_tokens?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  };
+  mode?: string;
+  aiRequestId?: string;
 };
 
 export async function generateNutritionPlan(request: NutritionGenerateRequest): Promise<NutritionGenerateResponse> {
@@ -61,6 +68,13 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
     plan?: unknown;
     aiTokenBalance?: unknown;
     aiTokenRenewalAt?: unknown;
+    usage?: {
+      total_tokens?: unknown;
+      prompt_tokens?: unknown;
+      completion_tokens?: unknown;
+    };
+    mode?: unknown;
+    aiRequestId?: unknown;
   } | null;
 
   if (!response.ok) {
@@ -81,5 +95,14 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
       typeof payload?.aiTokenRenewalAt === "string" || payload?.aiTokenRenewalAt === null
         ? payload.aiTokenRenewalAt
         : undefined,
+    usage: payload?.usage
+      ? {
+          total_tokens: typeof payload.usage.total_tokens === "number" ? payload.usage.total_tokens : undefined,
+          prompt_tokens: typeof payload.usage.prompt_tokens === "number" ? payload.usage.prompt_tokens : undefined,
+          completion_tokens: typeof payload.usage.completion_tokens === "number" ? payload.usage.completion_tokens : undefined,
+        }
+      : undefined,
+    mode: typeof payload?.mode === "string" ? payload.mode : undefined,
+    aiRequestId: typeof payload?.aiRequestId === "string" ? payload.aiRequestId : undefined,
   };
 }

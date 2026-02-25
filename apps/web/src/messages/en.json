@@ -929,6 +929,11 @@
       "dayPreviewTitle": "Quick day preview",
       "aiBlockTitle": "AI",
       "tokensUsed": "Tokens consumed",
+      "promptTokens": "Prompt tokens",
+      "completionTokens": "Completion tokens",
+      "fallbackTokens": "Fallback (0 tokens)",
+      "notAvailable": "Not available",
+      "aiRequestId": "aiRequestId",
       "currentBalance": "Current balance",
       "viewPlan": "View plan",
       "close": "Close"
