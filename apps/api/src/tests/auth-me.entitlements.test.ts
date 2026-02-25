@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { buildEffectiveEntitlements } from "../entitlements.js";
-import { authMeResponseSchema, buildAuthMeResponse } from "../auth/schemas.js";
+import { authMeResponseSchema, buildAuthMeResponse, buildSessionModules } from "../auth/schemas.js";
 
 function run() {
   const entitlements = buildEffectiveEntitlements({ plan: "STRENGTH_AI", isAdmin: false });
@@ -39,6 +39,8 @@ function run() {
   assert.equal(parsed.modules.strength, true);
   assert.equal(parsed.modules.nutrition, false);
   assert.equal(parsed.modules.ai, true);
+  const modulesFromEntitlements = buildSessionModules(entitlements);
+  assert.deepEqual(parsed.modules, modulesFromEntitlements);
   assert.equal(parsed.subscriptionPlan, "PRO");
   assert.equal(parsed.plan, "PRO");
   assert.equal(parsed.gymMembershipState, "active");
