@@ -5,6 +5,8 @@ import { contractDriftResponse, validateAiTrainingGeneratePayload } from "@/lib/
 
 export const dynamic = "force-dynamic";
 
+const upstreamErrorResponse = { error: "UPSTREAM_ERROR" };
+
 export async function POST(request: Request) {
   const { header: authCookie, debug } = await getBackendAuthCookie(request);
   if (!authCookie) {
@@ -24,6 +26,10 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
     const responseText = await response.text();
+    if (response.status >= 500) {
+      return NextResponse.json(upstreamErrorResponse, { status: 502 });
+    }
+
     if (!responseText) {
       return NextResponse.json(
         {
