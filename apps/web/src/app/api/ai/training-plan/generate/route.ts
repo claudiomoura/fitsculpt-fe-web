@@ -28,6 +28,10 @@ export async function POST(request: Request) {
     const responseText = await response.text();
 
     if (!responseText) {
+      if (response.status >= 500) {
+        return NextResponse.json(upstreamErrorResponse, { status: 502 });
+      }
+
       return NextResponse.json(
         {
           error: "AI_REQUEST_FAILED",

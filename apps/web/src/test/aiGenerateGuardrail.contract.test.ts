@@ -58,6 +58,18 @@ describe("AI generate proxy guardrail contract", () => {
     expect(typeof data.error).toBe("string");
   });
 
+
+
+  it("training-plan/generate maps backend 503 empty response to 502 with UPSTREAM_ERROR", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockBackendResponse(503, "", "text/plain"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { POST } = await import("@/app/api/ai/training-plan/generate/route");
+    const response = await POST(new Request("http://localhost/api/ai/training-plan/generate", { method: "POST", body: "{}" }));
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "UPSTREAM_ERROR" });
+  });
   it("training-plan/generate maps backend 500 JSON error to non-500 JSON error response", async () => {
     const fetchMock = vi.fn().mockResolvedValue(mockBackendResponse(500, JSON.stringify({ error: "UPSTREAM_ERROR" })));
     vi.stubGlobal("fetch", fetchMock);
