@@ -43,6 +43,7 @@ import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from 
 import { fetchExerciseCatalog } from "./exercises/fetchExerciseCatalog.js";
 import { normalizeExerciseName } from "./utils/normalizeExerciseName.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
+import { resolveNutritionPlanRecipeReferences } from "./ai/nutrition-plan/recipeCatalog.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
@@ -1258,6 +1259,7 @@ const aiTrainingPlanResponseSchema = z
 const aiNutritionMealSchema = z
   .object({
     type: z.enum(["breakfast", "lunch", "dinner", "snack"]),
+    recipeId: z.string().min(1).nullable().optional(),
     title: z.string().min(1),
     description: z.string().min(1).nullable(),
     macros: z.object({
@@ -1828,54 +1830,22 @@ async function upsertRecipesFromPlan(plan: z.infer<typeof aiNutritionPlanRespons
   const meals = plan.days.flatMap((day) => day.meals);
   if (meals.length === 0) return;
 
-  const recipeSeeds = meals.map((meal) => ({
-    name: meal.title.trim(),
-    description: meal.description ?? null,
-    calories: meal.macros.calories,
-    protein: meal.macros.protein,
-    carbs: meal.macros.carbs,
-    fat: meal.macros.fats,
-    steps: ["Preparar los ingredientes.", "Cocinar según preferencia.", "Servir."],
-    ingredients: meal.ingredients ?? null,
-  }));
-
   await prisma.$transaction(
-    recipeSeeds.map((recipe) => {
-      const ingredientCreates = (recipe.ingredients ?? []).map((ingredient) => ({
-        name: ingredient.name,
-        grams: ingredient.grams,
-      }));
-
-      return prisma.recipe.upsert({
-        where: { name: recipe.name },
-        create: {
-          name: recipe.name,
-          description: recipe.description,
-          calories: recipe.calories,
-          protein: recipe.protein,
-          carbs: recipe.carbs,
-          fat: recipe.fat,
-          steps: recipe.steps,
-          ingredients: ingredientCreates.length ? { create: ingredientCreates } : undefined,
+    meals.map((meal) =>
+      prisma.recipe.updateMany({
+        where: { name: meal.title.trim() },
+        data: {
+          description: meal.description ?? null,
+          calories: meal.macros.calories,
+          protein: meal.macros.protein,
+          carbs: meal.macros.carbs,
+          fat: meal.macros.fats,
+          steps: ["Preparar los ingredientes.", "Cocinar según preferencia.", "Servir."],
         },
-        update: {
-          description: recipe.description,
-          calories: recipe.calories,
-          protein: recipe.protein,
-          carbs: recipe.carbs,
-          fat: recipe.fat,
-          steps: recipe.steps,
-          ingredients: {
-            deleteMany: {},
-            ...(ingredientCreates.length ? { create: ingredientCreates } : {}),
-          },
-        },
-      });
-    })
+      })
+    )
   );
 }
-
-
 async function saveNutritionPlan(
   userId: string,
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
@@ -2086,11 +2056,14 @@ function buildNutritionPrompt(
     "Eres un nutricionista deportivo senior. Genera un plan semanal compacto en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
     "El JSON debe respetar exactamente este esquema:",
-'{"title":string,"startDate":string|null,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"date":string,"dayLabel":string,"meals":[{"type":string,"title":string,"description":string|null,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients":array|null}]}],"shoppingList":array|null}',
+'{"title":string,"startDate":string|null,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"date":string,"dayLabel":string,"meals":[{"type":string,"recipeId":string|null,"title":string,"description":string|null,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients":array|null}]}],"shoppingList":array|null}',
     "OBLIGATORIO: cada día debe tener EXACTAMENTE el número de meals solicitado (si >6 usa 6).",
     `Estructura de meals: ${mealStructure}`,
     `Genera EXACTAMENTE ${daysCount} días con date (YYYY-MM-DD) desde ${data.startDate ?? "la fecha indicada"}.`,
     "Descripción opcional. Ingredients opcional; si hay receta base, omite ingredients o déjalo vacío.",
+    recipeLibrary
+      ? "OBLIGATORIO: cada meal debe incluir recipeId existente del catálogo y title debe coincidir con esa receta."
+      : "REQUER IMPLEMENTAÇÃO: sin catálogo de foods, usa recipeId null y limita referencias a recipes existentes cuando aplique.",
     "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, carne magra y frutos secos.",
     "Evita cantidades absurdas. Porciones realistas y fáciles de cocinar.",
     "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
@@ -2120,7 +2093,7 @@ function buildNutritionPrompt(
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
-    '{"title":"Plan mediterráneo compacto","startDate":"2024-01-01","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"date":"2024-01-01","dayLabel":"Lunes","meals":[{"type":"breakfast","title":"Avena con yogur","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180}]},{"type":"lunch","title":"Pollo con arroz","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Pollo","grams":160},{"name":"Arroz integral","grams":180}]},{"type":"dinner","title":"Salmón con verduras","macros":{"calories":800,"protein":50,"carbs":60,"fats":28},"ingredients":[{"name":"Salmón","grams":160},{"name":"Verduras mixtas","grams":200}]}]}]}',
+    '{"title":"Plan mediterráneo compacto","startDate":"2024-01-01","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"date":"2024-01-01","dayLabel":"Lunes","meals":[{"type":"breakfast","recipeId":"rec_001","title":"Avena con yogur","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180}]},{"type":"lunch","recipeId":"rec_002","title":"Pollo con arroz","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Pollo","grams":160},{"name":"Arroz integral","grams":180}]},{"type":"dinner","recipeId":"rec_003","title":"Salmón con verduras","macros":{"calories":800,"protein":50,"carbs":60,"fats":28},"ingredients":[{"name":"Salmón","grams":160},{"name":"Verduras mixtas","grams":200}]}]}]}',
   ]
     .filter(Boolean)
     .join(" ");
@@ -5473,6 +5446,19 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       orderBy: { name: "asc" },
       include: { ingredients: true },
     });
+    const recipeCatalog = recipes.map((recipe: any) => ({
+      id: recipe.id,
+      name: recipe.name,
+      description: recipe.description,
+      calories: recipe.calories,
+      protein: recipe.protein,
+      carbs: recipe.carbs,
+      fat: recipe.fat,
+      ingredients: recipe.ingredients.map((ingredient: any) => ({
+        name: ingredient.name,
+        grams: ingredient.grams,
+      })),
+    }));
 
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
@@ -5489,7 +5475,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
             carbs: recipe.carbs,
             fat: recipe.fat,
             steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient) => ({
+            ingredients: recipe.ingredients.map((ingredient: any) => ({
               name: ingredient.name,
               grams: ingredient.grams,
             })),
@@ -5499,7 +5485,14 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         const normalizedMeals = normalizeNutritionMealsPerDay(scaled, expectedMealsPerDay);
         logNutritionMealsPerDay(normalizedMeals, expectedMealsPerDay, "after_normalize");
         assertNutritionMatchesRequest(normalizedMeals, expectedMealsPerDay, daysCount);
-        const personalized = applyPersonalization(normalizedMeals, { name: data.name });
+        const resolvedCatalog = resolveNutritionPlanRecipeReferences(normalizedMeals, recipeCatalog);
+        if (resolvedCatalog.fallbackApplied) {
+          app.log.warn(
+            { userId: user.id, invalidReferences: resolvedCatalog.invalidReferences },
+            "nutrition plan had invalid recipe ids, using catalog fallback"
+          );
+        }
+        const personalized = applyPersonalization(resolvedCatalog.plan, { name: data.name });
         await saveNutritionPlan(user.id, personalized, startDate, daysCount);
         await upsertRecipesFromPlan(personalized);
         await storeAiContent(user.id, "nutrition", "cache", personalized);
@@ -5530,14 +5523,14 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const fetchNutritionPayload = async (attempt: number) => {
       const promptAttempt = buildNutritionPrompt(
         data,
-        recipes.map((recipe) => ({
+        recipes.map((recipe: any) => ({
           name: recipe.name,
           description: recipe.description,
           calories: recipe.calories,
           protein: recipe.protein,
           carbs: recipe.carbs,
           fat: recipe.fat,
-          ingredients: recipe.ingredients.map((ingredient) => ({
+          ingredients: recipe.ingredients.map((ingredient: any) => ({
             name: ingredient.name,
             grams: ingredient.grams,
           })),
@@ -5603,7 +5596,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     }
     const scaledPayload = applyRecipeScalingToPlan(
       parsedPayload,
-      recipes.map((recipe) => ({
+      recipes.map((recipe: any) => ({
         name: recipe.name,
         description: recipe.description,
         calories: recipe.calories,
@@ -5611,7 +5604,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         carbs: recipe.carbs,
         fat: recipe.fat,
         steps: recipe.steps,
-        ingredients: recipe.ingredients.map((ingredient) => ({
+        ingredients: recipe.ingredients.map((ingredient: any) => ({
           name: ingredient.name,
           grams: ingredient.grams,
         })),
@@ -5621,10 +5614,17 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const normalizedMeals = normalizeNutritionMealsPerDay(scaledPayload, expectedMealsPerDay);
     logNutritionMealsPerDay(normalizedMeals, expectedMealsPerDay, "after_normalize");
     assertNutritionMatchesRequest(normalizedMeals, expectedMealsPerDay, daysCount);
-    await saveNutritionPlan(user.id, normalizedMeals, startDate, daysCount);
-    await upsertRecipesFromPlan(normalizedMeals);
-    await saveCachedAiPayload(cacheKey, "nutrition", normalizedMeals);
-    const personalized = applyPersonalization(normalizedMeals, { name: data.name });
+    const resolvedCatalog = resolveNutritionPlanRecipeReferences(normalizedMeals, recipeCatalog);
+    if (resolvedCatalog.fallbackApplied) {
+      app.log.warn(
+        { userId: user.id, invalidReferences: resolvedCatalog.invalidReferences },
+        "nutrition plan had invalid recipe ids, using catalog fallback"
+      );
+    }
+    await saveNutritionPlan(user.id, resolvedCatalog.plan, startDate, daysCount);
+    await upsertRecipesFromPlan(resolvedCatalog.plan);
+    await saveCachedAiPayload(cacheKey, "nutrition", resolvedCatalog.plan);
+    const personalized = applyPersonalization(resolvedCatalog.plan, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
     if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
@@ -5933,10 +5933,28 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
     let lastRawOutput = "";
     let retryFeedback = "";
     const resolvedDietType = payload.dietType ?? nutritionInput.dietType ?? "balanced";
+    const recipes = await prisma.recipe.findMany({
+      take: 100,
+      orderBy: { name: "asc" },
+      include: { ingredients: true },
+    });
+    const recipeCatalog = recipes.map((recipe: any) => ({
+      id: recipe.id,
+      name: recipe.name,
+      description: recipe.description,
+      calories: recipe.calories,
+      protein: recipe.protein,
+      carbs: recipe.carbs,
+      fat: recipe.fat,
+      ingredients: recipe.ingredients.map((ingredient: any) => ({
+        name: ingredient.name,
+        grams: ingredient.grams,
+      })),
+    }));
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const prompt = `${buildNutritionPrompt(nutritionInput, [], attempt > 0, retryFeedback)} ` +
+        const prompt = `${buildNutritionPrompt(nutritionInput, recipes.map((recipe: any) => ({ name: recipe.name, description: recipe.description, calories: recipe.calories, protein: recipe.protein, carbs: recipe.carbs, fat: recipe.fat, ingredients: recipe.ingredients.map((ingredient: any) => ({ name: ingredient.name, grams: ingredient.grams })), steps: recipe.steps })), attempt > 0, retryFeedback)} ` +
           `Macros objetivo por día (con tolerancia): proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
           `Calorías objetivo por día: ${payload.targetKcal}. ` +
           "REGLA DURA: cada día debe cumplir proteína total >= objetivo de proteína (no menos). " +
@@ -6021,9 +6039,17 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
       });
     }
 
-    const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
-    await upsertRecipesFromPlan(parsedPlan);
-    await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
+    const resolvedCatalog = resolveNutritionPlanRecipeReferences(parsedPlan, recipeCatalog);
+    if (resolvedCatalog.fallbackApplied) {
+      app.log.warn(
+        { userId: user.id, invalidReferences: resolvedCatalog.invalidReferences },
+        "nutrition generation had invalid recipe ids, using catalog fallback"
+      );
+    }
+
+    const savedPlan = await saveNutritionPlan(user.id, resolvedCatalog.plan, startDate, daysCount);
+    await upsertRecipesFromPlan(resolvedCatalog.plan);
+    await safeStoreAiContent(user.id, "nutrition", "ai", resolvedCatalog.plan);
 
     app.log.info(
       {
@@ -6038,8 +6064,8 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
 
     return reply.status(200).send({
       planId: savedPlan.id,
-      summary: summarizeNutritionPlan(parsedPlan),
-      plan: parsedPlan,
+      summary: summarizeNutritionPlan(resolvedCatalog.plan),
+      plan: resolvedCatalog.plan,
       aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
