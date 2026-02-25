@@ -223,7 +223,7 @@ setPlans([]);
   }, [loadProfile]);
 
   const handleCheckout = async () => {
-    if (!selectedPlanId) {
+    if (!selectedPlanId || selectedPlanId === currentPlan) {
       setError(t("billing.selectPlanError"));
       return;
     }
@@ -276,6 +276,7 @@ setPlans([]);
   const canSeeDevNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
 
   const hasPlans = plans.length > 0;
+  const canCheckout = Boolean(selectedPlanId && selectedPlanId !== currentPlan);
   const billingConfigIssueMessage = billingConfigError
     ? t(`billing.configErrors.${billingConfigError}`)
     : null;
@@ -363,7 +364,9 @@ setPlans([]);
                 return (
                   <label
                     key={backendPlan.priceId || backendPlan.planKey}
-                    className={`stack-sm border rounded-lg p-4 bg-surface-2 cursor-pointer transition-colors ${
+                    className={`stack-sm border rounded-lg p-4 bg-surface-2 transition-colors ${
+                      isCurrent ? "cursor-not-allowed opacity-80" : "cursor-pointer"
+                    } ${
                       isSelected ? "border-brand bg-brand/10" : "border-border-subtle"
                     }`}
                   >
@@ -373,7 +376,12 @@ setPlans([]);
                       name="billing-plan"
                       value={planId}
                       checked={isSelected}
+                      disabled={isCurrent}
                       onChange={() => {
+                        if (isCurrent) {
+                          return;
+                        }
+
                         setSelectedPlanId(planId);
                         setError(null);
                       }}
@@ -397,7 +405,7 @@ setPlans([]);
                 <Button
                   variant="primary"
                   loading={action === "checkout"}
-                  disabled={!selectedPlanId || action === "portal"}
+                  disabled={!canCheckout || action === "portal"}
                   onClick={() => void handleCheckout()}
                 >
                   {action === "checkout" ? t("billing.redirectingToCheckout") : t("billing.continueToCheckout")}
