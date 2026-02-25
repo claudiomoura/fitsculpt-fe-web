@@ -2812,7 +2812,8 @@
       "emptyTitle": "No hay gimnasios disponibles",
       "selectButton": "Seleccionar",
       "requestPending": "Solicitud pendiente",
-      "codeTitle": "Unirme con código del gimnasio"
+      "codeTitle": "Unirme con código del gimnasio",
+      "blockedByActiveMembership": "Ya tienes una membresía activa en {gymName}. Sal de tu gimnasio actual antes de solicitar acceso a otro."
     },
     "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
     "loadError": {

@@ -2810,7 +2810,8 @@
       "emptyTitle": "No gyms available",
       "selectButton": "Select",
       "requestPending": "Request pending",
-      "codeTitle": "Join with gym code"
+      "codeTitle": "Join with gym code",
+      "blockedByActiveMembership": "You already have an active membership in {gymName}. Leave your current gym before requesting access to another one."
     },
     "loadErrorTitle": "We could not load your gym status",
     "loadError": {
