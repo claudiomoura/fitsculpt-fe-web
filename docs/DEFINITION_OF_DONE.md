@@ -14,6 +14,8 @@ Uma tarefa só está “feita” quando cumpre tudo o que se aplica abaixo.
 - Não quebra chamadas BFF `/api/*` no frontend
 
 ## Validação manual mínima (obrigatória)
+Smoke oficial RC: seguir `docs/qa/SMOKE_TEST_RC.md` e registar PASS/FAIL por fluxo com evidência mínima.
+
 Executar e validar:
 - Login com email/password
 - Acesso a `/app` protegido quando não há sessão
