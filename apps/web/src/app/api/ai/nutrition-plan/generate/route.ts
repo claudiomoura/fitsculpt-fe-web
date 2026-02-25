@@ -5,11 +5,8 @@ import { contractDriftResponse, validateAiNutritionGeneratePayload } from "@/lib
 
 export const dynamic = "force-dynamic";
 
-function toGatewayStatus(status: number) {
-  return status >= 500 ? 502 : status;
-}
-
 const upstreamErrorResponse = { error: "UPSTREAM_ERROR" };
+const upstreamClientErrorResponse = { error: "AI_REQUEST_FAILED" };
 
 export async function POST(request: Request) {
   const { header: authCookie, debug } = await getBackendAuthCookie(request);
@@ -35,16 +32,7 @@ export async function POST(request: Request) {
         return NextResponse.json(upstreamErrorResponse, { status: 502 });
       }
 
-      return NextResponse.json(
-        {
-          error: "AI_REQUEST_FAILED",
-          debug: {
-            backendStatus: response.status,
-            reason: "EMPTY_BACKEND_RESPONSE",
-          },
-        },
-        { status: response.status },
-      );
+      return NextResponse.json(upstreamClientErrorResponse, { status: response.status });
     }
 
     try {
@@ -62,16 +50,7 @@ export async function POST(request: Request) {
           return NextResponse.json(data, { status: response.status });
         }
 
-        return NextResponse.json(
-          {
-            error: "AI_REQUEST_FAILED",
-            debug: {
-              backendStatus: response.status,
-              reason: "INVALID_BACKEND_ERROR_PAYLOAD",
-            },
-          },
-          { status: response.status },
-        );
+        return NextResponse.json(upstreamClientErrorResponse, { status: response.status });
       }
 
       const validation = validateAiNutritionGeneratePayload(data);
@@ -85,16 +64,7 @@ export async function POST(request: Request) {
         return NextResponse.json(upstreamErrorResponse, { status: 502 });
       }
 
-      return NextResponse.json(
-        {
-          error: "AI_REQUEST_FAILED",
-          debug: {
-            backendStatus: response.status,
-            reason: "NON_JSON_BACKEND_RESPONSE",
-          },
-        },
-        { status: response.status },
-      );
+      return NextResponse.json(upstreamClientErrorResponse, { status: response.status });
     }
   } catch (_err) {
     return NextResponse.json(
