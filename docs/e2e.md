@@ -41,4 +41,4 @@ npm run e2e:headed
 
 ## Nota CI
 
-No se integró job E2E en CI en este PR para evitar acoplar setup de servicios (DB + API + reset demo) sin base de runtime dedicada.
+Existe un job dedicado de smoke en `.github/workflows/e2e-smoke.yml` que levanta API + web para validar estos flujos en pull requests.
