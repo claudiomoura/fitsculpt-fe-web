@@ -28,7 +28,8 @@
     "db:dump": "node scripts/db-dump.mjs",
     "db:import:free-exercise-db": "tsx scripts/import-free-exercise-db.ts",
     "demo:reset": "tsx scripts/reset-demo.ts",
-    "backfill:trainingexercise-exerciseid": "tsx scripts/backfill-trainingexercise-exerciseid.ts"
+    "backfill:trainingexercise-exerciseid": "tsx scripts/backfill-trainingexercise-exerciseid.ts",
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

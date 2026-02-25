@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  frontend-gates:
-    name: Frontend Gates (build/lint/typecheck)
+  web-release-gates:
+    name: Web Release Gates (lint/typecheck/build/test)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,17 +25,26 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
+      - name: Run release gates
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts/web
 
-      - name: Typecheck
-        run: npm run typecheck
+          npm run lint | tee ../artifacts/web/lint.log
+          npm run typecheck | tee ../artifacts/web/typecheck.log
+          npm run build | tee ../artifacts/web/build.log
+          npm test | tee ../artifacts/web/test.log
 
-      - name: Build
-        run: npm run build
+      - name: Upload web gate logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-release-gate-logs
+          path: apps/artifacts/web
+          if-no-files-found: warn
 
-  backend-gates:
-    name: Backend Gates (build/test)
+  api-release-gates:
+    name: API Release Gates (typecheck/build/test)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -54,8 +63,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npm run build
+      - name: Run release gates
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts/api
 
-      - name: Test
-        run: npm test
+          npm run typecheck | tee ../artifacts/api/typecheck.log
+          npm run build | tee ../artifacts/api/build.log
+          npm test | tee ../artifacts/api/test.log
+
+      - name: Upload API gate logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-release-gate-logs
+          path: apps/artifacts/api
+          if-no-files-found: warn
