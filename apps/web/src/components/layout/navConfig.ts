@@ -78,6 +78,34 @@ export const mainTabsMobile: MobileTab[] = [
   { id: "settings", href: "/app/settings", labelKey: "nav.settings", icon: "info" },
 ];
 
+
+export const trainerTabsMobile: MobileTab[] = [
+  {
+    id: "trainer-home",
+    href: "/app/trainer",
+    labelKey: "nav.trainer",
+    icon: "sparkles",
+  },
+  {
+    id: "trainer-clients",
+    href: "/app/trainer/clients",
+    labelKey: "nav.trainerClients",
+    icon: "book",
+  },
+  {
+    id: "trainer-plans",
+    href: "/app/trainer/plans",
+    labelKey: "nav.trainerPlans",
+    icon: "dumbbell",
+  },
+  {
+    id: "trainer-exercises",
+    href: "/app/trainer/exercises",
+    labelKey: "nav.trainerExercises",
+    icon: "check",
+  },
+];
+
 export const sidebarUser: NavSectionGroup[] = [
   {
     id: "fitness",
@@ -276,7 +304,7 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
   const isTrainer = input.isCoach === true;
 
   if (isTrainer && !isAdmin) {
-    return [...sidebarTrainer, ...sidebarAccountOnly];
+    return sidebarTrainer;
   }
 
   const userSections = buildUserSections(input);
