@@ -866,6 +866,7 @@
     "noSelectedPlanTitle": "You don't have any plan selected",
     "noSelectedPlanSubtitle": "Select a plan to view your training calendar.",
     "selectPlanCta": "Select a plan",
+    "createPlanCta": "Create with AI",
     "manualCreate": "Create manually",
     "manualPlanTitle": "Manual weekly plan",
     "manualPlanSubtitle": "Edit meals and ingredients for each day, then save.",
@@ -1202,6 +1203,8 @@
     "aiPreviewConfirm": "Confirm and save",
     "aiPreviewConfirming": "Saving plan...",
     "aiInvalidOutput": "The AI response was invalid. Please retry generation.",
+    "aiRetryErrorTitle": "We could not generate your AI plan",
+    "aiRetryErrorDescription": "Check your connection and try again.",
     "calendar": {
       "subtitle": "View workouts for the currently selected training plan.",
       "noPlanSelected": "No training plan selected",

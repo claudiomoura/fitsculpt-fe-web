@@ -866,6 +866,7 @@
     "noSelectedPlanTitle": "No tienes ningún plan seleccionado",
     "noSelectedPlanSubtitle": "Selecciona un plan para ver tu calendario de entrenamiento.",
     "selectPlanCta": "Seleccionar plan",
+    "createPlanCta": "Crear con IA",
     "manualCreate": "Crear manual",
     "weeklyPlanSubtitle": "Explora cada día y revisa el detalle de los ejercicios.",
     "weeklyPlanTipOne": "Abre cada día para ver ejercicios y series.",
@@ -1205,6 +1206,8 @@
     "aiPreviewConfirm": "Confirmar y guardar",
     "aiPreviewConfirming": "Guardando plan...",
     "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo.",
+    "aiRetryErrorTitle": "No pudimos generar tu plan con IA",
+    "aiRetryErrorDescription": "Revisa tu conexión e inténtalo de nuevo.",
     "calendar": {
       "subtitle": "Visualiza entrenamientos solo del plan seleccionado actualmente.",
       "noPlanSelected": "No tienes ningún plan seleccionado",
