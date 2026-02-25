@@ -27,6 +27,7 @@ import { hasStrengthAiEntitlement, type AiEntitlementProfile } from "@/component
 import { AiPlanRequestError, requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
 import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 import { EmptyState } from "@/components/states";
+import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
 
@@ -918,6 +919,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     });
   }, [hasPlan, notify, pendingTokenToastId, t]);
   const isAiLocked = !aiEntitled;
+  const aiLockDescription = safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO");
   const isAiDisabled = aiLoading || isAiLocked || !form;
   const handleProfileRetry = () => {
     const ref = { current: true };
