@@ -866,6 +866,7 @@
     "noSelectedPlanTitle": "No tienes ningún plan seleccionado",
     "noSelectedPlanSubtitle": "Selecciona un plan para ver tu calendario de entrenamiento.",
     "selectPlanCta": "Seleccionar plan",
+    "createPlanCta": "Crear con IA",
     "manualCreate": "Crear manual",
     "weeklyPlanSubtitle": "Explora cada día y revisa el detalle de los ejercicios.",
     "weeklyPlanTipOne": "Abre cada día para ver ejercicios y series.",
@@ -918,6 +919,7 @@
     "savePlanError": "No pudimos guardar el plan.",
     "aiGenerate": "Generar con IA",
     "aiGenerating": "Generando IA...",
+    "aiModuleRequired": "Requiere NutriAI o PRO",
     "aiSuccess": "Plan IA guardado.",
     "aiSuccessModal": {
       "title": "Plan nutricional creado",
@@ -1063,6 +1065,7 @@
     "generate": "Generar plan",
     "aiGenerate": "Generar con IA",
     "aiGenerating": "Generando IA...",
+    "aiModuleRequired": "Requiere StrengthAI o PRO",
     "aiSuccess": "Plan IA guardado.",
     "aiError": "No pudimos generar el plan con IA.",
     "aiRateLimit": "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.",
@@ -1205,6 +1208,8 @@
     "aiPreviewConfirm": "Confirmar y guardar",
     "aiPreviewConfirming": "Guardando plan...",
     "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo.",
+    "aiRetryErrorTitle": "No pudimos generar tu plan con IA",
+    "aiRetryErrorDescription": "Revisa tu conexión e inténtalo de nuevo.",
     "calendar": {
       "subtitle": "Visualiza entrenamientos solo del plan seleccionado actualmente.",
       "noPlanSelected": "No tienes ningún plan seleccionado",
@@ -1708,7 +1713,15 @@
     "gymRequestsReject": "Rechazar",
     "gymRequestsConfirmAccept": "¿Aprobar esta solicitud de ingreso al gimnasio?",
     "gymRequestsConfirmReject": "¿Rechazar esta solicitud de ingreso al gimnasio?",
-    "gymRequestsActionError": "No pudimos procesar esta solicitud. Inténtalo de nuevo."
+    "gymRequestsActionError": "No pudimos procesar esta solicitud. Inténtalo de nuevo.",
+    "usersAssignGymRoleTitle": "Asignación de rol en gimnasio",
+    "usersAssignGymRoleGymLabel": "Gimnasio",
+    "usersAssignGymRoleNoGyms": "No hay gimnasios disponibles.",
+    "usersAssignClientAction": "Asignar como CLIENTE",
+    "usersAssignTrainerAction": "Asignar como TRAINER",
+    "usersAssignClientSuccess": "Usuario asignado como CLIENTE.",
+    "usersAssignTrainerSuccess": "Usuario asignado como TRAINER.",
+    "usersAssignGymRoleError": "No pudimos asignar este rol de gimnasio."
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",

@@ -12,6 +12,7 @@ import {
 } from "@/design-system/components";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getLocaleCode } from "@/lib/i18n";
+import UserGymRoleAssignment from "@/components/admin/UserGymRoleAssignment";
 
 type UserRow = {
   id: string;
@@ -389,6 +390,13 @@ export default function AdminUsersClient() {
                 <p className="muted">{t("access.notAvailableDescription")}</p>
               </div>
             </div>
+
+            <UserGymRoleAssignment
+              userId={editUser.id}
+              onAssigned={() => {
+                void loadUsers();
+              }}
+            />
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button

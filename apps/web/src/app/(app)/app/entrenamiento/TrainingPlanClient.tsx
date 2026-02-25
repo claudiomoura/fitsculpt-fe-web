@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { hasStrengthAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { AiPlanRequestError, requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
 import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
+import { EmptyState } from "@/components/states";
 import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
 
@@ -734,6 +735,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const handleAiPlan = async () => {
     if (!profile || !form) return;
+    if (!aiEntitled) return;
     if (!isProfileComplete(profile)) {
       router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
       return;
@@ -762,17 +764,17 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       void refreshSubscription();
     } catch (err) {
       if (err instanceof AiPlanRequestError && err.message === "INSUFFICIENT_TOKENS") {
-        setError(t("ai.insufficientTokens"));
+        setAiActionableError(t("ai.insufficientTokens"));
       } else if (err instanceof AiPlanRequestError && err.status === 503 && err.code === "EXERCISE_CATALOG_UNAVAILABLE") {
-        setAiActionableError(err.hint?.trim() || "Catálogo no disponible — ejecuta seed");
+        setAiActionableError(err.hint?.trim() || safeT("training.aiRetryErrorDescription", "Revisa tu conexión e inténtalo de nuevo."));
       } else if (err instanceof Error && err.message === "INVALID_AI_OUTPUT") {
-        setError(t("training.aiInvalidOutput"));
+        setAiActionableError(t("training.aiInvalidOutput"));
       } else if (err instanceof AiPlanRequestError && err.status === 400) {
-        setError(err.message);
+        setAiActionableError(err.message);
       } else if (err instanceof AiPlanRequestError && err.message === "RATE_LIMITED") {
-        setError(t("training.aiError"));
+        setAiActionableError(t("training.aiError"));
       } else {
-        setError(t("training.aiError"));
+        setAiActionableError(t("training.aiError"));
       }
     } finally {
       setAiLoading(false);
@@ -800,8 +802,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     const nextParamsString = nextParams.toString();
     const nextUrl = `${pathname}${nextParamsString ? `?${nextParamsString}` : ""}`;
     router.replace(nextUrl, { scroll: false });
+    if (!aiEntitled) return;
     void handleAiPlan();
-  }, [form, pathname, profile, router, searchParams, searchParamsString]);
+  }, [aiEntitled, form, pathname, profile, router, searchParams, searchParamsString]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -867,6 +870,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
       return;
     }
+    setAiActionableError(null);
     void handleAiPlan();
   };
 
@@ -915,12 +919,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, [hasPlan, notify, pendingTokenToastId, t]);
   const isAiLocked = !aiEntitled;
   const isAiDisabled = aiLoading || isAiLocked || !form;
-  const handleRetry = () => {
-    if (profile && form && !aiLoading) {
-      void handleAiPlan();
-      return;
-    }
-    window.location.reload();
+  const handleProfileRetry = () => {
+    const ref = { current: true };
+    void loadProfile(ref);
+  };
+
+  const handleAiRetry = () => {
+    if (aiLoading || !profile || !form) return;
+    setAiActionableError(null);
+    void handleAiPlan();
   };
   const buildSetLines = (exercise: Exercise) => {
     const setsValue = String(exercise.sets);
@@ -962,10 +969,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         ) : null}
 
         {isAiLocked ? (
-          <div className="feature-card mt-12">
-            <strong>{t("aiLockedTitle")}</strong>
-            <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
-          </div>
+          <AiModuleUpgradeCTA
+            title={t("aiLockedTitle")}
+            description={aiLockDescription}
+            buttonLabel={t("billing.upgradePro")}
+          />
         ) : null}
 
         {loading ? (
@@ -979,7 +987,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               title={t("training.errorTitle")}
               description={error}
               retryAction={
-                <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                <button type="button" className="btn secondary fit-content" onClick={handleProfileRetry}>
                   {t("ui.retry")}
                 </button>
               }
@@ -1048,20 +1056,18 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </section>
           ) : !loading && !error && !hasPlan ? (
             <section className="card">
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <Icon name="dumbbell" />
-                </div>
-                <div>
-                  <h3 className="m-0">{t("training.noSelectedPlanTitle")}</h3>
-                  <p className="muted">{t("training.noSelectedPlanSubtitle")}</p>
-                </div>
-                <div className="empty-state-actions">
-                  <ButtonLink href="/app/biblioteca/entrenamientos">
-                    {t("training.selectPlanCta")}
-                  </ButtonLink>
-                </div>
-              </div>
+              <EmptyState
+                icon="dumbbell"
+                title={safeT("training.noSelectedPlanTitle", "Aún no tienes un plan de entrenamiento activo")}
+                description={safeT(
+                  "training.noSelectedPlanSubtitle",
+                  "Selecciona un plan existente o genera uno nuevo con IA para ver tu calendario de entrenamiento."
+                )}
+                actions={[
+                  { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
+                  { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
+                ]}
+              />
             </section>
           ) : hasPlan ? (
             <>
@@ -1095,7 +1101,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   className="btn secondary"
   onClick={handleGenerateClick}
   disabled={isAiDisabled}
-  title={isAiLocked ? (aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")) : ""}
+  title={isAiLocked ? aiLockDescription : ""}
 >
   {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
 </button>
@@ -1106,10 +1112,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 {aiActionableError ? (
                   <div className="mt-12">
                     <ErrorBlock
-                      title={t("training.errorTitle")}
+                      title={safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA")}
                       description={aiActionableError}
                       retryAction={
-                        <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
+                        <button type="button" className="btn secondary fit-content" onClick={handleAiRetry}>
                           {t("ui.retry")}
                         </button>
                       }

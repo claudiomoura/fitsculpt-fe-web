@@ -39,20 +39,9 @@ function normalizeExerciseName(name: string) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function normalizeExerciseNameKey(name: string) {
-  return normalizeExerciseName(name);
-}
 
 export function resolveTrainingPlanExerciseIds<TPlan extends TrainingPlanLike>(plan: TPlan, catalog: ExerciseCatalogItem[]) {
   const byId = new Map(catalog.map((item) => [item.id, item]));
-  const byName = new Map<string, ExerciseCatalogItem>();
-
-  for (const item of catalog) {
-    const key = normalizeExerciseNameKey(item.name);
-    if (!byName.has(key)) {
-      byName.set(key, item);
-    }
-  }
 
   const unresolved: Array<{ day: string; exercise: string }> = [];
 
@@ -62,8 +51,7 @@ export function resolveTrainingPlanExerciseIds<TPlan extends TrainingPlanLike>(p
       const normalizedName = normalizeExerciseName(exercise.name);
       const idCandidate = exercise.exerciseId?.trim() ?? "";
       const byProvidedId = idCandidate ? byId.get(idCandidate) : null;
-      const byProvidedName = byName.get(normalizeExerciseNameKey(normalizedName));
-      const resolved = byProvidedId ?? byProvidedName;
+      const resolved = byProvidedId;
 
       if (!resolved) {
         unresolved.push({ day: day.label, exercise: normalizedName });
