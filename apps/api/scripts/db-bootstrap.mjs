@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process';
 
 async function main() {
+  assertValidDatabaseUrl();
+
   await runStep('db:doctor', ['node', ['scripts/db-doctor.mjs']]);
   await runStep('prisma migrate deploy', ['node', ['scripts/prisma-runner.mjs', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma']]);
 
@@ -16,6 +18,24 @@ async function main() {
   const importExercises = (process.env.IMPORT_EXERCISES === '1') || nodeEnv !== 'production';
   if (importExercises) {
     await runStep('db:import:free-exercise-db', ['npm', ['run', 'db:import:free-exercise-db']]);
+  }
+}
+
+function assertValidDatabaseUrl() {
+  const rawDatabaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = typeof rawDatabaseUrl === 'string' ? rawDatabaseUrl.trim() : '';
+
+  if (!databaseUrl) {
+    console.error('Missing DATABASE_URL. Set DATABASE_URL before running db:bootstrap.');
+    console.error('Expected format: postgresql://USER:PASSWORD@HOST:5432/DBNAME?schema=public');
+    process.exit(1);
+  }
+
+  if (!/^postgres(?:ql)?:\/\//i.test(databaseUrl)) {
+    console.error('Invalid DATABASE_URL. It must start with postgres:// or postgresql://.');
+    console.error(`Received: ${databaseUrl}`);
+    console.error('Example: DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME?schema=public');
+    process.exit(1);
   }
 }
 
