@@ -6006,6 +6006,13 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
       });
     }
 
+    if (typed.statusCode && typed.statusCode < 500) {
+      return reply.status(typed.statusCode).send({
+        error: typed.code ?? "REQUEST_ERROR",
+        ...(typed.debug ? { debug: typed.debug } : {}),
+      });
+    }
+
     app.log.error({ err: error, route: "/ai/training-plan/generate" }, "training plan generation failed");
     return reply.status(503).send({
       error: "TRAINING_PLAN_GENERATION_FAILED",
