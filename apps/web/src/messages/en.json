@@ -914,6 +914,7 @@
     "savePlanError": "We couldn't save the plan.",
     "aiGenerate": "Generate with AI",
     "aiGenerating": "Generating with AI...",
+    "aiModuleRequired": "Requires NutriAI or PRO",
     "aiSuccess": "AI plan saved.",
     "aiSuccessModal": {
       "title": "Nutrition plan created",
@@ -1059,6 +1060,7 @@
     "generate": "Generate plan",
     "aiGenerate": "Generate with AI",
     "aiGenerating": "Generating with AI...",
+    "aiModuleRequired": "Requires StrengthAI or PRO",
     "aiSuccess": "AI plan saved.",
     "aiError": "We couldn't generate the plan with AI.",
     "aiRateLimit": "You've reached the AI request limit. Try again later.",
