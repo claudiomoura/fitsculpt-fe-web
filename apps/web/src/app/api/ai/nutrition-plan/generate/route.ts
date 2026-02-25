@@ -9,6 +9,8 @@ function toGatewayStatus(status: number) {
   return status >= 500 ? 502 : status;
 }
 
+const upstreamErrorResponse = { error: "UPSTREAM_ERROR" };
+
 export async function POST(request: Request) {
   const { header: authCookie, debug } = await getBackendAuthCookie(request);
   if (!authCookie) {
@@ -29,6 +31,10 @@ export async function POST(request: Request) {
     });
     const responseText = await response.text();
     if (!responseText) {
+      if (response.status >= 500) {
+        return NextResponse.json(upstreamErrorResponse, { status: 502 });
+      }
+
       return NextResponse.json(
         {
           error: "AI_REQUEST_FAILED",
@@ -37,15 +43,23 @@ export async function POST(request: Request) {
             reason: "EMPTY_BACKEND_RESPONSE",
           },
         },
-        { status: toGatewayStatus(response.status) },
+        { status: response.status },
       );
     }
 
     try {
       const data = JSON.parse(responseText);
       if (!response.ok) {
+        if (response.status >= 500) {
+          if (typeof data?.error === "string") {
+            return NextResponse.json({ error: data.error }, { status: 502 });
+          }
+
+          return NextResponse.json(upstreamErrorResponse, { status: 502 });
+        }
+
         if (typeof data?.error === "string") {
-          return NextResponse.json(data, { status: toGatewayStatus(response.status) });
+          return NextResponse.json(data, { status: response.status });
         }
 
         return NextResponse.json(
@@ -56,7 +70,7 @@ export async function POST(request: Request) {
               reason: "INVALID_BACKEND_ERROR_PAYLOAD",
             },
           },
-          { status: toGatewayStatus(response.status) },
+          { status: response.status },
         );
       }
 
@@ -67,6 +81,10 @@ export async function POST(request: Request) {
 
       return NextResponse.json(data, { status: response.status });
     } catch (_err) {
+      if (response.status >= 500) {
+        return NextResponse.json(upstreamErrorResponse, { status: 502 });
+      }
+
       return NextResponse.json(
         {
           error: "AI_REQUEST_FAILED",
@@ -75,7 +93,7 @@ export async function POST(request: Request) {
             reason: "NON_JSON_BACKEND_RESPONSE",
           },
         },
-        { status: toGatewayStatus(response.status) },
+        { status: response.status },
       );
     }
   } catch (_err) {
