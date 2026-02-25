@@ -1,430 +1,538 @@
-# Auditoría FitSculpt (2026-02-24)
+# Auditoria_FitSculpt_2026-02-24
+Fecha: 2026-02-24
+Autor/a auditoría: GPT Auditor (Staff Architects)
+Solicitado por: Founder/PM (FitSculpt)
 
-- **Autor/a auditoría:** AI Audit Team (GPT-5.2)
-- **Solicitado por:** Founder/PM (FitSculpt)
-- **Modo:** Solo lectura sobre zips
-- **Front zip SHA-256:** `c0e43b2b3c910d5543ff669b394dbcf361583fac06dbd668eb4c54a70330e4c1`
-- **Back zip SHA-256:** `6f83310d44d8b1d7f91d9b051a8a8377fc96b31199939dc65306695ad24cb18a`
+> Alcance: auditoría estática de los zips entregados (solo lectura). No se ejecutaron builds ni flujos manuales en entorno real, por tanto todo lo que requiera runtime se marca como **No Ejecutado** o **Assunção**.
 
-> Nota de evidencia: esta auditoría es estática (código). Build, lint, typecheck, tests y flujos E2E están marcados como **No Ejecutado** salvo que exista evidencia explícita en los zips.
+## Evidencia primaria (artefactos)
+- Front zip SHA-256: `092c037ec3b1105dd58da89d07c53ecbef2d2fb29a540e001a3b4a5f57b197f8`
+- Back zip SHA-256: `76990c6f6ee4a1cbae773909ecd4221dbd0ab919e2a408e58eecbafbf440b43d`
+- Referencia de commit hash: **No disponible en zips** (assunção: snapshot fuera de git).
 
-## 1) Executive Summary
+---
+# 1) Executive Summary
+**Estado general (B2C): NO Release-ready.** Razones principales: calidad de build no certificada (No Ejecutado) y varios contratos FE↔BE dependen de normalizadores defensivos, lo que sugiere inestabilidad de shapes.
+**Estado MVP Modular: Parcial.** Hay entitlements backend-driven (módulos ai/nutrition/strength) consumidos en UI, pero el gating y la cobertura de journeys no están cerrados end-to-end para todos los módulos.
+**Estado Gym Pilot: Demo asistida.** Existen rutas y BFF para gym/admin y normalizadores para contratos de gym, pero el propio UI “Labs” marca partes como “sem backend”, señalando huecos.
 
-- **Estado general (Release-ready B2C): NO**. Falta evidencia de build y flujos E2E validados, y hay riesgos de contratos y gating.
-
-- **Estado MVP Modular (Nutrición vs Fitness): NO**. Backend distingue planes `NUTRI_AI` y `STRENGTH_AI`, pero UI colapsa a tier `PRO` y la matriz comercial solicitada no está modelada end-to-end.
-
-- **Estado Gym Pilot (pequeño gym): PARCIAL**. Hay modelos y endpoints de gym, admin y membership, pero requiere hardening de flujos, seed y QA de consola.
+### Snapshot (máx 12 bullets)
+- Implementado: /auth/me en backend expone entitlements, membership activa y datos de usuario (back/src/index.ts ~4643+ y back/src/auth/schemas.ts).
+- Implementado: BFF Next /api/auth/me proxy a backend usando cookie fs_token (front/src/app/api/auth/me/route.ts).
+- Implementado: entitlements en UI se derivan desde payload.entitlements.modules.*.enabled (front/src/lib/entitlements.ts).
+- Implementado: Tracking con endpoints /tracking GET/PUT/POST/DELETE en backend (back/src/index.ts ~5007+), y BFF /api/tracking/* en frontend.
+- Implementado: IA nutrición con gateway robusto en BFF (mapeo 5xx a 502 y manejo de body vacío) (front/src/app/api/ai/nutrition-plan/generate/route.ts).
+- Implementado: Dominio Gym con BFF dedicado (/api/gym/*, /api/gyms/*, /api/admin/gyms/*) y normalizadores por mismatch (front/src/lib/gym-contracts.ts).
+- Riesgo P0: ausencia de evidencia de build/lint/typecheck/test PASS para web y api en este snapshot (No Ejecutado).
+- Riesgo P0: contratos FE↔BE de Gym han requerido normalización de claves (gymId/tenantId, state/status, gym.code/activationCode), señal de inestabilidad contractual.
+- Riesgo P1: entitlements dependen de /auth/me y del shape entitlements.modules, cualquier regresión rompe gating global.
+- Quick win: formalizar contrato AuthMe y Gym (zod/TS shared o OpenAPI) y eliminar normalizadores ad-hoc.
+- Quick win: build gate obligatorio (CI) para bloquear TS/lint y tests contractuales.
+- Quick win: ocultar en UI cualquier item marcado como “sem backend” fuera de entornos admin (ya existe AdminLabs, pero asegurar que no hay caminos expuestos).
 
 ### Top 5 riesgos
-- Contratos FE↔BE con endpoints BFF que no existen en backend (admin tokens/plan).
-- Doble árbol de rutas trainer en ES/PT (`/app/trainer/*` y `/app/treinador/*`) aumenta coste de QA y riesgo de regresión.
-- Entitlements: UI colapsa `NUTRI_AI` y `STRENGTH_AI` dentro de tier `PRO`, riesgo de gating incorrecto para MVP modular.
-- IA: rutas existen pero robustez depende de data en BD (catálogo ejercicios) y de validación de output (hay validadores, pero sin evidencia E2E).
-- Release readiness sin gate automático (en zips no hay evidencia de CI que bloquee merge por TS/lint/tests).
+- P0. Build y typecheck no certificados en production, riesgo de bloqueo de release por fallos TS, o regresión silenciosa (No Ejecutado).
+- P0. Contratos Gym con normalización defensiva, riesgo de estados incoherentes en joins y admin (evidencia: normalizeMembershipPayload en front/src/lib/gym-contracts.ts).
+- P1. Gating por entitlements: UI asume entitlements.modules.*.enabled, si /auth/me cambia, navegación y tab bar se rompen (front/src/lib/entitlements.ts, hooks/useAuthEntitlements.ts).
+- P1. IA: dependencias de output JSON estructurado, errores INVALID_AI_OUTPUT ya contemplados en UI, pero requiere validación estricta antes de persistir y fallback claro (front/app/app/nutricion/NutritionPlanClient.tsx, back/src/index.ts rutas /ai/nutrition-plan/*).
+- P2. Superficie admin/trainer extensa sin evidencia de hardening, auditoría de permisos no ejecutada (Assunção: requireUser/guards cubren todo).
 
 ### Top 5 quick wins
-- Eliminar o redirigir el árbol duplicado `/app/treinador/*` o hacerlo alias real hacia `/app/trainer/*` con una sola fuente.
-- Alinear entitlements UI con planes reales del backend y exponer tiers modulares (Nutrition vs Strength) sin colapsar a `PRO`.
-- Resolver mismatches admin: eliminar BFF routes `tokens*` y `plan` si backend no los soporta, o implementar endpoints en backend con contratos.
-- Seed demo determinista (ya existe `apps/api` scripts `demo:reset`, `db:seed:safe`, `db:import:free-exercise-db`) y documentar runbook.
-- Definir checklist DoD mínimo por PR y script local `npm run build && npm run typecheck && npm test` en FE y `npm run build && npm run test` en BE.
+- 1) CI mínimo: `npm ci && npm run build && npm run lint && npm run typecheck && npm test` (web y api), bloqueando merge si falla.
+- 2) Contratos: publicar un contrato único para AuthMe, GymMembership y Planes, con zod schemas compartidos o OpenAPI, y tests contractuales FE↔BE.
+- 3) UX states obligatorios en core loop (Hoy, Biblioteca, Seguimiento, Nutrición): loading/empty/error con copy consistente, sin placeholders fake.
+- 4) Entitlements backend-driven en navegación, esconder tabs y rutas no accesibles, y devolver 404/redirect server-side si se fuerza URL.
+- 5) Observabilidad: logging estructurado sin PII, y correlación BFF↔BE (requestId), especialmente en /ai/* y /gym/*.
 
-## 2) Inventario de Producto, qué existe hoy
+---
+# 2) Inventario de Producto, qué existe hoy
+## 2.1 Mapa de navegación (rutas)
+Fuente: filesystem Next.js App Router, archivos `page.tsx` bajo `front/src/app/(app)/app`.
 
-### 2.1 Mapa de navegación (rutas)
+### Usuario final (B2C)
+- `/app/`
+- `/app/biblioteca`
+- `/app/biblioteca/[exerciseId]`
+- `/app/biblioteca/entrenamientos`
+- `/app/biblioteca/entrenamientos/[planId]`
+- `/app/biblioteca/recetas`
+- `/app/biblioteca/recetas/[recipeId]`
+- `/app/dashboard`
+- `/app/dietas`
+- `/app/dietas/[planId]`
+- `/app/entrenamiento`
+- `/app/entrenamiento/[workoutId]`
+- `/app/entrenamiento/editar`
+- `/app/entrenamientos`
+- `/app/entrenamientos/[workoutId]`
+- `/app/entrenamientos/[workoutId]/start`
+- `/app/feed`
+- `/app/gym`
+- `/app/gym/admin`
+- `/app/hoy`
+- `/app/macros`
+- `/app/nutricion`
+- `/app/nutricion/editar`
+- `/app/onboarding`
+- `/app/profile`
+- `/app/profile/legacy`
+- `/app/seguimiento`
+- `/app/settings`
+- `/app/settings/billing`
+- `/app/treinador`
+- `/app/treinador/[...slug]`
+- `/app/weekly-review`
+- `/app/workouts`
 
-**Marketing**
-- `/` ((marketing)/page.tsx)
+### Admin (dev/admin)
+- `/app/admin`
+- `/app/admin/gym-requests`
+- `/app/admin/gyms`
+- `/app/admin/labs`
+- `/app/admin/preview`
+- `/app/admin/users`
 
-**Auth**
-- `/design-system` ((auth)/design-system/page.tsx)
-- `/login` ((auth)/login/page.tsx)
-- `/register` ((auth)/register/page.tsx)
-- `/verify-email` ((auth)/verify-email/page.tsx)
+### Trainer (B2B)
+- `/app/trainer`
+- `/app/trainer/client/[id]`
+- `/app/trainer/clients`
+- `/app/trainer/clients/[id]`
+- `/app/trainer/exercises`
+- `/app/trainer/exercises/new`
+- `/app/trainer/plans`
+- `/app/trainer/plans/[id]`
+- `/app/trainer/requests`
 
-**App (usuario final)** (31 rutas)
-- `/app` ((app)/app/page.tsx)
-- `/app/biblioteca` ((app)/app/biblioteca/page.tsx)
-- `/app/biblioteca/[exerciseId]` ((app)/app/biblioteca/[exerciseId]/page.tsx)
-- `/app/dashboard` ((app)/app/dashboard/page.tsx)
-- `/app/dietas` ((app)/app/dietas/page.tsx)
-- `/app/dietas/[planId]` ((app)/app/dietas/[planId]/page.tsx)
-- `/app/entrenamiento` ((app)/app/entrenamiento/page.tsx)
-- `/app/nutricion` ((app)/app/nutricion/page.tsx)
-- `/app/seguimiento` ((app)/app/seguimiento/page.tsx)
+### Callejones sin salida detectados
+- `AdminLabsClient` lista items con estado `sem backend`, lo que sugiere rutas expuestas sin soporte completo de backend, o con backend parcial (front/src/app/(app)/app/(admin)/admin/labs/AdminLabsClient.tsx).
+- Rutas legacy: `/app/profile/legacy` existe, riesgo de duplicidad y divergencia de UX (assunção: deprecado pero aún accesible).
 
-**Admin**
-- `/app/admin` ((app)/app/(admin)/admin/page.tsx)
-- `/app/admin/gym-requests` ((app)/app/(admin)/admin/gym-requests/page.tsx)
-- `/app/admin/gyms` ((app)/app/(admin)/admin/gyms/page.tsx)
-- `/app/admin/labs` ((app)/app/(admin)/admin/labs/page.tsx)
-- `/app/admin/preview` ((app)/app/(admin)/admin/preview/page.tsx)
-- `/app/admin/users` ((app)/app/(admin)/admin/users/page.tsx)
+## 2.2 Flujos end-to-end (journeys)
+> Nota: sin ejecución real, los pasos se derivan de rutas + BFF endpoints. Resultado “esperado” se marca como Assunção cuando no hay evidencia directa.
 
-**Trainer** (duplicado ES/PT)
-- `/app/trainer` ((app)/app/(trainer)/trainer/page.tsx)
-- `/app/trainer/client/[id]` ((app)/app/(trainer)/trainer/client/[id]/page.tsx)
-- `/app/trainer/clients` ((app)/app/(trainer)/trainer/clients/page.tsx)
-- `/app/trainer/clients/[id]` ((app)/app/(trainer)/trainer/clients/[id]/page.tsx)
-- `/app/trainer/exercises` ((app)/app/(trainer)/trainer/exercises/page.tsx)
-- `/app/trainer/exercises/new` ((app)/app/(trainer)/trainer/exercises/new/page.tsx)
-- `/app/trainer/plans` ((app)/app/(trainer)/trainer/plans/page.tsx)
-- `/app/trainer/plans/[id]` ((app)/app/(trainer)/trainer/plans/[id]/page.tsx)
-- `/app/trainer/requests` ((app)/app/(trainer)/trainer/requests/page.tsx)
-- `/app/treinador` ((app)/app/(trainer)/treinador/page.tsx)
-- ... (ver Anexos para lista completa)
+### Login + acceso a /app protegido
+1. Usuario autentica (email/password o Google) (Assunção: UI existe en /auth/*).
+2. Cookie `fs_token` se guarda.
+3. Acceso a `/app/*` depende de `fs_token`, BFF usa cookie para llamar backend (ejemplo /api/auth/me).
 
-**Evidencia de protección de rutas y roles**
-- `apps/web/src/middleware.ts` protege `/app` y aplica gating por roles para `/app/admin` y `/app/trainer|/app/treinador`.
-- Cookie de sesión: `fs_token` (BFF y backend).
-- Shell: `apps/web/src/components/layout/AppShellLayout.tsx` incluye `MobileTabBar`.
+Evidencia: BFF lee `fs_token` y proxya a backend: front/src/app/api/auth/me/route.ts (línea ~20). Backend expone `/auth/me`: back/src/index.ts (línea ~4643) y schema back/src/auth/schemas.ts.
 
-### 2.2 Flujos end-to-end (journeys) (desde código)
+### Hoy + 1 acción rápida
+1. Abrir `/app/hoy`.
+2. Ver acciones rápidas (Assunção: UI client-side).
+3. Ejecutar una acción, por ejemplo iniciar un entrenamiento o registrar tracking, y ver confirmación.
 
-**Login + acceso a /app protegido**
-  - Ir a `/login`.
-  - Acción server `src/app/(auth)/login/actions.ts` hace `fetch(${getBackendUrl()}/auth/login)` y guarda `set-cookie` en `fs_token`.
-  - Tras login, navegar a `/app` pasa middleware (si `fs_token` existe).
-  - Resultado esperado: render `AppShellLayout` con tab bar y sidebar.
-  - No Ejecutado: flujo manual real. Evidencia solo por código.
-**Hoy + 1 acción rápida**
-  - Entrar a `/app` (home).
-  - Home delega en componentes bajo `src/app/(app)/app/*` (acción rápida visible desde DashboardClient/Hoy según implementación).
-  - Resultado esperado: al menos una acción accionable (ej. registrar comida, check-in, abrir entrenamiento).
-  - Assunção parcial: 'Hoy' como core loop depende del contenido del componente actual.
-**Biblioteca: lista → detalle**
-  - Ir a `/app/biblioteca`.
-  - Seleccionar un ejercicio, navega a `/app/biblioteca/[exerciseId]`.
-  - Backend expone `GET /exercises` y `GET /exercises/:id` (src/index.ts).
-  - Resultado esperado: lista paginada/filtrable (si existe), y detalle con media.
-  - Evidencia: endpoints backend + rutas FE. No Ejecutado E2E.
-**Tracking: crear 1 registro y confirmar persistencia**
-  - Ir a `/app/seguimiento`.
-  - Cliente `TrackingClient.tsx` usa servicios de perfil y tracking (incluye `saveCheckinAndSyncProfileMetrics`).
-  - BFF `src/app/api/tracking/route.ts` proxy a backend `/tracking` con cookie `fs_token`.
-  - Backend expone `GET/PUT/POST /tracking` y `DELETE /tracking/:collection/:id`.
-  - No Ejecutado: persistencia verificada manualmente.
-**Food log: registrar ítems por gramos y ver macros/calorías**
-  - Dashboard/Tracking usa `FoodEntry` con `grams` (ver `src/app/(app)/app/DashboardClient.tsx`).
-  - Macros se calculan con `defaultFoodProfiles` y/o `user-foods` (endpoint `GET/POST/PUT/DELETE /user-foods`).
-  - BFF `src/app/api/user-foods/*` proxy a backend `/user-foods*`.
-  - Resultado esperado: añadir ítem, guardar, y ver totales (proteína, carbs, grasa, calorías).
-  - Assunção: la UI exacta de 'registrar' depende de componentes internos, pero cálculo por gramos está implementado en código.
-**Onboarding (si existe)**
-  - No se identificó un flujo dedicado de onboarding con rutas propias en `src/app` (solo `register`, `verify-email`, y `profile`).
-  - Evidencia: inventario de rutas.
-**Dashboard semanal (si existe)**
-  - Existe endpoint backend `src/routes/weeklyReview.ts` y contrato de test `src/tests/weeklyReview.contract.test.ts` (backend).
-  - En frontend existe `/app/dashboard` (page) y `DashboardClient.tsx`.
-  - Assunção: el dashboard semanal completo no se puede confirmar sin ejecución.
-**IA Nutrición: generar plan semanal + lista compra + ajuste (si existe)**
-  - BFF: `/api/ai/nutrition-plan` y `/api/ai/nutrition-plan/generate` proxyean a backend `/ai/nutrition-plan` y `/ai/nutrition-plan/generate`.
-  - Backend: `POST /ai/nutrition-plan` y `POST /ai/nutrition-plan/generate` existen en `src/index.ts` (además de `validateNutritionMath` y normalizadores).
-  - Persistencia: modelos Prisma `NutritionPlan`, `NutritionDay`, `NutritionMeal`, `NutritionIngredient`.
-  - No Ejecutado: generación real, reintentos, y persistencia verificada.
-**IA Fitness: generar plan + ajuste semanal (si existe)**
-  - BFF: `/api/ai/training-plan` y `/api/ai/training-plan/generate` proxyean a backend `/ai/training-plan*`.
-  - Backend: `POST /ai/training-plan` y `POST /ai/training-plan/generate` existen; hay validación de ejercicio IDs (`trainingPlanExerciseIds.contract.test.ts`) y fallback (`trainingPlanFallback.contract.test.ts`).
-  - Persistencia: modelos Prisma `TrainingPlan`, `TrainingDay`, `TrainingExercise`.
-  - No Ejecutado: generación real en entorno con BD poblada.
-**Gym Pilot: join + admin gestiona + asigna plan (si existe)**
-  - Backend: modelos `Gym`, `GymMembership` y enums `GymMembershipStatus`, `GymRole`.
-  - Backend endpoints: `/gyms/join`, `/gyms/membership`, `/gym/me`, `/admin/gyms*`, `/admin/gym-join-requests*` (ver `src/index.ts`).
-  - Frontend: rutas admin `/app/admin/gyms`, `/app/admin/gym-requests`; rutas trainer `/app/trainer/*` (y duplicado `/app/treinador/*`).
-  - Resultado esperado: usuario envía join request, admin acepta, membership pasa a ACTIVE, asignación de plan a miembro (BFF `assign-training-plan`).
-  - No Ejecutado: flujo completo cronometrado sin errores de consola.
+Evidencia: Ruta existe: front/src/app/(app)/app/hoy/page.tsx. Endpoints relacionados: /api/workouts, /api/workout-sessions, /api/tracking/* (front/src/app/api/*).
 
-### 2.3 Matriz de entitlements (estado real)
+### Biblioteca: lista → detalle
+1. Abrir `/app/biblioteca`.
+2. Cargar lista de ejercicios.
+3. Abrir detalle `/app/biblioteca/[exerciseId]`.
+4. Ver media (imagen/video/gif) si existe, placeholder solo si no hay media (Assunção: resolver implementado).
 
-- Backend: `apps/api/src/entitlements.ts` (planes `FREE`, `STRENGTH_AI`, `NUTRI_AI`, `PRO`).
+Evidencia: Rutas existen: front/src/app/(app)/app/biblioteca/page.tsx y [exerciseId]/page.tsx. BFF: /api/exercises, /api/exercises/[id] (front/src/app/api/exercises/*).
 
-- Frontend: `apps/web/src/lib/entitlements.ts` (tier UI `FREE | PRO | GYM`, features por `modules.*`).
+### Tracking: crear 1 registro y confirmar persistencia
+1. Abrir `/app/seguimiento`.
+2. Crear un registro (check-in, medidas, peso, etc. Assunção: collections).
+3. Refrescar y verificar que el snapshot incluye el registro.
 
+Evidencia: Backend implementa `/tracking` GET/PUT/POST y delete por colección/id: back/src/index.ts (línea ~5007). Front BFF: `front/src/app/api/tracking/*`.
 
-| Feature | Free | Nutrición Premium | Fitness Premium | Bundle | Gym |
-|---|---:|---:|---:|---:|---:|
+### Food log: registrar ítems por gramos y ver macros/calorías (si existe)
+1. Abrir `/app/macros` o `/app/nutricion`.
+2. Buscar o crear alimento (user-foods).
+3. Registrar gramos y ver cálculo de macros/calorías (Assunção: en UI).
 
-| Navegación app base | Implementado | Implementado | Implementado | Implementado | Implementado |
+Evidencia: BFF: /api/user-foods/* (front/src/app/api/user-foods/*). Backend: `/user-foods` CRUD (back/src/index.ts, evidencia por strings y dist).
 
-| Food log (grams + macros) | Implementado | Implementado | Implementado | Implementado | Implementado |
+### Onboarding (si existe)
+1. Abrir `/app/onboarding`.
+2. Completar pasos de perfil/contexto (Assunção).
+3. Guardar y navegar a dashboard.
 
-| IA Nutrición | Gated | Implementado | Assunção | Implementado | Assunção |
+Evidencia: Ruta existe: front/src/app/(app)/app/onboarding/page.tsx. Persistencia exacta no verificada (Assunção).
 
-| IA Fitness | Gated | Assunção | Implementado | Implementado | Assunção |
+### Dashboard semanal (si existe)
+1. Abrir `/app/weekly-review`.
+2. Ver resumen semanal (Assunção: derivado de tracking y workouts).
 
-| Packaging modular en UI | **FAIL** | FAIL | FAIL | Parcial | FAIL |
+Evidencia: Ruta existe: front/src/app/(app)/app/weekly-review/page.tsx. Backend contiene ruta/servicio weeklyReview (back/src/routes/weeklyReview.ts, back/src/services/weeklyReview.ts).
 
-| Gym membership | Assunção | Assunção | Assunção | Assunção | Implementado |
+### IA Nutrición: generar plan semanal + lista compra + ajuste (si existe)
+1. Abrir `/app/nutricion`.
+2. Solicitar generación (POST a `/api/ai/nutrition-plan/generate`).
+3. Backend valida output estructurado, persiste plan, UI muestra plan y permite ajustes (Assunção: ajustes completos).
 
+Evidencia: BFF robusto: front/src/app/api/ai/nutrition-plan/generate/route.ts. Backend: `/ai/nutrition-plan` y `/ai/nutrition-plan/generate` (back/src/index.ts).
 
-Gap: la matriz comercial solicitada no está cerrada como contrato end-to-end.
+### IA Fitness: generar plan + ajuste semanal (si existe)
+1. Abrir `/app/entrenamiento` o `/app/workouts`.
+2. Solicitar generación (POST `/api/ai/training-plan/generate`).
+3. UI muestra plan y permite ajuste semanal (Assunção).
 
-## 3) Auditoría UX (mobile-first)
+Evidencia: BFF endpoints existen: front/src/app/api/ai/training-plan/*; backend tiene rutas `/ai/training-plan*` (string match en back/src/index.ts).
 
-- Tab bar mobile y sidebar centralizados.
-- Estados loading/error/empty existen, pero no se puede certificar cobertura sin ejecución.
-- Duplicación trainer ES/PT es la principal fuente de fricción estructural.
+### Gym Pilot: usuario se une a gym (aceptación o código) + admin gestiona + asigna plan (si existe)
+1. Usuario abre `/app/gym` y hace join request o join by code (Assunção: UI).
+2. Admin abre `/app/admin/gyms` y gestiona members/requests.
+3. Admin/trainer asigna plan a miembro.
 
-### 10 fricciones concretas
-| ID | Fricción |
-|---|---|
-| UX-01 | Duplicación trainer ES/PT. Unificar árbol de rutas y redirects. |
-| UX-02 | Entitlements no comunican claramente qué desbloquea cada plan. Añadir upgrade paths por feature. |
-| UX-03 | Shell layout renderiza sidebar + tab bar siempre. Condicionar por `shell` si admin/trainer requieren layouts distintos. |
-| UX-04 | Estados empty/error no garantizados en páginas core. Crear `PageState` reusable. |
-| UX-05 | Food profiles defaults + user-foods sin señalización. Indicar origen y evitar duplicados. |
-| UX-06 | Rutas de recetas existen sin evidencia de datos. Ocultar en nav si no hay contenido. |
-| UX-07 | Solape `Dietas` vs `Nutrición`. Consolidar IA plan + diario en una experiencia única. |
-| UX-08 | Admin panel sin marca clara. Añadir breadcrumbs/badge 'Admin'. |
-| UX-09 | `debug` AI en respuestas. Separar dev/prod y sanitizar. |
-| UX-10 | No evidencia de DoD '0 errores consola'. Checklist obligatorio antes de demo. |
+Evidencia: BFF existe: /api/gym/*, /api/gyms/*, /api/admin/gyms/* (front/src/app/api). Normalización por mismatches: front/src/lib/gym-contracts.ts. UI Labs etiqueta `adminGymRequests` y `nutrition` como `sem backend` (front/src/app/(app)/app/(admin)/admin/labs/AdminLabsClient.tsx).
 
-## 4) Auditoría de Arquitectura y Contratos
+## 2.3 Matriz de entitlements (Free / Nutrición Premium / Fitness Premium / Bundle / Gym)
+> Importante: en backend el plan efectivo usa enum `FREE`, `STRENGTH_AI`, `NUTRI_AI`, `PRO` (back/src/entitlements.ts). La UI hoy gatea por módulos (ai/nutrition/strength) sobre `/auth/me`.
 
-### 4.1 Arquitectura real
-- FE: Next.js App Router + BFF `/api/*`.
-- BE: Fastify + Prisma, endpoints en `apps/api/src/index.ts`.
-- Contratos sensibles: `fs_token`, `/auth/me`, `/tracking`, `/exercises`, `/ai/*`, `/gyms/*`.
+Tabla (estado = Implementado en código / Validado E2E / Planeado):
 
-### 4.2 Contratos FE↔BE (subset)
-| BFF `/api/*` | Backend esperado | Método | Estado |
-|---|---|---:|---|
+| Feature | Free | Nutrición Premium | Fitness Premium | Bundle/PRO | Gym | Evidencia |
+|---|---:|---:|---:|---:|---:|---|
+| Login + /app protegido | Impl | Impl | Impl | Impl | Impl | BFF /api/auth/me usa fs_token, backend /auth/me (front/src/app/api/auth/me/route.ts, back/src/index.ts) |
+| Tracking persistente | Impl | Impl | Impl | Impl | Impl | backend /tracking (back/src/index.ts ~5007) |
+| Biblioteca ejercicios | Impl | Impl | Impl | Impl | Impl | rutas /app/biblioteca + BFF /api/exercises |
+| Food log (user foods) | Impl? | Impl | Impl? | Impl | Impl? | BFF /api/user-foods; backend /user-foods (assunção de UI completa) |
+| IA Nutrición | Gateado | Gateado (on) | Gateado | Gateado (on) | Gateado | UI usa entitlements.modules.*.enabled (front/src/lib/entitlements.ts) |
+| IA Fitness | Gateado | Gateado | Gateado (on) | Gateado (on) | Gateado | BFF /api/ai/training-plan/generate |
+| Billing/Stripe | Impl | Impl | Impl | Impl | Impl? | BFF /api/billing/*, backend stripe handlers (back/src/index.ts) |
+| Gym join by code | N/A | N/A | N/A | N/A | Impl | BFF /api/gyms/join-by-code y /api/gym/join-code |
+| Admin gym management | N/A | N/A | N/A | N/A | Impl | rutas /app/admin/gyms + BFF /api/admin/gyms |
 
-| `/api/auth/me` | `/auth/me` | GET | OK |
-| `/api/tracking` | `/tracking` | GET/POST/PUT | OK |
-| `/api/user-foods` | `/user-foods` | GET/POST | OK |
-| `/api/user-foods/[id]` | `/user-foods/:id` | PUT/DELETE | OK |
-| `/api/ai/training-plan/generate` | `/ai/training-plan/generate` | POST | OK |
-| `/api/ai/nutrition-plan/generate` | `/ai/nutrition-plan/generate` | POST | OK |
-| `/api/admin/gyms` | `/admin/gyms` | GET/POST | OK |
-| `/api/admin/gym-join-requests` | `/admin/gym-join-requests` | GET | OK |
+Leyenda: `Impl?` = endpoints existen pero UX/pantalla no validada end-to-end en esta auditoría.
 
-| `/api/admin/users/[id]/plan` | `/admin/users/:id/plan` | (varios) | **MISSING** |
+---
+# 3) Auditoría UX (mobile-first)
+## Consistencia de navegación
+- Existe `MobileTabBar` y el gating por entitlements influye en tabs (front/src/components/layout/MobileTabBar.tsx + hooks/useAuthEntitlements.ts). Assunção: tabs reflejan exactamente módulos accesibles.
+- Hay rutas duplicadas para trainer en PT (`/app/treinador`) y EN/ES (`/app/trainer`), riesgo de confusión e i18n parcial.
 
-| `/api/admin/users/[id]/tokens` | `/admin/users/:id/tokens` | (varios) | **MISSING** |
+## Estados obligatorios
+- Positivo: `FeatureGate` centraliza gating y expone loading/error/reload (front/src/components/access/FeatureGate.tsx).
+- Riesgo: páginas marcadas como “sem backend” en AdminLabs sugieren pantallas accesibles con backend parcial, deben ocultarse o degradar a “coming soon” real solo para admins.
 
-| `/api/admin/users/[id]/tokens-allowance` | `/admin/users/:id/tokens-allowance` | (varios) | **MISSING** |
+## Copy/i18n
+- Existe infra de i18n (front/src/lib/serverI18n y LanguageProvider). No se auditó cobertura completa de claves (No Ejecutado).
 
-| `/api/admin/users/[id]/tokens/add` | `/admin/users/:id/tokens/add` | (varios) | **MISSING** |
+## 10 fricciones concretas (y recomendación)
+- F1. Rutas trainer duplicadas (`/trainer` vs `/treinador`). Recomendar unificar y usar i18n para labels, no para rutas.
+- F2. AdminLabs enumera features con estados, pero no garantiza bloqueo hard. Recomendar server-side guard + ocultar links para no-admin.
+- F3. Normalizadores de Gym indican UX puede mostrar estados UNKNOWN. Recomendar mapear a estados UX concretos y copy accionable.
+- F4. Entitlements se cargan client-side via `/api/auth/me`. Esto puede causar flicker (tabs cambian tras load). Recomendar prefetch server-side en layout.
+- F5. Error handling heterogéneo. Recomendar patrón único: ErrorBanner + retry + códigos mapeados a copy.
+- F6. Placeholders de media en biblioteca han sido tema recurrente. Recomendar resolver único (ya discutido en PR) y skeleton consistente.
+- F7. Flujo de billing: riesgo de “dead-end” tras checkout/portal sin retorno claro. Recomendar CTA de retorno y estado de suscripción visible.
+- F8. IA generation: errores `INVALID_AI_OUTPUT` existen. Recomendar fallback: plan mínimo o “reintentar con feedback”, y no bloquear toda la pantalla.
+- F9. Tracking: colecciones múltiples (checkins/medidas). Recomendar IA de captura rápida, y confirmación persistida (timestamp + sync).
+- F10. Dashboard semanal: si depende de tracking incompleto, mostrar empty state educacional, no vacío silencioso.
 
-| `/api/admin/users/[id]/tokens/balance` | `/admin/users/:id/tokens/balance` | (varios) | **MISSING** |
+---
+# 4) Auditoría de Arquitectura y Contratos
+## 4.1 Arquitectura real (Frontend + BFF + Backend)
+**Frontend**: Next.js App Router. BFF implementado como rutas `/api/*` en Next, que proxyean al backend usando cookie `fs_token` (ejemplo: front/src/app/api/auth/me/route.ts).
+**Backend**: Fastify (monolito) con Prisma. Rutas declaradas en `back/src/index.ts`. Hay validación con zod en varios dominios (ejemplo: authMeResponseSchema en back/src/auth/schemas.ts).
 
+Dominios detectados (por rutas y carpetas):
+- Auth/Profile: `/auth/*`, `/auth/me`, change-password, Google OAuth.
+- Tracking: `/tracking` + weekly review.
+- Library: exercises, recipes, workouts.
+- Training: training-plans, workouts, workout-sessions.
+- Nutrition: user-foods, nutrition-plans, /ai/nutrition-plan.
+- AI: /ai/daily-tip, /ai/nutrition-plan, /ai/training-plan.
+- Billing: /billing/* y webhooks Stripe (assunção: implementado por handlers en index).
+- Gym/Admin: /gyms, /gym/*, /admin/gyms/*, /trainer/*.
 
+Zonas sensibles:
+- `fs_token` como cookie de sesión. BFF lo reenvía como header `cookie` al backend.
+- Guards: backend `requireUser` y `aiAccessGuard` (assunção: consistente en todas las rutas sensibles).
 
-### 4.3 IA
-- Endpoints AI en backend: `/ai/training-plan*`, `/ai/nutrition-plan*`, `/ai/quota`, `/ai/daily-tip`.
-- Validación: Zod + parsing JSON dedicado.
-- Riesgo: `debug` y logs con payload.
+## 4.2 Contratos FE↔BE (mapa)
+Fuente: rutas BFF en `front/src/app/api/**/route.ts` y búsqueda de `getBackendUrl()`.
 
-## 5) Calidad y Release Readiness
+### Mapa resumido (ejemplos críticos)
 
-| Área | Estado | Evidencia |
-|---|---|---|
+| BFF (/api/*) | Backend | Método(s) | Estado | Evidencia |
+|---|---|---|---|---|
+| `/api/auth/me` | `/auth/me` | GET | OK | front/src/app/api/auth/me/route.ts, back/src/index.ts |
+| `/api/tracking` | `/tracking` | GET/PUT/POST | OK | front/src/app/api/tracking/route.ts, back/src/index.ts ~5007 |
+| `/api/ai/nutrition-plan/generate` | `/ai/nutrition-plan/generate` | POST | OK (con gateway) | front/src/app/api/ai/nutrition-plan/generate/route.ts |
+| `/api/admin/gyms` | `/admin/gyms` | GET/POST | OK pero normalizado | front/src/app/api/admin/gyms/route.ts + front/src/lib/gym-contracts.ts |
+| `/api/billing/*` | `/billing/*` | varios | OK (no validado E2E) | rutas BFF /api/billing/* |
 
-| FE build/lint/typecheck/test/e2e | No Ejecutado | scripts en `apps/web/package.json`. |
+### Mismatches relevantes
+- Gym: existe normalización de payloads con múltiples alias de campos (`gymId` vs `tenantId`, `state` vs `status`, `gym.code` vs `activationCode`). Esto es evidencia directa de drift contractual (front/src/lib/gym-contracts.ts).
+- AuthMe: backend tiene un schema rico (id/email/role/modules/effectiveEntitlements), pero el frontend define un `AuthMeResponse` parcial en `front/src/lib/types.ts`. El código de entitlements usa solo `payload.entitlements.modules`, pero la divergencia de tipos reduce la protección TypeScript ante cambios de contrato.
 
-| BE build/test | No Ejecutado | scripts en `apps/api/package.json`. |
+## 4.3 IA (assistiva)
+Dónde se usa:
+- Nutrición: `/api/ai/nutrition-plan` y `/api/ai/nutrition-plan/generate` consumidos desde UI (front/src/services/nutrition.ts y NutritionPlanClient).
+- Fitness: `/api/ai/training-plan/*` consumido desde componentes de entrenamiento (evidencia: rutas BFF existen).
 
+Validación y fallback:
+- BFF de nutrición maneja errores y asegura JSON de salida incluso con backend malformado, y convierte 5xx a 502 para aislar al cliente (front/src/app/api/ai/nutrition-plan/generate/route.ts).
+- Backend contiene validación matemática de macros y retry logic (back/src/ai/nutritionMathValidation.ts, back/src/ai/nutritionRetry.ts, evidenciado por imports en back/src/index.ts).
 
-Entorno Node: **Assunção** (no hay engines).
+Riesgos y mitigación:
+- Riesgo: logs de debug pueden incluir contexto sensible. Mitigación: scrub PII, y habilitar debug solo en admin/dev.
+- Riesgo: persistir output inválido. Mitigación: validar contra schema (zod/json schema) antes de escribir, con reintento automático y fallback.
 
-## 6) Hallazgos priorizados
+---
+# 5) Calidad y Release Readiness (con evidencia)
+## 5.1 Evidencia técnica (PASS/FAIL)
+> Este entorno no ejecutó `npm ci` ni `npm run build` de los zips. Por norma de auditoría, todo se marca como **No Ejecutado**.
+
+| Item | Front | Back | Evidencia |
+|---|---|---|---|
+| build | No Ejecutado | No Ejecutado | scripts existen en package.json |
+| lint | No Ejecutado | N/A (no script lint) | front/package.json scripts.lint |
+| typecheck | No Ejecutado | N/A (TS compilación en build) | front/package.json scripts.typecheck |
+| tests | No Ejecutado | No Ejecutado | back/package.json scripts.test incluye tests de contratos |
+
+Entorno (assunção): Node version no capturada, no hay `.nvmrc` verificado.
+
+## 5.2 Checklist DoD + MVP Modular + Gym (PASS/FAIL)
+> PASS solo si: implementado + validado E2E. Sin ejecución real, casi todo queda FAIL por falta de evidencia runtime.
+
+### A) DoD mínimo
+- Login: **FAIL (No Validado)**, implementado pero sin evidencia de build+flujo real.
+- /app protegido: **FAIL (No Validado)**, existe middleware/guards (assunção), pero no ejecutado.
+- Tab bar: **FAIL (No Validado)**, componente existe.
+- Hoy + 1 acción: **FAIL (No Validado)**, ruta existe.
+- Tracking persistente: **FAIL (No Validado)**, endpoints existen.
+- Biblioteca lista+detalle: **FAIL (No Validado)**, rutas y BFF existen.
+
+### B) Entitlements modular
+- **FAIL (No Validado)**. Implementado: backend effective entitlements + UI gating por módulos. Falta validación de escenarios: Free vs Strength-only vs Nutrition-only vs PRO, y adminOverride.
+
+### C) Free
+- Métricas básicas + rendimiento: **FAIL (No Validado)**.
+- Food log con macros/calorías: **FAIL (No Validado)**, endpoints existen.
+
+### D) Nutrición Premium
+- Plan semanal + lista compra + ajustes: **FAIL (No Validado)**.
+- Validación IA antes de persistir: **Parcial** (evidencia de guardrails en BFF y backend). Sin evidencia E2E.
+
+### E) Fitness Premium
+- Plan según contexto + ajuste semanal: **FAIL (No Validado)**.
+
+### F) Gym Pilot
+- Join por aceptación o código: **FAIL (No Validado)**.
+- Panel admin: **FAIL (No Validado)**, rutas existen.
+- Asignación plan template: **FAIL (No Validado)**.
+
+---
+# 6) Hallazgos priorizados
 | ID | Severidad | Área | Hallazgo | Impacto | Evidencia | Recomendación | Owner sugerido | Esfuerzo |
 |---|---|---|---|---|---|---|---|---|
+| FS-001 | P0 | Release/CI | No hay gate de build/typecheck/test antes de merge (no verificable en zips). | Bloqueo de release, regresiones frecuentes. | Scripts existen, pero no evidencia de ejecución. | Añadir CI (GitHub Actions) + prepush hook opcional. | DevOps/Staff Eng | M |
+| FS-002 | P0 | Contratos Gym | Gym contracts requieren normalización defensiva de estados y campos. | Estados incoherentes, UX rota en join/admin. | front/src/lib/gym-contracts.ts (normalizeMembershipPayload). | Formalizar contrato y versionarlo, eliminar alias. | Backend+Frontend leads | M |
+| FS-003 | P1 | Type Safety | `AuthMeResponse` en frontend es parcial vs backend schema rico. | Cambios backend no rompen TS, errores en runtime. | front/src/lib/types.ts vs back/src/auth/schemas.ts. | Generar tipos desde schema (zod-to-ts) o OpenAPI. | Frontend lead | S |
+| FS-004 | P1 | UX/Gating | Entitlements se cargan client-side, riesgo de flicker y rutas accesibles por URL directa. | Experiencia inconsistente, posible exposure de features. | hooks/useAuthEntitlements.ts + AppNavBar/MobileTabBar. | Mover gating crítico a server layout + redirects. | Frontend | M |
+| FS-005 | P1 | IA Robustness | Errores INVALID_AI_OUTPUT ya aparecen, pero UX fallback no estandarizado. | Plan no generado bloquea flujo premium. | NutritionPlanClient + BFF ai gateway. | Añadir flujo “retry con feedback”, y plan mínimo. | Full-stack | M |
+| FS-006 | P2 | Admin Surface | AdminLabs marca items “sem backend” pero siguen siendo navegables. | Soporte y credibilidad en demos. | AdminLabsClient.tsx. | Ocultar o desactivar rutas, y mostrar “coming soon” real. | Frontend | S |
+| FS-007 | P2 | Observabilidad | Debug en BFF devuelve `debug` en 401 y fallos AI. | Riesgo de info leakage y ruido. | ai/nutrition-plan/generate route.ts. | Feature flag debug + scrub PII + requestId. | Backend | M |
 
-| F-001 | P0 | Contratos | BFF expone admin endpoints `tokens*` y `plan` pero backend no los implementa | Pantallas admin pueden fallar | BFF `apps/web/src/app/api/admin/users/[id]/*`, BE endpoints ausentes en `apps/api/src/index.ts` | Eliminar rutas BFF o implementar endpoints BE | Backend+Frontend | M |
-| F-002 | P0 | MVP Modular | UI colapsa `NUTRI_AI` y `STRENGTH_AI` dentro de tier `PRO` | Paywall/packaging incorrecto | `apps/web/src/lib/entitlements.ts` normalizeTier() | Modelar tiers UI reales y gating por `modules.*` | Frontend+Producto | M |
-| F-003 | P1 | Arquitectura FE | Doble árbol de rutas trainer (`/app/trainer/*` y `/app/treinador/*`) | Duplicación QA y bugs | Inventario rutas en `apps/web/src/app` | Unificar y redirigir | Frontend | M |
-| F-004 | P1 | Release | Sin evidencia de CI gate en zips | Regresiones TS/build | Scripts existen en package.json | Añadir CI obligatorio | DevOps | M |
-| F-005 | P1 | Gym Pilot | Seed demo no documentado, BD vacía rompe IA y biblioteca | Demo frágil | Scripts BE: `demo:reset`, `db:import:free-exercise-db` | Runbook + seed determinista | Backend+PM | S |
+---
+# 7) Próximos pasos (roadmap)
+Propuesta de 3 sprints, 1 apuesta por sprint.
 
-## 7) Próximos pasos (3 sprints)
+## Sprint 1: Estabilidad absoluta (Release Gate)
+- Goal: cada PR mergeable implica build+typecheck+tests PASS en front y back.
+- Entra: CI, scripts reproducibles, documentar Node version, smoke test básico Playwright para login y /app/hoy.
+- No entra: features nuevas.
+- Métricas: 0 merges con build rojo, tiempo medio de build, tasa de fallos TS.
+- Riesgos/deps: tiempo de `npm ci`, flakiness e2e.
 
-### Sprint 1: Estabilidad + contratos
-- Cerrar mismatches admin (eliminar o implementar).
-- Unificar rutas trainer.
-- Gate CI: build+typecheck+tests FE/BE.
+## Sprint 2: Gym Pilot rock solid (1 flujo)
+- Goal: join por código + aprobación + asignación plan, sin errores consola, en seed demo.
+- Entra: cerrar contrato Gym, limpiar normalizadores, hardening permisos, empty/error states, y checklist manual cronometrado.
+- No entra: marketplace, white-label.
+- Métricas: tasa de éxito del flujo en 10 runs, 0 errores consola, NPS de demo.
+- Riesgos/deps: datos de seed, roles trainer/admin.
 
-### Sprint 2: Seed demo + Gym Pilot
-- Runbook 1-click con scripts existentes.
-- Validar flujo join, accept, assign plan sin errores consola.
+## Sprint 3: Modularización comercial real (Entitlements)
+- Goal: tiers comprables y gating backend-driven consistente en UI (tabs, rutas, llamadas).
+- Entra: mapear planes a módulos, tests por plan, pantallas de billing claras.
+- No entra: multi-gym enterprise.
+- Métricas: cobertura de tests de entitlements, 0 accesos indebidos.
+- Riesgos/deps: Stripe products/prices.
 
-### Sprint 3: MVP modular comercial
-- Modelar tiers UI reales y gating backend-driven.
-- Ocultar secciones sin contenido, pulir copy, telemetría básica.
+---
+# 8) Anexos
+## 8.1 Árbol de rutas/pantallas (derivado)
+- /app/
+- /app/admin
+- /app/admin/gym-requests
+- /app/admin/gyms
+- /app/admin/labs
+- /app/admin/preview
+- /app/admin/users
+- /app/biblioteca
+- /app/biblioteca/[exerciseId]
+- /app/biblioteca/entrenamientos
+- /app/biblioteca/entrenamientos/[planId]
+- /app/biblioteca/recetas
+- /app/biblioteca/recetas/[recipeId]
+- /app/dashboard
+- /app/dietas
+- /app/dietas/[planId]
+- /app/entrenamiento
+- /app/entrenamiento/[workoutId]
+- /app/entrenamiento/editar
+- /app/entrenamientos
+- /app/entrenamientos/[workoutId]
+- /app/entrenamientos/[workoutId]/start
+- /app/feed
+- /app/gym
+- /app/gym/admin
+- /app/hoy
+- /app/macros
+- /app/nutricion
+- /app/nutricion/editar
+- /app/onboarding
+- /app/profile
+- /app/profile/legacy
+- /app/seguimiento
+- /app/settings
+- /app/settings/billing
+- /app/trainer
+- /app/trainer/client/[id]
+- /app/trainer/clients
+- /app/trainer/clients/[id]
+- /app/trainer/exercises
+- /app/trainer/exercises/new
+- /app/trainer/plans
+- /app/trainer/plans/[id]
+- /app/trainer/requests
+- /app/treinador
+- /app/treinador/[...slug]
+- /app/weekly-review
+- /app/workouts
 
-## 8) Anexos
+## 8.2 Lista de BFF endpoints (/api/*)
+- /api/admin/gym-join-requests
+- /api/admin/gym-join-requests/[membershipId]/[action]
+- /api/admin/gym-join-requests/[membershipId]/accept
+- /api/admin/gym-join-requests/[membershipId]/reject
+- /api/admin/gyms
+- /api/admin/gyms/[gymId]
+- /api/admin/gyms/[gymId]/members
+- /api/admin/gyms/[gymId]/members/[userId]/assign-training-plan
+- /api/admin/gyms/[gymId]/members/[userId]/role
+- /api/admin/users
+- /api/admin/users/[id]
+- /api/admin/users/[id]/block
+- /api/admin/users/[id]/reset-password
+- /api/admin/users/[id]/unblock
+- /api/admin/users/[id]/verify-email
+- /api/ai/daily-tip
+- /api/ai/nutrition-plan
+- /api/ai/nutrition-plan/generate
+- /api/ai/training-plan
+- /api/ai/training-plan/generate
+- /api/auth/change-password
+- /api/auth/google/callback
+- /api/auth/google/start
+- /api/auth/me
+- /api/auth/resend-verification
+- /api/auth/verify-email
+- /api/billing/checkout
+- /api/billing/plans
+- /api/billing/portal
+- /api/billing/status
+- /api/exercises
+- /api/exercises/[id]
+- /api/feed
+- /api/feed/generate
+- /api/gym/admin/members/[userId]/role
+- /api/gym/join-code
+- /api/gym/join-request
+- /api/gym/me
+- /api/gyms
+- /api/gyms/join
+- /api/gyms/join-by-code
+- /api/gyms/membership
+- /api/nutrition-plans
+- /api/nutrition-plans/[id]
+- /api/profile
+- /api/recipes
+- /api/recipes/[id]
+- /api/review/weekly
+- /api/tracking
+- /api/tracking/[collection]/[id]
+- /api/trainer/assign-training-plan
+- /api/trainer/capabilities
+- /api/trainer/clients
+- /api/trainer/clients/[id]
+- /api/trainer/clients/[id]/assigned-plan
+- /api/trainer/clients/[id]/notes
+- /api/trainer/clients/[id]/plan
+- /api/trainer/join-requests
+- /api/trainer/join-requests/[membershipId]/[action]
+- /api/trainer/join-requests/[membershipId]/accept
+- /api/trainer/join-requests/[membershipId]/reject
+- /api/trainer/members
+- /api/trainer/members/[id]/assigned-plan
+- /api/trainer/members/[id]/training-plan-assignment
+- /api/trainer/plans
+- /api/trainer/plans/[id]
+- /api/trainer/plans/[id]/days/[dayId]
+- /api/trainer/plans/[id]/days/[dayId]/exercises
+- /api/trainer/plans/[id]/days/[dayId]/exercises/[exerciseId]
+- /api/training-plans
+- /api/training-plans/[id]
+- /api/training-plans/[id]/days/[dayId]/exercises
+- /api/training-plans/active
+- /api/user-foods
+- /api/user-foods/[id]
+- /api/workout-sessions/[id]
+- /api/workout-sessions/[id]/finish
+- /api/workouts
+- /api/workouts/[id]
+- /api/workouts/[id]/start
 
-### 8.1 Rutas (páginas)
-```text
-/
-/app
-/app/admin
-/app/admin/gym-requests
-/app/admin/gyms
-/app/admin/labs
-/app/admin/preview
-/app/admin/users
-/app/biblioteca
-/app/biblioteca/[exerciseId]
-/app/biblioteca/entrenamientos
-/app/biblioteca/entrenamientos/[planId]
-/app/biblioteca/recetas
-/app/biblioteca/recetas/[recipeId]
-/app/dashboard
-/app/dietas
-/app/dietas/[planId]
-/app/entrenamiento
-/app/entrenamiento/[workoutId]
-/app/entrenamiento/editar
-/app/entrenamientos
-/app/entrenamientos/[workoutId]
-/app/entrenamientos/[workoutId]/start
-/app/feed
-/app/gym
-/app/gym/admin
-/app/hoy
-/app/macros
-/app/nutricion
-/app/nutricion/editar
-/app/onboarding
-/app/profile
-/app/profile/legacy
-/app/seguimiento
-/app/settings
-/app/settings/billing
-/app/trainer
-/app/trainer/client/[id]
-/app/trainer/clients
-/app/trainer/clients/[id]
-/app/trainer/exercises
-/app/trainer/exercises/new
-/app/trainer/plans
-/app/trainer/plans/[id]
-/app/trainer/requests
-/app/treinador
-/app/treinador/[...slug]
-/app/treinador/clientes
-/app/treinador/clientes/[id]
-/app/treinador/exercicios
-/app/treinador/exercicios/novo
-/app/weekly-review
-/app/workouts
-/design-system
-/login
-/register
-/verify-email
-```
+## 8.3 Feature flags/toggles
+- No se detectó un sistema formal de feature flags por env var. Existe una lista manual en AdminLabs (`LAB_ITEMS`) con estados (`read-only`, `sem backend`, `beta`), que funciona como inventario, no como toggle real.
 
-### 8.2 Endpoints backend
-```text
-GET /admin/gym-join-requests  (src/index.ts)
-POST /admin/gym-join-requests/:membershipId/accept  (src/index.ts)
-POST /admin/gym-join-requests/:membershipId/reject  (src/index.ts)
-GET /admin/gyms  (src/index.ts)
-POST /admin/gyms  (src/index.ts)
-DELETE /admin/gyms/:gymId  (src/index.ts)
-GET /admin/gyms/:gymId/members  (src/index.ts)
-POST /admin/gyms/:gymId/members/:userId/assign-training-plan  (src/index.ts)
-PATCH /admin/gyms/:gymId/members/:userId/role  (src/index.ts)
-GET /admin/users  (src/index.ts)
-POST /admin/users  (src/index.ts)
-DELETE /admin/users/:id  (src/index.ts)
-PATCH /admin/users/:id/block  (src/index.ts)
-POST /admin/users/:id/reset-password  (src/index.ts)
-PATCH /admin/users/:id/unblock  (src/index.ts)
-POST /admin/users/:id/verify-email  (src/index.ts)
-POST /ai/daily-tip  (src/index.ts)
-POST /ai/nutrition-plan  (src/index.ts)
-POST /ai/nutrition-plan/generate  (src/index.ts)
-GET /ai/quota  (src/index.ts)
-POST /ai/training-plan  (src/index.ts)
-POST /ai/training-plan/generate  (src/index.ts)
-POST /auth/change-password  (src/index.ts)
-GET /auth/google/callback  (src/index.ts)
-GET /auth/google/start  (src/index.ts)
-POST /auth/login  (src/index.ts)
-POST /auth/logout  (src/index.ts)
-GET /auth/me  (src/index.ts)
-POST /auth/register  (src/index.ts)
-POST /auth/resend-verification  (src/index.ts)
-POST /auth/signup  (src/index.ts)
-GET /auth/verify-email  (src/index.ts)
-POST /billing/admin/reset-customer-link  (src/index.ts)
-POST /billing/checkout  (src/index.ts)
-GET /billing/plans  (src/index.ts)
-POST /billing/portal  (src/index.ts)
-GET /billing/status  (src/index.ts)
-POST /billing/stripe/webhook  (src/index.ts)
-POST /dev/reset-demo  (src/index.ts)
-POST /dev/seed-exercises  (src/index.ts)
-POST /dev/seed-recipes  (src/index.ts)
-GET /exercises  (src/index.ts)
-POST /exercises  (src/index.ts)
-GET /exercises/:id  (src/index.ts)
-GET /feed  (src/index.ts)
-POST /feed/generate  (src/index.ts)
-PATCH /gym/admin/members/:userId/role  (src/index.ts)
-POST /gym/join-code  (src/index.ts)
-POST /gym/join-request  (src/index.ts)
-DELETE /gym/me  (src/index.ts)
-GET /gym/me  (src/index.ts)
-GET /gyms  (src/index.ts)
-POST /gyms/join  (src/index.ts)
-POST /gyms/join-by-code  (src/index.ts)
-DELETE /gyms/membership  (src/index.ts)
-GET /gyms/membership  (src/index.ts)
-GET /health  (src/index.ts)
-GET /nutrition-plans  (src/index.ts)
-GET /nutrition-plans/:id  (src/index.ts)
-GET /profile  (src/index.ts)
-PUT /profile  (src/index.ts)
-GET /recipes  (src/index.ts)
-GET /recipes/:id  (src/index.ts)
-GET /review/weekly  (src/routes/weeklyReview.ts)
-GET /tracking  (src/index.ts)
-POST /tracking  (src/index.ts)
-PUT /tracking  (src/index.ts)
-DELETE /tracking/:collection/:id  (src/index.ts)
-GET /trainer/clients  (src/index.ts)
-DELETE /trainer/clients/:userId  (src/index.ts)
-GET /trainer/clients/:userId  (src/index.ts)
-DELETE /trainer/clients/:userId/assigned-plan  (src/index.ts)
-GET /trainer/clients/:userId/assigned-plan  (src/index.ts)
-POST /trainer/clients/:userId/assigned-plan  (src/index.ts)
-GET /trainer/gym  (src/index.ts)
-PATCH /trainer/gym  (src/index.ts)
-DELETE /trainer/members/:id/training-plan-assignment  (src/index.ts)
-POST /trainer/members/:id/training-plan-assignment  (src/index.ts)
-GET /trainer/members/:userId/training-plan-assignment  (src/index.ts)
-GET /trainer/plans  (src/index.ts)
-POST /trainer/plans  (src/index.ts)
-DELETE /trainer/plans/:planId  (src/index.ts)
-GET /trainer/plans/:planId  (src/index.ts)
-PATCH /trainer/plans/:planId  (src/index.ts)
-DELETE /trainer/plans/:planId/days/:dayId  (src/index.ts)
-POST /trainer/plans/:planId/days/:dayId/exercises  (src/index.ts)
-DELETE /trainer/plans/:planId/days/:dayId/exercises/:exerciseId  (src/index.ts)
-PATCH /trainer/plans/:planId/days/:dayId/exercises/:exerciseId  (src/index.ts)
-GET /training-plans  (src/index.ts)
-POST /training-plans  (src/index.ts)
-GET /training-plans/:id  (src/index.ts)
-POST /training-plans/:planId/days/:dayId/exercises  (src/index.ts)
-GET /training-plans/active  (src/index.ts)
-GET /user-foods  (src/index.ts)
-POST /user-foods  (src/index.ts)
-DELETE /user-foods/:id  (src/index.ts)
-PUT /user-foods/:id  (src/index.ts)
-PATCH /workout-sessions/:id  (src/index.ts)
-POST /workout-sessions/:id/finish  (src/index.ts)
-GET /workouts  (src/index.ts)
-POST /workouts  (src/index.ts)
-DELETE /workouts/:id  (src/index.ts)
-GET /workouts/:id  (src/index.ts)
-PATCH /workouts/:id  (src/index.ts)
-POST /workouts/:id/start  (src/index.ts)
-```
+## 8.4 Seguridad, secretos
+- Se observan archivos `.env` en backend zip. No se incluyen valores en este documento por seguridad. Recomendación: rotar y mover secretos a secret manager si hay riesgo de exposición.
 
-### 8.3 Secretos
-- `.env` presente en backend zip. No se expone.
+---
+# FitSculpt – Project Status (Atualizado Estratégico Exigente)
+
+Data: 2026-02-24
+Branch de referência: **No disponible en zips** (Assunção)
+Owner: Founder/PM (FitSculpt)
+
+> Nota crítica: este status separa implementado vs validado. Sin ejecución de build y sin flows manuales reproducibles en esta auditoría, casi todo queda como **No Validado**.
+
+## 1) Executive Snapshot Realista
+
+### Release Readiness (B2C general)
+
+**Estado real: NO Release-ready**
+
+Lo que está implementado (evidencia en código)
+- ✔ BFF obligatorio con cookie `fs_token` (front/src/app/api/auth/me/route.ts)
+- ✔ Backend `/auth/me` con entitlements efectivos y membership activa (back/src/index.ts + back/src/auth/schemas.ts)
+- ✔ Tracking backend `/tracking` CRUD (back/src/index.ts ~5007)
+- ✔ Rutas core B2C: `/app/hoy`, `/app/biblioteca`, `/app/seguimiento`, `/app/nutricion`
+
+Lo que está validado formalmente
+- ⚠ **No Validado**: build/typecheck/lint/test PASS en front/back (No Ejecutado)
+- ⚠ **No Validado**: flujos cronometrados sin errores consola
+
+Conclusión honesta
+- Demo plausible por evidencia de rutas y BFF, pero no production-grade sin gate de calidad y validación E2E.
+
+### Gym Pilot Readiness (B2B pequeño gym)
+
+**Estado real: MVP demostrable con supervisión. No autónomo.**
+
+Implementado
+- ✔ BFF y rutas admin gym: `/app/admin/gyms`, `/api/admin/gyms/*`
+- ✔ Join por código y membership endpoints: `/api/gyms/join-by-code`, `/api/gym/me`
+- ✔ Normalizadores de contrato para manejar drift (front/src/lib/gym-contracts.ts)
+
+No validado
+- ⚠ Flujo completo join→accept→assign plan no certificado (No Ejecutado)
+
+---
