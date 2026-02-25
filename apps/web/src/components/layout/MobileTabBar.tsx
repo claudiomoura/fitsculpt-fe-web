@@ -4,14 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Icon } from "@/components/ui/Icon";
-import { applyTabEntitlementGating, mainTabsMobile } from "./navConfig";
+import { applyTabEntitlementGating, mainTabsMobile, trainerTabsMobile } from "./navConfig";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
+import { useAccess } from "@/lib/useAccess";
 
 export default function MobileTabBar() {
   const { t } = useLanguage();
   const pathname = usePathname();
   const { entitlements } = useAuthEntitlements();
-  const tabs = applyTabEntitlementGating(mainTabsMobile, entitlements);
+  const { isCoach, isAdmin } = useAccess();
+  const baseTabs = isCoach && !isAdmin ? trainerTabsMobile : mainTabsMobile;
+  const tabs = applyTabEntitlementGating(baseTabs, entitlements);
 
   const isActive = (href?: string) => {
     if (!href || !pathname) return false;
