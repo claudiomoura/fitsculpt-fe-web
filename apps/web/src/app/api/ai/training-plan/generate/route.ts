@@ -45,22 +45,33 @@ export async function POST(request: Request) {
 
     try {
       const data = JSON.parse(responseText);
-      if (!response.ok) {
-        if (typeof data?.error === "string") {
-          return NextResponse.json(data, { status: response.status });
-        }
+if (!response.ok) {
+  // Upstream 5xx => never leak 500 to the client (contract requirement)
+  if (response.status >= 500) {
+    if (typeof data?.error === "string") {
+      return NextResponse.json({ error: data.error }, { status: 502 });
+    }
+    return NextResponse.json({ error: "UPSTREAM_ERROR" }, { status: 502 });
+  }
 
-        return NextResponse.json(
-          {
-            error: "AI_REQUEST_FAILED",
-            debug: {
-              backendStatus: response.status,
-              reason: "INVALID_BACKEND_ERROR_PAYLOAD",
-            },
-          },
-          { status: response.status },
-        );
-      }
+  // Upstream 4xx => passthrough (keep current semantics)
+  if (typeof data?.error === "string") {
+    return NextResponse.json(data, { status: response.status });
+  }
+
+  return NextResponse.json(
+    {
+      error: "AI_REQUEST_FAILED",
+      debug: {
+        backendStatus: response.status,
+        reason: "INVALID_BACKEND_ERROR_PAYLOAD",
+      },
+    },
+    { status: response.status },
+  );
+}
+
+
 
       const validation = validateAiTrainingGeneratePayload(data);
       if (!validation.ok) {
