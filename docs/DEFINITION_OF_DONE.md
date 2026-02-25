@@ -14,6 +14,8 @@ Uma tarefa só está “feita” quando cumpre tudo o que se aplica abaixo.
 - Não quebra chamadas BFF `/api/*` no frontend
 
 ## Validação manual mínima (obrigatória)
+Smoke oficial RC: seguir `docs/qa/SMOKE_TEST_RC.md` e registar PASS/FAIL por fluxo com evidência mínima.
+
 Executar e validar:
 - Login com email/password
 - Acesso a `/app` protegido quando não há sessão
@@ -37,11 +39,3 @@ Executar e validar:
 - Nenhum segredo no commit
 - Não foram adicionados ficheiros de DB, dumps ou chaves
 - Logs não imprimem tokens, cookies ou payloads sensíveis
-## Release Candidate (RC) — Sprint 13 (obrigatório por PR)
-- Gates Sprint 13 em PASS (referência de implementação: PR-01)
-- Smoke manual executado com evidência anexada (referência de implementação: PR-03)
-- Zero erros de console (0 console errors) nos fluxos afetados
-- FE (quando aplicável): build/lint/typecheck em PASS
-- BE (quando aplicável): build/test em PASS
-- Não pode quebrar `fs_token`, `/api/*` ou rotas existentes
-- O PR deve incluir link para `docs/release/RELEASE_CANDIDATE_DOD.md`
