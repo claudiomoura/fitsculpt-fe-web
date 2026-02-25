@@ -274,15 +274,7 @@ export const sidebarDevelopment: NavSectionGroup[] = [
   },
 ];
 
-const sidebarAccountOnly: NavSectionGroup[] = sidebarUser
-  .filter((section) => section.id === "account")
-  .map((section) => ({
-    ...section,
-    items: [
-      ...section.items,
-      { id: "trainer-requests", href: "/app/trainer/requests", labelKey: "nav.gymJoinRequests" },
-    ],
-  }));
+const sidebarAccountOnly: NavSectionGroup[] = sidebarUser.filter((section) => section.id === "account");
 
 export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
   const isAdmin = canAccessAdmin(input);
