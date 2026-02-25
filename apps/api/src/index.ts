@@ -47,6 +47,7 @@ import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from 
 import { fetchExerciseCatalog } from "./exercises/fetchExerciseCatalog.js";
 import { normalizeExerciseName } from "./utils/normalizeExerciseName.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
+import { resolveNutritionPlanRecipeReferences } from "./ai/nutrition-plan/recipeCatalog.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
@@ -2068,6 +2069,9 @@ function buildNutritionPrompt(
     `Estructura de meals: ${mealStructure}`,
     `Genera EXACTAMENTE ${daysCount} días con date (YYYY-MM-DD) desde ${data.startDate ?? "la fecha indicada"}.`,
     "Descripción opcional. Ingredients opcional; si hay receta base, omite ingredients o déjalo vacío.",
+    recipeLibrary
+      ? "OBLIGATORIO: cada meal debe incluir recipeId existente del catálogo y title debe coincidir con esa receta."
+      : "REQUER IMPLEMENTAÇÃO: sin catálogo de foods, usa recipeId null y limita referencias a recipes existentes cuando aplique.",
     "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, carne magra y frutos secos.",
     "Evita cantidades absurdas. Porciones realistas y fáciles de cocinar.",
     "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
@@ -2097,7 +2101,7 @@ function buildNutritionPrompt(
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
-    '{"title":"Plan mediterráneo compacto","startDate":"2024-01-01","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"date":"2024-01-01","dayLabel":"Lunes","meals":[{"type":"breakfast","title":"Avena con yogur","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180}]},{"type":"lunch","title":"Pollo con arroz","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Pollo","grams":160},{"name":"Arroz integral","grams":180}]},{"type":"dinner","title":"Salmón con verduras","macros":{"calories":800,"protein":50,"carbs":60,"fats":28},"ingredients":[{"name":"Salmón","grams":160},{"name":"Verduras mixtas","grams":200}]}]}]}',
+    '{"title":"Plan mediterráneo compacto","startDate":"2024-01-01","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"date":"2024-01-01","dayLabel":"Lunes","meals":[{"type":"breakfast","recipeId":"rec_001","title":"Avena con yogur","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180}]},{"type":"lunch","recipeId":"rec_002","title":"Pollo con arroz","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Pollo","grams":160},{"name":"Arroz integral","grams":180}]},{"type":"dinner","recipeId":"rec_003","title":"Salmón con verduras","macros":{"calories":800,"protein":50,"carbs":60,"fats":28},"ingredients":[{"name":"Salmón","grams":160},{"name":"Verduras mixtas","grams":200}]}]}]}',
   ]
     .filter(Boolean)
     .join(" ");
@@ -5482,7 +5486,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
             carbs: recipe.carbs,
             fat: recipe.fat,
             steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient) => ({
+            ingredients: recipe.ingredients.map((ingredient: any) => ({
               name: ingredient.name,
               grams: ingredient.grams,
             })),
@@ -5547,7 +5551,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
           protein: recipe.protein,
           carbs: recipe.carbs,
           fat: recipe.fat,
-          ingredients: recipe.ingredients.map((ingredient) => ({
+          ingredients: recipe.ingredients.map((ingredient: any) => ({
             name: ingredient.name,
             grams: ingredient.grams,
           })),
@@ -5622,7 +5626,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         carbs: recipe.carbs,
         fat: recipe.fat,
         steps: recipe.steps,
-        ingredients: recipe.ingredients.map((ingredient) => ({
+        ingredients: recipe.ingredients.map((ingredient: any) => ({
           name: ingredient.name,
           grams: ingredient.grams,
         })),
@@ -6116,8 +6120,8 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
 
     return reply.status(200).send({
       planId: savedPlan.id,
-      summary: summarizeNutritionPlan(parsedPlan),
-      plan: parsedPlan,
+      summary: summarizeNutritionPlan(resolvedCatalog.plan),
+      plan: resolvedCatalog.plan,
       aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
