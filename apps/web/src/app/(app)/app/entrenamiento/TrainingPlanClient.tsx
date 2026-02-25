@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { hasStrengthAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { AiPlanRequestError, requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
 import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
+import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
 
@@ -734,6 +735,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const handleAiPlan = async () => {
     if (!profile || !form) return;
+    if (!aiEntitled) return;
     if (!isProfileComplete(profile)) {
       router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
       return;
@@ -800,8 +802,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     const nextParamsString = nextParams.toString();
     const nextUrl = `${pathname}${nextParamsString ? `?${nextParamsString}` : ""}`;
     router.replace(nextUrl, { scroll: false });
+    if (!aiEntitled) return;
     void handleAiPlan();
-  }, [form, pathname, profile, router, searchParams, searchParamsString]);
+  }, [aiEntitled, form, pathname, profile, router, searchParams, searchParamsString]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -915,6 +918,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, [hasPlan, notify, pendingTokenToastId, t]);
   const isAiLocked = !aiEntitled;
   const isAiDisabled = aiLoading || isAiLocked || !form;
+  const aiLockDescription = safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO");
   const handleRetry = () => {
     if (profile && form && !aiLoading) {
       void handleAiPlan();
@@ -962,10 +966,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         ) : null}
 
         {isAiLocked ? (
-          <div className="feature-card mt-12">
-            <strong>{t("aiLockedTitle")}</strong>
-            <p className="muted mt-6">{aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")}</p>
-          </div>
+          <AiModuleUpgradeCTA
+            title={t("aiLockedTitle")}
+            description={aiLockDescription}
+            buttonLabel={t("billing.upgradePro")}
+          />
         ) : null}
 
         {loading ? (
@@ -1095,7 +1100,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   className="btn secondary"
   onClick={handleGenerateClick}
   disabled={isAiDisabled}
-  title={isAiLocked ? (aiEntitled ? t("aiLockedSubtitle") : t("ai.notPro")) : ""}
+  title={isAiLocked ? aiLockDescription : ""}
 >
   {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
 </button>
