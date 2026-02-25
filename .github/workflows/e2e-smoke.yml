@@ -8,6 +8,22 @@ jobs:
   e2e-smoke:
     name: Web E2E Smoke (login + core demo flows)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fitsculpt
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fitsculpt"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,10 +41,23 @@ jobs:
         working-directory: apps/api
         run: npm ci
 
+      - name: Wait for Postgres readiness
+        run: |
+          set -euo pipefail
+          echo "DATABASE_URL=${DATABASE_URL}"
+          for i in {1..30}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres -d fitsculpt; then
+              echo "Postgres is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Postgres did not become ready in time"
+          exit 1
+
       - name: Bootstrap API database
         working-directory: apps/api
         env:
-          DATABASE_URL: file:./prisma/e2e-smoke.db
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
           CORS_ORIGIN: http://127.0.0.1:3000
@@ -36,6 +65,7 @@ jobs:
           ALLOW_SEED: "true"
         run: |
           set -euo pipefail
+          npm run db:doctor
           npm run db:bootstrap
 
       - name: Start API server
@@ -43,7 +73,6 @@ jobs:
         env:
           PORT: 4000
           HOST: 127.0.0.1
-          DATABASE_URL: file:./prisma/e2e-smoke.db
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
           CORS_ORIGIN: http://127.0.0.1:3000
