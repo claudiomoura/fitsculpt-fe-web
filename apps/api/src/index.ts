@@ -1225,7 +1225,7 @@ const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const aiTrainingExerciseSchema = z
   .object({
-    exerciseId: z.string().min(1).nullable().optional(),
+    exerciseId: z.string().min(1),
     name: z.string().min(1),
     sets: aiTrainingSeriesSchema,
     reps: aiTrainingRepsSchema.nullable(),
@@ -1713,7 +1713,7 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = fa
   return [
     "Eres un entrenador personal senior. Devuelve SOLO un objeto JSON válido, sin markdown ni texto extra.",
     "Esquema exacto:",
-    '{"title":string,"startDate":string|null,"notes":string|null,"days":[{"date":string|null,"label":string,"focus":string,"duration":number,"exercises":[{"exerciseId":string|null,"name":string,"sets":number,"reps":string|null,"tempo":string|null,"rest":number|null,"notes":string|null}]}]}',
+    '{"title":string,"startDate":string|null,"notes":string|null,"days":[{"date":string|null,"label":string,"focus":string,"duration":number,"exercises":[{"exerciseId":string,"name":string,"sets":number,"reps":string|null,"tempo":string|null,"rest":number|null,"notes":string|null}]}]}',
     "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
     exerciseCatalogPrompt
       ? `OBLIGATORIO: para CADA ejercicio debes elegir un exerciseId de esta biblioteca, sin excepciones. No inventes IDs, no dejes null. Biblioteca (id: nombre): ${exerciseCatalogPrompt}`
