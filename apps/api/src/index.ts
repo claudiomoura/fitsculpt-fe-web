@@ -1477,20 +1477,38 @@ await prisma.aiPromptCache.upsert({
 
 }
 
-function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
+function resolveTemplateExerciseId(name: string, catalogByName: Map<string, string>) {
+  const normalized = normalizeExerciseName(name);
+  return catalogByName.get(normalized) ?? null;
+}
+
+function buildTrainingTemplate(
+  params: z.infer<typeof aiTrainingSchema>,
+  exerciseCatalog: ExerciseCatalogItem[]
+): z.infer<typeof aiTrainingPlanResponseSchema> | null {
   if (params.focus !== "ppl" || params.level !== "intermediate" || params.daysPerWeek < 3) {
     return null;
   }
   
   const daysPerWeek = Math.min(params.daysPerWeek, 7);
+  const catalogByName = new Map(
+    exerciseCatalog.map((exercise) => [normalizeExerciseName(exercise.name), exercise.id])
+  );
+  const missingTemplateExercises = new Set<string>();
   const ex = (
-  name: string,
-  sets: number,
-  reps: string,
-  tempo = "2-0-1",
-  rest = 90,
-  notes = "Técnica limpia, controla la bajada."
-) => ({ name, sets, reps, tempo, rest, notes });
+    name: string,
+    sets: number,
+    reps: string,
+    tempo = "2-0-1",
+    rest = 90,
+    notes = "Técnica limpia, controla la bajada."
+  ) => {
+    const exerciseId = resolveTemplateExerciseId(name, catalogByName);
+    if (!exerciseId) {
+      missingTemplateExercises.add(name);
+    }
+    return { exerciseId: exerciseId ?? "", name, sets, reps, tempo, rest, notes };
+  };
 
   const pushDay = {
     date: null,
@@ -1587,6 +1605,13 @@ const recoveryDay = {
     ex("Movilidad de cadera y hombro", 1, "10 min", "1-0-1", 0, "Movimientos suaves, sin dolor."),
   ],
 };
+
+  if (missingTemplateExercises.size > 0) {
+    throw createHttpError(503, "EXERCISE_CATALOG_UNAVAILABLE", {
+      cause: "TEMPLATE_EXERCISE_NOT_FOUND",
+      missingExercises: Array.from(missingTemplateExercises.values()),
+    });
+  }
 
   const baseDays = [pushDay, pullDay, legsDay];
   if (daysPerWeek === 3) {
@@ -1791,6 +1816,8 @@ type RecipeDbItem = {
   ingredients: Array<{ name: string; grams: number }>;
 };
 
+type RecipeSeedItem = Omit<RecipeDbItem, "id">;
+
 function toNutritionRecipeCatalog(recipes: RecipeDbItem[]): NutritionRecipeCatalogItem[] {
   return recipes.map((recipe) => ({
     id: recipe.id,
@@ -1800,7 +1827,7 @@ function toNutritionRecipeCatalog(recipes: RecipeDbItem[]): NutritionRecipeCatal
     protein: recipe.protein,
     carbs: recipe.carbs,
     fat: recipe.fat,
-    ingredients: recipe.ingredients.map((ingredient) => ({
+    ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
       name: ingredient.name,
       grams: ingredient.grams,
     })),
@@ -1837,7 +1864,7 @@ function applyRecipeScalingToPlan(
       const targetCalories = meal.macros?.calories ?? baseCalories;
       if (!baseCalories || !targetCalories || !Number.isFinite(targetCalories)) return;
       const scale = targetCalories / baseCalories;
-      const scaledIngredients = recipe.ingredients.map((ingredient) => ({
+      const scaledIngredients = recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
         name: ingredient.name,
         grams: roundToNearest5(ingredient.grams * scale),
       }));
@@ -5230,7 +5257,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const daysCount = Math.min(data.daysCount ?? 7, 14);
     const startDate = parseDateInput(data.startDate) ?? new Date();
     const cacheKey = buildCacheKey("training", data);
-    const template = buildTrainingTemplate(data);
+    const template = buildTrainingTemplate(data, exerciseCatalog);
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta = getAiTokenPayload(user, entitlements);
     const shouldChargeAi = !entitlements.role.adminOverride;
@@ -5453,7 +5480,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
           carbs: recipe.carbs,
           fat: recipe.fat,
           steps: recipe.steps,
-          ingredients: recipe.ingredients.map((ingredient) => ({
+          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
             name: ingredient.name,
             grams: ingredient.grams,
           })),
@@ -5486,7 +5513,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
             carbs: recipe.carbs,
             fat: recipe.fat,
             steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient: any) => ({
+            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
               name: ingredient.name,
               grams: ingredient.grams,
             })),
@@ -5505,7 +5532,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
             carbs: recipe.carbs,
             fat: recipe.fat,
             steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient) => ({
+            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
               name: ingredient.name,
               grams: ingredient.grams,
             })),
@@ -5551,7 +5578,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
           protein: recipe.protein,
           carbs: recipe.carbs,
           fat: recipe.fat,
-          ingredients: recipe.ingredients.map((ingredient: any) => ({
+          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
             name: ingredient.name,
             grams: ingredient.grams,
           })),
@@ -5626,7 +5653,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         carbs: recipe.carbs,
         fat: recipe.fat,
         steps: recipe.steps,
-        ingredients: recipe.ingredients.map((ingredient: any) => ({
+        ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
           name: ingredient.name,
           grams: ingredient.grams,
         })),
@@ -5645,7 +5672,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         carbs: recipe.carbs,
         fat: recipe.fat,
         steps: recipe.steps,
-        ingredients: recipe.ingredients.map((ingredient) => ({
+        ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
           name: ingredient.name,
           grams: ingredient.grams,
         })),
@@ -5980,7 +6007,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
           protein: recipe.protein,
           carbs: recipe.carbs,
           fat: recipe.fat,
-          ingredients: recipe.ingredients.map((ingredient) => ({
+          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
             name: ingredient.name,
             grams: ingredient.grams,
           })),
@@ -6027,7 +6054,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
             carbs: recipe.carbs,
             fat: recipe.fat,
             steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient) => ({
+            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
               name: ingredient.name,
               grams: ingredient.grams,
             })),
@@ -6044,7 +6071,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
             carbs: recipe.carbs,
             fat: recipe.fat,
             steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient) => ({
+            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
               name: ingredient.name,
               grams: ingredient.grams,
             })),
@@ -6120,8 +6147,8 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
 
     return reply.status(200).send({
       planId: savedPlan.id,
-      summary: summarizeNutritionPlan(resolvedCatalog.plan),
-      plan: resolvedCatalog.plan,
+      summary: summarizeNutritionPlan(parsedPlan),
+      plan: parsedPlan,
       aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
