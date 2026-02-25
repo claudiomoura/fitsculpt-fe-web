@@ -18,7 +18,7 @@ function mockResponse(input: { ok: boolean; status: number; payload?: unknown })
 }
 
 describe("GymPageClient", () => {
-  it("falls back to legacy join endpoint and shows pending state after request", async () => {
+  it("allows requesting access for a selected gym (not only the first item)", async () => {
     let membershipState: "NONE" | "PENDING" = "NONE";
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -29,7 +29,7 @@ describe("GymPageClient", () => {
       }
 
       if (url === "/api/gyms") {
-        return mockResponse({ ok: true, status: 200, payload: { data: [{ id: "gym-1", name: "Fit Gym" }] } });
+        return mockResponse({ ok: true, status: 200, payload: { data: [{ id: "gym-1", name: "Fit Gym" }, { id: "gym-2", name: "Power Gym" }] } });
       }
 
       if (url === "/api/gym/join-request") {
@@ -38,6 +38,8 @@ describe("GymPageClient", () => {
 
       if (url === "/api/gyms/join") {
         if (init?.method === "POST") {
+          const body = JSON.parse(String(init.body));
+          expect(body).toEqual({ gymId: "gym-2" });
           membershipState = "PENDING";
         }
         return mockResponse({ ok: true, status: 200, payload: {} });
@@ -54,8 +56,11 @@ describe("GymPageClient", () => {
       </ToastProvider>,
     );
 
-    const requestButton = await screen.findByRole("button", { name: "gym.join.requestButton" });
-    fireEvent.click(requestButton);
+    const selectButtons = await screen.findAllByRole("button", { name: "gym.join.selectButton" });
+    fireEvent.click(selectButtons[1]);
+
+    const requestButtons = await screen.findAllByRole("button", { name: "gym.join.requestButton" });
+    fireEvent.click(requestButtons[1]);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -67,7 +72,7 @@ describe("GymPageClient", () => {
     expect(await screen.findByText("gym.membership.pending.title")).toBeInTheDocument();
   });
 
-  it("hides join and request actions for active memberships", async () => {
+  it("renders gym list but blocks requests when membership is already active", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -76,7 +81,7 @@ describe("GymPageClient", () => {
       }
 
       if (url === "/api/gyms") {
-        return mockResponse({ ok: true, status: 200, payload: { data: [{ id: "gym-1", name: "Fit Gym" }] } });
+        return mockResponse({ ok: true, status: 200, payload: { data: [{ id: "gym-1", name: "Fit Gym" }, { id: "gym-2", name: "Power Gym" }] } });
       }
 
       throw new Error(`Unhandled fetch: ${url}`);
@@ -91,8 +96,11 @@ describe("GymPageClient", () => {
     );
 
     expect(await screen.findByText("gym.membership.active.title")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "gym.join.requestButton" })).not.toBeInTheDocument();
-    expect(screen.queryByText("gym.join.codeTitle")).not.toBeInTheDocument();
+    const requestButtons = screen.getAllByRole("button", { name: "gym.join.requestButton" });
+    expect(requestButtons.every((button) => button.hasAttribute("disabled"))).toBe(true);
+
+    const codeButton = screen.getByRole("button", { name: "gym.join.codeButton" });
+    expect(codeButton).toBeDisabled();
   });
 
   it("shows disabled actions banner for pending memberships", async () => {

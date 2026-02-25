@@ -20,6 +20,7 @@ type GymCardProps = {
   selectLabel: string;
   requestLabel: string;
   pendingRequestLabel: string;
+  requestDisabled?: boolean;
 };
 
 export function GymCard({
@@ -34,6 +35,7 @@ export function GymCard({
   selectLabel,
   requestLabel,
   pendingRequestLabel,
+  requestDisabled = false,
 }: GymCardProps) {
   const isPending = membershipStatus === "PENDING";
 
@@ -50,7 +52,7 @@ export function GymCard({
         <Button variant="secondary" onClick={() => onSelect(id)} disabled={disabled || isSelected}>
           {selectLabel}
         </Button>
-        <Button onClick={onRequestJoin} disabled={disabled || !isSelected || isPending}>
+        <Button onClick={onRequestJoin} disabled={requestDisabled || !isSelected || isPending}>
           {isPending ? pendingRequestLabel : requestLabel}
         </Button>
       </CardFooter>
