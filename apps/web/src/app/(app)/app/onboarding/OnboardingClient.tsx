@@ -33,6 +33,14 @@ type SaveState = "idle" | "saving" | "success" | "error";
 const FIRST_STEP = 0;
 const LAST_STEP = 5;
 
+type OnboardingDefaults = {
+  heightCm: number;
+  weightKg: number;
+  activity: Activity;
+  trainingPreferences: Pick<ProfileData["trainingPreferences"], "daysPerWeek" | "level" | "sessionTime" | "focus" | "workoutLength">;
+  nutritionPreferences: Pick<ProfileData["nutritionPreferences"], "mealsPerDay" | "dietType" | "cookingTime" | "mealDistribution">;
+};
+
 const FORMULA_DEFAULTS: Record<MacroFormula, { proteinGPerKg: number; fatGPerKg: number; cutPercent: number; bulkPercent: number }> = {
   katch: { proteinGPerKg: 1.8, fatGPerKg: 0.8, cutPercent: 15, bulkPercent: 10 },
   mifflin: { proteinGPerKg: 1.8, fatGPerKg: 0.8, cutPercent: 15, bulkPercent: 10 },
@@ -46,6 +54,60 @@ const renderFieldLabel = (label: string, required = false) => (
     {required ? " *" : ""}
   </>
 );
+
+const getOnboardingDefaults = (sex: Sex | "", age: number | null): OnboardingDefaults => {
+  const ageValue = age ?? 30;
+  const isFemale = sex === "female";
+  const isYoungAdult = ageValue < 30;
+  const isOlderAdult = ageValue >= 45;
+
+  return {
+    heightCm: isFemale ? 162 : 175,
+    weightKg: isFemale ? 64 : 78,
+    activity: isYoungAdult ? "moderate" : isOlderAdult ? "light" : "moderate",
+    trainingPreferences: {
+      daysPerWeek: isOlderAdult ? 3 : 4,
+      level: "beginner",
+      sessionTime: "medium",
+      focus: "full",
+      workoutLength: "45m",
+    },
+    nutritionPreferences: {
+      mealsPerDay: isYoungAdult ? 4 : 3,
+      dietType: "balanced",
+      cookingTime: "quick",
+      mealDistribution: { preset: "balanced" },
+    },
+  };
+};
+
+const applyOnboardingDefaults = (profile: ProfileData, sex: Sex | "", age: number | null): ProfileData => {
+  const defaults = getOnboardingDefaults(sex, age);
+  return {
+    ...profile,
+    heightCm: profile.heightCm ?? defaults.heightCm,
+    weightKg: profile.weightKg ?? defaults.weightKg,
+    activity: profile.activity || defaults.activity,
+    trainingPreferences: {
+      ...profile.trainingPreferences,
+      daysPerWeek: profile.trainingPreferences.daysPerWeek ?? defaults.trainingPreferences.daysPerWeek,
+      level: profile.trainingPreferences.level || defaults.trainingPreferences.level,
+      sessionTime: profile.trainingPreferences.sessionTime || defaults.trainingPreferences.sessionTime,
+      focus: profile.trainingPreferences.focus || defaults.trainingPreferences.focus,
+      workoutLength: profile.trainingPreferences.workoutLength || defaults.trainingPreferences.workoutLength,
+    },
+    nutritionPreferences: {
+      ...profile.nutritionPreferences,
+      mealsPerDay: profile.nutritionPreferences.mealsPerDay ?? defaults.nutritionPreferences.mealsPerDay,
+      dietType: profile.nutritionPreferences.dietType || defaults.nutritionPreferences.dietType,
+      cookingTime: profile.nutritionPreferences.cookingTime || defaults.nutritionPreferences.cookingTime,
+      mealDistribution:
+        profile.nutritionPreferences.mealDistribution.preset === ""
+          ? defaults.nutritionPreferences.mealDistribution
+          : profile.nutritionPreferences.mealDistribution,
+    },
+  };
+};
 
 export default function OnboardingClient({ nextUrl, ai }: Props) {
   const { t } = useLanguage();
@@ -138,7 +200,11 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       }
 
       const data = (await response.json()) as Partial<ProfileData> | null;
-      const merged = mergeProfileData(data ?? undefined);
+      const merged = applyOnboardingDefaults(
+        mergeProfileData(data ?? undefined),
+        (data?.sex as Sex | "" | undefined) ?? "",
+        data?.age ?? null
+      );
       setProfile(merged);
       setIsProteinTouched(merged.macroPreferences.proteinGPerKg !== null);
       setIsFatTouched(merged.macroPreferences.fatGPerKg !== null);
@@ -317,13 +383,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
     }
   }, [profile]);
 
-  const isStepValid =
-    (step === 0 &&
-      hasPositiveNumber(profile.age) &&
-      hasPositiveNumber(profile.heightCm) &&
-      hasPositiveNumber(profile.weightKg)) ||
-    (step === 4 && Boolean(profile.macroPreferences.formula)) ||
-    (step > 0 && step !== 4);
+  const isStepValid = (step === 0 && hasPositiveNumber(profile.age)) || step > 0;
 
   if (loadState === "loading") {
     return <div className="page"><section className="card"><h2 className="section-title">{t("onboarding.title")}</h2><p className="section-subtitle">{t("onboarding.loadingState")}</p></section></div>;
@@ -351,11 +411,17 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
       {step === 0 && <section className="card form-stack"><h3 className="section-title">{t("profile.basicsTitle")}</h3>
         <label className="form-stack">{t("profile.name")}<input value={profile.name} onChange={(e) => updateProfile("name", e.target.value)} /></label>
-        <label className="form-stack">{t("profile.sex")}<select value={profile.sex} onChange={(e) => updateProfile("sex", e.target.value as Sex | "")}><option value="">{t("profile.selectPlaceholder")}</option><option value="male">{t("profile.sexMale")}</option><option value="female">{t("profile.sexFemale")}</option></select></label>
-        <label className="form-stack">{renderFieldLabel(t("profile.age"), true)}<input type="number" value={profile.age ?? ""} onChange={(e) => updateProfile("age", parseNumberInput(e.target.value))} /></label>
+        <label className="form-stack">{t("profile.sex")}<select value={profile.sex} onChange={(e) => {
+          const nextSex = e.target.value as Sex | "";
+          setProfile((prev) => applyOnboardingDefaults({ ...prev, sex: nextSex }, nextSex, prev.age));
+        }}><option value="">{t("profile.selectPlaceholder")}</option><option value="male">{t("profile.sexMale")}</option><option value="female">{t("profile.sexFemale")}</option></select></label>
+        <label className="form-stack">{renderFieldLabel(t("profile.age"), true)}<input type="number" value={profile.age ?? ""} onChange={(e) => {
+          const nextAge = parseNumberInput(e.target.value);
+          setProfile((prev) => applyOnboardingDefaults({ ...prev, age: nextAge }, prev.sex, nextAge));
+        }} /></label>
         <label className="form-stack">{renderFieldLabel(t("profile.height"), true)}<input type="number" value={profile.heightCm ?? ""} onChange={(e) => updateProfile("heightCm", parseNumberInput(e.target.value))} /></label>
         <label className="form-stack">{renderFieldLabel(t("profile.weight"), true)}<input type="number" value={profile.weightKg ?? ""} onChange={(e) => updateProfile("weightKg", parseNumberInput(e.target.value))} /></label>
-        <label className="form-stack">{t("profile.activity")}<select value={profile.activity} onChange={(e) => updateProfile("activity", e.target.value as Activity | "")}><option value="">{t("profile.selectPlaceholder")}</option>{activityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <p className="muted">{t("onboarding.defaultsHint")}</p>
       </section>}
 
       {step === 1 && <section className="card form-stack"><h3 className="section-title">{t("onboarding.objectiveTitle")}</h3>
@@ -364,6 +430,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       </section>}
 
       {step === 2 && <section className="card form-stack"><h3 className="section-title">{t("onboarding.levelTitle")}</h3>
+      <label className="form-stack">{t("profile.activity")}<select value={profile.activity} onChange={(e) => updateProfile("activity", e.target.value as Activity | "")}><option value="">{t("profile.selectPlaceholder")}</option>{activityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       <label className="form-stack">{t("profile.trainingLevel")}<select value={profile.trainingPreferences.level} onChange={(e) => updateTrainingPreference("level", e.target.value as TrainingLevel | "")}><option value="">{t("profile.selectPlaceholder")}</option>{levelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       <label className="form-stack">{t("profile.trainingDays")}<input type="number" value={profile.trainingPreferences.daysPerWeek ?? ""} onChange={(e) => updateTrainingPreference("daysPerWeek", parseNumberInput(e.target.value))} /></label>
       <label className="form-stack">{t("profile.trainingSessionTime")}<select value={profile.trainingPreferences.sessionTime} onChange={(e) => updateTrainingPreference("sessionTime", e.target.value as SessionTime | "")}><option value="">{t("profile.selectPlaceholder")}</option>{sessionTimeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>

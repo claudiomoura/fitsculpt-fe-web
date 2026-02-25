@@ -1640,7 +1640,8 @@
     "saveError": "We could not save your onboarding yet. Please retry.",
     "successTitle": "Onboarding completed",
     "successSubtitle": "Your objective, level and preferences were saved successfully.",
-    "continue": "Continue"
+    "continue": "Continue",
+    "defaultsHint": "Non-medical guideline defaults. You can edit them any time."
   },
   "admin": {
     "unauthorized": "You don't have access to this section.",
