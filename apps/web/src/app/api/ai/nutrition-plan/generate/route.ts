@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackendUrl } from "@/lib/backend";
 import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
+import { contractDriftResponse, validateAiNutritionGeneratePayload } from "@/lib/runtimeContracts";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,11 @@ export async function POST(request: Request) {
           },
           { status: toGatewayStatus(response.status) },
         );
+      }
+
+      const validation = validateAiNutritionGeneratePayload(data);
+      if (!validation.ok) {
+        return NextResponse.json(contractDriftResponse("/ai/nutrition-plan/generate", validation.reason ?? "UNKNOWN"), { status: 502 });
       }
 
       return NextResponse.json(data, { status: response.status });

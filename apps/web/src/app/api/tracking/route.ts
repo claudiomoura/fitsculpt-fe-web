@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
+import { contractDriftResponse, validateTrackingSnapshot } from "@/lib/runtimeContracts";
 
 async function getAuthCookie() {
   const token = (await cookies()).get("fs_token")?.value;
@@ -19,7 +20,14 @@ export async function GET() {
       cache: "no-store",
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
+    if (response.ok) {
+      const validation = validateTrackingSnapshot(data);
+      if (!validation.ok) {
+        return NextResponse.json(contractDriftResponse("/tracking", validation.reason ?? "UNKNOWN"), { status: 502 });
+      }
+    }
+
     return NextResponse.json(data, { status: response.status });
   } catch (_err) {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
@@ -51,7 +59,14 @@ async function writeTracking(request: Request, method: "PUT" | "POST") {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
+    if (response.ok) {
+      const validation = validateTrackingSnapshot(data);
+      if (!validation.ok) {
+        return NextResponse.json(contractDriftResponse("/tracking", validation.reason ?? "UNKNOWN"), { status: 502 });
+      }
+    }
+
     return NextResponse.json(data, { status: response.status });
   } catch (_err) {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });

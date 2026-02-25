@@ -184,3 +184,6 @@ También aceptado por FE: `data` como array en lugar de `items`.
 - Definir contrato estricto/versionado para `entitlements.modules` (hoy FE tolera ausencia y cae a `unknown`). **Requer implementação**.
 - Estandarizar envelope de lista de ejercicios (`items` vs `data`) para eliminar bifurcación en FE. **Requer implementação**.
 - Homologar shape de errores AI entre training y nutrition (hoy nutrition aplica gateway `5xx -> 502` y training no). **Requer implementação**.
+
+- Runtime validation (PR-05) se aplica en BFF para `/api/auth/me`, `/api/gym/me`, `/api/tracking`, `/api/exercises`, `/api/exercises/:id`, `/api/ai/training-plan/generate` y `/api/ai/nutrition-plan/generate`; drift devuelve `502 { error: "CONTRACT_DRIFT", endpoint, reason }` para fail-fast homogéneo.
+- Normalización ad hoc que permanece (intencional por compatibilidad RC): `normalizeMembershipPayload` en `/api/gym/me` (mapea shapes legacy de backend) y normalización de músculos en SSR de detalle de ejercicio (`primaryMuscles`/`secondaryMuscles`).
