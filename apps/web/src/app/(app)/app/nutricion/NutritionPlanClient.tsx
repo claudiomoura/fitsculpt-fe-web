@@ -1527,6 +1527,16 @@ const planToSave = ensurePlanStartDate(candidatePlan);
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (requestError?.code === "UPSTREAM_ERROR" || (typeof requestError?.status === "number" && requestError.status >= 500)) {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: t("nutrition.aiErrorState.upstreamDescription"),
+          actionableHint: null,
+          details: null,
+          canRetry: !retriesReached,
+        });
+        setAiRetryCount((prev) => prev + 1);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
       } else {
         setAiError({
           title: t("nutrition.aiErrorState.title"),

@@ -774,9 +774,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         setAiActionableError(err.message);
       } else if (err instanceof AiPlanRequestError && err.message === "RATE_LIMITED") {
         setAiActionableError(t("training.aiError"));
+      } else if (err instanceof AiPlanRequestError && (err.code === "UPSTREAM_ERROR" || err.status >= 500)) {
+        setAiActionableError(t("training.aiUpstreamError"));
       } else {
         setAiActionableError(t("training.aiError"));
       }
+      notify({
+        title: safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA"),
+        variant: "error",
+      });
     } finally {
       setAiLoading(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
