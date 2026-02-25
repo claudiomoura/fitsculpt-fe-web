@@ -88,23 +88,37 @@ export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
   const logMeta =
     params.meta && Object.keys(params.meta).length > 0 ? (params.meta as Prisma.InputJsonValue) : undefined;
 
-  await params.prisma.aiUsageLog.create({
-    data: {
-      userId: params.userId,
+  try {
+    await params.prisma.aiUsageLog.create({
+      data: {
+        userId: params.userId,
+        feature: params.feature,
+        model: params.model ?? "unknown",
+        mode: params.mode ?? "AI",
+        fallbackReason: params.fallbackReason ?? undefined,
+        promptTokens: totals.promptTokens,
+        completionTokens: totals.completionTokens,
+        totalTokens: totals.totalTokens,
+        costCents: params.costCents ?? 0,
+        currency: params.currency ?? "usd",
+        requestId: params.requestId ?? undefined,
+        meta: logMeta,
+      },
+    });
+  } catch (error) {
+    const typedError = error as { name?: string; message?: string; code?: string };
+    console.warn("AI usage log persistence failed; continuing without blocking response", {
       feature: params.feature,
-      model: params.model ?? "unknown",
-      provider: params.provider ?? undefined,
+      userId: params.userId,
       mode: params.mode ?? "AI",
-      fallbackReason: params.fallbackReason ?? undefined,
-      promptTokens: totals.promptTokens,
-      completionTokens: totals.completionTokens,
-      totalTokens: totals.totalTokens,
-      costCents: params.costCents ?? 0,
-      currency: params.currency ?? "usd",
-      requestId: params.requestId ?? undefined,
-      meta: logMeta,
-    },
-  });
+      model: params.model ?? "unknown",
+      provider: params.provider ?? "unknown",
+      requestId: params.requestId ?? null,
+      errorName: typedError.name ?? "UnknownError",
+      errorCode: typedError.code,
+      errorMessage: typedError.message ?? "unknown",
+    });
+  }
 }
 
 function getEffectiveTokens(user: { aiTokenBalance: number; aiTokenResetAt: Date | null; aiTokenRenewalAt: Date | null }) {
