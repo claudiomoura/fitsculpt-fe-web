@@ -70,6 +70,7 @@ type ActivePlanOrigin = "selected" | "assigned";
 
 const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
 const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
+const AUTO_AI_TRIGGER_GUARD_TTL_MS = 4000;
 
 type TrainingPlanClientProps = {
   mode?: "suggested" | "manual";
@@ -228,6 +229,12 @@ function createEmptyPlan(daysPerWeek: number, _locale: Locale, t: (key: string) 
       exercises: [],
     })),
   };
+}
+
+function shouldTriggerAiGeneration(aiQueryParam: string | null): boolean {
+  if (!aiQueryParam) return false;
+  const normalized = aiQueryParam.trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
 }
 
 const periodization = [
@@ -791,15 +798,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   useEffect(() => {
     if (!profile || !form) return;
-    if (searchParams.get("ai") !== "1") return;
+    if (!shouldTriggerAiGeneration(searchParams.get("ai"))) return;
 
     const ctxKey = searchParams.get("ctx") ?? pathname;
     if (autoGenerateRunByContext.current.has(ctxKey)) return;
 
     if (typeof window !== "undefined") {
       const storageKey = `fs_ai_generate_once:${ctxKey}`;
-      if (window.sessionStorage.getItem(storageKey) === "1") return;
-      window.sessionStorage.setItem(storageKey, "1");
+      const rawStoredValue = window.sessionStorage.getItem(storageKey);
+      const storedTimestamp = Number(rawStoredValue ?? "0");
+      const now = Date.now();
+      if (Number.isFinite(storedTimestamp) && now - storedTimestamp < AUTO_AI_TRIGGER_GUARD_TTL_MS) {
+        return;
+      }
+      window.sessionStorage.setItem(storageKey, String(now));
     }
 
     autoGenerateRunByContext.current.add(ctxKey);
