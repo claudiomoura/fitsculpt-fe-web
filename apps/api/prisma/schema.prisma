@@ -374,7 +374,10 @@ model AiUsageLog {
   id               String   @id @default(cuid())
   userId           String
   feature          String
+  provider         String?
   model            String
+  mode             String   @default("AI")
+  fallbackReason   String?
   promptTokens     Int      @default(0)
   completionTokens Int      @default(0)
   totalTokens      Int      @default(0)

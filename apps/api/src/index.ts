@@ -18,7 +18,12 @@ import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLevelJsonFromText } from "./aiParsing.js";
-import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
+import {
+  buildUsageTotals,
+  chargeAiUsage,
+  chargeAiUsageForResult,
+  persistAiUsageLog,
+} from "./ai/chargeAiUsage.js";
 import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiClient.js";
 import {
   resolveTrainingProviderFailureCause,
@@ -5871,6 +5876,35 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
     const savedPlan = await saveTrainingPlan(user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
     await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
 
+    if (aiResult) {
+      await persistAiUsageLog({
+        prisma,
+        userId: user.id,
+        feature: "training-generate",
+        provider: "openai",
+        model: aiResult.model ?? "unknown",
+        requestId: aiResult.requestId,
+        usage: aiResult.usage,
+        totals: buildUsageTotals(aiResult.usage),
+        mode: "AI",
+      });
+    } else {
+      const fallbackCause =
+        (lastError as { code?: string; message?: string } | null)?.code ??
+        (lastError as { message?: string } | null)?.message ??
+        "AI_UNAVAILABLE";
+      await persistAiUsageLog({
+        prisma,
+        userId: user.id,
+        feature: "training-generate",
+        provider: "openai",
+        model: "fallback",
+        totals: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        mode: "FALLBACK",
+        fallbackReason: fallbackCause,
+      });
+    }
+
     return reply.status(200).send({
       planId: savedPlan.id,
       summary: summarizeTrainingPlan(resolvedPlan),
@@ -6133,6 +6167,31 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
 
     const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
     await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
+
+    if (aiResult) {
+      await persistAiUsageLog({
+        prisma,
+        userId: user.id,
+        feature: "nutrition-generate",
+        provider: "openai",
+        model: aiResult.model ?? "unknown",
+        requestId: aiResult.requestId,
+        usage: aiResult.usage,
+        totals: buildUsageTotals(aiResult.usage),
+        mode: "AI",
+      });
+    } else {
+      await persistAiUsageLog({
+        prisma,
+        userId: user.id,
+        feature: "nutrition-generate",
+        provider: "openai",
+        model: "fallback",
+        totals: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        mode: "FALLBACK",
+        fallbackReason: "NO_AI_RESULT",
+      });
+    }
 
     app.log.info(
       {
