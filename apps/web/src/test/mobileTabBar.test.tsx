@@ -1,15 +1,13 @@
 import { screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { renderWithProviders } from "@/test/utils/renderWithProviders";
-
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/app/settings",
-}));
+import { describe, expect, it } from "vitest";
+import { renderWithProviders, setMockPathname } from "@/test/utils/renderWithProviders";
 
 import MobileTabBar from "@/components/layout/MobileTabBar";
 
 describe("MobileTabBar", () => {
   it("renders the 5 core tabs and marks the active route", () => {
+    setMockPathname("/app/settings");
+
     renderWithProviders(<MobileTabBar />);
 
     expect(screen.getByRole("navigation")).toBeInTheDocument();
