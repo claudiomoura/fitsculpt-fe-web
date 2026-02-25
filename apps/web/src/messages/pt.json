@@ -133,6 +133,9 @@
     "calendarViewOptionAria": "Mudar para vista {{view}}",
     "activePlanLabel": "Plano ativo",
     "activePlanSelected": "Selecionado",
-    "activePlanAssigned": "Atribuído"
+    "activePlanAssigned": "Atribuído",
+    "createPlanCta": "Criar com IA",
+    "aiRetryErrorTitle": "Não foi possível gerar seu plano com IA",
+    "aiRetryErrorDescription": "Verifique sua conexão e tente novamente."
   }
 }
