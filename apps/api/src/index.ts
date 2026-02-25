@@ -211,7 +211,7 @@ async function loadExerciseCatalogForAi() {
   try {
     const exerciseCatalog = await fetchExerciseCatalog(prisma);
     if (exerciseCatalog.length === 0) {
-      throw createHttpError(503, "EXERCISE_CATALOG_UNAVAILABLE", {
+      throw createHttpError(422, "EXERCISE_CATALOG_EMPTY", {
         cause: "CATALOG_EMPTY",
         hint: "Run /dev/seed-exercises",
       });
@@ -219,7 +219,7 @@ async function loadExerciseCatalogForAi() {
     return exerciseCatalog;
   } catch (error) {
     const typed = error as { code?: string; statusCode?: number };
-    if (typed.code === "EXERCISE_CATALOG_UNAVAILABLE" && typed.statusCode === 503) {
+    if (typed.code === "EXERCISE_CATALOG_EMPTY" && typed.statusCode === 422) {
       throw error;
     }
     throw createHttpError(503, "EXERCISE_CATALOG_UNAVAILABLE", {
@@ -2826,6 +2826,41 @@ function resolveTrainingPlanExerciseIds(
   return resolvedPlan;
 }
 
+function resolveTrainingPlanWithDeterministicFallback(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  catalog: ExerciseCatalogItem[],
+  input: Pick<z.infer<typeof aiTrainingSchema>, "daysPerWeek" | "level" | "goal" | "equipment">,
+  startDate: Date,
+  logContext: { userId: string; route: string }
+) {
+  try {
+    return resolveTrainingPlanExerciseIds(plan, catalog);
+  } catch (error) {
+    const typed = error as { code?: string };
+    if (typed.code !== "INVALID_AI_OUTPUT") {
+      throw error;
+    }
+
+    app.log.warn(
+      { userId: logContext.userId, route: logContext.route, cause: "invalid_catalog_exercise_id" },
+      "training plan has invalid exercise ids, using deterministic fallback"
+    );
+
+    const fallbackPlan = buildDeterministicTrainingFallbackPlan(
+      {
+        daysPerWeek: input.daysPerWeek,
+        level: input.level,
+        goal: input.goal,
+        startDate,
+        equipment: input.equipment,
+      },
+      catalog
+    );
+
+    return resolveTrainingPlanExerciseIds(fallbackPlan, catalog);
+  }
+}
+
 function normalizePlanForExerciseResolution(plan: Record<string, unknown>) {
   const rawDays = Array.isArray((plan as { days?: unknown }).days) ? ((plan as { days: unknown[] }).days ?? []) : [];
 
@@ -5308,30 +5343,18 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       }
     }
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
-    let resolvedPlan: z.infer<typeof aiTrainingPlanResponseSchema>;
-    try {
-      resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
-    } catch (error) {
-      const typed = error as { code?: string };
-      if (typed.code !== "INVALID_AI_OUTPUT") {
-        throw error;
-      }
-      app.log.warn(
-        { userId: user.id, route: "/ai/training-plan", cause: "invalid_catalog_exercise_id" },
-        "training plan AI returned invalid exercise ids, using deterministic fallback"
-      );
-      const fallbackPlan = buildDeterministicTrainingFallbackPlan(
-        {
-          daysPerWeek: data.daysPerWeek,
-          level: data.level,
-          goal: data.goal,
-          startDate,
-          equipment: data.equipment,
-        },
-        exerciseCatalog
-      );
-      resolvedPlan = resolveTrainingPlanExerciseIds(fallbackPlan, exerciseCatalog);
-    }
+    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
+      personalized,
+      exerciseCatalog,
+      {
+        daysPerWeek: data.daysPerWeek,
+        level: data.level,
+        goal: data.goal,
+        equipment: data.equipment,
+      },
+      startDate,
+      { userId: user.id, route: "/ai/training-plan" }
+    );
     await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
     await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
     await storeAiContent(user.id, "training", "ai", resolvedPlan);
@@ -5774,30 +5797,18 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
       );
     }
 
-    let resolvedPlan: z.infer<typeof aiTrainingPlanResponseSchema>;
-    try {
-      resolvedPlan = resolveTrainingPlanExerciseIds(parsedPlan, exerciseCatalog);
-    } catch (error) {
-      const typed = error as { code?: string };
-      if (typed.code !== "INVALID_AI_OUTPUT") {
-        throw error;
-      }
-      app.log.warn(
-        { userId: user.id, route: "/ai/training-plan/generate", cause: "invalid_catalog_exercise_id" },
-        "training plan AI returned invalid exercise ids, using deterministic fallback"
-      );
-      const fallbackPlan = buildDeterministicTrainingFallbackPlan(
-        {
-          daysPerWeek: trainingInput.daysPerWeek,
-          level: trainingInput.level,
-          goal: trainingInput.goal,
-          startDate,
-          equipment: trainingInput.equipment,
-        },
-        exerciseCatalog
-      );
-      resolvedPlan = resolveTrainingPlanExerciseIds(fallbackPlan, exerciseCatalog);
-    }
+    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
+      parsedPlan,
+      exerciseCatalog,
+      {
+        daysPerWeek: trainingInput.daysPerWeek,
+        level: trainingInput.level,
+        goal: trainingInput.goal,
+        equipment: trainingInput.equipment,
+      },
+      startDate,
+      { userId: user.id, route: "/ai/training-plan/generate" }
+    );
     await upsertExercisesFromPlan(resolvedPlan);
     const savedPlan = await saveTrainingPlan(user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
     await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
@@ -5814,6 +5825,16 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
     }
 
     const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.code === "EXERCISE_CATALOG_EMPTY") {
+      return reply.status(422).send({
+        error: "EXERCISE_CATALOG_EMPTY",
+        debug: {
+          cause: typeof typed.debug?.cause === "string" ? typed.debug.cause : "CATALOG_EMPTY",
+          ...(typeof typed.debug?.hint === "string" ? { hint: typed.debug.hint } : {}),
+        },
+      });
+    }
+
     if (typed.code === "EXERCISE_CATALOG_UNAVAILABLE") {
       return reply.status(503).send({
         error: "EXERCISE_CATALOG_UNAVAILABLE",

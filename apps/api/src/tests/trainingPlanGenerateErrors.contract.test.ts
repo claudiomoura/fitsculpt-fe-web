@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { z } from "zod";
 
 const catalogUnavailableSchema = z.object({
-  error: z.literal("EXERCISE_CATALOG_UNAVAILABLE"),
+  error: z.literal("EXERCISE_CATALOG_EMPTY"),
   debug: z.object({
     cause: z.literal("CATALOG_EMPTY"),
     hint: z.literal("Run /dev/seed-exercises"),
@@ -17,7 +17,7 @@ const trainingPlanGenerateSuccessSchema = z.object({
 });
 
 const parsedCatalogUnavailable = catalogUnavailableSchema.parse({
-  error: "EXERCISE_CATALOG_UNAVAILABLE",
+  error: "EXERCISE_CATALOG_EMPTY",
   debug: {
     cause: "CATALOG_EMPTY",
     hint: "Run /dev/seed-exercises",
