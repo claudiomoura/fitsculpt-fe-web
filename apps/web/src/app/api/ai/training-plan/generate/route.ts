@@ -26,9 +26,6 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
     const responseText = await response.text();
-    if (response.status >= 500) {
-      return NextResponse.json(upstreamErrorResponse, { status: 502 });
-    }
 
     if (!responseText) {
       return NextResponse.json(
@@ -45,32 +42,33 @@ export async function POST(request: Request) {
 
     try {
       const data = JSON.parse(responseText);
-if (!response.ok) {
-  // Upstream 5xx => never leak 500 to the client (contract requirement)
-  if (response.status >= 500) {
-    if (typeof data?.error === "string") {
-      return NextResponse.json({ error: data.error }, { status: 502 });
-    }
-    return NextResponse.json({ error: "UPSTREAM_ERROR" }, { status: 502 });
-  }
 
-  // Upstream 4xx => passthrough (keep current semantics)
-  if (typeof data?.error === "string") {
-    return NextResponse.json(data, { status: response.status });
-  }
+      if (!response.ok) {
+        // Upstream 5xx => always map to 502, preserving known error shape when present.
+        if (response.status >= 500) {
+          if (typeof data?.error === "string") {
+            return NextResponse.json({ error: data.error }, { status: 502 });
+          }
 
-  return NextResponse.json(
-    {
-      error: "AI_REQUEST_FAILED",
-      debug: {
-        backendStatus: response.status,
-        reason: "INVALID_BACKEND_ERROR_PAYLOAD",
-      },
-    },
-    { status: response.status },
-  );
-}
+          return NextResponse.json(upstreamErrorResponse, { status: 502 });
+        }
 
+        // Upstream 4xx => passthrough (keep current semantics)
+        if (typeof data?.error === "string") {
+          return NextResponse.json(data, { status: response.status });
+        }
+
+        return NextResponse.json(
+          {
+            error: "AI_REQUEST_FAILED",
+            debug: {
+              backendStatus: response.status,
+              reason: "INVALID_BACKEND_ERROR_PAYLOAD",
+            },
+          },
+          { status: response.status },
+        );
+      }
 
 
       const validation = validateAiTrainingGeneratePayload(data);
@@ -80,6 +78,10 @@ if (!response.ok) {
 
       return NextResponse.json(data, { status: response.status });
     } catch (_err) {
+      if (response.status >= 500) {
+        return NextResponse.json(upstreamErrorResponse, { status: 502 });
+      }
+
       return NextResponse.json(
         {
           error: "AI_REQUEST_FAILED",
