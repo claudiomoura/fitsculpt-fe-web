@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
+import { normalizeMembersPayload } from "@/lib/gym-contracts";
 import { useAccess } from "@/lib/useAccess";
 import { createAdminGym, fetchAdminGymsList } from "@/services/gym";
 
@@ -23,7 +24,7 @@ type Gym = {
 
 type Member = {
   user: { id: string; email: string; name: string | null };
-  status: "ACTIVE" | "PENDING" | "REJECTED";
+  status: string;
   role: "MEMBER" | "TRAINER" | "ADMIN";
 };
 
@@ -142,10 +143,29 @@ export default function AdminGymsClient() {
         return;
       }
       if (!res.ok) throw new Error("members");
-      const data = (await res.json()) as Member[];
+      const payload = (await res.json()) as unknown;
+      const normalizedMembers = normalizeMembersPayload(payload);
       setMembersUnsupported(false);
       setMembersError(null);
-      setMembers(data.filter((member) => member.status === "ACTIVE"));
+      setMembers(
+        normalizedMembers.flatMap((member) => {
+          if ((member.status ?? "").toUpperCase() !== "ACTIVE") return [];
+          if (!member.email) return [];
+
+          const role = (member.role ?? "MEMBER").toUpperCase();
+          const normalizedRole: Member["role"] = role === "ADMIN" || role === "TRAINER" || role === "MEMBER" ? role : "MEMBER";
+
+          return [{
+            user: {
+              id: member.userId,
+              email: member.email,
+              name: member.name ?? null,
+            },
+            role: normalizedRole,
+            status: member.status ?? "ACTIVE",
+          }];
+        }),
+      );
     } catch (_err) {
       setMembers([]);
       setMembersError(t("adminGyms.errors.members"));
