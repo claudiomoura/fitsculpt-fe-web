@@ -1707,7 +1707,15 @@
     "gymRequestsReject": "Rechazar",
     "gymRequestsConfirmAccept": "¿Aprobar esta solicitud de ingreso al gimnasio?",
     "gymRequestsConfirmReject": "¿Rechazar esta solicitud de ingreso al gimnasio?",
-    "gymRequestsActionError": "No pudimos procesar esta solicitud. Inténtalo de nuevo."
+    "gymRequestsActionError": "No pudimos procesar esta solicitud. Inténtalo de nuevo.",
+    "usersAssignGymRoleTitle": "Asignación de rol en gimnasio",
+    "usersAssignGymRoleGymLabel": "Gimnasio",
+    "usersAssignGymRoleNoGyms": "No hay gimnasios disponibles.",
+    "usersAssignClientAction": "Asignar como CLIENTE",
+    "usersAssignTrainerAction": "Asignar como TRAINER",
+    "usersAssignClientSuccess": "Usuario asignado como CLIENTE.",
+    "usersAssignTrainerSuccess": "Usuario asignado como TRAINER.",
+    "usersAssignGymRoleError": "No pudimos asignar este rol de gimnasio."
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",
