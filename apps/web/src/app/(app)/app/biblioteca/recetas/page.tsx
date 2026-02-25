@@ -13,7 +13,7 @@ export default async function RecipeLibraryPage() {
             <p className="section-subtitle">{t("app.librarySubtitle")}</p>
           </div>
           <div className="page-header-actions">
-            <LibraryTabs active="recipes" />
+            <LibraryTabs active="recipes" libraryType="nutrition" />
           </div>
         </div>
       </section>

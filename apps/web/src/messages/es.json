@@ -50,12 +50,14 @@
   },
   "navSections": {
     "summary": "Resumen",
+    "fitness": "Fitness",
     "training": "Entrenamiento",
     "nutrition": "Nutrición",
     "account": "Cuenta",
     "admin": "Admin",
     "development": "En desarrollo",
-    "trainer": "Entrenador"
+    "trainer": "Entrenador",
+    "more": "Más"
   },
   "ui": {
     "menu": "Menú",
@@ -100,7 +102,8 @@
     "previousWeek": "Semana anterior",
     "nextWeek": "Semana siguiente",
     "previousWeekAria": "Ir a la semana anterior",
-    "nextWeekAria": "Ir a la semana siguiente"
+    "nextWeekAria": "Ir a la semana siguiente",
+    "viewList": "Lista"
   },
   "plan": {
     "replicatedWeekLabel": "Semana replicada del plan actual"
@@ -863,6 +866,7 @@
     "noSelectedPlanTitle": "No tienes ningún plan seleccionado",
     "noSelectedPlanSubtitle": "Selecciona un plan para ver tu calendario de entrenamiento.",
     "selectPlanCta": "Seleccionar plan",
+    "createPlanCta": "Crear con IA",
     "manualCreate": "Crear manual",
     "weeklyPlanSubtitle": "Explora cada día y revisa el detalle de los ejercicios.",
     "weeklyPlanTipOne": "Abre cada día para ver ejercicios y series.",
@@ -915,6 +919,7 @@
     "savePlanError": "No pudimos guardar el plan.",
     "aiGenerate": "Generar con IA",
     "aiGenerating": "Generando IA...",
+    "aiModuleRequired": "Requiere NutriAI o PRO",
     "aiSuccess": "Plan IA guardado.",
     "aiSuccessModal": {
       "title": "Plan nutricional creado",
@@ -936,7 +941,7 @@
     "aiErrorState": {
       "title": "No se pudo generar",
       "invalidOutputTitle": "No pudimos crear tu plan esta vez",
-      "invalidOutputDescription": "La salida generada por IA no fue válida. Puedes reintentar de forma segura.",
+      "invalidOutputDescription": "No se pudo generar un plan válido. Prueba con 3 comidas/día o ajusta calorías/macros.",
       "genericDescription": "No pudimos generar tu plan de nutrición ahora mismo. Inténtalo de nuevo.",
       "toast": "Falló la generación del plan de nutrición.",
       "detailsCta": "Detalles",
@@ -1024,7 +1029,10 @@
       }
     },
     "weeklyEmptyTitle": "Vista semanal no disponible",
-    "weeklyEmptySubtitle": "Aún no hay comidas para esta semana con los datos actuales."
+    "weeklyEmptySubtitle": "Aún no hay comidas para esta semana con los datos actuales.",
+    "calendarViewToggleAria": "Seleccionar vista del calendario de nutrición",
+    "selectDayAria": "Seleccionar día {{date}}",
+    "selectWeekDayAria": "Seleccionar {{day}} con {{meals}} comidas y {{calories}} kcal"
   },
   "training": {
     "formTitle": "Datos del plan",
@@ -1057,6 +1065,7 @@
     "generate": "Generar plan",
     "aiGenerate": "Generar con IA",
     "aiGenerating": "Generando IA...",
+    "aiModuleRequired": "Requiere StrengthAI o PRO",
     "aiSuccess": "Plan IA guardado.",
     "aiError": "No pudimos generar el plan con IA.",
     "aiRateLimit": "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.",
@@ -1125,6 +1134,8 @@
     "weekPeakDesc": "Sube la intensidad con cargas mayores.",
     "weekDeloadDesc": "Reduce volumen para recuperar y volver más fuerte.",
     "viewTechnique": "Ver técnica",
+    "openFromLibrary": "Abrir en biblioteca",
+    "techniqueUnavailable": "Técnica no disponible para este ejercicio",
     "setLabel": "Serie",
     "repsLabel": "reps",
     "techniqueSubtitle": "Detalles para",
@@ -1197,6 +1208,8 @@
     "aiPreviewConfirm": "Confirmar y guardar",
     "aiPreviewConfirming": "Guardando plan...",
     "aiInvalidOutput": "La respuesta de IA fue inválida. Intenta generar de nuevo.",
+    "aiRetryErrorTitle": "No pudimos generar tu plan con IA",
+    "aiRetryErrorDescription": "Revisa tu conexión e inténtalo de nuevo.",
     "calendar": {
       "subtitle": "Visualiza entrenamientos solo del plan seleccionado actualmente.",
       "noPlanSelected": "No tienes ningún plan seleccionado",
@@ -1209,7 +1222,14 @@
       "title": "Datos del plan",
       "show": "Mostrar datos del plan",
       "hide": "Ocultar datos del plan"
-    }
+    },
+    "selectedPlanLoadError": "No pudimos cargar el plan seleccionado.",
+    "selectedPlanFallbackToAssigned": "No pudimos acceder al plan seleccionado. Mostramos tu plan asignado.",
+    "calendarViewToggleAria": "Seleccionar vista del calendario de entrenamiento",
+    "calendarViewOptionAria": "Cambiar a vista {{view}}",
+    "activePlanLabel": "Plan activo",
+    "activePlanSelected": "Seleccionado",
+    "activePlanAssigned": "Asignado"
   },
   "profile": {
     "formTitle": "Perfil y métricas",
@@ -1623,7 +1643,8 @@
     "saveError": "Todavía no pudimos guardar tu onboarding. Reintenta por favor.",
     "successTitle": "Onboarding completado",
     "successSubtitle": "Tu objetivo, nivel y preferencias se guardaron correctamente.",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "defaultsHint": "Valores orientativos no médicos. Puedes editarlos cuando quieras."
   },
   "admin": {
     "unauthorized": "No tienes acceso a esta sección.",
@@ -1692,7 +1713,15 @@
     "gymRequestsReject": "Rechazar",
     "gymRequestsConfirmAccept": "¿Aprobar esta solicitud de ingreso al gimnasio?",
     "gymRequestsConfirmReject": "¿Rechazar esta solicitud de ingreso al gimnasio?",
-    "gymRequestsActionError": "No pudimos procesar esta solicitud. Inténtalo de nuevo."
+    "gymRequestsActionError": "No pudimos procesar esta solicitud. Inténtalo de nuevo.",
+    "usersAssignGymRoleTitle": "Asignación de rol en gimnasio",
+    "usersAssignGymRoleGymLabel": "Gimnasio",
+    "usersAssignGymRoleNoGyms": "No hay gimnasios disponibles.",
+    "usersAssignClientAction": "Asignar como CLIENTE",
+    "usersAssignTrainerAction": "Asignar como TRAINER",
+    "usersAssignClientSuccess": "Usuario asignado como CLIENTE.",
+    "usersAssignTrainerSuccess": "Usuario asignado como TRAINER.",
+    "usersAssignGymRoleError": "No pudimos asignar este rol de gimnasio."
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",
@@ -1938,6 +1967,7 @@
     "metricFallback": "Sin dato",
     "lastLog": "Último registro",
     "exerciseLink": "Ver detalles del ejercicio",
+    "exerciseLinkUnavailable": "Detalle no disponible en biblioteca",
     "targetMuscles": "Músculos objetivo",
     "startWorkout": "Iniciar entrenamiento",
     "sessionSubtitle": "Registra la sesión mientras entrenas.",
@@ -2796,7 +2826,8 @@
       "emptyTitle": "No hay gimnasios disponibles",
       "selectButton": "Seleccionar",
       "requestPending": "Solicitud pendiente",
-      "codeTitle": "Unirme con código del gimnasio"
+      "codeTitle": "Unirme con código del gimnasio",
+      "blockedByActiveMembership": "Ya tienes una membresía activa en {gymName}. Sal de tu gimnasio actual antes de solicitar acceso a otro."
     },
     "loadErrorTitle": "No pudimos cargar tu estado de gimnasio",
     "loadError": {

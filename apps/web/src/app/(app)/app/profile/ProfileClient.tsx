@@ -27,6 +27,7 @@ import BodyFatSelector from "@/components/profile/BodyFatSelector";
 export default function ProfileClient() {
   const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [latestCheckinDate, setLatestCheckinDate] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -56,6 +57,29 @@ export default function ProfileClient() {
     { value: "bigLunch", label: t("profile.mealDistributionBigLunch") },
     { value: "custom", label: t("profile.mealDistributionCustom") },
   ];
+
+  useEffect(() => {
+    let active = true;
+    const loadSession = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          cache: "no-store",
+          credentials: "include",
+        });
+        if (!response.ok || !active) return;
+        const data = (await response.json()) as { email?: string | null };
+        setSessionEmail(data.email ?? null);
+      } catch (_err) {
+        setSessionEmail(null);
+      }
+    };
+
+    void loadSession();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -331,6 +355,15 @@ export default function ProfileClient() {
                   value={profile.name}
                   onChange={(e) => update("name", e.target.value)}
                   placeholder={t("profile.namePlaceholder")}
+                />
+              </label>
+
+              <label className="form-stack">
+                {t("auth.email")}
+                <input
+                  value={sessionEmail ?? ""}
+                  readOnly
+                  placeholder={t("profile.noData")}
                 />
               </label>
 

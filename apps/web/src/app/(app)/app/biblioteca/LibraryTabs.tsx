@@ -2,37 +2,37 @@ import Link from "next/link";
 import { getServerT } from "@/lib/serverI18n";
 
 type LibraryTabsProps = {
-  active: "exercises" | "recipes" | "training";
+  active: "exercises" | "recipes" | "training" | "nutritionPlans";
+  libraryType: "fitness" | "nutrition";
 };
 
-export default async function LibraryTabs({ active }: LibraryTabsProps) {
+export default async function LibraryTabs({ active, libraryType }: LibraryTabsProps) {
   const { t } = await getServerT();
+
+  const tabs =
+    libraryType === "fitness"
+      ? [
+          { id: "exercises", href: "/app/biblioteca", label: t("library.tabs.exercises") },
+          { id: "training", href: "/app/biblioteca/entrenamientos", label: t("library.tabs.training") },
+        ]
+      : [
+          { id: "recipes", href: "/app/biblioteca/recetas", label: t("library.tabs.recipes") },
+          { id: "nutritionPlans", href: "/app/dietas", label: t("nav.nutritionPlans") },
+        ];
+
   return (
     <div className="segmented-control library-tabs" role="tablist">
-      <Link
-        href="/app/biblioteca"
-        className={`segmented-control-btn ${active === "exercises" ? "active" : ""}`}
-        aria-current={active === "exercises" ? "page" : undefined}
-        role="tab"
-      >
-        {t("library.tabs.exercises")}
-      </Link>
-      <Link
-        href="/app/biblioteca/recetas"
-        className={`segmented-control-btn ${active === "recipes" ? "active" : ""}`}
-        aria-current={active === "recipes" ? "page" : undefined}
-        role="tab"
-      >
-        {t("library.tabs.recipes")}
-      </Link>
-      <Link
-        href="/app/biblioteca/entrenamientos"
-        className={`segmented-control-btn ${active === "training" ? "active" : ""}`}
-        aria-current={active === "training" ? "page" : undefined}
-        role="tab"
-      >
-        {t("library.tabs.training")}
-      </Link>
+      {tabs.map((tab) => (
+        <Link
+          key={tab.id}
+          href={tab.href}
+          className={`segmented-control-btn ${active === tab.id ? "active" : ""}`}
+          aria-current={active === tab.id ? "page" : undefined}
+          role="tab"
+        >
+          {tab.label}
+        </Link>
+      ))}
     </div>
   );
 }

@@ -13,7 +13,7 @@ export default async function ExerciseLibraryPage() {
             <p className="section-subtitle">{t("app.librarySubtitle")}</p>
           </div>
           <div className="page-header-actions">
-            <LibraryTabs active="exercises" />
+            <LibraryTabs active="exercises" libraryType="fitness" />
           </div>
         </div>
       </section>

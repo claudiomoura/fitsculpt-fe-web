@@ -81,6 +81,22 @@ npm run prisma:migrate      # local only (NUNCA no Render)
 npm run test
 ```
 
+## Seed local de exercícios (demo)
+
+Para popular o catálogo de exercícios de forma reproduzível em ambiente local, execute:
+
+```bash
+curl -X POST http://localhost:4000/dev/seed-exercises
+```
+
+Depois valide:
+
+```bash
+curl http://localhost:4000/exercises
+```
+
+Guia rápido consolidado: `README/dev-setup.md`.
+
 
 ## Backups diarios (sin tocar producto)
 
@@ -368,6 +384,11 @@ npm run db:import:free-exercise-db --prefix apps/api
 
 Guard de seguridad:
 - en `NODE_ENV=production` no corre salvo que `ALLOW_IMPORT=1`.
+
+Fuente de datos por defecto:
+- usa el catálogo local `apps/web/public/exercise-db/exercises/*.json`.
+- si no encuentra JSON local, hace fallback al dataset remoto de `free-exercise-db`.
+- si la DB ya tiene el catálogo `source=free-exercise-db` (mismo o mayor tamaño), el import se omite.
 
 Bootstrap opcional:
 

@@ -7,11 +7,17 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { AccessProvider } from "@/context/AccessProvider";
 import VisualViewportVars from "@/components/layout/VisualViewportVars";
 
-export default function ClientProviders({ children }: { children: ReactNode }) {
+type ClientProvidersProps = {
+  children: ReactNode;
+  initialLocale?: string | null;
+  initialTheme?: string | null;
+};
+
+export default function ClientProviders({ children, initialLocale, initialTheme }: ClientProvidersProps) {
   return (
-    <ThemeProvider>
+    <ThemeProvider initialTheme={initialTheme}>
       <VisualViewportVars />
-      <LanguageProvider>
+      <LanguageProvider initialLocale={initialLocale}>
         <AccessProvider>
           <ToastProvider>{children}</ToastProvider>
         </AccessProvider>

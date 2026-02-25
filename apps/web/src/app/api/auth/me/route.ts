@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
+import { contractDriftResponse, validateAuthMePayload } from "@/lib/runtimeContracts";
 
 function getAuthCookie(token?: string) {
   return token ? `fs_token=${token}` : null;
@@ -21,7 +22,15 @@ export async function GET() {
       headers,
       cache: "no-store",
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
+
+    if (response.ok) {
+      const validation = validateAuthMePayload(data);
+      if (!validation.ok) {
+        return NextResponse.json(contractDriftResponse("/auth/me", validation.reason ?? "UNKNOWN"), { status: 502 });
+      }
+    }
+
     return NextResponse.json(data, { status: response.status });
   } catch {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 503 });

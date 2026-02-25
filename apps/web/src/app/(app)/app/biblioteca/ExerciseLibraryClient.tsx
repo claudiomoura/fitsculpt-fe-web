@@ -361,7 +361,7 @@ export default function ExerciseLibraryClient() {
   const renderExerciseCard = (exercise: Exercise | ExerciseRecent, fallbackKey: string) => {
     const muscles = getExerciseMuscles(exercise);
     const exerciseId = exercise.id;
-    const coverUrl = getExerciseThumbUrl(exercise) ?? "/placeholders/exercise-cover.jpg";
+    const coverUrl = getExerciseThumbUrl(exercise);
     const isFavorite = Boolean(exerciseId && favorites.includes(exerciseId));
     const isFavoritePending = Boolean(exerciseId && pendingFavoriteIds.includes(exerciseId));
     const favoriteLabel = isFavorite ? t("library.favoriteRemove") : t("library.favoriteAdd");

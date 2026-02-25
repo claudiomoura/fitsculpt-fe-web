@@ -50,12 +50,14 @@
   },
   "navSections": {
     "summary": "Resumo",
+    "fitness": "Fitness",
     "training": "Treino",
     "nutrition": "Nutrição",
     "account": "Conta",
     "admin": "Administração",
     "development": "Em desenvolvimento",
-    "trainer": "Treinador"
+    "trainer": "Treinador",
+    "more": "Mais"
   },
   "ui": {
     "menu": "Menu",
@@ -99,5 +101,41 @@
         "switchToPt": "Mudar para português"
       }
     }
+  },
+  "calendar": {
+    "today": "Hoje",
+    "viewDay": "Dia",
+    "viewWeek": "Semana",
+    "viewMonth": "Mês",
+    "viewList": "Lista",
+    "viewAgenda": "Agenda",
+    "previousWeek": "Semana anterior",
+    "nextWeek": "Próxima semana",
+    "previousWeekAria": "Ir para a semana anterior",
+    "nextWeekAria": "Ir para a próxima semana"
+  },
+  "nutrition": {
+    "calendarTitle": "Calendário de nutrição",
+    "weekLabel": "Semana",
+    "weeklyEmptyTitle": "Vista semanal indisponível",
+    "weeklyEmptySubtitle": "Ainda não existem refeições para esta semana com os dados atuais.",
+    "calendarViewToggleAria": "Selecionar vista do calendário de nutrição",
+    "selectDayAria": "Selecionar dia {{date}}",
+    "selectWeekDayAria": "Selecionar {{day}} com {{meals}} refeições e {{calories}} kcal"
+  },
+  "plan": {
+    "replicatedWeekLabel": "Semana replicada do plano atual"
+  },
+  "training": {
+    "selectedPlanLoadError": "Não foi possível carregar o plano selecionado.",
+    "selectedPlanFallbackToAssigned": "Não foi possível aceder ao plano selecionado. Estamos a mostrar o teu plano atribuído.",
+    "calendarViewToggleAria": "Selecionar vista do calendário de treino",
+    "calendarViewOptionAria": "Mudar para vista {{view}}",
+    "activePlanLabel": "Plano ativo",
+    "activePlanSelected": "Selecionado",
+    "activePlanAssigned": "Atribuído"
+  },
+  "onboarding": {
+    "defaultsHint": "Valores orientativos não médicos. Pode editá-los quando quiser."
   }
 }

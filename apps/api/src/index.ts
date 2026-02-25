@@ -19,12 +19,35 @@ import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
 import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLevelJsonFromText } from "./aiParsing.js";
 import { chargeAiUsage, chargeAiUsageForResult } from "./ai/chargeAiUsage.js";
+import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiClient.js";
+import {
+  resolveTrainingProviderFailureCause,
+  resolveTrainingProviderFailureDebug,
+} from "./ai/training-plan/errorHandling.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
-import { validateNutritionMath } from "./ai/nutritionMathValidation.js";
+import { NUTRITION_MATH_TOLERANCES, validateNutritionMath } from "./ai/nutritionMathValidation.js";
+import {
+  buildMealKcalGuidance,
+  buildRetryFeedbackFromContext,
+  buildTwoMealSplitRetryInstruction,
+} from "./ai/nutritionRetry.js";
+import {
+  findInvalidTrainingPlanExerciseIds,
+  type ExerciseCatalogItem,
+  resolveTrainingPlanExerciseIds as resolveTrainingPlanExerciseIdsWithCatalog,
+} from "./ai/trainingPlanExerciseResolution.js";
+import { buildDeterministicTrainingFallbackPlan } from "./ai/training-plan/fallbackBuilder.js";
+import {
+  resolveNutritionPlanRecipeIds,
+  type NutritionRecipeCatalogItem,
+} from "./ai/nutrition-plan/recipeCatalogResolution.js";
 import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
+import { fetchExerciseCatalog } from "./exercises/fetchExerciseCatalog.js";
+import { normalizeExerciseName } from "./utils/normalizeExerciseName.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
+import { resolveNutritionPlanRecipeReferences } from "./ai/nutrition-plan/recipeCatalog.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
 import { createPrismaClientWithRetry } from "./prismaClient.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
@@ -37,6 +60,7 @@ import {
 import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/service.js";
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
+import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 
 
 const env = getEnv();
@@ -186,6 +210,28 @@ function handleRequestError(reply: FastifyReply, error: unknown) {
   }
   app.log.error({ err: error }, "unhandled error");
   return reply.status(500).send({ error: "INTERNAL_ERROR" });
+}
+
+async function loadExerciseCatalogForAi() {
+  try {
+    const exerciseCatalog = await fetchExerciseCatalog(prisma);
+    if (exerciseCatalog.length === 0) {
+      throw createHttpError(422, "EXERCISE_CATALOG_EMPTY", {
+        cause: "CATALOG_EMPTY",
+        hint: "Run /dev/seed-exercises",
+      });
+    }
+    return exerciseCatalog;
+  } catch (error) {
+    const typed = error as { code?: string; statusCode?: number };
+    if (typed.code === "EXERCISE_CATALOG_EMPTY" && typed.statusCode === 422) {
+      throw error;
+    }
+    throw createHttpError(503, "EXERCISE_CATALOG_UNAVAILABLE", {
+      cause: "CATALOG_INACCESSIBLE",
+      hint: "Check Exercise catalog availability in DB",
+    });
+  }
 }
 
 function requireStripeSecret() {
@@ -1184,6 +1230,7 @@ const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const aiTrainingExerciseSchema = z
   .object({
+    exerciseId: z.string().min(1),
     name: z.string().min(1),
     sets: aiTrainingSeriesSchema,
     reps: aiTrainingRepsSchema.nullable(),
@@ -1216,6 +1263,7 @@ const aiTrainingPlanResponseSchema = z
 const aiNutritionMealSchema = z
   .object({
     type: z.enum(["breakfast", "lunch", "dinner", "snack"]),
+    recipeId: z.string().min(1).nullable().optional(),
     title: z.string().min(1),
     description: z.string().min(1).nullable(),
     macros: z.object({
@@ -1429,20 +1477,38 @@ await prisma.aiPromptCache.upsert({
 
 }
 
-function buildTrainingTemplate(params: z.infer<typeof aiTrainingSchema>) {
+function resolveTemplateExerciseId(name: string, catalogByName: Map<string, string>) {
+  const normalized = normalizeExerciseName(name);
+  return catalogByName.get(normalized) ?? null;
+}
+
+function buildTrainingTemplate(
+  params: z.infer<typeof aiTrainingSchema>,
+  exerciseCatalog: ExerciseCatalogItem[]
+): z.infer<typeof aiTrainingPlanResponseSchema> | null {
   if (params.focus !== "ppl" || params.level !== "intermediate" || params.daysPerWeek < 3) {
     return null;
   }
   
   const daysPerWeek = Math.min(params.daysPerWeek, 7);
+  const catalogByName = new Map(
+    exerciseCatalog.map((exercise) => [normalizeExerciseName(exercise.name), exercise.id])
+  );
+  const missingTemplateExercises = new Set<string>();
   const ex = (
-  name: string,
-  sets: number,
-  reps: string,
-  tempo = "2-0-1",
-  rest = 90,
-  notes = "Técnica limpia, controla la bajada."
-) => ({ name, sets, reps, tempo, rest, notes });
+    name: string,
+    sets: number,
+    reps: string,
+    tempo = "2-0-1",
+    rest = 90,
+    notes = "Técnica limpia, controla la bajada."
+  ) => {
+    const exerciseId = resolveTemplateExerciseId(name, catalogByName);
+    if (!exerciseId) {
+      missingTemplateExercises.add(name);
+    }
+    return { exerciseId: exerciseId ?? "", name, sets, reps, tempo, rest, notes };
+  };
 
   const pushDay = {
     date: null,
@@ -1539,6 +1605,13 @@ const recoveryDay = {
     ex("Movilidad de cadera y hombro", 1, "10 min", "1-0-1", 0, "Movimientos suaves, sin dolor."),
   ],
 };
+
+  if (missingTemplateExercises.size > 0) {
+    throw createHttpError(503, "EXERCISE_CATALOG_UNAVAILABLE", {
+      cause: "TEMPLATE_EXERCISE_NOT_FOUND",
+      missingExercises: Array.from(missingTemplateExercises.values()),
+    });
+  }
 
   const baseDays = [pushDay, pullDay, legsDay];
   if (daysPerWeek === 3) {
@@ -1659,7 +1732,7 @@ function buildTipTemplate() {
   };
 }
 
-function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = false) {
+function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = false, exerciseCatalogPrompt = "") {
   const secondaryGoals = data.goals?.length ? data.goals.join(", ") : "no especificados";
   const cardio = typeof data.includeCardio === "boolean" ? (data.includeCardio ? "sí" : "no") : "no especificado";
   const mobility =
@@ -1671,7 +1744,11 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = fa
   return [
     "Eres un entrenador personal senior. Devuelve SOLO un objeto JSON válido, sin markdown ni texto extra.",
     "Esquema exacto:",
-'{"title":string,"startDate":string|null,"notes":string|null,"days":[{"date":string|null,"label":string,"focus":string,"duration":number,"exercises":[{"name":string,"sets":number,"reps":string|null,"tempo":string|null,"rest":number|null,"notes":string|null}]}]}',    "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
+    '{"title":string,"startDate":string|null,"notes":string|null,"days":[{"date":string|null,"label":string,"focus":string,"duration":number,"exercises":[{"exerciseId":string,"name":string,"sets":number,"reps":string|null,"tempo":string|null,"rest":number|null,"notes":string|null}]}]}',
+    "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
+    exerciseCatalogPrompt
+      ? `OBLIGATORIO: para CADA ejercicio debes elegir un exerciseId de esta biblioteca, sin excepciones. No inventes IDs, no dejes null. Biblioteca (id: nombre): ${exerciseCatalogPrompt}`
+      : "",
     "OBLIGATORIO: days.length debe ser EXACTAMENTE el número solicitado (si >7 usa 7).",
     "Máximo 7 días, máximo 5 ejercicios por día, mínimo 3 ejercicios por día.",
     strict ? "REINTENTO: si devuelves menos o más días, la respuesta será rechazada." : "",
@@ -1693,15 +1770,16 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = fa
     "Usa days.length = días por semana (límite 7). label en español consistente (ej: \"Día 1\", \"Día 2\").",
     `Asigna date (YYYY-MM-DD) iniciando en ${data.startDate ?? "la fecha indicada"} y distribuye ${data.daysPerWeek} sesiones dentro de ${daysCount} días.`,
     "En cada día incluye duration en minutos (number).",
-    "En cada ejercicio incluye name (español), sets (number) y reps (string). tempo/rest/notes solo si son cortos.",
+    "En cada ejercicio incluye exerciseId (string obligatorio y existente en biblioteca), name (español), sets (number) y reps (string). tempo/rest/notes solo si son cortos.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
-    '{"title":"Plan semanal compacto","startDate":"2024-01-01","notes":"Enfoque simple.","days":[{"date":"2024-01-01","label":"Día 1","focus":"Full body","duration":45,"exercises":[{"name":"Sentadilla","sets":3,"reps":"8-10"},{"name":"Press banca","sets":3,"reps":"8-10"},{"name":"Remo con barra","sets":3,"reps":"8-10"}]}]}',
+    '{"title":"Plan semanal compacto","startDate":"2024-01-01","notes":"Enfoque simple.","days":[{"date":"2024-01-01","label":"Día 1","focus":"Full body","duration":45,"exercises":[{"exerciseId":"ex_001","name":"Sentadilla","sets":3,"reps":"8-10"},{"exerciseId":"ex_002","name":"Press banca","sets":3,"reps":"8-10"},{"exerciseId":"ex_003","name":"Remo con barra","sets":3,"reps":"8-10"}]}]}',
   ]
     .filter(Boolean)
     .join(" ");
 }
 
 type RecipePromptItem = {
+  id: string;
   name: string;
   description?: string | null;
   calories: number;
@@ -1715,7 +1793,7 @@ type RecipePromptItem = {
 function formatRecipeLibrary(recipes: RecipePromptItem[]) {
   if (!recipes.length) return "";
   const lines = recipes.map((recipe) => {
-    return `- ${recipe.name}: ${recipe.description ?? "Sin descripción"}. Macros base ${Math.round(
+    return `- [${recipe.id}] ${recipe.name}: ${recipe.description ?? "Sin descripción"}. Macros base ${Math.round(
       recipe.calories
     )} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(recipe.fat)}.`;
   });
@@ -1726,18 +1804,8 @@ function roundToNearest5(value: number) {
   return Math.round(value / 5) * 5;
 }
 
-type RecipeSeedItem = {
-  name: string;
-  description: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  steps: string[];
-  ingredients: Array<{ name: string; grams: number }>;
-};
-
 type RecipeDbItem = {
+  id: string;
   name: string;
   description: string | null;
   calories: number;
@@ -1748,21 +1816,55 @@ type RecipeDbItem = {
   ingredients: Array<{ name: string; grams: number }>;
 };
 
+type RecipeSeedItem = Omit<RecipeDbItem, "id">;
+
+function toNutritionRecipeCatalog(recipes: RecipeDbItem[]): NutritionRecipeCatalogItem[] {
+  return recipes.map((recipe) => ({
+    id: recipe.id,
+    name: recipe.name,
+    description: recipe.description,
+    calories: recipe.calories,
+    protein: recipe.protein,
+    carbs: recipe.carbs,
+    fat: recipe.fat,
+    ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
+      name: ingredient.name,
+      grams: ingredient.grams,
+    })),
+  }));
+}
+
+function applyNutritionCatalogResolution(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+  recipes: RecipeDbItem[]
+): z.infer<typeof aiNutritionPlanResponseSchema> {
+  const resolved = resolveNutritionPlanRecipeIds(plan, toNutritionRecipeCatalog(recipes));
+  if (!resolved.catalogAvailable) return plan;
+  if (resolved.invalidMeals.length > 0) {
+    app.log.warn(
+      { invalidMeals: resolved.invalidMeals.slice(0, 10), invalidCount: resolved.invalidMeals.length },
+      "nutrition plan contains invalid recipe IDs; fallback applied"
+    );
+  }
+  return resolved.plan as z.infer<typeof aiNutritionPlanResponseSchema>;
+}
+
 function applyRecipeScalingToPlan(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   recipes: RecipeDbItem[]
 ) {
   if (!recipes.length) return plan;
   const recipeMap = new Map(recipes.map((recipe) => [recipe.name.toLowerCase(), recipe]));
+  const recipeMapById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
   plan.days.forEach((day) => {
     day.meals.forEach((meal) => {
-      const recipe = recipeMap.get(meal.title.toLowerCase());
+      const recipe = (meal.recipeId ? recipeMapById.get(meal.recipeId) : undefined) ?? recipeMap.get(meal.title.toLowerCase());
       if (!recipe) return;
       const baseCalories = recipe.calories;
       const targetCalories = meal.macros?.calories ?? baseCalories;
       if (!baseCalories || !targetCalories || !Number.isFinite(targetCalories)) return;
       const scale = targetCalories / baseCalories;
-      const scaledIngredients = recipe.ingredients.map((ingredient) => ({
+      const scaledIngredients = recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
         name: ingredient.name,
         grams: roundToNearest5(ingredient.grams * scale),
       }));
@@ -1776,57 +1878,6 @@ function applyRecipeScalingToPlan(
     });
   });
   return plan;
-}
-
-async function upsertRecipesFromPlan(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
-  const meals = plan.days.flatMap((day) => day.meals);
-  if (meals.length === 0) return;
-
-  const recipeSeeds = meals.map((meal) => ({
-    name: meal.title.trim(),
-    description: meal.description ?? null,
-    calories: meal.macros.calories,
-    protein: meal.macros.protein,
-    carbs: meal.macros.carbs,
-    fat: meal.macros.fats,
-    steps: ["Preparar los ingredientes.", "Cocinar según preferencia.", "Servir."],
-    ingredients: meal.ingredients ?? null,
-  }));
-
-  await prisma.$transaction(
-    recipeSeeds.map((recipe) => {
-      const ingredientCreates = (recipe.ingredients ?? []).map((ingredient) => ({
-        name: ingredient.name,
-        grams: ingredient.grams,
-      }));
-
-      return prisma.recipe.upsert({
-        where: { name: recipe.name },
-        create: {
-          name: recipe.name,
-          description: recipe.description,
-          calories: recipe.calories,
-          protein: recipe.protein,
-          carbs: recipe.carbs,
-          fat: recipe.fat,
-          steps: recipe.steps,
-          ingredients: ingredientCreates.length ? { create: ingredientCreates } : undefined,
-        },
-        update: {
-          description: recipe.description,
-          calories: recipe.calories,
-          protein: recipe.protein,
-          carbs: recipe.carbs,
-          fat: recipe.fat,
-          steps: recipe.steps,
-          ingredients: {
-            deleteMany: {},
-            ...(ingredientCreates.length ? { create: ingredientCreates } : {}),
-          },
-        },
-      });
-    })
-  );
 }
 
 
@@ -1991,6 +2042,8 @@ async function saveTrainingPlan(
           order: index,
           exercises: {
             create: day.exercises.map((exercise) => ({
+              exerciseId: exercise.exerciseId ?? null,
+              imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
               name: exercise.name,
               sets: exercise.sets,
               reps: exercise.reps,
@@ -2038,20 +2091,24 @@ function buildNutritionPrompt(
     "Eres un nutricionista deportivo senior. Genera un plan semanal compacto en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
     "El JSON debe respetar exactamente este esquema:",
-'{"title":string,"startDate":string|null,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"date":string,"dayLabel":string,"meals":[{"type":string,"title":string,"description":string|null,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients":array|null}]}],"shoppingList":array|null}',
+'{"title":string,"startDate":string|null,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"date":string,"dayLabel":string,"meals":[{"type":string,"recipeId":string|null,"title":string,"description":string|null,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients":array|null}]}],"shoppingList":array|null}',
     "OBLIGATORIO: cada día debe tener EXACTAMENTE el número de meals solicitado (si >6 usa 6).",
     `Estructura de meals: ${mealStructure}`,
     `Genera EXACTAMENTE ${daysCount} días con date (YYYY-MM-DD) desde ${data.startDate ?? "la fecha indicada"}.`,
     "Descripción opcional. Ingredients opcional; si hay receta base, omite ingredients o déjalo vacío.",
+    recipeLibrary
+      ? "OBLIGATORIO: cada meal debe incluir recipeId existente del catálogo y title debe coincidir con esa receta."
+      : "REQUER IMPLEMENTAÇÃO: sin catálogo de foods, usa recipeId null y limita referencias a recipes existentes cuando aplique.",
     "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, carne magra y frutos secos.",
     "Evita cantidades absurdas. Porciones realistas y fáciles de cocinar.",
     "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
     strict ? "REINTENTO: si los meals por día no coinciden exactamente, la respuesta será rechazada." : "",
     recipeLibrary
-      ? `OBLIGATORIO: No inventes platos fuera del listado. Usa titles exactamente como en la biblioteca. Lista: ${recipeLibrary}`
-      : "Si no hay recetas base disponibles, crea platos sencillos y coherentes.",
+      ? `OBLIGATORIO: usa solo recipes del catálogo con recipeId válido. No inventes recetas. Usa recipeId y title exactamente como en la biblioteca. Lista: ${recipeLibrary}`
+      : "CATÁLOGO NO DISPONIBLE: responde con comidas simples sin recipeId inventados; se aplicará fallback controlado.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
+    buildMealKcalGuidance(data.calories, data.mealsPerDay, NUTRITION_MATH_TOLERANCES.twoMealSplitKcalAbsolute),
     `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
     `Tipo de dieta: ${data.dietType ?? "equilibrada"}.`,
     `Alergias: ${data.allergies?.join(", ") ?? "ninguna"}.`,
@@ -2071,7 +2128,7 @@ function buildNutritionPrompt(
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
     "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
-    '{"title":"Plan mediterráneo compacto","startDate":"2024-01-01","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"date":"2024-01-01","dayLabel":"Lunes","meals":[{"type":"breakfast","title":"Avena con yogur","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180}]},{"type":"lunch","title":"Pollo con arroz","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Pollo","grams":160},{"name":"Arroz integral","grams":180}]},{"type":"dinner","title":"Salmón con verduras","macros":{"calories":800,"protein":50,"carbs":60,"fats":28},"ingredients":[{"name":"Salmón","grams":160},{"name":"Verduras mixtas","grams":200}]}]}]}',
+    '{"title":"Plan mediterráneo compacto","startDate":"2024-01-01","dailyCalories":2200,"proteinG":140,"fatG":70,"carbsG":250,"days":[{"date":"2024-01-01","dayLabel":"Lunes","meals":[{"type":"breakfast","recipeId":"rec_001","title":"Avena con yogur","macros":{"calories":450,"protein":25,"carbs":45,"fats":18},"ingredients":[{"name":"Avena","grams":60},{"name":"Yogur griego","grams":180}]},{"type":"lunch","recipeId":"rec_002","title":"Pollo con arroz","macros":{"calories":700,"protein":45,"carbs":70,"fats":25},"ingredients":[{"name":"Pollo","grams":160},{"name":"Arroz integral","grams":180}]},{"type":"dinner","recipeId":"rec_003","title":"Salmón con verduras","macros":{"calories":800,"protein":50,"carbs":60,"fats":28},"ingredients":[{"name":"Salmón","grams":160},{"name":"Verduras mixtas","grams":200}]}]}]}',
   ]
     .filter(Boolean)
     .join(" ");
@@ -2540,29 +2597,10 @@ function buildRetryFeedback(error: unknown) {
   const typed = error as { debug?: Record<string, unknown> };
   const debug = typed?.debug;
   if (!debug || typeof debug !== "object") return "";
-  const reason = typeof debug.reason === "string" ? debug.reason : null;
-  const dayLabel = typeof debug.dayLabel === "string" ? debug.dayLabel : "día desconocido";
-  const diff = (debug.diff ?? {}) as Record<string, unknown>;
-  const expected =
-    typeof debug.expected === "number"
-      ? debug.expected
-      : typeof diff.expected === "number"
-        ? diff.expected
-        : null;
-  const actual =
-    typeof debug.actual === "number"
-      ? debug.actual
-      : typeof diff.actual === "number"
-        ? diff.actual
-        : null;
-  const tolerance =
-    typeof debug.tolerance === "number"
-      ? debug.tolerance
-      : typeof diff.tolerance === "number"
-        ? diff.tolerance
-        : null;
-  if (!reason || expected === null || actual === null) return "";
-  return `${reason} en ${dayLabel}: expected=${expected}, actual=${actual}${tolerance !== null ? `, tolerance=±${tolerance}` : ""}`;
+
+  const targetedInstruction = buildTwoMealSplitRetryInstruction(debug);
+  const genericFeedback = buildRetryFeedbackFromContext(debug);
+  return [targetedInstruction, genericFeedback].filter((item) => item.length > 0).join(" ");
 }
 
 function assertNutritionRequestMapping(
@@ -2756,8 +2794,179 @@ const exerciseMetadataByName: Record<
   },
 };
 
-function normalizeExerciseName(name: string) {
-  return name.trim().replace(/\s+/g, " ");
+
+function formatExerciseCatalogForPrompt(catalog: ExerciseCatalogItem[], limit = 120) {
+  if (!catalog.length) return "";
+  return catalog
+    .slice(0, limit)
+    .map((item) => `${item.id}: ${item.name}`)
+    .join(" | ");
+}
+
+function ensureTrainingPlanUsesCatalogExerciseIds(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  catalog: ExerciseCatalogItem[]
+) {
+  const invalidExerciseIds = findInvalidTrainingPlanExerciseIds(plan, catalog);
+
+  if (invalidExerciseIds.length > 0) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      message: "Generated plan includes missing or unknown exerciseId values.",
+      invalidExerciseIds,
+    });
+  }
+}
+
+function resolveTrainingPlanExerciseIds(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  catalog: ExerciseCatalogItem[]
+) {
+  ensureTrainingPlanUsesCatalogExerciseIds(plan, catalog);
+  const { plan: resolvedPlan, unresolved } = resolveTrainingPlanExerciseIdsWithCatalog(plan, catalog);
+
+  if (unresolved.length > 0) {
+    throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      message: "Generated plan includes exercises that do not exist in the library.",
+      unresolvedExercises: unresolved,
+    });
+  }
+
+  return resolvedPlan;
+}
+
+function resolveTrainingPlanWithDeterministicFallback(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  catalog: ExerciseCatalogItem[],
+  input: Pick<z.infer<typeof aiTrainingSchema>, "daysPerWeek" | "level" | "goal" | "equipment">,
+  startDate: Date,
+  logContext: { userId: string; route: string }
+) {
+  try {
+    return resolveTrainingPlanExerciseIds(plan, catalog);
+  } catch (error) {
+    const typed = error as { code?: string };
+    if (typed.code !== "INVALID_AI_OUTPUT") {
+      throw error;
+    }
+
+    app.log.warn(
+      { userId: logContext.userId, route: logContext.route, cause: "invalid_catalog_exercise_id" },
+      "training plan has invalid exercise ids, using deterministic fallback"
+    );
+
+    const fallbackPlan = buildDeterministicTrainingFallbackPlan(
+      {
+        daysPerWeek: input.daysPerWeek,
+        level: input.level,
+        goal: input.goal,
+        startDate,
+        equipment: input.equipment,
+      },
+      catalog
+    );
+
+    return resolveTrainingPlanExerciseIds(fallbackPlan, catalog);
+  }
+}
+
+function normalizePlanForExerciseResolution(plan: Record<string, unknown>) {
+  const rawDays = Array.isArray((plan as { days?: unknown }).days) ? ((plan as { days: unknown[] }).days ?? []) : [];
+
+  return {
+    ...plan,
+    days: rawDays.map((day, dayIndex) => {
+      const typedDay = (day ?? {}) as {
+        label?: unknown;
+        exercises?: unknown;
+      };
+      const rawExercises = Array.isArray(typedDay.exercises) ? typedDay.exercises : [];
+
+      return {
+        ...(typedDay as Record<string, unknown>),
+        label: typeof typedDay.label === "string" ? typedDay.label : `Day ${dayIndex + 1}`,
+        exercises: rawExercises.map((exercise) => {
+          const typedExercise = (exercise ?? {}) as {
+            name?: unknown;
+            exerciseId?: unknown;
+            imageUrl?: unknown;
+            exercise?: { name?: unknown; imageUrl?: unknown } | null;
+          };
+          const fallbackName =
+            typeof typedExercise.exercise?.name === "string"
+              ? typedExercise.exercise.name
+              : typeof typedExercise.name === "string"
+                ? typedExercise.name
+                : "Unknown exercise";
+
+          return {
+            ...(typedExercise as Record<string, unknown>),
+            name: fallbackName,
+            exerciseId: typeof typedExercise.exerciseId === "string" ? typedExercise.exerciseId : null,
+            imageUrl:
+              typeof typedExercise.imageUrl === "string"
+                ? typedExercise.imageUrl
+                : typeof typedExercise.exercise?.imageUrl === "string"
+                  ? typedExercise.exercise.imageUrl
+                  : null,
+          };
+        }),
+      };
+    }),
+  };
+}
+
+function serializeTrainingPlanDaysWithNullableExerciseId(plan: Record<string, unknown>) {
+  const rawDays = Array.isArray((plan as { days?: unknown }).days) ? ((plan as { days: unknown[] }).days ?? []) : null;
+
+  if (!rawDays) {
+    return plan;
+  }
+
+  return {
+    ...plan,
+    days: rawDays.map((day) => {
+      const typedDay = (day ?? {}) as {
+        exercises?: unknown;
+      };
+      const rawExercises = Array.isArray(typedDay.exercises) ? typedDay.exercises : [];
+
+      return {
+        ...(typedDay as Record<string, unknown>),
+        exercises: rawExercises.map((exercise) => {
+          const typedExercise = (exercise ?? {}) as {
+            exerciseId?: unknown;
+          };
+
+          return {
+            ...(typedExercise as Record<string, unknown>),
+            exerciseId: typeof typedExercise.exerciseId === "string" ? typedExercise.exerciseId : null,
+          };
+        }),
+      };
+    }),
+  };
+}
+
+async function enrichTrainingPlanWithExerciseLibraryData(plan: Record<string, unknown>) {
+  if (!plan || !Array.isArray((plan as { days?: unknown }).days)) {
+    return plan;
+  }
+
+  const catalog = await fetchExerciseCatalog(prisma);
+  const normalizedPlan = normalizePlanForExerciseResolution(plan);
+  const { plan: resolvedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(normalizedPlan, catalog);
+
+  return serializeTrainingPlanDaysWithNullableExerciseId(resolvedPlan);
+}
+
+function logTrainingPlanUnexpectedError(request: FastifyRequest, error: unknown, context: string) {
+  request.log.error(
+    {
+      reqId: request.id,
+      err: error,
+    },
+    context
+  );
 }
 
 type ExerciseMetadata = {
@@ -3129,11 +3338,21 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
   const names = new Map<string, string>();
   plan.days.forEach((day) => {
     day.exercises.forEach((exercise) => {
-      const normalized = normalizeExerciseName(exercise.name);
-      if (!normalized) return;
-      const key = normalized.toLowerCase();
-      if (!names.has(key)) {
-        names.set(key, normalized);
+      try {
+        if (!exercise?.name) {
+          app.log.warn({ day: day.label, exercise }, "skipping exercise upsert because name is missing");
+          return;
+        }
+        const normalized = normalizeExerciseName(exercise.name);
+        if (!normalized) {
+          app.log.warn({ day: day.label, name: exercise.name }, "skipping exercise upsert because normalized name is empty");
+          return;
+        }
+        if (!names.has(normalized)) {
+          names.set(normalized, normalized);
+        }
+      } catch (error) {
+        app.log.warn({ err: error, day: day.label, exercise }, "failed to normalize exercise for upsert");
       }
     });
   });
@@ -3687,128 +3906,14 @@ function buildRecipeSeedItem(name: string, index: number): RecipeSeedItem {
   };
 }
 
-type OpenAiUsage = {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-};
-
-type OpenAiResponse = {
-  payload: Record<string, unknown>;
-  usage: OpenAiUsage | null;
-  model: string | null;
-  requestId: string | null;
-};
-
-type OpenAiResponseFormat =
-  | { type: "json_object" }
-  | {
-      type: "json_schema";
-      json_schema: {
-        name: string;
-        schema: Record<string, unknown>;
-        strict?: boolean;
-      };
-    };
-
-type OpenAiOptions = {
-  parser?: (content: string) => Record<string, unknown>;
-  maxTokens?: number;
-  responseFormat?: OpenAiResponseFormat;
-  model?: string;
-  retryOnParseError?: boolean;
-};
-
-async function callOpenAi(
-  prompt: string,
-  attempt = 0,
-  parser: (content: string) => Record<string, unknown> = extractJson,
-  options?: OpenAiOptions
-): Promise<OpenAiResponse> {
-  if (!env.OPENAI_API_KEY) {
-    throw createHttpError(503, "AI_UNAVAILABLE");
-  }
-  const systemMessage =
-    attempt === 0
-      ? "Devuelve exclusivamente JSON valido. Sin markdown. Sin texto extra."
-      : "DEVUELVE SOLO JSON VÁLIDO. Sin markdown. Sin texto extra.";
-  const responseFormat = options?.responseFormat ?? { type: "json_object" };
-  const maxTokens = options?.maxTokens ?? 250;
-  const model = options?.model ?? "gpt-3.5-turbo";
-  const response = await fetch(`${env.OPENAI_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      response_format: responseFormat,
-      messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: maxTokens,
-      temperature: attempt === 0 ? 0.4 : 0.2,
-    }),
-  });
-if (!response.ok) {
-  const errText = await response.text().catch(() => "");
-  const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
-  app.log.error(
-    { status: response.status, requestId, errText: errText.slice(0, 2000) },
-    "openai request failed"
-  );
-  throw createHttpError(502, "AI_REQUEST_FAILED", {
-    status: response.status,
-    requestId,
-    ...(process.env.NODE_ENV === "production" ? {} : { errText: errText.slice(0, 2000) }),
-  });
-}
-
-
-  const requestId =
-    response.headers.get("x-request-id") ??
-    response.headers.get("openai-request-id") ??
-    response.headers.get("x-openai-request-id");
-const data = (await response.json()) as {
-  model?: string;
-  usage?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-  };
-  choices?: Array<{ message?: { content?: string } }>;
-};
-
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) {
-    throw createHttpError(502, "AI_EMPTY_RESPONSE");
-  }
-  try {
-    app.log.info(
-      process.env.NODE_ENV === "production"
-        ? { attempt, responseChars: content.length }
-        : { attempt, responsePreview: content.slice(0, 300), responseChars: content.length },
-      "ai response received"
-    );
-    const parsedPayload = (options?.parser ?? parser)(content);
-    return {
-      payload: parsedPayload,
-      usage: data.usage ?? null,
-      model: data.model ?? null,
-      requestId,
-    };
-  } catch (error) {
-    const typed = error as { code?: string };
-    const retryOnParseError = options?.retryOnParseError ?? true;
-    if (typed.code === "AI_PARSE_ERROR" && attempt === 0 && retryOnParseError) {
-      app.log.warn({ err: error }, "ai response parse failed, retrying with strict json request");
-      return callOpenAi(prompt, 1, parser, options);
-    }
-    throw error;
-  }
-}
+const { callOpenAi } = createOpenAiClient({
+  apiKey: env.OPENAI_API_KEY,
+  fallbackApiKey: env.OPENAI_KEY,
+  baseUrl: env.OPENAI_BASE_URL,
+  isProduction: process.env.NODE_ENV === "production",
+  logger: app.log,
+  createHttpError,
+});
 
 const feedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -5041,6 +5146,12 @@ registerWeeklyReviewRoute(app, {
   handleRequestError,
 });
 
+registerAdminAssignGymRoleRoutes(app, {
+  prisma,
+  requireAdmin,
+  handleRequestError,
+});
+
 app.get("/user-foods", async (request, reply) => {
   try {
     const user = await requireUser(request);
@@ -5142,11 +5253,12 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
     const data = aiTrainingSchema.parse(request.body);
+    const exerciseCatalog = await loadExerciseCatalogForAi();
     const expectedDays = Math.min(data.daysPerWeek, 7);
     const daysCount = Math.min(data.daysCount ?? 7, 14);
     const startDate = parseDateInput(data.startDate) ?? new Date();
     const cacheKey = buildCacheKey("training", data);
-    const template = buildTrainingTemplate(data);
+    const template = buildTrainingTemplate(data, exerciseCatalog);
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta = getAiTokenPayload(user, entitlements);
     const shouldChargeAi = !entitlements.role.adminOverride;
@@ -5155,11 +5267,11 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       const normalized = normalizeTrainingPlanDays(template, startDate, daysCount, expectedDays);
       const personalized = applyPersonalization(normalized, { name: data.name });
       assertTrainingMatchesRequest(personalized, expectedDays);
-      await upsertExercisesFromPlan(personalized);
-      await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
-      await storeAiContent(user.id, "training", "template", personalized);
+      const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
+      await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+      await storeAiContent(user.id, "training", "template", resolvedPlan);
       return reply.status(200).send({
-        plan: personalized,
+        plan: resolvedPlan,
         ...aiMeta,
       });
     }
@@ -5170,11 +5282,11 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         const validated = parseTrainingPlanPayload(cached, startDate, daysCount, expectedDays);
         assertTrainingMatchesRequest(validated, expectedDays);
         const personalized = applyPersonalization(validated, { name: data.name });
-        await upsertExercisesFromPlan(personalized);
-        await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
-        await storeAiContent(user.id, "training", "cache", personalized);
+        const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
+        await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+        await storeAiContent(user.id, "training", "cache", resolvedPlan);
         return reply.status(200).send({
-          plan: personalized,
+          plan: resolvedPlan,
           ...aiMeta,
         });
       } catch (error) {
@@ -5199,7 +5311,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       | undefined;
 
     const fetchTrainingPayload = async (attempt: number) => {
-      const prompt = buildTrainingPrompt(data, attempt > 0);
+      const prompt = buildTrainingPrompt(data, attempt > 0, formatExerciseCatalogForPrompt(exerciseCatalog));
       const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
         responseFormat: {
           type: "json_schema",
@@ -5239,11 +5351,22 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         throw error;
       }
     }
-    await upsertExercisesFromPlan(parsedPayload);
-    await saveCachedAiPayload(cacheKey, "training", parsedPayload);
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
-    await saveTrainingPlan(user.id, personalized, startDate, daysCount, data);
-    await storeAiContent(user.id, "training", "ai", personalized);
+    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
+      personalized,
+      exerciseCatalog,
+      {
+        daysPerWeek: data.daysPerWeek,
+        level: data.level,
+        goal: data.goal,
+        equipment: data.equipment,
+      },
+      startDate,
+      { userId: user.id, route: "/ai/training-plan" }
+    );
+    await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
+    await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+    await storeAiContent(user.id, "training", "ai", resolvedPlan);
     if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
@@ -5291,7 +5414,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
       );
     }
     return reply.status(200).send({
-      plan: personalized,
+      plan: resolvedPlan,
       aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
       aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
       ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
@@ -5326,27 +5449,6 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       },
     });
     const cacheKey = buildCacheKey("nutrition:v2", data);
-    const template = buildNutritionTemplate(data);
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta = getAiTokenPayload(user, entitlements);
-    const shouldChargeAi = !entitlements.role.adminOverride;
-
-    if (template) {
-      const normalized = normalizeNutritionPlanDays(template, startDate, daysCount);
-      logNutritionMealsPerDay(normalized, expectedMealsPerDay, "before_normalize");
-      const normalizedMeals = normalizeNutritionMealsPerDay(normalized, expectedMealsPerDay);
-      logNutritionMealsPerDay(normalizedMeals, expectedMealsPerDay, "after_normalize");
-      const personalized = applyPersonalization(normalizedMeals, { name: data.name });
-      assertNutritionMatchesRequest(personalized, expectedMealsPerDay, daysCount);
-      await saveNutritionPlan(user.id, personalized, startDate, daysCount);
-      await upsertRecipesFromPlan(personalized);
-      await storeAiContent(user.id, "nutrition", "template", personalized);
-      return reply.status(200).send({
-        plan: personalized,
-        ...aiMeta,
-      });
-    }
-
     const recipeQuery = data.preferredFoods?.split(",")[0]?.trim();
     const recipeWhere = recipeQuery
       ? {
@@ -5359,6 +5461,42 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       orderBy: { name: "asc" },
       include: { ingredients: true },
     });
+    const template = buildNutritionTemplate(data);
+    const effectiveTokens = getEffectiveTokenBalance(user);
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
+
+    if (template) {
+      const normalized = normalizeNutritionPlanDays(template, startDate, daysCount);
+      logNutritionMealsPerDay(normalized, expectedMealsPerDay, "before_normalize");
+      const normalizedMeals = normalizeNutritionMealsPerDay(normalized, expectedMealsPerDay);
+      const resolvedCatalogMeals = applyNutritionCatalogResolution(
+        normalizedMeals,
+        recipes.map((recipe) => ({
+          id: recipe.id,
+          name: recipe.name,
+          description: recipe.description,
+          calories: recipe.calories,
+          protein: recipe.protein,
+          carbs: recipe.carbs,
+          fat: recipe.fat,
+          steps: recipe.steps,
+          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
+            name: ingredient.name,
+            grams: ingredient.grams,
+          })),
+        }))
+      );
+      logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
+      const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
+      assertNutritionMatchesRequest(personalized, expectedMealsPerDay, daysCount);
+      await saveNutritionPlan(user.id, personalized, startDate, daysCount);
+      await storeAiContent(user.id, "nutrition", "template", personalized);
+      return reply.status(200).send({
+        plan: personalized,
+        ...aiMeta,
+      });
+    }
 
     const cached = await getCachedAiPayload(cacheKey);
     if (cached) {
@@ -5368,6 +5506,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         const scaled = applyRecipeScalingToPlan(
           validated,
           recipes.map((recipe) => ({
+            id: recipe.id,
             name: recipe.name,
             description: recipe.description,
             calories: recipe.calories,
@@ -5375,7 +5514,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
             carbs: recipe.carbs,
             fat: recipe.fat,
             steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient) => ({
+            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
               name: ingredient.name,
               grams: ingredient.grams,
             })),
@@ -5383,11 +5522,27 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         );
         logNutritionMealsPerDay(scaled, expectedMealsPerDay, "before_normalize");
         const normalizedMeals = normalizeNutritionMealsPerDay(scaled, expectedMealsPerDay);
-        logNutritionMealsPerDay(normalizedMeals, expectedMealsPerDay, "after_normalize");
-        assertNutritionMatchesRequest(normalizedMeals, expectedMealsPerDay, daysCount);
-        const personalized = applyPersonalization(normalizedMeals, { name: data.name });
+        const resolvedCatalogMeals = applyNutritionCatalogResolution(
+          normalizedMeals,
+          recipes.map((recipe) => ({
+            id: recipe.id,
+            name: recipe.name,
+            description: recipe.description,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
+            steps: recipe.steps,
+            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
+              name: ingredient.name,
+              grams: ingredient.grams,
+            })),
+          }))
+        );
+        logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
+        assertNutritionMatchesRequest(resolvedCatalogMeals, expectedMealsPerDay, daysCount);
+        const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
         await saveNutritionPlan(user.id, personalized, startDate, daysCount);
-        await upsertRecipesFromPlan(personalized);
         await storeAiContent(user.id, "nutrition", "cache", personalized);
         return reply.status(200).send({
           plan: personalized,
@@ -5417,13 +5572,14 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       const promptAttempt = buildNutritionPrompt(
         data,
         recipes.map((recipe) => ({
+          id: recipe.id,
           name: recipe.name,
           description: recipe.description,
           calories: recipe.calories,
           protein: recipe.protein,
           carbs: recipe.carbs,
           fat: recipe.fat,
-          ingredients: recipe.ingredients.map((ingredient) => ({
+          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
             name: ingredient.name,
             grams: ingredient.grams,
           })),
@@ -5490,6 +5646,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const scaledPayload = applyRecipeScalingToPlan(
       parsedPayload,
       recipes.map((recipe) => ({
+        id: recipe.id,
         name: recipe.name,
         description: recipe.description,
         calories: recipe.calories,
@@ -5497,7 +5654,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         carbs: recipe.carbs,
         fat: recipe.fat,
         steps: recipe.steps,
-        ingredients: recipe.ingredients.map((ingredient) => ({
+        ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
           name: ingredient.name,
           grams: ingredient.grams,
         })),
@@ -5505,12 +5662,28 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     );
     logNutritionMealsPerDay(scaledPayload, expectedMealsPerDay, "before_normalize");
     const normalizedMeals = normalizeNutritionMealsPerDay(scaledPayload, expectedMealsPerDay);
-    logNutritionMealsPerDay(normalizedMeals, expectedMealsPerDay, "after_normalize");
-    assertNutritionMatchesRequest(normalizedMeals, expectedMealsPerDay, daysCount);
-    await saveNutritionPlan(user.id, normalizedMeals, startDate, daysCount);
-    await upsertRecipesFromPlan(normalizedMeals);
-    await saveCachedAiPayload(cacheKey, "nutrition", normalizedMeals);
-    const personalized = applyPersonalization(normalizedMeals, { name: data.name });
+    const resolvedCatalogMeals = applyNutritionCatalogResolution(
+      normalizedMeals,
+      recipes.map((recipe) => ({
+        id: recipe.id,
+        name: recipe.name,
+        description: recipe.description,
+        calories: recipe.calories,
+        protein: recipe.protein,
+        carbs: recipe.carbs,
+        fat: recipe.fat,
+        steps: recipe.steps,
+        ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
+          name: ingredient.name,
+          grams: ingredient.grams,
+        })),
+      }))
+    );
+    logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
+    assertNutritionMatchesRequest(resolvedCatalogMeals, expectedMealsPerDay, daysCount);
+    await saveNutritionPlan(user.id, resolvedCatalogMeals, startDate, daysCount);
+    await saveCachedAiPayload(cacheKey, "nutrition", resolvedCatalogMeals);
+    const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
     if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
@@ -5626,6 +5799,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
 
     const expectedDays = trainingInput.daysPerWeek;
     const startDate = parseDateInput(trainingInput.startDate) ?? new Date();
+    const exerciseCatalog = await loadExerciseCatalogForAi();
 
     let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null = null;
     let aiResult: OpenAiResponse | null = null;
@@ -5633,7 +5807,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const prompt = `${buildTrainingPrompt(trainingInput, attempt > 0)} ${
+        const prompt = `${buildTrainingPrompt(trainingInput, attempt > 0, formatExerciseCatalogForPrompt(exerciseCatalog))} ${
           attempt > 0
             ? "REINTENTO OBLIGATORIO: corrige la salida para que cumpla exactamente los días solicitados y volumen por nivel."
             : ""
@@ -5663,24 +5837,102 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
     }
 
     if (!parsedPlan) {
-      throw createHttpError(400, "INVALID_AI_OUTPUT", {
-        message: "No se pudo generar un plan de entrenamiento válido tras reintento.",
-        cause: (lastError as { code?: string })?.code ?? "UNKNOWN",
-      });
+      app.log.warn(
+        {
+          userId: user.id,
+          cause: (lastError as { code?: string; message?: string })?.code ?? "UNKNOWN",
+        },
+        "training plan AI failed, returning deterministic fallback"
+      );
+      parsedPlan = buildDeterministicTrainingFallbackPlan(
+        {
+          daysPerWeek: trainingInput.daysPerWeek,
+          level: trainingInput.level,
+          goal: trainingInput.goal,
+          startDate,
+          equipment: trainingInput.equipment,
+        },
+        exerciseCatalog
+      );
     }
 
-    await upsertExercisesFromPlan(parsedPlan);
-    const savedPlan = await saveTrainingPlan(user.id, parsedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
-    await safeStoreAiContent(user.id, "training", "ai", parsedPlan);
+    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
+      parsedPlan,
+      exerciseCatalog,
+      {
+        daysPerWeek: trainingInput.daysPerWeek,
+        level: trainingInput.level,
+        goal: trainingInput.goal,
+        equipment: trainingInput.equipment,
+      },
+      startDate,
+      { userId: user.id, route: "/ai/training-plan/generate" }
+    );
+    await upsertExercisesFromPlan(resolvedPlan);
+    const savedPlan = await saveTrainingPlan(user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
+    await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
 
     return reply.status(200).send({
       planId: savedPlan.id,
-      summary: summarizeTrainingPlan(parsedPlan),
-      plan: parsedPlan,
+      summary: summarizeTrainingPlan(resolvedPlan),
+      plan: resolvedPlan,
       aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
-    return handleRequestError(reply, error);
+    if (error instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    }
+
+    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.code === "EXERCISE_CATALOG_EMPTY") {
+      return reply.status(422).send({
+        error: "EXERCISE_CATALOG_EMPTY",
+        debug: {
+          cause: typeof typed.debug?.cause === "string" ? typed.debug.cause : "CATALOG_EMPTY",
+          ...(typeof typed.debug?.hint === "string" ? { hint: typed.debug.hint } : {}),
+        },
+      });
+    }
+
+    if (typed.code === "EXERCISE_CATALOG_UNAVAILABLE") {
+      return reply.status(503).send({
+        error: "EXERCISE_CATALOG_UNAVAILABLE",
+        debug: {
+          cause: typeof typed.debug?.cause === "string" ? typed.debug.cause : "CATALOG_INACCESSIBLE",
+          ...(typeof typed.debug?.hint === "string" ? { hint: typed.debug.hint } : {}),
+        },
+      });
+    }
+
+    if (typed.code === "AI_NOT_CONFIGURED") {
+      return reply.status(503).send({
+        error: "AI_NOT_CONFIGURED",
+        ...(typed.debug ? { debug: typed.debug } : {}),
+      });
+    }
+
+    if (typed.code === "AI_PARSE_ERROR" || typed.code === "AI_EMPTY_RESPONSE" || typed.code === "INVALID_AI_OUTPUT") {
+      return reply.status(422).send({ error: "INVALID_AI_OUTPUT" });
+    }
+
+    if (typed.code === "AI_REQUEST_FAILED" || typed.code === "AI_AUTH_FAILED") {
+      const debug = resolveTrainingProviderFailureDebug(error);
+      const cause = resolveTrainingProviderFailureCause(error);
+      return reply.status(503).send({
+        error: "AI_REQUEST_FAILED",
+        ...(debug ? { debug: { ...debug, cause } } : { debug: { cause } }),
+      });
+    }
+
+    app.log.error({ err: error, route: "/ai/training-plan/generate" }, "training plan generation failed");
+    return reply.status(503).send({
+      error: "TRAINING_PLAN_GENERATION_FAILED",
+      debug: {
+        cause: "UNEXPECTED_ERROR",
+        reqId: request.id,
+        message: "Unexpected error while generating training plan",
+      },
+    });
   }
 });
 
@@ -5740,10 +5992,28 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
     let lastRawOutput = "";
     let retryFeedback = "";
     const resolvedDietType = payload.dietType ?? nutritionInput.dietType ?? "balanced";
+    const recipes = await prisma.recipe.findMany({
+      take: 100,
+      orderBy: { name: "asc" },
+      include: { ingredients: true },
+    });
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const prompt = `${buildNutritionPrompt(nutritionInput, [], attempt > 0, retryFeedback)} ` +
+        const prompt = `${buildNutritionPrompt(nutritionInput, recipes.map((recipe) => ({
+          id: recipe.id,
+          name: recipe.name,
+          description: recipe.description,
+          calories: recipe.calories,
+          protein: recipe.protein,
+          carbs: recipe.carbs,
+          fat: recipe.fat,
+          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
+            name: ingredient.name,
+            grams: ingredient.grams,
+          })),
+          steps: recipe.steps,
+        })), attempt > 0, retryFeedback)} ` +
           `Macros objetivo por día (con tolerancia): proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
           `Calorías objetivo por día: ${payload.targetKcal}. ` +
           "REGLA DURA: cada día debe cumplir proteína total >= objetivo de proteína (no menos). " +
@@ -5752,7 +6022,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
             ? "REGLA DURA VEGETARIANO: prioriza tofu, tempeh, seitán, legumbres, huevos, lácteos altos en proteína (si aplica) y proteína vegetal en polvo cuando haga falta. No uses carnes ni pescado. "
             : "") +
           "VERIFICACIÓN FINAL OBLIGATORIA: antes de responder, revisa expected vs actual por día y ajusta para que proteína/carbohidratos/grasas queden dentro de ±5g del objetivo diario sin cambiar calorías objetivo. " +
-          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día. En el error previo faltó proteína: debes incrementarla sin cambiar targetKcal." : ""}`;
+          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día sin cambiar targetKcal total." : ""}`;
         const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
           responseFormat: {
             type: "json_schema",
@@ -5774,7 +6044,41 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
         const calNormalized = normalizeNutritionCaloriesPerDay(candidate, payload.targetKcal);
         const macroNormalized = normalizeNutritionMacrosPerDay(calNormalized, payload.macroTargets);
         const finalNormalized = normalizeNutritionCaloriesPerDay(macroNormalized, payload.targetKcal);
-        const afterNormalize = summarizeNutritionMath(finalNormalized);
+        const scaled = applyRecipeScalingToPlan(
+          finalNormalized,
+          recipes.map((recipe) => ({
+            id: recipe.id,
+            name: recipe.name,
+            description: recipe.description,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
+            steps: recipe.steps,
+            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
+              name: ingredient.name,
+              grams: ingredient.grams,
+            })),
+          }))
+        );
+        const finalWithCatalog = applyNutritionCatalogResolution(
+          scaled,
+          recipes.map((recipe) => ({
+            id: recipe.id,
+            name: recipe.name,
+            description: recipe.description,
+            calories: recipe.calories,
+            protein: recipe.protein,
+            carbs: recipe.carbs,
+            fat: recipe.fat,
+            steps: recipe.steps,
+            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
+              name: ingredient.name,
+              grams: ingredient.grams,
+            })),
+          }))
+        );
+        const afterNormalize = summarizeNutritionMath(finalWithCatalog);
         app.log.info(
           {
             attempt,
@@ -5783,8 +6087,8 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
           },
           "nutrition normalization summary"
         );
-        assertNutritionMath(finalNormalized, payload);
-        parsedPlan = finalNormalized;
+        assertNutritionMath(finalWithCatalog, payload);
+        parsedPlan = finalWithCatalog;
         aiResult = result;
         break;
       } catch (error) {
@@ -5829,7 +6133,6 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
     }
 
     const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
-    await upsertRecipesFromPlan(parsedPlan);
     await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
 
     app.log.info(
@@ -6244,6 +6547,28 @@ const trainerAssignPlanResultSchema = {
   startDate: true,
   daysCount: true,
 } as const;
+
+const trainingExerciseLegacySafeSelect = {
+  id: true,
+  dayId: true,
+  name: true,
+  sets: true,
+  reps: true,
+  tempo: true,
+  rest: true,
+  notes: true,
+} as const;
+
+const trainingDayIncludeWithLegacySafeExercises = {
+  orderBy: { order: "asc" },
+  include: {
+    exercises: {
+      orderBy: { id: "asc" },
+      select: trainingExerciseLegacySafeSelect,
+    },
+  },
+} as const;
+
 const nutritionPlanListSchema = z.object({
   query: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
@@ -6519,6 +6844,7 @@ app.post("/training-plans", async (request, reply) => {
 });
 
 app.get("/training-plans/:id", async (request, reply) => {
+  const reqId = request.id;
   try {
     const user = await requireUser(request);
     const { id } = trainingPlanParamsSchema.parse(request.params);
@@ -6539,24 +6865,29 @@ app.get("/training-plans/:id", async (request, reply) => {
         ],
       },
       include: {
-        days: {
-          orderBy: { order: "asc" },
-          include: {
-            exercises: { orderBy: { id: "asc" } },
-          },
-        },
+        days: trainingDayIncludeWithLegacySafeExercises,
       },
     });
     if (!plan) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
-    return plan;
+    const enrichedPlan = await enrichTrainingPlanWithExerciseLibraryData(plan);
+    return enrichedPlan;
   } catch (error) {
-    return handleRequestError(reply, error);
+    if (error instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    }
+    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.statusCode) {
+      return handleRequestError(reply, error);
+    }
+    request.log.error({ reqId, err: error }, "training-plan by id failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId });
   }
 });
 
 app.get("/training-plans/active", async (request, reply) => {
+  const reqId = request.id;
   try {
     const user = await requireUser(request);
     const { includeDays } = trainingPlanActiveQuerySchema.parse(request.query);
@@ -6579,18 +6910,19 @@ app.get("/training-plans/active", async (request, reply) => {
         where: { id: activePlanId },
         include: includeDays
           ? {
-              days: {
-                orderBy: { order: "asc" },
-                include: { exercises: { orderBy: { id: "asc" } }, },
-              },
+              days: trainingDayIncludeWithLegacySafeExercises,
             }
           : undefined,
       });
 
       if (assignedPlan) {
+        const enrichedPlan = includeDays
+          ? await enrichTrainingPlanWithExerciseLibraryData(assignedPlan)
+          : assignedPlan;
+
         return reply.status(200).send({
           source: "assigned",
-          plan: assignedPlan,
+          plan: enrichedPlan,
         });
       }
     }
@@ -6600,10 +6932,7 @@ app.get("/training-plans/active", async (request, reply) => {
           where: { userId: user.id },
           orderBy: { createdAt: "desc" },
           include: {
-            days: {
-              orderBy: { order: "asc" },
-              include: { exercises: { orderBy: { id: "asc" } } },
-            },
+            days: trainingDayIncludeWithLegacySafeExercises,
           },
         })
       : await prisma.trainingPlan.findFirst({
@@ -6625,15 +6954,25 @@ app.get("/training-plans/active", async (request, reply) => {
         });
 
     if (!ownPlan) {
-      return reply.status(404).send({ error: "NO_ACTIVE_TRAINING_PLAN" });
+      return reply.status(404).send({ error: "NOT_FOUND" });
     }
+
+    const enrichedOwnPlan = includeDays ? await enrichTrainingPlanWithExerciseLibraryData(ownPlan) : ownPlan;
 
     return reply.status(200).send({
       source: "own",
-      plan: ownPlan,
+      plan: enrichedOwnPlan,
     });
   } catch (error) {
-    return handleRequestError(reply, error);
+    if (error instanceof z.ZodError) {
+      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    }
+    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+    if (typed.statusCode) {
+      return handleRequestError(reply, error);
+    }
+    request.log.error({ reqId, err: error }, "training-plan active failed");
+    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId });
   }
 });
 
@@ -6645,7 +6984,7 @@ app.post("/training-plans/:planId/days/:dayId/exercises", async (request, reply)
 
     const exercise = await prisma.exercise.findUnique({
       where: { id: exerciseId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, imageUrl: true },
     });
 
     if (!exercise) {
@@ -6706,6 +7045,8 @@ app.post("/training-plans/:planId/days/:dayId/exercises", async (request, reply)
     const created = await prisma.trainingExercise.create({
       data: {
         dayId,
+        exerciseId: exercise.id,
+        imageUrl: exercise.imageUrl,
         name: exercise.name,
         sets: 3,
         reps: "10-12",
@@ -7131,6 +7472,33 @@ const adminCreateUserSchema = z.object({
   subscriptionPlan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]).optional(),
   aiTokenBalance: z.number().int().min(0).optional(),
   aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
+});
+
+const adminUserIdParamsSchema = z.object({
+  id: z.string().min(1),
+});
+
+const adminUserPlanUpdateSchema = z.object({
+  subscriptionPlan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]),
+});
+
+const adminUserTokensUpdateSchema = z.object({
+  aiTokenBalance: z.number().int().min(0).optional(),
+  aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
+}).refine((payload) => payload.aiTokenBalance !== undefined || payload.aiTokenMonthlyAllowance !== undefined, {
+  message: "At least one token field must be provided.",
+});
+
+const adminUserTokenAllowanceUpdateSchema = z.object({
+  aiTokenMonthlyAllowance: z.number().int().min(0),
+});
+
+const adminUserTokenAddSchema = z.object({
+  amount: z.number().int().positive(),
+});
+
+const adminUserTokenBalanceUpdateSchema = z.object({
+  aiTokenBalance: z.number().int().min(0),
 });
 
 const gymsListQuerySchema = z.object({
@@ -7915,10 +8283,7 @@ app.post("/trainer/plans", async (request, reply) => {
         },
       },
       include: {
-        days: {
-          orderBy: { order: "asc" },
-          include: { exercises: { orderBy: { id: "asc" } } },
-        },
+        days: trainingDayIncludeWithLegacySafeExercises,
       },
     });
 
@@ -7951,12 +8316,7 @@ app.get("/trainer/plans/:planId", async (request, reply) => {
         ],
       },
       include: {
-        days: {
-          orderBy: { order: "asc" },
-          include: {
-            exercises: { orderBy: { id: "asc" } },
-          },
-        },
+        days: trainingDayIncludeWithLegacySafeExercises,
       },
     });
 
@@ -8028,10 +8388,7 @@ app.patch("/trainer/plans/:planId", async (request, reply) => {
       return tx.trainingPlan.findUnique({
         where: { id: existing.id },
         include: {
-          days: {
-            orderBy: { order: "asc" },
-            include: { exercises: { orderBy: { id: "asc" } } },
-          },
+          days: trainingDayIncludeWithLegacySafeExercises,
         },
       });
     });
@@ -8160,7 +8517,7 @@ app.post("/trainer/plans/:planId/days/:dayId/exercises", async (request, reply) 
       }),
       prisma.exercise.findUnique({
         where: { id: exerciseId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, imageUrl: true },
       }),
     ]);
 
@@ -8175,6 +8532,8 @@ app.post("/trainer/plans/:planId/days/:dayId/exercises", async (request, reply) 
     const created = await prisma.trainingExercise.create({
       data: {
         dayId: day.id,
+        exerciseId: exercise.id,
+        imageUrl: exercise.imageUrl,
         name: exercise.name,
         sets: 3,
         reps: "10-12",
@@ -9018,6 +9377,136 @@ app.patch("/admin/users/:id/unblock", async (request, reply) => {
       data: { isBlocked: false },
     });
     return { id: user.id, isBlocked: user.isBlocked };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/plan", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { subscriptionPlan } = adminUserPlanUpdateSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { plan: subscriptionPlan },
+      select: {
+        id: true,
+        plan: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      subscriptionPlan: user.plan,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/tokens", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { aiTokenBalance, aiTokenMonthlyAllowance } = adminUserTokensUpdateSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        ...(aiTokenBalance !== undefined ? { aiTokenBalance } : {}),
+        ...(aiTokenMonthlyAllowance !== undefined ? { aiTokenMonthlyAllowance } : {}),
+      },
+      select: {
+        id: true,
+        aiTokenBalance: true,
+        aiTokenMonthlyAllowance: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      aiTokenBalance: user.aiTokenBalance,
+      aiTokenMonthlyAllowance: user.aiTokenMonthlyAllowance,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/tokens-allowance", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { aiTokenMonthlyAllowance } = adminUserTokenAllowanceUpdateSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { aiTokenMonthlyAllowance },
+      select: {
+        id: true,
+        aiTokenMonthlyAllowance: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      aiTokenMonthlyAllowance: user.aiTokenMonthlyAllowance,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/admin/users/:id/tokens/add", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { amount } = adminUserTokenAddSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        aiTokenBalance: {
+          increment: amount,
+        },
+      },
+      select: {
+        id: true,
+        aiTokenBalance: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      aiTokenBalance: user.aiTokenBalance,
+      amountAdded: amount,
+    };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.patch("/admin/users/:id/tokens/balance", async (request, reply) => {
+  try {
+    await requireAdmin(request);
+    const { id } = adminUserIdParamsSchema.parse(request.params);
+    const { aiTokenBalance } = adminUserTokenBalanceUpdateSchema.parse(request.body);
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { aiTokenBalance },
+      select: {
+        id: true,
+        aiTokenBalance: true,
+      },
+    });
+
+    return {
+      id: user.id,
+      aiTokenBalance: user.aiTokenBalance,
+    };
   } catch (error) {
     return handleRequestError(reply, error);
   }

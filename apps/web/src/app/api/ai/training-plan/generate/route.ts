@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackendUrl } from "@/lib/backend";
 import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
+import { contractDriftResponse, validateAiTrainingGeneratePayload } from "@/lib/runtimeContracts";
 
 export const dynamic = "force-dynamic";
 
@@ -24,20 +25,64 @@ export async function POST(request: Request) {
     });
     const responseText = await response.text();
     if (!responseText) {
-      return new NextResponse(null, { status: response.status });
+      return NextResponse.json(
+        {
+          error: "AI_REQUEST_FAILED",
+          debug: {
+            backendStatus: response.status,
+            reason: "EMPTY_BACKEND_RESPONSE",
+          },
+        },
+        { status: 502 },
+      );
     }
+
     try {
       const data = JSON.parse(responseText);
+      if (!response.ok) {
+        if (typeof data?.error === "string") {
+          return NextResponse.json(data, { status: response.status });
+        }
+
+        return NextResponse.json(
+          {
+            error: "AI_REQUEST_FAILED",
+            debug: {
+              backendStatus: response.status,
+              reason: "INVALID_BACKEND_ERROR_PAYLOAD",
+            },
+          },
+          { status: response.status },
+        );
+      }
+
+      const validation = validateAiTrainingGeneratePayload(data);
+      if (!validation.ok) {
+        return NextResponse.json(contractDriftResponse("/ai/training-plan/generate", validation.reason ?? "UNKNOWN"), { status: 502 });
+      }
+
       return NextResponse.json(data, { status: response.status });
     } catch (_err) {
-      return new NextResponse(responseText, {
-        status: response.status,
-        headers: {
-          "content-type": response.headers.get("content-type") ?? "text/plain",
+      return NextResponse.json(
+        {
+          error: "AI_REQUEST_FAILED",
+          debug: {
+            backendStatus: response.status,
+            reason: "NON_JSON_BACKEND_RESPONSE",
+          },
         },
-      });
+        { status: 502 },
+      );
     }
   } catch (_err) {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+    return NextResponse.json(
+      {
+        error: "AI_REQUEST_FAILED",
+        debug: {
+          reason: "BACKEND_UNAVAILABLE",
+        },
+      },
+      { status: 502 },
+    );
   }
 }

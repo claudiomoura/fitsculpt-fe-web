@@ -28,14 +28,14 @@ const PREMIUM_VARIANT_STYLE: Record<ButtonVariant, CSSProperties> = {
   primary: {
     background: "linear-gradient(135deg, #2dd4bf 0%, #0ea5e9 100%)",
     borderColor: "rgba(14, 165, 233, 0.36)",
-    boxShadow: "0 14px 30px rgba(14, 165, 233, 0.24)",
+    boxShadow: "0 8px 18px rgba(14, 165, 233, 0.18)",
     color: "#f8fafc",
   },
   secondary: {
     background: "color-mix(in srgb, var(--bg-card) 84%, #2dd4bf 16%)",
     borderColor: "color-mix(in srgb, var(--border) 48%, #0ea5e9 52%)",
     color: "color-mix(in srgb, var(--text-primary) 82%, #0f766e 18%)",
-    boxShadow: "0 10px 24px rgba(14, 165, 233, 0.12)",
+    boxShadow: "0 6px 14px rgba(14, 165, 233, 0.1)",
   },
   ghost: {},
   danger: {},

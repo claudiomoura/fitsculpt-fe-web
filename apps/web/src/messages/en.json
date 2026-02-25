@@ -50,12 +50,14 @@
   },
   "navSections": {
     "summary": "Summary",
+    "fitness": "Fitness",
     "training": "Training",
     "nutrition": "Nutrition",
     "account": "Account",
     "admin": "Admin",
     "development": "In development",
-    "trainer": "Trainer"
+    "trainer": "Trainer",
+    "more": "More"
   },
   "ui": {
     "menu": "Menu",
@@ -100,7 +102,8 @@
     "previousWeek": "Previous week",
     "nextWeek": "Next week",
     "previousWeekAria": "Go to previous week",
-    "nextWeekAria": "Go to next week"
+    "nextWeekAria": "Go to next week",
+    "viewList": "List"
   },
   "plan": {
     "replicatedWeekLabel": "Week replicated from current plan"
@@ -863,6 +866,7 @@
     "noSelectedPlanTitle": "You don't have any plan selected",
     "noSelectedPlanSubtitle": "Select a plan to view your training calendar.",
     "selectPlanCta": "Select a plan",
+    "createPlanCta": "Create with AI",
     "manualCreate": "Create manually",
     "manualPlanTitle": "Manual weekly plan",
     "manualPlanSubtitle": "Edit meals and ingredients for each day, then save.",
@@ -911,6 +915,7 @@
     "savePlanError": "We couldn't save the plan.",
     "aiGenerate": "Generate with AI",
     "aiGenerating": "Generating with AI...",
+    "aiModuleRequired": "Requires NutriAI or PRO",
     "aiSuccess": "AI plan saved.",
     "aiSuccessModal": {
       "title": "Nutrition plan created",
@@ -1020,7 +1025,10 @@
       }
     },
     "weeklyEmptyTitle": "Weekly view unavailable",
-    "weeklyEmptySubtitle": "There are no meals for this week with the current data yet."
+    "weeklyEmptySubtitle": "There are no meals for this week with the current data yet.",
+    "calendarViewToggleAria": "Select nutrition calendar view",
+    "selectDayAria": "Select day {{date}}",
+    "selectWeekDayAria": "Select {{day}} with {{meals}} meals and {{calories}} kcal"
   },
   "training": {
     "formTitle": "Plan details",
@@ -1053,6 +1061,7 @@
     "generate": "Generate plan",
     "aiGenerate": "Generate with AI",
     "aiGenerating": "Generating with AI...",
+    "aiModuleRequired": "Requires StrengthAI or PRO",
     "aiSuccess": "AI plan saved.",
     "aiError": "We couldn't generate the plan with AI.",
     "aiRateLimit": "You've reached the AI request limit. Try again later.",
@@ -1122,6 +1131,8 @@
     "weekPeakDesc": "Push intensity with heavier sets and fewer reps.",
     "weekDeloadDesc": "Reduce load and volume to recover and reset.",
     "viewTechnique": "View technique",
+    "openFromLibrary": "Open in library",
+    "techniqueUnavailable": "Technique not available for this exercise",
     "setLabel": "Set",
     "repsLabel": "reps",
     "techniqueSubtitle": "Details for",
@@ -1194,6 +1205,8 @@
     "aiPreviewConfirm": "Confirm and save",
     "aiPreviewConfirming": "Saving plan...",
     "aiInvalidOutput": "The AI response was invalid. Please retry generation.",
+    "aiRetryErrorTitle": "We could not generate your AI plan",
+    "aiRetryErrorDescription": "Check your connection and try again.",
     "calendar": {
       "subtitle": "View workouts for the currently selected training plan.",
       "noPlanSelected": "No training plan selected",
@@ -1206,7 +1219,14 @@
       "title": "Plan details",
       "show": "Show plan details",
       "hide": "Hide plan details"
-    }
+    },
+    "selectedPlanLoadError": "We couldn't load the selected plan.",
+    "selectedPlanFallbackToAssigned": "We couldn't access the selected plan. Showing your assigned plan instead.",
+    "calendarViewToggleAria": "Select training calendar view",
+    "calendarViewOptionAria": "Switch to {{view}} view",
+    "activePlanLabel": "Active plan",
+    "activePlanSelected": "Selected",
+    "activePlanAssigned": "Assigned"
   },
   "profile": {
     "formTitle": "Profile and metrics",
@@ -1620,7 +1640,8 @@
     "saveError": "We could not save your onboarding yet. Please retry.",
     "successTitle": "Onboarding completed",
     "successSubtitle": "Your objective, level and preferences were saved successfully.",
-    "continue": "Continue"
+    "continue": "Continue",
+    "defaultsHint": "Non-medical guideline defaults. You can edit them any time."
   },
   "admin": {
     "unauthorized": "You don't have access to this section.",
@@ -1689,7 +1710,15 @@
     "gymRequestsReject": "Reject",
     "gymRequestsConfirmAccept": "Approve this gym join request?",
     "gymRequestsConfirmReject": "Reject this gym join request?",
-    "gymRequestsActionError": "We could not process this request. Please retry."
+    "gymRequestsActionError": "We could not process this request. Please retry.",
+    "usersAssignGymRoleTitle": "Gym role assignment",
+    "usersAssignGymRoleGymLabel": "Gym",
+    "usersAssignGymRoleNoGyms": "No gyms available.",
+    "usersAssignClientAction": "Assign as CLIENT",
+    "usersAssignTrainerAction": "Assign as TRAINER",
+    "usersAssignClientSuccess": "User assigned as CLIENT.",
+    "usersAssignTrainerSuccess": "User assigned as TRAINER.",
+    "usersAssignGymRoleError": "We could not assign this gym role."
   },
   "library": {
     "loadError": "We couldn't load the exercise.",
@@ -1935,6 +1964,7 @@
     "metricFallback": "No data",
     "lastLog": "Last log",
     "exerciseLink": "View exercise details",
+    "exerciseLinkUnavailable": "Exercise detail unavailable in library",
     "targetMuscles": "Target muscles",
     "startWorkout": "Start workout",
     "sessionSubtitle": "Log the session as you train.",
@@ -2794,7 +2824,8 @@
       "emptyTitle": "No gyms available",
       "selectButton": "Select",
       "requestPending": "Request pending",
-      "codeTitle": "Join with gym code"
+      "codeTitle": "Join with gym code",
+      "blockedByActiveMembership": "You already have an active membership in {gymName}. Leave your current gym before requesting access to another one."
     },
     "loadErrorTitle": "We could not load your gym status",
     "loadError": {

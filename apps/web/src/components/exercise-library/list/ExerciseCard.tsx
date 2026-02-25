@@ -6,7 +6,7 @@ type ExerciseCardProps = {
   id?: string | null;
   name: string;
   href?: string;
-  coverUrl: string;
+  coverUrl?: string | null;
   mediaAltPrefix: string;
   muscles: string[];
   noMuscleDataLabel: string;
@@ -39,17 +39,23 @@ export function ExerciseCard({
   onFavoriteToggle,
   onAdd,
 }: ExerciseCardProps) {
+  const hasValidCover = typeof coverUrl === "string" && coverUrl.trim().length > 0;
+
   const content = (
     <>
-      <img
-        src={coverUrl}
-        alt={`${mediaAltPrefix} ${name}`}
-        className="exercise-card-media"
-        onError={(event) => {
-          if (event.currentTarget.src.endsWith("/placeholders/exercise-cover.jpg")) return;
-          event.currentTarget.src = "/placeholders/exercise-cover.jpg";
-        }}
-      />
+      {hasValidCover ? (
+        <img
+          src={coverUrl}
+          alt={`${mediaAltPrefix} ${name}`}
+          className="exercise-card-media"
+          loading="lazy"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      ) : (
+        <div className="exercise-card-media exercise-card-media--placeholder" aria-hidden="true" />
+      )}
       <h3>{name}</h3>
       <div className="badge-list">
         {muscles.length > 0 ? (
@@ -103,7 +109,8 @@ export function ExerciseCard({
       <Button
         variant="secondary"
         size="sm"
-        className="library-favorite-button"
+        className="library-add-button"
+        aria-label={addLabel}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -115,4 +122,3 @@ export function ExerciseCard({
     </div>
   );
 }
-

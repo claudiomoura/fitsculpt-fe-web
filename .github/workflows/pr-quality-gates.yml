@@ -4,62 +4,111 @@ on:
   pull_request:
 
 jobs:
-  web-build:
-    name: Web Build
+  web-quality-gates:
+    name: Web Quality Gates (lint/typecheck/build/test)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - name: Install web dependencies
-        run: npm ci --prefix apps/web
-      - name: Build web
-        run: npm run build --prefix apps/web
 
-  web-lint:
-    name: Web Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run quality gates
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts/web
+
+          npm run lint | tee ../artifacts/web/lint.log
+          npm run typecheck | tee ../artifacts/web/typecheck.log
+          npm run build | tee ../artifacts/web/build.log
+          npm test | tee ../artifacts/web/test.log
+
+      - name: Upload web gate logs
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-      - name: Install web dependencies
-        run: npm ci --prefix apps/web
-      - name: Lint web
-        run: npm run lint --prefix apps/web
+          name: web-quality-gate-logs
+          path: apps/artifacts/web
+          if-no-files-found: warn
 
-  web-tests:
-    name: Web Tests
+  api-quality-gates:
+    name: API Quality Gates (typecheck/build/test)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-      - name: Install web dependencies
-        run: npm ci --prefix apps/web
-      - name: Test web
-        run: npm test --prefix apps/web
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  api-tests:
-    name: API Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: apps/api/package-lock.json
-      - name: Install api dependencies
-        run: npm ci --prefix apps/api
-      - name: Test api
-        run: npm test --prefix apps/api
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run quality gates
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts/api
+
+          npm run typecheck | tee ../artifacts/api/typecheck.log
+          npm run build | tee ../artifacts/api/build.log
+          npm test | tee ../artifacts/api/test.log
+
+      - name: Upload API gate logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-quality-gate-logs
+          path: apps/artifacts/api
+          if-no-files-found: warn
+
+  web-contract-gate:
+    name: Web Contract Drift Gate (BFF critical endpoints)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run BFF contract drift gate
+        run: |
+          set -euo pipefail
+          mkdir -p ../artifacts/web
+          npm run test:contracts | tee ../artifacts/web/contract-tests.log
+
+      - name: Upload contract gate logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-contract-gate-logs
+          path: apps/artifacts/web/contract-tests.log
+          if-no-files-found: warn

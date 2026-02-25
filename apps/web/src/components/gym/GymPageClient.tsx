@@ -72,8 +72,9 @@ export default function GymPageClient() {
   const isMembershipPending = membership.status === "PENDING";
   const isMembershipActive = membership.status === "ACTIVE";
   const isMembershipNone = membership.status === "NONE";
-  const canRenderJoinActions = isMembershipNone || membership.status === "REJECTED";
-  const shouldDisableJoinActions = requestingJoin || gymsLoading || joinRequestUnsupported || isMembershipPending || isMembershipActive;
+  const canRenderJoinActions = isMembershipNone || membership.status === "REJECTED" || isMembershipActive;
+  const shouldDisableJoinActions = requestingJoin || gymsLoading || joinRequestUnsupported || isMembershipPending;
+  const hasActiveMembershipInAnotherGym = isMembershipActive;
   const isActionsDisabled = isMembershipPending || (canRenderJoinActions && joinRequestUnsupported && joinCodeUnsupported);
 
   const loadGyms = useCallback(async () => {
@@ -139,15 +140,17 @@ export default function GymPageClient() {
     void loadData();
   }, [loadData]);
 
-  const requestJoin = async () => {
-    if (!selectedGymId || shouldDisableJoinActions) return;
+  const requestJoin = async (gymId?: string) => {
+    const targetGymId = gymId ?? selectedGymId;
+
+    if (!targetGymId || shouldDisableJoinActions || hasActiveMembershipInAnotherGym) return;
 
     setRequestingJoin(true);
     setActionError(null);
     setActionSuccess(null);
 
     try {
-      const response = await requestGymJoin(selectedGymId);
+      const response = await requestGymJoin(targetGymId);
 
       if (!response.ok && response.reason === "unsupported") {
         setJoinRequestUnsupported(true);
@@ -372,6 +375,9 @@ export default function GymPageClient() {
                 membership.gymId && membership.gymId === gym.id && (membership.status === "PENDING" || membership.status === "ACTIVE")
                   ? membership.status
                   : "NONE";
+              const isCurrentGym = membership.gymId === gym.id;
+              const shouldDisableGymSelection = shouldDisableJoinActions || (hasActiveMembershipInAnotherGym && !isCurrentGym);
+              const shouldDisableGymRequest = shouldDisableGymSelection || hasActiveMembershipInAnotherGym;
 
               return (
                 <GymCard
@@ -380,9 +386,9 @@ export default function GymPageClient() {
                   name={gym.name}
                   membershipStatus={safeStatus}
                   isSelected={selectedGymId === gym.id}
-                  disabled={shouldDisableJoinActions}
+                  disabled={shouldDisableGymSelection}
                   onSelect={setSelectedGymId}
-                  onRequestJoin={() => void requestJoin()}
+                  onRequestJoin={() => void requestJoin(gym.id)}
                   statusLabels={{
                     pending: t("gym.membership.pending.badge"),
                     active: t("gym.membership.active.badge"),
@@ -391,10 +397,19 @@ export default function GymPageClient() {
                   selectLabel={t("gym.join.selectButton")}
                   requestLabel={t("gym.join.requestButton")}
                   pendingRequestLabel={t("gym.join.requestPending")}
+                  requestDisabled={shouldDisableGymRequest}
                 />
               );
             })
           )
+        ) : null}
+
+        {hasActiveMembershipInAnotherGym ? (
+          <Card>
+            <CardContent>
+              <p className="muted m-0">{t("gym.join.blockedByActiveMembership", { gymName: membership.gymName ?? t("common.notAvailable") })}</p>
+            </CardContent>
+          </Card>
         ) : null}
 
         {canRenderJoinActions ? (
@@ -408,7 +423,7 @@ export default function GymPageClient() {
                 {t("gym.join.codeLabel")}
                 <input id="gym-join-code" value={code} onChange={(event) => setCode(event.target.value)} />
               </label>
-              <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || joinCodeUnsupported || !code.trim()}>
+              <Button onClick={() => void joinUsingCode()} disabled={joiningByCode || joinCodeUnsupported || !code.trim() || isMembershipActive}>
                 {joiningByCode ? t("common.loading") : t("gym.join.codeButton")}
               </Button>
             </CardContent>

@@ -1,7 +1,7 @@
 import { canAccessAdmin, type RoleAccessInput } from "@/config/roleAccess";
 import { canAccessFeature, type EntitlementFeature, type UiEntitlements } from "@/lib/entitlements";
 
-export type NavSection = "summary" | "training" | "nutrition" | "account" | "admin" | "trainer" | "development";
+export type NavSection = "fitness" | "training" | "nutrition" | "account" | "more" | "admin" | "trainer" | "development";
 
 export type NavItem = {
   id: string;
@@ -56,13 +56,7 @@ export const mainTabsMobile: MobileTab[] = [
     icon: "sparkles",
   },
   {
-    id: "dashboard",
-    href: "/app",
-    labelKey: "nav.progress",
-    icon: "info",
-  },
-  {
-    id: "plan",
+    id: "training",
     href: "/app/entrenamiento",
     labelKey: "nav.trainingCalendar",
     icon: "dumbbell",
@@ -81,42 +75,55 @@ export const mainTabsMobile: MobileTab[] = [
     feature: "nutrition",
     upgradeHref: "/app/settings/billing",
   },
+  { id: "settings", href: "/app/settings", labelKey: "nav.settings", icon: "info" },
+];
+
+
+export const trainerTabsMobile: MobileTab[] = [
   {
-    id: "tracking",
-    href: "/app/seguimiento",
-    labelKey: "nav.tracking",
+    id: "trainer-home",
+    href: "/app/trainer",
+    labelKey: "nav.trainer",
+    icon: "sparkles",
+  },
+  {
+    id: "trainer-clients",
+    href: "/app/trainer/clients",
+    labelKey: "nav.trainerClients",
+    icon: "book",
+  },
+  {
+    id: "trainer-plans",
+    href: "/app/trainer/plans",
+    labelKey: "nav.trainerPlans",
+    icon: "dumbbell",
+  },
+  {
+    id: "trainer-exercises",
+    href: "/app/trainer/exercises",
+    labelKey: "nav.trainerExercises",
     icon: "check",
   },
 ];
 
 export const sidebarUser: NavSectionGroup[] = [
   {
-    id: "summary",
-    labelKey: "navSections.summary",
+    id: "fitness",
+    labelKey: "navSections.fitness",
     items: [
       { id: "today", href: "/app/hoy", labelKey: "nav.today" },
-      { id: "dashboard", href: "/app", labelKey: "nav.progress" },
-      { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
-      { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
-      { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
-    ],
-  },
-  {
-    id: "training",
-    labelKey: "navSections.training",
-    items: [
-      { id: "training-plan", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
+      { id: "training", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
+      { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
       { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
-      { id: "library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
     ],
   },
   {
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
     ],
   },
@@ -124,9 +131,13 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "account",
     labelKey: "navSections.account",
     items: [
+      { id: "dashboard", href: "/app", labelKey: "nav.progress" },
+      { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
+      { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
+      { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
+      { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
       { id: "gym", href: "/app/gym", labelKey: "nav.gym", feature: "strength", upgradeHref: "/pricing" },
-      { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
     ],
   },
 ];
@@ -293,7 +304,7 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
   const isTrainer = input.isCoach === true;
 
   if (isTrainer && !isAdmin) {
-    return [...sidebarTrainer, ...sidebarAccountOnly];
+    return sidebarTrainer;
   }
 
   const userSections = buildUserSections(input);

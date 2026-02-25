@@ -1,14 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createTrackingEntry } from "@/services/tracking";
-import QuickActionsGrid, { type TodayQuickAction } from "@/components/today/QuickActionsGrid";
-import { EmptyState } from "@/components/states/EmptyState";
-import { ErrorState } from "@/components/states/ErrorState";
-import { LoadingState } from "@/components/states/LoadingState";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { EmptyBlock, ErrorBlock, LoadingBlock, Stack } from "@/design-system/components";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
+import { createTrackingEntry } from "@/services/tracking";
 
 type ViewStatus = "loading" | "success" | "empty" | "error";
 type CheckinActionStatus = "idle" | "loading" | "success" | "error";
@@ -132,8 +131,6 @@ export default function TodayQuickActionsClient() {
     };
   }, [loadQuickActions]);
 
-
-
   const handleLogTodayCheckin = useCallback(async () => {
     if (checkinActionStatus === "loading") return;
     setCheckinActionStatus("loading");
@@ -169,79 +166,102 @@ export default function TodayQuickActionsClient() {
   }, [checkinActionStatus, t]);
 
   const returnToHoy = encodeURIComponent("/app/hoy");
-  const actions = useMemo<TodayQuickAction[]>(() => {
-    return [
-      {
-        id: "complete-today-action",
-        title: t("quickActions.completeTodayActionTitle"),
-        description: t("quickActions.completeTodayActionDescription"),
-        outcome:
-          checkinActionStatus === "success"
-            ? t("quickActions.completeTodayActionSuccess")
-            : checkinActionStatus === "error"
-              ? t("quickActions.completeTodayActionError")
-              : t("quickActions.completeTodayActionOutcome"),
-        ctaLabel:
-          checkinActionStatus === "success"
-            ? t("quickActions.completeTodayActionDoneCta")
-            : t("quickActions.completeTodayActionCta"),
-        onClick: availability.checkinReady ? () => void handleLogTodayCheckin() : undefined,
-        loading: checkinActionStatus === "loading",
-        disabledHint: t("quickActions.completeTodayActionUnavailable"),
-      },
+
+  const supportingActions = useMemo(
+    () => [
       {
         id: "register-training",
-        title: t("quickActions.registerTrainingTitle"),
-        description: t("quickActions.registerTrainingDescription"),
-        outcome: t("quickActions.registerTrainingOutcome"),
-        ctaLabel: t("quickActions.registerTrainingCta"),
+        label: t("quickActions.registerTrainingCta"),
         href: availability.trainingReady ? `/app/entrenamiento?from=hoy&returnTo=${returnToHoy}` : undefined,
-        disabledHint: t("quickActions.registerTrainingUnavailable"),
       },
       {
         id: "register-food",
-        title: t("quickActions.registerFoodTitle"),
-        description: t("quickActions.registerFoodDescription"),
-        outcome: t("quickActions.registerFoodOutcome"),
-        ctaLabel: t("quickActions.registerFoodCta"),
+        label: t("quickActions.registerFoodCta"),
         href: availability.foodReady ? `/app/macros?from=hoy&returnTo=${returnToHoy}` : undefined,
-        disabledHint: t("quickActions.registerFoodUnavailable"),
       },
       {
         id: "view-plan-today",
-        title: t("quickActions.viewTodayPlanTitle"),
-        description: t("quickActions.viewTodayPlanDescription"),
-        outcome: t("quickActions.viewTodayPlanOutcome"),
-        ctaLabel: t("quickActions.viewTodayPlanCta"),
+        label: t("quickActions.viewTodayPlanCta"),
         href: availability.planReady ? `/app/entrenamiento?from=hoy&returnTo=${returnToHoy}` : undefined,
-        disabledHint: t("quickActions.viewTodayPlanUnavailable"),
       },
-    ];
-  }, [availability, checkinActionStatus, handleLogTodayCheckin, returnToHoy, t]);
+    ],
+    [availability.foodReady, availability.planReady, availability.trainingReady, returnToHoy, t],
+  );
 
   if (status === "loading") {
-    return <LoadingState ariaLabel={t("quickActions.loadingAria")} lines={4} showCard={false} />;
+    return <LoadingBlock title={t("quickActions.loadingAria")} centered={false} className="rounded-2xl border border-subtle" />;
   }
 
   if (status === "error") {
     return (
-      <ErrorState
+      <ErrorBlock
         title={t("quickActions.errorTitle")}
         description={t("quickActions.errorDescription")}
-        actions={[{ label: t("ui.retry"), onClick: () => void loadQuickActions(), variant: "secondary" }]}
+        centered={false}
+        className="rounded-2xl border border-subtle"
+        retryAction={
+          <Button variant="secondary" onClick={() => void loadQuickActions()}>
+            {t("ui.retry")}
+          </Button>
+        }
       />
     );
   }
 
   if (status === "empty") {
     return (
-      <EmptyState
+      <EmptyBlock
         title={t("quickActions.emptyTitle")}
         description={t("quickActions.emptyDescription")}
-        actions={[{ label: t("ui.retry"), onClick: () => void loadQuickActions(), variant: "secondary" }]}
+        centered={false}
+        className="rounded-2xl border border-subtle"
+        action={
+          <Button variant="secondary" onClick={() => void loadQuickActions()}>
+            {t("ui.retry")}
+          </Button>
+        }
       />
     );
   }
 
-  return <QuickActionsGrid actions={actions} />;
+  const ctaLabel = checkinActionStatus === "success" ? t("quickActions.completeTodayActionDoneCta") : t("quickActions.completeTodayActionCta");
+  const ctaOutcome =
+    checkinActionStatus === "success"
+      ? t("quickActions.completeTodayActionSuccess")
+      : checkinActionStatus === "error"
+        ? t("quickActions.completeTodayActionError")
+        : t("quickActions.completeTodayActionOutcome");
+
+  return (
+    <section className="card" aria-live="polite">
+      <Stack gap="4">
+        <div className="inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
+          {t("today.focusTitle")}
+        </div>
+        <div>
+          <h2 className="section-title section-title-sm">{t("quickActions.completeTodayActionTitle")}</h2>
+          <p className="section-subtitle">{t("quickActions.completeTodayActionDescription")}</p>
+          <p className="text-sm text-text-muted">{ctaOutcome}</p>
+        </div>
+
+        <Button size="lg" onClick={() => void handleLogTodayCheckin()} loading={checkinActionStatus === "loading"}>
+          {ctaLabel}
+        </Button>
+
+        <Stack gap="2">
+          {supportingActions.map((action) =>
+            action.href ? (
+              <ButtonLink key={action.id} as={Link} href={action.href} variant="secondary" size="lg" className="w-full">
+                {action.label}
+              </ButtonLink>
+            ) : (
+              <Button key={action.id} variant="secondary" size="lg" className="w-full" disabled>
+                {action.label}
+              </Button>
+            ),
+          )}
+        </Stack>
+      </Stack>
+    </section>
+  );
 }
