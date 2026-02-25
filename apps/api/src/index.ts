@@ -2574,6 +2574,55 @@ function getNutritionInvalidOutputDebug(error: unknown) {
   };
 }
 
+type NutritionErrorKind = "validation_error" | "ai_parse_error" | "upstream_error" | "internal_error";
+
+function getNutritionErrorKind(error: unknown): NutritionErrorKind {
+  if (error instanceof z.ZodError) {
+    return "validation_error";
+  }
+
+  const typed = error as { code?: string; statusCode?: number; debug?: Record<string, unknown> };
+  if (typed.code === "INVALID_INPUT" || typed.statusCode === 400) {
+    return "validation_error";
+  }
+
+  if (typed.code === "AI_PARSE_ERROR" || typed.code === "INVALID_AI_OUTPUT" || typed.code === "AI_EMPTY_RESPONSE") {
+    return "ai_parse_error";
+  }
+
+  const upstreamStatus = typed.debug?.status;
+  if (
+    typed.code === "AI_REQUEST_FAILED" ||
+    typed.code === "AI_AUTH_FAILED" ||
+    (typeof upstreamStatus === "number" && upstreamStatus >= 500)
+  ) {
+    return "upstream_error";
+  }
+
+  return "internal_error";
+}
+
+function getNutritionErrorContext(error: unknown, aiRequestId?: string | null) {
+  const typed = error as { debug?: Record<string, unknown>; statusCode?: number };
+  const debug = typed.debug;
+  const upstreamStatus = typeof debug?.status === "number" ? debug.status : undefined;
+  const errorKind = getNutritionErrorKind(error);
+  const resolvedAiRequestId =
+    aiRequestId ??
+    (typeof debug?.aiRequestId === "string" && debug.aiRequestId.length > 0
+      ? debug.aiRequestId
+      : typeof debug?.requestId === "string" && debug.requestId.length > 0
+        ? debug.requestId
+        : undefined);
+
+  return {
+    error_kind: errorKind,
+    ...(typeof typed.statusCode === "number" ? { statusCode: typed.statusCode } : {}),
+    ...(typeof upstreamStatus === "number" ? { upstream_status: upstreamStatus } : {}),
+    ...(resolvedAiRequestId ? { aiRequestId: resolvedAiRequestId } : {}),
+  };
+}
+
 function summarizeNutritionMath(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
   return {
     dailyCalories: plan.dailyCalories,
@@ -6145,22 +6194,21 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
       );
       app.log.warn(
         {
-          request: {
-            mealsPerDay: payload.mealsPerDay,
-            targetKcal: payload.targetKcal,
-            macroTargets: payload.macroTargets,
-            startDate: payload.startDate,
-            daysCount: payload.daysCount,
-            dietType: payload.dietType,
-          },
-          rawOutputPreview: process.env.NODE_ENV === "production" ? undefined : lastRawOutput.slice(0, 2000),
+          aiRequestId: aiResult?.requestId ?? null,
+          upstream_status:
+            typeof (lastError as { debug?: Record<string, unknown> })?.debug?.status === "number"
+              ? ((lastError as { debug?: Record<string, unknown> }).debug?.status as number)
+              : undefined,
+          error_kind: getNutritionErrorKind(lastError),
+          outputPreviewLength: lastRawOutput.length,
           reasonCode: debug.reasonCode,
           details: debug.details,
         },
         "nutrition generation invalid ai output"
       );
-      throw createHttpError(400, "INVALID_AI_OUTPUT", {
+      throw createHttpError(502, "AI_PARSE_ERROR", {
         message: "No se pudo generar un plan nutricional válido tras reintento.",
+        aiRequestId: aiResult?.requestId ?? undefined,
         ...debug,
       });
     }
@@ -6200,6 +6248,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
         daysCount,
         persisted: true,
         planId: savedPlan.id,
+        aiRequestId: aiResult?.requestId ?? null,
       },
       "nutrition plan generation result"
     );
@@ -6211,6 +6260,9 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
       aiRequestId: aiResult?.requestId ?? null,
     });
   } catch (error) {
+    const errorContext = getNutritionErrorContext(error);
+    const logger = errorContext.error_kind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
+    logger({ err: error, route: "/ai/nutrition-plan/generate", ...errorContext }, "nutrition plan generate failed");
     return handleRequestError(reply, error);
   }
 });
