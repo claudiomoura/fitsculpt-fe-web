@@ -2,16 +2,15 @@ import { NextResponse } from "next/server";
 import { getBackendUrl } from "@/lib/backend";
 import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
 import { contractDriftResponse, validateAiNutritionGeneratePayload } from "@/lib/runtimeContracts";
+import { aiRequestFailedResponse, mapAiUpstreamError, parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
 
 export const dynamic = "force-dynamic";
 
-const upstreamErrorResponse = { error: "UPSTREAM_ERROR" };
-const upstreamClientErrorResponse = { error: "AI_REQUEST_FAILED" };
 
 export async function POST(request: Request) {
-  const { header: authCookie, debug } = await getBackendAuthCookie(request);
+  const { header: authCookie } = await getBackendAuthCookie(request);
   if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED_NO_FS_TOKEN", debug }, { status: 401 });
+    return NextResponse.json({ error: "UNAUTHORIZED_NO_FS_TOKEN" }, { status: 401 });
   }
 
   try {
@@ -27,54 +26,23 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
     const responseText = await response.text();
-    if (!responseText) {
-      if (response.status >= 500) {
-        return NextResponse.json(upstreamErrorResponse, { status: 502 });
-      }
+    const data = parseJsonOrNull(responseText);
 
-      return NextResponse.json(upstreamClientErrorResponse, { status: response.status });
+    if (!response.ok) {
+      return mapAiUpstreamError(response.status, data);
     }
 
-    try {
-      const data = JSON.parse(responseText);
-      if (!response.ok) {
-        if (response.status >= 500) {
-          if (typeof data?.error === "string") {
-            return NextResponse.json({ error: data.error }, { status: 502 });
-          }
-
-          return NextResponse.json(upstreamErrorResponse, { status: 502 });
-        }
-
-        if (typeof data?.error === "string") {
-          return NextResponse.json(data, { status: response.status });
-        }
-
-        return NextResponse.json(upstreamClientErrorResponse, { status: response.status });
-      }
-
-      const validation = validateAiNutritionGeneratePayload(data);
-      if (!validation.ok) {
-        return NextResponse.json(contractDriftResponse("/ai/nutrition-plan/generate", validation.reason ?? "UNKNOWN"), { status: 502 });
-      }
-
-      return NextResponse.json(data, { status: response.status });
-    } catch (_err) {
-      if (response.status >= 500) {
-        return NextResponse.json(upstreamErrorResponse, { status: 502 });
-      }
-
-      return NextResponse.json(upstreamClientErrorResponse, { status: response.status });
+    if (data === null) {
+      return aiRequestFailedResponse(502);
     }
+
+    const validation = validateAiNutritionGeneratePayload(data);
+    if (!validation.ok) {
+      return NextResponse.json(contractDriftResponse("/ai/nutrition-plan/generate", validation.reason ?? "UNKNOWN"), { status: 502 });
+    }
+
+    return NextResponse.json(data, { status: response.status });
   } catch (_err) {
-    return NextResponse.json(
-      {
-        error: "AI_REQUEST_FAILED",
-        debug: {
-          reason: "BACKEND_UNAVAILABLE",
-        },
-      },
-      { status: 502 },
-    );
+    return aiRequestFailedResponse(502);
   }
 }
