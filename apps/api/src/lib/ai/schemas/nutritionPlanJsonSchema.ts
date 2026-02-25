@@ -29,6 +29,7 @@ export const nutritionPlanJsonSchema = {
               additionalProperties: false,
               properties: {
                 type: { type: "string", enum: ["breakfast", "lunch", "dinner", "snack"] },
+                recipeId: { type: ["string", "null"] },
                 title: { type: "string" },
                 description: { type: ["string", "null"] },
 
@@ -57,7 +58,7 @@ export const nutritionPlanJsonSchema = {
                   },
                 },
               },
-              required: ["type", "title", "description", "macros", "ingredients"],
+              required: ["type", "recipeId", "title", "description", "macros", "ingredients"],
             },
           },
         },
