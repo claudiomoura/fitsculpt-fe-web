@@ -1704,7 +1704,15 @@
     "gymRequestsReject": "Reject",
     "gymRequestsConfirmAccept": "Approve this gym join request?",
     "gymRequestsConfirmReject": "Reject this gym join request?",
-    "gymRequestsActionError": "We could not process this request. Please retry."
+    "gymRequestsActionError": "We could not process this request. Please retry.",
+    "usersAssignGymRoleTitle": "Gym role assignment",
+    "usersAssignGymRoleGymLabel": "Gym",
+    "usersAssignGymRoleNoGyms": "No gyms available.",
+    "usersAssignClientAction": "Assign as CLIENT",
+    "usersAssignTrainerAction": "Assign as TRAINER",
+    "usersAssignClientSuccess": "User assigned as CLIENT.",
+    "usersAssignTrainerSuccess": "User assigned as TRAINER.",
+    "usersAssignGymRoleError": "We could not assign this gym role."
   },
   "library": {
     "loadError": "We couldn't load the exercise.",
