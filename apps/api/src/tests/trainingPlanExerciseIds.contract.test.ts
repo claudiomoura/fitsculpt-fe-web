@@ -42,8 +42,8 @@ const validPlan: Plan = {
       label: "Día 1",
       exercises: [
         { exerciseId: "ex_001", name: "Sentadilla", sets: 3, reps: "8-10" },
-        { exerciseId: null, name: "Press banca", sets: 3, reps: "8-10" },
-        { name: " Remo  con barra!!! ", sets: 3, reps: "8-10" },
+        { exerciseId: "ex_002", name: "Press banca", sets: 3, reps: "8-10" },
+        { exerciseId: "ex_003", name: " Remo  con barra!!! ", sets: 3, reps: "8-10" },
       ],
     },
   ],
@@ -55,29 +55,20 @@ assert.equal(resolvedValidPlan.days[0]?.exercises[1]?.exerciseId, "ex_002");
 assert.equal(resolvedValidPlan.days[0]?.exercises[1]?.imageUrl, "https://cdn.example/press.jpg");
 assert.equal(resolvedValidPlan.days[0]?.exercises[2]?.exerciseId, "ex_003");
 
-const englishCatalog = [
-  {
-    id: "all-fours-quad-stretch-id",
-    name: "All Fours Quad Stretch",
-    imageUrl: "https://cdn.example/all-fours-quad-stretch.jpg",
-  },
-];
 
-const englishPlan: Plan = {
-  title: "English resolution",
+const unknownIdPlan: Plan = {
+  title: "Plan con id desconocido",
   days: [
     {
-      label: "Day 1",
-      exercises: [{ name: "All Fours Quad Stretch", sets: 2, reps: "30s" }],
+      label: "Día 1",
+      exercises: [{ exerciseId: "does-not-exist", name: "Sentadilla", sets: 3, reps: "8-10" }],
     },
   ],
 };
 
-const resolvedEnglishPlan = assertAllPlanExercisesExist(englishPlan, englishCatalog);
-assert.equal(resolvedEnglishPlan.days[0]?.exercises[0]?.exerciseId, "all-fours-quad-stretch-id");
-assert.equal(
-  resolvedEnglishPlan.days[0]?.exercises[0]?.imageUrl,
-  "https://cdn.example/all-fours-quad-stretch.jpg"
+assert.throws(
+  () => assertAllPlanExercisesExist(unknownIdPlan, catalog),
+  /Generated plan includes unresolved exercises: Día 1: sentadilla/
 );
 
 const invalidPlan: Plan = {
