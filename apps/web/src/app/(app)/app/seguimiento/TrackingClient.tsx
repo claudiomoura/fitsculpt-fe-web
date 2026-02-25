@@ -939,7 +939,20 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           </div>
           {!isWeightValid && isTrackingReady ? <p className="muted">{t("tracking.weightEntryInvalid")}</p> : null}
           {submitError ? <p className="muted">{submitError}</p> : null}
-          {trackingStatus === "error" ? <p className="muted">{t("tracking.weightEntryUnavailable")}</p> : null}
+          {trackingStatus === "error" ? (
+            <div className="form-stack" style={{ gap: 8 }}>
+              <p className="muted">{t("tracking.weightEntryUnavailable")}</p>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => {
+                  void refreshTrackingData({ showLoading: true, showError: true });
+                }}
+              >
+                {t("ui.retry")}
+              </button>
+            </div>
+          ) : null}
           <button
             type="submit"
             className={`btn ${isSubmitting ? "is-loading" : ""}`}
@@ -1218,7 +1231,20 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
           {!isBodyFatValid && isTrackingReady ? <p className="muted">{t("tracking.bodyFatInvalid")}</p> : null}
           {submitError ? <p className="muted">{submitError}</p> : null}
-          {trackingStatus === "error" ? <p className="muted">{t("tracking.checkinUnavailable")}</p> : null}
+          {trackingStatus === "error" ? (
+            <div className="form-stack" style={{ gap: 8 }}>
+              <p className="muted">{t("tracking.checkinUnavailable")}</p>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => {
+                  void refreshTrackingData({ showLoading: true, showError: true });
+                }}
+              >
+                {t("ui.retry")}
+              </button>
+            </div>
+          ) : null}
           <button
             type="submit"
             className={`btn ${isSubmitting ? "is-loading" : ""}`}

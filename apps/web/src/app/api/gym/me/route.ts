@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeMembershipPayload } from "@/lib/gym-contracts";
+import { contractDriftResponse, validateMembershipPayload } from "@/lib/runtimeContracts";
 import { fetchBackend } from "../../gyms/_proxy";
 
 export async function GET() {
@@ -15,7 +16,14 @@ export async function GET() {
     return NextResponse.json(result.payload, { status: result.status });
   }
 
-  return NextResponse.json({ data: normalizeMembershipPayload(result.payload) }, { status: result.status });
+  const normalized = normalizeMembershipPayload(result.payload);
+  const validation = validateMembershipPayload(normalized);
+
+  if (!validation.ok) {
+    return NextResponse.json(contractDriftResponse("/gym/me", validation.reason ?? "UNKNOWN"), { status: 502 });
+  }
+
+  return NextResponse.json({ data: normalized }, { status: result.status });
 }
 
 export async function DELETE() {

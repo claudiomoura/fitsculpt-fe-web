@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
+import { contractDriftResponse, validateExerciseDetailPayload } from "@/lib/runtimeContracts";
 
 async function getAuthCookie() {
   const token = (await cookies()).get("fs_token")?.value;
@@ -22,6 +23,13 @@ export async function GET(
     cache: "no-store",
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
+  if (response.ok) {
+    const validation = validateExerciseDetailPayload(data);
+    if (!validation.ok) {
+      return NextResponse.json(contractDriftResponse("/exercises/:id", validation.reason ?? "UNKNOWN"), { status: 502 });
+    }
+  }
+
   return NextResponse.json(data, { status: response.status });
 }

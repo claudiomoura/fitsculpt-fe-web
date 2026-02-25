@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
+import { contractDriftResponse, validateExercisesListPayload } from "@/lib/runtimeContracts";
 
 async function getAuthCookie() {
   const token = (await cookies()).get("fs_token")?.value;
@@ -19,7 +20,14 @@ export async function GET(request: Request) {
     cache: "no-store",
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
+  if (response.ok) {
+    const validation = validateExercisesListPayload(data);
+    if (!validation.ok) {
+      return NextResponse.json(contractDriftResponse("/exercises", validation.reason ?? "UNKNOWN"), { status: 502 });
+    }
+  }
+
   return NextResponse.json(data, { status: response.status });
 }
 
@@ -40,6 +48,6 @@ export async function POST(request: Request) {
     cache: "no-store",
   });
 
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
   return NextResponse.json(data, { status: response.status });
 }
