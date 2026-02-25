@@ -55,6 +55,7 @@ import {
 import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/service.js";
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
+import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 
 
 const env = getEnv();
@@ -5098,6 +5099,12 @@ app.delete("/tracking/:collection/:id", async (request, reply) => {
 registerWeeklyReviewRoute(app, {
   requireUser,
   getOrCreateProfile,
+  handleRequestError,
+});
+
+registerAdminAssignGymRoleRoutes(app, {
+  prisma,
+  requireAdmin,
   handleRequestError,
 });
 
