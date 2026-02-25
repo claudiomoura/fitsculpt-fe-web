@@ -1638,7 +1638,8 @@
     "saveError": "Todavía no pudimos guardar tu onboarding. Reintenta por favor.",
     "successTitle": "Onboarding completado",
     "successSubtitle": "Tu objetivo, nivel y preferencias se guardaron correctamente.",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "defaultsHint": "Valores orientativos no médicos. Puedes editarlos cuando quieras."
   },
   "admin": {
     "unauthorized": "No tienes acceso a esta sección.",

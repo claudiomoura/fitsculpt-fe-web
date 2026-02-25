@@ -134,5 +134,8 @@
     "activePlanLabel": "Plano ativo",
     "activePlanSelected": "Selecionado",
     "activePlanAssigned": "Atribuído"
+  },
+  "onboarding": {
+    "defaultsHint": "Valores orientativos não médicos. Pode editá-los quando quiser."
   }
 }
