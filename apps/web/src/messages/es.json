@@ -933,6 +933,11 @@
       "dayPreviewTitle": "Vista rápida del día",
       "aiBlockTitle": "IA",
       "tokensUsed": "Tokens consumidos",
+      "promptTokens": "Tokens de prompt",
+      "completionTokens": "Tokens de respuesta",
+      "fallbackTokens": "Fallback (0 tokens)",
+      "notAvailable": "No disponible",
+      "aiRequestId": "aiRequestId",
       "currentBalance": "Balance actual",
       "viewPlan": "Ver plan",
       "close": "Cerrar"

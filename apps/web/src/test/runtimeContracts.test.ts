@@ -54,4 +54,19 @@ describe("runtimeContracts", () => {
   it("accepts ai nutrition valid shape", () => {
     expect(validateAiNutritionGeneratePayload({ plan: {}, aiTokenBalance: 2, aiTokenRenewalAt: null }).ok).toBe(true);
   });
+
+  it("accepts optional AI usage fields", () => {
+    expect(
+      validateAiNutritionGeneratePayload({
+        plan: {},
+        usage: { total_tokens: 123, prompt_tokens: 45, completion_tokens: 78 },
+        mode: "AI",
+        aiRequestId: "req_123",
+      }).ok,
+    ).toBe(true);
+  });
+
+  it("rejects invalid AI usage fields", () => {
+    expect(validateAiNutritionGeneratePayload({ plan: {}, usage: { total_tokens: "123" } }).ok).toBe(false);
+  });
 });
