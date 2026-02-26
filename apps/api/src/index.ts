@@ -22,6 +22,7 @@ import {
   buildUsageTotals,
   chargeAiUsage,
   chargeAiUsageForResult,
+  extractExactProviderUsage,
   persistAiUsageLog,
 } from "./ai/chargeAiUsage.js";
 import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiClient.js";
@@ -5458,10 +5459,14 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
         "ai charge skipped"
       );
     }
+    const aiResponse = aiResult as OpenAiResponse | null;
+    const exactUsage = extractExactProviderUsage(aiResponse?.usage);
     return reply.status(200).send({
       plan: resolvedPlan,
+      aiRequestId: aiResponse?.requestId ?? null,
       aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
       aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(exactUsage ? { usage: exactUsage } : {}),
       ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
@@ -5776,10 +5781,14 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         "ai charge skipped"
       );
     }
+    const aiResponse = aiResult as OpenAiResponse | null;
+    const exactUsage = extractExactProviderUsage(aiResponse?.usage);
     return reply.status(200).send({
       plan: personalized,
+      aiRequestId: aiResponse?.requestId ?? null,
       aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
       aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(exactUsage ? { usage: exactUsage } : {}),
       ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
@@ -5946,11 +5955,13 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
       });
     }
 
+    const exactUsage = extractExactProviderUsage(aiResult?.usage);
     return reply.status(200).send({
       planId: savedPlan.id,
       summary: summarizeTrainingPlan(resolvedPlan),
       plan: resolvedPlan,
       aiRequestId: aiResult?.requestId ?? null,
+      ...(exactUsage ? { usage: exactUsage } : {}),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -6252,11 +6263,13 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (re
       "nutrition plan generation result"
     );
 
+    const exactUsage = extractExactProviderUsage(aiResult?.usage);
     return reply.status(200).send({
       planId: savedPlan.id,
       summary: summarizeNutritionPlan(parsedPlan),
       plan: parsedPlan,
       aiRequestId: aiResult?.requestId ?? null,
+      ...(exactUsage ? { usage: exactUsage } : {}),
     });
   } catch (error) {
     const errorContext = getNutritionErrorContext(error);
