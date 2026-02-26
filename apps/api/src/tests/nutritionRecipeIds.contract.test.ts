@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  applyNutritionPlanVarietyGuard,
   findInvalidNutritionRecipeIds,
   resolveNutritionPlanRecipeIds,
   type NutritionRecipeCatalogItem,
@@ -85,6 +86,47 @@ assert.equal(resolved.invalidMeals.length, 2);
 assert.equal(resolved.plan.days[0]?.meals[0]?.recipeId, "rcp_1");
 assert.equal(resolved.plan.days[0]?.meals[1]?.recipeId, "rcp_2");
 assert.equal(resolved.plan.days[0]?.meals[1]?.title, "Pollo con arroz");
+
+
+const repetitivePlan = {
+  title: "Plan repetido",
+  days: Array.from({ length: 7 }, (_, index) => ({
+    dayLabel: `Día ${index + 1}`,
+    meals: [
+      {
+        type: "lunch" as const,
+        recipeId: "rcp_2",
+        title: "Pollo con arroz",
+        description: null,
+        macros: { calories: 650, protein: 45, carbs: 70, fats: 18 },
+        ingredients: null,
+      },
+      {
+        type: "dinner" as const,
+        recipeId: "rcp_2",
+        title: "Pollo con arroz",
+        description: null,
+        macros: { calories: 650, protein: 45, carbs: 70, fats: 18 },
+        ingredients: null,
+      },
+    ],
+  })),
+};
+
+const varietyApplied = applyNutritionPlanVarietyGuard(repetitivePlan, catalog, ["lunch", "dinner"]);
+assert.equal(varietyApplied.varietyGuardApplied, true);
+assert.ok(varietyApplied.replacements > 0);
+
+const lunchIds = new Set(varietyApplied.plan.days.map((day) => day.meals[0]?.recipeId));
+const dinnerIds = new Set(varietyApplied.plan.days.map((day) => day.meals[1]?.recipeId));
+assert.ok(lunchIds.size >= 2, "expected lunch variety across week");
+assert.ok(dinnerIds.size >= 2, "expected dinner variety across week");
+
+for (const day of varietyApplied.plan.days) {
+  for (const meal of day.meals) {
+    assert.ok(meal.recipeId && catalog.some((recipe) => recipe.id === meal.recipeId), "recipeId must exist in catalog");
+  }
+}
 
 const emptyCatalogResult = resolveNutritionPlanRecipeIds(planWithInvalidIds, []);
 assert.equal(emptyCatalogResult.catalogAvailable, false);
