@@ -53,6 +53,19 @@ describe("AI generate proxy guardrail contract", () => {
     expect(data).toMatchObject({ error: expect.any(String) });
   });
 
+
+  it.each(ENDPOINTS)("$name endpoint preserves 409 passthrough + { error: string }", async (endpoint) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(409, JSON.stringify({ error: "CONFLICT_ACTIVE_PLAN" }))));
+
+    const response = await invokeEndpoint(endpoint);
+
+    expect(response.status).toBe(409);
+
+    const data = await response.json();
+    expect(data).toEqual({ error: "CONFLICT_ACTIVE_PLAN" });
+    expect(data).toMatchObject({ error: expect.any(String) });
+  });
+
   it("nutrition endpoint preserves validation 400 passthrough + { error: string }", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(400, JSON.stringify({ error: "INVALID_INPUT" }))));
 
