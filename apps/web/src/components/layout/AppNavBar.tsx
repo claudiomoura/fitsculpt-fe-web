@@ -19,12 +19,6 @@ type AuthUser = {
   aiTokenBalance?: number;
 } & Record<string, unknown>;
 
-type BillingStatus = {
-  plan?: "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI";
-  isPro?: boolean;
-  tokens?: number;
-};
-
 export default function AppNavBar() {
   const { t } = useLanguage();
   const pathname = usePathname();
@@ -34,7 +28,7 @@ export default function AppNavBar() {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [authLoaded, setAuthLoaded] = useState(false);
   const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
   const { entitlements } = useAuthEntitlements();
 
@@ -44,52 +38,73 @@ export default function AppNavBar() {
       if (!document.cookie.includes("fs_token=")) {
         if (active) {
           setUser(null);
-          setBilling(null);
+          setAuthLoaded(true);
         }
         return;
       }
 
       try {
-        const [authResponse, billingResponse] = await Promise.all([
-          fetch("/api/auth/me", { cache: "no-store" }),
-          fetch("/api/billing/status", { cache: "no-store" }),
-        ]);
+        const authResponse = await fetch("/api/auth/me", {
+          cache: "no-store",
+        });
+
         if (authResponse.ok) {
           const data = (await authResponse.json()) as AuthUser;
           if (active) setUser(data);
-        }
-        if (billingResponse.ok) {
-          const data = (await billingResponse.json()) as BillingStatus;
-          if (active) setBilling(data);
+        } else if (active) {
+          setUser(null);
         }
       } catch (_err) {
-        // Ignore.
+        if (active) {
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setAuthLoaded(true);
+        }
       }
     };
+
     const handleRefresh = () => {
       if (!active) return;
       void load();
     };
+
+    const handleWindowFocus = () => {
+      if (!active) return;
+      void load();
+    };
+
     window.addEventListener("auth:refresh", handleRefresh);
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("pageshow", handleWindowFocus);
     void load();
+
     return () => {
       active = false;
       window.removeEventListener("auth:refresh", handleRefresh);
+      window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("pageshow", handleWindowFocus);
     };
   }, []);
 
   const userRole = typeof user?.role === "string" ? user.role : "";
   const userMeta = user?.email || userRole || "";
-  const planValue = billing?.plan ?? user?.subscriptionPlan ?? "FREE";
-  const normalizedPlan = planValue.toLowerCase();
+  const planValue = user?.subscriptionPlan;
+  const hasPlan = typeof planValue === "string";
+  const normalizedPlan = hasPlan ? planValue.toLowerCase() : "unknown";
   const planKey = `billing.planLabels.${normalizedPlan}`;
-  const translatedPlan = t(planKey);
+  const translatedPlan = hasPlan ? t(planKey) : t("billing.planLabels.unknown");
   const planLabel =
-    translatedPlan === planKey
+    !hasPlan
+      ? authLoaded
+        ? t("billing.planLabels.unknown")
+        : t("ui.loading")
+      : translatedPlan === planKey
       ? t("billing.planLabels.unknown")
       : translatedPlan;
-  const isPaidPlan = planValue !== "FREE";
-  const tokenBalance = billing?.tokens ?? user?.aiTokenBalance;
+  const isPaidPlan = hasPlan && planValue !== "FREE";
+  const tokenBalance = user?.aiTokenBalance;
   const hasTokenBalance = typeof tokenBalance === "number";
 
   const sections = useMemo(() => {
