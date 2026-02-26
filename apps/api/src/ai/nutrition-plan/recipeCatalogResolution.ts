@@ -169,3 +169,106 @@ export function resolveNutritionPlanRecipeIds(
     catalogAvailable: true,
   };
 }
+
+type VarietyGuardMealType = NutritionMeal["type"];
+
+type VarietyGuardResult = {
+  plan: NutritionPlan;
+  varietyGuardApplied: boolean;
+  replacements: number;
+};
+
+function toCatalogMacros(recipe: NutritionRecipeCatalogItem) {
+  return {
+    calories: Math.round(recipe.calories),
+    protein: Math.round(recipe.protein),
+    carbs: Math.round(recipe.carbs),
+    fats: Math.round(recipe.fat),
+  };
+}
+
+function selectBestCandidate(
+  candidates: NutritionRecipeCatalogItem[],
+  usedRecipeIds: Set<string>,
+  currentRecipeId: string | null,
+  recipeUsage: Map<string, number>
+) {
+  const unused = candidates.find((candidate) => !usedRecipeIds.has(candidate.id));
+  if (unused) {
+    return unused;
+  }
+
+  const sortedByUsage = [...candidates].sort((left, right) => {
+    const leftUsage = recipeUsage.get(left.id) ?? 0;
+    const rightUsage = recipeUsage.get(right.id) ?? 0;
+    if (leftUsage !== rightUsage) return leftUsage - rightUsage;
+    return left.id.localeCompare(right.id);
+  });
+
+  return sortedByUsage.find((candidate) => candidate.id !== currentRecipeId) ?? sortedByUsage[0] ?? null;
+}
+
+export function applyNutritionPlanVarietyGuard(
+  plan: NutritionPlan,
+  recipeCatalog: NutritionRecipeCatalogItem[],
+  guardedMealTypes: VarietyGuardMealType[] = ["lunch", "dinner"]
+): VarietyGuardResult {
+  if (recipeCatalog.length === 0 || plan.days.length <= 1) {
+    return { plan, varietyGuardApplied: false, replacements: 0 };
+  }
+
+  const candidates = recipeCatalog;
+  const candidatesById = new Map(candidates.map((recipe) => [recipe.id, recipe]));
+  const guardedTypes = new Set<VarietyGuardMealType>(guardedMealTypes);
+  const usedByMealType = new Map<VarietyGuardMealType, Set<string>>();
+  const usageByMealType = new Map<VarietyGuardMealType, Map<string, number>>();
+  let replacements = 0;
+
+  const nextDays = plan.days.map((day) => ({
+    ...day,
+    meals: day.meals.map((meal) => ({
+      ...meal,
+      macros: { ...meal.macros },
+      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+    })),
+  }));
+
+  for (const day of nextDays) {
+    for (const meal of day.meals) {
+      if (!guardedTypes.has(meal.type)) continue;
+
+      const usedForType = usedByMealType.get(meal.type) ?? new Set<string>();
+      const usageForType = usageByMealType.get(meal.type) ?? new Map<string, number>();
+      const currentRecipeId = meal.recipeId ?? null;
+      const currentRecipe = currentRecipeId ? candidatesById.get(currentRecipeId) : undefined;
+      const shouldReplace = !currentRecipe || usedForType.has(currentRecipe.id);
+
+      const selectedRecipe = shouldReplace
+        ? selectBestCandidate(candidates, usedForType, currentRecipeId, usageForType)
+        : currentRecipe;
+
+      if (!selectedRecipe) continue;
+
+      if (meal.recipeId !== selectedRecipe.id) {
+        replacements += 1;
+      }
+
+      meal.recipeId = selectedRecipe.id;
+      meal.title = selectedRecipe.name;
+      meal.description = selectedRecipe.description ?? meal.description;
+      meal.macros = toCatalogMacros(selectedRecipe);
+      meal.ingredients = selectedRecipe.ingredients.map((ingredient) => ({ ...ingredient }));
+
+      usedForType.add(selectedRecipe.id);
+      usageForType.set(selectedRecipe.id, (usageForType.get(selectedRecipe.id) ?? 0) + 1);
+      usedByMealType.set(meal.type, usedForType);
+      usageByMealType.set(meal.type, usageForType);
+    }
+  }
+
+  return {
+    plan: replacements > 0 ? { ...plan, days: nextDays } : plan,
+    varietyGuardApplied: replacements > 0,
+    replacements,
+  };
+}

@@ -45,6 +45,7 @@ import {
 } from "./ai/trainingPlanExerciseResolution.js";
 import { buildDeterministicTrainingFallbackPlan } from "./ai/training-plan/fallbackBuilder.js";
 import {
+  applyNutritionPlanVarietyGuard,
   resolveNutritionPlanRecipeIds,
   type NutritionRecipeCatalogItem,
 } from "./ai/nutrition-plan/recipeCatalogResolution.js";
@@ -1851,7 +1852,8 @@ function applyNutritionCatalogResolution(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   recipes: RecipeDbItem[]
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
-  const resolved = resolveNutritionPlanRecipeIds(plan, toNutritionRecipeCatalog(recipes));
+  const recipeCatalog = toNutritionRecipeCatalog(recipes);
+  const resolved = resolveNutritionPlanRecipeIds(plan, recipeCatalog);
   if (!resolved.catalogAvailable) return plan;
   if (resolved.invalidMeals.length > 0) {
     app.log.warn(
@@ -1859,7 +1861,16 @@ function applyNutritionCatalogResolution(
       "nutrition plan contains invalid recipe IDs; fallback applied"
     );
   }
-  return resolved.plan as z.infer<typeof aiNutritionPlanResponseSchema>;
+  const varietyGuard = applyNutritionPlanVarietyGuard(resolved.plan, recipeCatalog, ["lunch", "dinner"]);
+  app.log.info(
+    {
+      variety_guard_applied: varietyGuard.varietyGuardApplied,
+      replacements: varietyGuard.replacements,
+      catalogSize: recipeCatalog.length,
+    },
+    "nutrition plan variety guard"
+  );
+  return varietyGuard.plan as z.infer<typeof aiNutritionPlanResponseSchema>;
 }
 
 function applyRecipeScalingToPlan(
