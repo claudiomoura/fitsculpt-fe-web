@@ -58,6 +58,32 @@ describe("AppNavBar", () => {
     expect(activeLink).toHaveAttribute("href", "/app/entrenamiento");
   });
 
+
+  it("links the plan pill to billing settings", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+        })
+      ) as unknown as typeof fetch
+    );
+
+    render(
+      <ThemeProvider>
+        <LanguageProvider>
+          <AccessProvider>
+            <AppNavBar />
+          </AccessProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    );
+
+    const billingLink = document.querySelector('a.account-pill');
+    expect(billingLink).not.toBeNull();
+    expect(billingLink).toHaveAttribute("href", "/app/settings/billing");
+  });
+
   it("renders disabled nav notes translated instead of i18n key literals", () => {
     vi.stubGlobal(
       "fetch",
