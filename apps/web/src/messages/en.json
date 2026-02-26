@@ -951,7 +951,8 @@
       "retryLimit": "Retry limit reached for now. Please adjust goals or try later.",
       "genericReason": "It does not match your target",
       "actionableDiff": "{{reason}}: target {{expected}}g, received {{actual}}g (~{{delta}}g short)",
-      "upstreamDescription": "Service unavailable, please retry."
+      "upstreamDescription": "Service unavailable, please retry.",
+      "conflictDescription": "A similar plan already exists, please try again."
     },
     "aiRateLimit": "You've reached the AI request limit. Try again later.",
     "resetPlan": "Reset plan",
@@ -1234,7 +1235,8 @@
     "activePlanLabel": "Active plan",
     "activePlanSelected": "Selected",
     "activePlanAssigned": "Assigned",
-    "aiUpstreamError": "Service unavailable, please retry."
+    "aiUpstreamError": "Service unavailable, please retry.",
+    "aiConflictError": "A similar plan already exists, please try again."
   },
   "profile": {
     "formTitle": "Profile and metrics",

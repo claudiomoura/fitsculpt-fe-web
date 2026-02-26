@@ -26,3 +26,7 @@ export function shouldTreatAsUpstreamError(status: number | null | undefined, co
   if (normalizeAiErrorCode(code) === "UPSTREAM_ERROR") return true;
   return typeof status === "number" && status >= 500;
 }
+
+export function shouldTreatAsConflictError(status: number | null | undefined): boolean {
+  return status === 409;
+}

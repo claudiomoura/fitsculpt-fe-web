@@ -955,7 +955,8 @@
       "retryLimit": "Se alcanzó el límite de reintentos por ahora. Ajusta objetivos o inténtalo más tarde.",
       "genericReason": "No coincide con el objetivo",
       "actionableDiff": "{{reason}}: objetivo {{expected}}g, recibido {{actual}}g (faltan ~{{delta}}g)",
-      "upstreamDescription": "Servicio no disponible, reintenta."
+      "upstreamDescription": "Servicio no disponible, reintenta.",
+      "conflictDescription": "Ya existe un plan similar, vuelve a intentar."
     },
     "aiRateLimit": "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.",
     "resetPlan": "Reiniciar plan",
@@ -1237,7 +1238,8 @@
     "activePlanLabel": "Plan activo",
     "activePlanSelected": "Seleccionado",
     "activePlanAssigned": "Asignado",
-    "aiUpstreamError": "Servicio no disponible, reintenta."
+    "aiUpstreamError": "Servicio no disponible, reintenta.",
+    "aiConflictError": "Ya existe un plan similar, vuelve a intentar."
   },
   "profile": {
     "formTitle": "Perfil y métricas",
