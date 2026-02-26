@@ -56,7 +56,9 @@ export default function WorkoutTodayMobileClient() {
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planDays, setPlanDays] = useState<TrainingPlanDay[]>([]);
-  const [manualSelectedDay, setManualSelectedDay] = useState<string | null>(null);
+  const [manualSelectedDay, setManualSelectedDay] = useState<string | null>(
+    null,
+  );
 
   const loadWorkouts = useCallback(async () => {
     setState("loading");
@@ -83,7 +85,10 @@ export default function WorkoutTodayMobileClient() {
     () =>
       planDays
         .map((day) => ({ day, date: parseDate(day.date) }))
-        .filter((item): item is { day: TrainingPlanDay; date: Date } => item.date instanceof Date),
+        .filter(
+          (item): item is { day: TrainingPlanDay; date: Date } =>
+            item.date instanceof Date,
+        ),
     [planDays],
   );
 
@@ -116,8 +121,12 @@ export default function WorkoutTodayMobileClient() {
   );
 
   const candidatePlanDay = daysByIso.get(dayKeyCandidate) ?? null;
-  const shouldFallback = !manualSelectedDay && (!candidatePlanDay || (candidatePlanDay.exercises?.length ?? 0) === 0);
-  const activeDayKey = shouldFallback ? firstDayWithExercises?.iso ?? dayKeyCandidate : dayKeyCandidate;
+  const shouldFallback =
+    !manualSelectedDay &&
+    (!candidatePlanDay || (candidatePlanDay.exercises?.length ?? 0) === 0);
+  const activeDayKey = shouldFallback
+    ? (firstDayWithExercises?.iso ?? dayKeyCandidate)
+    : dayKeyCandidate;
   const selectedDay = daysByIso.get(activeDayKey) ?? null;
 
   const completed = 0;
@@ -138,8 +147,28 @@ export default function WorkoutTodayMobileClient() {
     });
   }, [activeDayKey, todayIso, workoutDays, daysByIso]);
 
+  const buildExerciseDetailHref = (exerciseId: string) => {
+    const params = new URLSearchParams();
+    params.set("from", "plan");
+    const currentParams = new URLSearchParams(searchParams.toString());
+    const dayParam =
+      manualSelectedDay ?? activeDayKey ?? currentParams.get("day");
+    if (dayParam) {
+      params.set("dayKey", dayParam);
+      currentParams.set("day", dayParam);
+    }
+    const returnTo = `${pathname}${currentParams.toString() ? `?${currentParams.toString()}` : ""}`;
+    params.set("returnTo", returnTo);
+    return `/app/biblioteca/${exerciseId}?${params.toString()}`;
+  };
+
   if (state === "loading") {
-    return <LoadingBlock title="Cargando entrenamiento" description="Estamos preparando tu sesión de hoy." />;
+    return (
+      <LoadingBlock
+        title="Cargando entrenamiento"
+        description="Estamos preparando tu sesión de hoy."
+      />
+    );
   }
 
   if (state === "error") {
@@ -148,7 +177,11 @@ export default function WorkoutTodayMobileClient() {
         title="No pudimos cargar tu entrenamiento"
         description={error ?? t("workouts.loadError")}
         retryAction={
-          <button type="button" className="btn secondary" onClick={() => void loadWorkouts()}>
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => void loadWorkouts()}
+          >
             Reintentar
           </button>
         }
@@ -161,22 +194,34 @@ export default function WorkoutTodayMobileClient() {
       <EmptyBlock
         title="No hay entrenamientos disponibles"
         description="Todavía no tienes días programados en tu plan activo."
-        action={<Link className="btn" href="/app/workouts">Crear entrenamiento</Link>}
+        action={
+          <Link className="btn" href="/app/workouts">
+            Crear entrenamiento
+          </Link>
+        }
       />
     );
   }
 
-  const hasAnyExercises = workoutDays.some((day) => (daysByIso.get(day.iso)?.exercises?.length ?? 0) > 0);
+  const hasAnyExercises = workoutDays.some(
+    (day) => (daysByIso.get(day.iso)?.exercises?.length ?? 0) > 0,
+  );
   const exercises = selectedDay?.exercises ?? [];
 
   const mainContent = (
     <PageContainer as="section" maxWidth="md" className="py-4 pb-24">
       <Stack gap="4">
-        <HeaderCompact title="Entrenamiento de hoy" subtitle="Tu planificación semanal" />
+        <HeaderCompact
+          title="Entrenamiento de hoy"
+          subtitle="Tu planificación semanal"
+        />
 
         <HeroWorkout
           title={selectedDay?.label ?? "Planifica tu próxima sesión"}
-          subtitle={selectedDay?.focus ?? "Mantén el ritmo revisando tu planificación semanal."}
+          subtitle={
+            selectedDay?.focus ??
+            "Mantén el ritmo revisando tu planificación semanal."
+          }
           meta={`${estimatedMinutes} min`}
           badge="Plan activo"
           ctaLabel="Generar con IA"
@@ -184,47 +229,56 @@ export default function WorkoutTodayMobileClient() {
         />
 
         <section className="rounded-2xl border border-border bg-surface p-4">
-          <WorkoutProgressBar label="Progreso" value={completed} max={total} valueLabel={`${completed} de ${total}`} />
+          <WorkoutProgressBar
+            label="Progreso"
+            value={completed}
+            max={total}
+            valueLabel={`${completed} de ${total}`}
+          />
         </section>
 
         <section className="rounded-2xl border border-border bg-surface p-4">
           <h2 className="text-base font-semibold text-text">Semana</h2>
-<div className="mt-3 grid grid-cols-7 gap-2">
-  {weekDays.map((d) => (
-    <button
-      key={d.id}
-      type="button"
-      onClick={() => {
-        const normalizedDay = typeof d.id === "string" ? d.id : null;
-        if (!normalizedDay) return;
+          <div className="mt-3 grid grid-cols-7 gap-2">
+            {weekDays.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => {
+                  const normalizedDay = typeof d.id === "string" ? d.id : null;
+                  if (!normalizedDay) return;
 
-        setManualSelectedDay(normalizedDay);
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("day", normalizedDay);
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-      }}
-      className={[
-        "rounded-xl border px-2 py-2 text-left transition",
-        "bg-surface border-border hover:border-accent/40",
-        d.selected ? "border-accent/70 ring-1 ring-accent/30" : "",
-      ].join(" ")}
-    >
-      <div className="text-xs text-text/70">{d.label}</div>
-      <div className="mt-1 flex items-center justify-between">
-        <div className="text-sm font-semibold text-text">{d.date}</div>
-        {d.complete ? (
-          <span className="inline-flex h-5 items-center rounded-full bg-accent/15 px-2 text-[11px] text-text">
-            OK
-          </span>
-        ) : (
-          <span className="inline-flex h-5 items-center rounded-full bg-white/5 px-2 text-[11px] text-text/70">
-            -
-          </span>
-        )}
-      </div>
-    </button>
-  ))}
-</div>
+                  setManualSelectedDay(normalizedDay);
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("day", normalizedDay);
+                  router.replace(`${pathname}?${params.toString()}`, {
+                    scroll: false,
+                  });
+                }}
+                className={[
+                  "rounded-xl border px-2 py-2 text-left transition",
+                  "bg-surface border-border hover:border-accent/40",
+                  d.selected ? "border-accent/70 ring-1 ring-accent/30" : "",
+                ].join(" ")}
+              >
+                <div className="text-xs text-text/70">{d.label}</div>
+                <div className="mt-1 flex items-center justify-between">
+                  <div className="text-sm font-semibold text-text">
+                    {d.date}
+                  </div>
+                  {d.complete ? (
+                    <span className="inline-flex h-5 items-center rounded-full bg-accent/15 px-2 text-[11px] text-text">
+                      OK
+                    </span>
+                  ) : (
+                    <span className="inline-flex h-5 items-center rounded-full bg-white/5 px-2 text-[11px] text-text/70">
+                      -
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="rounded-2xl border border-border bg-surface p-4">
@@ -239,18 +293,26 @@ export default function WorkoutTodayMobileClient() {
           ) : exercises.length ? (
             <Stack gap="3" className="mt-3 divide-y divide-white/5">
               {exercises.map((exercise, index) => {
-                const exerciseId = typeof exercise.id === "string" ? exercise.id : null;
+                const fallbackExerciseId = (
+                  exercise as { exerciseId?: unknown }
+                ).exerciseId;
+                const exerciseId =
+                  typeof exercise.id === "string"
+                    ? exercise.id
+                    : typeof fallbackExerciseId === "string"
+                      ? fallbackExerciseId
+                      : null;
                 return (
                   <ExerciseCardCompact
                     key={`${exercise.id ?? exercise.name}-${index}`}
                     name={exercise.name}
-                    detail={`${exercise.sets ?? "3"} series · ${exercise.reps ?? "10"} reps`}
+                    detail={`${exercise.sets ?? "3"} series · ${exercise.reps ?? "10"} reps · Ver técnica`}
                     imageSrc={getExerciseThumbUrl(exercise)}
                     imageAlt={exercise.name}
                     progress={completed > index ? 100 : 0}
                     onClick={() => {
                       if (!exerciseId) return;
-                      router.push(`/app/biblioteca/${exerciseId}?from=plan`);
+                      router.push(buildExerciseDetailHref(exerciseId));
                     }}
                     aria-label={`Ver técnica de ${exercise.name}`}
                   />
@@ -272,7 +334,11 @@ export default function WorkoutTodayMobileClient() {
 
   const rightPanel = (
     <div className="desktop-side-stack">
-      <WeeklyStats completedExercises={completed} totalExercises={total} estimatedMinutes={estimatedMinutes} />
+      <WeeklyStats
+        completedExercises={completed}
+        totalExercises={total}
+        estimatedMinutes={estimatedMinutes}
+      />
     </div>
   );
 
