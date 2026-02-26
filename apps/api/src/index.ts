@@ -1965,18 +1965,69 @@ async function saveNutritionPlan(
 ) {
   return prisma.$transaction(
     async (tx) => {
-      const planRecord = await tx.nutritionPlan.create({
-        data: {
+      const planData = {
+        userId,
+        title: plan.title,
+        dailyCalories: plan.dailyCalories,
+        proteinG: plan.proteinG,
+        fatG: plan.fatG,
+        carbsG: plan.carbsG,
+        startDate,
+        daysCount,
+      };
+      let planRecord: { id: string } | null = null;
+      let persistenceMode: "create" | "update" = "create";
+
+      try {
+        planRecord = await tx.nutritionPlan.create({ data: planData, select: { id: true } });
+      } catch (error) {
+        const typed = error as Prisma.PrismaClientKnownRequestError;
+        if (typed.code !== "P2002") {
+          throw error;
+        }
+
+        const existingPlan = await tx.nutritionPlan.findFirst({
+          where: {
+            userId,
+            startDate,
+            daysCount,
+          },
+          orderBy: { updatedAt: "desc" },
+          select: { id: true },
+        });
+
+        if (!existingPlan) {
+          throw error;
+        }
+
+        planRecord = await tx.nutritionPlan.update({
+          where: { id: existingPlan.id },
+          data: {
+            title: plan.title,
+            dailyCalories: plan.dailyCalories,
+            proteinG: plan.proteinG,
+            fatG: plan.fatG,
+            carbsG: plan.carbsG,
+          },
+          select: { id: true },
+        });
+        persistenceMode = "update";
+      }
+
+      if (!planRecord) {
+        throw createHttpError(500, "NUTRITION_PLAN_PERSIST_FAILED");
+      }
+
+      app.log.info(
+        {
           userId,
-          title: plan.title,
-          dailyCalories: plan.dailyCalories,
-          proteinG: plan.proteinG,
-          fatG: plan.fatG,
-          carbsG: plan.carbsG,
-          startDate,
+          planId: planRecord.id,
+          startDate: toIsoDateString(startDate),
           daysCount,
+          persistenceMode,
         },
-      });
+        "nutrition plan persistence mode"
+      );
 
       await tx.nutritionDay.deleteMany({ where: { planId: planRecord.id } });
 
