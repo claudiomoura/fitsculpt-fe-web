@@ -1729,7 +1729,8 @@
     "usersAssignTrainerAction": "Asignar como TRAINER",
     "usersAssignClientSuccess": "Usuario asignado como CLIENTE.",
     "usersAssignTrainerSuccess": "Usuario asignado como TRAINER.",
-    "usersAssignGymRoleError": "No pudimos asignar este rol de gimnasio."
+    "usersAssignGymRoleError": "No pudimos asignar este rol de gimnasio.",
+    "usersAssignGymRoleServiceUnavailable": "Servicio no disponible. Inténtalo de nuevo más tarde."
   },
   "library": {
     "loadError": "No se pudo cargar el ejercicio.",

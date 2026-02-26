@@ -6,23 +6,22 @@ import { useLanguage } from "@/context/LanguageProvider";
 
 type GymOption = { id: string; name: string };
 
-type AssignCapabilityResponse = {
-  available?: boolean;
+type GymsResponse = {
   gyms?: Array<{ id?: string | null; name?: string | null }>;
-  data?: {
-    available?: boolean;
-    gyms?: Array<{ id?: string | null; name?: string | null }>;
-  };
 };
+
+type ErrorPayload = { error?: string };
 
 type Props = {
   userId: string;
   onAssigned?: () => void;
 };
 
-function normalizeGyms(payload: AssignCapabilityResponse | null): GymOption[] {
-  const source = payload?.gyms ?? payload?.data?.gyms ?? [];
-  return source.flatMap((gym) => {
+function normalizeGyms(payload: GymsResponse | ErrorPayload | null): GymOption[] {
+  const source: Array<{ id?: string | null; name?: string | null }> =
+    payload && "gyms" in payload && Array.isArray(payload.gyms) ? payload.gyms : [];
+
+  return source.flatMap((gym: { id?: string | null; name?: string | null }) => {
     const id = typeof gym?.id === "string" ? gym.id.trim() : "";
     const name = typeof gym?.name === "string" ? gym.name.trim() : "";
     if (!id) return [];
@@ -30,17 +29,29 @@ function normalizeGyms(payload: AssignCapabilityResponse | null): GymOption[] {
   });
 }
 
-function resolveAvailable(payload: AssignCapabilityResponse | null, status: number): boolean {
-  if (status === 404 || status === 405) return false;
-  if (typeof payload?.available === "boolean") return payload.available;
-  if (typeof payload?.data?.available === "boolean") return payload.data.available;
-  return status >= 200 && status < 300;
+function parseErrorCode(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object" || !("error" in payload)) {
+    return null;
+  }
+
+  return typeof payload.error === "string" ? payload.error : null;
+}
+
+function getFriendlyError(t: ReturnType<typeof useLanguage>["t"], status: number, errorCode: string | null): string {
+  if (status === 502 || errorCode === "UPSTREAM_ERROR") {
+    return t("admin.usersAssignGymRoleServiceUnavailable");
+  }
+
+  if (errorCode) {
+    return errorCode;
+  }
+
+  return t("admin.usersAssignGymRoleError");
 }
 
 export default function UserGymRoleAssignment({ userId, onAssigned }: Props) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
-  const [unsupported, setUnsupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gyms, setGyms] = useState<GymOption[]>([]);
   const [selectedGymId, setSelectedGymId] = useState("");
@@ -56,29 +67,28 @@ export default function UserGymRoleAssignment({ userId, onAssigned }: Props) {
       setMessage(null);
 
       try {
-        const response = await fetch(`/api/admin/users/${userId}/gym-role`, {
+        const response = await fetch("/api/admin/gyms", {
           cache: "no-store",
           credentials: "include",
         });
 
-        const payload = (await response.json().catch(() => null)) as AssignCapabilityResponse | null;
+        const payload = (await response.json().catch(() => null)) as GymsResponse | ErrorPayload | null;
         if (!active) return;
 
-        const available = resolveAvailable(payload, response.status);
-        if (!available) {
-          setUnsupported(true);
+        if (!response.ok) {
+          const errorCode = parseErrorCode(payload);
+          setError(getFriendlyError(t, response.status, errorCode));
           setGyms([]);
           setSelectedGymId("");
           return;
         }
 
         const normalizedGyms = normalizeGyms(payload);
-        setUnsupported(false);
         setGyms(normalizedGyms);
         setSelectedGymId((current) => (current && normalizedGyms.some((gym) => gym.id === current) ? current : normalizedGyms[0]?.id ?? ""));
-      } catch (_error) {
+      } catch {
         if (!active) return;
-        setError(t("admin.usersAssignGymRoleError"));
+        setError(t("admin.usersAssignGymRoleServiceUnavailable"));
       } finally {
         if (active) setLoading(false);
       }
@@ -92,7 +102,7 @@ export default function UserGymRoleAssignment({ userId, onAssigned }: Props) {
   }, [t, userId]);
 
   const hasGyms = gyms.length > 0;
-  const disabled = useMemo(() => loading || unsupported || assigningRole !== null || !selectedGymId, [assigningRole, loading, selectedGymId, unsupported]);
+  const disabled = useMemo(() => loading || assigningRole !== null || !selectedGymId || !hasGyms, [assigningRole, hasGyms, loading, selectedGymId]);
 
   const assignRole = async (role: "CLIENT" | "TRAINER") => {
     if (disabled) return;
@@ -109,22 +119,16 @@ export default function UserGymRoleAssignment({ userId, onAssigned }: Props) {
         body: JSON.stringify({ gymId: selectedGymId, role }),
       });
 
-      if (response.status === 404 || response.status === 405) {
-        setUnsupported(true);
-        setGyms([]);
-        setSelectedGymId("");
-        return;
-      }
-
       if (!response.ok) {
-        setError(t("admin.usersAssignGymRoleError"));
+        const payload = (await response.json().catch(() => null)) as ErrorPayload | null;
+        setError(getFriendlyError(t, response.status, parseErrorCode(payload)));
         return;
       }
 
       setMessage(role === "TRAINER" ? t("admin.usersAssignTrainerSuccess") : t("admin.usersAssignClientSuccess"));
       onAssigned?.();
-    } catch (_error) {
-      setError(t("admin.usersAssignGymRoleError"));
+    } catch {
+      setError(t("admin.usersAssignGymRoleServiceUnavailable"));
     } finally {
       setAssigningRole(null);
     }
@@ -134,9 +138,8 @@ export default function UserGymRoleAssignment({ userId, onAssigned }: Props) {
     <section className="status-card" style={{ gap: 8 }}>
       <strong>{t("admin.usersAssignGymRoleTitle")}</strong>
       {loading ? <p className="muted" style={{ margin: 0 }}>{t("common.loading")}</p> : null}
-      {!loading && unsupported ? <p className="muted" style={{ margin: 0 }}>{t("ui.notAvailable")}</p> : null}
-      {!loading && !unsupported && !hasGyms ? <p className="muted" style={{ margin: 0 }}>{t("admin.usersAssignGymRoleNoGyms")}</p> : null}
-      {!loading && !unsupported && hasGyms ? (
+      {!loading && !hasGyms ? <p className="muted" style={{ margin: 0 }}>{t("admin.usersAssignGymRoleNoGyms")}</p> : null}
+      {!loading && hasGyms ? (
         <>
           <label className="muted" htmlFor={`assign-gym-${userId}`}>{t("admin.usersAssignGymRoleGymLabel")}</label>
           <select id={`assign-gym-${userId}`} value={selectedGymId} onChange={(event) => setSelectedGymId(event.target.value)}>
