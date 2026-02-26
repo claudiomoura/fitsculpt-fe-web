@@ -17,20 +17,13 @@ function hasEnabledModule(
 }
 
 export function hasStrengthAiEntitlement(profile: AiEntitlementProfile | null | undefined): boolean {
-  if (!profile) return false;
-  return profile.entitlements?.modules?.ai?.enabled === true || hasEnabledModule(profile, "strength");
+  return hasEnabledModule(profile, "strength");
 }
 
 export function hasNutritionAiEntitlement(profile: AiEntitlementProfile | null | undefined): boolean {
-  if (!profile) return false;
-  return profile.entitlements?.modules?.ai?.enabled === true || hasEnabledModule(profile, "nutrition");
+  return hasEnabledModule(profile, "nutrition");
 }
 
 export function hasAiEntitlement(profile: AiEntitlementProfile | null | undefined): boolean {
-  if (!profile) return false;
-  return (
-    profile.entitlements?.modules?.ai?.enabled === true
-    || hasEnabledModule(profile, "strength")
-    || hasEnabledModule(profile, "nutrition")
-  );
+  return hasStrengthAiEntitlement(profile) || hasNutritionAiEntitlement(profile);
 }
