@@ -5,12 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { getRoleFlags } from "@/lib/roles";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { SkeletonCard } from "@/components/ui/Skeleton";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
+import { PlanListCard } from "./components/PlanListCard";
 
 function getPlanId(plan: TrainingPlanListItem): string {
   const candidate = (plan as TrainingPlanListItem & { planId?: string }).planId;
@@ -246,14 +246,14 @@ export default function TrainingLibraryClient() {
       <h2 className="section-title section-title-sm">{t(titleKey)}</h2>
 
       {state === "loading" ? (
-        <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-          {Array.from({ length: 2 }).map((_, index) => <SkeletonCard key={`${titleKey}-${index}`} />)}
-        </div>
+        <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
       ) : null}
 
-      {state === "error" ? <p className="muted mt-12">{t("library.training.sectionError")}</p> : null}
-      {state === "unavailable" ? <p className="muted mt-12">{t("library.training.sectionUnavailable")}</p> : null}
-      {state === "ready" && plans.length === 0 ? <p className="muted mt-12">{t("library.training.sectionEmpty")}</p> : null}
+      {state === "error" ? (
+        <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
+      ) : null}
+      {state === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.sectionUnavailable")} icon="warning" /> : null}
+      {state === "ready" && plans.length === 0 ? <EmptyState className="mt-12" title={t("library.training.sectionEmpty")} icon="info" /> : null}
 
       {state === "ready" && plans.length > 0 ? (
         <div className="mt-12" style={{ display: "grid", gap: 12 }}>
@@ -313,14 +313,14 @@ export default function TrainingLibraryClient() {
         <h2 className="section-title section-title-sm">{t("library.training.sections.assigned")}</h2>
 
         {assignedPlanState === "loading" ? (
-          <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            <SkeletonCard />
-          </div>
+          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
         ) : null}
 
-        {assignedPlanState === "error" ? <p className="muted mt-12">{t("library.training.sectionError")}</p> : null}
-        {assignedPlanState === "unavailable" ? <p className="muted mt-12">{t("library.training.assignedUnavailable")}</p> : null}
-        {assignedPlanState === "ready" && !assignedPlan ? <p className="muted mt-12">{t("library.training.assignedEmpty")}</p> : null}
+        {assignedPlanState === "error" ? (
+          <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
+        ) : null}
+        {assignedPlanState === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.assignedUnavailable")} icon="warning" /> : null}
+        {assignedPlanState === "ready" && !assignedPlan ? <EmptyState className="mt-12" title={t("library.training.assignedEmpty")} icon="info" /> : null}
 
         {assignedPlanState === "ready" && assignedPlan ? (
           <article className="feature-card mt-12">
@@ -351,9 +351,7 @@ export default function TrainingLibraryClient() {
       <section className="card">
         <h2 className="section-title section-title-sm">{t("library.training.sections.ai")}</h2>
         {aiGateState === "loading" ? (
-          <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            <SkeletonCard />
-          </div>
+          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
         ) : null}
         {aiGateState === "unavailable" ? (
           <div className="feature-card mt-12" role="status">

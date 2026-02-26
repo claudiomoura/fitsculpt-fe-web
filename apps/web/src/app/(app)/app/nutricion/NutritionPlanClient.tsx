@@ -166,6 +166,14 @@ type NutritionAiErrorState = {
   canRetry: boolean;
 };
 
+function sanitizeErrorMessage(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const firstLine = value.split("\n").find((line) => line.trim().length > 0)?.trim() ?? "";
+  if (!firstLine) return null;
+  if (/^error:\s*/i.test(firstLine) || /\bat\s+.+\(.+\)/.test(firstLine)) return null;
+  return firstLine;
+}
+
 const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
 const NUTRITION_PLANS_UPDATED_AT_KEY = "fs_nutrition_plans_updated_at";
 
@@ -1564,6 +1572,7 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       const requestError = err as NutritionGenerateError;
       const retriesReached = aiRetryCount >= MAX_AI_RETRIES;
       const errorCode = normalizeAiErrorCode(requestError?.code);
+      const backendMessage = sanitizeErrorMessage(requestError?.message) ?? sanitizeErrorMessage(requestError?.code);
       if (errorCode === "INSUFFICIENT_TOKENS") {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
@@ -1586,7 +1595,7 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       } else if (requestError?.status === 400) {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
-          description: extractAiFieldErrorsMessage(requestError.details) ?? t("nutrition.aiErrorState.genericDescription"),
+          description: backendMessage ?? extractAiFieldErrorsMessage(requestError.details) ?? t("nutrition.aiErrorState.genericDescription"),
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
@@ -1616,7 +1625,7 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       } else {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
-          description: t("nutrition.aiErrorState.genericDescription"),
+          description: backendMessage ?? t("nutrition.aiErrorState.genericDescription"),
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
@@ -1641,7 +1650,7 @@ useEffect(() => {
 }, [aiEntitled, profile, searchParams]);
 
   const handleGenerateClick = () => {
-    if (!profile) return;
+    if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
       setAiError({
         title: t("nutrition.aiErrorState.title"),

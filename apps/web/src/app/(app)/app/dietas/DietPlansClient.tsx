@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { SkeletonCard } from "@/components/ui/Skeleton";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { NutritionPlanListItem } from "@/lib/types";
+import { PlanListCard } from "../biblioteca/entrenamientos/components/PlanListCard";
 
 function getPlanId(plan: NutritionPlanListItem): string {
   const candidate = (plan as NutritionPlanListItem & { planId?: string }).planId;
@@ -111,33 +112,26 @@ export default function DietPlansClient() {
         <h2 className="section-title section-title-sm">{t("dietPlans.sectionTitle")}</h2>
 
         {state === "loading" ? (
-          <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            {Array.from({ length: 2 }).map((_, index) => <SkeletonCard key={index} />)}
-          </div>
+          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
         ) : null}
 
         {state === "error" ? (
-          <div className="feature-card mt-12" role="alert">
-            <strong>{t("dietPlans.loadErrorList")}</strong>
-            <div className="mt-12">
-              <button type="button" className="btn secondary" onClick={() => setReloadKey((value) => value + 1)}>
-                {t("ui.retry")}
-              </button>
-            </div>
-          </div>
+          <ErrorState
+            className="mt-12"
+            title={t("dietPlans.loadErrorList")}
+            retryLabel={t("ui.retry")}
+            onRetry={() => setReloadKey((value) => value + 1)}
+          />
         ) : null}
-        {state === "unavailable" ? <p className="muted mt-12">{t("dietPlans.unavailable")}</p> : null}
+        {state === "unavailable" ? <EmptyState className="mt-12" title={t("dietPlans.unavailable")} icon="warning" /> : null}
 
         {state === "ready" && plans.length === 0 ? (
-          <div className="feature-card mt-12" role="status">
-            <strong>{t("dietPlans.empty")}</strong>
-            <p className="muted mt-6">{t("dietPlans.emptyDescription")}</p>
-            <div className="mt-12">
-              <Link href="/app/nutricion" className="btn secondary">
-                {t("dietPlans.emptyCta")}
-              </Link>
-            </div>
-          </div>
+          <EmptyState
+            className="mt-12"
+            title={t("dietPlans.empty")}
+            description={t("dietPlans.emptyDescription")}
+            actions={[{ label: t("dietPlans.emptyCta"), href: "/app/nutricion", variant: "secondary" }]}
+          />
         ) : null}
 
         {state === "ready" && plans.length > 0 ? (
