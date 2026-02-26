@@ -6391,7 +6391,7 @@ app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) 
       tip: personalized,
       aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
       aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
-      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
+      ...(shouldChargeAi ? { nextBalance: aiTokenBalance, balanceAfter: aiTokenBalance } : {}),
       ...(debit ? { debit } : {}),
     });
   } catch (error) {
