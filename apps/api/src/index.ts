@@ -6175,6 +6175,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
     logger(
       {
         ...(shouldLogRawError ? { err: error } : {}),
+        reqId: request.id,
         route: "/ai/training-plan/generate",
         error_kind: classified.errorKind,
         ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
@@ -6473,6 +6474,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
     logger(
       {
         ...(classified.errorKind === "db_conflict" ? {} : { err: error }),
+        reqId: request.id,
         route: "/ai/nutrition-plan/generate",
         error_kind: classified.errorKind,
         ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),

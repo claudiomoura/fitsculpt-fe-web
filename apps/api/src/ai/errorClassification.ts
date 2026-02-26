@@ -12,7 +12,8 @@ export type ClassifiedAiGenerateError = {
 };
 
 const PRISMA_CONFLICT_CODES = new Set(["P2002"]);
-const PRISMA_UNPROCESSABLE_CODES = new Set(["P2000", "P2003", "P2011", "P2012", "P2013", "P2025"]);
+const PRISMA_NOT_FOUND_CODES = new Set(["P2025"]);
+const PRISMA_UNPROCESSABLE_CODES = new Set(["P2000", "P2003", "P2011", "P2012", "P2013"]);
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
@@ -51,11 +52,22 @@ export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateErr
     };
   }
 
+  if (typed.code && PRISMA_NOT_FOUND_CODES.has(typed.code)) {
+    const target = parsePrismaTarget(typed.meta);
+    return {
+      statusCode: 404,
+      error: "NOT_FOUND",
+      errorKind: "validation_error",
+      prismaCode: typed.code,
+      ...(target ? { target } : {}),
+    };
+  }
+
   if (typed.code && PRISMA_UNPROCESSABLE_CODES.has(typed.code)) {
     const target = parsePrismaTarget(typed.meta);
     return {
       statusCode: 422,
-      error: "PERSISTENCE_VALIDATION_FAILED",
+      error: "UNPROCESSABLE_ENTITY",
       errorKind: "validation_error",
       prismaCode: typed.code,
       ...(target ? { target } : {}),
@@ -117,7 +129,7 @@ export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateErr
   ) {
     return {
       statusCode: 422,
-      error: "INVALID_AI_OUTPUT",
+      error: "UNPROCESSABLE_ENTITY",
       errorKind: "validation_error",
       ...(upstreamStatus ? { upstreamStatus } : {}),
     };
