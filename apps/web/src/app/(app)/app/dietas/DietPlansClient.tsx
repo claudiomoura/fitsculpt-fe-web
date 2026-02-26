@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { SkeletonCard } from "@/components/ui/Skeleton";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { NutritionPlanListItem } from "@/lib/types";
+import { PlanListCard } from "../biblioteca/entrenamientos/components/PlanListCard";
 
 type NutritionPlanResponse = {
   items?: NutritionPlanListItem[];
@@ -97,64 +98,50 @@ export default function DietPlansClient() {
         <h2 className="section-title section-title-sm">{t("dietPlans.sectionTitle")}</h2>
 
         {state === "loading" ? (
-          <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            {Array.from({ length: 2 }).map((_, index) => <SkeletonCard key={index} />)}
-          </div>
+          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
         ) : null}
 
         {state === "error" ? (
-          <div className="feature-card mt-12" role="alert">
-            <strong>{t("dietPlans.loadErrorList")}</strong>
-            <div className="mt-12">
-              <button type="button" className="btn secondary" onClick={() => setReloadKey((value) => value + 1)}>
-                {t("ui.retry")}
-              </button>
-            </div>
-          </div>
+          <ErrorState
+            className="mt-12"
+            title={t("dietPlans.loadErrorList")}
+            retryLabel={t("ui.retry")}
+            onRetry={() => setReloadKey((value) => value + 1)}
+          />
         ) : null}
-        {state === "unavailable" ? <p className="muted mt-12">{t("dietPlans.unavailable")}</p> : null}
+        {state === "unavailable" ? <EmptyState className="mt-12" title={t("dietPlans.unavailable")} icon="warning" /> : null}
 
         {state === "ready" && plans.length === 0 ? (
-          <div className="feature-card mt-12" role="status">
-            <strong>{t("dietPlans.empty")}</strong>
-            <p className="muted mt-6">{t("dietPlans.emptyDescription")}</p>
-            <div className="mt-12">
-              <Link href="/app/nutricion" className="btn secondary">
-                {t("dietPlans.emptyCta")}
-              </Link>
-            </div>
-          </div>
+          <EmptyState
+            className="mt-12"
+            title={t("dietPlans.empty")}
+            description={t("dietPlans.emptyDescription")}
+            actions={[{ label: t("dietPlans.emptyCta"), href: "/app/nutricion", variant: "secondary" }]}
+          />
         ) : null}
 
         {state === "ready" && plans.length > 0 ? (
           <div className="mt-12" style={{ display: "grid", gap: 12 }}>
             {plans.map((plan) => (
-              <article key={plan.id} className="feature-card">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-                  <div>
-                    <h3 className="m-0">{plan.title}</h3>
-                    <p className="muted mt-6">
-                      {t("dietPlans.planMeta", {
-                        date: formatter.format(new Date(plan.startDate)),
-                        days: plan.daysCount,
-                      })}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="badge-list mt-12">
-                  <span className="badge">{Math.round(plan.dailyCalories)} kcal</span>
-                  <span className="badge">P {Math.round(plan.proteinG)}</span>
-                  <span className="badge">C {Math.round(plan.carbsG)}</span>
-                  <span className="badge">G {Math.round(plan.fatG)}</span>
-                </div>
-
-                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                  <Link href={`/app/dietas/${plan.id}`} className="btn secondary">
-                    {t("dietPlans.viewDetail")}
-                  </Link>
-                </div>
-              </article>
+              <PlanListCard
+                key={plan.id}
+                title={plan.title}
+                metadata={t("dietPlans.planMeta", {
+                  date: formatter.format(new Date(plan.startDate)),
+                  days: plan.daysCount,
+                })}
+                detailHref={`/app/dietas/${plan.id}`}
+                detailLabel={t("dietPlans.viewDetail")}
+                statusLabel={formatter.format(new Date(plan.startDate))}
+                badges={(
+                  <>
+                    <span className="badge">{Math.round(plan.dailyCalories)} kcal</span>
+                    <span className="badge">P {Math.round(plan.proteinG)}</span>
+                    <span className="badge">C {Math.round(plan.carbsG)}</span>
+                    <span className="badge">G {Math.round(plan.fatG)}</span>
+                  </>
+                )}
+              />
             ))}
           </div>
         ) : null}

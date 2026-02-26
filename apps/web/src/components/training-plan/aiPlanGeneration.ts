@@ -46,14 +46,24 @@ export class AiPlanRequestError extends Error {
   status: number;
   code?: string;
   hint?: string;
+  userMessage?: string;
 
-  constructor(message: string, status: number, options?: { code?: string; hint?: string }) {
+  constructor(message: string, status: number, options?: { code?: string; hint?: string; userMessage?: string }) {
     super(message);
     this.name = "AiPlanRequestError";
     this.status = status;
     this.code = options?.code;
     this.hint = options?.hint;
+    this.userMessage = options?.userMessage;
   }
+}
+
+function sanitizeBackendMessage(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const clean = value.split("\n").find((line) => line.trim().length > 0)?.trim() ?? "";
+  if (!clean) return null;
+  if (/^error:\s*/i.test(clean) || /\bat\s+.+\(.+\)/.test(clean)) return null;
+  return clean;
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -154,27 +164,32 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       | { error?: string; message?: string; retryAfterSec?: number; hint?: string }
       | null;
     const errorCode = normalizeAiErrorCode(payload?.error);
+    const userMessage = sanitizeBackendMessage(payload?.message) ?? sanitizeBackendMessage(payload?.error) ?? undefined;
     if (errorCode === "INSUFFICIENT_TOKENS") {
       throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status, {
         code: errorCode,
         hint: payload?.hint,
+        userMessage,
       });
     }
     if (response.status === 400) {
       throw new AiPlanRequestError("AI_INPUT_INVALID", response.status, {
         code: errorCode ?? "AI_INPUT_INVALID",
         hint: payload?.hint,
+        userMessage,
       });
     }
     if (response.status === 429) {
       throw new AiPlanRequestError("RATE_LIMITED", response.status, {
         code: errorCode ?? "RATE_LIMITED",
         hint: payload?.hint,
+        userMessage,
       });
     }
     throw new AiPlanRequestError("AI_GENERATION_FAILED", response.status, {
       code: errorCode ?? undefined,
       hint: payload?.hint,
+      userMessage,
     });
   }
 
