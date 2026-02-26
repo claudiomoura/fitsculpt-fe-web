@@ -12,6 +12,7 @@ type NutritionPlanResponse = {
 };
 
 type SectionState = "loading" | "ready" | "error" | "unavailable";
+const NUTRITION_PLANS_UPDATED_AT_KEY = "fs_nutrition_plans_updated_at";
 
 export default function DietPlansClient() {
   const { t, locale } = useLanguage();
@@ -54,6 +55,25 @@ export default function DietPlansClient() {
     void loadPlans();
     return () => controller.abort();
   }, [query, reloadKey]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== NUTRITION_PLANS_UPDATED_AT_KEY) return;
+      setReloadKey((value) => value + 1);
+    };
+
+    const handleFocus = () => {
+      setReloadKey((value) => value + 1);
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   const formatter = useMemo(() => new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
     month: "short",
