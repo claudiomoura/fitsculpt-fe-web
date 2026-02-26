@@ -35,6 +35,7 @@ function parsePrismaTarget(meta: unknown): string[] | undefined {
 
 export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateError {
   const typed = error as { code?: string; statusCode?: number; debug?: Record<string, unknown>; meta?: unknown };
+  const isPrismaKnownError = typeof typed.code === "string" && /^P\d{4}$/.test(typed.code);
 
   if (typed.code === "P2002") {
     const target = parsePrismaTarget(typed.meta);
@@ -42,6 +43,17 @@ export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateErr
       statusCode: 409,
       error: "CONFLICT",
       errorKind: "db_conflict",
+      prismaCode: typed.code,
+      ...(target ? { target } : {}),
+    };
+  }
+
+  if (isPrismaKnownError) {
+    const target = parsePrismaTarget(typed.meta);
+    return {
+      statusCode: 500,
+      error: "INTERNAL_ERROR",
+      errorKind: "internal_error",
       prismaCode: typed.code,
       ...(target ? { target } : {}),
     };
@@ -107,7 +119,7 @@ export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateErr
 
   return {
     statusCode: normalizeServerStatus(typed.statusCode ?? 500),
-    error: typed.code ?? "INTERNAL_ERROR",
+    error: "INTERNAL_ERROR",
     errorKind: "internal_error",
     ...(upstreamStatus ? { upstreamStatus } : {}),
   };

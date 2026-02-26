@@ -6006,9 +6006,10 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
   } catch (error) {
     const classified = classifyAiGenerateError(error);
     const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
+    const shouldLogRawError = classified.errorKind !== "db_conflict" && typeof classified.prismaCode !== "string";
     logger(
       {
-        ...(classified.errorKind === "db_conflict" ? {} : { err: error }),
+        ...(shouldLogRawError ? { err: error } : {}),
         route: "/ai/training-plan/generate",
         error_kind: classified.errorKind,
         ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
