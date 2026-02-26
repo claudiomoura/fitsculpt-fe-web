@@ -68,6 +68,10 @@ type EmptyAction = NonNullable<ComponentProps<typeof EmptyState>["actions"]>[num
 
 const SHORTCUT_LIMIT = 4;
 
+function isUnsupportedStatus(status: number): boolean {
+  return status === 404 || status === 405 || status === 501;
+}
+
 const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
   const todayKey = toDateKey(new Date());
   const dayFromDate = days.find((day) => {
@@ -206,6 +210,7 @@ export default function TodaySummaryClient() {
   const [notesState, setNotesState] = useState<SectionState<TodayNotesSummaryData>>({ status: "loading" });
   const [energySupported, setEnergySupported] = useState(false);
   const [notesSupported, setNotesSupported] = useState(false);
+  const [trainingUnsupported, setTrainingUnsupported] = useState(false);
   const [assignedPlanId, setAssignedPlanId] = useState<string | null>(null);
   const [assignedNutritionPlanId, setAssignedNutritionPlanId] = useState<string | null>(null);
   const {
@@ -256,10 +261,19 @@ export default function TodaySummaryClient() {
   const loadAssignedTrainingPlan = useCallback(async () => {
     setTrainingState({ status: "loading" });
     setAssignedPlanId(null);
+    setTrainingUnsupported(false);
 
     try {
       const activeResponse = await fetch("/api/training-plans/active?includeDays=1", { cache: "no-store" });
-      if (!activeResponse.ok) throw new Error("TRAINING_PLAN_ACTIVE_ERROR");
+      if (!activeResponse.ok) {
+        if (!mountedRef.current) return;
+        if (isUnsupportedStatus(activeResponse.status)) {
+          setTrainingUnsupported(true);
+          setTrainingState({ status: "empty" });
+          return;
+        }
+        throw new Error("TRAINING_PLAN_ACTIVE_ERROR");
+      }
 
       const activePayload = (await activeResponse.json()) as ActiveTrainingPlanPayload;
       const planDetail = activePayload.plan;
@@ -320,7 +334,7 @@ export default function TodaySummaryClient() {
   }, [loadAssignedNutritionPlan, loadAssignedTrainingPlan, loadTracking]);
 
   const trainingAction = useMemo(
-    () => (
+    () => (trainingUnsupported ? null : (
       <ButtonLink
         variant="secondary"
         href={assignedPlanId ? `/app/biblioteca/entrenamientos/${assignedPlanId}?from=hoy` : "/app/biblioteca/entrenamientos"}
@@ -328,8 +342,8 @@ export default function TodaySummaryClient() {
       >
         {t("today.trainingCta")}
       </ButtonLink>
-    ),
-    [assignedPlanId, t]
+    )),
+    [assignedPlanId, t, trainingUnsupported]
   );
 
   const nutritionAction = useMemo(
@@ -497,9 +511,9 @@ const notesErrorActions: ErrorAction[] = [
         }
         empty={
           <EmptyState
-            title={t("today.trainingEmptyTitle")}
-            description={t("today.trainingAssignedEmptyDescription")}
-            actions={[{ label: t("today.trainingCta"), href: "/app/biblioteca/entrenamientos", variant: "secondary" }]}
+            title={trainingUnsupported ? t("common.notAvailable") : t("today.trainingEmptyTitle")}
+            description={trainingUnsupported ? t("library.training.assignedUnavailable") : t("today.trainingAssignedEmptyDescription")}
+            actions={trainingUnsupported ? [] : [{ label: t("today.trainingCta"), href: "/app/biblioteca/entrenamientos", variant: "secondary" }]}
           />
         }
       >
