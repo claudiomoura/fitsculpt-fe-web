@@ -26,10 +26,7 @@ import {
   persistAiUsageLog,
 } from "./ai/chargeAiUsage.js";
 import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiClient.js";
-import {
-  resolveTrainingProviderFailureCause,
-  resolveTrainingProviderFailureDebug,
-} from "./ai/training-plan/errorHandling.js";
+import { classifyAiGenerateError } from "./ai/errorClassification.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
@@ -2623,55 +2620,6 @@ function getNutritionInvalidOutputDebug(error: unknown) {
     cause: "INVALID_AI_OUTPUT",
     reasonCode: "REQUEST_MISMATCH",
     details: typed.debug ?? { message: typed.message ?? "Unknown validation error" },
-  };
-}
-
-type NutritionErrorKind = "validation_error" | "ai_parse_error" | "upstream_error" | "internal_error";
-
-function getNutritionErrorKind(error: unknown): NutritionErrorKind {
-  if (error instanceof z.ZodError) {
-    return "validation_error";
-  }
-
-  const typed = error as { code?: string; statusCode?: number; debug?: Record<string, unknown> };
-  if (typed.code === "INVALID_INPUT" || typed.statusCode === 400) {
-    return "validation_error";
-  }
-
-  if (typed.code === "AI_PARSE_ERROR" || typed.code === "INVALID_AI_OUTPUT" || typed.code === "AI_EMPTY_RESPONSE") {
-    return "ai_parse_error";
-  }
-
-  const upstreamStatus = typed.debug?.status;
-  if (
-    typed.code === "AI_REQUEST_FAILED" ||
-    typed.code === "AI_AUTH_FAILED" ||
-    (typeof upstreamStatus === "number" && upstreamStatus >= 500)
-  ) {
-    return "upstream_error";
-  }
-
-  return "internal_error";
-}
-
-function getNutritionErrorContext(error: unknown, aiRequestId?: string | null) {
-  const typed = error as { debug?: Record<string, unknown>; statusCode?: number };
-  const debug = typed.debug;
-  const upstreamStatus = typeof debug?.status === "number" ? debug.status : undefined;
-  const errorKind = getNutritionErrorKind(error);
-  const resolvedAiRequestId =
-    aiRequestId ??
-    (typeof debug?.aiRequestId === "string" && debug.aiRequestId.length > 0
-      ? debug.aiRequestId
-      : typeof debug?.requestId === "string" && debug.requestId.length > 0
-        ? debug.requestId
-        : undefined);
-
-  return {
-    error_kind: errorKind,
-    ...(typeof typed.statusCode === "number" ? { statusCode: typed.statusCode } : {}),
-    ...(typeof upstreamStatus === "number" ? { upstream_status: upstreamStatus } : {}),
-    ...(resolvedAiRequestId ? { aiRequestId: resolvedAiRequestId } : {}),
   };
 }
 
@@ -6056,67 +6004,18 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
       ...(exactUsage ? { usage: exactUsage } : {}),
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
-    }
-
-    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
-    if (typed.code === "EXERCISE_CATALOG_EMPTY") {
-      return reply.status(422).send({
-        error: "EXERCISE_CATALOG_EMPTY",
-        debug: {
-          cause: typeof typed.debug?.cause === "string" ? typed.debug.cause : "CATALOG_EMPTY",
-          ...(typeof typed.debug?.hint === "string" ? { hint: typed.debug.hint } : {}),
-        },
-      });
-    }
-
-    if (typed.code === "EXERCISE_CATALOG_UNAVAILABLE") {
-      return reply.status(503).send({
-        error: "EXERCISE_CATALOG_UNAVAILABLE",
-        debug: {
-          cause: typeof typed.debug?.cause === "string" ? typed.debug.cause : "CATALOG_INACCESSIBLE",
-          ...(typeof typed.debug?.hint === "string" ? { hint: typed.debug.hint } : {}),
-        },
-      });
-    }
-
-    if (typed.code === "AI_NOT_CONFIGURED") {
-      return reply.status(503).send({
-        error: "AI_NOT_CONFIGURED",
-        ...(typed.debug ? { debug: typed.debug } : {}),
-      });
-    }
-
-    if (typed.code === "AI_PARSE_ERROR" || typed.code === "AI_EMPTY_RESPONSE" || typed.code === "INVALID_AI_OUTPUT") {
-      return reply.status(422).send({ error: "INVALID_AI_OUTPUT" });
-    }
-
-    if (typed.code === "AI_REQUEST_FAILED" || typed.code === "AI_AUTH_FAILED") {
-      const debug = resolveTrainingProviderFailureDebug(error);
-      const cause = resolveTrainingProviderFailureCause(error);
-      return reply.status(503).send({
-        error: "AI_REQUEST_FAILED",
-        ...(debug ? { debug: { ...debug, cause } } : { debug: { cause } }),
-      });
-    }
-
-    if (typed.statusCode && typed.statusCode < 500) {
-      return reply.status(typed.statusCode).send({
-        error: typed.code ?? "REQUEST_ERROR",
-        ...(typed.debug ? { debug: typed.debug } : {}),
-      });
-    }
-
-    app.log.error({ err: error, route: "/ai/training-plan/generate" }, "training plan generation failed");
-    return reply.status(503).send({
-      error: "TRAINING_PLAN_GENERATION_FAILED",
-      debug: {
-        cause: "UNEXPECTED_ERROR",
-        reqId: request.id,
-        message: "Unexpected error while generating training plan",
+    const classified = classifyAiGenerateError(error);
+    const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
+    logger(
+      {
+        err: error,
+        route: "/ai/training-plan/generate",
+        error_kind: classified.errorKind,
+        ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
       },
-    });
+      "training plan generation failed"
+    );
+    return reply.status(classified.statusCode).send({ error: classified.error });
   }
 });
 
@@ -6306,7 +6205,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
             typeof (lastError as { debug?: Record<string, unknown> })?.debug?.status === "number"
               ? ((lastError as { debug?: Record<string, unknown> }).debug?.status as number)
               : undefined,
-          error_kind: getNutritionErrorKind(lastError),
+          error_kind: classifyAiGenerateError(lastError).errorKind,
           outputPreviewLength: lastRawOutput.length,
           reasonCode: debug.reasonCode,
           details: debug.details,
@@ -6384,10 +6283,18 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
       ...(exactUsage ? { usage: exactUsage } : {}),
     });
   } catch (error) {
-    const errorContext = getNutritionErrorContext(error);
-    const logger = errorContext.error_kind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
-    logger({ err: error, route: "/ai/nutrition-plan/generate", ...errorContext }, "nutrition plan generate failed");
-    return handleRequestError(reply, error);
+    const classified = classifyAiGenerateError(error);
+    const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
+    logger(
+      {
+        err: error,
+        route: "/ai/nutrition-plan/generate",
+        error_kind: classified.errorKind,
+        ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
+      },
+      "nutrition plan generate failed"
+    );
+    return reply.status(classified.statusCode).send({ error: classified.error });
   }
 });
 
