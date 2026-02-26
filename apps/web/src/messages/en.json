@@ -1726,7 +1726,8 @@
     "usersAssignTrainerAction": "Assign as TRAINER",
     "usersAssignClientSuccess": "User assigned as CLIENT.",
     "usersAssignTrainerSuccess": "User assigned as TRAINER.",
-    "usersAssignGymRoleError": "We could not assign this gym role."
+    "usersAssignGymRoleError": "We could not assign this gym role.",
+    "usersAssignGymRoleServiceUnavailable": "Service unavailable. Please try again later."
   },
   "library": {
     "loadError": "We couldn't load the exercise.",
