@@ -11,11 +11,11 @@ import {
   LoadingBlock,
   PageContainer,
   Stack,
-  TrainingWeekGridCompact,
   WorkoutProgressBar,
 } from "@/design-system";
 import { useLanguage } from "@/context/LanguageProvider";
 import { dayKey, todayLocalDayKey } from "@/lib/date/dayKey";
+import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 import type { TrainingPlanDay } from "@/lib/types";
 import { getActiveWorkoutPlanDays } from "@/services/workout.service";
 import AppLayout from "@/components/layout/AppLayout";
@@ -31,7 +31,6 @@ type WeekDay = {
   iso: string;
 };
 
-const PLACEHOLDER_IMAGE = "/placeholders/exercise-cover.jpg";
 const WEEKDAY_LABELS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 function parseDate(value?: string | null) {
@@ -239,16 +238,24 @@ export default function WorkoutTodayMobileClient() {
             />
           ) : exercises.length ? (
             <Stack gap="3" className="mt-3 divide-y divide-white/5">
-              {exercises.map((exercise, index) => (
-                <ExerciseCardCompact
-                  key={`${exercise.id ?? exercise.name}-${index}`}
-                  name={exercise.name}
-                  detail={`${exercise.sets ?? "3"} series · ${exercise.reps ?? "10"} reps`}
-                  imageSrc={PLACEHOLDER_IMAGE}
-                  imageAlt={exercise.name}
-                  progress={completed > index ? 100 : 0}
-                />
-              ))}
+              {exercises.map((exercise, index) => {
+                const exerciseId = typeof exercise.id === "string" ? exercise.id : null;
+                return (
+                  <ExerciseCardCompact
+                    key={`${exercise.id ?? exercise.name}-${index}`}
+                    name={exercise.name}
+                    detail={`${exercise.sets ?? "3"} series · ${exercise.reps ?? "10"} reps`}
+                    imageSrc={getExerciseThumbUrl(exercise)}
+                    imageAlt={exercise.name}
+                    progress={completed > index ? 100 : 0}
+                    onClick={() => {
+                      if (!exerciseId) return;
+                      router.push(`/app/biblioteca/${exerciseId}?from=plan`);
+                    }}
+                    aria-label={`Ver técnica de ${exercise.name}`}
+                  />
+                );
+              })}
             </Stack>
           ) : (
             <EmptyBlock

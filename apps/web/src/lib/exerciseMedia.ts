@@ -39,11 +39,30 @@ function asText(value: unknown): string | null {
     return null;
   }
 
-  if (/^(https?:\/\/|\/|data:|blob:)/i.test(normalized)) {
+  return normalizeExerciseMediaUrl(normalized);
+}
+
+export function normalizeExerciseMediaUrl(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+
+  if (/^(https?:\/\/|\/\/|data:|blob:)/i.test(normalized)) {
     return normalized;
   }
 
-  return null;
+  if (normalized.startsWith("/")) {
+    return normalized;
+  }
+
+  if (normalized.startsWith("./")) {
+    return `/${normalized.slice(2)}`;
+  }
+
+  if (normalized.startsWith("../")) {
+    return null;
+  }
+
+  return `/${normalized}`;
 }
 
 function firstUrlFromList(value: unknown): string | null {

@@ -5055,3 +5055,18 @@ html { scroll-behavior: smooth; }
   justify-content: space-between;
   gap: 8px;
 }
+
+@media (max-width: 640px) {
+  .exercise-mini-card {
+    overflow: hidden;
+  }
+
+  .exercise-mini-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .exercise-mini-card-callout {
+    pointer-events: none;
+  }
+}
