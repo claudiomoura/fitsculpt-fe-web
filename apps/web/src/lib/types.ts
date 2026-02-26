@@ -209,6 +209,14 @@ export type AuthMeEntitlements = {
 };
 
 export type AuthMeResponse = {
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  imageUrl?: string | null;
+  avatarUrl?: string | null;
+  profilePhotoUrl?: string | null;
+  avatarDataUrl?: string | null;
+  aiTokenBalance?: number;
   subscriptionPlan?: string | null;
   plan?: string | null;
   entitlements?: AuthMeEntitlements | null;

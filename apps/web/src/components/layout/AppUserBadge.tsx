@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { logoutAction } from "@/app/(auth)/login/actions";
 import { useLanguage } from "@/context/LanguageProvider";
-import { getUserProfile } from "@/lib/profileService";
+import type { AuthMePayload } from "@/lib/entitlements";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,62 +12,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 
-type ProfileSummary = {
-  name?: string;
-  profilePhotoUrl?: string | null;
-  avatarDataUrl?: string | null;
-};
-
 type AppUserBadgeProps = {
-  mobileMenuOpen?: boolean;
-  onMobileMenuOpen?: () => void;
+  user: AuthMePayload | null;
 };
 
-export default function AppUserBadge({ mobileMenuOpen, onMobileMenuOpen }: AppUserBadgeProps) {
+export default function AppUserBadge({ user }: AppUserBadgeProps) {
   const { t } = useLanguage();
-  const [profile, setProfile] = useState<ProfileSummary | null>(null);
-  const [isMobileViewport, setIsMobileViewport] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(max-width: 900px)").matches;
-  });
 
-  useEffect(() => {
-    let active = true;
-    const loadProfile = async () => {
-      try {
-        const data = await getUserProfile();
-        if (active) {
-          setProfile({
-            name: data.name,
-            profilePhotoUrl: data.profilePhotoUrl,
-            avatarDataUrl: data.avatarDataUrl,
-          });
-        }
-      } catch (_err) {
-        // ignore
-      }
-    };
-    void loadProfile();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mediaQuery = window.matchMedia("(max-width: 900px)");
-    const handleChange = (event: MediaQueryListEvent) => {
-      setIsMobileViewport(event.matches);
-    };
-    mediaQuery.addEventListener("change", handleChange);
-    return () => {
-      mediaQuery.removeEventListener("change", handleChange);
-    };
-  }, []);
-
-  const avatarUrl = profile?.profilePhotoUrl ?? profile?.avatarDataUrl ?? null;
+  const avatarUrl = user?.imageUrl ?? user?.avatarUrl ?? user?.profilePhotoUrl ?? user?.avatarDataUrl ?? null;
   const initials = useMemo(() => {
-    const name = profile?.name?.trim();
+    const name = user?.name?.trim();
     if (!name) return "FS";
     return name
       .split(" ")
@@ -75,32 +29,22 @@ export default function AppUserBadge({ mobileMenuOpen, onMobileMenuOpen }: AppUs
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join("");
-  }, [profile?.name]);
+  }, [user?.name]);
 
-  void mobileMenuOpen;
-  void onMobileMenuOpen;
+  const displayName = user?.name || user?.email || t("ui.userFallback");
 
-  const badgeContent = (
-    <>
-      {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
-      ) : (
-        <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">
-          {initials}
-        </div>
-      )}
-      {!isMobileViewport && (
-        <span className="nav-user-name">
-          {profile?.name || t("ui.userFallback")}
-        </span>
-      )}
-    </>
-  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="nav-user">
-        {badgeContent}
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="nav-avatar" src={avatarUrl} alt={t("nav.profile")} />
+        ) : (
+          <div className="nav-avatar nav-avatar-fallback" aria-hidden="true">
+            {initials}
+          </div>
+        )}
+        <span className="nav-user-name">{displayName}</span>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent className="nav-user-dropdown">
