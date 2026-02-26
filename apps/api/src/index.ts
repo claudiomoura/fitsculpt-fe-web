@@ -1963,8 +1963,9 @@ async function saveNutritionPlan(
   startDate: Date,
   daysCount: number
 ) {
-  return prisma.$transaction(
-    async (tx) => {
+  const persistNutritionPlan = async (preferUpdate: boolean) =>
+    prisma.$transaction(
+      async (tx) => {
       const planData = {
         userId,
         title: plan.title,
@@ -1978,28 +1979,17 @@ async function saveNutritionPlan(
       let planRecord: { id: string } | null = null;
       let persistenceMode: "create" | "update" = "create";
 
-      try {
-        planRecord = await tx.nutritionPlan.create({ data: planData, select: { id: true } });
-      } catch (error) {
-        const typed = error as Prisma.PrismaClientKnownRequestError;
-        if (typed.code !== "P2002") {
-          throw error;
-        }
+      const existingPlan = await tx.nutritionPlan.findFirst({
+        where: {
+          userId,
+          startDate,
+          daysCount,
+        },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true },
+      });
 
-        const existingPlan = await tx.nutritionPlan.findFirst({
-          where: {
-            userId,
-            startDate,
-            daysCount,
-          },
-          orderBy: { updatedAt: "desc" },
-          select: { id: true },
-        });
-
-        if (!existingPlan) {
-          throw error;
-        }
-
+      if (existingPlan) {
         planRecord = await tx.nutritionPlan.update({
           where: { id: existingPlan.id },
           data: {
@@ -2012,6 +2002,18 @@ async function saveNutritionPlan(
           select: { id: true },
         });
         persistenceMode = "update";
+      } else {
+        if (preferUpdate) {
+          app.log.info(
+            {
+              userId,
+              startDate: toIsoDateString(startDate),
+              daysCount,
+            },
+            "nutrition plan persistence retry without existing record, attempting create"
+          );
+        }
+        planRecord = await tx.nutritionPlan.create({ data: planData, select: { id: true } });
       }
 
       if (!planRecord) {
@@ -2110,9 +2112,31 @@ async function saveNutritionPlan(
       }
 
       return planRecord;
-    },
-    { maxWait: 30000, timeout: 30000 }
-  );
+      },
+      { maxWait: 30000, timeout: 30000 }
+    );
+
+  try {
+    return await persistNutritionPlan(false);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      app.log.info(
+        {
+          userId,
+          prismaCode: error.code,
+          target: Array.isArray((error.meta as { target?: unknown } | undefined)?.target)
+            ? (error.meta as { target?: string[] }).target
+            : (error.meta as { target?: unknown } | undefined)?.target,
+          startDate: toIsoDateString(startDate),
+          daysCount,
+        },
+        "nutrition plan unique conflict detected, retrying with update"
+      );
+      return persistNutritionPlan(true);
+    }
+
+    throw error;
+  }
 }
 
 async function saveTrainingPlan(
@@ -6362,7 +6386,24 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
       });
     }
 
+    app.log.info(
+      {
+        route: "/ai/nutrition-plan/generate",
+        userId: user.id,
+        startDate: payload.startDate ?? toIsoDateString(startDate),
+        daysCount,
+      },
+      "nutrition plan persistence start"
+    );
     const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
+    app.log.info(
+      {
+        route: "/ai/nutrition-plan/generate",
+        userId: user.id,
+        planId: savedPlan.id,
+      },
+      "nutrition plan persistence complete"
+    );
     await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
 
     if (aiResult && shouldChargeAi) {
