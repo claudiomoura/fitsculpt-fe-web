@@ -15,6 +15,7 @@ Uma tarefa só está “feita” quando cumpre tudo o que se aplica abaixo.
 
 ## Validação manual mínima (obrigatória)
 Smoke oficial RC: seguir `docs/qa/SMOKE_TEST_RC.md` e registar PASS/FAIL por fluxo com evidência mínima.
+Checklist P0 de pantallas no vendibles (cuando aplique): `docs/qa/NO_DEAD_END_SCREENS_CHECKLIST.md`.
 
 Executar e validar:
 - Login com email/password
