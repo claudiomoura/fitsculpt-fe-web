@@ -56,6 +56,22 @@ type UsageTotals = {
 
 export type AiUsageTotals = UsageTotals;
 
+export function extractExactProviderUsage(usage?: OpenAiUsage | null): UsageTotals | undefined {
+  if (!usage) return undefined;
+  const promptRaw = usage.prompt_tokens ?? usage.input_tokens;
+  const completionRaw = usage.completion_tokens ?? usage.output_tokens;
+  const totalRaw = usage.total_tokens;
+  if (typeof promptRaw !== "number" || typeof completionRaw !== "number" || typeof totalRaw !== "number") {
+    return undefined;
+  }
+
+  return {
+    promptTokens: Math.max(0, promptRaw),
+    completionTokens: Math.max(0, completionRaw),
+    totalTokens: Math.max(0, totalRaw),
+  };
+}
+
 export function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
   const promptTokens = Math.max(0, usage?.prompt_tokens ?? usage?.input_tokens ?? 0);
   const completionTokens = Math.max(0, usage?.completion_tokens ?? usage?.output_tokens ?? 0);
@@ -105,9 +121,20 @@ export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
         meta: logMeta,
       },
     });
+    console.info("AI usage persisted", {
+      feature: params.feature,
+      userId: params.userId,
+      mode: params.mode ?? "AI",
+      model: params.model ?? "unknown",
+      provider: params.provider ?? "unknown",
+      requestId: params.requestId ?? null,
+      promptTokens: totals.promptTokens,
+      completionTokens: totals.completionTokens,
+      totalTokens: totals.totalTokens,
+    });
   } catch (error) {
     const typedError = error as { name?: string; message?: string; code?: string };
-    console.warn("AI usage log persistence failed; continuing without blocking response", {
+    console.warn("AI usage persist failed but continued", {
       feature: params.feature,
       userId: params.userId,
       mode: params.mode ?? "AI",
