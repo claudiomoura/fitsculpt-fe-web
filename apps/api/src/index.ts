@@ -593,12 +593,32 @@ async function getOrCreateStripeCustomer(user: User) {
   return customer.id;
 }
 
-async function syncUserBillingFromStripe(user: User) {
-  const stripeCustomerId = await getOrCreateStripeCustomer(user);
+async function getExistingStripeCustomerId(userId: string) {
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { stripeCustomerId: true },
+  });
+  return existing?.stripeCustomerId ?? null;
+}
+
+async function syncUserBillingFromStripe(
+  user: User,
+  options?: {
+    createCustomerIfMissing?: boolean;
+  }
+) {
+  const shouldCreateCustomer = options?.createCustomerIfMissing ?? true;
+  const stripeCustomerId = shouldCreateCustomer
+    ? await getOrCreateStripeCustomer(user)
+    : (user.stripeCustomerId ?? (await getExistingStripeCustomerId(user.id)));
+
+  if (!stripeCustomerId) {
+    return await prisma.user.findUnique({ where: { id: user.id } });
+  }
 
   const activeSubscription = await getLatestActiveSubscription(stripeCustomerId);
   if (!activeSubscription) {
-    await prisma.user.update({
+    return await prisma.user.update({
       where: { id: user.id },
       data: {
         plan: "FREE",
@@ -610,7 +630,6 @@ async function syncUserBillingFromStripe(user: User) {
         aiTokenRenewalAt: null,
       },
     });
-    return;
   }
 
   const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
@@ -622,7 +641,7 @@ async function syncUserBillingFromStripe(user: User) {
   const nextRenewalAt = nextResetAt;
   const nextBalance = shouldTopUpTokens ? 5000 : currentTokenBalance;
 
-  await prisma.user.update({
+  return await prisma.user.update({
     where: { id: user.id },
     data: {
       plan: getPlanFromSubscription(activeSubscription) ?? "FREE",
@@ -4769,8 +4788,18 @@ app.post(
 
 app.get("/auth/me", async (request, reply) => {
   try {
+    reply.header("Cache-Control", "no-store");
     const user = await requireUser(request);
-    const effectiveIsAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
+    let effectiveUser = user;
+    try {
+      const syncedUser = await syncUserBillingFromStripe(user, { createCustomerIfMissing: false });
+      if (syncedUser) {
+        effectiveUser = syncedUser;
+      }
+    } catch (error) {
+      app.log.warn({ err: error, userId: user.id }, "auth/me billing sync failed");
+    }
+    const effectiveIsAdmin = effectiveUser.role === "ADMIN" || isBootstrapAdmin(effectiveUser.email);
     const activeMembershipRecord = await prisma.gymMembership.findFirst({
       where: {
         userId: user.id,
@@ -4796,11 +4825,11 @@ app.get("/auth/me", async (request, reply) => {
           status: "ACTIVE" as const,
         }
       : null;
-    const entitlements = getUserEntitlements(user);
-    const aiTokenPayload = getAiTokenPayload(user, entitlements);
+    const entitlements = getUserEntitlements(effectiveUser);
+    const aiTokenPayload = getAiTokenPayload(effectiveUser, entitlements);
     return buildAuthMeResponse({
-      user,
-      role: effectiveIsAdmin ? "ADMIN" : user.role,
+      user: effectiveUser,
+      role: effectiveIsAdmin ? "ADMIN" : effectiveUser.role,
       aiTokenBalance: aiTokenPayload.aiTokenBalance,
       aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
       entitlements,
