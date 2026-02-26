@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { normalizeExerciseMediaUrl } from "@/lib/exerciseMedia";
 
@@ -11,7 +12,7 @@ type ExerciseThumbnailProps = {
   className?: string;
 };
 
-const PLACEHOLDER_SRC = "/placeholders/exercise-cover.jpg";
+const PLACEHOLDER_SRC = "/placeholders/exercise-cover.svg";
 
 export function ExerciseThumbnail({
   src,
@@ -34,14 +35,14 @@ export function ExerciseThumbnail({
   }, [normalized]);
 
   return (
-    <img
+    <Image
       className={className}
       src={displaySrc}
       alt={alt}
       width={width}
       height={height}
+      unoptimized
       loading="lazy"
-      decoding="async"
       onError={() => {
         if (!hasLoadError) {
           setHasLoadError(true);

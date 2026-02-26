@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 import { EmptyState } from "@/components/exercise-library/states/EmptyState";
 import { ErrorState } from "@/components/exercise-library/states/ErrorState";
 import { SkeletonExerciseList } from "@/components/exercise-library/states/SkeletonExerciseList";
@@ -465,13 +466,12 @@ const notesErrorActions: ErrorAction[] = [
     return (
       <div key={item.id} className="feature-card library-card">
         <Link href={`/app/biblioteca/${item.id}`} className="library-card-link">
-          <img
+          <ExerciseThumbnail
             src={item.coverUrl}
             alt={`${t("library.mediaAlt")} ${item.name}`}
+            width={320}
+            height={160}
             className="exercise-card-media"
-            onError={(event) => {
-              event.currentTarget.src = "/placeholders/exercise-cover.jpg";
-            }}
           />
           <h3>{item.name}</h3>
           <p className="muted">

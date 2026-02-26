@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
@@ -39,23 +40,15 @@ export function ExerciseCard({
   onFavoriteToggle,
   onAdd,
 }: ExerciseCardProps) {
-  const hasValidCover = typeof coverUrl === "string" && coverUrl.trim().length > 0;
-
   const content = (
     <>
-      {hasValidCover ? (
-        <img
-          src={coverUrl}
-          alt={`${mediaAltPrefix} ${name}`}
-          className="exercise-card-media"
-          loading="lazy"
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-          }}
-        />
-      ) : (
-        <div className="exercise-card-media exercise-card-media--placeholder" aria-hidden="true" />
-      )}
+      <ExerciseThumbnail
+        src={coverUrl}
+        alt={`${mediaAltPrefix} ${name}`}
+        width={320}
+        height={160}
+        className="exercise-card-media"
+      />
       <h3>{name}</h3>
       <div className="badge-list">
         {muscles.length > 0 ? (

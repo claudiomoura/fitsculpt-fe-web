@@ -1,6 +1,6 @@
 import type { Exercise } from "@/lib/types";
 
-const COVER_PLACEHOLDER = "/placeholders/exercise-cover.jpg";
+const COVER_PLACEHOLDER = "/placeholders/exercise-cover.svg";
 const DEMO_PLACEHOLDER = "/placeholders/exercise-demo.svg";
 
 type DemoMedia = {
