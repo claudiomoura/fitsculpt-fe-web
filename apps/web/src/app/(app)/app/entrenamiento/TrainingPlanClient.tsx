@@ -520,11 +520,18 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       : "/placeholders/exercise-cover.jpg";
   };
 
-  const handleExerciseKeyDown = (event: KeyboardEvent<HTMLDivElement>, exerciseId?: string, dayDate?: Date) => {
-    if (!exerciseId) return;
+  const handleExerciseCardActivate = (exerciseId: string | undefined, dayDate?: Date) => {
+    if (exerciseId) {
+      handleExerciseNavigate(exerciseId, dayDate);
+      return;
+    }
+    handleLibraryNavigate(dayDate);
+  };
+
+  const handleExerciseKeyDown = (event: KeyboardEvent<HTMLElement>, exerciseId?: string, dayDate?: Date) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      handleExerciseNavigate(exerciseId, dayDate);
+      handleExerciseCardActivate(exerciseId, dayDate);
     }
   };
 
@@ -1250,15 +1257,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             <div
                               key={`${exercise.name}-${exerciseIdx}`}
                               className={`exercise-mini-card ${exerciseLibraryId ? "is-clickable" : "is-disabled"}`}
-                              role={exerciseLibraryId ? "button" : undefined}
-                              tabIndex={exerciseLibraryId ? 0 : undefined}
-                              aria-disabled={!exerciseLibraryId}
+                              role="button"
+                              tabIndex={0}
                               aria-label={
                                 exerciseLibraryId
                                   ? `${t("training.exerciseLink")}: ${exercise.name}`
-                                  : `${exercise.name}: ${t("training.exerciseUnavailable")}`
+                                  : `${safeT("training.openFromLibrary", "Abrir en biblioteca")}: ${exercise.name}`
                               }
-                              onClick={() => handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined)}
+                              onClick={() => handleExerciseCardActivate(exerciseLibraryId, dayDate ?? undefined)}
                               onKeyDown={(event) => handleExerciseKeyDown(event, exerciseLibraryId, dayDate ?? undefined)}
                             >
                               <Image
@@ -1432,6 +1438,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                     <article
                       key={`${exercise.name}-${index}`}
                       className={`exercise-mini-card exercise-mini-card-compact ${exerciseLibraryId ? "is-clickable" : "is-disabled"}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={
+                        exerciseLibraryId
+                          ? `${t("training.exerciseLink")}: ${exercise.name}`
+                          : `${safeT("training.openFromLibrary", "Abrir en biblioteca")}: ${exercise.name}`
+                      }
+                      onClick={() => handleExerciseCardActivate(exerciseLibraryId, selectedEntryDate)}
+                      onKeyDown={(event) => handleExerciseKeyDown(event, exerciseLibraryId, selectedEntryDate)}
                     >
                       <Image
                         className="exercise-thumb"
