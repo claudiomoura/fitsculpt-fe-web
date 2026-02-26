@@ -77,6 +77,13 @@ type TrainingPlanClientProps = {
   mode?: "suggested" | "manual";
 };
 
+type AiUsageSummary = {
+  totalTokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  balanceAfter?: number;
+};
+
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -261,6 +268,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
+  const [lastGeneratedUsage, setLastGeneratedUsage] = useState<AiUsageSummary | null>(null);
+  const [lastGeneratedAiRequestId, setLastGeneratedAiRequestId] = useState<string | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
   const [aiEntitlementResolved, setAiEntitlementResolved] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
@@ -761,10 +770,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       });
       if (typeof result.aiTokenBalance === "number") {
         setAiTokenBalance(result.aiTokenBalance);
+      } else if (typeof result.usage?.balanceAfter === "number") {
+        setAiTokenBalance(result.usage.balanceAfter);
+      } else if (typeof result.balanceAfter === "number") {
+        setAiTokenBalance(result.balanceAfter);
       }
       if (typeof result.aiTokenRenewalAt === "string" || result.aiTokenRenewalAt === null) {
         setAiTokenRenewalAt(result.aiTokenRenewalAt ?? null);
       }
+      setLastGeneratedUsage(result.usage ?? null);
+      setLastGeneratedAiRequestId(result.aiRequestId ?? null);
       setAiPreviewPlan(result.plan);
       setPendingTokenToastId((value) => value + 1);
       setSaveMessage(t("training.aiPreviewReady"));
@@ -937,6 +952,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => entry.date.getTime() < today.getTime()).length;
   const totalPlannedSessions = Math.max(visiblePlanEntries.length, 1);
   const progressPercent = Math.min(100, Math.round((estimatedCompletedSessions / totalPlannedSessions) * 100));
+  const resultBalancePlaceholder = lastGeneratedUsage?.balanceAfter ?? aiTokenBalance;
 
   useEffect(() => {
     if (!hasPlan) return;
@@ -1645,6 +1661,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         confirmLabel={t("training.aiPreviewConfirm")}
         savingLabel={t("training.aiPreviewConfirming")}
         durationUnit={t("training.minutesLabel")}
+        aiBlockTitle={t("nutrition.aiSuccessModal.aiBlockTitle")}
+        tokensUsedLabel={t("nutrition.aiSuccessModal.tokensUsed")}
+        promptTokensLabel={t("nutrition.aiSuccessModal.promptTokens")}
+        completionTokensLabel={t("nutrition.aiSuccessModal.completionTokens")}
+        aiRequestIdLabel={t("nutrition.aiSuccessModal.aiRequestId")}
+        remainingBalanceLabel={t("nutrition.aiSuccessModal.currentBalance")}
+        notAvailableLabel={t("nutrition.aiSuccessModal.notAvailable")}
+        usage={lastGeneratedUsage}
+        aiRequestId={lastGeneratedAiRequestId}
+        remainingBalance={resultBalancePlaceholder}
         onClose={() => setAiPreviewPlan(null)}
         onConfirm={handleConfirmAiPlan}
         isSaving={aiConfirmSaving}

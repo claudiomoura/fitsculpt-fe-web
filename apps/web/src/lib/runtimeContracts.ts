@@ -111,6 +111,10 @@ function isUsagePayload(value: unknown): boolean {
   if (value.total_tokens !== undefined && !isNumber(value.total_tokens)) return false;
   if (value.prompt_tokens !== undefined && !isNumber(value.prompt_tokens)) return false;
   if (value.completion_tokens !== undefined && !isNumber(value.completion_tokens)) return false;
+  if (value.totalTokens !== undefined && !isNumber(value.totalTokens)) return false;
+  if (value.promptTokens !== undefined && !isNumber(value.promptTokens)) return false;
+  if (value.completionTokens !== undefined && !isNumber(value.completionTokens)) return false;
+  if (value.balanceAfter !== undefined && !isNumber(value.balanceAfter)) return false;
   return true;
 }
 
@@ -132,6 +136,9 @@ export function validateAiTrainingGeneratePayload(payload: unknown): ContractVal
   if (payload.aiRequestId !== undefined && typeof payload.aiRequestId !== "string") {
     return { ok: false, reason: "AI_TRAINING_INVALID_AI_REQUEST_ID" };
   }
+  if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {
+    return { ok: false, reason: "AI_TRAINING_INVALID_BALANCE_AFTER" };
+  }
   return { ok: true };
 }
 
@@ -152,6 +159,9 @@ export function validateAiNutritionGeneratePayload(payload: unknown): ContractVa
   }
   if (payload.aiRequestId !== undefined && typeof payload.aiRequestId !== "string") {
     return { ok: false, reason: "AI_NUTRITION_INVALID_AI_REQUEST_ID" };
+  }
+  if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_BALANCE_AFTER" };
   }
   return { ok: true };
 }

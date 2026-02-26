@@ -43,12 +43,17 @@ export type NutritionGenerateResponse = {
   aiTokenBalance?: number;
   aiTokenRenewalAt?: string | null;
   usage?: {
+    totalTokens?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+    balanceAfter?: number;
     total_tokens?: number;
     prompt_tokens?: number;
     completion_tokens?: number;
   };
   mode?: string;
   aiRequestId?: string;
+  balanceAfter?: number;
 };
 
 export async function generateNutritionPlan(request: NutritionGenerateRequest): Promise<NutritionGenerateResponse> {
@@ -69,12 +74,17 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
     aiTokenBalance?: unknown;
     aiTokenRenewalAt?: unknown;
     usage?: {
+      totalTokens?: unknown;
+      promptTokens?: unknown;
+      completionTokens?: unknown;
+      balanceAfter?: unknown;
       total_tokens?: unknown;
       prompt_tokens?: unknown;
       completion_tokens?: unknown;
     };
     mode?: unknown;
     aiRequestId?: unknown;
+    balanceAfter?: unknown;
   } | null;
 
   if (!response.ok) {
@@ -97,12 +107,29 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
         : undefined,
     usage: payload?.usage
       ? {
-          total_tokens: typeof payload.usage.total_tokens === "number" ? payload.usage.total_tokens : undefined,
-          prompt_tokens: typeof payload.usage.prompt_tokens === "number" ? payload.usage.prompt_tokens : undefined,
-          completion_tokens: typeof payload.usage.completion_tokens === "number" ? payload.usage.completion_tokens : undefined,
+          totalTokens:
+            typeof payload.usage.totalTokens === "number"
+              ? payload.usage.totalTokens
+              : typeof payload.usage.total_tokens === "number"
+                ? payload.usage.total_tokens
+                : undefined,
+          promptTokens:
+            typeof payload.usage.promptTokens === "number"
+              ? payload.usage.promptTokens
+              : typeof payload.usage.prompt_tokens === "number"
+                ? payload.usage.prompt_tokens
+                : undefined,
+          completionTokens:
+            typeof payload.usage.completionTokens === "number"
+              ? payload.usage.completionTokens
+              : typeof payload.usage.completion_tokens === "number"
+                ? payload.usage.completion_tokens
+                : undefined,
+          balanceAfter: typeof payload.usage.balanceAfter === "number" ? payload.usage.balanceAfter : undefined,
         }
       : undefined,
     mode: typeof payload?.mode === "string" ? payload.mode : undefined,
     aiRequestId: typeof payload?.aiRequestId === "string" ? payload.aiRequestId : undefined,
+    balanceAfter: typeof payload?.balanceAfter === "number" ? payload.balanceAfter : undefined,
   };
 }
