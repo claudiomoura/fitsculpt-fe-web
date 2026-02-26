@@ -1346,6 +1346,14 @@ function buildDateRange(startDate: Date, daysCount: number) {
   return dates;
 }
 
+function getSpanishWeekdayLabel(date: Date) {
+  const weekday = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    timeZone: "UTC",
+  }).format(date);
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
+}
+
 function getSecondsUntilNextUtcDay(date = new Date()) {
   const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
   const diffMs = next.getTime() - date.getTime();
@@ -2291,11 +2299,36 @@ function normalizeNutritionPlanDays(
   daysCount: number
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
   const normalizedDays = ensureNutritionDayCount(plan.days, daysCount);
-  const dates = buildDateRange(startDate, daysCount);
-  const daysWithDates = normalizedDays.map((day, index) => ({
-    ...day,
-    date: dates[index],
-  }));
+  const alignmentIssues: Array<{ index: number; incomingDate: string | null; expectedDate: string }> = [];
+  const daysWithDates = normalizedDays.map((day, index) => {
+    const expectedDate = new Date(startDate);
+    expectedDate.setUTCDate(startDate.getUTCDate() + index);
+    const expectedIsoDate = toIsoDateString(expectedDate);
+    if (!day.date || day.date !== expectedIsoDate) {
+      alignmentIssues.push({
+        index,
+        incomingDate: day.date ?? null,
+        expectedDate: expectedIsoDate,
+      });
+    }
+
+    return {
+      ...day,
+      date: expectedIsoDate,
+      dayLabel: getSpanishWeekdayLabel(expectedDate),
+    };
+  });
+
+  if (alignmentIssues.length > 0) {
+    app.log.info(
+      {
+        mismatchedOrMissingDates: alignmentIssues.slice(0, 7),
+        totalIssues: alignmentIssues.length,
+      },
+      "nutrition day/date alignment normalized"
+    );
+  }
+
   return {
     ...plan,
     startDate: toIsoDateString(startDate),
