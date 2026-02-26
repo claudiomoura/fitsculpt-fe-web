@@ -216,6 +216,86 @@ npm run db:push:emergency
 
 > Este comando **não** substitui o fluxo oficial com migrations versionadas; use apenas para desbloqueio.
 
+## Runbook DEV: Neon branch + baseline sem perder dados (PowerShell)
+
+> Objetivo: sair de cenários com banco já populado (ex.: cópia de produção) sem apagar dados e sem travar o fluxo de `prisma migrate deploy`.
+
+### Quando usar
+
+- Banco de DEV veio com dados existentes (snapshot/cópia) e `migrate deploy` retorna `P3005`.
+- Banco está com drift e a aplicação falha por coluna/tabela faltando (`P2022`).
+- Você precisa alinhar histórico Prisma (`_prisma_migrations`) sem resetar o banco.
+
+### Pré-requisitos
+
+1. Crie uma **Neon branch** a partir da branch com dados que você quer preservar (o Neon clona os dados).
+2. No `.env`, use a **Direct connection** do Neon para operações de migração/diff.
+
+```powershell
+# Exemplo (ajuste para sua branch Neon)
+$env:DATABASE_URL = "postgresql://USER:PASSWORD@ep-xxx-xxx.sa-east-1.aws.neon.tech/fitsculpt?sslmode=require&channel_binding=require"
+```
+
+> Recomendação: para `migrate`/`diff`, evite URL pooled/proxy quando houver opção de conexão direta.
+
+### Passo a passo oficial (baseline sem perda de dados)
+
+1. Gere o SQL mínimo de alinhamento entre o estado esperado (schema Prisma) e o banco atual:
+
+```powershell
+npx prisma migrate diff `
+  --from-url "$env:DATABASE_URL" `
+  --to-schema-datamodel prisma/schema.prisma `
+  --script > .\tmp\baseline-align.sql
+```
+
+2. Revise o arquivo `.\tmp\baseline-align.sql` e confirme que ele contém apenas o necessário (evite comandos destrutivos não intencionais).
+
+3. Aplique o SQL manualmente no banco Neon (SQL Editor/psql) para corrigir drift sem reset.
+
+4. Marque a migration inicial/baseline como aplicada no histórico do Prisma:
+
+```powershell
+npx prisma migrate resolve --applied 0001_init
+```
+
+> Substitua `0001_init` pelo nome real da migration baseline da pasta `prisma/migrations`.
+
+5. Valide o estado final:
+
+```powershell
+npx prisma migrate status
+```
+
+Resultado esperado: status consistente/OK, sem pendências bloqueantes para `migrate deploy`.
+
+### Erros comuns e como resolver
+
+#### `P1000` (Authentication failed)
+
+- Causa comum: senha/usuário incorretos ou URL errada.
+- Correção:
+  1. Faça reset da senha no Neon (ou recrie credencial).
+  2. Atualize `DATABASE_URL` com usuário, senha, host e database corretos.
+  3. Teste novamente com `npx prisma migrate status`.
+
+#### `P3005` (Database schema is not empty)
+
+- Causa comum: banco já tem tabelas/dados, mas `_prisma_migrations` ainda não foi baselineado.
+- Correção:
+  1. **Não** rode `migrate deploy` direto nesse estado.
+  2. Execute fluxo de baseline acima (`migrate diff --script` + aplicar SQL mínimo + `migrate resolve --applied ...`).
+  3. Revalide com `npx prisma migrate status`.
+
+#### `P2022` (Coluna não existe)
+
+- Causa comum: drift entre schema Prisma e estrutura real do banco.
+- Correção:
+  1. Gere diff SQL (`migrate diff --script`).
+  2. Aplique apenas DDL mínima para alinhar colunas/tabelas faltantes.
+  3. Faça baseline/resolve quando necessário.
+  4. Rode `npx prisma migrate status` e teste o endpoint que falhava.
+
 ## Stripe (assinaturas PRO)
 
 1. Crie um produto e um preço recorrente no Stripe.
