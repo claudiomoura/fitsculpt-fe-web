@@ -2123,38 +2123,89 @@ async function saveTrainingPlan(
   request: z.infer<typeof aiTrainingSchema>
 ) {
   return prisma.$transaction(async (tx) => {
-    let persistedStartDate = new Date(startDate);
-    let planRecord: Awaited<ReturnType<typeof tx.trainingPlan.create>> | null = null;
+    const planData = {
+      userId,
+      title: plan.title,
+      notes: plan.notes,
+      goal: request.goal,
+      level: request.level,
+      daysPerWeek: request.daysPerWeek,
+      focus: request.focus,
+      equipment: request.equipment,
+      startDate,
+      daysCount,
+    };
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      try {
-        planRecord = await tx.trainingPlan.create({
-          data: {
-            userId,
-            title: plan.title,
-            notes: plan.notes,
-            goal: request.goal,
-            level: request.level,
-            daysPerWeek: request.daysPerWeek,
-            focus: request.focus,
-            equipment: request.equipment,
-            startDate: persistedStartDate,
-            daysCount,
-          },
-        });
-        break;
-      } catch (error) {
-        const typed = error as Prisma.PrismaClientKnownRequestError;
-        if (typed.code !== "P2002") {
-          throw error;
-        }
-        persistedStartDate = new Date(persistedStartDate.getTime() + 1);
+    let planRecord: { id: string } | null = null;
+    let persistenceMode: "create" | "update" = "create";
+
+    try {
+      planRecord = await tx.trainingPlan.create({ data: planData, select: { id: true } });
+    } catch (error) {
+      const typed = error as Prisma.PrismaClientKnownRequestError;
+      if (typed.code !== "P2002") {
+        throw error;
       }
+
+      app.log.info(
+        {
+          userId,
+          prismaCode: typed.code,
+          target: Array.isArray((typed.meta as { target?: unknown } | undefined)?.target)
+            ? (typed.meta as { target?: string[] }).target
+            : (typed.meta as { target?: unknown } | undefined)?.target,
+          startDate: toIsoDateString(startDate),
+          daysCount,
+        },
+        "training plan unique conflict detected, trying update"
+      );
+
+      const existingPlan = await tx.trainingPlan.findFirst({
+        where: {
+          userId,
+          startDate,
+          daysCount,
+        },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true },
+      });
+
+      if (!existingPlan) {
+        throw error;
+      }
+
+      planRecord = await tx.trainingPlan.update({
+        where: { id: existingPlan.id },
+        data: {
+          title: plan.title,
+          notes: plan.notes,
+          goal: request.goal,
+          level: request.level,
+          daysPerWeek: request.daysPerWeek,
+          focus: request.focus,
+          equipment: request.equipment,
+        },
+        select: { id: true },
+      });
+      persistenceMode = "update";
     }
 
     if (!planRecord) {
       throw createHttpError(500, "TRAINING_PLAN_PERSIST_FAILED");
     }
+
+    app.log.info(
+      {
+        userId,
+        planId: planRecord.id,
+        startDate: toIsoDateString(startDate),
+        daysCount,
+        persistenceMode,
+      },
+      "training plan persistence mode"
+    );
+
+    await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
 
     for (const [index, day] of plan.days.entries()) {
       await tx.trainingDay.create({
@@ -2184,6 +2235,7 @@ async function saveTrainingPlan(
     return planRecord;
   });
 }
+
 
 function buildNutritionPrompt(
   data: z.infer<typeof aiNutritionSchema>,
@@ -5955,9 +6007,29 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
           maxTokens: 4000,
           retryOnParseError: false,
         });
+        app.log.info(
+          {
+            route: "/ai/training-plan/generate",
+            userId: user.id,
+            attempt,
+            aiRequestId: result.requestId ?? null,
+            model: result.model ?? "unknown",
+          },
+          "training ai generation complete"
+        );
         const candidate = parseTrainingPlanPayload(result.payload, startDate, trainingInput.daysCount ?? expectedDays, expectedDays);
         assertTrainingMatchesRequest(candidate, expectedDays);
         assertTrainingLevelConsistency(candidate, payload.experienceLevel);
+        app.log.info(
+          {
+            route: "/ai/training-plan/generate",
+            userId: user.id,
+            attempt,
+            days: candidate.days.length,
+            title: candidate.title,
+          },
+          "training ai output parsed and validated"
+        );
         parsedPlan = candidate;
         aiResult = result;
         break;
@@ -5999,7 +6071,24 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
       { userId: user.id, route: "/ai/training-plan/generate" }
     );
     await upsertExercisesFromPlan(resolvedPlan);
+    app.log.info(
+      {
+        route: "/ai/training-plan/generate",
+        userId: user.id,
+        startDate: toIsoDateString(startDate),
+        daysCount: trainingInput.daysCount ?? expectedDays,
+      },
+      "training plan persistence start"
+    );
     const savedPlan = await saveTrainingPlan(user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
+    app.log.info(
+      {
+        route: "/ai/training-plan/generate",
+        userId: user.id,
+        planId: savedPlan.id,
+      },
+      "training plan persistence complete"
+    );
     await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
 
     if (aiResult && shouldChargeAi) {

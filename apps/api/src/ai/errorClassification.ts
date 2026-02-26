@@ -11,6 +11,9 @@ export type ClassifiedAiGenerateError = {
   target?: string[];
 };
 
+const PRISMA_CONFLICT_CODES = new Set(["P2002"]);
+const PRISMA_UNPROCESSABLE_CODES = new Set(["P2000", "P2003", "P2011", "P2012", "P2013", "P2025"]);
+
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -37,12 +40,23 @@ export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateErr
   const typed = error as { code?: string; statusCode?: number; debug?: Record<string, unknown>; meta?: unknown };
   const isPrismaKnownError = typeof typed.code === "string" && /^P\d{4}$/.test(typed.code);
 
-  if (typed.code === "P2002") {
+  if (typed.code && PRISMA_CONFLICT_CODES.has(typed.code)) {
     const target = parsePrismaTarget(typed.meta);
     return {
       statusCode: 409,
       error: "CONFLICT",
       errorKind: "db_conflict",
+      prismaCode: typed.code,
+      ...(target ? { target } : {}),
+    };
+  }
+
+  if (typed.code && PRISMA_UNPROCESSABLE_CODES.has(typed.code)) {
+    const target = parsePrismaTarget(typed.meta);
+    return {
+      statusCode: 422,
+      error: "PERSISTENCE_VALIDATION_FAILED",
+      errorKind: "validation_error",
       prismaCode: typed.code,
       ...(target ? { target } : {}),
     };
@@ -102,9 +116,9 @@ export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateErr
     typed.code === "INVALID_AI_OUTPUT"
   ) {
     return {
-      statusCode: 503,
-      error: typed.code,
-      errorKind: "internal_error",
+      statusCode: 422,
+      error: "INVALID_AI_OUTPUT",
+      errorKind: "validation_error",
       ...(upstreamStatus ? { upstreamStatus } : {}),
     };
   }
@@ -113,7 +127,12 @@ export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateErr
     return {
       statusCode: typed.statusCode,
       error: typed.code ?? "REQUEST_ERROR",
-      errorKind: typed.statusCode === 400 ? "validation_error" : "internal_error",
+      errorKind:
+        typed.statusCode === 409
+          ? "db_conflict"
+          : typed.statusCode === 400 || typed.statusCode === 422
+            ? "validation_error"
+            : "internal_error",
     };
   }
 
