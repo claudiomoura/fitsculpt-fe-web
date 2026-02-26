@@ -156,7 +156,6 @@ model NutritionPlan {
   days          NutritionDay[]
 
   @@index([userId])
-  @@unique([userId, startDate, daysCount])
 }
 
 model NutritionDay {
