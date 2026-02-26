@@ -37,7 +37,7 @@ import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
 import { generateNutritionPlan, type NutritionGenerateError } from "@/services/nutrition";
-import { normalizeAiErrorCode, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
+import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
 
 type NutritionForm = {
   age: number;
@@ -1606,6 +1606,16 @@ const planToSave = ensurePlanStartDate(candidatePlan);
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: t("nutrition.aiRateLimit"),
+          actionableHint: null,
+          details: null,
+          canRetry: !retriesReached,
+        });
+        setAiRetryCount((prev) => prev + 1);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (shouldTreatAsConflictError(requestError?.status)) {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: t("nutrition.aiErrorState.conflictDescription"),
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,

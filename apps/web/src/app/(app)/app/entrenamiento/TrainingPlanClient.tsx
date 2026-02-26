@@ -30,7 +30,7 @@ import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
-import { normalizeAiErrorCode, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
+import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
 
 type Exercise = {
   id?: string;
@@ -846,6 +846,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         setAiActionableError(backendMessage ?? t("training.aiError"));
       } else if (err instanceof AiPlanRequestError && (status === 429 || errorCode === "RATE_LIMITED")) {
         setAiActionableError(backendMessage ?? t("training.aiError"));
+      } else if (err instanceof AiPlanRequestError && shouldTreatAsConflictError(status)) {
+        setAiActionableError(t("training.aiConflictError"));
       } else if (err instanceof AiPlanRequestError && shouldTreatAsUpstreamError(status, err.code)) {
         setAiActionableError(t("training.aiUpstreamError"));
       } else {
