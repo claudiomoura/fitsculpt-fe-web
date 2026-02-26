@@ -7,6 +7,8 @@ import { parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_UPSTREAM_ERROR = "UPSTREAM_ERROR";
+const UPSTREAM_TIMEOUT_ERROR = "UPSTREAM_TIMEOUT";
+const AI_GENERATE_TIMEOUT_MS = 120_000;
 
 function readErrorMessage(payload: unknown): string {
   if (payload && typeof payload === "object" && "error" in payload) {
@@ -31,6 +33,9 @@ function logAiGenerateError(details: { upstreamStatus?: number; durationMs: numb
   });
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
 
 export async function POST(request: Request) {
   const { header: authCookie } = await getBackendAuthCookie(request);
@@ -39,6 +44,8 @@ export async function POST(request: Request) {
   }
 
   const startedAt = Date.now();
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), AI_GENERATE_TIMEOUT_MS);
 
   try {
     const body = await request.text();
@@ -51,6 +58,7 @@ export async function POST(request: Request) {
       },
       body,
       cache: "no-store",
+      signal: abortController.signal,
     });
     const responseText = await response.text();
     const data = parseJsonOrNull(responseText);
@@ -85,8 +93,15 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(data, { status: response.status });
-  } catch (_err) {
+  } catch (error) {
+    if (isAbortError(error)) {
+      logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
+      return NextResponse.json({ error: UPSTREAM_TIMEOUT_ERROR }, { status: 502 });
+    }
+
     logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
     return NextResponse.json({ error: DEFAULT_UPSTREAM_ERROR }, { status: 502 });
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
