@@ -67,6 +67,10 @@ import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/servi
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
+import {
+  normalizeNutritionPlanDays as normalizeNutritionPlanDaysWithLabels,
+  toIsoDateString,
+} from "./ai/nutrition-plan/normalizeNutritionPlanDays.js";
 
 
 const env = getEnv();
@@ -1333,10 +1337,6 @@ function parseDateInput(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function toIsoDateString(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
 function buildDateRange(startDate: Date, daysCount: number) {
   const dates: string[] = [];
   for (let i = 0; i < daysCount; i += 1) {
@@ -1345,14 +1345,6 @@ function buildDateRange(startDate: Date, daysCount: number) {
     dates.push(toIsoDateString(next));
   }
   return dates;
-}
-
-function getSpanishWeekdayLabel(date: Date) {
-  const weekday = new Intl.DateTimeFormat("es-ES", {
-    weekday: "long",
-    timeZone: "UTC",
-  }).format(date);
-  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
 function getSecondsUntilNextUtcDay(date = new Date()) {
@@ -2282,69 +2274,24 @@ function assertTrainingMatchesRequest(plan: z.infer<typeof aiTrainingPlanRespons
   }
 }
 
-function ensureNutritionDayCount(
-  days: z.infer<typeof aiNutritionPlanResponseSchema>["days"],
-  daysCount: number
-) {
-  if (days.length === 0) return days;
-  if (days.length === daysCount) return days;
-  const next: z.infer<typeof aiNutritionPlanResponseSchema>["days"] = [];
-  for (let i = 0; i < daysCount; i += 1) {
-    const source = days[i % days.length];
-    next.push({
-      ...source,
-      meals: source.meals.map((meal) => ({
-        ...meal,
-        macros: { ...meal.macros },
-     ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
-
-      })),
-    });
-  }
-  return next;
-}
-
 function normalizeNutritionPlanDays(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   startDate: Date,
   daysCount: number
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
-  const normalizedDays = ensureNutritionDayCount(plan.days, daysCount);
-  const alignmentIssues: Array<{ index: number; incomingDate: string | null; expectedDate: string }> = [];
-  const daysWithDates = normalizedDays.map((day, index) => {
-    const expectedDate = new Date(startDate);
-    expectedDate.setUTCDate(startDate.getUTCDate() + index);
-    const expectedIsoDate = toIsoDateString(expectedDate);
-    if (!day.date || day.date !== expectedIsoDate) {
-      alignmentIssues.push({
-        index,
-        incomingDate: day.date ?? null,
-        expectedDate: expectedIsoDate,
-      });
-    }
+  const normalized = normalizeNutritionPlanDaysWithLabels(plan, startDate, daysCount);
 
-    return {
-      ...day,
-      date: expectedIsoDate,
-      dayLabel: getSpanishWeekdayLabel(expectedDate),
-    };
-  });
-
-  if (alignmentIssues.length > 0) {
+  if (normalized.alignmentIssues.length > 0) {
     app.log.info(
       {
-        mismatchedOrMissingDates: alignmentIssues.slice(0, 7),
-        totalIssues: alignmentIssues.length,
+        mismatchedOrMissingDates: normalized.alignmentIssues.slice(0, 7),
+        totalIssues: normalized.alignmentIssues.length,
       },
       "nutrition day/date alignment normalized"
     );
   }
 
-  return {
-    ...plan,
-    startDate: toIsoDateString(startDate),
-    days: daysWithDates,
-  };
+  return normalized.plan;
 }
 
 function normalizeNutritionMealsPerDay(
