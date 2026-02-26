@@ -1,6 +1,7 @@
 import { addDays, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
 import type { ProfileData, SessionTime, TrainingEquipment, TrainingFocus, TrainingLevel, Goal, TrainingPlanData } from "@/lib/profile";
 import { updateUserProfile } from "@/lib/profileService";
+import { normalizeAiErrorCode } from "@/lib/aiErrorMapping";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -143,26 +144,27 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
     const payload = (await response.json().catch(() => null)) as
       | { error?: string; message?: string; retryAfterSec?: number; hint?: string }
       | null;
-    if (payload?.error === "INSUFFICIENT_TOKENS") {
+    const errorCode = normalizeAiErrorCode(payload?.error);
+    if (errorCode === "INSUFFICIENT_TOKENS") {
       throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status, {
-        code: payload.error,
-        hint: payload.hint,
+        code: errorCode,
+        hint: payload?.hint,
       });
     }
     if (response.status === 400) {
-      throw new AiPlanRequestError(payload?.message ?? "AI_INPUT_INVALID", response.status, {
-        code: payload?.error,
+      throw new AiPlanRequestError("AI_INPUT_INVALID", response.status, {
+        code: errorCode ?? "AI_INPUT_INVALID",
         hint: payload?.hint,
       });
     }
     if (response.status === 429) {
-      throw new AiPlanRequestError(payload?.message ?? "RATE_LIMITED", response.status, {
-        code: payload?.error,
+      throw new AiPlanRequestError("RATE_LIMITED", response.status, {
+        code: errorCode ?? "RATE_LIMITED",
         hint: payload?.hint,
       });
     }
     throw new AiPlanRequestError("AI_GENERATION_FAILED", response.status, {
-      code: payload?.error,
+      code: errorCode ?? undefined,
       hint: payload?.hint,
     });
   }
