@@ -1956,9 +1956,8 @@ async function saveNutritionPlan(
 ) {
   return prisma.$transaction(
     async (tx) => {
-      const planRecord = await tx.nutritionPlan.upsert({
-        where: { userId_startDate_daysCount: { userId, startDate, daysCount } },
-        create: {
+      const planRecord = await tx.nutritionPlan.create({
+        data: {
           userId,
           title: plan.title,
           dailyCalories: plan.dailyCalories,
@@ -1967,13 +1966,6 @@ async function saveNutritionPlan(
           carbsG: plan.carbsG,
           startDate,
           daysCount,
-        },
-        update: {
-          title: plan.title,
-          dailyCalories: plan.dailyCalories,
-          proteinG: plan.proteinG,
-          fatG: plan.fatG,
-          carbsG: plan.carbsG,
         },
       });
 
@@ -7402,7 +7394,7 @@ app.get("/nutrition-plans", async (request, reply) => {
     const [items, total] = await prisma.$transaction([
       prisma.nutritionPlan.findMany({
         where,
-        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ createdAt: "desc" }],
         skip: offset,
         take: limit,
         select: {
