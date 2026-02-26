@@ -30,6 +30,14 @@ export type TrainingPlanAiResult = {
   plan: TrainingPlan;
   aiTokenBalance?: number;
   aiTokenRenewalAt?: string | null;
+  usage?: {
+    totalTokens?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+    balanceAfter?: number;
+  };
+  aiRequestId?: string;
+  balanceAfter?: number;
   metadata: AdjustmentMetadata;
 };
 
@@ -184,6 +192,31 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       typeof data?.aiTokenRenewalAt === "string" || data?.aiTokenRenewalAt === null
         ? (data.aiTokenRenewalAt as string | null)
         : undefined,
+    usage: isRecord(data?.usage)
+      ? {
+          totalTokens:
+            typeof data.usage.totalTokens === "number"
+              ? data.usage.totalTokens
+              : typeof data.usage.total_tokens === "number"
+                ? data.usage.total_tokens
+                : undefined,
+          promptTokens:
+            typeof data.usage.promptTokens === "number"
+              ? data.usage.promptTokens
+              : typeof data.usage.prompt_tokens === "number"
+                ? data.usage.prompt_tokens
+                : undefined,
+          completionTokens:
+            typeof data.usage.completionTokens === "number"
+              ? data.usage.completionTokens
+              : typeof data.usage.completion_tokens === "number"
+                ? data.usage.completion_tokens
+                : undefined,
+          balanceAfter: typeof data.usage.balanceAfter === "number" ? data.usage.balanceAfter : undefined,
+        }
+      : undefined,
+    aiRequestId: typeof data?.aiRequestId === "string" ? data.aiRequestId : undefined,
+    balanceAfter: typeof data?.balanceAfter === "number" ? data.balanceAfter : undefined,
     metadata: {
       updatedAt: typeof data?.updatedAt === "string" ? data.updatedAt : undefined,
       effectiveFrom: typeof data?.effectiveFrom === "string" ? data.effectiveFrom : undefined,

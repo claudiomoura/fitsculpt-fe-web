@@ -13,6 +13,20 @@ type Props = {
   confirmLabel: string;
   savingLabel: string;
   durationUnit: string;
+  aiBlockTitle: string;
+  tokensUsedLabel: string;
+  promptTokensLabel: string;
+  completionTokensLabel: string;
+  aiRequestIdLabel: string;
+  remainingBalanceLabel: string;
+  notAvailableLabel: string;
+  usage: {
+    totalTokens?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+  } | null;
+  aiRequestId: string | null;
+  remainingBalance?: number | null;
   onClose: () => void;
   onConfirm: () => void;
   isSaving: boolean;
@@ -27,6 +41,16 @@ export function AiPlanPreviewModal({
   confirmLabel,
   savingLabel,
   durationUnit,
+  aiBlockTitle,
+  tokensUsedLabel,
+  promptTokensLabel,
+  completionTokensLabel,
+  aiRequestIdLabel,
+  remainingBalanceLabel,
+  notAvailableLabel,
+  usage,
+  aiRequestId,
+  remainingBalance,
   onClose,
   onConfirm,
   isSaving,
@@ -58,6 +82,19 @@ export function AiPlanPreviewModal({
             </ul>
           </div>
         ))}
+
+        {(typeof usage?.totalTokens === "number" || typeof usage?.promptTokens === "number" || typeof usage?.completionTokens === "number" || aiRequestId || typeof remainingBalance === "number") ? (
+          <div className="feature-card">
+            <p style={{ margin: 0 }}><strong>{aiBlockTitle}</strong></p>
+            <ul style={{ margin: "6px 0 0", paddingInlineStart: 20 }}>
+              <li>{tokensUsedLabel}: {usage?.totalTokens ?? notAvailableLabel}</li>
+              {typeof usage?.promptTokens === "number" ? <li>{promptTokensLabel}: {usage.promptTokens}</li> : null}
+              {typeof usage?.completionTokens === "number" ? <li>{completionTokensLabel}: {usage.completionTokens}</li> : null}
+              {aiRequestId ? <li>{aiRequestIdLabel}: {aiRequestId}</li> : null}
+              {typeof remainingBalance === "number" ? <li>{remainingBalanceLabel}: {remainingBalance}</li> : null}
+            </ul>
+          </div>
+        ) : null}
       </div>
     </Modal>
   );

@@ -106,10 +106,57 @@ type AiTokenSnapshot = {
 };
 
 type AiUsageSummary = {
-  total_tokens?: number;
-  prompt_tokens?: number;
-  completion_tokens?: number;
+  totalTokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  balanceAfter?: number;
 };
+
+function normalizeAiUsageSummary(value: unknown): AiUsageSummary | null {
+  if (!value || typeof value !== "object") return null;
+  const usage = value as {
+    totalTokens?: unknown;
+    promptTokens?: unknown;
+    completionTokens?: unknown;
+    total_tokens?: unknown;
+    prompt_tokens?: unknown;
+    completion_tokens?: unknown;
+    balanceAfter?: unknown;
+  };
+
+  const normalized: AiUsageSummary = {
+    totalTokens:
+      typeof usage.totalTokens === "number"
+        ? usage.totalTokens
+        : typeof usage.total_tokens === "number"
+          ? usage.total_tokens
+          : undefined,
+    promptTokens:
+      typeof usage.promptTokens === "number"
+        ? usage.promptTokens
+        : typeof usage.prompt_tokens === "number"
+          ? usage.prompt_tokens
+          : undefined,
+    completionTokens:
+      typeof usage.completionTokens === "number"
+        ? usage.completionTokens
+        : typeof usage.completion_tokens === "number"
+          ? usage.completion_tokens
+          : undefined,
+    balanceAfter: typeof usage.balanceAfter === "number" ? usage.balanceAfter : undefined,
+  };
+
+  if (
+    normalized.totalTokens === undefined
+    && normalized.promptTokens === undefined
+    && normalized.completionTokens === undefined
+    && normalized.balanceAfter === undefined
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
 
 type NutritionAiErrorState = {
   title: string;
@@ -1472,6 +1519,8 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       const tokensAfter = await readAiTokenSnapshot();
       const currentTokenBalance =
         tokensAfter.tokens
+        ?? (typeof data.usage?.balanceAfter === "number" ? data.usage.balanceAfter : null)
+        ?? (typeof data.balanceAfter === "number" ? data.balanceAfter : null)
         ?? (typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
 
       if (currentTokenBalance !== null) {
@@ -1479,7 +1528,7 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       }
 
       setLastGeneratedAiPlan(updatedPlan);
-      setLastGeneratedUsage(data.usage ?? null);
+      setLastGeneratedUsage(normalizeAiUsageSummary(data.usage));
       setLastGeneratedMode(typeof data.mode === "string" ? data.mode : null);
       setLastGeneratedAiRequestId(typeof data.aiRequestId === "string" ? data.aiRequestId : null);
       setLastGeneratedTokensBalance(currentTokenBalance);
@@ -2440,25 +2489,25 @@ const nutritionPlanDetails = profile ? (
               </div>
             ) : null}
 
-            {(lastGeneratedMode === "FALLBACK" || typeof lastGeneratedUsage?.total_tokens === "number" || typeof lastGeneratedUsage?.prompt_tokens === "number" || typeof lastGeneratedUsage?.completion_tokens === "number") ? (
+            {(lastGeneratedMode === "FALLBACK" || typeof lastGeneratedUsage?.totalTokens === "number" || typeof lastGeneratedUsage?.promptTokens === "number" || typeof lastGeneratedUsage?.completionTokens === "number" || typeof lastGeneratedUsage?.balanceAfter === "number") ? (
               <div className="feature-card">
                 <p className="m-0"><strong>{t("nutrition.aiSuccessModal.aiBlockTitle")}</strong></p>
                 <ul className="list-muted-sm mt-8">
                   <li>
                     {t("nutrition.aiSuccessModal.tokensUsed")}: {lastGeneratedMode === "FALLBACK"
                       ? t("nutrition.aiSuccessModal.fallbackTokens")
-                      : (lastGeneratedUsage?.total_tokens ?? t("nutrition.aiSuccessModal.notAvailable"))}
+                      : (lastGeneratedUsage?.totalTokens ?? t("nutrition.aiSuccessModal.notAvailable"))}
                   </li>
-                  {typeof lastGeneratedUsage?.prompt_tokens === "number" ? (
-                    <li>{t("nutrition.aiSuccessModal.promptTokens")}: {lastGeneratedUsage.prompt_tokens}</li>
+                  {typeof lastGeneratedUsage?.promptTokens === "number" ? (
+                    <li>{t("nutrition.aiSuccessModal.promptTokens")}: {lastGeneratedUsage.promptTokens}</li>
                   ) : null}
-                  {typeof lastGeneratedUsage?.completion_tokens === "number" ? (
-                    <li>{t("nutrition.aiSuccessModal.completionTokens")}: {lastGeneratedUsage.completion_tokens}</li>
+                  {typeof lastGeneratedUsage?.completionTokens === "number" ? (
+                    <li>{t("nutrition.aiSuccessModal.completionTokens")}: {lastGeneratedUsage.completionTokens}</li>
                   ) : null}
                   {lastGeneratedAiRequestId ? (
                     <li>{t("nutrition.aiSuccessModal.aiRequestId")}: {lastGeneratedAiRequestId}</li>
                   ) : null}
-                  <li>{t("nutrition.aiSuccessModal.currentBalance")}: {lastGeneratedTokensBalance ?? aiTokenBalance ?? "-"}</li>
+                  <li>{t("nutrition.aiSuccessModal.currentBalance")}: {lastGeneratedUsage?.balanceAfter ?? lastGeneratedTokensBalance ?? aiTokenBalance ?? "-"}</li>
                 </ul>
               </div>
             ) : null}
