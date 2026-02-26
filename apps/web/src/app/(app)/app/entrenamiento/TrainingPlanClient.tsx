@@ -278,6 +278,14 @@ function shouldTriggerAiGeneration(aiQueryParam: string | null): boolean {
   return normalized === "1" || normalized === "true";
 }
 
+function sanitizeErrorMessage(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const firstLine = value.split("\n").find((line) => line.trim().length > 0)?.trim() ?? "";
+  if (!firstLine) return null;
+  if (/^error:\s*/i.test(firstLine) || /\bat\s+.+\(.+\)/.test(firstLine)) return null;
+  return firstLine;
+}
+
 const periodization = [
   { label: "weekBase", detailKey: "weekBaseDesc", setsDelta: 0 },
   { label: "weekBuild", detailKey: "weekBuildDesc", setsDelta: 1 },
@@ -827,20 +835,21 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     } catch (err) {
       const status = err instanceof AiPlanRequestError ? err.status : null;
       const errorCode = err instanceof AiPlanRequestError ? normalizeAiErrorCode(err.code) : null;
+      const backendMessage = err instanceof AiPlanRequestError ? sanitizeErrorMessage(err.userMessage) : null;
       if (err instanceof AiPlanRequestError && errorCode === "INSUFFICIENT_TOKENS") {
         setAiActionableError(t("ai.insufficientTokens"));
       } else if (err instanceof AiPlanRequestError && status === 503 && errorCode === "EXERCISE_CATALOG_UNAVAILABLE") {
-        setAiActionableError(err.hint?.trim() || safeT("training.aiRetryErrorDescription", "Revisa tu conexión e inténtalo de nuevo."));
+        setAiActionableError(backendMessage ?? (err.hint?.trim() || safeT("training.aiRetryErrorDescription", "Revisa tu conexión e inténtalo de nuevo.")));
       } else if (err instanceof Error && err.message === "INVALID_AI_OUTPUT") {
         setAiActionableError(t("training.aiInvalidOutput"));
       } else if (err instanceof AiPlanRequestError && err.status === 400) {
-        setAiActionableError(t("training.aiError"));
+        setAiActionableError(backendMessage ?? t("training.aiError"));
       } else if (err instanceof AiPlanRequestError && (status === 429 || errorCode === "RATE_LIMITED")) {
-        setAiActionableError(t("training.aiError"));
+        setAiActionableError(backendMessage ?? t("training.aiError"));
       } else if (err instanceof AiPlanRequestError && shouldTreatAsUpstreamError(status, err.code)) {
         setAiActionableError(t("training.aiUpstreamError"));
       } else {
-        setAiActionableError(t("training.aiError"));
+        setAiActionableError(backendMessage ?? t("training.aiError"));
       }
       notify({
         title: safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA"),
@@ -951,7 +960,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, [pathname, router, searchParamsString, selectedDate, weekStart]);
 
   const handleGenerateClick = () => {
-    if (!profile) return;
+    if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
       setAiActionableError(t("ai.insufficientTokens"));
       return;
@@ -1031,7 +1040,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   const handleAiRetry = () => {
-    if (aiLoading || !profile || !form) return;
+    if (aiGenerationInFlight.current || aiLoading || !profile || !form) return;
     setAiActionableError(null);
     void handleAiPlan();
   };
