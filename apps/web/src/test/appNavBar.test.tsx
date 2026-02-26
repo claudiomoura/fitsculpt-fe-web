@@ -51,7 +51,7 @@ describe("AppNavBar", () => {
       </ThemeProvider>
     );
 
-    fireEvent.click(getByRole("button", { name: /menú/i }));
+    fireEvent.click(getByRole("button", { name: /abrir menú/i }));
 
     const activeLink = container.querySelector('a[aria-current="page"]');
     expect(activeLink).not.toBeNull();
@@ -104,7 +104,7 @@ describe("AppNavBar", () => {
       </ThemeProvider>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /menú/i }));
+    fireEvent.click(screen.getByRole("button", { name: /abrir menú/i }));
 
     expect(screen.getAllByText(/Próximamente/i).length).toBeGreaterThan(0);
     expect(screen.queryByText("common.comingSoon")).not.toBeInTheDocument();
