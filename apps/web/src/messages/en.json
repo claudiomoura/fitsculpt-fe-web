@@ -1828,7 +1828,8 @@
       "assignedByTrainer": "Assigned by your trainer",
       "selected": "Selected",
       "choose": "Choose plan",
-      "planMeta": "{days} days • {level}",
+      "planMeta": "{days} days • {level} • Created {date}",
+      "planDateFallback": "No date",
       "aiLockedTitle": "AI plans are locked",
       "aiLockedDescription": "Upgrade your subscription to unlock AI plans.",
       "aiPlaceholderTitle": "AI plans enabled",
@@ -2007,7 +2008,8 @@
     "sectionTitle": "Saved diet plans",
     "unavailable": "Diet plans are not available in this environment yet.",
     "emptyDescription": "Create a nutrition plan to see it listed here.",
-    "planMeta": "Starts {date} · {days} days",
+    "planMeta": "Created {date} · {days} days",
+    "planDateFallback": "No date",
     "viewDetail": "View detail"
   },
   "dietPlanDetail": {

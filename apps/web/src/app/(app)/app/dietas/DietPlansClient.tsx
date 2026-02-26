@@ -7,6 +7,20 @@ import { SkeletonCard } from "@/components/ui/Skeleton";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { NutritionPlanListItem } from "@/lib/types";
 
+function getPlanId(plan: NutritionPlanListItem): string {
+  const candidate = (plan as NutritionPlanListItem & { planId?: string }).planId;
+  return (typeof candidate === "string" && candidate.trim().length > 0) ? candidate : plan.id;
+}
+
+function getPlanDate(plan: NutritionPlanListItem): string {
+  return plan.createdAt || plan.startDate;
+}
+
+function formatPlanDate(plan: NutritionPlanListItem, formatter: Intl.DateTimeFormat, fallback: string): string {
+  const parsed = new Date(getPlanDate(plan));
+  return Number.isNaN(parsed.getTime()) ? fallback : formatter.format(parsed);
+}
+
 type NutritionPlanResponse = {
   items?: NutritionPlanListItem[];
 };
@@ -129,13 +143,13 @@ export default function DietPlansClient() {
         {state === "ready" && plans.length > 0 ? (
           <div className="mt-12" style={{ display: "grid", gap: 12 }}>
             {plans.map((plan) => (
-              <article key={plan.id} className="feature-card">
+              <article key={getPlanId(plan)} className="feature-card">
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
                   <div>
                     <h3 className="m-0">{plan.title}</h3>
                     <p className="muted mt-6">
                       {t("dietPlans.planMeta", {
-                        date: formatter.format(new Date(plan.startDate)),
+                        date: formatPlanDate(plan, formatter, t("dietPlans.planDateFallback")),
                         days: plan.daysCount,
                       })}
                     </p>
@@ -150,7 +164,7 @@ export default function DietPlansClient() {
                 </div>
 
                 <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                  <Link href={`/app/dietas/${plan.id}`} className="btn secondary">
+                  <Link href={`/app/dietas/${getPlanId(plan)}`} className="btn secondary">
                     {t("dietPlans.viewDetail")}
                   </Link>
                 </div>

@@ -1831,7 +1831,8 @@
       "assignedByTrainer": "Asignado por tu entrenador",
       "selected": "Seleccionado",
       "choose": "Elegir plan",
-      "planMeta": "{days} días • {level}",
+      "planMeta": "{days} días • {level} • Creado {date}",
+      "planDateFallback": "Sin fecha",
       "aiLockedTitle": "Los planes IA están bloqueados",
       "aiLockedDescription": "Mejora tu suscripción para desbloquear planes IA.",
       "aiPlaceholderTitle": "Planes IA habilitados",
@@ -2010,7 +2011,8 @@
     "sectionTitle": "Dietas guardadas",
     "unavailable": "Las dietas aún no están disponibles en este entorno.",
     "emptyDescription": "Crea un plan de nutrición para verlo listado aquí.",
-    "planMeta": "Inicio {date} · {days} días",
+    "planMeta": "Creado {date} · {days} días",
+    "planDateFallback": "Sin fecha",
     "viewDetail": "Ver detalle"
   },
   "dietPlanDetail": {
