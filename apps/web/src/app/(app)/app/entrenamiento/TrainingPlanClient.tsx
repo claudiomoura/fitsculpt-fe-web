@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -30,7 +29,7 @@ import { EmptyState } from "@/components/states";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
-import { normalizeAiErrorCode, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
+import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 
 type Exercise = {
   id?: string;
@@ -515,12 +514,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return normalizedExerciseId ? normalizedExerciseId : undefined;
   };
 
-  const getExerciseImageUrl = (exercise: Exercise) => {
-    const normalizedImageUrl = exercise.imageUrl?.trim();
-    return normalizedImageUrl && normalizedImageUrl.length > 0
-      ? normalizedImageUrl
-      : "/placeholders/exercise-cover.jpg";
-  };
+  const getExerciseImageUrl = (exercise: Exercise) => exercise.imageUrl ?? null;
 
   const planEntries = useMemo(
     () =>
@@ -1259,7 +1253,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                   aria-pressed={false}
                                   onClick={() => handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined)}
                                 >
-                                  <Image
+                                  <ExerciseThumbnail
                                     className="exercise-thumb"
                                     src={getExerciseImageUrl(exercise)}
                                     alt={exercise.name}
@@ -1282,7 +1276,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                 aria-disabled
                                 aria-label={`${exercise.name}: ${t("training.exerciseUnavailable")}`}
                               >
-                                <Image
+                                <ExerciseThumbnail
                                   className="exercise-thumb"
                                   src={getExerciseImageUrl(exercise)}
                                   alt={exercise.name}
@@ -1446,7 +1440,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           aria-pressed={false}
                           onClick={() => handleExerciseNavigate(exerciseLibraryId, selectedEntryDate)}
                         >
-                          <Image
+                          <ExerciseThumbnail
                             className="exercise-thumb"
                             src={getExerciseImageUrl(exercise)}
                             alt={exercise.name}
@@ -1467,7 +1461,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         key={`${exercise.name}-${index}`}
                         className="exercise-mini-card exercise-mini-card-compact is-disabled"
                       >
-                        <Image
+                        <ExerciseThumbnail
                           className="exercise-thumb"
                           src={getExerciseImageUrl(exercise)}
                           alt={exercise.name}
