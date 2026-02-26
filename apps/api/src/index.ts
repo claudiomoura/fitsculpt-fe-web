@@ -45,6 +45,7 @@ import {
 } from "./ai/trainingPlanExerciseResolution.js";
 import { buildDeterministicTrainingFallbackPlan } from "./ai/training-plan/fallbackBuilder.js";
 import {
+  applyNutritionPlanVarietyGuard,
   resolveNutritionPlanRecipeIds,
   type NutritionRecipeCatalogItem,
 } from "./ai/nutrition-plan/recipeCatalogResolution.js";
@@ -66,6 +67,10 @@ import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/servi
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
+import {
+  normalizeNutritionPlanDays as normalizeNutritionPlanDaysWithLabels,
+  toIsoDateString,
+} from "./ai/nutrition-plan/normalizeNutritionPlanDays.js";
 
 
 const env = getEnv();
@@ -1332,10 +1337,6 @@ function parseDateInput(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function toIsoDateString(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
 function buildDateRange(startDate: Date, daysCount: number) {
   const dates: string[] = [];
   for (let i = 0; i < daysCount; i += 1) {
@@ -1843,7 +1844,8 @@ function applyNutritionCatalogResolution(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   recipes: RecipeDbItem[]
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
-  const resolved = resolveNutritionPlanRecipeIds(plan, toNutritionRecipeCatalog(recipes));
+  const recipeCatalog = toNutritionRecipeCatalog(recipes);
+  const resolved = resolveNutritionPlanRecipeIds(plan, recipeCatalog);
   if (!resolved.catalogAvailable) return plan;
   if (resolved.invalidMeals.length > 0) {
     app.log.warn(
@@ -1851,7 +1853,17 @@ function applyNutritionCatalogResolution(
       "nutrition plan contains invalid recipe IDs; fallback applied"
     );
   }
-  return resolved.plan as z.infer<typeof aiNutritionPlanResponseSchema>;
+  const varietyGuard = applyNutritionPlanVarietyGuard(resolved.plan, recipeCatalog, ["lunch", "dinner"]);
+  app.log.info(
+    {
+      uniqueRecipeIdsWeek: varietyGuard.uniqueRecipeIdsWeek,
+      replacementsApplied: varietyGuard.replacements,
+      hadEnoughUniqueRecipes: varietyGuard.hadEnoughUniqueRecipes,
+      catalogSize: recipeCatalog.length,
+    },
+    "variety_guard_summary"
+  );
+  return varietyGuard.plan as z.infer<typeof aiNutritionPlanResponseSchema>;
 }
 
 function applyRecipeScalingToPlan(
@@ -2263,44 +2275,24 @@ function assertTrainingMatchesRequest(plan: z.infer<typeof aiTrainingPlanRespons
   }
 }
 
-function ensureNutritionDayCount(
-  days: z.infer<typeof aiNutritionPlanResponseSchema>["days"],
-  daysCount: number
-) {
-  if (days.length === 0) return days;
-  if (days.length === daysCount) return days;
-  const next: z.infer<typeof aiNutritionPlanResponseSchema>["days"] = [];
-  for (let i = 0; i < daysCount; i += 1) {
-    const source = days[i % days.length];
-    next.push({
-      ...source,
-      meals: source.meals.map((meal) => ({
-        ...meal,
-        macros: { ...meal.macros },
-     ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
-
-      })),
-    });
-  }
-  return next;
-}
-
 function normalizeNutritionPlanDays(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   startDate: Date,
   daysCount: number
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
-  const normalizedDays = ensureNutritionDayCount(plan.days, daysCount);
-  const dates = buildDateRange(startDate, daysCount);
-  const daysWithDates = normalizedDays.map((day, index) => ({
-    ...day,
-    date: dates[index],
-  }));
-  return {
-    ...plan,
-    startDate: toIsoDateString(startDate),
-    days: daysWithDates,
-  };
+  const normalized = normalizeNutritionPlanDaysWithLabels(plan, startDate, daysCount);
+
+  if (normalized.alignmentIssues.length > 0) {
+    app.log.info(
+      {
+        mismatchedOrMissingDates: normalized.alignmentIssues.slice(0, 7),
+        totalIssues: normalized.alignmentIssues.length,
+      },
+      "nutrition day/date alignment normalized"
+    );
+  }
+
+  return normalized.plan;
 }
 
 function normalizeNutritionMealsPerDay(
