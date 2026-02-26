@@ -21,6 +21,7 @@ import { isProfileComplete } from "@/lib/profileCompletion";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { hasStrengthAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { AiPlanRequestError, requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
@@ -39,6 +40,7 @@ type Exercise = {
   name: string;
   sets: string | number;
   reps?: string;
+  notes?: string;
 };
 
 type TrainingDay = {
@@ -87,6 +89,11 @@ type AiUsageSummary = {
 
 type AiTokenSnapshot = {
   tokens: number | null;
+};
+
+type ExerciseDetailState = {
+  exercise: Exercise;
+  date: Date;
 };
 
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
@@ -330,6 +337,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [canManageManualDays] = useState<boolean>(false);
   const [calendarView, setCalendarView] = useState<"week" | "month" | "list">("week");
   const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
+  const [exerciseDetail, setExerciseDetail] = useState<ExerciseDetailState | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
     const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
@@ -511,61 +519,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     [visiblePlan?.startDate, visiblePlan?.days]
   );
   const planDays = visiblePlan?.days ?? [];
-  const storePlanContext = () => {
-    if (typeof window === "undefined") return null;
-    const ctxKey = `training-plan-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const payload = {
-      scrollY: window.scrollY,
-      selectedDate: selectedDate.toISOString(),
-      calendarView,
-    };
-    window.sessionStorage.setItem(ctxKey, JSON.stringify(payload));
-    return ctxKey;
-  };
-
-  const handleExerciseNavigate = (exerciseId?: string, dayDate?: Date) => {
-    if (!exerciseId) return;
-    const ctxKey = storePlanContext();
-    const dayKey = dayDate ? toDateKey(dayDate) : null;
-    const returnParams = new URLSearchParams(searchParams.toString());
-    if (ctxKey) {
-      returnParams.set("ctx", ctxKey);
-    }
-    if (dayKey) {
-      returnParams.set("dayKey", dayKey);
-    }
-    const returnTo = `${pathname}${returnParams.toString() ? `?${returnParams.toString()}` : ""}`;
-    const detailParams = new URLSearchParams();
-    detailParams.set("from", "plan");
-    detailParams.set("returnTo", returnTo);
-    if (dayKey) {
-      detailParams.set("dayKey", dayKey);
-    }
-    if (ctxKey) {
-      detailParams.set("ctx", ctxKey);
-    }
-    router.push(`/app/biblioteca/${exerciseId}?${detailParams.toString()}`);
-  };
-
-  const handleLibraryNavigate = (dayDate?: Date) => {
-    const ctxKey = storePlanContext();
-    const dayKey = dayDate ? toDateKey(dayDate) : null;
-    const params = new URLSearchParams();
-    params.set("from", "plan");
-    if (dayKey) {
-      params.set("dayKey", dayKey);
-    }
-    if (ctxKey) {
-      params.set("ctx", ctxKey);
-    }
-    router.push(`/app/biblioteca${params.toString() ? `?${params.toString()}` : ""}`);
-  };
-
-  const getExerciseLibraryId = (exercise: Exercise) => {
-    const normalizedExerciseId = exercise.exerciseId?.trim();
-    return normalizedExerciseId ? normalizedExerciseId : undefined;
-  };
-
   const getExerciseImageUrl = (exercise: Exercise) => exercise.imageUrl ?? null;
 
   const planEntries = useMemo(
@@ -1006,6 +959,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   const hasPlan = Boolean(visiblePlan?.days.length);
+
+  const openExerciseDetail = (exercise: Exercise, date: Date) => {
+    setExerciseDetail({ exercise, date });
+  };
+
+  const closeExerciseDetail = () => {
+    setExerciseDetail(null);
+  };
   const todayKey = toDateKey(today);
   const selectedEntry = visibleDayMap.get(toDateKey(selectedDate))
     ?? visibleDayMap.get(todayKey)
@@ -1339,65 +1300,31 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           </span>
                         </summary>
                         <div className="list-grid mt-12">
-                          {day.exercises.map((exercise, exerciseIdx) => {
-                            const exerciseLibraryId = getExerciseLibraryId(exercise);
-                            if (exerciseLibraryId) {
-                              return (
-                                <button
-                                  key={`${exercise.name}-${exerciseIdx}`}
-                                  type="button"
-                                  className="exercise-mini-card is-clickable"
-                                  aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
-                                  aria-pressed={false}
-                                  onClick={() => handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined)}
-                                >
-                                  <ExerciseThumbnail
-                                    className="exercise-thumb"
-                                    src={getExerciseImageUrl(exercise)}
-                                    alt={exercise.name}
-                                    width={72}
-                                    height={72}
-                                  />
-                                  <strong>{exercise.name}</strong>
-                                  <span className="muted">
-                                    {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
-                                  </span>
-                                  <span className="exercise-mini-card-callout">{t("training.viewTechnique")}</span>
-                                </button>
-                              );
-                            }
-
-                            return (
-                              <div
-                                key={`${exercise.name}-${exerciseIdx}`}
-                                className="exercise-mini-card is-disabled"
-                                aria-disabled
-                                aria-label={`${exercise.name}: ${t("training.exerciseUnavailable")}`}
-                              >
-                                <ExerciseThumbnail
-                                  className="exercise-thumb"
-                                  src={getExerciseImageUrl(exercise)}
-                                  alt={exercise.name}
-                                  width={72}
-                                  height={72}
-                                />
+                          {day.exercises.map((exercise, exerciseIdx) => (
+                            <button
+                              key={`${exercise.name}-${exerciseIdx}`}
+                              type="button"
+                              className="exercise-mini-card is-clickable"
+                              aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                              aria-pressed={false}
+                              onClick={() => openExerciseDetail(exercise, dayDate ?? selectedEntryDate)}
+                            >
+                              <ExerciseThumbnail
+                                className="exercise-thumb"
+                                src={getExerciseImageUrl(exercise)}
+                                alt={exercise.name}
+                                width={72}
+                                height={72}
+                              />
+                              <div className="exercise-mini-top">
                                 <strong>{exercise.name}</strong>
-                                <span className="muted">
-                                  {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
-                                </span>
-                                <button
-                                  type="button"
-                                  className="btn secondary"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleLibraryNavigate(dayDate ?? undefined);
-                                  }}
-                                >
-                                  {safeT("training.openFromLibrary", "Abrir en biblioteca")}
-                                </button>
+                                <Icon name="chevron-down" size={18} className="exercise-item-chevron" />
                               </div>
-                            );
-                          })}
+                              <span className="muted">
+                                {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
+                              </span>
+                            </button>
+                          ))}
                         </div>
                       </details>
                       );
@@ -1526,62 +1453,32 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 {selectedExercises.length === 0 ? (
                   <p className="muted">{t("training.calendarEmptyDay")}</p>
                 ) : (
-                  selectedExercises.map((exercise, index) => {
-                    const exerciseLibraryId = getExerciseLibraryId(exercise);
-                    if (exerciseLibraryId) {
-                      return (
-                        <button
-                          key={`${exercise.name}-${index}`}
-                          type="button"
-                          className="exercise-mini-card exercise-mini-card-compact is-clickable"
-                          aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
-                          aria-pressed={false}
-                          onClick={() => handleExerciseNavigate(exerciseLibraryId, selectedEntryDate)}
-                        >
-                          <ExerciseThumbnail
-                            className="exercise-thumb"
-                            src={getExerciseImageUrl(exercise)}
-                            alt={exercise.name}
-                            width={72}
-                            height={72}
-                          />
-                          <div className="exercise-mini-top">
-                            <strong>{exercise.name}</strong>
-                            <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
-                          </div>
-                          <span className="exercise-mini-card-callout">{t("training.viewTechnique")}</span>
-                        </button>
-                      );
-                    }
-
-                    return (
-                      <article
-                        key={`${exercise.name}-${index}`}
-                        className="exercise-mini-card exercise-mini-card-compact is-disabled"
-                      >
-                        <ExerciseThumbnail
-                          className="exercise-thumb"
-                          src={getExerciseImageUrl(exercise)}
-                          alt={exercise.name}
-                          width={72}
-                          height={72}
-                        />
-                        <div className="exercise-mini-top">
-                          <strong>{exercise.name}</strong>
-                          <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
-                        </div>
-                        <div className="inline-actions-sm">
-                          <button
-                            type="button"
-                            className="btn secondary"
-                            onClick={() => handleLibraryNavigate(selectedEntryDate)}
-                          >
-                            {safeT("training.openFromLibrary", "Abrir en biblioteca")}
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })
+                  selectedExercises.map((exercise, index) => (
+                    <button
+                      key={`${exercise.name}-${index}`}
+                      type="button"
+                      className="exercise-mini-card exercise-mini-card-compact is-clickable"
+                      aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                      aria-pressed={false}
+                      onClick={() => openExerciseDetail(exercise, selectedEntryDate)}
+                    >
+                      <ExerciseThumbnail
+                        className="exercise-thumb"
+                        src={getExerciseImageUrl(exercise)}
+                        alt={exercise.name}
+                        width={72}
+                        height={72}
+                      />
+                      <div className="exercise-mini-top">
+                        <strong>{exercise.name}</strong>
+                        <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                      </div>
+                      <span className="exercise-mini-card-callout">
+                        {safeT("training.exerciseDetailCta", "Ver detalle")}
+                        <Icon name="chevron-down" size={18} className="exercise-item-chevron" />
+                      </span>
+                    </button>
+                  ))
                 )}
               </div>
             </section>
@@ -1727,6 +1624,41 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           )}
         </section>
       ) : null}
+
+
+
+      <Modal
+        open={Boolean(exerciseDetail)}
+        onClose={closeExerciseDetail}
+        title={exerciseDetail?.exercise.name ?? safeT("training.exerciseDetailTitle", "Detalle del ejercicio")}
+        description={exerciseDetail ? exerciseDetail.date.toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "short" }) : undefined}
+      >
+        {exerciseDetail ? (
+          <div className="form-stack">
+            <ExerciseThumbnail
+              className="exercise-thumb"
+              src={getExerciseImageUrl(exerciseDetail.exercise)}
+              alt={exerciseDetail.exercise.name}
+              width={96}
+              height={96}
+            />
+            <div className="feature-card">
+              <p className="m-0"><strong>{safeT("training.exerciseDetailPrescription", "Prescripción")}</strong></p>
+              <p className="m-0 muted">
+                {exerciseDetail.exercise.reps
+                  ? `${exerciseDetail.exercise.sets} x ${exerciseDetail.exercise.reps}`
+                  : exerciseDetail.exercise.sets}
+              </p>
+            </div>
+            <div className="feature-card">
+              <p className="m-0"><strong>{safeT("training.exerciseDetailNotes", "Notas")}</strong></p>
+              <p className="m-0 muted">
+                {exerciseDetail.exercise.notes?.trim() || safeT("training.exerciseDetailEmpty", "Sin detalle adicional para este ejercicio.")}
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
 
       <AiPlanPreviewModal
         open={Boolean(aiPreviewPlan)}
