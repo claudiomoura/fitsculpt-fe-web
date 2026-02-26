@@ -160,6 +160,7 @@ export default function BillingClient() {
       }
 
       setProfile((await statusResponse.json()) as BillingProfile);
+      window.dispatchEvent(new Event("auth:refresh"));
 
       if (!plansResult.ok) {
         setPlanWarnings(plansResult.warnings);
