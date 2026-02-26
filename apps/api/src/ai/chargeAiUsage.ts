@@ -247,11 +247,42 @@ async function debitAiTokensTx(
       throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
     }
 
-    const nextBalance = Math.max(0, effectiveTokens - costCents);
+    if (requestId) {
+      const existing = await tx.aiUsageLog.findFirst({
+        where: {
+          userId,
+          feature,
+          requestId,
+          mode: "AI",
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (existing) {
+        const existingMeta =
+          existing.meta && typeof existing.meta === "object" && !Array.isArray(existing.meta)
+            ? (existing.meta as Record<string, unknown>)
+            : undefined;
+        const existingBalanceAfter =
+          typeof existingMeta?.balanceAfter === "number" ? Math.max(0, existingMeta.balanceAfter) : null;
+
+        return {
+          balance: existingBalanceAfter ?? effectiveTokens,
+          debitedTokens: 0,
+          idempotentReplay: true,
+        };
+      }
+    }
+
+    const tokensToDebit = Math.max(0, usage.totalTokens);
+    const nextBalance = Math.max(0, effectiveTokens - tokensToDebit);
     const mergedMeta = { ...(meta ?? {}) };
-    if (costCents > effectiveTokens) {
+    if (tokensToDebit > effectiveTokens) {
       mergedMeta.overdraw = true;
     }
+    mergedMeta.balanceBefore = effectiveTokens;
+    mergedMeta.balanceAfter = nextBalance;
+    mergedMeta.debitedTokens = tokensToDebit;
 
     const [updatedUser] = await Promise.all([
       tx.user.update({
@@ -276,6 +307,8 @@ async function debitAiTokensTx(
 
     return {
       balance: updatedUser.aiTokenBalance,
+      debitedTokens: tokensToDebit,
+      idempotentReplay: false,
     };
   });
 }
@@ -317,9 +350,11 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
 
   return {
     payload: result.payload,
-    tokensSpent: costCents,
+    tokensSpent: charging.debitedTokens,
     costCents,
     balance: charging.balance,
+    balanceAfter: charging.balance,
+    idempotentReplay: charging.idempotentReplay,
     totalTokens: totals.totalTokens,
     model: normalizedModel,
     usage: totals,
@@ -363,9 +398,11 @@ export async function chargeAiUsageForResult(params: ChargeAiUsageForResultParam
 
   return {
     payload: result.payload,
-    tokensSpent: costCents,
+    tokensSpent: charging.debitedTokens,
     costCents,
     balance: charging.balance,
+    balanceAfter: charging.balance,
+    idempotentReplay: charging.idempotentReplay,
     totalTokens: totals.totalTokens,
     model: normalizedModel,
     usage: totals,
