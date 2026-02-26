@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -518,14 +518,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return normalizedImageUrl && normalizedImageUrl.length > 0
       ? normalizedImageUrl
       : "/placeholders/exercise-cover.jpg";
-  };
-
-  const handleExerciseKeyDown = (event: KeyboardEvent<HTMLDivElement>, exerciseId?: string, dayDate?: Date) => {
-    if (!exerciseId) return;
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      handleExerciseNavigate(exerciseId, dayDate);
-    }
   };
 
   const planEntries = useMemo(
@@ -1246,33 +1238,50 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         <div className="list-grid mt-12">
                           {day.exercises.map((exercise, exerciseIdx) => {
                             const exerciseLibraryId = getExerciseLibraryId(exercise);
+                            if (exerciseLibraryId) {
+                              return (
+                                <button
+                                  key={`${exercise.name}-${exerciseIdx}`}
+                                  type="button"
+                                  className="exercise-mini-card is-clickable"
+                                  aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                                  aria-pressed={false}
+                                  onClick={() => handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined)}
+                                >
+                                  <Image
+                                    className="exercise-thumb"
+                                    src={getExerciseImageUrl(exercise)}
+                                    alt={exercise.name}
+                                    width={72}
+                                    height={72}
+                                  />
+                                  <strong>{exercise.name}</strong>
+                                  <span className="muted">
+                                    {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
+                                  </span>
+                                  <span className="exercise-mini-card-callout">{t("training.viewTechnique")}</span>
+                                </button>
+                              );
+                            }
+
                             return (
-                            <div
-                              key={`${exercise.name}-${exerciseIdx}`}
-                              className={`exercise-mini-card ${exerciseLibraryId ? "is-clickable" : "is-disabled"}`}
-                              role={exerciseLibraryId ? "button" : undefined}
-                              tabIndex={exerciseLibraryId ? 0 : undefined}
-                              aria-disabled={!exerciseLibraryId}
-                              aria-label={
-                                exerciseLibraryId
-                                  ? `${t("training.exerciseLink")}: ${exercise.name}`
-                                  : `${exercise.name}: ${t("training.exerciseUnavailable")}`
-                              }
-                              onClick={() => handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined)}
-                              onKeyDown={(event) => handleExerciseKeyDown(event, exerciseLibraryId, dayDate ?? undefined)}
-                            >
-                              <Image
-                                className="exercise-thumb"
-                                src={getExerciseImageUrl(exercise)}
-                                alt={exercise.name}
-                                width={72}
-                                height={72}
-                              />
-                              <strong>{exercise.name}</strong>
-                              <span className="muted">
-                                {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
-                              </span>
-                              {!exerciseLibraryId ? (
+                              <div
+                                key={`${exercise.name}-${exerciseIdx}`}
+                                className="exercise-mini-card is-disabled"
+                                aria-disabled
+                                aria-label={`${exercise.name}: ${t("training.exerciseUnavailable")}`}
+                              >
+                                <Image
+                                  className="exercise-thumb"
+                                  src={getExerciseImageUrl(exercise)}
+                                  alt={exercise.name}
+                                  width={72}
+                                  height={72}
+                                />
+                                <strong>{exercise.name}</strong>
+                                <span className="muted">
+                                  {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
+                                </span>
                                 <button
                                   type="button"
                                   className="btn secondary"
@@ -1283,19 +1292,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                 >
                                   {safeT("training.openFromLibrary", "Abrir en biblioteca")}
                                 </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="btn secondary"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleExerciseNavigate(exerciseLibraryId, dayDate ?? undefined);
-                                  }}
-                                >
-                                  {t("training.viewTechnique")}
-                                </button>
-                              )}
-                            </div>
+                              </div>
                             );
                           })}
                         </div>
@@ -1428,41 +1425,49 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 ) : (
                   selectedExercises.map((exercise, index) => {
                     const exerciseLibraryId = getExerciseLibraryId(exercise);
+                    if (exerciseLibraryId) {
+                      return (
+                        <button
+                          key={`${exercise.name}-${index}`}
+                          type="button"
+                          className="exercise-mini-card exercise-mini-card-compact is-clickable"
+                          aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                          aria-pressed={false}
+                          onClick={() => handleExerciseNavigate(exerciseLibraryId, selectedEntryDate)}
+                        >
+                          <Image
+                            className="exercise-thumb"
+                            src={getExerciseImageUrl(exercise)}
+                            alt={exercise.name}
+                            width={72}
+                            height={72}
+                          />
+                          <div className="exercise-mini-top">
+                            <strong>{exercise.name}</strong>
+                            <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                          </div>
+                          <span className="exercise-mini-card-callout">{t("training.viewTechnique")}</span>
+                        </button>
+                      );
+                    }
+
                     return (
-                    <article
-                      key={`${exercise.name}-${index}`}
-                      className={`exercise-mini-card exercise-mini-card-compact ${exerciseLibraryId ? "is-clickable" : "is-disabled"}`}
-                    >
-                      <Image
-                        className="exercise-thumb"
-                        src={getExerciseImageUrl(exercise)}
-                        alt={exercise.name}
-                        width={72}
-                        height={72}
-                      />
-                      <div className="exercise-mini-top">
-                        <strong>{exercise.name}</strong>
-                        <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
-                      </div>
-                      <div className="inline-actions-sm">
-                        {exerciseLibraryId ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn"
-                              onClick={() => handleExerciseNavigate(exerciseLibraryId, selectedEntryDate)}
-                            >
-                              {safeT("training.execute", "Ejecutar")}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn secondary"
-                              onClick={() => handleExerciseNavigate(exerciseLibraryId, selectedEntryDate)}
-                            >
-                              {t("training.viewTechnique")}
-                            </button>
-                          </>
-                        ) : (
+                      <article
+                        key={`${exercise.name}-${index}`}
+                        className="exercise-mini-card exercise-mini-card-compact is-disabled"
+                      >
+                        <Image
+                          className="exercise-thumb"
+                          src={getExerciseImageUrl(exercise)}
+                          alt={exercise.name}
+                          width={72}
+                          height={72}
+                        />
+                        <div className="exercise-mini-top">
+                          <strong>{exercise.name}</strong>
+                          <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                        </div>
+                        <div className="inline-actions-sm">
                           <button
                             type="button"
                             className="btn secondary"
@@ -1470,9 +1475,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           >
                             {safeT("training.openFromLibrary", "Abrir en biblioteca")}
                           </button>
-                        )}
-                      </div>
-                    </article>
+                        </div>
+                      </article>
                     );
                   })
                 )}
