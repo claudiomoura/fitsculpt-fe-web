@@ -6008,10 +6008,12 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
     const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
     logger(
       {
-        err: error,
+        ...(classified.errorKind === "db_conflict" ? {} : { err: error }),
         route: "/ai/training-plan/generate",
         error_kind: classified.errorKind,
         ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
+        ...(typeof classified.prismaCode === "string" ? { prisma_code: classified.prismaCode } : {}),
+        ...(Array.isArray(classified.target) ? { target: classified.target } : {}),
       },
       "training plan generation failed"
     );
@@ -6287,10 +6289,12 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
     const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
     logger(
       {
-        err: error,
+        ...(classified.errorKind === "db_conflict" ? {} : { err: error }),
         route: "/ai/nutrition-plan/generate",
         error_kind: classified.errorKind,
         ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
+        ...(typeof classified.prismaCode === "string" ? { prisma_code: classified.prismaCode } : {}),
+        ...(Array.isArray(classified.target) ? { target: classified.target } : {}),
       },
       "nutrition plan generate failed"
     );

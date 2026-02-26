@@ -1,12 +1,14 @@
 import { z } from "zod";
 
-export type AiGenerateErrorKind = "validation_error" | "upstream_error" | "internal_error";
+export type AiGenerateErrorKind = "validation_error" | "upstream_error" | "internal_error" | "db_conflict";
 
 export type ClassifiedAiGenerateError = {
   statusCode: number;
   error: string;
   errorKind: AiGenerateErrorKind;
   upstreamStatus?: number;
+  prismaCode?: string;
+  target?: string[];
 };
 
 function asNumber(value: unknown): number | undefined {
@@ -20,7 +22,31 @@ function normalizeServerStatus(statusCode: number) {
   return 500;
 }
 
+function parsePrismaTarget(meta: unknown): string[] | undefined {
+  const target = (meta as { target?: unknown } | undefined)?.target;
+  if (Array.isArray(target)) {
+    return target.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof target === "string") {
+    return [target];
+  }
+  return undefined;
+}
+
 export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateError {
+  const typed = error as { code?: string; statusCode?: number; debug?: Record<string, unknown>; meta?: unknown };
+
+  if (typed.code === "P2002") {
+    const target = parsePrismaTarget(typed.meta);
+    return {
+      statusCode: 409,
+      error: "CONFLICT",
+      errorKind: "db_conflict",
+      prismaCode: typed.code,
+      ...(target ? { target } : {}),
+    };
+  }
+
   if (error instanceof z.ZodError) {
     return {
       statusCode: 400,
@@ -29,7 +55,6 @@ export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateErr
     };
   }
 
-  const typed = error as { code?: string; statusCode?: number; debug?: Record<string, unknown> };
   const upstreamStatus = asNumber(typed.debug?.status);
 
   if (typed.code === "INVALID_INPUT" || typed.statusCode === 400) {
