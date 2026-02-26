@@ -261,6 +261,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
+  const [aiEntitlementResolved, setAiEntitlementResolved] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [activePlan, setActivePlan] = useState<TrainingPlan | null>(null);
   const [activePlanOrigin, setActivePlanOrigin] = useState<ActivePlanOrigin | null>(null);
@@ -288,6 +289,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return new Date();
   });
   const autoGenerateRunByContext = useRef<Set<string>>(new Set());
+  const [pendingAutoAiTriggerCtx, setPendingAutoAiTriggerCtx] = useState<string | null>(null);
   const calendarInitialized = useRef(false);
   const restoredContext = useRef(false);
   const renderedTokenToastId = useRef(0);
@@ -377,6 +379,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       setAiEntitled(hasStrengthAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
     } catch (_err) {
+    } finally {
+      setAiEntitlementResolved(true);
     }
   };
 
@@ -797,7 +801,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   useEffect(() => {
-    if (!profile || !form) return;
     if (!shouldTriggerAiGeneration(searchParams.get("ai"))) return;
 
     const ctxKey = searchParams.get("ctx") ?? pathname;
@@ -815,15 +818,26 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
 
     autoGenerateRunByContext.current.add(ctxKey);
+    setPendingAutoAiTriggerCtx(ctxKey);
 
     const nextParams = new URLSearchParams(searchParamsString);
     nextParams.delete("ai");
     const nextParamsString = nextParams.toString();
     const nextUrl = `${pathname}${nextParamsString ? `?${nextParamsString}` : ""}`;
     router.replace(nextUrl, { scroll: false });
-    if (!aiEntitled) return;
+  }, [pathname, router, searchParams, searchParamsString]);
+
+  useEffect(() => {
+    if (!pendingAutoAiTriggerCtx) return;
+    if (!profile || !form) return;
+    if (!aiEntitlementResolved) return;
+    if (!aiEntitled) {
+      setPendingAutoAiTriggerCtx(null);
+      return;
+    }
+    setPendingAutoAiTriggerCtx(null);
     void handleAiPlan();
-  }, [aiEntitled, form, pathname, profile, router, searchParams, searchParamsString]);
+  }, [aiEntitled, aiEntitlementResolved, form, pendingAutoAiTriggerCtx, profile]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
