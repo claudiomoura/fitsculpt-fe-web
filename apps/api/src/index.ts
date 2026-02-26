@@ -1089,6 +1089,36 @@ async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
   (request as AuthenticatedRequest).currentEntitlements = entitlements;
 }
 
+function createAiDomainGuard(domain: "nutrition" | "strength") {
+  return async function aiDomainGuard(request: FastifyRequest, reply: FastifyReply) {
+    const user = await requireUser(request, { logContext: request.routeOptions?.url ?? `ai:${domain}` });
+    const entitlements = getUserEntitlements(user);
+
+    if (!entitlements.modules.ai.enabled) {
+      return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
+    }
+
+    if (!entitlements.role.adminOverride) {
+      const effectiveTokens = getEffectiveTokenBalance(user);
+      if (effectiveTokens <= 0) {
+        return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
+      }
+    }
+
+    const hasDomainAccess =
+      domain === "nutrition" ? entitlements.modules.nutrition.enabled : entitlements.modules.strength.enabled;
+    if (!hasDomainAccess) {
+      return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
+    }
+
+    (request as AuthenticatedRequest).currentUser = user;
+    (request as AuthenticatedRequest).currentEntitlements = entitlements;
+  };
+}
+
+const aiNutritionDomainGuard = createAiDomainGuard("nutrition");
+const aiStrengthDomainGuard = createAiDomainGuard("strength");
+
 const userFoodSchema = z.object({
   name: z.string().min(1),
   calories: z.number().nonnegative(),
@@ -5800,7 +5830,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
   }
 });
 
-app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (request, reply) => {
+app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, async (request, reply) => {
   try {
     const authRequest = request as AuthenticatedRequest;
     const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan/generate" }));
@@ -6031,7 +6061,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (req
   }
 });
 
-app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (request, reply) => {
+app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, async (request, reply) => {
   try {
     const authRequest = request as AuthenticatedRequest;
     const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/nutrition-plan/generate" }));
