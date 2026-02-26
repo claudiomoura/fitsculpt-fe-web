@@ -21,6 +21,14 @@ function readErrorMessage(payload: unknown): string {
   return DEFAULT_UPSTREAM_ERROR;
 }
 
+function mapUpstreamErrorStatus(status: number): number {
+  if (status >= 400 && status < 500) {
+    return status;
+  }
+
+  return 502;
+}
+
 function logAiGenerateError(details: { upstreamStatus?: number; durationMs: number; errorKind: "network_error" | "status_error" }) {
   if (process.env.NODE_ENV !== "development") {
     return;
@@ -71,11 +79,7 @@ export async function POST(request: Request) {
       });
 
       const upstreamError = readErrorMessage(data);
-      if (response.status >= 500) {
-        return NextResponse.json({ error: upstreamError }, { status: 502 });
-      }
-
-      return NextResponse.json({ error: upstreamError }, { status: response.status });
+      return NextResponse.json({ error: upstreamError }, { status: mapUpstreamErrorStatus(response.status) });
     }
 
     if (data === null) {
