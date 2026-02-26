@@ -37,5 +37,9 @@ export function mapAiUpstreamError(status: number, payload: unknown): NextRespon
 }
 
 export function aiRequestFailedResponse(status = 502): NextResponse {
+  if (status >= 500) {
+    return NextResponse.json({ error: UPSTREAM_ERROR_CODE }, { status: 502 });
+  }
+
   return NextResponse.json({ error: CLIENT_ERROR_CODE }, { status });
 }
