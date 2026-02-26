@@ -8,6 +8,20 @@ import { useLanguage } from "@/context/LanguageProvider";
 import type { NutritionPlanListItem } from "@/lib/types";
 import { PlanListCard } from "../biblioteca/entrenamientos/components/PlanListCard";
 
+function getPlanId(plan: NutritionPlanListItem): string {
+  const candidate = (plan as NutritionPlanListItem & { planId?: string }).planId;
+  return (typeof candidate === "string" && candidate.trim().length > 0) ? candidate : plan.id;
+}
+
+function getPlanDate(plan: NutritionPlanListItem): string {
+  return plan.createdAt || plan.startDate;
+}
+
+function formatPlanDate(plan: NutritionPlanListItem, formatter: Intl.DateTimeFormat, fallback: string): string {
+  const parsed = new Date(getPlanDate(plan));
+  return Number.isNaN(parsed.getTime()) ? fallback : formatter.format(parsed);
+}
+
 type NutritionPlanResponse = {
   items?: NutritionPlanListItem[];
 };
@@ -123,25 +137,32 @@ export default function DietPlansClient() {
         {state === "ready" && plans.length > 0 ? (
           <div className="mt-12" style={{ display: "grid", gap: 12 }}>
             {plans.map((plan) => (
-              <PlanListCard
-                key={plan.id}
-                title={plan.title}
-                metadata={t("dietPlans.planMeta", {
-                  date: formatter.format(new Date(plan.startDate)),
-                  days: plan.daysCount,
-                })}
-                detailHref={`/app/dietas/${plan.id}`}
-                detailLabel={t("dietPlans.viewDetail")}
-                statusLabel={formatter.format(new Date(plan.startDate))}
-                badges={(
-                  <>
-                    <span className="badge">{Math.round(plan.dailyCalories)} kcal</span>
-                    <span className="badge">P {Math.round(plan.proteinG)}</span>
-                    <span className="badge">C {Math.round(plan.carbsG)}</span>
-                    <span className="badge">G {Math.round(plan.fatG)}</span>
-                  </>
-                )}
-              />
+              <article key={getPlanId(plan)} className="feature-card">
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+                  <div>
+                    <h3 className="m-0">{plan.title}</h3>
+                    <p className="muted mt-6">
+                      {t("dietPlans.planMeta", {
+                        date: formatPlanDate(plan, formatter, t("dietPlans.planDateFallback")),
+                        days: plan.daysCount,
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="badge-list mt-12">
+                  <span className="badge">{Math.round(plan.dailyCalories)} kcal</span>
+                  <span className="badge">P {Math.round(plan.proteinG)}</span>
+                  <span className="badge">C {Math.round(plan.carbsG)}</span>
+                  <span className="badge">G {Math.round(plan.fatG)}</span>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  <Link href={`/app/dietas/${getPlanId(plan)}`} className="btn secondary">
+                    {t("dietPlans.viewDetail")}
+                  </Link>
+                </div>
+              </article>
             ))}
           </div>
         ) : null}

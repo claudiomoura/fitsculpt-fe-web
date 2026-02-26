@@ -12,6 +12,15 @@ import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
 import { PlanListCard } from "./components/PlanListCard";
 
+function getPlanId(plan: TrainingPlanListItem): string {
+  const candidate = (plan as TrainingPlanListItem & { planId?: string }).planId;
+  return (typeof candidate === "string" && candidate.trim().length > 0) ? candidate : plan.id;
+}
+
+function getPlanDate(plan: TrainingPlanListItem): string {
+  return plan.createdAt || plan.startDate;
+}
+
 type TrainingPlanResponse = {
   items?: TrainingPlanListItem[];
 };
@@ -31,7 +40,7 @@ const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
 const TRAINING_PLANS_UPDATED_AT_KEY = "fs_training_plans_updated_at";
 
 export default function TrainingLibraryClient() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -203,6 +212,18 @@ export default function TrainingLibraryClient() {
     };
   }, []);
 
+
+  const formatter = useMemo(() => new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }), [locale]);
+
+  const formatPlanDate = (plan: TrainingPlanListItem): string => {
+    const dateValue = getPlanDate(plan);
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime()) ? t("library.training.planDateFallback") : formatter.format(parsed);
+  };
   const noPlansAvailable = useMemo(
     () => fitSculptState === "ready" && assignedPlanState === "ready" && fitSculptPlans.length === 0 && !assignedPlan,
     [assignedPlan, assignedPlanState, fitSculptPlans.length, fitSculptState]
@@ -237,21 +258,35 @@ export default function TrainingLibraryClient() {
       {state === "ready" && plans.length > 0 ? (
         <div className="mt-12" style={{ display: "grid", gap: 12 }}>
           {plans.map((plan) => {
-            const isSelected = activePlanId === plan.id;
+            const planId = getPlanId(plan);
+            const isSelected = activePlanId === planId;
             return (
-              <PlanListCard
-                key={plan.id}
-                title={plan.title}
-                metadata={t("library.training.planMeta", { days: plan.daysCount, level: plan.level })}
-                detailHref={`/app/biblioteca/entrenamientos/${plan.id}`}
-                detailLabel={t("trainingPlans.viewDetail")}
-                statusLabel={isSelected ? t("library.training.selected") : undefined}
-                actionSlot={(
-                  <Button variant={isSelected ? "secondary" : "primary"} onClick={() => selectPlan(plan.id)}>
+              <article key={planId} className="feature-card">
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+                  <div>
+                    <h3 className="m-0">{plan.title}</h3>
+                    <p className="muted mt-6">
+                      {t("library.training.planMeta", {
+                        days: plan.daysCount,
+                        level: plan.level,
+                        date: formatPlanDate(plan),
+                      })}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    {isSelected ? <Badge variant="success">{t("library.training.selected")}</Badge> : null}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  <Button variant={isSelected ? "secondary" : "primary"} onClick={() => selectPlan(planId)}>
                     {isSelected ? t("library.training.selected") : t("library.training.choose")}
                   </Button>
-                )}
-              />
+                  <Link href={`/app/biblioteca/entrenamientos/${planId}`} className="btn secondary">
+                    {t("trainingPlans.viewDetail")}
+                  </Link>
+                </div>
+              </article>
             );
           })}
         </div>
@@ -288,20 +323,27 @@ export default function TrainingLibraryClient() {
         {assignedPlanState === "ready" && !assignedPlan ? <EmptyState className="mt-12" title={t("library.training.assignedEmpty")} icon="info" /> : null}
 
         {assignedPlanState === "ready" && assignedPlan ? (
-          <div className="mt-12">
-            <PlanListCard
-              title={assignedPlan.title}
-              metadata={t("library.training.planMeta", { days: assignedPlan.daysCount, level: assignedPlan.level })}
-              detailHref={`/app/biblioteca/entrenamientos/${assignedPlan.id}`}
-              detailLabel={t("trainingPlans.viewDetail")}
-              statusLabel={t("library.training.assignedByTrainer")}
-              actionSlot={(
-                <Button variant={activePlanId === assignedPlan.id ? "secondary" : "primary"} onClick={() => selectPlan(assignedPlan.id)}>
-                  {activePlanId === assignedPlan.id ? t("library.training.selected") : t("library.training.choose")}
-                </Button>
-              )}
-            />
-          </div>
+          <article className="feature-card mt-12">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div>
+                <h3 className="m-0">{assignedPlan.title}</h3>
+                <p className="muted mt-6">{t("library.training.planMeta", {
+                  days: assignedPlan.daysCount,
+                  level: assignedPlan.level,
+                  date: formatPlanDate(assignedPlan),
+                })}</p>
+              </div>
+              <Badge variant="muted">{t("library.training.assignedByTrainer")}</Badge>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+              <Button variant={activePlanId === getPlanId(assignedPlan) ? "secondary" : "primary"} onClick={() => selectPlan(getPlanId(assignedPlan))}>
+                {activePlanId === getPlanId(assignedPlan) ? t("library.training.selected") : t("library.training.choose")}
+              </Button>
+              <Link href={`/app/biblioteca/entrenamientos/${getPlanId(assignedPlan)}`} className="btn secondary">
+                {t("trainingPlans.viewDetail")}
+              </Link>
+            </div>
+          </article>
         ) : null}
 
       </section>
