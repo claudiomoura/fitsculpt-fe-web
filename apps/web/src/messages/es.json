@@ -933,6 +933,11 @@
       "dayPreviewTitle": "Vista rápida del día",
       "aiBlockTitle": "IA",
       "tokensUsed": "Tokens consumidos",
+      "promptTokens": "Tokens de prompt",
+      "completionTokens": "Tokens de respuesta",
+      "fallbackTokens": "Fallback (0 tokens)",
+      "notAvailable": "No disponible",
+      "aiRequestId": "aiRequestId",
       "currentBalance": "Balance actual",
       "viewPlan": "Ver plan",
       "close": "Cerrar"
@@ -949,7 +954,8 @@
       "adjustGoals": "Ajustar objetivos",
       "retryLimit": "Se alcanzó el límite de reintentos por ahora. Ajusta objetivos o inténtalo más tarde.",
       "genericReason": "No coincide con el objetivo",
-      "actionableDiff": "{{reason}}: objetivo {{expected}}g, recibido {{actual}}g (faltan ~{{delta}}g)"
+      "actionableDiff": "{{reason}}: objetivo {{expected}}g, recibido {{actual}}g (faltan ~{{delta}}g)",
+      "upstreamDescription": "Servicio no disponible, reintenta."
     },
     "aiRateLimit": "Has alcanzado el límite de solicitudes de IA. Intenta nuevamente más tarde.",
     "resetPlan": "Reiniciar plan",
@@ -1229,7 +1235,8 @@
     "calendarViewOptionAria": "Cambiar a vista {{view}}",
     "activePlanLabel": "Plan activo",
     "activePlanSelected": "Seleccionado",
-    "activePlanAssigned": "Asignado"
+    "activePlanAssigned": "Asignado",
+    "aiUpstreamError": "Servicio no disponible, reintenta."
   },
   "profile": {
     "formTitle": "Perfil y métricas",

@@ -70,6 +70,7 @@ type ActivePlanOrigin = "selected" | "assigned";
 
 const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
 const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
+const AUTO_AI_TRIGGER_GUARD_TTL_MS = 4000;
 
 type TrainingPlanClientProps = {
   mode?: "suggested" | "manual";
@@ -230,6 +231,12 @@ function createEmptyPlan(daysPerWeek: number, _locale: Locale, t: (key: string) 
   };
 }
 
+function shouldTriggerAiGeneration(aiQueryParam: string | null): boolean {
+  if (!aiQueryParam) return false;
+  const normalized = aiQueryParam.trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
+}
+
 const periodization = [
   { label: "weekBase", detailKey: "weekBaseDesc", setsDelta: 0 },
   { label: "weekBuild", detailKey: "weekBuildDesc", setsDelta: 1 },
@@ -254,6 +261,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
+  const [aiEntitlementResolved, setAiEntitlementResolved] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
   const [activePlan, setActivePlan] = useState<TrainingPlan | null>(null);
   const [activePlanOrigin, setActivePlanOrigin] = useState<ActivePlanOrigin | null>(null);
@@ -281,6 +289,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return new Date();
   });
   const autoGenerateRunByContext = useRef<Set<string>>(new Set());
+  const [pendingAutoAiTriggerCtx, setPendingAutoAiTriggerCtx] = useState<string | null>(null);
   const calendarInitialized = useRef(false);
   const restoredContext = useRef(false);
   const renderedTokenToastId = useRef(0);
@@ -370,6 +379,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       setAiEntitled(hasStrengthAiEntitlement(data));
       window.dispatchEvent(new Event("auth:refresh"));
     } catch (_err) {
+    } finally {
+      setAiEntitlementResolved(true);
     }
   };
 
@@ -774,9 +785,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         setAiActionableError(err.message);
       } else if (err instanceof AiPlanRequestError && err.message === "RATE_LIMITED") {
         setAiActionableError(t("training.aiError"));
+      } else if (err instanceof AiPlanRequestError && (err.code === "UPSTREAM_ERROR" || err.status >= 500)) {
+        setAiActionableError(t("training.aiUpstreamError"));
       } else {
         setAiActionableError(t("training.aiError"));
       }
+      notify({
+        title: safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA"),
+        variant: "error",
+      });
     } finally {
       setAiLoading(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
@@ -784,28 +801,43 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   };
 
   useEffect(() => {
-    if (!profile || !form) return;
-    if (searchParams.get("ai") !== "1") return;
+    if (!shouldTriggerAiGeneration(searchParams.get("ai"))) return;
 
     const ctxKey = searchParams.get("ctx") ?? pathname;
     if (autoGenerateRunByContext.current.has(ctxKey)) return;
 
     if (typeof window !== "undefined") {
       const storageKey = `fs_ai_generate_once:${ctxKey}`;
-      if (window.sessionStorage.getItem(storageKey) === "1") return;
-      window.sessionStorage.setItem(storageKey, "1");
+      const rawStoredValue = window.sessionStorage.getItem(storageKey);
+      const storedTimestamp = Number(rawStoredValue ?? "0");
+      const now = Date.now();
+      if (Number.isFinite(storedTimestamp) && now - storedTimestamp < AUTO_AI_TRIGGER_GUARD_TTL_MS) {
+        return;
+      }
+      window.sessionStorage.setItem(storageKey, String(now));
     }
 
     autoGenerateRunByContext.current.add(ctxKey);
+    setPendingAutoAiTriggerCtx(ctxKey);
 
     const nextParams = new URLSearchParams(searchParamsString);
     nextParams.delete("ai");
     const nextParamsString = nextParams.toString();
     const nextUrl = `${pathname}${nextParamsString ? `?${nextParamsString}` : ""}`;
     router.replace(nextUrl, { scroll: false });
-    if (!aiEntitled) return;
+  }, [pathname, router, searchParams, searchParamsString]);
+
+  useEffect(() => {
+    if (!pendingAutoAiTriggerCtx) return;
+    if (!profile || !form) return;
+    if (!aiEntitlementResolved) return;
+    if (!aiEntitled) {
+      setPendingAutoAiTriggerCtx(null);
+      return;
+    }
+    setPendingAutoAiTriggerCtx(null);
     void handleAiPlan();
-  }, [aiEntitled, form, pathname, profile, router, searchParams, searchParamsString]);
+  }, [aiEntitled, aiEntitlementResolved, form, pendingAutoAiTriggerCtx, profile]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1068,6 +1100,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 actions={[
                   { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
                   { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
+                  { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                 ]}
               />
             </section>

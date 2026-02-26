@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackendUrl } from "@/lib/backend";
 import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
+import { aiRequestFailedResponse, mapAiUpstreamError, parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
 
 export const dynamic = "force-dynamic";
 
@@ -23,21 +24,18 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
     const responseText = await response.text();
-    if (!responseText) {
-      return new NextResponse(null, { status: response.status });
+    const payload = parseJsonOrNull(responseText);
+
+    if (!response.ok) {
+      return mapAiUpstreamError(response.status, payload);
     }
-    try {
-      const data = JSON.parse(responseText);
-      return NextResponse.json(data, { status: response.status });
-    } catch (_err) {
-      return new NextResponse(responseText, {
-        status: response.status,
-        headers: {
-          "content-type": response.headers.get("content-type") ?? "text/plain",
-        },
-      });
+
+    if (payload === null) {
+      return aiRequestFailedResponse();
     }
+
+    return NextResponse.json(payload, { status: response.status });
   } catch (_err) {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+    return aiRequestFailedResponse();
   }
 }

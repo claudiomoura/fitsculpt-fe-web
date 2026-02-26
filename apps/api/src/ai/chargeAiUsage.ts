@@ -18,6 +18,10 @@ type OpenAiUsage = {
   output_tokens?: number;
 };
 
+export type AiUsageProviderUsage = OpenAiUsage;
+
+export type AiUsageMode = "AI" | "FALLBACK";
+
 type AiExecutionResult = {
   payload: Record<string, unknown>;
   model?: string | null;
@@ -50,14 +54,9 @@ type UsageTotals = {
   totalTokens: number;
 };
 
-function getEffectiveTokens(user: { aiTokenBalance: number; aiTokenResetAt: Date | null; aiTokenRenewalAt: Date | null }) {
-  const expiresAt = user.aiTokenResetAt ?? user.aiTokenRenewalAt;
-  if (!expiresAt) return 0;
-  if (expiresAt.getTime() < Date.now()) return 0;
-  return Math.max(0, user.aiTokenBalance);
-}
+export type AiUsageTotals = UsageTotals;
 
-function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
+export function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
   const promptTokens = Math.max(0, usage?.prompt_tokens ?? usage?.input_tokens ?? 0);
   const completionTokens = Math.max(0, usage?.completion_tokens ?? usage?.output_tokens ?? 0);
   const totalTokens = Math.max(0, usage?.total_tokens ?? promptTokens + completionTokens);
@@ -66,6 +65,67 @@ function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
     completionTokens,
     totalTokens,
   };
+}
+
+type PersistAiUsageLogParams = {
+  prisma: PrismaClient | Prisma.TransactionClient;
+  userId: string;
+  feature: string;
+  requestId?: string | null;
+  model?: string | null;
+  provider?: string | null;
+  usage?: OpenAiUsage | null;
+  totals?: UsageTotals;
+  costCents?: number;
+  currency?: string;
+  meta?: Record<string, unknown>;
+  mode?: AiUsageMode;
+  fallbackReason?: string | null;
+};
+
+export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
+  const totals = params.totals ?? buildUsageTotals(params.usage);
+  const logMeta =
+    params.meta && Object.keys(params.meta).length > 0 ? (params.meta as Prisma.InputJsonValue) : undefined;
+
+  try {
+    await params.prisma.aiUsageLog.create({
+      data: {
+        userId: params.userId,
+        feature: params.feature,
+        model: params.model ?? "unknown",
+        mode: params.mode ?? "AI",
+        fallbackReason: params.fallbackReason ?? undefined,
+        promptTokens: totals.promptTokens,
+        completionTokens: totals.completionTokens,
+        totalTokens: totals.totalTokens,
+        costCents: params.costCents ?? 0,
+        currency: params.currency ?? "usd",
+        requestId: params.requestId ?? undefined,
+        meta: logMeta,
+      },
+    });
+  } catch (error) {
+    const typedError = error as { name?: string; message?: string; code?: string };
+    console.warn("AI usage log persistence failed; continuing without blocking response", {
+      feature: params.feature,
+      userId: params.userId,
+      mode: params.mode ?? "AI",
+      model: params.model ?? "unknown",
+      provider: params.provider ?? "unknown",
+      requestId: params.requestId ?? null,
+      errorName: typedError.name ?? "UnknownError",
+      errorCode: typedError.code,
+      errorMessage: typedError.message ?? "unknown",
+    });
+  }
+}
+
+function getEffectiveTokens(user: { aiTokenBalance: number; aiTokenResetAt: Date | null; aiTokenRenewalAt: Date | null }) {
+  const expiresAt = user.aiTokenResetAt ?? user.aiTokenRenewalAt;
+  if (!expiresAt) return 0;
+  if (expiresAt.getTime() < Date.now()) return 0;
+  return Math.max(0, user.aiTokenBalance);
 }
 
 function buildChargeDetails({
@@ -165,26 +225,25 @@ async function debitAiTokensTx(
     if (costCents > effectiveTokens) {
       mergedMeta.overdraw = true;
     }
-    const logMeta = Object.keys(mergedMeta).length > 0 ? (mergedMeta as Prisma.InputJsonValue) : undefined;
 
     const [updatedUser] = await Promise.all([
       tx.user.update({
         where: { id: userId },
         data: { aiTokenBalance: nextBalance },
       }),
-      tx.aiUsageLog.create({
-        data: {
-          userId,
-          feature,
-          model,
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
-          totalTokens: usage.totalTokens,
-          costCents,
-          currency: "usd",
-          requestId: requestId ?? undefined,
-          meta: logMeta,
-        },
+      persistAiUsageLog({
+        prisma: tx,
+        userId,
+        feature,
+        model,
+        provider: "openai",
+        usage: null,
+        totals: usage,
+        costCents,
+        currency: "usd",
+        requestId: requestId ?? undefined,
+        meta: mergedMeta,
+        mode: "AI",
       }),
     ]);
 

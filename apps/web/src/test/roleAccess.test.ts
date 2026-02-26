@@ -59,6 +59,8 @@ describe("navigation section gating", () => {
     expect(allItemIds).toContain("trainer-home");
     expect(allItemIds).toContain("profile");
     expect(allItemIds).not.toContain("today");
+    expect(allItemIds).not.toContain("training");
+    expect(allItemIds).not.toContain("nutrition-calendar");
     expect(allItemIds).not.toContain("admin-dashboard");
   });
 

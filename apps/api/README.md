@@ -4,7 +4,7 @@
 
 | Variável | Descrição | Exemplo |
 | --- | --- | --- |
-| `DATABASE_URL` | URL do banco (SQLite ou Postgres). | `file:./dev.db` |
+| `DATABASE_URL` | URL do banco Postgres (obrigatório para `db:bootstrap`). Deve começar com `postgres://` ou `postgresql://`. | `postgresql://user:pass@localhost:5432/fitsculpt_api_dev?schema=public` |
 | `JWT_SECRET` | Segredo para assinar JWT. | `super-secret-32` |
 | `COOKIE_SECRET` | Segredo para cookies assinados. | `cookie-secret-32` |
 | `CORS_ORIGIN` | Origem permitida para o frontend. | `https://fitsculpt-fe-web.vercel.app` |
@@ -30,6 +30,7 @@
 
 ## Configuração segura de ambiente
 
+- `db:bootstrap` exige `DATABASE_URL` válido com protocolo `postgres://` ou `postgresql://`; sem isso o script falha imediatamente com mensagem de correção.
 - Copie `apps/api/.env.example` para `.env` apenas no ambiente local/servidor.
 - Nunca commite valores reais de segredos (`JWT_SECRET`, `COOKIE_SECRET`, `DATABASE_URL`, `*_API_KEY`, `*_SECRET`).
 - Gere segredos longos e aleatórios para produção (mínimo recomendado: 32 caracteres).

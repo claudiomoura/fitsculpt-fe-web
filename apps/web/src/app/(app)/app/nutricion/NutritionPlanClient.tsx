@@ -104,6 +104,12 @@ type AiTokenSnapshot = {
   tokens: number | null;
 };
 
+type AiUsageSummary = {
+  total_tokens?: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+};
+
 type NutritionAiErrorState = {
   title: string;
   description: string;
@@ -704,7 +710,9 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [aiRetryCount, setAiRetryCount] = useState(0);
   const [aiSuccessModalOpen, setAiSuccessModalOpen] = useState(false);
   const [lastGeneratedAiPlan, setLastGeneratedAiPlan] = useState<NutritionPlan | null>(null);
-  const [lastGeneratedTokensUsed, setLastGeneratedTokensUsed] = useState<number | null>(null);
+  const [lastGeneratedUsage, setLastGeneratedUsage] = useState<AiUsageSummary | null>(null);
+  const [lastGeneratedMode, setLastGeneratedMode] = useState<string | null>(null);
+  const [lastGeneratedAiRequestId, setLastGeneratedAiRequestId] = useState<string | null>(null);
   const [lastGeneratedTokensBalance, setLastGeneratedTokensBalance] = useState<number | null>(null);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
@@ -1403,8 +1411,6 @@ const macroTargets = {
   fatsG: fatGrams,
 };
 
-  const tokensBefore = await readAiTokenSnapshot();
-
 const data = await generateNutritionPlan({
   name: profile.name || undefined,
   age: profile.age ?? undefined,
@@ -1461,10 +1467,6 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       setSavedPlan(updatedPlan);
 
       const tokensAfter = await readAiTokenSnapshot();
-      const tokensUsed =
-        tokensBefore.tokens !== null && tokensAfter.tokens !== null
-          ? Math.max(0, tokensBefore.tokens - tokensAfter.tokens)
-          : null;
       const currentTokenBalance =
         tokensAfter.tokens
         ?? (typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
@@ -1474,7 +1476,9 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       }
 
       setLastGeneratedAiPlan(updatedPlan);
-      setLastGeneratedTokensUsed(tokensUsed);
+      setLastGeneratedUsage(data.usage ?? null);
+      setLastGeneratedMode(typeof data.mode === "string" ? data.mode : null);
+      setLastGeneratedAiRequestId(typeof data.aiRequestId === "string" ? data.aiRequestId : null);
       setLastGeneratedTokensBalance(currentTokenBalance);
       setAiRetryCount(0);
       setAiSuccessModalOpen(true);
@@ -1517,6 +1521,16 @@ const planToSave = ensurePlanStartDate(candidatePlan);
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: requestError.message ?? t("nutrition.aiRateLimit"),
+          actionableHint: null,
+          details: null,
+          canRetry: !retriesReached,
+        });
+        setAiRetryCount((prev) => prev + 1);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (requestError?.code === "UPSTREAM_ERROR" || (typeof requestError?.status === "number" && requestError.status >= 500)) {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: t("nutrition.aiErrorState.upstreamDescription"),
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
@@ -2421,13 +2435,28 @@ const nutritionPlanDetails = profile ? (
               </div>
             ) : null}
 
-            <div className="feature-card">
-              <p className="m-0"><strong>{t("nutrition.aiSuccessModal.aiBlockTitle")}</strong></p>
-              <ul className="list-muted-sm mt-8">
-                <li>{t("nutrition.aiSuccessModal.tokensUsed")}: {lastGeneratedTokensUsed ?? "-"}</li>
-                <li>{t("nutrition.aiSuccessModal.currentBalance")}: {lastGeneratedTokensBalance ?? aiTokenBalance ?? "-"}</li>
-              </ul>
-            </div>
+            {(lastGeneratedMode === "FALLBACK" || typeof lastGeneratedUsage?.total_tokens === "number" || typeof lastGeneratedUsage?.prompt_tokens === "number" || typeof lastGeneratedUsage?.completion_tokens === "number") ? (
+              <div className="feature-card">
+                <p className="m-0"><strong>{t("nutrition.aiSuccessModal.aiBlockTitle")}</strong></p>
+                <ul className="list-muted-sm mt-8">
+                  <li>
+                    {t("nutrition.aiSuccessModal.tokensUsed")}: {lastGeneratedMode === "FALLBACK"
+                      ? t("nutrition.aiSuccessModal.fallbackTokens")
+                      : (lastGeneratedUsage?.total_tokens ?? t("nutrition.aiSuccessModal.notAvailable"))}
+                  </li>
+                  {typeof lastGeneratedUsage?.prompt_tokens === "number" ? (
+                    <li>{t("nutrition.aiSuccessModal.promptTokens")}: {lastGeneratedUsage.prompt_tokens}</li>
+                  ) : null}
+                  {typeof lastGeneratedUsage?.completion_tokens === "number" ? (
+                    <li>{t("nutrition.aiSuccessModal.completionTokens")}: {lastGeneratedUsage.completion_tokens}</li>
+                  ) : null}
+                  {lastGeneratedAiRequestId ? (
+                    <li>{t("nutrition.aiSuccessModal.aiRequestId")}: {lastGeneratedAiRequestId}</li>
+                  ) : null}
+                  <li>{t("nutrition.aiSuccessModal.currentBalance")}: {lastGeneratedTokensBalance ?? aiTokenBalance ?? "-"}</li>
+                </ul>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </Modal>

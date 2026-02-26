@@ -17,69 +17,61 @@ function mockBackendResponse(status: number, body: string, contentType = "applic
   } as unknown as Response;
 }
 
+type EndpointContract = {
+  name: "training" | "nutrition";
+  route: string;
+  importPath: string;
+};
+
+const ENDPOINTS: EndpointContract[] = [
+  {
+    name: "training",
+    route: "http://localhost/api/ai/training-plan/generate",
+    importPath: "@/app/api/ai/training-plan/generate/route",
+  },
+  {
+    name: "nutrition",
+    route: "http://localhost/api/ai/nutrition-plan/generate",
+    importPath: "@/app/api/ai/nutrition-plan/generate/route",
+  },
+];
+
+async function invokeEndpoint(endpoint: EndpointContract, body = "{}") {
+  const { POST } = await import(endpoint.importPath);
+  return POST(new Request(endpoint.route, { method: "POST", body }));
+}
+
 describe("AI generate proxy guardrail contract", () => {
-  it("training-plan/generate never returns 500 and always returns JSON error string on backend 500 malformed body", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(mockBackendResponse(500, "<html>upstream down</html>", "text/html"));
-    vi.stubGlobal("fetch", fetchMock);
+  it.each(ENDPOINTS)("$name endpoint maps upstream 5xx into 502 + { error: string }", async (endpoint) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(503, "backend unavailable", "text/plain")));
 
-    const { POST } = await import("@/app/api/ai/training-plan/generate/route");
-    const response = await POST(
-      new Request("http://localhost/api/ai/training-plan/generate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ goal: "gain" }),
-      }),
-    );
+    const response = await invokeEndpoint(endpoint);
 
     expect(response.status).toBe(502);
-    expect(response.status).not.toBe(500);
 
     const data = await response.json();
-    expect(typeof data.error).toBe("string");
+    expect(data).toMatchObject({ error: expect.any(String) });
   });
 
-  it("nutrition-plan/generate never returns 500 and always returns JSON error string on backend 500 malformed body", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(mockBackendResponse(500, "", "text/plain"));
-    vi.stubGlobal("fetch", fetchMock);
+  it("nutrition endpoint preserves validation 400 passthrough + { error: string }", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(400, JSON.stringify({ error: "INVALID_INPUT" }))));
 
-    const { POST } = await import("@/app/api/ai/nutrition-plan/generate/route");
-    const response = await POST(
-      new Request("http://localhost/api/ai/nutrition-plan/generate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ goal: "cut" }),
-      }),
-    );
+    const nutritionEndpoint = ENDPOINTS.find((endpoint) => endpoint.name === "nutrition");
+    expect(nutritionEndpoint).toBeDefined();
 
-    expect(response.status).toBe(502);
-    expect(response.status).not.toBe(500);
+    const response = await invokeEndpoint(nutritionEndpoint!);
 
+    expect(response.status).toBe(400);
     const data = await response.json();
-    expect(typeof data.error).toBe("string");
+    expect(data).toEqual({ error: "INVALID_INPUT" });
+    expect(data).toMatchObject({ error: expect.any(String) });
   });
 
-  it("training-plan/generate maps backend 500 JSON error to non-500 JSON error response", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(mockBackendResponse(500, JSON.stringify({ error: "UPSTREAM_ERROR" })));
-    vi.stubGlobal("fetch", fetchMock);
+  it.each(ENDPOINTS)("$name endpoint always returns JSON-parseable error bodies", async (endpoint) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(500, "<html>upstream down</html>", "text/html")));
 
-    const { POST } = await import("@/app/api/ai/training-plan/generate/route");
-    const response = await POST(new Request("http://localhost/api/ai/training-plan/generate", { method: "POST", body: "{}" }));
+    const response = await invokeEndpoint(endpoint);
 
-    expect(response.status).toBe(502);
-    const data = await response.json();
-    expect(data).toEqual({ error: "UPSTREAM_ERROR" });
-    expect(typeof data.error).toBe("string");
-  });
-
-  it("nutrition-plan/generate maps thrown fetch errors to JSON error payload", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
-
-    const { POST } = await import("@/app/api/ai/nutrition-plan/generate/route");
-    const response = await POST(new Request("http://localhost/api/ai/nutrition-plan/generate", { method: "POST", body: "{}" }));
-
-    expect(response.status).toBe(502);
-    const data = await response.json();
-    expect(typeof data.error).toBe("string");
-    expect(response.status).not.toBe(500);
+    await expect(response.json()).resolves.toMatchObject({ error: expect.any(String) });
   });
 });

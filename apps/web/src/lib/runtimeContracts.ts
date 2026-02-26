@@ -106,6 +106,14 @@ export function validateExerciseDetailPayload(payload: unknown): ContractValidat
   return { ok: true };
 }
 
+function isUsagePayload(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.total_tokens !== undefined && !isNumber(value.total_tokens)) return false;
+  if (value.prompt_tokens !== undefined && !isNumber(value.prompt_tokens)) return false;
+  if (value.completion_tokens !== undefined && !isNumber(value.completion_tokens)) return false;
+  return true;
+}
+
 export function validateAiTrainingGeneratePayload(payload: unknown): ContractValidationResult {
   if (!isRecord(payload)) return { ok: false, reason: "AI_TRAINING_NOT_OBJECT" };
   if (!(isRecord(payload.plan) || isString(payload.plan))) return { ok: false, reason: "AI_TRAINING_INVALID_PLAN" };
@@ -114,6 +122,15 @@ export function validateAiTrainingGeneratePayload(payload: unknown): ContractVal
   }
   if (payload.aiTokenRenewalAt !== undefined && payload.aiTokenRenewalAt !== null && typeof payload.aiTokenRenewalAt !== "string") {
     return { ok: false, reason: "AI_TRAINING_INVALID_TOKEN_RENEWAL" };
+  }
+  if (payload.usage !== undefined && !isUsagePayload(payload.usage)) {
+    return { ok: false, reason: "AI_TRAINING_INVALID_USAGE" };
+  }
+  if (payload.mode !== undefined && typeof payload.mode !== "string") {
+    return { ok: false, reason: "AI_TRAINING_INVALID_MODE" };
+  }
+  if (payload.aiRequestId !== undefined && typeof payload.aiRequestId !== "string") {
+    return { ok: false, reason: "AI_TRAINING_INVALID_AI_REQUEST_ID" };
   }
   return { ok: true };
 }
@@ -126,6 +143,15 @@ export function validateAiNutritionGeneratePayload(payload: unknown): ContractVa
   }
   if (payload.aiTokenRenewalAt !== undefined && payload.aiTokenRenewalAt !== null && typeof payload.aiTokenRenewalAt !== "string") {
     return { ok: false, reason: "AI_NUTRITION_INVALID_TOKEN_RENEWAL" };
+  }
+  if (payload.usage !== undefined && !isUsagePayload(payload.usage)) {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_USAGE" };
+  }
+  if (payload.mode !== undefined && typeof payload.mode !== "string") {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_MODE" };
+  }
+  if (payload.aiRequestId !== undefined && typeof payload.aiRequestId !== "string") {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_AI_REQUEST_ID" };
   }
   return { ok: true };
 }
