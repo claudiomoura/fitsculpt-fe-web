@@ -28,6 +28,7 @@ type AdjustmentMetadata = {
 
 export type TrainingPlanAiResult = {
   plan: TrainingPlan;
+  planId?: string;
   aiTokenBalance?: number;
   aiTokenRenewalAt?: string | null;
   usage?: {
@@ -187,6 +188,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
 
   return {
     plan: ensurePlanStartDate(plan),
+    planId: typeof data?.planId === "string" ? data.planId : undefined,
     aiTokenBalance: typeof data?.aiTokenBalance === "number" ? data.aiTokenBalance : undefined,
     aiTokenRenewalAt:
       typeof data?.aiTokenRenewalAt === "string" || data?.aiTokenRenewalAt === null

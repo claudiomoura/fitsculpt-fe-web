@@ -71,6 +71,7 @@ type ActivePlanOrigin = "selected" | "assigned";
 
 const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
 const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
+const TRAINING_PLANS_UPDATED_AT_KEY = "fs_training_plans_updated_at";
 const AUTO_AI_TRIGGER_GUARD_TTL_MS = 4000;
 
 type TrainingPlanClientProps = {
@@ -270,6 +271,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
   const [lastGeneratedUsage, setLastGeneratedUsage] = useState<AiUsageSummary | null>(null);
   const [lastGeneratedAiRequestId, setLastGeneratedAiRequestId] = useState<string | null>(null);
+  const [lastGeneratedPlanId, setLastGeneratedPlanId] = useState<string | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
   const [aiEntitlementResolved, setAiEntitlementResolved] = useState(false);
   const [savedPlan, setSavedPlan] = useState<TrainingPlan | null>(null);
@@ -775,7 +777,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       }
       setLastGeneratedUsage(result.usage ?? null);
       setLastGeneratedAiRequestId(result.aiRequestId ?? null);
+      setLastGeneratedPlanId(result.planId ?? null);
       setAiPreviewPlan(result.plan);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(TRAINING_PLANS_UPDATED_AT_KEY, String(Date.now()));
+      }
       setPendingTokenToastId((value) => value + 1);
       setSaveMessage(t("training.aiPreviewReady"));
       void refreshSubscription();
@@ -921,6 +927,19 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setError(null);
     try {
       const updated = await saveAiTrainingPlan(aiPreviewPlan);
+      const aiPlanId = lastGeneratedPlanId?.trim() || null;
+      if (typeof window !== "undefined" && aiPlanId) {
+        window.localStorage.setItem(SELECTED_PLAN_STORAGE_KEY, aiPlanId);
+        window.localStorage.setItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY, aiPlanId);
+        window.localStorage.setItem(TRAINING_PLANS_UPDATED_AT_KEY, String(Date.now()));
+        const nextParams = new URLSearchParams(searchParamsString);
+        nextParams.set("planId", aiPlanId);
+        const nextParamsString = nextParams.toString();
+        const nextUrl = `${pathname}${nextParamsString ? `?${nextParamsString}` : ""}`;
+        router.replace(nextUrl, { scroll: false });
+      } else if (typeof window !== "undefined") {
+        window.localStorage.setItem(TRAINING_PLANS_UPDATED_AT_KEY, String(Date.now()));
+      }
       setSavedPlan(updated.trainingPlan ?? aiPreviewPlan);
       setAiPreviewPlan(null);
       setSaveMessage(t("training.aiSuccess"));

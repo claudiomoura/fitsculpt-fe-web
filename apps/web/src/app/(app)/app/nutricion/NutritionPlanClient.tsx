@@ -167,6 +167,7 @@ type NutritionAiErrorState = {
 };
 
 const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
+const NUTRITION_PLANS_UPDATED_AT_KEY = "fs_nutrition_plans_updated_at";
 
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
   try {
@@ -1545,6 +1546,9 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       setAiSuccessModalOpen(true);
       setPendingTokenToastId((value) => value + 1);
       setSaveMessage(t("nutrition.aiSuccess"));
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(NUTRITION_PLANS_UPDATED_AT_KEY, String(Date.now()));
+      }
       void refreshSubscription();
     } catch (err) {
       const requestError = err as NutritionGenerateError;

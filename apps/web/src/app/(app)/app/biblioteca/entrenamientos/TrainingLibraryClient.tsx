@@ -28,6 +28,7 @@ type AiGateState = "loading" | "eligible" | "locked" | "unavailable";
 
 const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
 const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
+const TRAINING_PLANS_UPDATED_AT_KEY = "fs_training_plans_updated_at";
 
 export default function TrainingLibraryClient() {
   const { t } = useLanguage();
@@ -36,6 +37,7 @@ export default function TrainingLibraryClient() {
   const searchParams = useSearchParams();
 
   const [query, setQuery] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [fitSculptPlans, setFitSculptPlans] = useState<TrainingPlanListItem[]>([]);
   const [fitSculptState, setFitSculptState] = useState<SectionState>("loading");
   const [gymPlans, setGymPlans] = useState<TrainingPlanListItem[]>([]);
@@ -180,7 +182,26 @@ export default function TrainingLibraryClient() {
 
     void Promise.all([loadPlans(), loadAssignedPlan()]);
     return () => controller.abort();
-  }, [canLoadGymPlans, query]);
+  }, [canLoadGymPlans, query, reloadKey]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== TRAINING_PLANS_UPDATED_AT_KEY) return;
+      setReloadKey((value) => value + 1);
+    };
+
+    const handleFocus = () => {
+      setReloadKey((value) => value + 1);
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
 
   const noPlansAvailable = useMemo(
     () => fitSculptState === "ready" && assignedPlanState === "ready" && fitSculptPlans.length === 0 && !assignedPlan,
