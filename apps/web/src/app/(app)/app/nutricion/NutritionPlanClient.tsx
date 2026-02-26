@@ -1429,6 +1429,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const handleAiPlan = async (mode: "default" | "simple" = "default") => {
     if (!profile || aiLoading || aiGenerationInFlight.current) return;
     if (!aiEntitled) return;
+    if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiError({
+        title: t("nutrition.aiErrorState.title"),
+        description: t("ai.insufficientTokens"),
+        actionableHint: null,
+        details: null,
+        canRetry: false,
+      });
+      return;
+    }
     if (!isProfileComplete(profile)) {
       router.push("/app/onboarding?ai=nutrition&next=/app/nutricion");
       return;
@@ -1628,6 +1638,16 @@ useEffect(() => {
 
   const handleGenerateClick = () => {
     if (!profile) return;
+    if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiError({
+        title: t("nutrition.aiErrorState.title"),
+        description: t("ai.insufficientTokens"),
+        actionableHint: null,
+        details: null,
+        canRetry: false,
+      });
+      return;
+    }
     if (!isProfileComplete(profile)) {
       router.push("/app/onboarding?ai=nutrition&next=/app/nutricion");
       return;
@@ -1636,7 +1656,8 @@ useEffect(() => {
   };
 
   const isAiLocked = !aiEntitled;
-  const isAiDisabled = aiLoading || isAiLocked;
+  const isOutOfTokens = aiTokenBalance !== null && aiTokenBalance <= 0;
+  const isAiDisabled = aiLoading || isAiLocked || isOutOfTokens;
   const aiLockDescription = safeT("nutrition.aiModuleRequired", "Requiere NutriAI o PRO");
 
   const generatedPlanPreviewDay = useMemo(() => {
@@ -1984,7 +2005,13 @@ const nutritionPlanDetails = profile ? (
                   <ButtonLink variant="secondary" href="/app/nutricion/editar">
                     {t("nutrition.manualCreate")}
                   </ButtonLink>
+                  {isOutOfTokens ? (
+                    <ButtonLink variant="ghost" href="/app/settings/billing">
+                      {t("billing.manageBilling")}
+                    </ButtonLink>
+                  ) : null}
                 </div>
+                {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
               </div>
             </section>
           ) : hasPlan ? (
@@ -2023,6 +2050,17 @@ const nutritionPlanDetails = profile ? (
                 description={aiLockDescription}
                 buttonLabel={t("billing.upgradePro")}
               />
+            ) : null}
+
+            {!isAiLocked && isOutOfTokens ? (
+              <div className="status-card status-card--warning" role="alert" aria-live="polite">
+                <p className="muted m-0">{t("ai.insufficientTokens")}</p>
+                <div className="inline-actions-sm mt-12">
+                  <Link href="/app/settings/billing" className="btn secondary fit-content">
+                    {t("billing.manageBilling")}
+                  </Link>
+                </div>
+              </div>
             ) : null}
 
             {loading ? (
