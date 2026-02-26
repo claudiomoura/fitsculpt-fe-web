@@ -5,13 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { getRoleFlags } from "@/lib/roles";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
-import { PlanListCard } from "./components/PlanListCard";
 
 function getPlanId(plan: TrainingPlanListItem): string {
   const candidate = (plan as TrainingPlanListItem & { planId?: string }).planId;
@@ -275,7 +273,7 @@ export default function TrainingLibraryClient() {
                     </p>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    {isSelected ? <Badge variant="success">{t("library.training.selected")}</Badge> : null}
+                    {isSelected ? <span className="badge badge-success">{t("library.training.selected")}</span> : null}
                   </div>
                 </div>
 
@@ -334,7 +332,7 @@ export default function TrainingLibraryClient() {
                   date: formatPlanDate(assignedPlan),
                 })}</p>
               </div>
-              <Badge variant="muted">{t("library.training.assignedByTrainer")}</Badge>
+              <span className="badge">{t("library.training.assignedByTrainer")}</span>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <Button variant={activePlanId === getPlanId(assignedPlan) ? "secondary" : "primary"} onClick={() => selectPlan(getPlanId(assignedPlan))}>
