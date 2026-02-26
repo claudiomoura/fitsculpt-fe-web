@@ -16,6 +16,7 @@ type SectionState = "loading" | "ready" | "error" | "unavailable";
 export default function DietPlansClient() {
   const { t, locale } = useLanguage();
   const [query, setQuery] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [plans, setPlans] = useState<NutritionPlanListItem[]>([]);
   const [state, setState] = useState<SectionState>("loading");
 
@@ -52,7 +53,7 @@ export default function DietPlansClient() {
 
     void loadPlans();
     return () => controller.abort();
-  }, [query]);
+  }, [query, reloadKey]);
 
   const formatter = useMemo(() => new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
     month: "short",
@@ -81,7 +82,16 @@ export default function DietPlansClient() {
           </div>
         ) : null}
 
-        {state === "error" ? <p className="muted mt-12">{t("dietPlans.loadErrorList")}</p> : null}
+        {state === "error" ? (
+          <div className="feature-card mt-12" role="alert">
+            <strong>{t("dietPlans.loadErrorList")}</strong>
+            <div className="mt-12">
+              <button type="button" className="btn secondary" onClick={() => setReloadKey((value) => value + 1)}>
+                {t("ui.retry")}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {state === "unavailable" ? <p className="muted mt-12">{t("dietPlans.unavailable")}</p> : null}
 
         {state === "ready" && plans.length === 0 ? (

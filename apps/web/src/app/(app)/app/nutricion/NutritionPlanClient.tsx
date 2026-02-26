@@ -761,6 +761,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [lastGeneratedUsage, setLastGeneratedUsage] = useState<AiUsageSummary | null>(null);
   const [lastGeneratedMode, setLastGeneratedMode] = useState<string | null>(null);
   const [lastGeneratedAiRequestId, setLastGeneratedAiRequestId] = useState<string | null>(null);
+  const [lastGeneratedPlanId, setLastGeneratedPlanId] = useState<string | null>(null);
   const [lastGeneratedTokensBalance, setLastGeneratedTokensBalance] = useState<number | null>(null);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
@@ -1510,6 +1511,13 @@ if (!isNutritionPlanData(candidatePlan)) {
 }
 
 const planToSave = ensurePlanStartDate(candidatePlan);
+      const generatedPlanIdFromResponse = typeof data.planId === "string" && data.planId.trim().length > 0
+        ? data.planId.trim()
+        : null;
+      const generatedPlanIdFromPlan =
+        "id" in planToSave && typeof (planToSave as { id?: unknown }).id === "string" && (planToSave as { id: string }).id.trim().length > 0
+          ? (planToSave as { id: string }).id.trim()
+          : null;
       setSavedPlan(planToSave);
       setSelectedDate(parseDate(planToSave.startDate) ?? selectedDate);
       const updated = await updateUserProfile({ nutritionPlan: planToSave });
@@ -1531,6 +1539,7 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       setLastGeneratedUsage(normalizeAiUsageSummary(data.usage));
       setLastGeneratedMode(typeof data.mode === "string" ? data.mode : null);
       setLastGeneratedAiRequestId(typeof data.aiRequestId === "string" ? data.aiRequestId : null);
+      setLastGeneratedPlanId(generatedPlanIdFromResponse ?? generatedPlanIdFromPlan);
       setLastGeneratedTokensBalance(currentTokenBalance);
       setAiRetryCount(0);
       setAiSuccessModalOpen(true);
@@ -1646,9 +1655,12 @@ useEffect(() => {
 
   const handleViewGeneratedPlan = () => {
     setAiSuccessModalOpen(false);
-    window.requestAnimationFrame(() => {
-      generatedPlanSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    if (lastGeneratedPlanId) {
+      router.push(`/app/dietas/${lastGeneratedPlanId}`);
+      return;
+    }
+
+    notify({ title: t("nutrition.aiSuccessRequiresPlanId"), variant: "error" });
   };
 
   const handlePrevDay = () => {

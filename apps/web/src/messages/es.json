@@ -1038,7 +1038,8 @@
     "weeklyEmptySubtitle": "Aún no hay comidas para esta semana con los datos actuales.",
     "calendarViewToggleAria": "Seleccionar vista del calendario de nutrición",
     "selectDayAria": "Seleccionar día {{date}}",
-    "selectWeekDayAria": "Seleccionar {{day}} con {{meals}} comidas y {{calories}} kcal"
+    "selectWeekDayAria": "Seleccionar {{day}} con {{meals}} comidas y {{calories}} kcal",
+    "aiSuccessRequiresPlanId": "No se pudo abrir el plan generado en Dietas. El backend debe retornar planId (requiere PR-S4-01)."
   },
   "training": {
     "formTitle": "Datos del plan",

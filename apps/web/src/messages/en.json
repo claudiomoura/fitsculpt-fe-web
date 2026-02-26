@@ -1034,7 +1034,8 @@
     "weeklyEmptySubtitle": "There are no meals for this week with the current data yet.",
     "calendarViewToggleAria": "Select nutrition calendar view",
     "selectDayAria": "Select day {{date}}",
-    "selectWeekDayAria": "Select {{day}} with {{meals}} meals and {{calories}} kcal"
+    "selectWeekDayAria": "Select {{day}} with {{meals}} meals and {{calories}} kcal",
+    "aiSuccessRequiresPlanId": "Could not open the generated plan in Diets. Backend must return planId (requires PR-S4-01)."
   },
   "training": {
     "formTitle": "Plan details",
