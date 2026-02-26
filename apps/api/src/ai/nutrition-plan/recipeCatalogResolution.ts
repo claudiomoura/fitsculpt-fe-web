@@ -176,6 +176,8 @@ type VarietyGuardResult = {
   plan: NutritionPlan;
   varietyGuardApplied: boolean;
   replacements: number;
+  uniqueRecipeIdsWeek: number;
+  hadEnoughUniqueRecipes: boolean;
 };
 
 function toCatalogMacros(recipe: NutritionRecipeCatalogItem) {
@@ -190,15 +192,17 @@ function toCatalogMacros(recipe: NutritionRecipeCatalogItem) {
 function selectBestCandidate(
   candidates: NutritionRecipeCatalogItem[],
   usedRecipeIds: Set<string>,
+  excludedRecipeIds: Set<string>,
   currentRecipeId: string | null,
   recipeUsage: Map<string, number>
 ) {
-  const unused = candidates.find((candidate) => !usedRecipeIds.has(candidate.id));
+  const availableCandidates = candidates.filter((candidate) => !excludedRecipeIds.has(candidate.id));
+  const unused = availableCandidates.find((candidate) => !usedRecipeIds.has(candidate.id));
   if (unused) {
     return unused;
   }
 
-  const sortedByUsage = [...candidates].sort((left, right) => {
+  const sortedByUsage = [...availableCandidates].sort((left, right) => {
     const leftUsage = recipeUsage.get(left.id) ?? 0;
     const rightUsage = recipeUsage.get(right.id) ?? 0;
     if (leftUsage !== rightUsage) return leftUsage - rightUsage;
@@ -213,15 +217,30 @@ export function applyNutritionPlanVarietyGuard(
   recipeCatalog: NutritionRecipeCatalogItem[],
   guardedMealTypes: VarietyGuardMealType[] = ["lunch", "dinner"]
 ): VarietyGuardResult {
-  if (recipeCatalog.length === 0 || plan.days.length <= 1) {
-    return { plan, varietyGuardApplied: false, replacements: 0 };
+  const guardedTypes = new Set<VarietyGuardMealType>(guardedMealTypes);
+  const totalGuardedSlots = plan.days.reduce(
+    (count, day) => count + day.meals.filter((meal) => guardedTypes.has(meal.type)).length,
+    0
+  );
+  const hadEnoughUniqueRecipes = recipeCatalog.length >= totalGuardedSlots;
+
+  if (recipeCatalog.length === 0) {
+    const uniqueRecipeIdsWeek = new Set(
+      plan.days.flatMap((day) => day.meals.map((meal) => meal.recipeId).filter((id): id is string => Boolean(id)))
+    ).size;
+    return {
+      plan,
+      varietyGuardApplied: false,
+      replacements: 0,
+      uniqueRecipeIdsWeek,
+      hadEnoughUniqueRecipes,
+    };
   }
 
   const candidates = recipeCatalog;
   const candidatesById = new Map(candidates.map((recipe) => [recipe.id, recipe]));
-  const guardedTypes = new Set<VarietyGuardMealType>(guardedMealTypes);
-  const usedByMealType = new Map<VarietyGuardMealType, Set<string>>();
-  const usageByMealType = new Map<VarietyGuardMealType, Map<string, number>>();
+  const usedRecipeIdsWeek = new Set<string>();
+  const recipeUsageWeek = new Map<string, number>();
   let replacements = 0;
 
   const nextDays = plan.days.map((day) => ({
@@ -234,17 +253,19 @@ export function applyNutritionPlanVarietyGuard(
   }));
 
   for (const day of nextDays) {
+    const dayAssignedRecipeIds = new Set<string>();
     for (const meal of day.meals) {
       if (!guardedTypes.has(meal.type)) continue;
 
-      const usedForType = usedByMealType.get(meal.type) ?? new Set<string>();
-      const usageForType = usageByMealType.get(meal.type) ?? new Map<string, number>();
       const currentRecipeId = meal.recipeId ?? null;
       const currentRecipe = currentRecipeId ? candidatesById.get(currentRecipeId) : undefined;
-      const shouldReplace = !currentRecipe || usedForType.has(currentRecipe.id);
+      const hasDayConflict = currentRecipe ? dayAssignedRecipeIds.has(currentRecipe.id) : false;
+      const shouldReplace = !currentRecipe || hasDayConflict || usedRecipeIdsWeek.has(currentRecipe.id);
+
+      const excludedRecipeIds = new Set(dayAssignedRecipeIds);
 
       const selectedRecipe = shouldReplace
-        ? selectBestCandidate(candidates, usedForType, currentRecipeId, usageForType)
+        ? selectBestCandidate(candidates, usedRecipeIdsWeek, excludedRecipeIds, currentRecipeId, recipeUsageWeek)
         : currentRecipe;
 
       if (!selectedRecipe) continue;
@@ -259,16 +280,22 @@ export function applyNutritionPlanVarietyGuard(
       meal.macros = toCatalogMacros(selectedRecipe);
       meal.ingredients = selectedRecipe.ingredients.map((ingredient) => ({ ...ingredient }));
 
-      usedForType.add(selectedRecipe.id);
-      usageForType.set(selectedRecipe.id, (usageForType.get(selectedRecipe.id) ?? 0) + 1);
-      usedByMealType.set(meal.type, usedForType);
-      usageByMealType.set(meal.type, usageForType);
+      dayAssignedRecipeIds.add(selectedRecipe.id);
+      usedRecipeIdsWeek.add(selectedRecipe.id);
+      recipeUsageWeek.set(selectedRecipe.id, (recipeUsageWeek.get(selectedRecipe.id) ?? 0) + 1);
     }
   }
 
+  const finalPlan = replacements > 0 ? { ...plan, days: nextDays } : plan;
+  const uniqueRecipeIdsWeek = new Set(
+    finalPlan.days.flatMap((day) => day.meals.map((meal) => meal.recipeId).filter((id): id is string => Boolean(id)))
+  ).size;
+
   return {
-    plan: replacements > 0 ? { ...plan, days: nextDays } : plan,
+    plan: finalPlan,
     varietyGuardApplied: replacements > 0,
     replacements,
+    uniqueRecipeIdsWeek,
+    hadEnoughUniqueRecipes,
   };
 }

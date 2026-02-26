@@ -116,6 +116,8 @@ const repetitivePlan = {
 const varietyApplied = applyNutritionPlanVarietyGuard(repetitivePlan, catalog, ["lunch", "dinner"]);
 assert.equal(varietyApplied.varietyGuardApplied, true);
 assert.ok(varietyApplied.replacements > 0);
+assert.equal(varietyApplied.hadEnoughUniqueRecipes, false);
+assert.equal(varietyApplied.uniqueRecipeIdsWeek, 2);
 
 const lunchIds = new Set(varietyApplied.plan.days.map((day) => day.meals[0]?.recipeId));
 const dinnerIds = new Set(varietyApplied.plan.days.map((day) => day.meals[1]?.recipeId));
@@ -123,6 +125,9 @@ assert.ok(lunchIds.size >= 2, "expected lunch variety across week");
 assert.ok(dinnerIds.size >= 2, "expected dinner variety across week");
 
 for (const day of varietyApplied.plan.days) {
+  const lunch = day.meals.find((meal) => meal.type === "lunch");
+  const dinner = day.meals.find((meal) => meal.type === "dinner");
+  assert.notEqual(lunch?.recipeId, dinner?.recipeId, "lunch and dinner must not repeat in the same day");
   for (const meal of day.meals) {
     assert.ok(meal.recipeId && catalog.some((recipe) => recipe.id === meal.recipeId), "recipeId must exist in catalog");
   }

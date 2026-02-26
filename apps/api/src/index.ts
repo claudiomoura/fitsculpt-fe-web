@@ -1856,11 +1856,12 @@ function applyNutritionCatalogResolution(
   const varietyGuard = applyNutritionPlanVarietyGuard(resolved.plan, recipeCatalog, ["lunch", "dinner"]);
   app.log.info(
     {
-      variety_guard_applied: varietyGuard.varietyGuardApplied,
-      replacements: varietyGuard.replacements,
+      uniqueRecipeIdsWeek: varietyGuard.uniqueRecipeIdsWeek,
+      replacementsApplied: varietyGuard.replacements,
+      hadEnoughUniqueRecipes: varietyGuard.hadEnoughUniqueRecipes,
       catalogSize: recipeCatalog.length,
     },
-    "nutrition plan variety guard"
+    "variety_guard_summary"
   );
   return varietyGuard.plan as z.infer<typeof aiNutritionPlanResponseSchema>;
 }
