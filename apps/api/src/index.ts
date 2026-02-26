@@ -2052,32 +2052,38 @@ async function saveTrainingPlan(
   request: z.infer<typeof aiTrainingSchema>
 ) {
   return prisma.$transaction(async (tx) => {
-    const planRecord = await tx.trainingPlan.upsert({
-      where: { userId_startDate_daysCount: { userId, startDate, daysCount } },
-      create: {
-        userId,
-        title: plan.title,
-        notes: plan.notes,
-        goal: request.goal,
-        level: request.level,
-        daysPerWeek: request.daysPerWeek,
-        focus: request.focus,
-        equipment: request.equipment,
-        startDate,
-        daysCount,
-      },
-      update: {
-        title: plan.title,
-        notes: plan.notes,
-        goal: request.goal,
-        level: request.level,
-        daysPerWeek: request.daysPerWeek,
-        focus: request.focus,
-        equipment: request.equipment,
-      },
-    });
+    let persistedStartDate = new Date(startDate);
+    let planRecord: Awaited<ReturnType<typeof tx.trainingPlan.create>> | null = null;
 
-    await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        planRecord = await tx.trainingPlan.create({
+          data: {
+            userId,
+            title: plan.title,
+            notes: plan.notes,
+            goal: request.goal,
+            level: request.level,
+            daysPerWeek: request.daysPerWeek,
+            focus: request.focus,
+            equipment: request.equipment,
+            startDate: persistedStartDate,
+            daysCount,
+          },
+        });
+        break;
+      } catch (error) {
+        const typed = error as Prisma.PrismaClientKnownRequestError;
+        if (typed.code !== "P2002") {
+          throw error;
+        }
+        persistedStartDate = new Date(persistedStartDate.getTime() + 1);
+      }
+    }
+
+    if (!planRecord) {
+      throw createHttpError(500, "TRAINING_PLAN_PERSIST_FAILED");
+    }
 
     for (const [index, day] of plan.days.entries()) {
       await tx.trainingDay.create({
