@@ -54,6 +54,7 @@ export type NutritionGenerateResponse = {
   mode?: string;
   aiRequestId?: string;
   balanceAfter?: number;
+  planId?: string;
 };
 
 export async function generateNutritionPlan(request: NutritionGenerateRequest): Promise<NutritionGenerateResponse> {
@@ -85,6 +86,7 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
     mode?: unknown;
     aiRequestId?: unknown;
     balanceAfter?: unknown;
+    planId?: unknown;
   } | null;
 
   if (!response.ok) {
@@ -131,5 +133,6 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
     mode: typeof payload?.mode === "string" ? payload.mode : undefined,
     aiRequestId: typeof payload?.aiRequestId === "string" ? payload.aiRequestId : undefined,
     balanceAfter: typeof payload?.balanceAfter === "number" ? payload.balanceAfter : undefined,
+    planId: typeof payload?.planId === "string" ? payload.planId : undefined,
   };
 }
