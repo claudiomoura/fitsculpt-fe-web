@@ -37,6 +37,7 @@ import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
 import { generateNutritionPlan, type NutritionGenerateError } from "@/services/nutrition";
+import { normalizeAiErrorCode, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
 
 type NutritionForm = {
   age: number;
@@ -1490,7 +1491,8 @@ const planToSave = ensurePlanStartDate(candidatePlan);
     } catch (err) {
       const requestError = err as NutritionGenerateError;
       const retriesReached = aiRetryCount >= MAX_AI_RETRIES;
-      if (requestError?.code === "INSUFFICIENT_TOKENS") {
+      const errorCode = normalizeAiErrorCode(requestError?.code);
+      if (errorCode === "INSUFFICIENT_TOKENS") {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: t("ai.insufficientTokens"),
@@ -1499,7 +1501,7 @@ const planToSave = ensurePlanStartDate(candidatePlan);
           canRetry: false,
         });
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (requestError?.status === 400 && requestError?.code === "INVALID_AI_OUTPUT") {
+      } else if (requestError?.status === 400 && errorCode === "INVALID_AI_OUTPUT") {
         setAiError({
           title: t("nutrition.aiErrorState.invalidOutputTitle"),
           description: t("nutrition.aiErrorState.invalidOutputDescription"),
@@ -1512,24 +1514,24 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       } else if (requestError?.status === 400) {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
-          description: extractAiFieldErrorsMessage(requestError.details) ?? requestError.message ?? t("nutrition.aiErrorState.genericDescription"),
+          description: extractAiFieldErrorsMessage(requestError.details) ?? t("nutrition.aiErrorState.genericDescription"),
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (requestError?.status === 429) {
+      } else if (requestError?.status === 429 || errorCode === "RATE_LIMITED") {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
-          description: requestError.message ?? t("nutrition.aiRateLimit"),
+          description: t("nutrition.aiRateLimit"),
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (requestError?.code === "UPSTREAM_ERROR" || (typeof requestError?.status === "number" && requestError.status >= 500)) {
+      } else if (shouldTreatAsUpstreamError(requestError?.status, requestError?.code)) {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: t("nutrition.aiErrorState.upstreamDescription"),

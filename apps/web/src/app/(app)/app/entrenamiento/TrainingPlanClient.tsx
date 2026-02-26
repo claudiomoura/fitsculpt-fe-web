@@ -30,6 +30,7 @@ import { EmptyState } from "@/components/states";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
+import { normalizeAiErrorCode, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
 
 type Exercise = {
   id?: string;
@@ -769,17 +770,19 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       setSaveMessage(t("training.aiPreviewReady"));
       void refreshSubscription();
     } catch (err) {
-      if (err instanceof AiPlanRequestError && err.message === "INSUFFICIENT_TOKENS") {
+      const status = err instanceof AiPlanRequestError ? err.status : null;
+      const errorCode = err instanceof AiPlanRequestError ? normalizeAiErrorCode(err.code) : null;
+      if (err instanceof AiPlanRequestError && errorCode === "INSUFFICIENT_TOKENS") {
         setAiActionableError(t("ai.insufficientTokens"));
-      } else if (err instanceof AiPlanRequestError && err.status === 503 && err.code === "EXERCISE_CATALOG_UNAVAILABLE") {
+      } else if (err instanceof AiPlanRequestError && status === 503 && errorCode === "EXERCISE_CATALOG_UNAVAILABLE") {
         setAiActionableError(err.hint?.trim() || safeT("training.aiRetryErrorDescription", "Revisa tu conexión e inténtalo de nuevo."));
       } else if (err instanceof Error && err.message === "INVALID_AI_OUTPUT") {
         setAiActionableError(t("training.aiInvalidOutput"));
       } else if (err instanceof AiPlanRequestError && err.status === 400) {
-        setAiActionableError(err.message);
-      } else if (err instanceof AiPlanRequestError && err.message === "RATE_LIMITED") {
         setAiActionableError(t("training.aiError"));
-      } else if (err instanceof AiPlanRequestError && (err.code === "UPSTREAM_ERROR" || err.status >= 500)) {
+      } else if (err instanceof AiPlanRequestError && (status === 429 || errorCode === "RATE_LIMITED")) {
+        setAiActionableError(t("training.aiError"));
+      } else if (err instanceof AiPlanRequestError && shouldTreatAsUpstreamError(status, err.code)) {
         setAiActionableError(t("training.aiUpstreamError"));
       } else {
         setAiActionableError(t("training.aiError"));
