@@ -5540,9 +5540,10 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
       logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
       const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
       assertNutritionMatchesRequest(personalized, expectedMealsPerDay, daysCount);
-      await saveNutritionPlan(user.id, personalized, startDate, daysCount);
+      const savedPlan = await saveNutritionPlan(user.id, personalized, startDate, daysCount);
       await storeAiContent(user.id, "nutrition", "template", personalized);
       return reply.status(200).send({
+        planId: savedPlan.id,
         plan: personalized,
         ...aiMeta,
       });
@@ -5592,9 +5593,10 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
         logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
         assertNutritionMatchesRequest(resolvedCatalogMeals, expectedMealsPerDay, daysCount);
         const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
-        await saveNutritionPlan(user.id, personalized, startDate, daysCount);
+        const savedPlan = await saveNutritionPlan(user.id, personalized, startDate, daysCount);
         await storeAiContent(user.id, "nutrition", "cache", personalized);
         return reply.status(200).send({
+          planId: savedPlan.id,
           plan: personalized,
           ...aiMeta,
         });
@@ -5731,7 +5733,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     );
     logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
     assertNutritionMatchesRequest(resolvedCatalogMeals, expectedMealsPerDay, daysCount);
-    await saveNutritionPlan(user.id, resolvedCatalogMeals, startDate, daysCount);
+    const savedPlan = await saveNutritionPlan(user.id, resolvedCatalogMeals, startDate, daysCount);
     await saveCachedAiPayload(cacheKey, "nutrition", resolvedCatalogMeals);
     const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
     await storeAiContent(user.id, "nutrition", "ai", personalized);
@@ -5784,6 +5786,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
     const aiResponse = aiResult as OpenAiResponse | null;
     const exactUsage = extractExactProviderUsage(aiResponse?.usage);
     return reply.status(200).send({
+      planId: savedPlan.id,
       plan: personalized,
       aiRequestId: aiResponse?.requestId ?? null,
       aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
@@ -7334,7 +7337,7 @@ app.get("/nutrition-plans", async (request, reply) => {
     const [items, total] = await prisma.$transaction([
       prisma.nutritionPlan.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
         skip: offset,
         take: limit,
         select: {
