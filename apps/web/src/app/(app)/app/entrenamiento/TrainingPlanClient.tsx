@@ -289,6 +289,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return new Date();
   });
   const autoGenerateRunByContext = useRef<Set<string>>(new Set());
+  const aiGenerationInFlight = useRef(false);
   const [pendingAutoAiTriggerCtx, setPendingAutoAiTriggerCtx] = useState<string | null>(null);
   const calendarInitialized = useRef(false);
   const restoredContext = useRef(false);
@@ -738,12 +739,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }
 
   const handleAiPlan = async () => {
-    if (!profile || !form) return;
+    if (!profile || !form || aiGenerationInFlight.current || aiLoading) return;
     if (!aiEntitled) return;
     if (!isProfileComplete(profile)) {
       router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
       return;
     }
+    aiGenerationInFlight.current = true;
     setAiLoading(true);
     setError(null);
     setAiActionableError(null);
@@ -787,6 +789,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         variant: "error",
       });
     } finally {
+      aiGenerationInFlight.current = false;
       setAiLoading(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
     }
@@ -1132,6 +1135,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 >
   {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
 </button>
+                    {aiLoading ? (
+                      <span className="section-subtitle" role="status" aria-live="polite">
+                        {t("training.aiGenerating")}
+                      </span>
+                    ) : null}
                   </div>
  
                 </div>
@@ -1142,7 +1150,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       title={safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA")}
                       description={aiActionableError}
                       retryAction={
-                        <button type="button" className="btn secondary fit-content" onClick={handleAiRetry}>
+                        <button type="button" className="btn secondary fit-content" onClick={handleAiRetry} disabled={aiLoading}>
                           {t("ui.retry")}
                         </button>
                       }
