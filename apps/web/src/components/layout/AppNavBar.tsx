@@ -11,11 +11,21 @@ import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig"
 import { applyEntitlementGating } from "./navConfig";
 import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
+import { resolveHeaderPlan, type HeaderPlan } from "@/lib/authPlan";
 
 type AuthUser = {
   name?: string | null;
   email?: string | null;
-  subscriptionPlan?: "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI";
+  subscriptionPlan?: string | null;
+  plan?: string | null;
+  entitlements?: {
+    plan?: { base?: string; effective?: string };
+    modules?: {
+      ai?: { enabled?: boolean };
+      strength?: { enabled?: boolean };
+      nutrition?: { enabled?: boolean };
+    };
+  } | null;
   aiTokenBalance?: number;
 } & Record<string, unknown>;
 
@@ -34,6 +44,17 @@ export default function AppNavBar() {
 
   useEffect(() => {
     let active = true;
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (!active) {
+          return;
+        }
+
+        window.dispatchEvent(new Event("auth:refresh"));
+      }, 1500);
+    };
+
     const load = async () => {
       if (!document.cookie.includes("fs_token=")) {
         if (active) {
@@ -48,20 +69,30 @@ export default function AppNavBar() {
           cache: "no-store",
         });
 
-        if (authResponse.ok) {
-          const data = (await authResponse.json()) as AuthUser;
-          if (active) setUser(data);
-        } else if (active) {
-          setUser(null);
+        if (!authResponse.ok) {
+          if (active) {
+            setUser(null);
+            setAuthLoaded(true);
+          }
+          scheduleRetry();
+          return;
+        }
+
+        const data = (await authResponse.json()) as AuthUser;
+        if (active) {
+          setUser(data);
+          setAuthLoaded(true);
+        }
+
+        if (resolveHeaderPlan(data) === "FREE") {
+          scheduleRetry();
         }
       } catch (_err) {
         if (active) {
           setUser(null);
-        }
-      } finally {
-        if (active) {
           setAuthLoaded(true);
         }
+        scheduleRetry();
       }
     };
 
@@ -90,20 +121,12 @@ export default function AppNavBar() {
 
   const userRole = typeof user?.role === "string" ? user.role : "";
   const userMeta = user?.email || userRole || "";
-  const planValue = user?.subscriptionPlan;
-  const hasPlan = typeof planValue === "string";
-  const normalizedPlan = hasPlan ? planValue.toLowerCase() : "unknown";
+  const planValue: HeaderPlan = resolveHeaderPlan(user);
+  const normalizedPlan = planValue.toLowerCase();
   const planKey = `billing.planLabels.${normalizedPlan}`;
-  const translatedPlan = hasPlan ? t(planKey) : t("billing.planLabels.unknown");
-  const planLabel =
-    !hasPlan
-      ? authLoaded
-        ? t("billing.planLabels.unknown")
-        : t("ui.loading")
-      : translatedPlan === planKey
-      ? t("billing.planLabels.unknown")
-      : translatedPlan;
-  const isPaidPlan = hasPlan && planValue !== "FREE";
+  const translatedPlan = t(planKey);
+  const planLabel = authLoaded ? (translatedPlan === planKey ? t("billing.planLabels.free") : translatedPlan) : t("ui.loading");
+  const isPaidPlan = planValue !== "FREE";
   const tokenBalance = user?.aiTokenBalance;
   const hasTokenBalance = typeof tokenBalance === "number";
 

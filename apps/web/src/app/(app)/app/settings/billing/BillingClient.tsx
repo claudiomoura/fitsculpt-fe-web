@@ -223,6 +223,13 @@ setPlans([]);
     void loadProfile();
   }, [loadProfile]);
 
+  useEffect(() => {
+    window.dispatchEvent(new Event("auth:refresh"));
+    return () => {
+      window.dispatchEvent(new Event("auth:refresh"));
+    };
+  }, []);
+
   const handleCheckout = async () => {
     if (!selectedPlanId || selectedPlanId === currentPlan) {
       setError(t("billing.selectPlanError"));
