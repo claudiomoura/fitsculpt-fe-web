@@ -168,14 +168,18 @@ export default function AppNavBar() {
             onMobileMenuOpen={() => setOpen(true)}
           />
 
-          <div className={`account-pill ${isPaidPlan ? "is-pro" : "is-free"}`}>
+          <Link
+            href="/app/settings/billing"
+            className={`account-pill ${isPaidPlan ? "is-pro" : "is-free"}`}
+            aria-label={t("billing.manageBilling")}
+          >
             <span className="account-pill-label">{planLabel}</span>
             {isPaidPlan && hasTokenBalance ? (
               <span className="account-pill-meta">
                 {t("ui.tokensLabel")} {tokenBalance}
               </span>
             ) : null}
-          </div>
+          </Link>
 
           <div className="nav-utility">
             <ThemeToggle />
