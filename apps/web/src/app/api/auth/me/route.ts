@@ -31,7 +31,14 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json(data, {
+      status: response.status,
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    });
   } catch {
     return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 503 });
   }
