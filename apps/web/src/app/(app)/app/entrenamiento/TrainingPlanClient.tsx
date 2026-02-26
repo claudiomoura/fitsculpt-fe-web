@@ -85,6 +85,38 @@ type AiUsageSummary = {
   balanceAfter?: number;
 };
 
+type AiTokenSnapshot = {
+  tokens: number | null;
+};
+
+async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
+  try {
+    const quotaResponse = await fetch("/api/ai/quota", { cache: "no-store", credentials: "include" });
+    if (!quotaResponse.ok) {
+      return { tokens: null };
+    }
+    const quotaData = (await quotaResponse.json()) as {
+      tokens?: unknown;
+      aiTokenBalance?: unknown;
+      remainingTokens?: unknown;
+      balance?: unknown;
+    };
+    const quotaTokens =
+      typeof quotaData.tokens === "number"
+        ? quotaData.tokens
+        : typeof quotaData.aiTokenBalance === "number"
+          ? quotaData.aiTokenBalance
+          : typeof quotaData.remainingTokens === "number"
+            ? quotaData.remainingTokens
+            : typeof quotaData.balance === "number"
+              ? quotaData.balance
+              : null;
+    return { tokens: quotaTokens };
+  } catch (_err) {
+    return { tokens: null };
+  }
+}
+
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -748,6 +780,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const handleAiPlan = async () => {
     if (!profile || !form || aiGenerationInFlight.current || aiLoading) return;
     if (!aiEntitled) return;
+    if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiActionableError(t("ai.insufficientTokens"));
+      return;
+    }
     if (!isProfileComplete(profile)) {
       router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
       return;
@@ -765,12 +801,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         focus: form.focus,
         sessionTime: form.sessionTime,
       });
-      if (typeof result.aiTokenBalance === "number") {
-        setAiTokenBalance(result.aiTokenBalance);
-      } else if (typeof result.usage?.balanceAfter === "number") {
-        setAiTokenBalance(result.usage.balanceAfter);
-      } else if (typeof result.balanceAfter === "number") {
-        setAiTokenBalance(result.balanceAfter);
+      const tokensAfter = await readAiTokenSnapshot();
+      const currentTokenBalance =
+        tokensAfter.tokens
+        ?? (typeof result.aiTokenBalance === "number" ? result.aiTokenBalance : null)
+        ?? (typeof result.usage?.balanceAfter === "number" ? result.usage.balanceAfter : null)
+        ?? (typeof result.balanceAfter === "number" ? result.balanceAfter : null);
+
+      if (currentTokenBalance !== null) {
+        setAiTokenBalance(currentTokenBalance);
       }
       if (typeof result.aiTokenRenewalAt === "string" || result.aiTokenRenewalAt === null) {
         setAiTokenRenewalAt(result.aiTokenRenewalAt ?? null);
@@ -913,6 +952,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const handleGenerateClick = () => {
     if (!profile) return;
+    if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiActionableError(t("ai.insufficientTokens"));
+      return;
+    }
     if (!isProfileComplete(profile)) {
       router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
       return;
@@ -979,8 +1022,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     });
   }, [hasPlan, notify, pendingTokenToastId, t]);
   const isAiLocked = !aiEntitled;
+  const isOutOfTokens = aiTokenBalance !== null && aiTokenBalance <= 0;
   const aiLockDescription = safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO");
-  const isAiDisabled = aiLoading || isAiLocked || !form;
+  const isAiDisabled = aiLoading || isAiLocked || isOutOfTokens || !form;
   const handleProfileRetry = () => {
     const ref = { current: true };
     void loadProfile(ref);
@@ -1173,9 +1217,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         {t("training.aiGenerating")}
                       </span>
                     ) : null}
+                    {isOutOfTokens ? (
+                      <Link className="btn secondary" href="/app/settings/billing">
+                        {t("billing.manageBilling")}
+                      </Link>
+                    ) : null}
                   </div>
  
                 </div>
+
+                {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
 
                 {aiActionableError ? (
                   <div className="mt-12">
