@@ -2122,43 +2122,20 @@ async function saveTrainingPlan(
   daysCount: number,
   request: z.infer<typeof aiTrainingSchema>
 ) {
-  return prisma.$transaction(async (tx) => {
-    const planData = {
-      userId,
-      title: plan.title,
-      notes: plan.notes,
-      goal: request.goal,
-      level: request.level,
-      daysPerWeek: request.daysPerWeek,
-      focus: request.focus,
-      equipment: request.equipment,
-      startDate,
-      daysCount,
-    };
-
-    let planRecord: { id: string } | null = null;
-    let persistenceMode: "create" | "update" = "create";
-
-    try {
-      planRecord = await tx.trainingPlan.create({ data: planData, select: { id: true } });
-    } catch (error) {
-      const typed = error as Prisma.PrismaClientKnownRequestError;
-      if (typed.code !== "P2002") {
-        throw error;
-      }
-
-      app.log.info(
-        {
-          userId,
-          prismaCode: typed.code,
-          target: Array.isArray((typed.meta as { target?: unknown } | undefined)?.target)
-            ? (typed.meta as { target?: string[] }).target
-            : (typed.meta as { target?: unknown } | undefined)?.target,
-          startDate: toIsoDateString(startDate),
-          daysCount,
-        },
-        "training plan unique conflict detected, trying update"
-      );
+  const persistPlan = async () => {
+    return prisma.$transaction(async (tx) => {
+      const planData = {
+        userId,
+        title: plan.title,
+        notes: plan.notes,
+        goal: request.goal,
+        level: request.level,
+        daysPerWeek: request.daysPerWeek,
+        focus: request.focus,
+        equipment: request.equipment,
+        startDate,
+        daysCount,
+      };
 
       const existingPlan = await tx.trainingPlan.findFirst({
         where: {
@@ -2170,70 +2147,94 @@ async function saveTrainingPlan(
         select: { id: true },
       });
 
-      if (!existingPlan) {
-        throw error;
+      const persistenceMode: "create" | "update" = existingPlan ? "update" : "create";
+      const planRecord = existingPlan
+        ? await tx.trainingPlan.update({
+            where: { id: existingPlan.id },
+            data: {
+              title: plan.title,
+              notes: plan.notes,
+              goal: request.goal,
+              level: request.level,
+              daysPerWeek: request.daysPerWeek,
+              focus: request.focus,
+              equipment: request.equipment,
+            },
+            select: { id: true },
+          })
+        : await tx.trainingPlan.create({ data: planData, select: { id: true } });
+
+      app.log.info(
+        {
+          userId,
+          planId: planRecord.id,
+          startDate: toIsoDateString(startDate),
+          daysCount,
+          persistenceMode,
+        },
+        "training plan persistence mode"
+      );
+
+      await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
+
+      for (const [index, day] of plan.days.entries()) {
+        await tx.trainingDay.create({
+          data: {
+            planId: planRecord.id,
+            date: parseDateInput(day.date) ?? startDate,
+            label: day.label,
+            focus: day.focus,
+            duration: day.duration,
+            order: index,
+            exercises: {
+              create: day.exercises.map((exercise) => ({
+                exerciseId: exercise.exerciseId ?? null,
+                imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
+                name: exercise.name,
+                sets: exercise.sets,
+                reps: exercise.reps,
+                tempo: exercise.tempo,
+                rest: exercise.rest,
+                notes: exercise.notes,
+              })),
+            },
+          },
+        });
       }
 
-      planRecord = await tx.trainingPlan.update({
-        where: { id: existingPlan.id },
-        data: {
-          title: plan.title,
-          notes: plan.notes,
-          goal: request.goal,
-          level: request.level,
-          daysPerWeek: request.daysPerWeek,
-          focus: request.focus,
-          equipment: request.equipment,
-        },
-        select: { id: true },
-      });
-      persistenceMode = "update";
-    }
+      return planRecord;
+    });
+  };
 
-    if (!planRecord) {
-      throw createHttpError(500, "TRAINING_PLAN_PERSIST_FAILED");
-    }
-
-    app.log.info(
-      {
-        userId,
-        planId: planRecord.id,
-        startDate: toIsoDateString(startDate),
-        daysCount,
-        persistenceMode,
-      },
-      "training plan persistence mode"
-    );
-
-    await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
-
-    for (const [index, day] of plan.days.entries()) {
-      await tx.trainingDay.create({
-        data: {
-          planId: planRecord.id,
-          date: parseDateInput(day.date) ?? startDate,
-          label: day.label,
-          focus: day.focus,
-          duration: day.duration,
-          order: index,
-          exercises: {
-            create: day.exercises.map((exercise) => ({
-              exerciseId: exercise.exerciseId ?? null,
-              imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
-              name: exercise.name,
-              sets: exercise.sets,
-              reps: exercise.reps,
-              tempo: exercise.tempo,
-              rest: exercise.rest,
-              notes: exercise.notes,
-            })),
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await persistPlan();
+    } catch (error) {
+      const typed = error as Prisma.PrismaClientKnownRequestError;
+      if (typed.code === "P2002" && attempt === 0) {
+        app.log.info(
+          {
+            userId,
+            prismaCode: typed.code,
+            target: Array.isArray((typed.meta as { target?: unknown } | undefined)?.target)
+              ? (typed.meta as { target?: string[] }).target
+              : (typed.meta as { target?: unknown } | undefined)?.target,
+            startDate: toIsoDateString(startDate),
+            daysCount,
+            attempt,
           },
-        },
-      });
+          "training plan unique conflict detected, retrying persistence with a fresh transaction"
+        );
+        continue;
+      }
+      if (typed.code === "P2002") {
+        throw createHttpError(409, "TRAINING_PLAN_CONFLICT");
+      }
+      throw error;
     }
+  }
 
-    return planRecord;
-  });
+  throw createHttpError(500, "TRAINING_PLAN_PERSIST_FAILED");
 }
 
 
