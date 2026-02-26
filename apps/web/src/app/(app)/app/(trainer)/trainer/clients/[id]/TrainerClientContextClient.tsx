@@ -37,6 +37,10 @@ type TrainerNote = {
 type NotesCapability = "checking" | "supported" | "unsupported" | "forbidden" | "error";
 type TrainerClientTab = "summary" | "progress" | "plan" | "notes";
 
+function isUnsupportedStatus(status: number): boolean {
+  return status === 404 || status === 405 || status === 501;
+}
+
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -110,7 +114,7 @@ export default function TrainerClientContextClient() {
     try {
       const response = await fetch(`/api/trainer/clients/${clientId}/notes`, { cache: "no-store", credentials: "include" });
 
-      if (response.status === 404 || response.status === 405) {
+      if (isUnsupportedStatus(response.status)) {
         setNotesNotSupported(true);
         setNotesCapability("unsupported");
         setNotes([]);
@@ -339,9 +343,10 @@ export default function TrainerClientContextClient() {
 
       setNotesSubmitting(false);
 
-      if (response.status === 404 || response.status === 405) {
+      if (isUnsupportedStatus(response.status)) {
         setNotesNotSupported(true);
         setNotesCapability("unsupported");
+        setNoteFeedback(t("common.notAvailable"));
         return;
       }
 
@@ -549,7 +554,13 @@ export default function TrainerClientContextClient() {
           <h3 style={{ margin: 0 }}>{t("trainer.clientContext.notes.title")}</h3>
 
           {notesLoading || notesCapability === "checking" ? <p className="muted">{t("trainer.clientContext.notes.loading")}</p> : null}
-          {!notesLoading && notesCapability === "unsupported" ? <p className="muted">{t("trainer.client.notesNotAvailable")}</p> : null}
+          {!notesLoading && notesCapability === "unsupported" ? (
+            <EmptyState
+              title={t("common.notAvailable")}
+              description={t("trainer.client.notesNotAvailable")}
+              icon="info"
+            />
+          ) : null}
           {!notesLoading && notesCapability === "forbidden" ? <p className="muted">{t("trainer.clientContext.notes.forbidden")}</p> : null}
           {!notesLoading && notesCapability === "error" ? <p className="muted">{t("trainer.clientContext.notes.loadError")}</p> : null}
 
