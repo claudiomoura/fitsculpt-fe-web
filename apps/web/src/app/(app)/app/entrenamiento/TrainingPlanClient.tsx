@@ -30,6 +30,7 @@ import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
+import { normalizeAiErrorCode, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
 
 type Exercise = {
   id?: string;
