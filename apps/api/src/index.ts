@@ -1418,6 +1418,18 @@ function getEffectiveTokenBalance(user: {
   return Math.max(0, getUserTokenBalance(user));
 }
 
+function assertSufficientAiTokenBalance(user: {
+  aiTokenBalance?: number | null;
+  aiTokenResetAt?: Date | null;
+  aiTokenRenewalAt?: Date | null;
+}) {
+  const effectiveTokens = getEffectiveTokenBalance(user);
+  if (effectiveTokens < 1) {
+    throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
+  }
+  return effectiveTokens;
+}
+
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value);
@@ -5861,6 +5873,11 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
   try {
     const authRequest = request as AuthenticatedRequest;
     const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan/generate" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
+    const shouldChargeAi = !entitlements.role.adminOverride;
+    if (shouldChargeAi) {
+      assertSufficientAiTokenBalance(user);
+    }
     const payload = aiGenerateTrainingSchema.parse(request.body);
     if (payload.userId && payload.userId !== user.id) {
       throw createHttpError(400, "INVALID_INPUT", { message: "userId must match authenticated user" });
@@ -5986,7 +6003,22 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
     const savedPlan = await saveTrainingPlan(user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
     await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
 
-    if (aiResult) {
+    if (aiResult && shouldChargeAi) {
+      await chargeAiUsageForResult({
+        prisma,
+        pricing: aiPricing,
+        user: {
+          id: user.id,
+          plan: user.plan,
+          aiTokenBalance: user.aiTokenBalance ?? 0,
+          aiTokenResetAt: user.aiTokenResetAt,
+          aiTokenRenewalAt: user.aiTokenRenewalAt,
+        },
+        feature: "training-generate",
+        result: aiResult,
+        createHttpError,
+      });
+    } else if (aiResult) {
       await persistAiUsageLog({
         prisma,
         userId: user.id,
@@ -6092,6 +6124,11 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
   try {
     const authRequest = request as AuthenticatedRequest;
     const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/nutrition-plan/generate" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
+    const shouldChargeAi = !entitlements.role.adminOverride;
+    if (shouldChargeAi) {
+      assertSufficientAiTokenBalance(user);
+    }
     const payload = aiGenerateNutritionSchema.parse(request.body);
     if (payload.userId && payload.userId !== user.id) {
       throw createHttpError(400, "INVALID_INPUT", { message: "userId must match authenticated user" });
@@ -6286,7 +6323,22 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
     const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
     await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
 
-    if (aiResult) {
+    if (aiResult && shouldChargeAi) {
+      await chargeAiUsageForResult({
+        prisma,
+        pricing: aiPricing,
+        user: {
+          id: user.id,
+          plan: user.plan,
+          aiTokenBalance: user.aiTokenBalance ?? 0,
+          aiTokenResetAt: user.aiTokenResetAt,
+          aiTokenRenewalAt: user.aiTokenRenewalAt,
+        },
+        feature: "nutrition-generate",
+        result: aiResult,
+        createHttpError,
+      });
+    } else if (aiResult) {
       await persistAiUsageLog({
         prisma,
         userId: user.id,
