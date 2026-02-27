@@ -21,7 +21,8 @@ export const authMeResponseSchema = z.object({
   }),
   entitlements: effectiveEntitlementsSchema,
   effectiveEntitlements: effectiveEntitlementsSchema,
-  gymMembershipState: z.enum(["active", "none"]),
+  gymMembershipState: z.enum(["NONE", "PENDING", "ACTIVE"]),
+  gymRole: z.enum(["USER", "TRAINER", "ADMIN"]),
   gymId: z.string().nullable().optional(),
   gymName: z.string().nullable().optional(),
   isTrainer: z.boolean(),
@@ -55,13 +56,13 @@ export function buildAuthMeResponse(params: {
   aiTokenBalance: number | null;
   aiTokenRenewalAt: Date | null;
   entitlements: EffectiveEntitlements;
-  activeMembership:
+  membership:
     | {
         gym: {
           id: string;
           name: string;
         };
-        status: "ACTIVE";
+        status: "PENDING" | "ACTIVE" | "REJECTED";
         role: "MEMBER" | "TRAINER" | "ADMIN";
       }
     | null;
@@ -82,11 +83,22 @@ export function buildAuthMeResponse(params: {
     modules: buildSessionModules(params.entitlements),
     entitlements: params.entitlements,
     effectiveEntitlements: params.entitlements,
-    gymMembershipState: params.activeMembership ? "active" : "none",
-    gymId: params.activeMembership?.gym.id,
-    gymName: params.activeMembership?.gym.name,
+    gymMembershipState:
+      params.membership?.status === "ACTIVE"
+        ? "ACTIVE"
+        : params.membership?.status === "PENDING"
+          ? "PENDING"
+          : "NONE",
+    gymRole:
+      params.membership?.status === "ACTIVE" || params.membership?.status === "PENDING"
+        ? params.membership.role === "MEMBER"
+          ? "USER"
+          : params.membership.role
+        : "USER",
+    gymId: params.membership?.gym.id,
+    gymName: params.membership?.gym.name,
     isTrainer:
-      params.activeMembership?.status === "ACTIVE" &&
-      (params.activeMembership?.role === "TRAINER" || params.activeMembership?.role === "ADMIN"),
+      params.membership?.status === "ACTIVE" &&
+      (params.membership?.role === "TRAINER" || params.membership?.role === "ADMIN"),
   });
 }

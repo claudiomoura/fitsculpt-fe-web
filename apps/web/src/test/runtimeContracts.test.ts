@@ -14,6 +14,8 @@ describe("runtimeContracts", () => {
     expect(
       validateAuthMePayload({
         subscriptionPlan: "PRO",
+        gymMembershipState: "ACTIVE",
+        gymRole: "TRAINER",
         entitlements: {
           modules: {
             ai: { enabled: true },
@@ -68,5 +70,12 @@ describe("runtimeContracts", () => {
 
   it("rejects invalid AI usage fields", () => {
     expect(validateAiNutritionGeneratePayload({ plan: {}, usage: { total_tokens: "123" } }).ok).toBe(false);
+  });
+});
+
+
+describe("runtimeContracts auth/me gym fields", () => {
+  it("rejects invalid gym role", () => {
+    expect(validateAuthMePayload({ gymRole: "MEMBER" }).ok).toBe(false);
   });
 });

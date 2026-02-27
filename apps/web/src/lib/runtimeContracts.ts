@@ -41,6 +41,20 @@ export function validateAuthMePayload(payload: unknown): ContractValidationResul
     }
   }
 
+  if (payload.gymMembershipState !== undefined) {
+    const allowedGymMembershipStates = new Set(["NONE", "PENDING", "ACTIVE"]);
+    if (typeof payload.gymMembershipState !== "string" || !allowedGymMembershipStates.has(payload.gymMembershipState)) {
+      return { ok: false, reason: "AUTH_ME_INVALID_GYM_MEMBERSHIP_STATE" };
+    }
+  }
+
+  if (payload.gymRole !== undefined) {
+    const allowedGymRoles = new Set(["USER", "TRAINER", "ADMIN"]);
+    if (typeof payload.gymRole !== "string" || !allowedGymRoles.has(payload.gymRole)) {
+      return { ok: false, reason: "AUTH_ME_INVALID_GYM_ROLE" };
+    }
+  }
+
   return { ok: true };
 }
 
