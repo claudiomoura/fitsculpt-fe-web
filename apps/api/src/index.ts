@@ -8125,10 +8125,22 @@ app.post("/gyms/join-by-code", async (request, reply) => {
     const user = await requireUser(request);
     const { code } = joinGymByCodeSchema.parse(request.body);
     const normalizedCode = code.toUpperCase();
-    const gym = await prisma.gym.findUnique({ where: { code: normalizedCode } });
+    const gym = await prisma.gym.findFirst({
+      where: {
+        OR: [{ code: normalizedCode }, { activationCode: normalizedCode }],
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        activationCode: true,
+      },
+    });
     if (!gym) {
       return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
     }
+
+    const membershipStatus = gym.activationCode === normalizedCode ? "ACTIVE" : "PENDING";
 
     const blockingMembership = await findBlockingGymMembership(user.id);
     if (blockingMembership) {
@@ -8150,7 +8162,7 @@ app.post("/gyms/join-by-code", async (request, reply) => {
       ? await prisma.gymMembership.update({
           where: { id: existing.id },
           data: {
-            status: existing.status === "REJECTED" ? "PENDING" : existing.status,
+            status: existing.status === "REJECTED" ? membershipStatus : existing.status,
             role: "MEMBER",
           },
         })
@@ -8158,7 +8170,7 @@ app.post("/gyms/join-by-code", async (request, reply) => {
           data: {
             gymId: gym.id,
             userId: user.id,
-            status: "PENDING",
+            status: membershipStatus,
             role: "MEMBER",
           },
         });
@@ -8209,11 +8221,23 @@ app.post("/gym/join-code", async (request, reply) => {
     const user = await requireUser(request);
     const { code } = joinGymByCodeSchema.parse(request.body);
     const normalizedCode = code.toUpperCase();
-    const gym = await prisma.gym.findUnique({ where: { code: normalizedCode } });
+    const gym = await prisma.gym.findFirst({
+      where: {
+        OR: [{ code: normalizedCode }, { activationCode: normalizedCode }],
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        activationCode: true,
+      },
+    });
 
     if (!gym) {
       return reply.status(400).send({ error: "INVALID_GYM_CODE", message: "Gym code is invalid." });
     }
+
+    const membershipStatus = gym.activationCode === normalizedCode ? "ACTIVE" : "PENDING";
 
     const blockingMembership = await findBlockingGymMembership(user.id);
     if (blockingMembership) {
@@ -8236,7 +8260,7 @@ app.post("/gym/join-code", async (request, reply) => {
       ? await prisma.gymMembership.update({
           where: { id: existing.id },
           data: {
-            status: existing.status === "REJECTED" ? "PENDING" : existing.status,
+            status: existing.status === "REJECTED" ? membershipStatus : existing.status,
             role: "MEMBER",
           },
         })
@@ -8244,7 +8268,7 @@ app.post("/gym/join-code", async (request, reply) => {
           data: {
             gymId: gym.id,
             userId: user.id,
-            status: "PENDING",
+            status: membershipStatus,
             role: "MEMBER",
           },
         });

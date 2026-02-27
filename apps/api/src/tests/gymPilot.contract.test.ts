@@ -71,6 +71,15 @@ const joinRequestCreatePayload = {
   role: "MEMBER",
 };
 
+const joinByActivationCodePayload = {
+  status: "ACTIVE",
+  state: "active",
+  gymId: "gym_1",
+  gymName: "Downtown Gym",
+  gym: { id: "gym_1", name: "Downtown Gym" },
+  role: "MEMBER",
+};
+
 const joinRequestsListPayload = {
   items: [
     {
@@ -121,6 +130,10 @@ assert.deepEqual(parsedGyms.gyms, parsedGyms.items, "GET /gyms must keep gyms an
 const parsedJoinCreate = gymMembershipResponseSchema.parse(joinRequestCreatePayload);
 assert.equal(parsedJoinCreate.status, "PENDING", "POST /gyms/join must return stable uppercase status");
 assert.equal(parsedJoinCreate.state, "pending", "POST /gyms/join must return legacy lowercase state");
+
+const parsedActivationJoin = gymMembershipResponseSchema.parse(joinByActivationCodePayload);
+assert.equal(parsedActivationJoin.status, "ACTIVE", "POST /gyms/join-by-code may return ACTIVE for activation codes");
+assert.equal(parsedActivationJoin.state, "active", "POST /gyms/join-by-code must keep legacy lowercase state for ACTIVE");
 
 const parsedJoinList = gymJoinRequestsListSchema.parse(joinRequestsListPayload);
 assert.ok(parsedJoinList.items.length > 0, "GET /admin/gym-join-requests must include items");
