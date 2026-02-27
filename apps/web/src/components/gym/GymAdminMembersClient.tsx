@@ -297,7 +297,12 @@ export function GymAdminMembersClient() {
           userId={selectedUser.id}
           userLabel={selectedUser.name || selectedUser.email || "-"}
           onClose={() => setSelectedUser(null)}
-          onAssigned={() => setSuccessMessage(t("gym.admin.members.assignSuccess"))}
+          onAssigned={(assignedPlanTitle) => {
+            const template = t("gym.admin.members.assignSuccess");
+            const message = assignedPlanTitle ? `${template}: ${assignedPlanTitle}` : template;
+            setSuccessMessage(message);
+            void loadData();
+          }}
         />
       ) : null}
     </div>
