@@ -1,4 +1,5 @@
 import type { AuthMeResponse } from "@/lib/types";
+import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 
 export type AuthMePayload = AuthMeResponse;
 
@@ -18,14 +19,14 @@ export type UiEntitlements =
 export type EntitlementFeature = "ai" | "nutrition" | "strength";
 
 export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
-  const aiEntitlements = payload.aiEntitlements;
-  if (!aiEntitlements) {
+  if (!payload) {
     return { status: "unknown" };
   }
 
-  const canUseNutrition = aiEntitlements.nutrition === true;
-  const canUseStrength = aiEntitlements.strength === true;
-  const canUseAI = canUseNutrition || canUseStrength || payload.subscriptionPlan === "PRO";
+  const snapshot = readAuthEntitlementSnapshot(payload);
+  const canUseAI = snapshot.subscriptionPlan !== "FREE";
+  const canUseNutrition = snapshot.aiEntitlements.nutrition;
+  const canUseStrength = snapshot.aiEntitlements.strength;
 
   return {
     status: "known",

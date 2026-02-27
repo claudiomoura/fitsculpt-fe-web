@@ -11,7 +11,8 @@ import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig"
 import { applyEntitlementGating } from "./navConfig";
 import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
-import { getAuthEntitlementsSnapshot } from "@/context/auth/entitlements";
+import { resolveHeaderPlan, type HeaderPlan } from "@/lib/authPlan";
+import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 
 export default function AppNavBar() {
   const { t } = useLanguage();
@@ -46,12 +47,13 @@ export default function AppNavBar() {
 
   const userRole = typeof authMe?.role === "string" ? authMe.role : "";
   const userMeta = authMe?.email || userRole || "";
-  const entitlementSnapshot = getAuthEntitlementsSnapshot(authMe);
-  const normalizedPlan = entitlementSnapshot.subscriptionPlan.toLowerCase();
+  const planValue: HeaderPlan = resolveHeaderPlan(authMe);
+  const entitlementSnapshot = readAuthEntitlementSnapshot(authMe);
+  const normalizedPlan = planValue.toLowerCase();
   const planKey = `billing.planLabels.${normalizedPlan}`;
   const translatedPlan = t(planKey);
   const planLabel = authLoading ? t("ui.loading") : translatedPlan === planKey ? t("billing.planLabels.free") : translatedPlan;
-  const isPaidPlan = entitlementSnapshot.subscriptionPlan !== "FREE";
+  const isPaidPlan = planValue !== "FREE";
   const tokenBalance = entitlementSnapshot.tokenBalance;
   const hasTokenBalance = typeof tokenBalance === "number";
 
