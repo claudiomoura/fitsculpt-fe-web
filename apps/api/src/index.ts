@@ -4748,15 +4748,14 @@ app.post(
               "subscription updated"
             );
           } else if (eventType === "customer.subscription.deleted" || cancellationStatuses.has(subscription.status)) {
-            const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
             await applyBillingStateForCustomer(customerId, {
               plan: "FREE",
               aiTokenBalance: 0,
               aiTokenResetAt: null,
               aiTokenRenewalAt: null,
               subscriptionStatus: subscription.status,
-              stripeSubscriptionId: subscription.id,
-              currentPeriodEnd,
+              stripeSubscriptionId: null,
+              currentPeriodEnd: null,
             });
             app.log.info(
               {
@@ -4764,6 +4763,8 @@ app.post(
                 plan: "FREE",
                 aiTokenBalance: 0,
                 aiTokenResetAt: null,
+                stripeSubscriptionId: null,
+                currentPeriodEnd: null,
               },
               "subscription canceled"
             );
@@ -4839,6 +4840,9 @@ app.post(
               aiTokenBalance: 0,
               aiTokenResetAt: null,
               aiTokenRenewalAt: null,
+              subscriptionStatus: "payment_failed",
+              stripeSubscriptionId: null,
+              currentPeriodEnd: null,
             });
             app.log.info(
               {
@@ -4846,6 +4850,7 @@ app.post(
                 plan: "FREE",
                 aiTokenBalance: 0,
                 aiTokenResetAt: null,
+                subscriptionStatus: "payment_failed",
               },
               "invoice payment failed"
             );
