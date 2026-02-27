@@ -49,7 +49,7 @@ export type GymServiceCapabilities = {
 };
 
 export const gymServiceCapabilities: GymServiceCapabilities = {
-  supportsLeaveGym: true,
+  supportsLeaveGym: false,
   supportsMemberRoleUpdate: false,
 };
 
@@ -70,8 +70,8 @@ export const gymEndpointInventory: GymEndpointInventory[] = [
   {
     endpoint: "/api/gyms/membership",
     method: "DELETE",
-    exists: true,
-    notes: "Leave gym is proxied to backend /gym/me with fallback to /gyms/membership when needed.",
+    exists: false,
+    notes: "Leave gym no está disponible en este entorno; la UI debe ocultar esta acción para evitar 405.",
   },
   {
     endpoint: "/api/gym/admin/members/:userId/role",
