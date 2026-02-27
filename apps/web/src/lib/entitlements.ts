@@ -18,14 +18,14 @@ export type UiEntitlements =
 export type EntitlementFeature = "ai" | "nutrition" | "strength";
 
 export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
-  const modules = payload.entitlements?.modules;
-  if (!modules) {
+  const aiEntitlements = payload.aiEntitlements;
+  if (!aiEntitlements) {
     return { status: "unknown" };
   }
 
-  const canUseAI = modules.ai?.enabled === true;
-  const canUseNutrition = modules.nutrition?.enabled === true;
-  const canUseStrength = modules.strength?.enabled === true;
+  const canUseNutrition = aiEntitlements.nutrition === true;
+  const canUseStrength = aiEntitlements.strength === true;
+  const canUseAI = canUseNutrition || canUseStrength || payload.subscriptionPlan === "PRO";
 
   return {
     status: "known",

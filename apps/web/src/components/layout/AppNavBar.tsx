@@ -11,7 +11,7 @@ import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig"
 import { applyEntitlementGating } from "./navConfig";
 import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
-import { resolveHeaderPlan, type HeaderPlan } from "@/lib/authPlan";
+import { getAuthEntitlementsSnapshot } from "@/context/auth/entitlements";
 
 export default function AppNavBar() {
   const { t } = useLanguage();
@@ -46,13 +46,13 @@ export default function AppNavBar() {
 
   const userRole = typeof authMe?.role === "string" ? authMe.role : "";
   const userMeta = authMe?.email || userRole || "";
-  const planValue: HeaderPlan = resolveHeaderPlan(authMe);
-  const normalizedPlan = planValue.toLowerCase();
+  const entitlementSnapshot = getAuthEntitlementsSnapshot(authMe);
+  const normalizedPlan = entitlementSnapshot.subscriptionPlan.toLowerCase();
   const planKey = `billing.planLabels.${normalizedPlan}`;
   const translatedPlan = t(planKey);
   const planLabel = authLoading ? t("ui.loading") : translatedPlan === planKey ? t("billing.planLabels.free") : translatedPlan;
-  const isPaidPlan = planValue !== "FREE";
-  const tokenBalance = authMe?.aiTokenBalance;
+  const isPaidPlan = entitlementSnapshot.subscriptionPlan !== "FREE";
+  const tokenBalance = entitlementSnapshot.tokenBalance;
   const hasTokenBalance = typeof tokenBalance === "number";
 
   const sections = useMemo(() => {
