@@ -30,7 +30,8 @@
     "demo:reset": "tsx scripts/reset-demo.ts",
     "backfill:trainingexercise-exerciseid": "tsx scripts/backfill-trainingexercise-exerciseid.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "seed:demo": "tsx ../../scripts/seed-demo.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
