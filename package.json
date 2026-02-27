@@ -4,6 +4,10 @@
   "scripts": {
     "release:check": "npm run release:check:fe && npm run release:check:be",
     "release:check:fe": "npm --prefix apps/web run build && npm --prefix apps/web run typecheck && npm --prefix apps/web run test",
-    "release:check:be": "npm --prefix apps/api run lint && npm --prefix apps/api run typecheck && npm --prefix apps/api run build && npm --prefix apps/api run test"
+    "release:check:be": "npm --prefix apps/api run lint && npm --prefix apps/api run typecheck && npm --prefix apps/api run build && npm --prefix apps/api run test",
+    "ci:build": "npm --prefix apps/web run build && npm --prefix apps/api run build",
+    "ci:typecheck": "npm --prefix apps/web run typecheck && npm --prefix apps/api run typecheck",
+    "ci:test": "npm --prefix apps/web run test && npm --prefix apps/api run test",
+    "ci:e2e:smoke": "npm --prefix apps/web run e2e"
   }
 }
