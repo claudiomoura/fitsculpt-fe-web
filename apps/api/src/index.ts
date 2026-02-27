@@ -4887,10 +4887,10 @@ app.get("/auth/me", async (request, reply) => {
       app.log.warn({ err: error, userId: user.id }, "auth/me billing sync failed");
     }
     const effectiveIsAdmin = effectiveUser.role === "ADMIN" || isBootstrapAdmin(effectiveUser.email);
-    const activeMembershipRecord = await prisma.gymMembership.findFirst({
+    const membershipRecord = await prisma.gymMembership.findFirst({
       where: {
         userId: user.id,
-        status: "ACTIVE",
+        status: { in: ["PENDING", "ACTIVE"] },
       },
       select: {
         status: true,
@@ -4904,14 +4904,7 @@ app.get("/auth/me", async (request, reply) => {
       },
       orderBy: { updatedAt: "desc" },
     });
-    // /auth/me only exposes an *active* membership. We normalize the status
-    // to the literal "ACTIVE" so it matches the response contract type.
-    const activeMembership = activeMembershipRecord
-      ? {
-          ...activeMembershipRecord,
-          status: "ACTIVE" as const,
-        }
-      : null;
+    const membership = membershipRecord ?? null;
     const entitlements = getUserEntitlements(effectiveUser);
     const aiTokenPayload = getAiTokenPayload(effectiveUser, entitlements);
     return buildAuthMeResponse({
@@ -4920,7 +4913,7 @@ app.get("/auth/me", async (request, reply) => {
       aiTokenBalance: aiTokenPayload.aiTokenBalance,
       aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
       entitlements,
-      activeMembership,
+      membership,
     });
   } catch (error) {
     return handleRequestError(reply, error);
