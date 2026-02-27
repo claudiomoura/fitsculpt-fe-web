@@ -53,7 +53,8 @@ import { normalizeExerciseName } from "./utils/normalizeExerciseName.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { resolveNutritionPlanRecipeReferences } from "./ai/nutrition-plan/recipeCatalog.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
-import { createPrismaClientWithRetry } from "./prismaClient.js";
+import { createPrismaClientWithRetry, resolveDatabaseUrl } from "./prismaClient.js";
+import { runDatabasePreflight } from "./dbPreflight.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
 import {
   defaultTracking,
@@ -72,10 +73,16 @@ import {
 
 
 const env = getEnv();
-const prisma = await createPrismaClientWithRetry();
-const aiPricing = loadAiPricing(env);
-
 const app = Fastify({ logger: true });
+const prisma = await createPrismaClientWithRetry(app.log);
+
+const shouldRunDbPreflight = process.env.NODE_ENV !== "production" || process.env.DB_PREFLIGHT_ON_BOOT === "true";
+if (shouldRunDbPreflight) {
+  const { source, host, database } = resolveDatabaseUrl();
+  await runDatabasePreflight(prisma, app.log, { source, host, database });
+}
+
+const aiPricing = loadAiPricing(env);
 
 type StripeCheckoutSession = {
   id: string;
