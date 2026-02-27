@@ -846,10 +846,14 @@ async function requireUser(
 
 async function requireAdmin(request: FastifyRequest) {
   const user = await requireUser(request);
-  if (user.role !== "ADMIN" && !isBootstrapAdmin(user.email)) {
+  if (!isGlobalAdminUser(user)) {
     throw createHttpError(403, "FORBIDDEN");
   }
   return user;
+}
+
+function isGlobalAdminUser(user: { role: string; email: string }) {
+  return user.role === "ADMIN" || isBootstrapAdmin(user.email);
 }
 
 function getBootstrapAdminEmails() {
@@ -886,6 +890,14 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
     throw createHttpError(403, "FORBIDDEN");
   }
   return managerMembership;
+}
+
+async function requireGymManagerAccess(user: { id: string; role: string; email: string }, gymId: string) {
+  if (isGlobalAdminUser(user)) {
+    return;
+  }
+
+  await requireGymManagerForGym(user.id, gymId);
 }
 
 async function requireActiveGymManagerMembership(userId: string) {
@@ -7402,7 +7414,7 @@ app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (reque
     const { trainingPlanId, templatePlanId } = assignTrainingPlanBodySchema.parse(request.body);
     const selectedPlanId = trainingPlanId ?? templatePlanId;
 
-    await requireGymManagerForGym(requester.id, gymId);
+    await requireGymManagerAccess(requester, gymId);
 
     const [targetMembership, selectedPlan] = await Promise.all([
       prisma.gymMembership.findUnique({
@@ -8322,7 +8334,7 @@ app.delete("/gym/me", leaveGymMembership);
 app.get("/admin/gym-join-requests", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const isGlobalAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
+    const isGlobalAdmin = isGlobalAdminUser(user);
 
     if (!isGlobalAdmin) {
       const managerMembership = await prisma.gymMembership.findFirst({
@@ -8385,7 +8397,7 @@ app.get("/admin/gym-join-requests", async (request, reply) => {
 app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const isGlobalAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
+    const isGlobalAdmin = isGlobalAdminUser(user);
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
     const membership = await prisma.gymMembership.findUnique({
       where: { id: membershipId },
@@ -8455,7 +8467,7 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
 app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const isGlobalAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
+    const isGlobalAdmin = isGlobalAdminUser(user);
     const { membershipId } = gymJoinRequestParamsSchema.parse(request.params);
     const membership = await prisma.gymMembership.findUnique({
       where: { id: membershipId },
@@ -8491,7 +8503,7 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const { gymId } = gymMembersParamsSchema.parse(request.params);
-    await requireGymManagerForGym(user.id, gymId);
+    await requireGymManagerAccess(user, gymId);
 
     const members = await prisma.gymMembership.findMany({
       where: {
