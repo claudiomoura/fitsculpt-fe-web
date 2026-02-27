@@ -20,7 +20,7 @@ type AssignTrainingPlanModalProps = {
   userId: string;
   userLabel: string;
   onClose: () => void;
-  onAssigned: () => void;
+  onAssigned: (assignedPlanTitle: string | null) => void;
 };
 
 export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClose, onAssigned }: AssignTrainingPlanModalProps) {
@@ -86,7 +86,14 @@ export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClos
       return;
     }
     setAssignUnsupported(false);
-    onAssigned();
+    let assignedPlanTitle: string | null = null;
+    try {
+      const payload = (await response.json()) as { assignedPlan?: { title?: string | null } };
+      assignedPlanTitle = payload.assignedPlan?.title?.trim() || null;
+    } catch (_err) {
+      assignedPlanTitle = plans.find((plan) => plan.id === selectedPlanId)?.title ?? null;
+    }
+    onAssigned(assignedPlanTitle);
     onClose();
   }
 
