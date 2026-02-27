@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { readSessionRole } from "@/lib/auth/sessionRole";
 
 const PROTECTED_PREFIXES = ["/app"];
-const TRAINER_PREFIXES = ["/app/trainer", "/app/treinador"];
+const TRAINER_PREFIXES = ["/app/trainer"];
 const ADMIN_PREFIXES = ["/app/admin"];
 
 function startsWithAny(pathname: string, prefixes: string[]) {
@@ -22,15 +22,20 @@ function isClientPath(pathname: string) {
   return pathname.startsWith("/app") && !isTrainerPath(pathname) && !isAdminPath(pathname);
 }
 
-function redirectTo(req: NextRequest, pathname: string) {
+function redirectTo(req: NextRequest, pathname: string, statusCode = 307) {
   const url = req.nextUrl.clone();
   url.pathname = pathname;
   url.search = "";
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(url, statusCode);
 }
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (pathname === "/app/treinador" || pathname.startsWith("/app/treinador/")) {
+    const canonicalPath = pathname.replace("/app/treinador", "/app/trainer");
+    return redirectTo(req, canonicalPath, 302);
+  }
 
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
   if (!isProtected) return NextResponse.next();
