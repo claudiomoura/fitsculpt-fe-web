@@ -97,6 +97,7 @@ type PersistAiUsageLogParams = {
   meta?: Record<string, unknown>;
   mode?: AiUsageMode;
   fallbackReason?: string | null;
+  throwOnError?: boolean;
 };
 
 export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
@@ -145,6 +146,9 @@ export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
       errorCode: typedError.code,
       errorMessage: typedError.message ?? "unknown",
     });
+    if (params.throwOnError) {
+      throw error;
+    }
   }
 }
 
@@ -234,6 +238,12 @@ async function debitAiTokensTx(
 ) {
   const { feature, model, usage, costCents, meta, requestId } = args;
   return prisma.$transaction(async (tx) => {
+    console.info("AI token debit transaction started", {
+      userId,
+      feature,
+      requestId: requestId ?? null,
+      requestedTokens: usage.totalTokens,
+    });
     const user = await tx.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw createHttpError(404, "USER_NOT_FOUND");
@@ -284,12 +294,38 @@ async function debitAiTokensTx(
     mergedMeta.balanceAfter = nextBalance;
     mergedMeta.debitedTokens = tokensToDebit;
 
-    const [updatedUser] = await Promise.all([
-      tx.user.update({
-        where: { id: userId },
-        data: { aiTokenBalance: nextBalance },
-      }),
-      persistAiUsageLog({
+    const updateResult = await tx.user.updateMany({
+      where: {
+        id: userId,
+        updatedAt: user.updatedAt,
+        aiTokenBalance: {
+          gte: tokensToDebit,
+        },
+      },
+      data: { aiTokenBalance: nextBalance },
+    });
+
+    if (updateResult.count !== 1) {
+      const latestUser = await tx.user.findUnique({ where: { id: userId } });
+      const latestEffectiveTokens = latestUser
+        ? getEffectiveTokens({
+            aiTokenBalance: latestUser.aiTokenBalance ?? 0,
+            aiTokenResetAt: latestUser.aiTokenResetAt,
+            aiTokenRenewalAt: latestUser.aiTokenRenewalAt,
+          })
+        : 0;
+      console.warn("AI token debit transaction conflict", {
+        userId,
+        feature,
+        requestId: requestId ?? null,
+        latestEffectiveTokens,
+        requestedTokens: tokensToDebit,
+      });
+      throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
+    }
+
+    try {
+      await persistAiUsageLog({
         prisma: tx,
         userId,
         feature,
@@ -302,8 +338,55 @@ async function debitAiTokensTx(
         requestId: requestId ?? undefined,
         meta: mergedMeta,
         mode: "AI",
-      }),
-    ]);
+        throwOnError: true,
+      });
+    } catch (error) {
+      const typedError = error as { code?: string };
+      if (typedError.code === "P2002" && requestId) {
+        const existing = await tx.aiUsageLog.findFirst({
+          where: {
+            userId,
+            feature,
+            requestId,
+            mode: "AI",
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        if (existing) {
+          const existingMeta =
+            existing.meta && typeof existing.meta === "object" && !Array.isArray(existing.meta)
+              ? (existing.meta as Record<string, unknown>)
+              : undefined;
+          const existingBalanceAfter =
+            typeof existingMeta?.balanceAfter === "number" ? Math.max(0, existingMeta.balanceAfter) : null;
+          console.info("AI token debit transaction idempotent replay", {
+            userId,
+            feature,
+            requestId,
+          });
+          return {
+            balance: existingBalanceAfter ?? nextBalance,
+            debitedTokens: 0,
+            idempotentReplay: true,
+          };
+        }
+      }
+      throw error;
+    }
+
+    const updatedUser = await tx.user.findUnique({ where: { id: userId } });
+    if (!updatedUser) {
+      throw createHttpError(404, "USER_NOT_FOUND");
+    }
+
+    console.info("AI token debit transaction committed", {
+      userId,
+      feature,
+      requestId: requestId ?? null,
+      balanceBefore: effectiveTokens,
+      balanceAfter: updatedUser.aiTokenBalance,
+      debitedTokens: tokensToDebit,
+    });
 
     return {
       balance: updatedUser.aiTokenBalance,

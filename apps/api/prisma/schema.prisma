@@ -390,6 +390,7 @@ model AiUsageLog {
 
   @@index([userId])
   @@index([createdAt])
+  @@unique([userId, feature, requestId, mode])
 }
 
 model AiContent {
