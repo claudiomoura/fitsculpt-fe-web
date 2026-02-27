@@ -2017,23 +2017,36 @@ const nutritionPlanDetails = profile ? (
                   <h3 className="m-0">{t("nutrition.emptyTitle")}</h3>
                   <p className="muted">{t("nutrition.emptySubtitle")}</p>
                 </div>
-                <div className="empty-state-actions">
-                  <Button
-                    disabled={isAiDisabled}
-                    loading={aiLoading}
-                    onClick={handleGenerateClick}
-                  >
-                    {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                  </Button>
-                  <ButtonLink variant="secondary" href="/app/nutricion/editar">
-                    {t("nutrition.manualCreate")}
-                  </ButtonLink>
-                  {isOutOfTokens ? (
+                {isAiLocked ? (
+                  <div className="empty-state-actions">
+                    <AiModuleUpgradeCTA
+                      title={t("aiLockedTitle")}
+                      description={aiLockDescription}
+                      buttonLabel={t("billing.upgradePro")}
+                    />
                     <ButtonLink variant="ghost" href="/app/settings/billing">
                       {t("billing.manageBilling")}
                     </ButtonLink>
-                  ) : null}
-                </div>
+                  </div>
+                ) : (
+                  <div className="empty-state-actions">
+                    <Button
+                      disabled={isAiDisabled}
+                      loading={aiLoading}
+                      onClick={handleGenerateClick}
+                    >
+                      {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                    </Button>
+                    <ButtonLink variant="secondary" href="/app/nutricion/editar">
+                      {t("nutrition.manualCreate")}
+                    </ButtonLink>
+                    {isOutOfTokens ? (
+                      <ButtonLink variant="ghost" href="/app/settings/billing">
+                        {t("billing.manageBilling")}
+                      </ButtonLink>
+                    ) : null}
+                  </div>
+                )}
                 {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
               </div>
             </section>

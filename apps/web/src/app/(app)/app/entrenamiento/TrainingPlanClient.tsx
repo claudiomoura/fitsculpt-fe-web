@@ -1141,12 +1141,27 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   "training.noSelectedPlanSubtitle",
                   "Selecciona un plan existente o genera uno nuevo con IA para ver tu calendario de entrenamiento."
                 )}
-                actions={[
-                  { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
-                  { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
-                  { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
-                ]}
+                actions={isAiLocked
+                  ? [
+                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
+                    { label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" },
+                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
+                  ]
+                  : [
+                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
+                    { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
+                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
+                  ]}
               />
+              {isAiLocked ? (
+                <div className="mt-12">
+                  <AiModuleUpgradeCTA
+                    title={t("aiLockedTitle")}
+                    description={aiLockDescription}
+                    buttonLabel={t("billing.upgradePro")}
+                  />
+                </div>
+              ) : null}
             </section>
           ) : hasPlan ? (
             <>
