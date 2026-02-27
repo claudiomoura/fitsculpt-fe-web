@@ -27,7 +27,7 @@ import {
 } from "./ai/chargeAiUsage.js";
 import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiClient.js";
 import { classifyAiGenerateError } from "./ai/errorClassification.js";
-import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
+import { type EffectiveEntitlements } from "./entitlements.js";
 import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import { NUTRITION_MATH_TOLERANCES, validateNutritionMath } from "./ai/nutritionMathValidation.js";
@@ -66,6 +66,7 @@ import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/servi
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
+import { buildEntitlementGuard, resolveUserEntitlements, type AuthenticatedEntitlementsRequest } from "./middleware/entitlements.js";
 import {
   normalizeNutritionPlanDays as normalizeNutritionPlanDaysWithLabels,
   toIsoDateString,
@@ -1082,13 +1083,8 @@ async function requireCompleteProfile(userId: string) {
   }
 }
 
-type AuthenticatedRequest = FastifyRequest & { currentUser?: User; currentEntitlements?: EffectiveEntitlements };
-
 function getUserEntitlements(user: User) {
-  return buildEffectiveEntitlements({
-    plan: user.plan,
-    isAdmin: user.role === "ADMIN" || isBootstrapAdmin(user.email),
-  });
+  return resolveUserEntitlements(user, isBootstrapAdmin);
 }
 
 function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
@@ -1106,53 +1102,31 @@ function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
   };
 }
 
-async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
-  const user = await requireUser(request, { logContext: request.routeOptions?.url ?? "ai" });
-  const entitlements = getUserEntitlements(user);
-  if (!entitlements.modules.ai.enabled) {
-    return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
-  }
+const aiAccessGuard = buildEntitlementGuard({
+  requireAi: true,
+  forbiddenStatus: 402,
+  forbiddenBody: { code: "UPGRADE_REQUIRED" },
+  requireUser,
+  isBootstrapAdmin,
+});
 
-  if (!entitlements.role.adminOverride) {
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    if (effectiveTokens <= 0) {
-      return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
-    }
-  }
+const aiNutritionDomainGuard = buildEntitlementGuard({
+  requireAi: true,
+  requireDomain: "nutrition",
+  forbiddenStatus: 403,
+  forbiddenBody: { error: "AI_ACCESS_FORBIDDEN" },
+  requireUser,
+  isBootstrapAdmin,
+});
 
-  (request as AuthenticatedRequest).currentUser = user;
-  (request as AuthenticatedRequest).currentEntitlements = entitlements;
-}
-
-function createAiDomainGuard(domain: "nutrition" | "strength") {
-  return async function aiDomainGuard(request: FastifyRequest, reply: FastifyReply) {
-    const user = await requireUser(request, { logContext: request.routeOptions?.url ?? `ai:${domain}` });
-    const entitlements = getUserEntitlements(user);
-
-    if (!entitlements.modules.ai.enabled) {
-      return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
-    }
-
-    if (!entitlements.role.adminOverride) {
-      const effectiveTokens = getEffectiveTokenBalance(user);
-      if (effectiveTokens <= 0) {
-        return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
-      }
-    }
-
-    const hasDomainAccess =
-      domain === "nutrition" ? entitlements.modules.nutrition.enabled : entitlements.modules.strength.enabled;
-    if (!hasDomainAccess) {
-      return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
-    }
-
-    (request as AuthenticatedRequest).currentUser = user;
-    (request as AuthenticatedRequest).currentEntitlements = entitlements;
-  };
-}
-
-const aiNutritionDomainGuard = createAiDomainGuard("nutrition");
-const aiStrengthDomainGuard = createAiDomainGuard("strength");
+const aiStrengthDomainGuard = buildEntitlementGuard({
+  requireAi: true,
+  requireDomain: "strength",
+  forbiddenStatus: 403,
+  forbiddenBody: { error: "AI_ACCESS_FORBIDDEN" },
+  requireUser,
+  isBootstrapAdmin,
+});
 
 const userFoodSchema = z.object({
   name: z.string().min(1),
@@ -5421,7 +5395,7 @@ app.delete("/user-foods/:id", async (request, reply) => {
 
 app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
-    const authRequest = request as AuthenticatedRequest;
+    const authRequest = request as AuthenticatedEntitlementsRequest;
     const user = authRequest.currentUser ?? (await requireUser(request));
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     const dateKey = toDateKey();
@@ -5451,7 +5425,7 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
 app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
-    const authRequest = request as AuthenticatedRequest;
+    const authRequest = request as AuthenticatedEntitlementsRequest;
     const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     await requireCompleteProfile(user.id);
@@ -5635,7 +5609,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
 app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
-    const authRequest = request as AuthenticatedRequest;
+    const authRequest = request as AuthenticatedEntitlementsRequest;
     const user = authRequest.currentUser ??
       (await requireUser(request, { logContext: "/ai/nutrition-plan" }));
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
@@ -5959,7 +5933,7 @@ app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, re
 
 app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, async (request, reply) => {
   try {
-    const authRequest = request as AuthenticatedRequest;
+    const authRequest = request as AuthenticatedEntitlementsRequest;
     const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan/generate" }));
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     const shouldChargeAi = !entitlements.role.adminOverride;
@@ -6202,7 +6176,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
 
 app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, async (request, reply) => {
   try {
-    const authRequest = request as AuthenticatedRequest;
+    const authRequest = request as AuthenticatedEntitlementsRequest;
     const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/nutrition-plan/generate" }));
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     const shouldChargeAi = !entitlements.role.adminOverride;
@@ -6502,7 +6476,7 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
 app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/daily-tip");
-    const authRequest = request as AuthenticatedRequest;
+    const authRequest = request as AuthenticatedEntitlementsRequest;
     const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
     const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
     const data = aiTipSchema.parse(request.body);
