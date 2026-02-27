@@ -216,8 +216,13 @@ export type AuthMeResponse = {
   avatarUrl?: string | null;
   profilePhotoUrl?: string | null;
   avatarDataUrl?: string | null;
-  aiTokenBalance?: number;
+  aiTokenBalance?: number | null;
+  tokenBalance?: number | null;
   subscriptionPlan?: string | null;
   plan?: string | null;
+  aiEntitlements?: {
+    nutrition?: boolean;
+    strength?: boolean;
+  } | null;
   entitlements?: AuthMeEntitlements | null;
 };

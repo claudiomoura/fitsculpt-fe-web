@@ -30,6 +30,20 @@ export function validateAuthMePayload(payload: unknown): ContractValidationResul
     return { ok: false, reason: "AUTH_ME_INVALID_PLAN" };
   }
 
+  if (payload.tokenBalance !== undefined && payload.tokenBalance !== null && !isNumber(payload.tokenBalance)) {
+    return { ok: false, reason: "AUTH_ME_INVALID_TOKEN_BALANCE" };
+  }
+
+  if (payload.aiEntitlements !== undefined && payload.aiEntitlements !== null) {
+    if (!isRecord(payload.aiEntitlements)) return { ok: false, reason: "AUTH_ME_INVALID_AI_ENTITLEMENTS" };
+    if (payload.aiEntitlements.nutrition !== undefined && typeof payload.aiEntitlements.nutrition !== "boolean") {
+      return { ok: false, reason: "AUTH_ME_INVALID_AI_ENTITLEMENTS_NUTRITION" };
+    }
+    if (payload.aiEntitlements.strength !== undefined && typeof payload.aiEntitlements.strength !== "boolean") {
+      return { ok: false, reason: "AUTH_ME_INVALID_AI_ENTITLEMENTS_STRENGTH" };
+    }
+  }
+
   if (payload.entitlements !== undefined && payload.entitlements !== null) {
     if (!isRecord(payload.entitlements)) return { ok: false, reason: "AUTH_ME_INVALID_ENTITLEMENTS" };
     const modules = payload.entitlements.modules;

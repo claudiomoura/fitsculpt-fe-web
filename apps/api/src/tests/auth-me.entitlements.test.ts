@@ -41,8 +41,11 @@ function run() {
   assert.equal(parsed.modules.ai, true);
   const modulesFromEntitlements = buildSessionModules(entitlements);
   assert.deepEqual(parsed.modules, modulesFromEntitlements);
-  assert.equal(parsed.subscriptionPlan, "PRO");
+  assert.equal(parsed.subscriptionPlan, "STRENGTH_AI");
   assert.equal(parsed.plan, "PRO");
+  assert.equal(parsed.aiEntitlements.strength, true);
+  assert.equal(parsed.aiEntitlements.nutrition, false);
+  assert.equal(parsed.tokenBalance, 7);
   assert.equal(parsed.gymMembershipState, "ACTIVE");
   assert.equal(parsed.gymRole, "TRAINER");
   assert.equal(parsed.gymId, "gym_123");

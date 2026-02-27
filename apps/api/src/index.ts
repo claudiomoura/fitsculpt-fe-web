@@ -29,6 +29,7 @@ import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiCli
 import { classifyAiGenerateError } from "./ai/errorClassification.js";
 import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
 import { buildAuthMeResponse } from "./auth/schemas.js";
+import { hasAiDomainAccess, hasPremiumAiAccess } from "./middleware/entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import { NUTRITION_MATH_TOLERANCES, validateNutritionMath } from "./ai/nutritionMathValidation.js";
 import {
@@ -1109,15 +1110,9 @@ function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
 async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
   const user = await requireUser(request, { logContext: request.routeOptions?.url ?? "ai" });
   const entitlements = getUserEntitlements(user);
-  if (!entitlements.modules.ai.enabled) {
+  const effectiveTokens = getEffectiveTokenBalance(user);
+  if (!hasPremiumAiAccess(entitlements, effectiveTokens)) {
     return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
-  }
-
-  if (!entitlements.role.adminOverride) {
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    if (effectiveTokens <= 0) {
-      return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
-    }
   }
 
   (request as AuthenticatedRequest).currentUser = user;
@@ -1129,20 +1124,8 @@ function createAiDomainGuard(domain: "nutrition" | "strength") {
     const user = await requireUser(request, { logContext: request.routeOptions?.url ?? `ai:${domain}` });
     const entitlements = getUserEntitlements(user);
 
-    if (!entitlements.modules.ai.enabled) {
-      return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
-    }
-
-    if (!entitlements.role.adminOverride) {
-      const effectiveTokens = getEffectiveTokenBalance(user);
-      if (effectiveTokens <= 0) {
-        return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
-      }
-    }
-
-    const hasDomainAccess =
-      domain === "nutrition" ? entitlements.modules.nutrition.enabled : entitlements.modules.strength.enabled;
-    if (!hasDomainAccess) {
+    const effectiveTokens = getEffectiveTokenBalance(user);
+    if (!hasAiDomainAccess(entitlements, domain, effectiveTokens)) {
       return reply.status(403).send({ error: "AI_ACCESS_FORBIDDEN" });
     }
 
