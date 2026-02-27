@@ -5428,7 +5428,7 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   }
 });
 
-app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
+app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/training-plan");
     const authRequest = request as AuthenticatedEntitlementsRequest;
@@ -5612,7 +5612,7 @@ app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, rep
   }
 });
 
-app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
+app.post("/ai/nutrition-plan", { preHandler: aiNutritionDomainGuard }, async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/ai/nutrition-plan");
     const authRequest = request as AuthenticatedEntitlementsRequest;
