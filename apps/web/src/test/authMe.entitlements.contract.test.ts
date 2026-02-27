@@ -2,20 +2,18 @@ import { describe, expect, it } from "vitest";
 import { canAccessFeature, getUiEntitlements, type AuthMePayload } from "@/lib/entitlements";
 
 describe("/auth/me entitlements contract (minimal)", () => {
-  it("accepts payloads that expose entitlements object", () => {
+  it("accepts payloads that expose aiEntitlements object", () => {
     const payload: AuthMePayload = {
-      plan: "PRO",
-      entitlements: {
-        modules: {
-          ai: { enabled: true },
-          strength: { enabled: true },
-          nutrition: { enabled: true },
-        },
+      subscriptionPlan: "PRO",
+      aiEntitlements: {
+        nutrition: true,
+        strength: true,
       },
+      tokenBalance: 500,
     };
 
-    expect(payload).toHaveProperty("entitlements");
-    expect(payload.entitlements).toBeTypeOf("object");
+    expect(payload).toHaveProperty("aiEntitlements");
+    expect(payload.aiEntitlements).toBeTypeOf("object");
 
     const result = getUiEntitlements(payload);
     expect(result.status).toBe("known");
@@ -27,12 +25,9 @@ describe("/auth/me entitlements contract (minimal)", () => {
     }
   });
 
-  it("returns unknown when backend modules are not present", () => {
+  it("returns unknown when backend aiEntitlements are not present", () => {
     const payload: AuthMePayload = {
-      plan: "PRO",
-      entitlements: {
-        plan: { effective: "PRO" },
-      },
+      subscriptionPlan: "PRO",
     };
 
     expect(getUiEntitlements(payload)).toEqual({ status: "unknown" });

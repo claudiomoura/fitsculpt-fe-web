@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { effectiveEntitlementsSchema, type EffectiveEntitlements } from "../entitlements.js";
 
+const subscriptionPlanSchema = z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]);
+
 export const authMeResponseSchema = z.object({
   id: z.string(),
   email: z.string().email(),
@@ -19,6 +21,10 @@ export const authMeResponseSchema = z.object({
     strength: z.boolean(),
   }),
   aiTokenRenewalAt: z.date().nullable(),
+  aiEntitlements: z.object({
+    nutrition: z.boolean(),
+    strength: z.boolean(),
+  }),
   modules: z.object({
     strength: z.boolean(),
     nutrition: z.boolean(),
@@ -90,6 +96,10 @@ export function buildAuthMeResponse(params: {
       strength: params.entitlements.modules.strength.enabled,
     },
     aiTokenRenewalAt: params.aiTokenRenewalAt,
+    aiEntitlements: {
+      strength: params.entitlements.modules.strength.enabled,
+      nutrition: params.entitlements.modules.nutrition.enabled,
+    },
     modules: buildSessionModules(params.entitlements),
     entitlements: params.entitlements,
     effectiveEntitlements: params.entitlements,

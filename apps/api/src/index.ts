@@ -29,6 +29,7 @@ import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiCli
 import { classifyAiGenerateError } from "./ai/errorClassification.js";
 import { type EffectiveEntitlements } from "./entitlements.js";
 import { buildAuthMeResponse } from "./auth/schemas.js";
+import { hasAiDomainAccess, hasPremiumAiAccess } from "./middleware/entitlements.js";
 import { loadAiPricing } from "./ai/pricing.js";
 import { NUTRITION_MATH_TOLERANCES, validateNutritionMath } from "./ai/nutritionMathValidation.js";
 import {

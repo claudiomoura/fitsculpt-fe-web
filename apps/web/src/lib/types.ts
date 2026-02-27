@@ -224,5 +224,9 @@ export type AuthMeResponse = {
   };
   subscriptionPlan?: string | null;
   plan?: string | null;
+  aiEntitlements?: {
+    nutrition?: boolean;
+    strength?: boolean;
+  } | null;
   entitlements?: AuthMeEntitlements | null;
 };
