@@ -30,7 +30,7 @@ type AiExecutionResult = {
 };
 
 type ChargeAiUsageParams = {
-  prisma: PrismaClient;
+  prisma: PrismaClient | Prisma.TransactionClient;
   pricing: AiPricingMap;
   user: AiUsageUser;
   feature: string;
@@ -39,7 +39,7 @@ type ChargeAiUsageParams = {
 };
 
 type ChargeAiUsageForResultParams = {
-  prisma: PrismaClient;
+  prisma: PrismaClient | Prisma.TransactionClient;
   pricing: AiPricingMap;
   user: AiUsageUser;
   feature: string;
@@ -134,16 +134,24 @@ export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
       totalTokens: totals.totalTokens,
     });
   } catch (error) {
-    const typedError = error as { name?: string; message?: string; code?: string };
+    const typedError = error as {
+      name?: string;
+      message?: string;
+      code?: string;
+      meta?: { modelName?: string; column?: string; target?: unknown };
+    };
     console.warn("AI usage persist failed but continued", {
       feature: params.feature,
+      step: "usage_log_create",
       userId: params.userId,
       mode: params.mode ?? "AI",
       model: params.model ?? "unknown",
       provider: params.provider ?? "unknown",
-      requestId: params.requestId ?? null,
+      aiRequestId: params.requestId ?? null,
       errorName: typedError.name ?? "UnknownError",
-      errorCode: typedError.code,
+      prisma_code: typedError.code,
+      prisma_model: typedError.meta?.modelName,
+      prisma_column: typedError.meta?.column,
       errorMessage: typedError.message ?? "unknown",
     });
     if (params.throwOnError) {
@@ -224,7 +232,7 @@ function buildChargeDetails({
 }
 
 async function debitAiTokensTx(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   userId: string,
   args: {
     feature: string;
@@ -237,7 +245,7 @@ async function debitAiTokensTx(
   createHttpError: (statusCode: number, code: string, debug?: Record<string, unknown>) => Error
 ) {
   const { feature, model, usage, costCents, meta, requestId } = args;
-  return prisma.$transaction(async (tx) => {
+  const runDebit = async (tx: Prisma.TransactionClient) => {
     console.info("AI token debit transaction started", {
       userId,
       feature,
@@ -393,7 +401,13 @@ async function debitAiTokensTx(
       debitedTokens: tokensToDebit,
       idempotentReplay: false,
     };
-  });
+  };
+
+  if ("$transaction" in prisma && typeof prisma.$transaction === "function") {
+    return prisma.$transaction(async (tx) => runDebit(tx));
+  }
+
+  return runDebit(prisma);
 }
 
 export async function chargeAiUsage(params: ChargeAiUsageParams) {

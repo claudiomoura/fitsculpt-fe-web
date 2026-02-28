@@ -2115,7 +2115,97 @@ async function saveNutritionPlan(
   }
 }
 
+async function persistTrainingPlanWithClient(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  startDate: Date,
+  daysCount: number,
+  request: z.infer<typeof aiTrainingSchema>
+) {
+  const planData = {
+    userId,
+    title: plan.title,
+    notes: plan.notes,
+    goal: request.goal,
+    level: request.level,
+    daysPerWeek: request.daysPerWeek,
+    focus: request.focus,
+    equipment: request.equipment,
+    startDate,
+    daysCount,
+  };
+
+  const existingPlan = await tx.trainingPlan.findFirst({
+    where: {
+      userId,
+      startDate,
+      daysCount,
+    },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true },
+  });
+
+  const persistenceMode: "create" | "update" = existingPlan ? "update" : "create";
+  const planRecord = existingPlan
+    ? await tx.trainingPlan.update({
+        where: { id: existingPlan.id },
+        data: {
+          title: plan.title,
+          notes: plan.notes,
+          goal: request.goal,
+          level: request.level,
+          daysPerWeek: request.daysPerWeek,
+          focus: request.focus,
+          equipment: request.equipment,
+        },
+        select: { id: true },
+      })
+    : await tx.trainingPlan.create({ data: planData, select: { id: true } });
+
+  app.log.info(
+    {
+      userId,
+      planId: planRecord.id,
+      startDate: toIsoDateString(startDate),
+      daysCount,
+      persistenceMode,
+    },
+    "training plan persistence mode"
+  );
+
+  await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
+
+  for (const [index, day] of plan.days.entries()) {
+    await tx.trainingDay.create({
+      data: {
+        planId: planRecord.id,
+        date: parseDateInput(day.date) ?? startDate,
+        label: day.label,
+        focus: day.focus,
+        duration: day.duration,
+        order: index,
+        exercises: {
+          create: day.exercises.map((exercise) => ({
+            exerciseId: exercise.exerciseId ?? null,
+            imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
+            name: exercise.name,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            tempo: exercise.tempo,
+            rest: exercise.rest,
+            notes: exercise.notes,
+          })),
+        },
+      },
+    });
+  }
+
+  return planRecord;
+}
+
 async function saveTrainingPlan(
+  db: PrismaClient | Prisma.TransactionClient,
   userId: string,
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   startDate: Date,
@@ -2123,87 +2213,10 @@ async function saveTrainingPlan(
   request: z.infer<typeof aiTrainingSchema>
 ) {
   const persistPlan = async () => {
-    return prisma.$transaction(async (tx) => {
-      const planData = {
-        userId,
-        title: plan.title,
-        notes: plan.notes,
-        goal: request.goal,
-        level: request.level,
-        daysPerWeek: request.daysPerWeek,
-        focus: request.focus,
-        equipment: request.equipment,
-        startDate,
-        daysCount,
-      };
-
-      const existingPlan = await tx.trainingPlan.findFirst({
-        where: {
-          userId,
-          startDate,
-          daysCount,
-        },
-        orderBy: { updatedAt: "desc" },
-        select: { id: true },
-      });
-
-      const persistenceMode: "create" | "update" = existingPlan ? "update" : "create";
-      const planRecord = existingPlan
-        ? await tx.trainingPlan.update({
-            where: { id: existingPlan.id },
-            data: {
-              title: plan.title,
-              notes: plan.notes,
-              goal: request.goal,
-              level: request.level,
-              daysPerWeek: request.daysPerWeek,
-              focus: request.focus,
-              equipment: request.equipment,
-            },
-            select: { id: true },
-          })
-        : await tx.trainingPlan.create({ data: planData, select: { id: true } });
-
-      app.log.info(
-        {
-          userId,
-          planId: planRecord.id,
-          startDate: toIsoDateString(startDate),
-          daysCount,
-          persistenceMode,
-        },
-        "training plan persistence mode"
-      );
-
-      await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
-
-      for (const [index, day] of plan.days.entries()) {
-        await tx.trainingDay.create({
-          data: {
-            planId: planRecord.id,
-            date: parseDateInput(day.date) ?? startDate,
-            label: day.label,
-            focus: day.focus,
-            duration: day.duration,
-            order: index,
-            exercises: {
-              create: day.exercises.map((exercise) => ({
-                exerciseId: exercise.exerciseId ?? null,
-                imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
-                name: exercise.name,
-                sets: exercise.sets,
-                reps: exercise.reps,
-                tempo: exercise.tempo,
-                rest: exercise.rest,
-                notes: exercise.notes,
-              })),
-            },
-          },
-        });
-      }
-
-      return planRecord;
-    });
+    if ("$transaction" in db && typeof db.$transaction === "function") {
+      return db.$transaction((tx) => persistTrainingPlanWithClient(tx, userId, plan, startDate, daysCount, request));
+    }
+    return persistTrainingPlanWithClient(db as Prisma.TransactionClient, userId, plan, startDate, daysCount, request);
   };
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -5438,7 +5451,7 @@ app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (requ
       const personalized = applyPersonalization(normalized, { name: data.name });
       assertTrainingMatchesRequest(personalized, expectedDays);
       const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
-      await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+      await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
       await storeAiContent(user.id, "training", "template", resolvedPlan);
       return reply.status(200).send({
         plan: resolvedPlan,
@@ -5453,7 +5466,7 @@ app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (requ
         assertTrainingMatchesRequest(validated, expectedDays);
         const personalized = applyPersonalization(validated, { name: data.name });
         const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
-        await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+        await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
         await storeAiContent(user.id, "training", "cache", resolvedPlan);
         return reply.status(200).send({
           plan: resolvedPlan,
@@ -5535,7 +5548,7 @@ app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (requ
       { userId: user.id, route: "/ai/training-plan" }
     );
     await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
-    await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
+    await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
     await storeAiContent(user.id, "training", "ai", resolvedPlan);
     if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
@@ -6084,7 +6097,35 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
       },
       "training plan persistence start"
     );
-    const savedPlan = await saveTrainingPlan(user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
+    const savedPlan =
+      aiResult && shouldChargeAi
+        ? await prisma.$transaction(async (tx) => {
+            const persistedPlan = await saveTrainingPlan(
+              tx,
+              user.id,
+              resolvedPlan,
+              startDate,
+              trainingInput.daysCount ?? expectedDays,
+              trainingInput
+            );
+            await chargeAiUsageForResult({
+              prisma: tx,
+              pricing: aiPricing,
+              user: {
+                id: user.id,
+                plan: user.plan,
+                aiTokenBalance: user.aiTokenBalance ?? 0,
+                aiTokenResetAt: user.aiTokenResetAt,
+                aiTokenRenewalAt: user.aiTokenRenewalAt,
+              },
+              feature: "training-generate",
+              result: aiResult,
+              createHttpError,
+            });
+            return persistedPlan;
+          })
+        : await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
+
     app.log.info(
       {
         route: "/ai/training-plan/generate",
@@ -6095,22 +6136,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
     );
     await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
 
-    if (aiResult && shouldChargeAi) {
-      await chargeAiUsageForResult({
-        prisma,
-        pricing: aiPricing,
-        user: {
-          id: user.id,
-          plan: user.plan,
-          aiTokenBalance: user.aiTokenBalance ?? 0,
-          aiTokenResetAt: user.aiTokenResetAt,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        },
-        feature: "training-generate",
-        result: aiResult,
-        createHttpError,
-      });
-    } else if (aiResult) {
+    if (aiResult && !shouldChargeAi) {
       await persistAiUsageLog({
         prisma,
         userId: user.id,
@@ -6122,7 +6148,7 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
         totals: buildUsageTotals(aiResult.usage),
         mode: "AI",
       });
-    } else {
+    } else if (!aiResult) {
       const fallbackCause =
         (lastError as { code?: string; message?: string } | null)?.code ??
         (lastError as { message?: string } | null)?.message ??
@@ -6159,6 +6185,8 @@ app.post("/ai/training-plan/generate", { preHandler: aiStrengthDomainGuard }, as
         error_kind: classified.errorKind,
         ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
         ...(typeof classified.prismaCode === "string" ? { prisma_code: classified.prismaCode } : {}),
+        ...(typeof classified.prismaModelName === "string" ? { prisma_model: classified.prismaModelName } : {}),
+        ...(typeof classified.prismaColumn === "string" ? { prisma_column: classified.prismaColumn } : {}),
         ...(Array.isArray(classified.target) ? { target: classified.target } : {}),
       },
       "training plan generation failed"
@@ -6458,6 +6486,8 @@ app.post("/ai/nutrition-plan/generate", { preHandler: aiNutritionDomainGuard }, 
         error_kind: classified.errorKind,
         ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
         ...(typeof classified.prismaCode === "string" ? { prisma_code: classified.prismaCode } : {}),
+        ...(typeof classified.prismaModelName === "string" ? { prisma_model: classified.prismaModelName } : {}),
+        ...(typeof classified.prismaColumn === "string" ? { prisma_column: classified.prismaColumn } : {}),
         ...(Array.isArray(classified.target) ? { target: classified.target } : {}),
       },
       "nutrition plan generate failed"

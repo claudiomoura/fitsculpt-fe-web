@@ -8,6 +8,8 @@ export type ClassifiedAiGenerateError = {
   errorKind: AiGenerateErrorKind;
   upstreamStatus?: number;
   prismaCode?: string;
+  prismaModelName?: string;
+  prismaColumn?: string;
   target?: string[];
 };
 
@@ -37,50 +39,66 @@ function parsePrismaTarget(meta: unknown): string[] | undefined {
   return undefined;
 }
 
+
+function parsePrismaMeta(meta: unknown): { prismaModelName?: string; prismaColumn?: string } {
+  const typed = meta as { modelName?: unknown; column?: unknown } | undefined;
+  return {
+    ...(typeof typed?.modelName === "string" ? { prismaModelName: typed.modelName } : {}),
+    ...(typeof typed?.column === "string" ? { prismaColumn: typed.column } : {}),
+  };
+}
 export function classifyAiGenerateError(error: unknown): ClassifiedAiGenerateError {
   const typed = error as { code?: string; statusCode?: number; debug?: Record<string, unknown>; meta?: unknown };
   const isPrismaKnownError = typeof typed.code === "string" && /^P\d{4}$/.test(typed.code);
 
   if (typed.code && PRISMA_CONFLICT_CODES.has(typed.code)) {
     const target = parsePrismaTarget(typed.meta);
+    const prismaMeta = parsePrismaMeta(typed.meta);
     return {
       statusCode: 409,
       error: "CONFLICT",
       errorKind: "db_conflict",
       prismaCode: typed.code,
+      ...prismaMeta,
       ...(target ? { target } : {}),
     };
   }
 
   if (typed.code && PRISMA_NOT_FOUND_CODES.has(typed.code)) {
     const target = parsePrismaTarget(typed.meta);
+    const prismaMeta = parsePrismaMeta(typed.meta);
     return {
       statusCode: 404,
       error: "NOT_FOUND",
       errorKind: "validation_error",
       prismaCode: typed.code,
+      ...prismaMeta,
       ...(target ? { target } : {}),
     };
   }
 
   if (typed.code && PRISMA_UNPROCESSABLE_CODES.has(typed.code)) {
     const target = parsePrismaTarget(typed.meta);
+    const prismaMeta = parsePrismaMeta(typed.meta);
     return {
       statusCode: 422,
       error: "UNPROCESSABLE_ENTITY",
       errorKind: "validation_error",
       prismaCode: typed.code,
+      ...prismaMeta,
       ...(target ? { target } : {}),
     };
   }
 
   if (isPrismaKnownError) {
     const target = parsePrismaTarget(typed.meta);
+    const prismaMeta = parsePrismaMeta(typed.meta);
     return {
       statusCode: 500,
       error: "INTERNAL_ERROR",
       errorKind: "internal_error",
       prismaCode: typed.code,
+      ...prismaMeta,
       ...(target ? { target } : {}),
     };
   }
