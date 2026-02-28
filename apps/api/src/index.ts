@@ -6762,16 +6762,23 @@ app.post(
   },
 );
 
-app.post(
-  "/ai/nutrition-plan",
-  { preHandler: aiNutritionDomainGuard },
-  async (request, reply) => {
-    try {
-      logAuthCookieDebug(request, "/ai/nutrition-plan");
+const nutritionPlanRouteCanonical = "/ai/nutrition-plan/generate";
+const nutritionPlanRouteAlias = "/ai/nutrition-plan";
+
+const nutritionPlanHandler = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
+  try {
+    const nutritionRoutePath =
+      request.routeOptions?.url ?? nutritionPlanRouteCanonical;
+    logAuthCookieDebug(request, nutritionRoutePath);
       const authRequest = request as AuthenticatedEntitlementsRequest;
       const user =
         authRequest.currentUser ??
-        (await requireUser(request, { logContext: "/ai/nutrition-plan" }));
+        (await requireUser(request, {
+          logContext: nutritionRoutePath,
+        }));
       const entitlements =
         authRequest.currentEntitlements ?? getUserEntitlements(user);
       await requireCompleteProfile(user.id);
@@ -7222,10 +7229,21 @@ app.post(
         ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
         ...(debit ? { debit } : {}),
       });
-    } catch (error) {
-      return handleRequestError(reply, error);
-    }
-  },
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+};
+
+app.post(
+  nutritionPlanRouteCanonical,
+  { preHandler: aiNutritionDomainGuard },
+  nutritionPlanHandler,
+);
+
+app.post(
+  nutritionPlanRouteAlias,
+  { preHandler: aiNutritionDomainGuard },
+  nutritionPlanHandler,
 );
 
 app.post(
@@ -11294,6 +11312,10 @@ app.post("/dev/reset-demo", async (request, reply) => {
 await seedAdmin();
 
 if (process.env.NODE_ENV !== "production") {
+  app.log.info(
+    { routes: [nutritionPlanRouteCanonical, nutritionPlanRouteAlias] },
+    "Registered nutrition AI routes",
+  );
   app.log.info("Registered routes\n%s", app.printRoutes());
 }
 
