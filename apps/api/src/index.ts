@@ -88,7 +88,8 @@ import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 import {
-  buildEntitlementGuard,
+  hasAiDomainAccess,
+  hasPremiumAiAccess,
   resolveUserEntitlements,
   type AuthenticatedEntitlementsRequest,
 } from "./middleware/entitlements.js";
@@ -1308,26 +1309,23 @@ function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
   };
 }
 
-const aiAccessGuard = buildEntitlementGuard({
-  requireAi: true,
+const aiAccessGuard = hasPremiumAiAccess({
   forbiddenStatus: 402,
   forbiddenBody: { code: "UPGRADE_REQUIRED" },
   requireUser,
   isBootstrapAdmin,
 });
 
-const aiNutritionDomainGuard = buildEntitlementGuard({
-  requireAi: true,
-  requireDomain: "nutrition",
+const aiNutritionDomainGuard = hasAiDomainAccess({
+  domain: "nutrition",
   forbiddenStatus: 403,
   forbiddenBody: { error: "AI_ACCESS_FORBIDDEN" },
   requireUser,
   isBootstrapAdmin,
 });
 
-const aiStrengthDomainGuard = buildEntitlementGuard({
-  requireAi: true,
-  requireDomain: "strength",
+const aiStrengthDomainGuard = hasAiDomainAccess({
+  domain: "strength",
   forbiddenStatus: 403,
   forbiddenBody: { error: "AI_ACCESS_FORBIDDEN" },
   requireUser,
@@ -6473,125 +6471,86 @@ app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (requ
           plan: resolvedPlan,
           ...aiMeta,
         });
-      }
-
-      const cached = await getCachedAiPayload(cacheKey);
-      if (cached) {
-        try {
-          const validated = parseTrainingPlanPayload(
-            cached,
-            startDate,
-            daysCount,
-            expectedDays,
-          );
-          assertTrainingMatchesRequest(validated, expectedDays);
-          const personalized = applyPersonalization(validated, {
-            name: data.name,
-          });
-          const resolvedPlan = resolveTrainingPlanExerciseIds(
-            personalized,
-            exerciseCatalog,
-          );
-          await saveTrainingPlan(
-            user.id,
-            resolvedPlan,
-            startDate,
-            daysCount,
-            data,
-          );
-          await storeAiContent(user.id, "training", "cache", resolvedPlan);
-          return reply.status(200).send({
-            plan: resolvedPlan,
-            ...aiMeta,
-          });
-        } catch (error) {
-          app.log.warn(
-            { err: error, cacheKey },
-            "cached training plan invalid, regenerating",
-          );
-        }
-      }
-
-      await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
-      let payload: Record<string, unknown>;
-      let aiTokenBalance: number | null = null;
-      let aiResult: OpenAiResponse | null = null;
-      let aiAttemptUsed: number | null = null;
-      let debit:
-        | {
-            costCents: number;
-            balanceBefore: number;
-            balanceAfter: number;
-            totalTokens: number;
-            model: string;
-            usage: {
-              promptTokens: number;
-              completionTokens: number;
-              totalTokens: number;
-            };
-          }
-        | undefined;
-
-      const fetchTrainingPayload = async (attempt: number) => {
-        const prompt = buildTrainingPrompt(
-          data,
-          attempt > 0,
-          formatExerciseCatalogForPrompt(exerciseCatalog),
-        );
-        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-          responseFormat: {
-            type: "json_schema",
-            json_schema: {
-              name: "training_plan",
-              schema: trainingPlanJsonSchema as any,
-              strict: true,
-            },
-          },
-          model: "gpt-4o-mini",
-          maxTokens: 9000,
-          retryOnParseError: false,
-        });
-        payload = result.payload;
-        if (shouldChargeAi) {
-          aiResult = result;
-          aiAttemptUsed = attempt;
-        }
-        return parseTrainingPlanPayload(
-          payload,
-          startDate,
-          daysCount,
-          expectedDays,
-        );
-      };
-
-      let parsedPayload: z.infer<typeof aiTrainingPlanResponseSchema>;
-      try {
-        parsedPayload = await fetchTrainingPayload(0);
-        assertTrainingMatchesRequest(parsedPayload, expectedDays);
       } catch (error) {
-        const typed = error as { code?: string };
-        if (typed.code === "AI_PARSE_ERROR") {
-          app.log.warn(
-            { err: error },
-            "training plan invalid, retrying with strict prompt",
-          );
-          app.log.info(
-            {
-              userId: user.id,
-              feature: "training",
-              charged: false,
-              failureReason: "parse_error",
-              attempt: 0,
-            },
-            "ai charge skipped",
-          );
-          parsedPayload = await fetchTrainingPayload(1);
-          assertTrainingMatchesRequest(parsedPayload, expectedDays);
-        } else {
-          throw error;
-        }
+        app.log.warn({ err: error, cacheKey }, "cached training plan invalid, regenerating");
       }
     }
+
+    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
+    let payload: Record<string, unknown>;
+    let aiTokenBalance: number | null = null;
+    let aiResult: OpenAiResponse | null = null;
+    let aiAttemptUsed: number | null = null;
+    let debit:
+      | {
+          costCents: number;
+          balanceBefore: number;
+          balanceAfter: number;
+          totalTokens: number;
+          model: string;
+          usage: {
+            promptTokens: number;
+            completionTokens: number;
+            totalTokens: number;
+          };
+        }
+      | undefined;
+
+    const fetchTrainingPayload = async (attempt: number) => {
+      const prompt = buildTrainingPrompt(
+        data,
+        attempt > 0,
+        formatExerciseCatalogForPrompt(exerciseCatalog),
+      );
+      const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+        responseFormat: {
+          type: "json_schema",
+          json_schema: {
+            name: "training_plan",
+            schema: trainingPlanJsonSchema as any,
+            strict: true,
+          },
+        },
+        model: "gpt-4o-mini",
+        maxTokens: 9000,
+        retryOnParseError: false,
+      });
+      payload = result.payload;
+      if (shouldChargeAi) {
+        aiResult = result;
+        aiAttemptUsed = attempt;
+      }
+      return parseTrainingPlanPayload(payload, startDate, daysCount, expectedDays);
+    };
+
+    let parsedPayload: z.infer<typeof aiTrainingPlanResponseSchema>;
+    try {
+      parsedPayload = await fetchTrainingPayload(0);
+      assertTrainingMatchesRequest(parsedPayload, expectedDays);
+    } catch (error) {
+      const typed = error as { code?: string };
+      if (typed.code === "AI_PARSE_ERROR") {
+        app.log.warn(
+          { err: error },
+          "training plan invalid, retrying with strict prompt",
+        );
+        app.log.info(
+          {
+            userId: user.id,
+            feature: "training",
+            charged: false,
+            failureReason: "parse_error",
+            attempt: 0,
+          },
+          "ai charge skipped",
+        );
+        parsedPayload = await fetchTrainingPayload(1);
+        assertTrainingMatchesRequest(parsedPayload, expectedDays);
+      } else {
+        throw error;
+      }
+    }
+
     const personalized = applyPersonalization(parsedPayload, { name: data.name });
     const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
       personalized,
@@ -6603,11 +6562,12 @@ app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (requ
         equipment: data.equipment,
       },
       startDate,
-      { userId: user.id, route: "/ai/training-plan" }
+      { userId: user.id, route: "/ai/training-plan" },
     );
     await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
     await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
     await storeAiContent(user.id, "training", "ai", resolvedPlan);
+
     if (shouldChargeAi && aiResult) {
       const balanceBefore = effectiveTokens;
       const charged = await chargeAiUsageForResult({
@@ -6625,90 +6585,56 @@ app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (requ
         meta: { attempt: aiAttemptUsed ?? 0 },
         createHttpError,
       });
-      const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
-        personalized,
-        exerciseCatalog,
+      aiTokenBalance = charged.balance;
+      debit =
+        process.env.NODE_ENV === "production"
+          ? undefined
+          : {
+              costCents: charged.costCents,
+              balanceBefore,
+              balanceAfter: charged.balance,
+              totalTokens: charged.totalTokens,
+              model: charged.model,
+              usage: charged.usage,
+            };
+      app.log.info(
         {
-          daysPerWeek: data.daysPerWeek,
-          level: data.level,
-          goal: data.goal,
-          equipment: data.equipment,
-        },
-        startDate,
-        { userId: user.id, route: "/ai/training-plan" },
-      );
-      await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
-      await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
-      await storeAiContent(user.id, "training", "ai", resolvedPlan);
-      if (shouldChargeAi && aiResult) {
-        const balanceBefore = effectiveTokens;
-        const charged = await chargeAiUsageForResult({
-          prisma,
-          pricing: aiPricing,
-          user: {
-            id: user.id,
-            plan: user.plan,
-            aiTokenBalance: user.aiTokenBalance ?? 0,
-            aiTokenResetAt: user.aiTokenResetAt,
-            aiTokenRenewalAt: user.aiTokenRenewalAt,
-          },
+          userId: user.id,
           feature: "training",
-          result: aiResult,
-          meta: { attempt: aiAttemptUsed ?? 0 },
-          createHttpError,
-        });
-        aiTokenBalance = charged.balance;
-        debit =
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : {
-                costCents: charged.costCents,
-                balanceBefore,
-                balanceAfter: charged.balance,
-                totalTokens: charged.totalTokens,
-                model: charged.model,
-                usage: charged.usage,
-              };
-        app.log.info(
-          {
-            userId: user.id,
-            feature: "training",
-            balanceBefore,
-            balanceAfter: charged.balance,
-            charged: true,
-            attempt: aiAttemptUsed ?? 0,
-          },
-          "ai charge complete",
-        );
-      } else if (shouldChargeAi) {
-        app.log.info(
-          {
-            userId: user.id,
-            feature: "training",
-            charged: false,
-            failureReason: "missing_ai_result",
-          },
-          "ai charge skipped",
-        );
-      }
-      const aiResponse = aiResult as OpenAiResponse | null;
-      const exactUsage = extractExactProviderUsage(aiResponse?.usage);
-      return reply.status(200).send({
-        plan: resolvedPlan,
-        aiRequestId: aiResponse?.requestId ?? null,
-        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
-        aiTokenRenewalAt: shouldChargeAi
-          ? getUserTokenExpiryAt(user)
-          : aiMeta.aiTokenRenewalAt,
-        ...(exactUsage ? { usage: exactUsage } : {}),
-        ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
-        ...(debit ? { debit } : {}),
-      });
-    } catch (error) {
-      return handleRequestError(reply, error);
+          balanceBefore,
+          balanceAfter: charged.balance,
+          charged: true,
+          attempt: aiAttemptUsed ?? 0,
+        },
+        "ai charge complete",
+      );
+    } else if (shouldChargeAi) {
+      app.log.info(
+        {
+          userId: user.id,
+          feature: "training",
+          charged: false,
+          failureReason: "missing_ai_result",
+        },
+        "ai charge skipped",
+      );
     }
-  },
-);
+
+    const aiResponse = aiResult as OpenAiResponse | null;
+    const exactUsage = extractExactProviderUsage(aiResponse?.usage);
+    return reply.status(200).send({
+      plan: resolvedPlan,
+      aiRequestId: aiResponse?.requestId ?? null,
+      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
+      ...(exactUsage ? { usage: exactUsage } : {}),
+      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
+      ...(debit ? { debit } : {}),
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
 
 app.post(
   "/ai/nutrition-plan",
@@ -7515,7 +7441,17 @@ app.post(
         mode: "FALLBACK",
         fallbackReason: fallbackCause,
       });
-    } catch (error) {
+    }
+
+    const exactUsage = extractExactProviderUsage(aiResult?.usage);
+    return reply.status(200).send({
+      planId: savedPlan.id,
+      summary: summarizeTrainingPlan(resolvedPlan),
+      plan: resolvedPlan,
+      aiRequestId: aiResult?.requestId ?? null,
+      ...(exactUsage ? { usage: exactUsage } : {}),
+    });
+  } catch (error) {
       const classified = classifyAiGenerateError(error);
       const logger =
         classified.errorKind === "internal_error"
@@ -7541,449 +7477,6 @@ app.post(
             : {}),
         },
         "training plan generation failed",
-      );
-      return reply
-        .status(classified.statusCode)
-        .send({ error: classified.error });
-    }
-  },
-);
-
-    const exactUsage = extractExactProviderUsage(aiResult?.usage);
-    return reply.status(200).send({
-      planId: savedPlan.id,
-      summary: summarizeTrainingPlan(resolvedPlan),
-      plan: resolvedPlan,
-      aiRequestId: aiResult?.requestId ?? null,
-      ...(exactUsage ? { usage: exactUsage } : {}),
-    });
-  } catch (error) {
-    const classified = classifyAiGenerateError(error);
-    const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
-    const shouldLogRawError = classified.errorKind !== "db_conflict" && typeof classified.prismaCode !== "string";
-    logger(
-      {
-        ...(shouldLogRawError ? { err: error } : {}),
-        reqId: request.id,
-        route: "/ai/training-plan/generate",
-        error_kind: classified.errorKind,
-        ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
-        ...(typeof classified.prismaCode === "string" ? { prisma_code: classified.prismaCode } : {}),
-        ...(typeof classified.prismaModelName === "string" ? { prisma_model: classified.prismaModelName } : {}),
-        ...(typeof classified.prismaColumn === "string" ? { prisma_column: classified.prismaColumn } : {}),
-        ...(Array.isArray(classified.target) ? { target: classified.target } : {}),
-      },
-      "training plan generation failed"
-    );
-    return reply.status(classified.statusCode).send({ error: classified.error });
-  }
-});
-
-      const profileRecord = await getOrCreateProfile(user.id);
-      const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
-      const nutritionPreferences = (profile.nutritionPreferences ??
-        {}) as Record<string, unknown>;
-
-      const nutritionInput: z.infer<typeof aiNutritionSchema> = {
-        age: typeof profile.age === "number" ? profile.age : 30,
-        sex: profile.sex === "female" ? "female" : "male",
-        goal:
-          profile.goal === "cut" ||
-          profile.goal === "maintain" ||
-          profile.goal === "bulk"
-            ? profile.goal
-            : "maintain",
-        mealsPerDay: payload.mealsPerDay,
-        calories: payload.targetKcal,
-        startDate: payload.startDate || toIsoDateString(new Date()),
-        daysCount: payload.daysCount ?? 7,
-        dietaryRestrictions: [
-          payload.dietType,
-          nutritionPreferences.dietaryPrefs,
-        ]
-          .filter(
-            (item): item is string =>
-              typeof item === "string" && item.length > 0,
-          )
-          .join(", "),
-        dietType:
-          payload.dietType ??
-          (nutritionPreferences.dietType === "balanced" ||
-          nutritionPreferences.dietType === "mediterranean" ||
-          nutritionPreferences.dietType === "keto" ||
-          nutritionPreferences.dietType === "vegetarian" ||
-          nutritionPreferences.dietType === "vegan" ||
-          nutritionPreferences.dietType === "pescatarian" ||
-          nutritionPreferences.dietType === "paleo" ||
-          nutritionPreferences.dietType === "flexible"
-            ? nutritionPreferences.dietType
-            : undefined),
-        allergies: Array.isArray(nutritionPreferences.allergies)
-          ? nutritionPreferences.allergies.filter(
-              (item): item is string => typeof item === "string",
-            )
-          : [],
-        preferredFoods:
-          typeof nutritionPreferences.preferredFoods === "string"
-            ? nutritionPreferences.preferredFoods
-            : "",
-        dislikedFoods:
-          typeof nutritionPreferences.dislikedFoods === "string"
-            ? nutritionPreferences.dislikedFoods
-            : "",
-        mealDistribution: nutritionPreferences.mealDistribution as
-          | z.infer<typeof mealDistributionSchema>
-          | undefined,
-      };
-
-      const startDate = payload.startDate
-        ? (parseDateInput(payload.startDate) ?? new Date())
-        : new Date();
-      const daysCount = payload.daysCount ?? 7;
-      assertNutritionRequestMapping(payload, nutritionInput, daysCount);
-      let parsedPlan: z.infer<typeof aiNutritionPlanResponseSchema> | null =
-        null;
-      let aiResult: OpenAiResponse | null = null;
-      let lastError: unknown = null;
-      let lastRawOutput = "";
-      let retryFeedback = "";
-      const resolvedDietType =
-        payload.dietType ?? nutritionInput.dietType ?? "balanced";
-      const recipes = await prisma.recipe.findMany({
-        take: 100,
-        orderBy: { name: "asc" },
-        include: { ingredients: true },
-      });
-
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        try {
-          const prompt =
-            `${buildNutritionPrompt(
-              nutritionInput,
-              recipes.map((recipe) => ({
-                id: recipe.id,
-                name: recipe.name,
-                description: recipe.description,
-                calories: recipe.calories,
-                protein: recipe.protein,
-                carbs: recipe.carbs,
-                fat: recipe.fat,
-                ingredients: recipe.ingredients.map(
-                  (ingredient: { name: string; grams: number }) => ({
-                    name: ingredient.name,
-                    grams: ingredient.grams,
-                  }),
-                ),
-                steps: recipe.steps,
-              })),
-              attempt > 0,
-              retryFeedback,
-            )} ` +
-            `Macros objetivo por día (con tolerancia): proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
-            `Calorías objetivo por día: ${payload.targetKcal}. ` +
-            "REGLA DURA: cada día debe cumplir proteína total >= objetivo de proteína (no menos). " +
-            "REGLA DURA: cada comida debe incluir una fuente proteica clara y suficiente para aportar proteína real. " +
-            (resolvedDietType === "vegetarian"
-              ? "REGLA DURA VEGETARIANO: prioriza tofu, tempeh, seitán, legumbres, huevos, lácteos altos en proteína (si aplica) y proteína vegetal en polvo cuando haga falta. No uses carnes ni pescado. "
-              : "") +
-            "VERIFICACIÓN FINAL OBLIGATORIA: antes de responder, revisa expected vs actual por día y ajusta para que proteína/carbohidratos/grasas queden dentro de ±5g del objetivo diario sin cambiar calorías objetivo. " +
-            `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día sin cambiar targetKcal total." : ""}`;
-          const result = await callOpenAi(
-            prompt,
-            attempt,
-            extractTopLevelJson,
-            {
-              responseFormat: {
-                type: "json_schema",
-                json_schema: {
-                  name: "nutrition_plan",
-                  schema: nutritionPlanJsonSchema as any,
-                  strict: true,
-                },
-              },
-              model: "gpt-4o-mini",
-              maxTokens: 4000,
-              retryOnParseError: false,
-            },
-          );
-
-          lastRawOutput = JSON.stringify(result.payload);
-          const candidate = parseNutritionPlanPayload(
-            result.payload,
-            startDate,
-            daysCount,
-          );
-          assertNutritionMatchesRequest(
-            candidate,
-            payload.mealsPerDay,
-            daysCount,
-          );
-          const beforeNormalize = summarizeNutritionMath(candidate);
-          const calNormalized = normalizeNutritionCaloriesPerDay(
-            candidate,
-            payload.targetKcal,
-          );
-          const macroNormalized = normalizeNutritionMacrosPerDay(
-            calNormalized,
-            payload.macroTargets,
-          );
-          const finalNormalized = normalizeNutritionCaloriesPerDay(
-            macroNormalized,
-            payload.targetKcal,
-          );
-          const scaled = applyRecipeScalingToPlan(
-            finalNormalized,
-            recipes.map((recipe) => ({
-              id: recipe.id,
-              name: recipe.name,
-              description: recipe.description,
-              calories: recipe.calories,
-              protein: recipe.protein,
-              carbs: recipe.carbs,
-              fat: recipe.fat,
-              steps: recipe.steps,
-              ingredients: recipe.ingredients.map(
-                (ingredient: { name: string; grams: number }) => ({
-                  name: ingredient.name,
-                  grams: ingredient.grams,
-                }),
-              ),
-            })),
-          );
-          const finalWithCatalog = applyNutritionCatalogResolution(
-            scaled,
-            recipes.map((recipe) => ({
-              id: recipe.id,
-              name: recipe.name,
-              description: recipe.description,
-              calories: recipe.calories,
-              protein: recipe.protein,
-              carbs: recipe.carbs,
-              fat: recipe.fat,
-              steps: recipe.steps,
-              ingredients: recipe.ingredients.map(
-                (ingredient: { name: string; grams: number }) => ({
-                  name: ingredient.name,
-                  grams: ingredient.grams,
-                }),
-              ),
-            })),
-          );
-          const afterNormalize = summarizeNutritionMath(finalWithCatalog);
-          app.log.info(
-            {
-              attempt,
-              beforeNormalize,
-              afterNormalize,
-            },
-            "nutrition normalization summary",
-          );
-          assertNutritionMath(finalWithCatalog, payload);
-          parsedPlan = finalWithCatalog;
-          aiResult = result;
-          break;
-        } catch (error) {
-          lastError = error;
-          retryFeedback = buildRetryFeedback(error);
-        }
-      }
-
-      if (!parsedPlan) {
-        const debug = getNutritionInvalidOutputDebug(lastError);
-        app.log.info(
-          {
-            userId: user.id,
-            startDate: payload.startDate ?? toIsoDateString(startDate),
-            daysCount,
-            persisted: false,
-            planId: null,
-            reasonCode: debug.reasonCode,
-          },
-          "nutrition plan generation result",
-        );
-        app.log.warn(
-          {
-            aiRequestId: aiResult?.requestId ?? null,
-            upstream_status:
-              typeof (lastError as { debug?: Record<string, unknown> })?.debug
-                ?.status === "number"
-                ? ((lastError as { debug?: Record<string, unknown> }).debug
-                    ?.status as number)
-                : undefined,
-            error_kind: classifyAiGenerateError(lastError).errorKind,
-            outputPreviewLength: lastRawOutput.length,
-            reasonCode: debug.reasonCode,
-            details: debug.details,
-          },
-          "nutrition generation invalid ai output",
-        );
-        throw createHttpError(502, "AI_PARSE_ERROR", {
-          message:
-            "No se pudo generar un plan nutricional válido tras reintento.",
-          aiRequestId: aiResult?.requestId ?? undefined,
-          ...debug,
-        });
-      }
-
-      app.log.info(
-        {
-          route: "/ai/nutrition-plan/generate",
-          userId: user.id,
-          startDate: payload.startDate ?? toIsoDateString(startDate),
-          daysCount,
-        },
-        "nutrition plan persistence start",
-      );
-      const savedPlan = await saveNutritionPlan(
-        user.id,
-        parsedPlan,
-        startDate,
-        daysCount,
-      );
-      app.log.info(
-        {
-          route: "/ai/nutrition-plan/generate",
-          userId: user.id,
-          planId: savedPlan.id,
-        },
-        "nutrition plan persistence complete",
-      );
-      await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
-
-      if (aiResult && shouldChargeAi) {
-        await chargeAiUsageForResult({
-          prisma,
-          pricing: aiPricing,
-          user: {
-            id: user.id,
-            plan: user.plan,
-            aiTokenBalance: user.aiTokenBalance ?? 0,
-            aiTokenResetAt: user.aiTokenResetAt,
-            aiTokenRenewalAt: user.aiTokenRenewalAt,
-          },
-          feature: "nutrition-generate",
-          result: aiResult,
-          createHttpError,
-        });
-      } else if (aiResult) {
-        await persistAiUsageLog({
-          prisma,
-          userId: user.id,
-          feature: "nutrition-generate",
-          provider: "openai",
-          model: aiResult.model ?? "unknown",
-          requestId: aiResult.requestId,
-          usage: aiResult.usage,
-          totals: buildUsageTotals(aiResult.usage),
-          mode: "AI",
-        });
-      } else {
-        await persistAiUsageLog({
-          prisma,
-          userId: user.id,
-          feature: "nutrition-generate",
-          provider: "openai",
-          model: "fallback",
-          totals: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-          mode: "FALLBACK",
-          fallbackReason: "NO_AI_RESULT",
-        });
-      }
-
-      app.log.info(
-        {
-          userId: user.id,
-          startDate: payload.startDate ?? toIsoDateString(startDate),
-          daysCount,
-          persisted: true,
-          planId: savedPlan.id,
-          aiRequestId: aiResult?.requestId ?? null,
-        },
-        "nutrition plan generation result",
-      );
-
-      const exactUsage = extractExactProviderUsage(aiResult?.usage);
-      return reply.status(200).send({
-        planId: savedPlan.id,
-        summary: summarizeNutritionPlan(parsedPlan),
-        plan: parsedPlan,
-        aiRequestId: aiResult?.requestId ?? null,
-      },
-      "nutrition plan generation result"
-    );
-
-    const exactUsage = extractExactProviderUsage(aiResult?.usage);
-    return reply.status(200).send({
-      planId: savedPlan.id,
-      summary: summarizeNutritionPlan(parsedPlan),
-      plan: parsedPlan,
-      aiRequestId: aiResult?.requestId ?? null,
-      ...(exactUsage ? { usage: exactUsage } : {}),
-    });
-  } catch (error) {
-    const classified = classifyAiGenerateError(error);
-    const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
-    logger(
-      {
-        ...(classified.errorKind === "db_conflict" ? {} : { err: error }),
-        reqId: request.id,
-        route: "/ai/nutrition-plan/generate",
-        error_kind: classified.errorKind,
-        ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
-        ...(typeof classified.prismaCode === "string" ? { prisma_code: classified.prismaCode } : {}),
-        ...(typeof classified.prismaModelName === "string" ? { prisma_model: classified.prismaModelName } : {}),
-        ...(typeof classified.prismaColumn === "string" ? { prisma_column: classified.prismaColumn } : {}),
-        ...(Array.isArray(classified.target) ? { target: classified.target } : {}),
-      },
-      "nutrition plan generate failed"
-    );
-    return reply.status(classified.statusCode).send({ error: classified.error });
-  }
-});
-
-app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/ai/daily-tip");
-    const authRequest = request as AuthenticatedEntitlementsRequest;
-    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
-    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
-    const data = aiTipSchema.parse(request.body);
-    const cacheKey = buildCacheKey("tip", data);
-    const template = buildTipTemplate();
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta = getAiTokenPayload(user, entitlements);
-    const shouldChargeAi = !entitlements.role.adminOverride;
-
-    if (template) {
-      const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
-      await safeStoreAiContent(user.id, "tip", "template", personalized);
-      return reply.status(200).send({
-        tip: personalized,
-        ...aiMeta,
-      });
-    } catch (error) {
-      const classified = classifyAiGenerateError(error);
-      const logger =
-        classified.errorKind === "internal_error"
-          ? app.log.error.bind(app.log)
-          : app.log.warn.bind(app.log);
-      logger(
-        {
-          ...(classified.errorKind === "db_conflict" ? {} : { err: error }),
-          reqId: request.id,
-          route: "/ai/nutrition-plan/generate",
-          error_kind: classified.errorKind,
-          ...(typeof classified.upstreamStatus === "number"
-            ? { upstream_status: classified.upstreamStatus }
-            : {}),
-          ...(typeof classified.prismaCode === "string"
-            ? { prisma_code: classified.prismaCode }
-            : {}),
-          ...(Array.isArray(classified.target)
-            ? { target: classified.target }
-            : {}),
-        },
-        "nutrition plan generate failed",
       );
       return reply
         .status(classified.statusCode)
