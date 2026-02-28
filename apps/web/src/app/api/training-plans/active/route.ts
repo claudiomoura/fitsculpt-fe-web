@@ -10,10 +10,7 @@ export async function GET(request: Request) {
 
 export async function POST() {
   return NextResponse.json(
-    {
-      code: "NOT_AVAILABLE",
-      message: "Requires backend implementation: set active training plan endpoint is not available.",
-    },
-    { status: 501 },
+    { error: "FEATURE_NOT_AVAILABLE_IN_BETA" },
+    { status: 403 },
   );
 }

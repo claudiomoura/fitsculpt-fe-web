@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 
-const METHOD_NOT_ALLOWED = "METHOD_NOT_ALLOWED";
+const FEATURE_NOT_AVAILABLE_IN_BETA = "FEATURE_NOT_AVAILABLE_IN_BETA";
 const UPSTREAM_ERROR = "UPSTREAM_ERROR";
 
 type ErrorPayload = { error: string };
@@ -49,7 +49,7 @@ function buildResponse(status: number, payload: unknown): NextResponse {
 }
 
 export async function GET() {
-  return NextResponse.json({ error: METHOD_NOT_ALLOWED }, { status: 405 });
+  return NextResponse.json({ error: FEATURE_NOT_AVAILABLE_IN_BETA }, { status: 403 });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
