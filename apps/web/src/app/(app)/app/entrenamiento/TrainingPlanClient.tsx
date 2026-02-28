@@ -916,6 +916,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
+    if (!aiEntitled) {
+      router.push("/app/settings/billing");
+      return;
+    }
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
       setAiActionableError(t("ai.insufficientTokens"));
       return;

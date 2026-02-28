@@ -1661,6 +1661,10 @@ useEffect(() => {
 
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
+    if (!aiEntitled) {
+      router.push("/app/settings/billing");
+      return;
+    }
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
       setAiError({
         title: t("nutrition.aiErrorState.title"),

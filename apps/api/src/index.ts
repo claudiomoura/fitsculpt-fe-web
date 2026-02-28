@@ -461,7 +461,7 @@ async function applyBillingStateForCustomer(
     currentPeriodEnd?: Date | null;
   }
 ) {
-  const result = await prisma.user.updateMany({
+  const result = await prisma.$transaction(async (tx) => tx.user.updateMany({
     where: { stripeCustomerId },
     data: {
       plan: data.plan,
@@ -469,35 +469,13 @@ async function applyBillingStateForCustomer(
       stripeSubscriptionId: data.stripeSubscriptionId === undefined ? undefined : data.stripeSubscriptionId,
       currentPeriodEnd: data.currentPeriodEnd === undefined ? undefined : data.currentPeriodEnd,
       aiTokenBalance: data.aiTokenBalance,
+      aiTokenMonthlyAllowance: data.plan === "FREE" ? 0 : 5000,
       aiTokenResetAt: data.aiTokenResetAt,
       aiTokenRenewalAt: data.aiTokenRenewalAt,
     },
-  });
+  }));
   if (result.count === 0) {
     app.log.warn({ stripeCustomerId }, "user not found for billing update");
-  }
-}
-
-async function updateUserSubscriptionForCustomer(
-  stripeCustomerId: string,
-  data: {
-    plan: SubscriptionPlan;
-    subscriptionStatus?: string | null;
-    stripeSubscriptionId?: string | null;
-    currentPeriodEnd?: Date | null;
-  }
-) {
-  const result = await prisma.user.updateMany({
-    where: { stripeCustomerId },
-    data: {
-      plan: data.plan,
-      subscriptionStatus: data.subscriptionStatus === undefined ? undefined : data.subscriptionStatus,
-      stripeSubscriptionId: data.stripeSubscriptionId === undefined ? undefined : data.stripeSubscriptionId,
-      currentPeriodEnd: data.currentPeriodEnd === undefined ? undefined : data.currentPeriodEnd,
-    },
-  });
-  if (result.count === 0) {
-    app.log.warn({ stripeCustomerId }, "user not found for subscription update");
   }
 }
 
@@ -4736,8 +4714,12 @@ app.post(
           if (activeSubscription) {
             const activePlan = getPlanFromSubscription(activeSubscription) ?? "FREE";
             const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
-            await updateUserSubscriptionForCustomer(customerId, {
+            const nextResetAt = currentPeriodEnd ?? getTokenExpiry(30);
+            await applyBillingStateForCustomer(customerId, {
               plan: activePlan,
+              aiTokenBalance: 5000,
+              aiTokenResetAt: nextResetAt,
+              aiTokenRenewalAt: nextResetAt,
               subscriptionStatus: activeSubscription.status,
               stripeSubscriptionId: activeSubscription.id,
               currentPeriodEnd,
@@ -4747,6 +4729,7 @@ app.post(
                 stripeCustomerId: customerId,
                 plan: activePlan,
                 subscriptionStatus: activeSubscription.status,
+                aiTokenBalance: 5000,
                 currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
               },
               "subscription updated"
