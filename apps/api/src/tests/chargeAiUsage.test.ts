@@ -40,11 +40,23 @@ function buildPrismaMock(initialBalance: number) {
     updateCalls: 0,
     updateManyCalls: 0,
     throwOnLogCreateCode: null as string | null,
+    throwOnFindUniqueCode: null as string | null,
   };
 
   const tx = {
     user: {
-      findUnique: async () => ({ ...state.user }),
+      findUnique: async () => {
+        if (state.throwOnFindUniqueCode) {
+          const error = new Error("findUnique failed") as Error & {
+            code?: string;
+            meta?: { modelName?: string; column?: string };
+          };
+          error.code = state.throwOnFindUniqueCode;
+          error.meta = { modelName: "User", column: "aiTokenBalance" };
+          throw error;
+        }
+        return { ...state.user };
+      },
       update: async ({ data }: { data: { aiTokenBalance: number } }) => {
         state.updateCalls += 1;
         state.user.aiTokenBalance = data.aiTokenBalance;
@@ -112,6 +124,41 @@ async function run() {
       outputPer1k: 0.03,
     },
   };
+
+  {
+    const { prisma, state } = buildPrismaMock(500);
+    state.throwOnFindUniqueCode = "P2022";
+
+    await assert.rejects(
+      () =>
+        chargeAiUsageForResult({
+          prisma: prisma as never,
+          pricing,
+          user: {
+            id: "u1",
+            plan: "PRO",
+            aiTokenBalance: 500,
+            aiTokenResetAt: state.user.aiTokenResetAt,
+            aiTokenRenewalAt: null,
+          },
+          feature: "tip",
+          result: {
+            payload: { ok: true },
+            model: "gpt-4o-mini",
+            requestId: "req-schema-drift",
+            usage: {
+              prompt_tokens: 40,
+              completion_tokens: 80,
+              total_tokens: 120,
+            },
+          },
+          createHttpError,
+        }),
+      (error: unknown) =>
+        (error as { code?: string; statusCode?: number }).code === "DATABASE_MIGRATIONS_REQUIRED" &&
+        (error as { code?: string; statusCode?: number }).statusCode === 503,
+    );
+  }
 
   {
     const { prisma, state } = buildPrismaMock(500);
@@ -230,7 +277,7 @@ async function run() {
           },
           createHttpError,
         }),
-      (error: unknown) => (error as { code?: string }).code === "INSUFFICIENT_TOKENS"
+      (error: unknown) => (error as { code?: string }).code === "AI_TOKENS_INSUFFICIENT"
     );
 
     assert.equal(state.user.aiTokenBalance, 100);
@@ -280,7 +327,7 @@ async function run() {
   }
 
   {
-    const { prisma, state } = buildPrismaMock(150);
+    const { prisma, state } = buildPrismaMock(500);
 
     const baseParams = {
       prisma: prisma as never,
@@ -288,7 +335,7 @@ async function run() {
       user: {
         id: "u1",
         plan: "PRO",
-        aiTokenBalance: 150,
+        aiTokenBalance: 500,
         aiTokenResetAt: state.user.aiTokenResetAt,
         aiTokenRenewalAt: null,
       },
@@ -306,7 +353,7 @@ async function run() {
           usage: {
             prompt_tokens: 40,
             completion_tokens: 60,
-            total_tokens: 100,
+            total_tokens: 450,
           },
         },
       }),
@@ -319,7 +366,7 @@ async function run() {
           usage: {
             prompt_tokens: 30,
             completion_tokens: 70,
-            total_tokens: 100,
+            total_tokens: 450,
           },
         },
       }),
@@ -329,7 +376,7 @@ async function run() {
     const rejected = [a, b].find((entry) => entry.status === "rejected") as PromiseRejectedResult | undefined;
 
     assert.equal(fulfilledCount, 1);
-    assert.equal((rejected?.reason as { code?: string } | undefined)?.code, "INSUFFICIENT_TOKENS");
+    assert.equal((rejected?.reason as { code?: string } | undefined)?.code, "AI_TOKENS_INSUFFICIENT");
     assert.equal(state.user.aiTokenBalance, 50);
     assert.equal(state.logs.length, 1);
   }

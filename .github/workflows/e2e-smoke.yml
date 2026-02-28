@@ -73,6 +73,7 @@ jobs:
           set -euo pipefail
           echo "Running db:bootstrap with DATABASE_URL=${DATABASE_URL}"
           npm run db:doctor
+          npm run db:migrate
           npm run db:bootstrap
 
       - name: Start API server
