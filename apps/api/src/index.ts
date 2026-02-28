@@ -535,6 +535,27 @@ function verifyStripeSignature(
   }
 }
 
+const TOKENS_PRO = 50_000;
+const TOKENS_DOMAIN = 40_000;
+
+function getPlanTokenAllowance(plan: SubscriptionPlan): number {
+  if (plan === "PRO") return TOKENS_PRO;
+  if (plan === "STRENGTH_AI" || plan === "NUTRI_AI") return TOKENS_DOMAIN;
+  return 0;
+}
+
+const AI_FEATURE_ESTIMATED_TOKENS: Record<string, number> = {
+  training: 800,
+  nutrition: 800,
+  "training-generate": 1200,
+  "nutrition-generate": 1200,
+  tip: 300,
+};
+
+function getEstimatedAiFeatureTokens(feature: string): number {
+  return AI_FEATURE_ESTIMATED_TOKENS[feature] ?? 1;
+}
+
 function getTokenExpiry(days = 30) {
   const next = new Date();
   next.setDate(next.getDate() + days);
@@ -582,7 +603,7 @@ async function applyBillingStateForCustomer(
             ? undefined
             : data.currentPeriodEnd,
         aiTokenBalance: data.aiTokenBalance,
-        aiTokenMonthlyAllowance: data.plan === "FREE" ? 0 : 5000,
+        aiTokenMonthlyAllowance: getPlanTokenAllowance(data.plan),
         aiTokenResetAt: data.aiTokenResetAt,
         aiTokenRenewalAt: data.aiTokenRenewalAt,
       },
@@ -761,19 +782,21 @@ async function syncUserBillingFromStripe(
   const shouldTopUpTokens = tokensExpired || currentTokenBalance <= 0;
   const nextResetAt = currentPeriodEnd ?? getTokenExpiry(30);
   const nextRenewalAt = nextResetAt;
-  const nextBalance = shouldTopUpTokens ? 5000 : currentTokenBalance;
+  const plan = getPlanFromSubscription(activeSubscription) ?? "FREE";
+  const planAllowance = getPlanTokenAllowance(plan);
+  const nextBalance = shouldTopUpTokens ? planAllowance : currentTokenBalance;
 
   return await prisma.user.update({
     where: { id: user.id },
     data: {
-      plan: getPlanFromSubscription(activeSubscription) ?? "FREE",
+      plan,
       subscriptionStatus: activeSubscription.status,
       stripeSubscriptionId: activeSubscription.id,
       currentPeriodEnd: currentPeriodEnd ?? null,
       aiTokenBalance: nextBalance,
       aiTokenResetAt: nextResetAt,
       aiTokenRenewalAt: nextRenewalAt,
-      aiTokenMonthlyAllowance: 5000,
+      aiTokenMonthlyAllowance: planAllowance,
     },
   });
 }
@@ -1630,15 +1653,25 @@ function getEffectiveTokenBalance(user: {
   return Math.max(0, getUserTokenBalance(user));
 }
 
-function assertSufficientAiTokenBalance(user: {
-  aiTokenBalance?: number | null;
-  aiTokenResetAt?: Date | null;
-  aiTokenRenewalAt?: Date | null;
-}) {
+function assertSufficientAiTokenBalance(
+  user: {
+    aiTokenBalance?: number | null;
+    aiTokenResetAt?: Date | null;
+    aiTokenRenewalAt?: Date | null;
+  },
+  minimumRequiredTokens = 1,
+) {
   const effectiveTokens = getEffectiveTokenBalance(user);
   if (effectiveTokens < 1) {
-    throw createHttpError(402, "INSUFFICIENT_TOKENS", {
+    throw createHttpError(403, "AI_TOKENS_EXHAUSTED", {
       message: "No tienes tokens IA",
+    });
+  }
+  if (effectiveTokens < minimumRequiredTokens) {
+    throw createHttpError(403, "AI_TOKENS_INSUFFICIENT", {
+      message: "No tienes tokens IA",
+      requiredTokens: minimumRequiredTokens,
+      availableTokens: effectiveTokens,
     });
   }
   return effectiveTokens;
@@ -5550,6 +5583,16 @@ app.post(
       const payload = event.data?.object;
       let resolvedUserId: string | null = null;
 
+      const eventInserted = await prisma.$executeRaw`
+        INSERT INTO "StripeWebhookEvent" ("id", "type")
+        VALUES (${eventId}, ${eventType})
+        ON CONFLICT ("id") DO NOTHING
+      `;
+      if (Number(eventInserted) === 0) {
+        app.log.info({ eventType, eventId }, "stripe webhook already processed");
+        return reply.status(200).send({ received: true, duplicate: true });
+      }
+
       if (eventType === "checkout.session.completed") {
         const session = payload as {
           metadata?: Record<string, string> | null;
@@ -5620,7 +5663,7 @@ app.post(
             const nextResetAt = currentPeriodEnd ?? getTokenExpiry(30);
             await applyBillingStateForCustomer(customerId, {
               plan: activePlan,
-              aiTokenBalance: 5000,
+              aiTokenBalance: getPlanTokenAllowance(activePlan),
               aiTokenResetAt: nextResetAt,
               aiTokenRenewalAt: nextResetAt,
               subscriptionStatus: activeSubscription.status,
@@ -5632,14 +5675,15 @@ app.post(
                 stripeCustomerId: customerId,
                 plan: activePlan,
                 subscriptionStatus: activeSubscription.status,
-                aiTokenBalance: 5000,
+                aiTokenBalance: getPlanTokenAllowance(activePlan),
                 currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
               },
               "subscription updated",
             );
           } else if (
             eventType === "customer.subscription.deleted" ||
-            cancellationStatuses.has(subscription.status)
+            cancellationStatuses.has(subscription.status) ||
+            !isActiveSubscriptionStatus(subscription.status)
           ) {
             await applyBillingStateForCustomer(customerId, {
               plan: "FREE",
@@ -5696,7 +5740,7 @@ app.post(
           if (customerId) {
             await applyBillingStateForCustomer(customerId, {
               plan: invoicePlan,
-              aiTokenBalance: 5000,
+              aiTokenBalance: getPlanTokenAllowance(invoicePlan),
               aiTokenResetAt: nextResetAt,
               aiTokenRenewalAt: nextRenewalAt,
               subscriptionStatus: subscription?.status ?? null,
@@ -5707,7 +5751,7 @@ app.post(
               {
                 stripeCustomerId: customerId,
                 plan: invoicePlan,
-                aiTokenBalance: 5000,
+                aiTokenBalance: getPlanTokenAllowance(invoicePlan),
                 aiTokenResetAt: nextResetAt?.toISOString() ?? null,
               },
               "invoice paid",
@@ -5729,30 +5773,27 @@ app.post(
             { method: "GET" },
           );
         }
-        const invoicePlan = getPlanFromInvoice(fullInvoice);
-        if (invoicePlan) {
-          const customerId = fullInvoice.customer ?? null;
-          if (customerId) {
-            await applyBillingStateForCustomer(customerId, {
+        const customerId = fullInvoice.customer ?? null;
+        if (customerId) {
+          await applyBillingStateForCustomer(customerId, {
+            plan: "FREE",
+            aiTokenBalance: 0,
+            aiTokenResetAt: null,
+            aiTokenRenewalAt: null,
+            subscriptionStatus: "payment_failed",
+            stripeSubscriptionId: null,
+            currentPeriodEnd: null,
+          });
+          app.log.info(
+            {
+              stripeCustomerId: customerId,
               plan: "FREE",
               aiTokenBalance: 0,
               aiTokenResetAt: null,
-              aiTokenRenewalAt: null,
               subscriptionStatus: "payment_failed",
-              stripeSubscriptionId: null,
-              currentPeriodEnd: null,
-            });
-            app.log.info(
-              {
-                stripeCustomerId: customerId,
-                plan: "FREE",
-                aiTokenBalance: 0,
-                aiTokenResetAt: null,
-                subscriptionStatus: "payment_failed",
-              },
-              "invoice payment failed",
-            );
-          }
+            },
+            "invoice payment failed",
+          );
         }
       }
 
@@ -6402,6 +6443,9 @@ app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (requ
     const effectiveTokens = getEffectiveTokenBalance(user);
     const aiMeta = getAiTokenPayload(user, entitlements);
     const shouldChargeAi = !entitlements.role.adminOverride;
+    if (shouldChargeAi) {
+      assertSufficientAiTokenBalance(user, getEstimatedAiFeatureTokens("training"));
+    }
 
     if (template) {
       const normalized = normalizeTrainingPlanDays(template, startDate, daysCount, expectedDays);
@@ -6711,6 +6755,9 @@ app.post(
       const effectiveTokens = getEffectiveTokenBalance(user);
       const aiMeta = getAiTokenPayload(user, entitlements);
       const shouldChargeAi = !entitlements.role.adminOverride;
+      if (shouldChargeAi) {
+        assertSufficientAiTokenBalance(user, getEstimatedAiFeatureTokens("nutrition"));
+      }
 
       if (template) {
         const normalized = normalizeNutritionPlanDays(
@@ -7141,7 +7188,7 @@ app.post(
         authRequest.currentEntitlements ?? getUserEntitlements(user);
       const shouldChargeAi = !entitlements.role.adminOverride;
       if (shouldChargeAi) {
-        assertSufficientAiTokenBalance(user);
+        assertSufficientAiTokenBalance(user, getEstimatedAiFeatureTokens("training-generate"));
       }
       const payload = aiGenerateTrainingSchema.parse(request.body);
       if (payload.userId && payload.userId !== user.id) {

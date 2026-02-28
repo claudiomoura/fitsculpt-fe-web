@@ -56,6 +56,19 @@ type UsageTotals = {
 
 export type AiUsageTotals = UsageTotals;
 
+const FEATURE_ESTIMATED_TOKEN_COST: Record<string, number> = {
+  "training-generate": 1200,
+  "nutrition-generate": 1200,
+  training: 800,
+  nutrition: 800,
+  tip: 300,
+};
+
+function getFeatureEstimatedTokenCost(feature: string): number {
+  return FEATURE_ESTIMATED_TOKEN_COST[feature] ?? 1;
+}
+
+
 export function extractExactProviderUsage(usage?: OpenAiUsage | null): UsageTotals | undefined {
   if (!usage) return undefined;
   const promptRaw = usage.prompt_tokens ?? usage.input_tokens;
@@ -262,7 +275,7 @@ async function debitAiTokensTx(
       aiTokenRenewalAt: user.aiTokenRenewalAt,
     });
     if (effectiveTokens <= 0) {
-      throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
+      throw createHttpError(403, "AI_TOKENS_EXHAUSTED", { message: "No tienes tokens IA" });
     }
 
     if (requestId) {
@@ -329,7 +342,7 @@ async function debitAiTokensTx(
         latestEffectiveTokens,
         requestedTokens: tokensToDebit,
       });
-      throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
+      throw createHttpError(403, "AI_TOKENS_INSUFFICIENT", { message: "No tienes tokens IA" });
     }
 
     try {
@@ -418,7 +431,11 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
   }
 
   if (!user.isAdminOverride && getEffectiveTokens(user) <= 0) {
-    throw createHttpError(402, "INSUFFICIENT_TOKENS");
+    throw createHttpError(403, "AI_TOKENS_EXHAUSTED");
+  }
+
+  if (!user.isAdminOverride && getEffectiveTokens(user) < getFeatureEstimatedTokenCost(feature)) {
+    throw createHttpError(403, "AI_TOKENS_INSUFFICIENT");
   }
 
   const result = await execute();
@@ -467,7 +484,11 @@ export async function chargeAiUsageForResult(params: ChargeAiUsageForResultParam
   }
 
   if (!user.isAdminOverride && getEffectiveTokens(user) <= 0) {
-    throw createHttpError(402, "INSUFFICIENT_TOKENS");
+    throw createHttpError(403, "AI_TOKENS_EXHAUSTED");
+  }
+
+  if (!user.isAdminOverride && getEffectiveTokens(user) < getFeatureEstimatedTokenCost(feature)) {
+    throw createHttpError(403, "AI_TOKENS_INSUFFICIENT");
   }
 
   const { costCents, totals, normalizedModel, meta: mergedMeta } = buildChargeDetails({
