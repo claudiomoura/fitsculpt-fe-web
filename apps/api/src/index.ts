@@ -53,6 +53,7 @@ import {
   resolveTrainingPlanExerciseIds as resolveTrainingPlanExerciseIdsWithCatalog,
 } from "./ai/trainingPlanExerciseResolution.js";
 import { buildDeterministicTrainingFallbackPlan } from "./ai/training-plan/fallbackBuilder.js";
+import { mapExperienceLevelToTrainingPlanLevel } from "./ai/training-plan/experienceLevelMapping.js";
 import {
   applyNutritionPlanVarietyGuard,
   resolveNutritionPlanRecipeIds,
@@ -7289,6 +7290,7 @@ app.post(
 
       const trainingInput = {
         ...payload,
+        level: mapExperienceLevelToTrainingPlanLevel(payload.experienceLevel),
         daysPerWeek: expectedDays,
         daysCount: payload.daysCount ?? expectedDays,
       };
