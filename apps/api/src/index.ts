@@ -873,9 +873,13 @@ function isBootstrapAdmin(email: string): boolean {
   return bootstrapAdminEmails.has(email.trim().toLowerCase());
 }
 
-async function requireGymManagerForGym(userId: string, gymId: string) {
+async function requireGymManagerForGym(user: { id: string; role: string; email: string }, gymId: string) {
+  if (isGlobalAdminUser(user)) {
+    return true;
+  }
+
   const managerMembership = await prisma.gymMembership.findUnique({
-    where: { gymId_userId: { gymId, userId } },
+    where: { gymId_userId: { gymId, userId: user.id } },
     select: {
       id: true,
       gymId: true,
@@ -899,7 +903,7 @@ async function requireGymManagerAccess(user: { id: string; role: string; email: 
     return;
   }
 
-  await requireGymManagerForGym(user.id, gymId);
+  await requireGymManagerForGym(user, gymId);
 }
 
 async function requireActiveGymManagerMembership(userId: string) {
@@ -8390,7 +8394,7 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
       return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be accepted." });
     }
     if (!isGlobalAdmin) {
-      await requireGymManagerForGym(user.id, membership.gymId);
+      await requireGymManagerForGym(user, membership.gymId);
     }
 
     const activeMembershipElsewhere = await prisma.gymMembership.findFirst({
@@ -8460,7 +8464,7 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
       return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be rejected." });
     }
     if (!isGlobalAdmin) {
-      await requireGymManagerForGym(user.id, membership.gymId);
+      await requireGymManagerForGym(user, membership.gymId);
     }
     const updateResult = await prisma.gymMembership.updateMany({
       where: { id: membership.id, status: "PENDING" },
