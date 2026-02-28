@@ -87,6 +87,7 @@ jobs:
           --health-retries 12
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -128,6 +129,7 @@ jobs:
         working-directory: apps/api
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
           CORS_ORIGIN: http://127.0.0.1:3000
@@ -143,6 +145,8 @@ jobs:
         env:
           PORT: 4000
           HOST: 127.0.0.1
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
           CORS_ORIGIN: http://127.0.0.1:3000
@@ -165,6 +169,29 @@ jobs:
           echo "API did not become healthy in time"
           exit 1
 
+      - name: Build web app
+        working-directory: apps/web
+        run: npm run build
+
+      - name: Start web server
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/web.log 2>&1 &
+
+      - name: Wait for web health
+        run: |
+          set -euo pipefail
+          for i in {1..60}; do
+            if curl --silent --fail http://127.0.0.1:3000 > /dev/null; then
+              echo "Web is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Web did not become ready in time"
+          exit 1
+
       - name: Install Playwright browser
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
@@ -172,8 +199,20 @@ jobs:
       - name: Run E2E smoke tests
         working-directory: apps/web
         env:
+          CI: "false"
           E2E_BASE_URL: http://127.0.0.1:3000
           E2E_BACKEND_URL: http://127.0.0.1:4000
           E2E_DEMO_USER_EMAIL: demo.user@fitsculpt.local
           E2E_DEMO_USER_PASSWORD: DemoUser123!
         run: npm run e2e
+
+      - name: Upload E2E failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-logs-and-report
+          path: |
+            /tmp/api-dev.log
+            /tmp/web.log
+            apps/web/playwright-report
+          if-no-files-found: ignore
