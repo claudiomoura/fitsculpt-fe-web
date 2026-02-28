@@ -9,6 +9,33 @@ const DEMO_USER_EMAIL = process.env.DEMO_USER_EMAIL ?? "demo.user@fitsculpt.loca
 const DEMO_USER_PASSWORD = process.env.DEMO_USER_PASSWORD ?? "DemoUser123!";
 const DEMO_USER_NAME = process.env.DEMO_USER_NAME ?? "Demo User";
 const BCRYPT_DEMO_SALT = "$2a$10$CwTycUXWue0Thq9StjUM0u";
+const DEMO_TOKENS_PAID = 120;
+
+export type DemoTokenState = "empty" | "paid";
+
+export type DemoResetOptions = {
+  tokenState?: DemoTokenState;
+};
+
+function getDemoTokenSeed(tokenState: DemoTokenState) {
+  if (tokenState === "paid") {
+    const renewalAt = new Date();
+    renewalAt.setDate(renewalAt.getDate() + 30);
+    return {
+      aiTokenBalance: DEMO_TOKENS_PAID,
+      aiTokenMonthlyAllowance: DEMO_TOKENS_PAID,
+      aiTokenRenewalAt: renewalAt,
+      aiTokenResetAt: renewalAt,
+    };
+  }
+
+  return {
+    aiTokenBalance: 0,
+    aiTokenMonthlyAllowance: DEMO_TOKENS_PAID,
+    aiTokenRenewalAt: null,
+    aiTokenResetAt: null,
+  };
+}
 
 const DEMO_RECIPES = [
   {
@@ -106,9 +133,11 @@ const DEMO_EXERCISES = [
   },
 ] as const;
 
-export async function resetDemoState(prisma: PrismaClient) {
+export async function resetDemoState(prisma: PrismaClient, options: DemoResetOptions = {}) {
+  const tokenState = options.tokenState ?? "empty";
   const now = new Date();
   const passwordHash = await bcrypt.hash(DEMO_USER_PASSWORD, BCRYPT_DEMO_SALT);
+  const tokenSeed = getDemoTokenSeed(tokenState);
 
   await prisma.$transaction(async (tx) => {
     await tx.workout.deleteMany({ where: { id: DEMO_WORKOUT_ID } });
@@ -165,6 +194,10 @@ export async function resetDemoState(prisma: PrismaClient) {
         provider: "email",
         role: "USER",
         plan: "PRO",
+        aiTokenBalance: tokenSeed.aiTokenBalance,
+        aiTokenMonthlyAllowance: tokenSeed.aiTokenMonthlyAllowance,
+        aiTokenRenewalAt: tokenSeed.aiTokenRenewalAt,
+        aiTokenResetAt: tokenSeed.aiTokenResetAt,
         emailVerifiedAt: now,
       },
     });
@@ -179,6 +212,29 @@ export async function resetDemoState(prisma: PrismaClient) {
           photos: [],
           workouts: [],
         },
+        profile: {
+          sex: "MALE",
+          age: 29,
+          heightCm: 178,
+          weightKg: 79,
+          activity: "moderate",
+          goal: "maintain",
+          trainingPreferences: {
+            level: "intermediate",
+            daysPerWeek: 4,
+            sessionTime: "medium",
+            focus: "fullBody",
+            equipment: "gym",
+          },
+          nutritionPreferences: {
+            mealsPerDay: 4,
+            dietType: "balanced",
+            cookingTime: "medium",
+            mealDistribution: {
+              preset: "balanced",
+            },
+          },
+        },
       },
       update: {
         tracking: {
@@ -186,6 +242,29 @@ export async function resetDemoState(prisma: PrismaClient) {
           weights: [],
           photos: [],
           workouts: [],
+        },
+        profile: {
+          sex: "MALE",
+          age: 29,
+          heightCm: 178,
+          weightKg: 79,
+          activity: "moderate",
+          goal: "maintain",
+          trainingPreferences: {
+            level: "intermediate",
+            daysPerWeek: 4,
+            sessionTime: "medium",
+            focus: "fullBody",
+            equipment: "gym",
+          },
+          nutritionPreferences: {
+            mealsPerDay: 4,
+            dietType: "balanced",
+            cookingTime: "medium",
+            mealDistribution: {
+              preset: "balanced",
+            },
+          },
         },
       },
     });
@@ -294,5 +373,7 @@ export async function resetDemoState(prisma: PrismaClient) {
     trainingPlanId: DEMO_TRAINING_PLAN_ID,
     nutritionPlanId: DEMO_NUTRITION_PLAN_ID,
     workoutId: DEMO_WORKOUT_ID,
+    tokenState,
+    aiTokenBalance: tokenSeed.aiTokenBalance,
   };
 }

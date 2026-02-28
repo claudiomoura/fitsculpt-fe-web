@@ -4,12 +4,12 @@ const defaultBackendURL = 'http://127.0.0.1:4000';
 const defaultDemoUserEmail = 'demo.user@fitsculpt.local';
 const defaultDemoUserPassword = 'DemoUser123!';
 
-export async function resetDemoState(): Promise<void> {
+export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Promise<void> {
   const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
   const resetRequest = await request.newContext({ baseURL: backendURL });
 
   try {
-    const resetResponse = await resetRequest.post('/dev/reset-demo');
+    const resetResponse = await resetRequest.post(`/dev/reset-demo?tokenState=${tokenState}`);
     expect(resetResponse.ok(), 'demo reset endpoint must be available before E2E').toBeTruthy();
   } finally {
     await resetRequest.dispose();

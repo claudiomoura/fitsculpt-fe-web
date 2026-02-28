@@ -11793,13 +11793,20 @@ app.post("/dev/seed-recipes", async (_request, reply) => {
   }
 });
 
-app.post("/dev/reset-demo", async (_request, reply) => {
+app.post("/dev/reset-demo", async (request, reply) => {
   try {
     if (process.env.NODE_ENV === "production") {
       return reply.status(403).send({ error: "FORBIDDEN" });
     }
 
-    const result = await resetDemoState(prisma);
+    const tokenState =
+      request.query &&
+      typeof (request.query as { tokenState?: unknown }).tokenState === "string" &&
+      ["empty", "paid"].includes((request.query as { tokenState?: string }).tokenState ?? "")
+        ? ((request.query as { tokenState?: "empty" | "paid" }).tokenState ?? "empty")
+        : "empty";
+
+    const result = await resetDemoState(prisma, { tokenState });
     return reply.status(200).send({ ok: true, ...result });
   } catch (err) {
     app.log.error({ err }, "reset demo failed");
