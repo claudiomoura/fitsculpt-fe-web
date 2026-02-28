@@ -137,7 +137,7 @@ export const sidebarUser: NavSectionGroup[] = [
       { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
       { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
-      { id: "gym", href: "/app/gym", labelKey: "nav.gym", feature: "strength", upgradeHref: "/pricing" },
+      { id: "gym", href: "/app/gym", labelKey: "nav.gym" },
     ],
   },
 ];

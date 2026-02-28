@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 function notSupported() {
-  return NextResponse.json({ error: "NOT_SUPPORTED" }, { status: 501 });
+  return NextResponse.json({ error: "FEATURE_NOT_AVAILABLE_IN_BETA" }, { status: 403 });
 }
 
 export async function GET() {

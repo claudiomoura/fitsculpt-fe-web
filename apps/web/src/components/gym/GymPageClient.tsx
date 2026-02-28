@@ -177,6 +177,11 @@ export default function GymPageClient() {
   };
 
   const handleLeaveGym = async () => {
+    if (!gymServiceCapabilities.supportsLeaveGym) {
+      notify({ title: t("common.error"), description: "No disponible en beta", variant: "error" });
+      return;
+    }
+
     if (isLeavingGym) return;
 
     setIsLeavingGym(true);

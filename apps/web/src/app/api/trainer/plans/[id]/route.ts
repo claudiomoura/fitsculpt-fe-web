@@ -31,9 +31,9 @@ export async function OPTIONS() {
 export async function PUT() {
   return NextResponse.json(
     {
-      code: "NOT_SUPPORTED",
+      code: "FEATURE_NOT_AVAILABLE_IN_BETA",
       message: "Updating trainer plans with PUT is not supported by backend contract. Use PATCH.",
     },
-    { status: 405 },
+    { status: 403 },
   );
 }
