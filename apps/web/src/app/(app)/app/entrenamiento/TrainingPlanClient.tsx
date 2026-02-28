@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
+import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { hasStrengthAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { AiPlanRequestError, requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
@@ -1650,20 +1651,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
 
 
-      <Modal
+      <AiTokensExhaustedModal
         open={tokensExhaustedModalOpen}
         onClose={() => setTokensExhaustedModalOpen(false)}
         title={t("ai.tokensExhaustedTitle")}
         description={t("ai.tokensExhaustedDescription")}
-        footer={(
-          <div className="inline-actions-sm">
-            <Button variant="secondary" onClick={() => setTokensExhaustedModalOpen(false)}>{t("ui.close")}</Button>
-            <ButtonLink href="/app/settings/billing">{t("billing.manageBilling")}</ButtonLink>
-          </div>
-        )}
-      >
-        <p className="muted m-0">{t("ai.insufficientTokens")}</p>
-      </Modal>
+        body={t("ai.insufficientTokens")}
+        closeLabel={t("ui.close")}
+        ctaLabel={t("billing.manageBilling")}
+      />
 
       <Modal
         open={Boolean(exerciseDetail)}

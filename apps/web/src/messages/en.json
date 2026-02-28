@@ -2052,7 +2052,9 @@
     "tokensReset": "Resets",
     "insufficientTokens": "You don't have enough tokens to use AI.",
     "notPro": "AI generation is a Pro feature. Upgrade to Pro to use it.",
-    "tokenConsumed": "1 AI token was consumed for this usage"
+    "tokenConsumed": "1 AI token was consumed for this usage",
+    "tokensExhaustedTitle": "AI tokens exhausted",
+    "tokensExhaustedDescription": "You ran out of AI tokens. Buy more to keep going."
   },
   "billing": {
     "title": "Billing",
