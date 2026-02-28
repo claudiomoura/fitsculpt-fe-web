@@ -8,7 +8,7 @@ on:
 
 jobs:
   web-gates:
-    name: Web (install/build/typecheck/tests)
+    name: Web gates
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -37,7 +37,7 @@ jobs:
         run: npm test
 
   api-gates:
-    name: API (install/build/typecheck/tests)
+    name: API gates
     runs-on: ubuntu-latest
     defaults:
       run:

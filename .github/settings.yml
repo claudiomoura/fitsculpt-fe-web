@@ -1,0 +1,14 @@
+# Managed by Settings app (https://github.com/probot/settings)
+# Ensures dev branch cannot be merged without Beta audit gates passing.
+branches:
+  - name: dev
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - Web gates
+          - API gates
+          - E2E smoke
+      enforce_admins: false
+      required_pull_request_reviews: null
+      restrictions: null
