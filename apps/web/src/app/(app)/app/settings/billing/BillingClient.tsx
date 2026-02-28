@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import {
   getBillingPlans,
   postBillingCheckout,
@@ -110,6 +111,7 @@ export default function BillingClient() {
   const checkoutStatus = searchParams.get("checkout");
 
   const { isAdmin, isDev } = useAccess();
+  const { reload: refetchProfile } = useAuthEntitlements();
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
   const [gymMembership, setGymMembership] = useState<GymMembership>({ state: "unknown", gymId: null, gymName: null });
@@ -204,6 +206,7 @@ setPlans([]);
       }
 
       if (shouldSync) {
+        await refetchProfile();
         router.replace("/app/settings/billing");
       }
     } catch {
@@ -217,7 +220,7 @@ setPlans([]);
     } finally {
       setLoading(false);
     }
-  }, [checkoutStatus, router, t]);
+  }, [checkoutStatus, refetchProfile, router, t]);
 
   useEffect(() => {
     void loadProfile();
