@@ -7,7 +7,7 @@
 
 ## Instrucciones rápidas
 
-1. Ejecutar los 7 pasos en orden.
+1. Ejecutar los 8 pasos en orden.
 2. Marcar **PASS** o **FAIL** en cada paso.
 3. Si hay FAIL, anotar evidencia mínima (pantalla / error / bloqueador).
 4. Criterio global: **Beta Ready = todos los pasos en PASS**.
@@ -23,8 +23,9 @@
 | 3 | Gym estado (NONE / PENDING / ACTIVE) | Validar comportamiento para los 3 estados de gym (cuentas/fixtures distintas o simulación acordada por equipo). | Para cada estado se muestra UI/estado correcto, sin mensajes contradictorios ni acciones rotas. | [ ] | [ ] | NONE: / PENDING: / ACTIVE: |
 | 4 | Biblioteca | Abrir Biblioteca, listar contenido y entrar al detalle de al menos un item. | Lista visible, contenido carga y detalle abre correctamente sin errores de render/API visibles. | [ ] | [ ] | |
 | 5 | Tracking | Registrar una acción de tracking (ej: progreso/entrada) y validar persistencia básica tras refrescar o volver a la vista. | Registro guardado y visible luego de refresco/navegación básica. | [ ] | [ ] | |
-| 6 | Generación IA (con tokens) | Ejecutar una generación IA real consumiendo tokens (prompt simple controlado). | Respuesta generada correctamente y consumo de tokens reflejado según reglas actuales. | [ ] | [ ] | Tokens antes/después: |
-| 7 | Billing status básico | Consultar estado de billing/suscripción en la vista correspondiente. | Estado visible y coherente (ej: active/trial/past_due) sin error de carga. | [ ] | [ ] | |
+| 6 | IA bloqueada con 0 tokens | Configurar usuario con `aiTokenBalance=0` y pulsar "Generar con IA" en Entrenamiento o Nutrición. | Se muestra modal de tokens agotados y **no se ejecuta** request a `/api/ai/*/generate`. | [ ] | [ ] | Endpoint verificado: /api/ai/... |
+| 7 | Lifecycle tokens (pago/cancelación) | Simular pago exitoso (grant) y cancelación (reset), luego consultar `/api/auth/me` y generar IA una vez. | Pago: balance sube (>0). Cancelación: balance vuelve a 0. Con >0 IA genera; con 0 IA queda bloqueada. | [ ] | [ ] | Balance grant/reset: __ / __ |
+| 8 | Billing status básico | Consultar estado de billing/suscripción en la vista correspondiente. | Estado visible y coherente (ej: active/trial/past_due) sin error de carga. | [ ] | [ ] | |
 
 ---
 
