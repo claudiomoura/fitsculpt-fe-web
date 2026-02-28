@@ -1467,41 +1467,26 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   );
 
   const baseCalories = plan?.dailyCalories ?? 2000;
-  const targetKcal = clampInt(baseCalories, 600, 4000, 2000);
+  const calories = clampInt(baseCalories, 1200, 4000, 2000);
 
-  // 🔥 Forzar macroTargets en GRAMOS (lo que normalmente espera el backend)
-  const proteinRatio = 0.3;
-  const carbsRatio = 0.4;
-  const fatRatio = 0.3;
-
-  const proteinGrams = Math.round((targetKcal * proteinRatio) / 4);
-  const carbsGrams = Math.round((targetKcal * carbsRatio) / 4);
-  const fatGrams = Math.round((targetKcal * fatRatio) / 9);
-
-const macroTargets = {
-  proteinG: proteinGrams,
-  carbsG: carbsGrams,
-  fatsG: fatGrams,
-};
-
-const data = await generateNutritionPlan({
-  name: profile.name || undefined,
-  age: profile.age ?? undefined,
-  sex: profile.sex ?? undefined,
-  goal: profile.goal ?? undefined,
-      mealsPerDay,
-      targetKcal,
-      macroTargets,
-      startDate,
-      daysCount: 7,
-      dietType: profile.nutritionPreferences.dietType,
-      allergies: mode === "simple" ? [] : profile.nutritionPreferences.allergies,
-      preferredFoods: mode === "simple" ? "" : profile.nutritionPreferences.preferredFoods,
-      dislikedFoods: mode === "simple" ? "" : profile.nutritionPreferences.dislikedFoods,
-      mealDistribution:
-        mode === "simple"
-          ? { preset: "balanced", percentages: [25, 25, 30, 20] }
-          : profile.nutritionPreferences.mealDistribution,
+  const data = await generateNutritionPlan({
+    name: profile.name || undefined,
+    age: profile.age ?? 30,
+    sex: profile.sex === "male" || profile.sex === "female" ? profile.sex : "male",
+    goal: profile.goal === "cut" || profile.goal === "maintain" || profile.goal === "bulk" ? profile.goal : "maintain",
+    mealsPerDay,
+    calories,
+    startDate,
+    daysCount: 7,
+    dietType: profile.nutritionPreferences.dietType || undefined,
+    dietaryRestrictions: mode === "simple" ? "" : (profile.nutritionPreferences.dietaryPrefs || ""),
+    allergies: mode === "simple" ? [] : profile.nutritionPreferences.allergies,
+    preferredFoods: mode === "simple" ? "" : profile.nutritionPreferences.preferredFoods,
+    dislikedFoods: mode === "simple" ? "" : profile.nutritionPreferences.dislikedFoods,
+    mealDistribution:
+      mode === "simple"
+        ? { preset: "balanced", percentages: [25, 25, 30, 20] }
+        : profile.nutritionPreferences.mealDistribution,
   });
       const generatedPlan = data.plan ?? (data as unknown as NutritionPlan);
       if (typeof data.aiTokenBalance === "number") {

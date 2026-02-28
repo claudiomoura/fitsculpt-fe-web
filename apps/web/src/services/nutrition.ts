@@ -1,18 +1,14 @@
 export type NutritionGenerateRequest = {
   name?: string;
-  age?: number;
-  sex?: string;
-  goal?: string;
+  age: number;
+  sex: "male" | "female";
+  goal: "cut" | "maintain" | "bulk";
   mealsPerDay: number;
-  targetKcal: number;
-  macroTargets: {
-    proteinG: number;
-    carbsG: number;
-    fatsG: number;
-  };
+  calories: number;
   startDate: string;
   daysCount: number;
   dietType?: string;
+  dietaryRestrictions?: string;
   allergies?: string[];
   preferredFoods?: string;
   dislikedFoods?: string;
