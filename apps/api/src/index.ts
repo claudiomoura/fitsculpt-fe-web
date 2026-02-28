@@ -2690,19 +2690,36 @@ async function persistTrainingPlanWithClient(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   startDate: Date,
   daysCount: number,
-  request: z.infer<typeof aiTrainingSchema>,
+  request: {
+    goal: z.infer<typeof aiTrainingSchema>["goal"];
+    daysPerWeek: number;
+    level?: z.infer<typeof aiTrainingSchema>["level"];
+    experienceLevel?: z.infer<typeof aiGenerateTrainingSchema>["experienceLevel"];
+    focus?: z.infer<typeof aiTrainingSchema>["focus"];
+    equipment?: z.infer<typeof aiTrainingSchema>["equipment"];
+  },
 ) {
-  const planData = {
+  const resolvedLevel =
+    request.level ??
+    (request.experienceLevel
+      ? mapExperienceLevelToTrainingPlanLevel(request.experienceLevel)
+      : "beginner");
+
+  const basePlanData = {
     userId,
     title: plan.title,
-    notes: plan.notes,
     goal: request.goal,
-    level: request.level,
+    level: resolvedLevel,
     daysPerWeek: request.daysPerWeek,
-    focus: request.focus,
-    equipment: request.equipment,
+    focus: request.focus ?? "full",
+    equipment: request.equipment ?? "gym",
     startDate,
     daysCount,
+  };
+
+  const planData = {
+    ...basePlanData,
+    ...(typeof plan.notes === "string" ? { notes: plan.notes } : {}),
   };
 
   const existingPlan = await tx.trainingPlan.findFirst({
@@ -2722,13 +2739,8 @@ async function persistTrainingPlanWithClient(
     ? await tx.trainingPlan.update({
         where: { id: existingPlan.id },
         data: {
-          title: plan.title,
-          notes: plan.notes,
-          goal: request.goal,
-          level: request.level,
-          daysPerWeek: request.daysPerWeek,
-          focus: request.focus,
-          equipment: request.equipment,
+          ...basePlanData,
+          ...(typeof plan.notes === "string" ? { notes: plan.notes } : {}),
         },
         select: { id: true },
       })
@@ -2782,7 +2794,14 @@ async function saveTrainingPlan(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   startDate: Date,
   daysCount: number,
-  request: z.infer<typeof aiTrainingSchema>,
+  request: {
+    goal: z.infer<typeof aiTrainingSchema>["goal"];
+    daysPerWeek: number;
+    level?: z.infer<typeof aiTrainingSchema>["level"];
+    experienceLevel?: z.infer<typeof aiGenerateTrainingSchema>["experienceLevel"];
+    focus?: z.infer<typeof aiTrainingSchema>["focus"];
+    equipment?: z.infer<typeof aiTrainingSchema>["equipment"];
+  },
 ) {
   const persistPlan = async () => {
     if ("$transaction" in db && typeof db.$transaction === "function") {
