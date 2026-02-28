@@ -138,6 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run db:doctor
+          npm run db:migrate
           npm run db:bootstrap
 
       - name: Start API server

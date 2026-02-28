@@ -57,6 +57,26 @@ async function testMissingMigrationsWithTablesFails() {
   assert(Boolean(baselineLog), "Expected baseline-required boot message");
 }
 
+async function testMissingRequiredMigrationsFails() {
+  const entries: LoggerEntry[] = [];
+  const logger = createLogger(entries);
+  const responses = [1, [{ exists: true }], [{ migration_name: "20260118005910_init" }]];
+  const prisma = {
+    $queryRaw: async () => responses.shift(),
+  };
+
+  let thrown = false;
+  try {
+    await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
+  } catch (error) {
+    thrown = (error as Error).message === "DATABASE_MIGRATIONS_REQUIRED";
+  }
+
+  assert(thrown, "Expected DATABASE_MIGRATIONS_REQUIRED when required migrations are missing");
+  const missingMigrationLog = entries.find((entry) => entry.msg.includes("required migrations are missing"));
+  assert(Boolean(missingMigrationLog), "Expected required-migrations boot message");
+}
+
 async function testHappyPathPasses() {
   const entries: LoggerEntry[] = [];
   const logger = createLogger(entries);
@@ -73,6 +93,7 @@ async function testHappyPathPasses() {
 
 await testP1000LogsFriendlyError();
 await testMissingMigrationsWithTablesFails();
+await testMissingRequiredMigrationsFails();
 await testHappyPathPasses();
 
 console.log("dbPreflight tests passed");

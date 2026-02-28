@@ -15,8 +15,14 @@ type DbPreflightContext = {
 export async function runDatabasePreflight(prisma: PrismaClient, logger: BootLogger, context: DbPreflightContext) {
   await assertDatabaseCredentials(prisma, logger, context);
   await assertDatabaseBaseline(prisma, logger, context);
+  await assertRequiredMigrations(prisma, logger, context);
   logger.info({ ...context }, "Database preflight completed");
 }
+
+const REQUIRED_MIGRATIONS = [
+  "20260228120000_ai_usage_log_repair_columns",
+  "20260228153000_add_stripe_webhook_event_idempotency",
+];
 
 async function assertDatabaseCredentials(prisma: PrismaClient, logger: BootLogger, context: DbPreflightContext) {
   try {
@@ -74,6 +80,31 @@ async function assertDatabaseBaseline(prisma: PrismaClient, logger: BootLogger, 
   throw new Error("DATABASE_BASELINE_REQUIRED");
 }
 
+async function assertRequiredMigrations(prisma: PrismaClient, logger: BootLogger, context: DbPreflightContext) {
+  const appliedRows = await prisma.$queryRaw<Array<{ migration_name: string }>>`
+    SELECT migration_name
+    FROM "_prisma_migrations"
+    WHERE finished_at IS NOT NULL
+  `;
+  const applied = new Set(appliedRows.map((row) => row.migration_name));
+  const missingMigrations = REQUIRED_MIGRATIONS.filter((migrationName) => !applied.has(migrationName));
+
+  if (missingMigrations.length === 0) {
+    return;
+  }
+
+  logger.error(
+    {
+      ...context,
+      requiredMigrations: REQUIRED_MIGRATIONS,
+      missingMigrations,
+      hint: "Execute `prisma migrate deploy` before starting the API",
+    },
+    "Database preflight failed: required migrations are missing",
+  );
+  throw new Error("DATABASE_MIGRATIONS_REQUIRED");
+}
+
 function isPrismaErrorCode(error: unknown, code: string) {
   if (!error || typeof error !== "object") {
     return false;
@@ -81,4 +112,3 @@ function isPrismaErrorCode(error: unknown, code: string) {
   const typed = error as { errorCode?: string };
   return typed.errorCode === code;
 }
-

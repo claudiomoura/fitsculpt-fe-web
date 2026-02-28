@@ -54,6 +54,12 @@ type UsageTotals = {
   totalTokens: number;
 };
 
+type PrismaLikeError = {
+  code?: string;
+  message?: string;
+  meta?: { modelName?: string; column?: string; target?: unknown };
+};
+
 export type AiUsageTotals = UsageTotals;
 
 const FEATURE_ESTIMATED_TOKEN_COST: Record<string, number> = {
@@ -147,12 +153,7 @@ export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
       totalTokens: totals.totalTokens,
     });
   } catch (error) {
-    const typedError = error as {
-      name?: string;
-      message?: string;
-      code?: string;
-      meta?: { modelName?: string; column?: string; target?: unknown };
-    };
+    const typedError = error as PrismaLikeError & { name?: string };
     console.warn("AI usage persist failed but continued", {
       feature: params.feature,
       step: "usage_log_create",
@@ -171,6 +172,21 @@ export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
       throw error;
     }
   }
+}
+
+function isMigrationRequiredPrismaError(error: unknown): boolean {
+  const typed = error as PrismaLikeError;
+  return typed?.code === "P2022";
+}
+
+function logMigrationRequiredError(error: unknown, payload: { step: string; userId: string; feature: string; requestId?: string | null }) {
+  const typedError = error as PrismaLikeError;
+  console.error("AI usage charge failed: required DB migrations missing", {
+    ...payload,
+    prisma_code: typedError?.code,
+    prisma_model: typedError?.meta?.modelName,
+    prisma_column: typedError?.meta?.column,
+  });
 }
 
 function getEffectiveTokens(user: { aiTokenBalance: number; aiTokenResetAt: Date | null; aiTokenRenewalAt: Date | null }) {
@@ -417,10 +433,26 @@ async function debitAiTokensTx(
   };
 
   if ("$transaction" in prisma && typeof prisma.$transaction === "function") {
-    return prisma.$transaction(async (tx) => runDebit(tx));
+    try {
+      return await prisma.$transaction(async (tx) => runDebit(tx));
+    } catch (error) {
+      if (isMigrationRequiredPrismaError(error)) {
+        logMigrationRequiredError(error, { step: "debit_ai_tokens", userId, feature, requestId: requestId ?? null });
+        throw createHttpError(503, "DATABASE_MIGRATIONS_REQUIRED");
+      }
+      throw error;
+    }
   }
 
-  return runDebit(prisma);
+  try {
+    return await runDebit(prisma);
+  } catch (error) {
+    if (isMigrationRequiredPrismaError(error)) {
+      logMigrationRequiredError(error, { step: "debit_ai_tokens", userId, feature, requestId: requestId ?? null });
+      throw createHttpError(503, "DATABASE_MIGRATIONS_REQUIRED");
+    }
+    throw error;
+  }
 }
 
 export async function chargeAiUsage(params: ChargeAiUsageParams) {
