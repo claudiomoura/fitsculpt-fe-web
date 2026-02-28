@@ -332,6 +332,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiConfirmSaving, setAiConfirmSaving] = useState(false);
   const [aiPreviewPlan, setAiPreviewPlan] = useState<TrainingPlan | null>(null);
   const [aiActionableError, setAiActionableError] = useState<string | null>(null);
+  const [tokensExhaustedModalOpen, setTokensExhaustedModalOpen] = useState(false);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
   const [canManageManualDays] = useState<boolean>(false);
@@ -743,6 +744,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     if (!aiEntitled) return;
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
       setAiActionableError(t("ai.insufficientTokens"));
+      setTokensExhaustedModalOpen(true);
       return;
     }
     if (!isProfileComplete(profile)) {
@@ -791,6 +793,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const backendMessage = err instanceof AiPlanRequestError ? sanitizeErrorMessage(err.userMessage) : null;
       if (err instanceof AiPlanRequestError && errorCode === "INSUFFICIENT_TOKENS") {
         setAiActionableError(t("ai.insufficientTokens"));
+        setTokensExhaustedModalOpen(true);
       } else if (err instanceof AiPlanRequestError && status === 503 && errorCode === "EXERCISE_CATALOG_UNAVAILABLE") {
         setAiActionableError(backendMessage ?? (err.hint?.trim() || safeT("training.aiRetryErrorDescription", "Revisa tu conexión e inténtalo de nuevo.")));
       } else if (err instanceof Error && err.message === "INVALID_AI_OUTPUT") {
@@ -917,11 +920,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
-      router.push("/app/settings/billing");
+      setAiActionableError(safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO"));
       return;
     }
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
       setAiActionableError(t("ai.insufficientTokens"));
+      setTokensExhaustedModalOpen(true);
       return;
     }
     if (!isProfileComplete(profile)) {
@@ -1645,6 +1649,21 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       ) : null}
 
 
+
+      <Modal
+        open={tokensExhaustedModalOpen}
+        onClose={() => setTokensExhaustedModalOpen(false)}
+        title={t("ai.tokensExhaustedTitle")}
+        description={t("ai.tokensExhaustedDescription")}
+        footer={(
+          <div className="inline-actions-sm">
+            <Button variant="secondary" onClick={() => setTokensExhaustedModalOpen(false)}>{t("ui.close")}</Button>
+            <ButtonLink href="/app/settings/billing">{t("billing.manageBilling")}</ButtonLink>
+          </div>
+        )}
+      >
+        <p className="muted m-0">{t("ai.insufficientTokens")}</p>
+      </Modal>
 
       <Modal
         open={Boolean(exerciseDetail)}

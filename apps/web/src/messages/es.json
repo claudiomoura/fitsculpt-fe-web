@@ -2055,7 +2055,9 @@
     "tokensReset": "Renueva",
     "insufficientTokens": "No tienes tokens suficientes para usar la IA.",
     "notPro": "La generación con IA es una función Pro. Mejora a Pro para usarla.",
-    "tokenConsumed": "Se ha consumido 1 token por uso de IA"
+    "tokenConsumed": "Se ha consumido 1 token por uso de IA",
+    "tokensExhaustedTitle": "Tokens IA agotados",
+    "tokensExhaustedDescription": "Se te acabaron los tokens IA. Compra o renueva para seguir."
   },
   "billing": {
     "title": "Facturación",

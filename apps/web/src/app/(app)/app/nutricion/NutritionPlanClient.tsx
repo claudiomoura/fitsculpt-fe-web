@@ -766,6 +766,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [aiError, setAiError] = useState<NutritionAiErrorState | null>(null);
   const [aiRetryCount, setAiRetryCount] = useState(0);
   const [aiSuccessModalOpen, setAiSuccessModalOpen] = useState(false);
+  const [tokensExhaustedModalOpen, setTokensExhaustedModalOpen] = useState(false);
   const [lastGeneratedAiPlan, setLastGeneratedAiPlan] = useState<NutritionPlan | null>(null);
   const [lastGeneratedUsage, setLastGeneratedUsage] = useState<AiUsageSummary | null>(null);
   const [lastGeneratedMode, setLastGeneratedMode] = useState<string | null>(null);
@@ -1446,6 +1447,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         details: null,
         canRetry: false,
       });
+      setTokensExhaustedModalOpen(true);
       return;
     }
     if (!isProfileComplete(profile)) {
@@ -1581,6 +1583,7 @@ const planToSave = ensurePlanStartDate(candidatePlan);
           details: null,
           canRetry: false,
         });
+        setTokensExhaustedModalOpen(true);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
       } else if (requestError?.status === 400 && errorCode === "INVALID_AI_OUTPUT") {
         setAiError({
@@ -1662,7 +1665,13 @@ useEffect(() => {
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
-      router.push("/app/settings/billing");
+      setAiError({
+        title: t("nutrition.aiErrorState.title"),
+        description: aiLockDescription,
+        actionableHint: null,
+        details: null,
+        canRetry: false,
+      });
       return;
     }
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
@@ -1673,6 +1682,7 @@ useEffect(() => {
         details: null,
         canRetry: false,
       });
+      setTokensExhaustedModalOpen(true);
       return;
     }
     if (!isProfileComplete(profile)) {
@@ -2603,6 +2613,21 @@ const nutritionPlanDetails = profile ? (
             ) : null}
           </div>
         ) : null}
+      </Modal>
+
+      <Modal
+        open={tokensExhaustedModalOpen}
+        onClose={() => setTokensExhaustedModalOpen(false)}
+        title={t("ai.tokensExhaustedTitle")}
+        description={t("ai.tokensExhaustedDescription")}
+        footer={(
+          <div className="inline-actions-sm">
+            <Button variant="secondary" onClick={() => setTokensExhaustedModalOpen(false)}>{t("ui.close")}</Button>
+            <ButtonLink href="/app/settings/billing">{t("billing.manageBilling")}</ButtonLink>
+          </div>
+        )}
+      >
+        <p className="muted m-0">{t("ai.insufficientTokens")}</p>
       </Modal>
 
       <Modal

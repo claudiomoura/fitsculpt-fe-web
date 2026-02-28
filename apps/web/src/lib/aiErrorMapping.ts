@@ -10,7 +10,10 @@ export function normalizeAiErrorCode(value: unknown): AiErrorCode | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toUpperCase();
   switch (normalized) {
+    case "AI_TOKENS_EXHAUSTED":
+    case "AI_TOKENS_INSUFFICIENT":
     case "INSUFFICIENT_TOKENS":
+      return "INSUFFICIENT_TOKENS";
     case "INVALID_AI_OUTPUT":
     case "AI_INPUT_INVALID":
     case "RATE_LIMITED":

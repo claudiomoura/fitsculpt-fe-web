@@ -42,10 +42,10 @@ export function readAuthEntitlementSnapshot(payload: AuthMeResponse | null | und
     payload?.entitlements?.modules?.strength?.enabled === true;
 
   const tokenBalanceRaw =
-    typeof payload?.tokenBalance === "number"
-      ? payload.tokenBalance
-      : typeof payload?.aiTokenBalance === "number"
-        ? payload.aiTokenBalance
+    typeof payload?.aiTokenBalance === "number"
+      ? payload.aiTokenBalance
+      : typeof payload?.tokenBalance === "number"
+        ? payload.tokenBalance
         : 0;
 
   return {
