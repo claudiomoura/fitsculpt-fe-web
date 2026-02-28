@@ -25,11 +25,18 @@ describe("/auth/me entitlements contract (minimal)", () => {
     }
   });
 
-  it("returns unknown when backend aiEntitlements are not present", () => {
+  it("derives known entitlements even when aiEntitlements is not present", () => {
     const payload: AuthMePayload = {
       subscriptionPlan: "PRO",
     };
 
-    expect(getUiEntitlements(payload)).toEqual({ status: "unknown" });
+    expect(getUiEntitlements(payload)).toEqual({
+      status: "known",
+      features: {
+        canUseAI: true,
+        canUseNutrition: false,
+        canUseStrength: false,
+      },
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchAdminGymsList, leaveGymMembership } from "@/services/gym";
+import { fetchAdminGymsList, gymServiceCapabilities, leaveGymMembership } from "@/services/gym";
 
 function mockResponse(input: { ok: boolean; status: number; payload?: unknown }): Response {
   return {
@@ -11,10 +11,23 @@ function mockResponse(input: { ok: boolean; status: number; payload?: unknown })
 
 describe("gym service", () => {
   afterEach(() => {
+    gymServiceCapabilities.supportsLeaveGym = false;
     vi.unstubAllGlobals();
   });
 
-  it("leaves gym using /api/gym/me when endpoint is available", async () => {
+  it("returns unsupported when leave-gym capability is disabled", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+    const result = await leaveGymMembership();
+
+    expect(result).toEqual({ ok: false, reason: "unsupported", status: 405 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("leaves gym using /api/gym/me when capability is enabled", async () => {
+    gymServiceCapabilities.supportsLeaveGym = true;
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "/api/gym/me") {
@@ -35,6 +48,8 @@ describe("gym service", () => {
   });
 
   it("falls back to /api/gyms/membership when /api/gym/me delete is unsupported", async () => {
+    gymServiceCapabilities.supportsLeaveGym = true;
+
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "/api/gym/me") {
