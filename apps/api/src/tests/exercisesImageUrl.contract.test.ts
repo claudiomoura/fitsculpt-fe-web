@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 import bcrypt from "bcryptjs";
+import { apiRoot } from "./testPaths.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -83,7 +84,7 @@ async function main() {
   });
 
   const server = spawn("npx", ["tsx", "src/index.ts"], {
-    cwd: "apps/api",
+    cwd: apiRoot,
     env: {
       ...process.env,
       PORT: String(testPort),

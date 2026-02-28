@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 import { PrismaClient } from "@prisma/client";
+import { apiRoot } from "./testPaths.js";
 
 const testPort = 4312;
 const baseUrl = `http://127.0.0.1:${testPort}`;
@@ -48,7 +49,7 @@ async function main() {
   const trainerEmail = `${uniqueValue("trainer")}@example.com`;
 
   const server = spawn("npx", ["tsx", "src/index.ts"], {
-    cwd: "apps/api",
+    cwd: apiRoot,
     env: {
       ...process.env,
       PORT: String(testPort),

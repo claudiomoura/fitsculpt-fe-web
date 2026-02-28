@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { apiRoot } from "./testPaths.js";
 
 type AuditRoute = {
   method: string;
@@ -61,7 +62,7 @@ async function main() {
   assert.ok(planAndTokensRoutes.length > 0, "Expected plan/tokens routes in PR-01 snapshot");
 
   const server = spawn("npx", ["tsx", "src/index.ts"], {
-    cwd: "apps/api",
+    cwd: apiRoot,
     env: {
       ...process.env,
       PORT: String(testPort),
