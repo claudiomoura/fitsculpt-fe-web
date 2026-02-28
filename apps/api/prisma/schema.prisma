@@ -49,6 +49,12 @@ model User {
   @@index([stripeSubscriptionId])
 }
 
+model StripeWebhookEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now())
+}
+
 model Workout {
   id          String    @id @default(cuid())
   name        String
