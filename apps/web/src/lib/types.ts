@@ -218,10 +218,6 @@ export type AuthMeResponse = {
   avatarDataUrl?: string | null;
   aiTokenBalance?: number;
   tokenBalance?: number;
-  aiEntitlements?: {
-    nutrition?: boolean;
-    strength?: boolean;
-  };
   subscriptionPlan?: string | null;
   plan?: string | null;
   aiEntitlements?: {
