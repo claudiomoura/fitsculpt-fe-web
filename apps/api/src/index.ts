@@ -74,7 +74,6 @@ import {
 } from "./prismaClient.js";
 import { runDatabasePreflight } from "./dbPreflight.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
-import { tokenGrantForPlan } from "./billing/tokenPolicy.js";
 import {
   defaultTracking,
   trackingDeleteSchema,
@@ -89,8 +88,7 @@ import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 import {
-  hasAiDomainAccess,
-  hasPremiumAiAccess,
+  buildEntitlementGuard,
   resolveUserEntitlements,
   type AuthenticatedEntitlementsRequest,
 } from "./middleware/entitlements.js";
@@ -537,7 +535,14 @@ function verifyStripeSignature(
   }
 }
 
-const getPlanTokenAllowance = tokenGrantForPlan;
+const TOKENS_PRO = 50_000;
+const TOKENS_DOMAIN = 40_000;
+
+function getPlanTokenAllowance(plan: SubscriptionPlan): number {
+  if (plan === "PRO") return TOKENS_PRO;
+  if (plan === "STRENGTH_AI" || plan === "NUTRI_AI") return TOKENS_DOMAIN;
+  return 0;
+}
 
 const AI_FEATURE_ESTIMATED_TOKENS: Record<string, number> = {
   training: 800,
@@ -774,11 +779,12 @@ async function syncUserBillingFromStripe(
     ? currentTokenExpiryAt.getTime() < Date.now()
     : true;
   const currentTokenBalance = getUserTokenBalance(user);
+  const shouldTopUpTokens = tokensExpired || currentTokenBalance <= 0;
   const nextResetAt = currentPeriodEnd ?? getTokenExpiry(30);
   const nextRenewalAt = nextResetAt;
   const plan = getPlanFromSubscription(activeSubscription) ?? "FREE";
   const planAllowance = getPlanTokenAllowance(plan);
-  const nextBalance = tokensExpired ? 0 : currentTokenBalance;
+  const nextBalance = shouldTopUpTokens ? planAllowance : currentTokenBalance;
 
   return await prisma.user.update({
     where: { id: user.id },
@@ -1302,23 +1308,26 @@ function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
   };
 }
 
-const aiAccessGuard = hasPremiumAiAccess({
+const aiAccessGuard = buildEntitlementGuard({
+  requireAi: true,
   forbiddenStatus: 402,
   forbiddenBody: { code: "UPGRADE_REQUIRED" },
   requireUser,
   isBootstrapAdmin,
 });
 
-const aiNutritionDomainGuard = hasAiDomainAccess({
-  domain: "nutrition",
+const aiNutritionDomainGuard = buildEntitlementGuard({
+  requireAi: true,
+  requireDomain: "nutrition",
   forbiddenStatus: 403,
   forbiddenBody: { error: "AI_ACCESS_FORBIDDEN" },
   requireUser,
   isBootstrapAdmin,
 });
 
-const aiStrengthDomainGuard = hasAiDomainAccess({
-  domain: "strength",
+const aiStrengthDomainGuard = buildEntitlementGuard({
+  requireAi: true,
+  requireDomain: "strength",
   forbiddenStatus: 403,
   forbiddenBody: { error: "AI_ACCESS_FORBIDDEN" },
   requireUser,
@@ -2707,7 +2716,9 @@ async function persistTrainingPlanWithClient(
     select: { id: true },
   });
 
-  const persistenceMode: "create" | "update" = existingPlan ? "update" : "create";
+  const persistenceMode: "create" | "update" = existingPlan
+    ? "update"
+    : "create";
   const planRecord = existingPlan
     ? await tx.trainingPlan.update({
         where: { id: existingPlan.id },
@@ -2732,7 +2743,7 @@ async function persistTrainingPlanWithClient(
       daysCount,
       persistenceMode,
     },
-    "training plan persistence mode"
+    "training plan persistence mode",
   );
 
   await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
@@ -2749,7 +2760,8 @@ async function persistTrainingPlanWithClient(
         exercises: {
           create: day.exercises.map((exercise) => ({
             exerciseId: exercise.exerciseId ?? null,
-            imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
+            imageUrl:
+              typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
             name: exercise.name,
             sets: exercise.sets,
             reps: exercise.reps,
@@ -2771,13 +2783,29 @@ async function saveTrainingPlan(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   startDate: Date,
   daysCount: number,
-  request: z.infer<typeof aiTrainingSchema>
+  request: z.infer<typeof aiTrainingSchema>,
 ) {
   const persistPlan = async () => {
     if ("$transaction" in db && typeof db.$transaction === "function") {
-      return db.$transaction((tx) => persistTrainingPlanWithClient(tx, userId, plan, startDate, daysCount, request));
+      return db.$transaction((tx) =>
+        persistTrainingPlanWithClient(
+          tx,
+          userId,
+          plan,
+          startDate,
+          daysCount,
+          request,
+        ),
+      );
     }
-    return persistTrainingPlanWithClient(db as Prisma.TransactionClient, userId, plan, startDate, daysCount, request);
+    return persistTrainingPlanWithClient(
+      db as Prisma.TransactionClient,
+      userId,
+      plan,
+      startDate,
+      daysCount,
+      request,
+    );
   };
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -5580,7 +5608,10 @@ app.post(
         ON CONFLICT ("id") DO NOTHING
       `;
       if (Number(eventInserted) === 0) {
-        app.log.info({ eventType, eventId }, "stripe webhook already processed");
+        app.log.info(
+          { eventType, eventId },
+          "stripe webhook already processed",
+        );
         return reply.status(200).send({ received: true, duplicate: true });
       }
 
@@ -5652,13 +5683,9 @@ app.post(
             const currentPeriodEnd =
               getSubscriptionPeriodEnd(activeSubscription);
             const nextResetAt = currentPeriodEnd ?? getTokenExpiry(30);
-            const currentUser = await prisma.user.findFirst({
-              where: { stripeCustomerId: customerId },
-              select: { aiTokenBalance: true },
-            });
             await applyBillingStateForCustomer(customerId, {
               plan: activePlan,
-              aiTokenBalance: currentUser?.aiTokenBalance ?? 0,
+              aiTokenBalance: getPlanTokenAllowance(activePlan),
               aiTokenResetAt: nextResetAt,
               aiTokenRenewalAt: nextResetAt,
               subscriptionStatus: activeSubscription.status,
@@ -5670,7 +5697,7 @@ app.post(
                 stripeCustomerId: customerId,
                 plan: activePlan,
                 subscriptionStatus: activeSubscription.status,
-                aiTokenBalance: currentUser?.aiTokenBalance ?? 0,
+                aiTokenBalance: getPlanTokenAllowance(activePlan),
                 currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
               },
               "subscription updated",
@@ -6421,217 +6448,319 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   }
 });
 
-app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/ai/training-plan");
-    const authRequest = request as AuthenticatedEntitlementsRequest;
-    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
-    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
-    await requireCompleteProfile(user.id);
-    const data = aiTrainingSchema.parse(request.body);
-    const exerciseCatalog = await loadExerciseCatalogForAi();
-    const expectedDays = Math.min(data.daysPerWeek, 7);
-    const daysCount = Math.min(data.daysCount ?? 7, 14);
-    const startDate = parseDateInput(data.startDate) ?? new Date();
-    const cacheKey = buildCacheKey("training", data);
-    const template = buildTrainingTemplate(data, exerciseCatalog);
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta = getAiTokenPayload(user, entitlements);
-    const shouldChargeAi = !entitlements.role.adminOverride;
-    if (shouldChargeAi) {
-      assertSufficientAiTokenBalance(user, getEstimatedAiFeatureTokens("training"));
-    }
+app.post(
+  "/ai/training-plan",
+  { preHandler: aiStrengthDomainGuard },
+  async (request, reply) => {
+    try {
+      logAuthCookieDebug(request, "/ai/training-plan");
+      const authRequest = request as AuthenticatedEntitlementsRequest;
+      const user =
+        authRequest.currentUser ??
+        (await requireUser(request, { logContext: "/ai/training-plan" }));
+      const entitlements =
+        authRequest.currentEntitlements ?? getUserEntitlements(user);
+      await requireCompleteProfile(user.id);
+      const data = aiTrainingSchema.parse(request.body);
+      const exerciseCatalog = await loadExerciseCatalogForAi();
+      const expectedDays = Math.min(data.daysPerWeek, 7);
+      const daysCount = Math.min(data.daysCount ?? 7, 14);
+      const startDate = parseDateInput(data.startDate) ?? new Date();
+      const cacheKey = buildCacheKey("training", data);
+      const template = buildTrainingTemplate(data, exerciseCatalog);
+      const effectiveTokens = getEffectiveTokenBalance(user);
+      const aiMeta = getAiTokenPayload(user, entitlements);
+      const shouldChargeAi = !entitlements.role.adminOverride;
+      if (shouldChargeAi) {
+        assertSufficientAiTokenBalance(
+          user,
+          getEstimatedAiFeatureTokens("training"),
+        );
+      }
 
-    if (template) {
-      const normalized = normalizeTrainingPlanDays(template, startDate, daysCount, expectedDays);
-      const personalized = applyPersonalization(normalized, { name: data.name });
-      assertTrainingMatchesRequest(personalized, expectedDays);
-      const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
-      await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
-      await storeAiContent(user.id, "training", "template", resolvedPlan);
-      return reply.status(200).send({
-        plan: resolvedPlan,
-        ...aiMeta,
-      });
-    }
-
-    const cached = await getCachedAiPayload(cacheKey);
-    if (cached) {
-      try {
-        const validated = parseTrainingPlanPayload(cached, startDate, daysCount, expectedDays);
-        assertTrainingMatchesRequest(validated, expectedDays);
-        const personalized = applyPersonalization(validated, { name: data.name });
-        const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
-        await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
-        await storeAiContent(user.id, "training", "cache", resolvedPlan);
+      if (template) {
+        const normalized = normalizeTrainingPlanDays(
+          template,
+          startDate,
+          daysCount,
+          expectedDays,
+        );
+        const personalized = applyPersonalization(normalized, {
+          name: data.name,
+        });
+        assertTrainingMatchesRequest(personalized, expectedDays);
+        const resolvedPlan = resolveTrainingPlanExerciseIds(
+          personalized,
+          exerciseCatalog,
+        );
+        await saveTrainingPlan(
+          prisma,
+          user.id,
+          resolvedPlan,
+          startDate,
+          daysCount,
+          data,
+        );
+        await storeAiContent(user.id, "training", "template", resolvedPlan);
         return reply.status(200).send({
           plan: resolvedPlan,
           ...aiMeta,
         });
-      } catch (error) {
-        app.log.warn({ err: error, cacheKey }, "cached training plan invalid, regenerating");
       }
-    }
 
-    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
-    let payload: Record<string, unknown>;
-    let aiTokenBalance: number | null = null;
-    let aiResult: OpenAiResponse | null = null;
-    let aiAttemptUsed: number | null = null;
-    let debit:
-      | {
-          costCents: number;
-          balanceBefore: number;
-          balanceAfter: number;
-          totalTokens: number;
-          model: string;
-          usage: {
-            promptTokens: number;
-            completionTokens: number;
-            totalTokens: number;
-          };
+      const cached = await getCachedAiPayload(cacheKey);
+      if (cached) {
+        try {
+          const validated = parseTrainingPlanPayload(
+            cached,
+            startDate,
+            daysCount,
+            expectedDays,
+          );
+          assertTrainingMatchesRequest(validated, expectedDays);
+          const personalized = applyPersonalization(validated, {
+            name: data.name,
+          });
+          const resolvedPlan = resolveTrainingPlanExerciseIds(
+            personalized,
+            exerciseCatalog,
+          );
+          await saveTrainingPlan(
+            prisma,
+            user.id,
+            resolvedPlan,
+            startDate,
+            daysCount,
+            data,
+          );
+          await storeAiContent(user.id, "training", "cache", resolvedPlan);
+          return reply.status(200).send({
+            plan: resolvedPlan,
+            ...aiMeta,
+          });
+        } catch (error) {
+          app.log.warn(
+            { err: error, cacheKey },
+            "cached training plan invalid, regenerating",
+          );
         }
-      | undefined;
-
-    const fetchTrainingPayload = async (attempt: number) => {
-      const prompt = buildTrainingPrompt(
-        data,
-        attempt > 0,
-        formatExerciseCatalogForPrompt(exerciseCatalog),
-      );
-      const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-        responseFormat: {
-          type: "json_schema",
-          json_schema: {
-            name: "training_plan",
-            schema: trainingPlanJsonSchema as any,
-            strict: true,
-          },
-        },
-        model: "gpt-4o-mini",
-        maxTokens: 9000,
-        retryOnParseError: false,
-      });
-      payload = result.payload;
-      if (shouldChargeAi) {
-        aiResult = result;
-        aiAttemptUsed = attempt;
       }
-      return parseTrainingPlanPayload(payload, startDate, daysCount, expectedDays);
-    };
 
-    let parsedPayload: z.infer<typeof aiTrainingPlanResponseSchema>;
-    try {
-      parsedPayload = await fetchTrainingPayload(0);
-      assertTrainingMatchesRequest(parsedPayload, expectedDays);
-    } catch (error) {
-      const typed = error as { code?: string };
-      if (typed.code === "AI_PARSE_ERROR") {
-        app.log.warn(
-          { err: error },
-          "training plan invalid, retrying with strict prompt",
+      await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
+      let payload: Record<string, unknown>;
+      let aiTokenBalance: number | null = null;
+      let aiResult: OpenAiResponse | null = null;
+      let aiAttemptUsed: number | null = null;
+      let debit:
+        | {
+            costCents: number;
+            balanceBefore: number;
+            balanceAfter: number;
+            totalTokens: number;
+            model: string;
+            usage: {
+              promptTokens: number;
+              completionTokens: number;
+              totalTokens: number;
+            };
+          }
+        | undefined;
+
+      const fetchTrainingPayload = async (attempt: number) => {
+        const prompt = buildTrainingPrompt(
+          data,
+          attempt > 0,
+          formatExerciseCatalogForPrompt(exerciseCatalog),
         );
-        app.log.info(
-          {
-            userId: user.id,
-            feature: "training",
-            charged: false,
-            failureReason: "parse_error",
-            attempt: 0,
+        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
+          responseFormat: {
+            type: "json_schema",
+            json_schema: {
+              name: "training_plan",
+              schema: trainingPlanJsonSchema as any,
+              strict: true,
+            },
           },
-          "ai charge skipped",
+          model: "gpt-4o-mini",
+          maxTokens: 9000,
+          retryOnParseError: false,
+        });
+        payload = result.payload;
+        if (shouldChargeAi) {
+          aiResult = result;
+          aiAttemptUsed = attempt;
+        }
+        return parseTrainingPlanPayload(
+          payload,
+          startDate,
+          daysCount,
+          expectedDays,
         );
-        parsedPayload = await fetchTrainingPayload(1);
+      };
+
+      let parsedPayload: z.infer<typeof aiTrainingPlanResponseSchema>;
+      try {
+        parsedPayload = await fetchTrainingPayload(0);
         assertTrainingMatchesRequest(parsedPayload, expectedDays);
-      } else {
-        throw error;
+      } catch (error) {
+        const typed = error as { code?: string };
+        if (typed.code === "AI_PARSE_ERROR") {
+          app.log.warn(
+            { err: error },
+            "training plan invalid, retrying with strict prompt",
+          );
+          app.log.info(
+            {
+              userId: user.id,
+              feature: "training",
+              charged: false,
+              failureReason: "parse_error",
+              attempt: 0,
+            },
+            "ai charge skipped",
+          );
+          parsedPayload = await fetchTrainingPayload(1);
+          assertTrainingMatchesRequest(parsedPayload, expectedDays);
+        } else {
+          throw error;
+        }
       }
-    }
 
-    const personalized = applyPersonalization(parsedPayload, { name: data.name });
-    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
-      personalized,
-      exerciseCatalog,
-      {
-        daysPerWeek: data.daysPerWeek,
-        level: data.level,
-        goal: data.goal,
-        equipment: data.equipment,
-      },
-      startDate,
-      { userId: user.id, route: "/ai/training-plan" },
-    );
-    await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
-    await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
-    await storeAiContent(user.id, "training", "ai", resolvedPlan);
-
-    if (shouldChargeAi && aiResult) {
-      const balanceBefore = effectiveTokens;
-      const charged = await chargeAiUsageForResult({
-        prisma,
-        pricing: aiPricing,
-        user: {
-          id: user.id,
-          plan: user.plan,
-          aiTokenBalance: user.aiTokenBalance ?? 0,
-          aiTokenResetAt: user.aiTokenResetAt,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        },
-        feature: "training",
-        result: aiResult,
-        meta: { attempt: aiAttemptUsed ?? 0 },
-        createHttpError,
+      const personalized = applyPersonalization(parsedPayload, {
+        name: data.name,
       });
-      aiTokenBalance = charged.balance;
-      debit =
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : {
-              costCents: charged.costCents,
+      const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
+        personalized,
+        exerciseCatalog,
+        {
+          daysPerWeek: data.daysPerWeek,
+          level: data.level,
+          goal: data.goal,
+          equipment: data.equipment,
+        },
+        startDate,
+        { userId: user.id, route: "/ai/training-plan" },
+      );
+      await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
+      await saveTrainingPlan(
+        prisma,
+        user.id,
+        resolvedPlan,
+        startDate,
+        daysCount,
+        data,
+      );
+      await storeAiContent(user.id, "training", "ai", resolvedPlan);
+      if (shouldChargeAi && aiResult) {
+        const balanceBefore = effectiveTokens;
+        const charged = await chargeAiUsageForResult({
+          prisma,
+          pricing: aiPricing,
+          user: {
+            id: user.id,
+            plan: user.plan,
+            aiTokenBalance: user.aiTokenBalance ?? 0,
+            aiTokenResetAt: user.aiTokenResetAt,
+            aiTokenRenewalAt: user.aiTokenRenewalAt,
+          },
+          feature: "training",
+          result: aiResult,
+          meta: { attempt: aiAttemptUsed ?? 0 },
+          createHttpError,
+        });
+        const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
+          personalized,
+          exerciseCatalog,
+          {
+            daysPerWeek: data.daysPerWeek,
+            level: data.level,
+            goal: data.goal,
+            equipment: data.equipment,
+          },
+          startDate,
+          { userId: user.id, route: "/ai/training-plan" },
+        );
+        await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
+        await saveTrainingPlan(
+          user.id,
+          resolvedPlan,
+          startDate,
+          daysCount,
+          data,
+        );
+        await storeAiContent(user.id, "training", "ai", resolvedPlan);
+        if (shouldChargeAi && aiResult) {
+          const balanceBefore = effectiveTokens;
+          const charged = await chargeAiUsageForResult({
+            prisma,
+            pricing: aiPricing,
+            user: {
+              id: user.id,
+              plan: user.plan,
+              aiTokenBalance: user.aiTokenBalance ?? 0,
+              aiTokenResetAt: user.aiTokenResetAt,
+              aiTokenRenewalAt: user.aiTokenRenewalAt,
+            },
+            feature: "training",
+            result: aiResult,
+            meta: { attempt: aiAttemptUsed ?? 0 },
+            createHttpError,
+          });
+          aiTokenBalance = charged.balance;
+          debit =
+            process.env.NODE_ENV === "production"
+              ? undefined
+              : {
+                  costCents: charged.costCents,
+                  balanceBefore,
+                  balanceAfter: charged.balance,
+                  totalTokens: charged.totalTokens,
+                  model: charged.model,
+                  usage: charged.usage,
+                };
+          app.log.info(
+            {
+              userId: user.id,
+              feature: "training",
               balanceBefore,
               balanceAfter: charged.balance,
-              totalTokens: charged.totalTokens,
-              model: charged.model,
-              usage: charged.usage,
-            };
-      app.log.info(
-        {
-          userId: user.id,
-          feature: "training",
-          balanceBefore,
-          balanceAfter: charged.balance,
-          charged: true,
-          attempt: aiAttemptUsed ?? 0,
-        },
-        "ai charge complete",
-      );
-    } else if (shouldChargeAi) {
-      app.log.info(
-        {
-          userId: user.id,
-          feature: "training",
-          charged: false,
-          failureReason: "missing_ai_result",
-        },
-        "ai charge skipped",
-      );
+              charged: true,
+              attempt: aiAttemptUsed ?? 0,
+            },
+            "ai charge complete",
+          );
+        } else if (shouldChargeAi) {
+          app.log.info(
+            {
+              userId: user.id,
+              feature: "training",
+              charged: false,
+              failureReason: "missing_ai_result",
+            },
+            "ai charge skipped",
+          );
+        }
+        const aiResponse = aiResult as OpenAiResponse | null;
+        const exactUsage = extractExactProviderUsage(aiResponse?.usage);
+        return reply.status(200).send({
+          plan: resolvedPlan,
+          aiRequestId: aiResponse?.requestId ?? null,
+          aiTokenBalance: shouldChargeAi
+            ? aiTokenBalance
+            : aiMeta.aiTokenBalance,
+          aiTokenRenewalAt: shouldChargeAi
+            ? getUserTokenExpiryAt(user)
+            : aiMeta.aiTokenRenewalAt,
+          ...(exactUsage ? { usage: exactUsage } : {}),
+          ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
+          ...(debit ? { debit } : {}),
+        });
+      }
+    } catch (error) {
+      return handleRequestError(reply, error);
     }
-
-    const aiResponse = aiResult as OpenAiResponse | null;
-    const exactUsage = extractExactProviderUsage(aiResponse?.usage);
-    return reply.status(200).send({
-      plan: resolvedPlan,
-      aiRequestId: aiResponse?.requestId ?? null,
-      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
-      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
-      ...(exactUsage ? { usage: exactUsage } : {}),
-      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
-      ...(debit ? { debit } : {}),
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
+  },
+);
 
 app.post(
   "/ai/nutrition-plan",
@@ -6679,7 +6808,10 @@ app.post(
       const aiMeta = getAiTokenPayload(user, entitlements);
       const shouldChargeAi = !entitlements.role.adminOverride;
       if (shouldChargeAi) {
-        assertSufficientAiTokenBalance(user, getEstimatedAiFeatureTokens("nutrition"));
+        assertSufficientAiTokenBalance(
+          user,
+          getEstimatedAiFeatureTokens("nutrition"),
+        );
       }
 
       if (template) {
@@ -7109,10 +7241,15 @@ app.post(
         }));
       const entitlements =
         authRequest.currentEntitlements ?? getUserEntitlements(user);
+
       const shouldChargeAi = !entitlements.role.adminOverride;
       if (shouldChargeAi) {
-        assertSufficientAiTokenBalance(user, getEstimatedAiFeatureTokens("training-generate"));
+        assertSufficientAiTokenBalance(
+          user,
+          getEstimatedAiFeatureTokens("training-generate"),
+        );
       }
+
       const payload = aiGenerateTrainingSchema.parse(request.body);
       if (payload.userId && payload.userId !== user.id) {
         throw createHttpError(400, "INVALID_INPUT", {
@@ -7120,64 +7257,15 @@ app.post(
         });
       }
 
-      const profileRecord = await getOrCreateProfile(user.id);
-      const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
-      const trainingPreferences = (profile.trainingPreferences ?? {}) as Record<
-        string,
-        unknown
-      >;
-      const levelFromProfile =
-        trainingPreferences.level === "beginner" ||
-        trainingPreferences.level === "intermediate" ||
-        trainingPreferences.level === "advanced"
-          ? trainingPreferences.level
-          : payload.experienceLevel;
-
-      const trainingInput: z.infer<typeof aiTrainingSchema> = {
-        age: typeof profile.age === "number" ? profile.age : 30,
-        sex: profile.sex === "female" ? "female" : "male",
-        level: payload.experienceLevel ?? levelFromProfile,
-        goal: payload.goal,
-        equipment: trainingPreferences.equipment === "home" ? "home" : "gym",
-        daysPerWeek: payload.daysPerWeek,
-        sessionTime:
-          trainingPreferences.sessionTime === "short" ||
-          trainingPreferences.sessionTime === "medium" ||
-          trainingPreferences.sessionTime === "long"
-            ? trainingPreferences.sessionTime
-            : "medium",
-        focus:
-          trainingPreferences.focus === "upperLower" ||
-          trainingPreferences.focus === "ppl"
-            ? trainingPreferences.focus
-            : "full",
-        timeAvailableMinutes:
-          trainingPreferences.workoutLength === "30m"
-            ? 30
-            : trainingPreferences.workoutLength === "60m"
-              ? 60
-              : 45,
-        includeCardio:
-          typeof trainingPreferences.includeCardio === "boolean"
-            ? trainingPreferences.includeCardio
-            : true,
-        includeMobilityWarmups:
-          typeof trainingPreferences.includeMobilityWarmups === "boolean"
-            ? trainingPreferences.includeMobilityWarmups
-            : true,
-        startDate: toIsoDateString(new Date()),
-        daysCount: payload.daysPerWeek,
-        restrictions: payload.constraints,
-        injuries:
-          typeof profile.injuries === "string" ? profile.injuries : undefined,
-        goals: Array.isArray(profile.goals)
-          ? (profile.goals.filter((goal) => typeof goal === "string") as any)
-          : undefined,
-      };
-
-      const expectedDays = trainingInput.daysPerWeek;
-      const startDate = parseDateInput(trainingInput.startDate) ?? new Date();
       const exerciseCatalog = await loadExerciseCatalogForAi();
+      const startDate = parseDateInput(payload.startDate) ?? new Date();
+      const expectedDays = Math.min(payload.daysPerWeek ?? 3, 7);
+
+      const trainingInput = {
+        ...payload,
+        daysPerWeek: expectedDays,
+        daysCount: payload.daysCount ?? expectedDays,
+      };
 
       let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null =
         null;
@@ -7186,11 +7274,16 @@ app.post(
 
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
-          const prompt = `${buildTrainingPrompt(trainingInput, attempt > 0, formatExerciseCatalogForPrompt(exerciseCatalog))} ${
+          const prompt = `${buildTrainingPrompt(
+            trainingInput,
+            attempt > 0,
+            formatExerciseCatalogForPrompt(exerciseCatalog),
+          )} ${
             attempt > 0
               ? "REINTENTO OBLIGATORIO: corrige la salida para que cumpla exactamente los días solicitados y volumen por nivel."
               : ""
           }`;
+
           const result = await callOpenAi(
             prompt,
             attempt,
@@ -7209,34 +7302,17 @@ app.post(
               retryOnParseError: false,
             },
           );
-          app.log.info(
-            {
-              route: "/ai/training-plan/generate",
-              userId: user.id,
-              attempt,
-              aiRequestId: result.requestId ?? null,
-              model: result.model ?? "unknown",
-            },
-            "training ai generation complete",
-          );
+
           const candidate = parseTrainingPlanPayload(
             result.payload,
             startDate,
             trainingInput.daysCount ?? expectedDays,
             expectedDays,
           );
+
           assertTrainingMatchesRequest(candidate, expectedDays);
           assertTrainingLevelConsistency(candidate, payload.experienceLevel);
-          app.log.info(
-            {
-              route: "/ai/training-plan/generate",
-              userId: user.id,
-              attempt,
-              days: candidate.days.length,
-              title: candidate.title,
-            },
-            "training ai output parsed and validated",
-          );
+
           parsedPlan = candidate;
           aiResult = result;
           break;
@@ -7246,15 +7322,6 @@ app.post(
       }
 
       if (!parsedPlan) {
-        app.log.warn(
-          {
-            userId: user.id,
-            cause:
-              (lastError as { code?: string; message?: string })?.code ??
-              "UNKNOWN",
-          },
-          "training plan AI failed, returning deterministic fallback",
-        );
         parsedPlan = buildDeterministicTrainingFallbackPlan(
           {
             daysPerWeek: trainingInput.daysPerWeek,
@@ -7279,49 +7346,46 @@ app.post(
         startDate,
         { userId: user.id, route: "/ai/training-plan/generate" },
       );
-      await upsertExercisesFromPlan(resolvedPlan);
-      app.log.info(
-        {
-          route: "/ai/training-plan/generate",
-          userId: user.id,
-          startDate: toIsoDateString(startDate),
-          daysCount: trainingInput.daysCount ?? expectedDays,
-        },
-        "training plan persistence start",
-      );
-      const savedPlan = await saveTrainingPlan(
-        user.id,
-        resolvedPlan,
-        startDate,
-        trainingInput.daysCount ?? expectedDays,
-        trainingInput,
-      );
-      app.log.info(
-        {
-          route: "/ai/training-plan/generate",
-          userId: user.id,
-          planId: savedPlan.id,
-        },
-        "training plan persistence complete",
-      );
-      await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
 
-      if (aiResult && shouldChargeAi) {
-        await chargeAiUsageForResult({
-          prisma,
-          pricing: aiPricing,
-          user: {
-            id: user.id,
-            plan: user.plan,
-            aiTokenBalance: user.aiTokenBalance ?? 0,
-            aiTokenResetAt: user.aiTokenResetAt,
-            aiTokenRenewalAt: user.aiTokenRenewalAt,
-          },
-          feature: "training-generate",
-          result: aiResult,
-          createHttpError,
-        });
-      } else if (aiResult) {
+      await upsertExercisesFromPlan(resolvedPlan);
+
+      const savedPlan =
+        aiResult && shouldChargeAi
+          ? await prisma.$transaction(async (tx) => {
+              const persistedPlan = await saveTrainingPlan(
+                tx,
+                user.id,
+                resolvedPlan,
+                startDate,
+                trainingInput.daysCount ?? expectedDays,
+                trainingInput,
+              );
+              await chargeAiUsageForResult({
+                prisma: tx,
+                pricing: aiPricing,
+                user: {
+                  id: user.id,
+                  plan: user.plan,
+                  aiTokenBalance: user.aiTokenBalance ?? 0,
+                  aiTokenResetAt: user.aiTokenResetAt,
+                  aiTokenRenewalAt: user.aiTokenRenewalAt,
+                },
+                feature: "training-generate",
+                result: aiResult,
+                createHttpError,
+              });
+              return persistedPlan;
+            })
+          : await saveTrainingPlan(
+              prisma,
+              user.id,
+              resolvedPlan,
+              startDate,
+              trainingInput.daysCount ?? expectedDays,
+              trainingInput,
+            );
+
+      if (aiResult && !shouldChargeAi) {
         await persistAiUsageLog({
           prisma,
           userId: user.id,
@@ -7333,7 +7397,9 @@ app.post(
           totals: buildUsageTotals(aiResult.usage),
           mode: "AI",
         });
-      } else {
+      }
+
+      if (!aiResult) {
         const fallbackCause =
           (lastError as { code?: string; message?: string } | null)?.code ??
           (lastError as { message?: string } | null)?.message ??
@@ -7350,105 +7416,15 @@ app.post(
         });
       }
 
-    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
-      parsedPlan,
-      exerciseCatalog,
-      {
-        daysPerWeek: trainingInput.daysPerWeek,
-        level: trainingInput.level,
-        goal: trainingInput.goal,
-        equipment: trainingInput.equipment,
-      },
-      startDate,
-      { userId: user.id, route: "/ai/training-plan/generate" }
-    );
-    await upsertExercisesFromPlan(resolvedPlan);
-    app.log.info(
-      {
-        route: "/ai/training-plan/generate",
-        userId: user.id,
-        startDate: toIsoDateString(startDate),
-        daysCount: trainingInput.daysCount ?? expectedDays,
-      },
-      "training plan persistence start"
-    );
-    const savedPlan =
-      aiResult && shouldChargeAi
-        ? await prisma.$transaction(async (tx) => {
-            const persistedPlan = await saveTrainingPlan(
-              tx,
-              user.id,
-              resolvedPlan,
-              startDate,
-              trainingInput.daysCount ?? expectedDays,
-              trainingInput
-            );
-            await chargeAiUsageForResult({
-              prisma: tx,
-              pricing: aiPricing,
-              user: {
-                id: user.id,
-                plan: user.plan,
-                aiTokenBalance: user.aiTokenBalance ?? 0,
-                aiTokenResetAt: user.aiTokenResetAt,
-                aiTokenRenewalAt: user.aiTokenRenewalAt,
-              },
-              feature: "training-generate",
-              result: aiResult,
-              createHttpError,
-            });
-            return persistedPlan;
-          })
-        : await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
-
-    app.log.info(
-      {
-        route: "/ai/training-plan/generate",
-        userId: user.id,
+      const exactUsage = extractExactProviderUsage(aiResult?.usage);
+      return reply.status(200).send({
         planId: savedPlan.id,
-      },
-      "training plan persistence complete"
-    );
-    await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
-
-    if (aiResult && !shouldChargeAi) {
-      await persistAiUsageLog({
-        prisma,
-        userId: user.id,
-        feature: "training-generate",
-        provider: "openai",
-        model: aiResult.model ?? "unknown",
-        requestId: aiResult.requestId,
-        usage: aiResult.usage,
-        totals: buildUsageTotals(aiResult.usage),
-        mode: "AI",
+        summary: summarizeTrainingPlan(resolvedPlan),
+        plan: resolvedPlan,
+        aiRequestId: aiResult?.requestId ?? null,
+        ...(exactUsage ? { usage: exactUsage } : {}),
       });
-    } else if (!aiResult) {
-      const fallbackCause =
-        (lastError as { code?: string; message?: string } | null)?.code ??
-        (lastError as { message?: string } | null)?.message ??
-        "AI_UNAVAILABLE";
-      await persistAiUsageLog({
-        prisma,
-        userId: user.id,
-        feature: "training-generate",
-        provider: "openai",
-        model: "fallback",
-        totals: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        mode: "FALLBACK",
-        fallbackReason: fallbackCause,
-      });
-    }
-
-    const exactUsage = extractExactProviderUsage(aiResult?.usage);
-    return reply.status(200).send({
-      planId: savedPlan.id,
-      summary: summarizeTrainingPlan(resolvedPlan),
-      plan: resolvedPlan,
-      aiRequestId: aiResult?.requestId ?? null,
-      ...(exactUsage ? { usage: exactUsage } : {}),
-    });
-  } catch (error) {
+    } catch (error) {
       const classified = classifyAiGenerateError(error);
       const logger =
         classified.errorKind === "internal_error"
@@ -7457,6 +7433,7 @@ app.post(
       const shouldLogRawError =
         classified.errorKind !== "db_conflict" &&
         typeof classified.prismaCode !== "string";
+
       logger(
         {
           ...(shouldLogRawError ? { err: error } : {}),
@@ -7469,19 +7446,25 @@ app.post(
           ...(typeof classified.prismaCode === "string"
             ? { prisma_code: classified.prismaCode }
             : {}),
+          ...(typeof classified.prismaModelName === "string"
+            ? { prisma_model: classified.prismaModelName }
+            : {}),
+          ...(typeof classified.prismaColumn === "string"
+            ? { prisma_column: classified.prismaColumn }
+            : {}),
           ...(Array.isArray(classified.target)
             ? { target: classified.target }
             : {}),
         },
         "training plan generation failed",
       );
+
       return reply
         .status(classified.statusCode)
         .send({ error: classified.error });
     }
   },
 );
-
 app.post(
   "/ai/daily-tip",
   { preHandler: aiAccessGuard },
@@ -11291,9 +11274,13 @@ app.post("/dev/reset-demo", async (request, reply) => {
 
     const tokenState =
       request.query &&
-      typeof (request.query as { tokenState?: unknown }).tokenState === "string" &&
-      ["empty", "paid"].includes((request.query as { tokenState?: string }).tokenState ?? "")
-        ? ((request.query as { tokenState?: "empty" | "paid" }).tokenState ?? "empty")
+      typeof (request.query as { tokenState?: unknown }).tokenState ===
+        "string" &&
+      ["empty", "paid"].includes(
+        (request.query as { tokenState?: string }).tokenState ?? "",
+      )
+        ? ((request.query as { tokenState?: "empty" | "paid" }).tokenState ??
+          "empty")
         : "empty";
 
     const result = await resetDemoState(prisma, { tokenState });
