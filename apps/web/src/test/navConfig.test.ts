@@ -13,7 +13,7 @@ describe("navConfig", () => {
     expect(activeHref).toBe("/app/biblioteca/entrenamientos");
   });
 
-  it("locks items that require unavailable entitlements", () => {
+  it("locks only items with feature requirements when entitlements are unavailable", () => {
     const gated = applyEntitlementGating(sidebarUser, {
       status: "known",
       features: {
@@ -23,11 +23,12 @@ describe("navConfig", () => {
       },
     });
 
+    const nutritionSection = gated.find((section) => section.id === "nutrition");
     const accountSection = gated.find((section) => section.id === "account");
     const gymItem = accountSection?.items.find((item) => item.id === "gym");
 
-    expect(gymItem?.disabled).toBe(true);
-    expect(gymItem?.disabledNoteKey).toBe("common.upgradeRequired");
+    expect(nutritionSection?.items.every((item) => item.disabled === true)).toBe(true);
+    expect(gymItem?.disabled).not.toBe(true);
   });
 
   it("groups sidebar items into fitness, nutrition, and account sections", () => {
