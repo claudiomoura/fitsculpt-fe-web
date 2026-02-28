@@ -12,6 +12,31 @@
 3. Si hay FAIL, anotar evidencia mínima (pantalla / error / bloqueador).
 4. Criterio global: **Beta Ready = todos los pasos en PASS**.
 
+## Gates obligatorios (dev branch)
+
+Los siguientes checks de GitHub Actions deben quedar en verde para mergear a `dev` (configurarlos como **required** en branch protection):
+
+- `Web gates`
+- `API gates`
+- `E2E smoke`
+
+Comandos locales equivalentes antes de abrir PR:
+
+```bash
+# API (desde repo root)
+npm --prefix apps/api run build
+npm --prefix apps/api run typecheck
+npm --prefix apps/api run test
+
+# Web (desde repo root)
+npm --prefix apps/web run build
+npm --prefix apps/web run typecheck
+npm --prefix apps/web run test
+
+# E2E smoke (requiere API y web levantadas + DB disponible)
+npm --prefix apps/web run e2e
+```
+
 ---
 
 ## Checklist ejecutable (PASS/FAIL)
