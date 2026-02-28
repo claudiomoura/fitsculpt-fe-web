@@ -2496,14 +2496,16 @@ function applyRecipeScalingToPlan(
 }
 
 async function saveNutritionPlan(
+  db: PrismaClient | Prisma.TransactionClient,
   userId: string,
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   startDate: Date,
   daysCount: number,
 ) {
-  const persistNutritionPlan = async (preferUpdate: boolean) =>
-    prisma.$transaction(
-      async (tx) => {
+  const persistNutritionPlan = async (
+    tx: Prisma.TransactionClient,
+    preferUpdate: boolean,
+  ) => {
         const planData = {
           userId,
           title: plan.title,
@@ -2651,38 +2653,50 @@ async function saveNutritionPlan(
             })),
           });
         }
-
         return planRecord;
-      },
-      { maxWait: 30000, timeout: 30000 },
-    );
+      };
 
-  try {
-    return await persistNutritionPlan(false);
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      app.log.info(
-        {
-          userId,
-          prismaCode: error.code,
-          target: Array.isArray(
-            (error.meta as { target?: unknown } | undefined)?.target,
-          )
-            ? (error.meta as { target?: string[] }).target
-            : (error.meta as { target?: unknown } | undefined)?.target,
-          startDate: toIsoDateString(startDate),
-          daysCount,
-        },
-        "nutrition plan unique conflict detected, retrying with update",
+  const runPersist = async (preferUpdate: boolean) => {
+    if ("$transaction" in db && typeof db.$transaction === "function") {
+      return db.$transaction(
+        (tx) => persistNutritionPlan(tx, preferUpdate),
+        { maxWait: 30000, timeout: 30000 },
       );
-      return persistNutritionPlan(true);
     }
+    return persistNutritionPlan(db as Prisma.TransactionClient, preferUpdate);
+  };
 
-    throw error;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await runPersist(attempt > 0);
+    } catch (error) {
+      const typed = error as Prisma.PrismaClientKnownRequestError;
+      if (typed.code === "P2002" && attempt === 0) {
+        app.log.info(
+          {
+            userId,
+            prismaCode: typed.code,
+            target: Array.isArray(
+              (typed.meta as { target?: unknown } | undefined)?.target,
+            )
+              ? (typed.meta as { target?: string[] }).target
+              : (typed.meta as { target?: unknown } | undefined)?.target,
+            startDate: toIsoDateString(startDate),
+            daysCount,
+            attempt,
+          },
+          "nutrition plan unique conflict detected, retrying persistence with a fresh transaction",
+        );
+        continue;
+      }
+      if (typed.code === "P2002") {
+        throw createHttpError(409, "NUTRITION_PLAN_CONFLICT");
+      }
+      throw error;
+    }
   }
+
+  throw createHttpError(500, "NUTRITION_PLAN_PERSIST_FAILED");
 }
 
 async function persistTrainingPlanWithClient(
@@ -6869,6 +6883,7 @@ const nutritionPlanHandler = async (
           daysCount,
         );
         const savedPlan = await saveNutritionPlan(
+          prisma,
           user.id,
           personalized,
           startDate,
@@ -6956,6 +6971,7 @@ const nutritionPlanHandler = async (
             name: data.name,
           });
           const savedPlan = await saveNutritionPlan(
+            prisma,
             user.id,
             personalized,
             startDate,
@@ -7153,52 +7169,68 @@ const nutritionPlanHandler = async (
         expectedMealsPerDay,
         daysCount,
       );
-      const savedPlan = await saveNutritionPlan(
-        user.id,
-        resolvedCatalogMeals,
-        startDate,
-        daysCount,
-      );
+      const balanceBefore = effectiveTokens;
+      const savedPlan =
+        shouldChargeAi && aiResult
+          ? await prisma.$transaction(async (tx) => {
+              const persistedPlan = await saveNutritionPlan(
+                tx,
+                user.id,
+                resolvedCatalogMeals,
+                startDate,
+                daysCount,
+              );
+              const charged = await chargeAiUsageForResult({
+                prisma: tx,
+                pricing: aiPricing,
+                user: {
+                  id: user.id,
+                  plan: user.plan,
+                  aiTokenBalance: user.aiTokenBalance ?? 0,
+                  aiTokenResetAt: user.aiTokenResetAt,
+                  aiTokenRenewalAt: user.aiTokenRenewalAt,
+                },
+                feature: "nutrition",
+                result: aiResult,
+                meta: { attempt: aiAttemptUsed ?? 0 },
+                createHttpError,
+              });
+              return { persistedPlan, charged };
+            })
+          : {
+              persistedPlan: await saveNutritionPlan(
+                prisma,
+                user.id,
+                resolvedCatalogMeals,
+                startDate,
+                daysCount,
+              ),
+              charged: null,
+            };
       await saveCachedAiPayload(cacheKey, "nutrition", resolvedCatalogMeals);
       const personalized = applyPersonalization(resolvedCatalogMeals, {
         name: data.name,
       });
       await storeAiContent(user.id, "nutrition", "ai", personalized);
-      if (shouldChargeAi && aiResult) {
-        const balanceBefore = effectiveTokens;
-        const charged = await chargeAiUsageForResult({
-          prisma,
-          pricing: aiPricing,
-          user: {
-            id: user.id,
-            plan: user.plan,
-            aiTokenBalance: user.aiTokenBalance ?? 0,
-            aiTokenResetAt: user.aiTokenResetAt,
-            aiTokenRenewalAt: user.aiTokenRenewalAt,
-          },
-          feature: "nutrition",
-          result: aiResult,
-          meta: { attempt: aiAttemptUsed ?? 0 },
-          createHttpError,
-        });
-        aiTokenBalance = charged.balance;
+      if (shouldChargeAi && savedPlan.charged) {
+        aiTokenBalance = savedPlan.charged.balance;
         debit =
           process.env.NODE_ENV === "production"
             ? undefined
             : {
-                costCents: charged.costCents,
+                costCents: savedPlan.charged.costCents,
                 balanceBefore,
-                balanceAfter: charged.balance,
-                totalTokens: charged.totalTokens,
-                model: charged.model,
-                usage: charged.usage,
+                balanceAfter: savedPlan.charged.balance,
+                totalTokens: savedPlan.charged.totalTokens,
+                model: savedPlan.charged.model,
+                usage: savedPlan.charged.usage,
               };
         app.log.info(
           {
             userId: user.id,
             feature: "nutrition",
             balanceBefore,
-            balanceAfter: charged.balance,
+            balanceAfter: savedPlan.charged.balance,
             charged: true,
             attempt: aiAttemptUsed ?? 0,
           },
