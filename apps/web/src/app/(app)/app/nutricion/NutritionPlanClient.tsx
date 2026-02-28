@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { hasNutritionAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { Modal } from "@/components/ui/Modal";
+import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
 import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
 import AppLayout from "@/components/layout/AppLayout";
@@ -2615,20 +2616,15 @@ const nutritionPlanDetails = profile ? (
         ) : null}
       </Modal>
 
-      <Modal
+      <AiTokensExhaustedModal
         open={tokensExhaustedModalOpen}
         onClose={() => setTokensExhaustedModalOpen(false)}
         title={t("ai.tokensExhaustedTitle")}
         description={t("ai.tokensExhaustedDescription")}
-        footer={(
-          <div className="inline-actions-sm">
-            <Button variant="secondary" onClick={() => setTokensExhaustedModalOpen(false)}>{t("ui.close")}</Button>
-            <ButtonLink href="/app/settings/billing">{t("billing.manageBilling")}</ButtonLink>
-          </div>
-        )}
-      >
-        <p className="muted m-0">{t("ai.insufficientTokens")}</p>
-      </Modal>
+        body={t("ai.insufficientTokens")}
+        closeLabel={t("ui.close")}
+        ctaLabel={t("billing.manageBilling")}
+      />
 
       <Modal
         open={Boolean(selectedMeal)}
