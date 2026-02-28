@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Modal } from "@/components/ui/Modal";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getLocaleCode } from "@/lib/i18n";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
@@ -36,9 +38,9 @@ export default function FeedClient() {
   const [generating, setGenerating] = useState(false);
   const [tipLoading, setTipLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<AiEntitlementProfile["subscriptionPlan"]>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
+  const [tokensExhaustedModalOpen, setTokensExhaustedModalOpen] = useState(false);
 
   const loadFeed = async () => {
     setLoading(true);
@@ -68,7 +70,6 @@ export default function FeedClient() {
       const data = (await response.json()) as AiEntitlementProfile & {
         aiTokenBalance?: number;
       };
-      setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
       setAiTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       setAiEntitled(hasAiEntitlement(data));
     } catch (_err) {
@@ -101,6 +102,10 @@ export default function FeedClient() {
       setError(t("ai.notPro"));
       return;
     }
+    if ((aiTokenBalance ?? 0) <= 0) {
+      setTokensExhaustedModalOpen(true);
+      return;
+    }
     setTipLoading(true);
     setError(null);
     try {
@@ -112,7 +117,8 @@ export default function FeedClient() {
       });
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
-        if (payload?.error === "INSUFFICIENT_TOKENS") {
+        if (payload?.error === "INSUFFICIENT_TOKENS" || payload?.error === "AI_TOKENS_EXHAUSTED") {
+          setTokensExhaustedModalOpen(true);
           throw new Error(t("ai.insufficientTokens"));
         }
         if (response.status === 429) {
@@ -123,6 +129,10 @@ export default function FeedClient() {
       const data = (await response.json()) as { tip?: DailyTip; aiTokenBalance?: number; aiTokenRenewalAt?: string | null };
       const tip = data.tip ?? (data as unknown as DailyTip);
       setTip(tip);
+      if (typeof data.aiTokenBalance === "number") {
+        setAiTokenBalance(data.aiTokenBalance);
+      }
+      void refreshSubscription();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("feed.tipError"));
     } finally {
@@ -130,7 +140,7 @@ export default function FeedClient() {
     }
   };
 
-  const isAiLocked = !aiEntitled || (subscriptionPlan === "FREE" && (aiTokenBalance ?? 0) <= 0);
+  const isAiLocked = !aiEntitled || (aiTokenBalance ?? 0) <= 0;
 
   return (
     <section className="card">
@@ -164,6 +174,22 @@ export default function FeedClient() {
           </p>
         </div>
       ) : null}
+
+
+      <Modal
+        open={tokensExhaustedModalOpen}
+        onClose={() => setTokensExhaustedModalOpen(false)}
+        title={t("ai.tokensExhaustedTitle")}
+        description={t("ai.tokensExhaustedDescription")}
+        footer={(
+          <div className="inline-actions-sm">
+            <Button variant="secondary" onClick={() => setTokensExhaustedModalOpen(false)}>{t("ui.close")}</Button>
+            <ButtonLink href="/app/settings/billing">{t("billing.manageBilling")}</ButtonLink>
+          </div>
+        )}
+      >
+        <p className="muted m-0">{t("ai.insufficientTokens")}</p>
+      </Modal>
 
       {error ? <p className="muted">{error}</p> : null}
       {loading ? <p className="muted">{t("feed.loading")}</p> : null}

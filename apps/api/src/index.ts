@@ -74,6 +74,7 @@ import {
 } from "./prismaClient.js";
 import { runDatabasePreflight } from "./dbPreflight.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
+import { tokenGrantForPlan } from "./billing/tokenPolicy.js";
 import {
   defaultTracking,
   trackingDeleteSchema,
@@ -536,14 +537,7 @@ function verifyStripeSignature(
   }
 }
 
-const TOKENS_PRO = 50_000;
-const TOKENS_DOMAIN = 40_000;
-
-function getPlanTokenAllowance(plan: SubscriptionPlan): number {
-  if (plan === "PRO") return TOKENS_PRO;
-  if (plan === "STRENGTH_AI" || plan === "NUTRI_AI") return TOKENS_DOMAIN;
-  return 0;
-}
+const getPlanTokenAllowance = tokenGrantForPlan;
 
 const AI_FEATURE_ESTIMATED_TOKENS: Record<string, number> = {
   training: 800,
@@ -780,12 +774,11 @@ async function syncUserBillingFromStripe(
     ? currentTokenExpiryAt.getTime() < Date.now()
     : true;
   const currentTokenBalance = getUserTokenBalance(user);
-  const shouldTopUpTokens = tokensExpired || currentTokenBalance <= 0;
   const nextResetAt = currentPeriodEnd ?? getTokenExpiry(30);
   const nextRenewalAt = nextResetAt;
   const plan = getPlanFromSubscription(activeSubscription) ?? "FREE";
   const planAllowance = getPlanTokenAllowance(plan);
-  const nextBalance = shouldTopUpTokens ? planAllowance : currentTokenBalance;
+  const nextBalance = tokensExpired ? 0 : currentTokenBalance;
 
   return await prisma.user.update({
     where: { id: user.id },
@@ -5659,9 +5652,13 @@ app.post(
             const currentPeriodEnd =
               getSubscriptionPeriodEnd(activeSubscription);
             const nextResetAt = currentPeriodEnd ?? getTokenExpiry(30);
+            const currentUser = await prisma.user.findFirst({
+              where: { stripeCustomerId: customerId },
+              select: { aiTokenBalance: true },
+            });
             await applyBillingStateForCustomer(customerId, {
               plan: activePlan,
-              aiTokenBalance: getPlanTokenAllowance(activePlan),
+              aiTokenBalance: currentUser?.aiTokenBalance ?? 0,
               aiTokenResetAt: nextResetAt,
               aiTokenRenewalAt: nextResetAt,
               subscriptionStatus: activeSubscription.status,
@@ -5673,7 +5670,7 @@ app.post(
                 stripeCustomerId: customerId,
                 plan: activePlan,
                 subscriptionStatus: activeSubscription.status,
-                aiTokenBalance: getPlanTokenAllowance(activePlan),
+                aiTokenBalance: currentUser?.aiTokenBalance ?? 0,
                 currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
               },
               "subscription updated",
