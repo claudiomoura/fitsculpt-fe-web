@@ -42,6 +42,7 @@ import {
   NUTRITION_MATH_TOLERANCES,
   validateNutritionMath,
 } from "./ai/nutritionMathValidation.js";
+import { getSafeValidationIssues } from "./ai/validationIssues.js";
 import {
   buildMealKcalGuidance,
   buildRetryFeedbackFromContext,
@@ -6772,7 +6773,16 @@ const nutritionPlanHandler = async (
       const entitlements =
         authRequest.currentEntitlements ?? getUserEntitlements(user);
       await requireCompleteProfile(user.id);
-      const data = aiNutritionSchema.parse(request.body);
+      const nutritionInput = aiNutritionSchema.safeParse(request.body);
+      if (!nutritionInput.success) {
+        const issues = getSafeValidationIssues(nutritionInput.error);
+        app.log.warn(
+          { route: nutritionRoutePath, issues },
+          "nutrition request validation failed",
+        );
+        return reply.status(422).send({ error: "INVALID_INPUT", issues });
+      }
+      const data = nutritionInput.data;
       const expectedMealsPerDay = Math.min(data.mealsPerDay, 6);
       const daysCount = Math.min(data.daysCount ?? 7, 14);
       const startDate = parseDateInput(data.startDate) ?? new Date();
