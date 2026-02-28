@@ -2652,103 +2652,108 @@ async function saveNutritionPlan(
   }
 }
 
-async function saveTrainingPlan(
+async function persistTrainingPlanWithClient(
+  tx: Prisma.TransactionClient,
   userId: string,
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   startDate: Date,
   daysCount: number,
   request: z.infer<typeof aiTrainingSchema>,
 ) {
-  const persistPlan = async () => {
-    return prisma.$transaction(async (tx) => {
-      const planData = {
-        userId,
-        title: plan.title,
-        notes: plan.notes,
-        goal: request.goal,
-        level: request.level,
-        daysPerWeek: request.daysPerWeek,
-        focus: request.focus,
-        equipment: request.equipment,
-        startDate,
-        daysCount,
-      };
+  const planData = {
+    userId,
+    title: plan.title,
+    notes: plan.notes,
+    goal: request.goal,
+    level: request.level,
+    daysPerWeek: request.daysPerWeek,
+    focus: request.focus,
+    equipment: request.equipment,
+    startDate,
+    daysCount,
+  };
 
-      const existingPlan = await tx.trainingPlan.findFirst({
-        where: {
-          userId,
-          startDate,
-          daysCount,
+  const existingPlan = await tx.trainingPlan.findFirst({
+    where: {
+      userId,
+      startDate,
+      daysCount,
+    },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true },
+  });
+
+  const persistenceMode: "create" | "update" = existingPlan ? "update" : "create";
+  const planRecord = existingPlan
+    ? await tx.trainingPlan.update({
+        where: { id: existingPlan.id },
+        data: {
+          title: plan.title,
+          notes: plan.notes,
+          goal: request.goal,
+          level: request.level,
+          daysPerWeek: request.daysPerWeek,
+          focus: request.focus,
+          equipment: request.equipment,
         },
-        orderBy: { updatedAt: "desc" },
         select: { id: true },
-      });
+      })
+    : await tx.trainingPlan.create({ data: planData, select: { id: true } });
 
-      const persistenceMode: "create" | "update" = existingPlan
-        ? "update"
-        : "create";
-      const planRecord = existingPlan
-        ? await tx.trainingPlan.update({
-            where: { id: existingPlan.id },
-            data: {
-              title: plan.title,
-              notes: plan.notes,
-              goal: request.goal,
-              level: request.level,
-              daysPerWeek: request.daysPerWeek,
-              focus: request.focus,
-              equipment: request.equipment,
-            },
-            select: { id: true },
-          })
-        : await tx.trainingPlan.create({
-            data: planData,
-            select: { id: true },
-          });
+  app.log.info(
+    {
+      userId,
+      planId: planRecord.id,
+      startDate: toIsoDateString(startDate),
+      daysCount,
+      persistenceMode,
+    },
+    "training plan persistence mode"
+  );
 
-      app.log.info(
-        {
-          userId,
-          planId: planRecord.id,
-          startDate: toIsoDateString(startDate),
-          daysCount,
-          persistenceMode,
+  await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
+
+  for (const [index, day] of plan.days.entries()) {
+    await tx.trainingDay.create({
+      data: {
+        planId: planRecord.id,
+        date: parseDateInput(day.date) ?? startDate,
+        label: day.label,
+        focus: day.focus,
+        duration: day.duration,
+        order: index,
+        exercises: {
+          create: day.exercises.map((exercise) => ({
+            exerciseId: exercise.exerciseId ?? null,
+            imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
+            name: exercise.name,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            tempo: exercise.tempo,
+            rest: exercise.rest,
+            notes: exercise.notes,
+          })),
         },
-        "training plan persistence mode",
-      );
-
-      await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
-
-      for (const [index, day] of plan.days.entries()) {
-        await tx.trainingDay.create({
-          data: {
-            planId: planRecord.id,
-            date: parseDateInput(day.date) ?? startDate,
-            label: day.label,
-            focus: day.focus,
-            duration: day.duration,
-            order: index,
-            exercises: {
-              create: day.exercises.map((exercise) => ({
-                exerciseId: exercise.exerciseId ?? null,
-                imageUrl:
-                  typeof exercise.imageUrl === "string"
-                    ? exercise.imageUrl
-                    : null,
-                name: exercise.name,
-                sets: exercise.sets,
-                reps: exercise.reps,
-                tempo: exercise.tempo,
-                rest: exercise.rest,
-                notes: exercise.notes,
-              })),
-            },
-          },
-        });
-      }
-
-      return planRecord;
+      },
     });
+  }
+
+  return planRecord;
+}
+
+async function saveTrainingPlan(
+  db: PrismaClient | Prisma.TransactionClient,
+  userId: string,
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  startDate: Date,
+  daysCount: number,
+  request: z.infer<typeof aiTrainingSchema>
+) {
+  const persistPlan = async () => {
+    if ("$transaction" in db && typeof db.$transaction === "function") {
+      return db.$transaction((tx) => persistTrainingPlanWithClient(tx, userId, plan, startDate, daysCount, request));
+    }
+    return persistTrainingPlanWithClient(db as Prisma.TransactionClient, userId, plan, startDate, daysCount, request);
   };
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -6380,53 +6385,46 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   }
 });
 
-app.post(
-  "/ai/training-plan",
-  { preHandler: aiStrengthDomainGuard },
-  async (request, reply) => {
-    try {
-      logAuthCookieDebug(request, "/ai/training-plan");
-      const authRequest = request as AuthenticatedEntitlementsRequest;
-      const user =
-        authRequest.currentUser ??
-        (await requireUser(request, { logContext: "/ai/training-plan" }));
-      const entitlements =
-        authRequest.currentEntitlements ?? getUserEntitlements(user);
-      await requireCompleteProfile(user.id);
-      const data = aiTrainingSchema.parse(request.body);
-      const exerciseCatalog = await loadExerciseCatalogForAi();
-      const expectedDays = Math.min(data.daysPerWeek, 7);
-      const daysCount = Math.min(data.daysCount ?? 7, 14);
-      const startDate = parseDateInput(data.startDate) ?? new Date();
-      const cacheKey = buildCacheKey("training", data);
-      const template = buildTrainingTemplate(data, exerciseCatalog);
-      const effectiveTokens = getEffectiveTokenBalance(user);
-      const aiMeta = getAiTokenPayload(user, entitlements);
-      const shouldChargeAi = !entitlements.role.adminOverride;
+app.post("/ai/training-plan", { preHandler: aiStrengthDomainGuard }, async (request, reply) => {
+  try {
+    logAuthCookieDebug(request, "/ai/training-plan");
+    const authRequest = request as AuthenticatedEntitlementsRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
+    await requireCompleteProfile(user.id);
+    const data = aiTrainingSchema.parse(request.body);
+    const exerciseCatalog = await loadExerciseCatalogForAi();
+    const expectedDays = Math.min(data.daysPerWeek, 7);
+    const daysCount = Math.min(data.daysCount ?? 7, 14);
+    const startDate = parseDateInput(data.startDate) ?? new Date();
+    const cacheKey = buildCacheKey("training", data);
+    const template = buildTrainingTemplate(data, exerciseCatalog);
+    const effectiveTokens = getEffectiveTokenBalance(user);
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
 
-      if (template) {
-        const normalized = normalizeTrainingPlanDays(
-          template,
-          startDate,
-          daysCount,
-          expectedDays,
-        );
-        const personalized = applyPersonalization(normalized, {
-          name: data.name,
-        });
-        assertTrainingMatchesRequest(personalized, expectedDays);
-        const resolvedPlan = resolveTrainingPlanExerciseIds(
-          personalized,
-          exerciseCatalog,
-        );
-        await saveTrainingPlan(
-          user.id,
-          resolvedPlan,
-          startDate,
-          daysCount,
-          data,
-        );
-        await storeAiContent(user.id, "training", "template", resolvedPlan);
+    if (template) {
+      const normalized = normalizeTrainingPlanDays(template, startDate, daysCount, expectedDays);
+      const personalized = applyPersonalization(normalized, { name: data.name });
+      assertTrainingMatchesRequest(personalized, expectedDays);
+      const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
+      await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
+      await storeAiContent(user.id, "training", "template", resolvedPlan);
+      return reply.status(200).send({
+        plan: resolvedPlan,
+        ...aiMeta,
+      });
+    }
+
+    const cached = await getCachedAiPayload(cacheKey);
+    if (cached) {
+      try {
+        const validated = parseTrainingPlanPayload(cached, startDate, daysCount, expectedDays);
+        assertTrainingMatchesRequest(validated, expectedDays);
+        const personalized = applyPersonalization(validated, { name: data.name });
+        const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
+        await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
+        await storeAiContent(user.id, "training", "cache", resolvedPlan);
         return reply.status(200).send({
           plan: resolvedPlan,
           ...aiMeta,
@@ -6549,8 +6547,39 @@ app.post(
           throw error;
         }
       }
-      const personalized = applyPersonalization(parsedPayload, {
-        name: data.name,
+    }
+    const personalized = applyPersonalization(parsedPayload, { name: data.name });
+    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
+      personalized,
+      exerciseCatalog,
+      {
+        daysPerWeek: data.daysPerWeek,
+        level: data.level,
+        goal: data.goal,
+        equipment: data.equipment,
+      },
+      startDate,
+      { userId: user.id, route: "/ai/training-plan" }
+    );
+    await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
+    await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, daysCount, data);
+    await storeAiContent(user.id, "training", "ai", resolvedPlan);
+    if (shouldChargeAi && aiResult) {
+      const balanceBefore = effectiveTokens;
+      const charged = await chargeAiUsageForResult({
+        prisma,
+        pricing: aiPricing,
+        user: {
+          id: user.id,
+          plan: user.plan,
+          aiTokenBalance: user.aiTokenBalance ?? 0,
+          aiTokenResetAt: user.aiTokenResetAt,
+          aiTokenRenewalAt: user.aiTokenRenewalAt,
+        },
+        feature: "training",
+        result: aiResult,
+        meta: { attempt: aiAttemptUsed ?? 0 },
+        createHttpError,
       });
       const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
         personalized,
@@ -7351,13 +7380,93 @@ app.post(
         });
       }
 
-      const exactUsage = extractExactProviderUsage(aiResult?.usage);
-      return reply.status(200).send({
+    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
+      parsedPlan,
+      exerciseCatalog,
+      {
+        daysPerWeek: trainingInput.daysPerWeek,
+        level: trainingInput.level,
+        goal: trainingInput.goal,
+        equipment: trainingInput.equipment,
+      },
+      startDate,
+      { userId: user.id, route: "/ai/training-plan/generate" }
+    );
+    await upsertExercisesFromPlan(resolvedPlan);
+    app.log.info(
+      {
+        route: "/ai/training-plan/generate",
+        userId: user.id,
+        startDate: toIsoDateString(startDate),
+        daysCount: trainingInput.daysCount ?? expectedDays,
+      },
+      "training plan persistence start"
+    );
+    const savedPlan =
+      aiResult && shouldChargeAi
+        ? await prisma.$transaction(async (tx) => {
+            const persistedPlan = await saveTrainingPlan(
+              tx,
+              user.id,
+              resolvedPlan,
+              startDate,
+              trainingInput.daysCount ?? expectedDays,
+              trainingInput
+            );
+            await chargeAiUsageForResult({
+              prisma: tx,
+              pricing: aiPricing,
+              user: {
+                id: user.id,
+                plan: user.plan,
+                aiTokenBalance: user.aiTokenBalance ?? 0,
+                aiTokenResetAt: user.aiTokenResetAt,
+                aiTokenRenewalAt: user.aiTokenRenewalAt,
+              },
+              feature: "training-generate",
+              result: aiResult,
+              createHttpError,
+            });
+            return persistedPlan;
+          })
+        : await saveTrainingPlan(prisma, user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
+
+    app.log.info(
+      {
+        route: "/ai/training-plan/generate",
+        userId: user.id,
         planId: savedPlan.id,
-        summary: summarizeTrainingPlan(resolvedPlan),
-        plan: resolvedPlan,
-        aiRequestId: aiResult?.requestId ?? null,
-        ...(exactUsage ? { usage: exactUsage } : {}),
+      },
+      "training plan persistence complete"
+    );
+    await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
+
+    if (aiResult && !shouldChargeAi) {
+      await persistAiUsageLog({
+        prisma,
+        userId: user.id,
+        feature: "training-generate",
+        provider: "openai",
+        model: aiResult.model ?? "unknown",
+        requestId: aiResult.requestId,
+        usage: aiResult.usage,
+        totals: buildUsageTotals(aiResult.usage),
+        mode: "AI",
+      });
+    } else if (!aiResult) {
+      const fallbackCause =
+        (lastError as { code?: string; message?: string } | null)?.code ??
+        (lastError as { message?: string } | null)?.message ??
+        "AI_UNAVAILABLE";
+      await persistAiUsageLog({
+        prisma,
+        userId: user.id,
+        feature: "training-generate",
+        provider: "openai",
+        model: "fallback",
+        totals: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        mode: "FALLBACK",
+        fallbackReason: fallbackCause,
       });
     } catch (error) {
       const classified = classifyAiGenerateError(error);
@@ -7393,29 +7502,35 @@ app.post(
   },
 );
 
-app.post(
-  "/ai/nutrition-plan/generate",
-  { preHandler: aiNutritionDomainGuard },
-  async (request, reply) => {
-    try {
-      const authRequest = request as AuthenticatedEntitlementsRequest;
-      const user =
-        authRequest.currentUser ??
-        (await requireUser(request, {
-          logContext: "/ai/nutrition-plan/generate",
-        }));
-      const entitlements =
-        authRequest.currentEntitlements ?? getUserEntitlements(user);
-      const shouldChargeAi = !entitlements.role.adminOverride;
-      if (shouldChargeAi) {
-        assertSufficientAiTokenBalance(user);
-      }
-      const payload = aiGenerateNutritionSchema.parse(request.body);
-      if (payload.userId && payload.userId !== user.id) {
-        throw createHttpError(400, "INVALID_INPUT", {
-          message: "userId must match authenticated user",
-        });
-      }
+    const exactUsage = extractExactProviderUsage(aiResult?.usage);
+    return reply.status(200).send({
+      planId: savedPlan.id,
+      summary: summarizeTrainingPlan(resolvedPlan),
+      plan: resolvedPlan,
+      aiRequestId: aiResult?.requestId ?? null,
+      ...(exactUsage ? { usage: exactUsage } : {}),
+    });
+  } catch (error) {
+    const classified = classifyAiGenerateError(error);
+    const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
+    const shouldLogRawError = classified.errorKind !== "db_conflict" && typeof classified.prismaCode !== "string";
+    logger(
+      {
+        ...(shouldLogRawError ? { err: error } : {}),
+        reqId: request.id,
+        route: "/ai/training-plan/generate",
+        error_kind: classified.errorKind,
+        ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
+        ...(typeof classified.prismaCode === "string" ? { prisma_code: classified.prismaCode } : {}),
+        ...(typeof classified.prismaModelName === "string" ? { prisma_model: classified.prismaModelName } : {}),
+        ...(typeof classified.prismaColumn === "string" ? { prisma_column: classified.prismaColumn } : {}),
+        ...(Array.isArray(classified.target) ? { target: classified.target } : {}),
+      },
+      "training plan generation failed"
+    );
+    return reply.status(classified.statusCode).send({ error: classified.error });
+  }
+});
 
       const profileRecord = await getOrCreateProfile(user.id);
       const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
@@ -7746,7 +7861,58 @@ app.post(
         summary: summarizeNutritionPlan(parsedPlan),
         plan: parsedPlan,
         aiRequestId: aiResult?.requestId ?? null,
-        ...(exactUsage ? { usage: exactUsage } : {}),
+      },
+      "nutrition plan generation result"
+    );
+
+    const exactUsage = extractExactProviderUsage(aiResult?.usage);
+    return reply.status(200).send({
+      planId: savedPlan.id,
+      summary: summarizeNutritionPlan(parsedPlan),
+      plan: parsedPlan,
+      aiRequestId: aiResult?.requestId ?? null,
+      ...(exactUsage ? { usage: exactUsage } : {}),
+    });
+  } catch (error) {
+    const classified = classifyAiGenerateError(error);
+    const logger = classified.errorKind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
+    logger(
+      {
+        ...(classified.errorKind === "db_conflict" ? {} : { err: error }),
+        reqId: request.id,
+        route: "/ai/nutrition-plan/generate",
+        error_kind: classified.errorKind,
+        ...(typeof classified.upstreamStatus === "number" ? { upstream_status: classified.upstreamStatus } : {}),
+        ...(typeof classified.prismaCode === "string" ? { prisma_code: classified.prismaCode } : {}),
+        ...(typeof classified.prismaModelName === "string" ? { prisma_model: classified.prismaModelName } : {}),
+        ...(typeof classified.prismaColumn === "string" ? { prisma_column: classified.prismaColumn } : {}),
+        ...(Array.isArray(classified.target) ? { target: classified.target } : {}),
+      },
+      "nutrition plan generate failed"
+    );
+    return reply.status(classified.statusCode).send({ error: classified.error });
+  }
+});
+
+app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) => {
+  try {
+    logAuthCookieDebug(request, "/ai/daily-tip");
+    const authRequest = request as AuthenticatedEntitlementsRequest;
+    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
+    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
+    const data = aiTipSchema.parse(request.body);
+    const cacheKey = buildCacheKey("tip", data);
+    const template = buildTipTemplate();
+    const effectiveTokens = getEffectiveTokenBalance(user);
+    const aiMeta = getAiTokenPayload(user, entitlements);
+    const shouldChargeAi = !entitlements.role.adminOverride;
+
+    if (template) {
+      const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
+      await safeStoreAiContent(user.id, "tip", "template", personalized);
+      return reply.status(200).send({
+        tip: personalized,
+        ...aiMeta,
       });
     } catch (error) {
       const classified = classifyAiGenerateError(error);
