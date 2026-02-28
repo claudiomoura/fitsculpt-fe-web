@@ -62,3 +62,39 @@ export function buildEntitlementGuard(params: {
     (request as AuthenticatedEntitlementsRequest).currentEntitlements = entitlements;
   };
 }
+
+export function hasPremiumAiAccess(params: {
+  requireUser: (request: FastifyRequest, options?: { logContext?: string }) => Promise<User>;
+  isBootstrapAdmin: (email: string) => boolean;
+  forbiddenStatus?: number;
+  forbiddenBody?: Record<string, unknown>;
+  requireTokensForPaidUsers?: boolean;
+}) {
+  return buildEntitlementGuard({
+    requireAi: true,
+    requireUser: params.requireUser,
+    isBootstrapAdmin: params.isBootstrapAdmin,
+    forbiddenStatus: params.forbiddenStatus,
+    forbiddenBody: params.forbiddenBody,
+    requireTokensForPaidUsers: params.requireTokensForPaidUsers,
+  });
+}
+
+export function hasAiDomainAccess(params: {
+  domain: "nutrition" | "strength";
+  requireUser: (request: FastifyRequest, options?: { logContext?: string }) => Promise<User>;
+  isBootstrapAdmin: (email: string) => boolean;
+  forbiddenStatus?: number;
+  forbiddenBody?: Record<string, unknown>;
+  requireTokensForPaidUsers?: boolean;
+}) {
+  return buildEntitlementGuard({
+    requireAi: true,
+    requireDomain: params.domain,
+    requireUser: params.requireUser,
+    isBootstrapAdmin: params.isBootstrapAdmin,
+    forbiddenStatus: params.forbiddenStatus,
+    forbiddenBody: params.forbiddenBody,
+    requireTokensForPaidUsers: params.requireTokensForPaidUsers,
+  });
+}
