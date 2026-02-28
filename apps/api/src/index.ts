@@ -2703,7 +2703,8 @@ async function persistTrainingPlanWithClient(
     request.level ??
     (request.experienceLevel
       ? mapExperienceLevelToTrainingPlanLevel(request.experienceLevel)
-      : "beginner");
+      : undefined) ??
+    "beginner";
 
   const basePlanData = {
     userId,
@@ -2738,10 +2739,7 @@ async function persistTrainingPlanWithClient(
   const planRecord = existingPlan
     ? await tx.trainingPlan.update({
         where: { id: existingPlan.id },
-        data: {
-          ...basePlanData,
-          ...(typeof plan.notes === "string" ? { notes: plan.notes } : {}),
-        },
+        data: planData,
         select: { id: true },
       })
     : await tx.trainingPlan.create({ data: planData, select: { id: true } });
