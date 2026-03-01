@@ -6691,6 +6691,7 @@ app.post(
         );
         await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
         await saveTrainingPlan(
+          prisma,
           user.id,
           resolvedPlan,
           startDate,
@@ -7195,7 +7196,7 @@ const nutritionPlanHandler = async (
                   aiTokenRenewalAt: user.aiTokenRenewalAt,
                 },
                 feature: "nutrition",
-                result: aiResult,
+                result: aiResult!,
                 meta: { attempt: aiAttemptUsed ?? 0 },
                 createHttpError,
               });
@@ -7254,7 +7255,7 @@ const nutritionPlanHandler = async (
       const aiResponse = aiResult as OpenAiResponse | null;
       const exactUsage = extractExactProviderUsage(aiResponse?.usage);
       return reply.status(200).send({
-        planId: savedPlan.id,
+        planId: savedPlan.persistedPlan.id,
         plan: personalized,
         aiRequestId: aiResponse?.requestId ?? null,
         aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
@@ -7312,14 +7313,34 @@ app.post(
       }
 
       const exerciseCatalog = await loadExerciseCatalogForAi();
-      const startDate = parseDateInput(payload.startDate) ?? new Date();
+      const trainingRequest = {
+        goal: payload.goal,
+        daysPerWeek: Math.min(payload.daysPerWeek ?? 3, 7),
+        level: mapExperienceLevelToTrainingPlanLevel(payload.experienceLevel),
+        experienceLevel: payload.experienceLevel,
+        focus: "full" as const,
+        equipment: "gym" as const,
+      };
+      const trainingPromptInput: z.infer<typeof aiTrainingSchema> = {
+        age: 30,
+        sex: "male",
+        level: trainingRequest.level,
+        goal: trainingRequest.goal,
+        equipment: trainingRequest.equipment,
+        daysPerWeek: trainingRequest.daysPerWeek,
+        daysCount: trainingRequest.daysPerWeek,
+        sessionTime: "medium",
+        focus: trainingRequest.focus,
+        timeAvailableMinutes: 45,
+        restrictions: payload.constraints,
+      };
+      const startDate = parseDateInput(trainingPromptInput.startDate) ?? new Date();
       const expectedDays = Math.min(payload.daysPerWeek ?? 3, 7);
 
       const trainingInput = {
-        ...payload,
-        level: mapExperienceLevelToTrainingPlanLevel(payload.experienceLevel),
+        ...trainingRequest,
         daysPerWeek: expectedDays,
-        daysCount: payload.daysCount ?? expectedDays,
+        daysCount: trainingPromptInput.daysCount ?? expectedDays,
       };
 
       let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null =
@@ -7330,7 +7351,7 @@ app.post(
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
           const prompt = `${buildTrainingPrompt(
-            trainingInput,
+            trainingPromptInput,
             attempt > 0,
             formatExerciseCatalogForPrompt(exerciseCatalog),
           )} ${
