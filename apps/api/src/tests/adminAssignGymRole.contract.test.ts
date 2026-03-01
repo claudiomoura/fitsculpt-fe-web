@@ -1,27 +1,10 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { setTimeout as sleep } from "node:timers/promises";
 import { PrismaClient } from "@prisma/client";
-import { apiRoot } from "./testPaths.js";
+import { startContractServer } from "./contractTestServer.js";
 
 const testPort = 4312;
 const baseUrl = `http://127.0.0.1:${testPort}`;
 const prisma = new PrismaClient();
-
-async function waitForServerReady() {
-  const timeoutMs = process.env.CI === "true" ? 90_000 : 30_000;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${baseUrl}/health`);
-      if (response.ok) return;
-    } catch {
-      // keep retrying
-    }
-    await sleep(250);
-  }
-  throw new Error("Server did not become ready in time");
-}
 
 function uniqueValue(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -49,42 +32,10 @@ async function main() {
   const memberEmail = `${uniqueValue("member")}@example.com`;
   const trainerEmail = `${uniqueValue("trainer")}@example.com`;
 
-  const server = spawn("npx", ["tsx", "src/index.ts"], {
-    cwd: apiRoot,
-    env: {
-      ...process.env,
-      PORT: String(testPort),
-      HOST: "127.0.0.1",
-      NODE_ENV: "test",
-      ADMIN_EMAIL_SEED: "",
-      BOOTSTRAP_ADMIN_EMAILS: adminEmail,
-      DATABASE_URL:
-        process.env.DATABASE_URL ??
-        "postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public",
-      DIRECT_URL:
-        process.env.DIRECT_URL ??
-        process.env.DATABASE_URL ??
-        "postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public",
-      JWT_SECRET: process.env.JWT_SECRET ?? "contract-jwt-secret-32-chars-minimum",
-      COOKIE_SECRET: process.env.COOKIE_SECRET ?? "contract-cookie-secret-32chars",
-      CORS_ORIGIN: process.env.CORS_ORIGIN ?? "http://127.0.0.1:3000",
-      APP_BASE_URL: process.env.APP_BASE_URL ?? "http://127.0.0.1:3000",
-      ALLOW_SEED: process.env.ALLOW_SEED ?? "1",
-      ...(process.env.CI === "true" ? { SKIP_DB_PREFLIGHT: "1" } : {}),
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  let serverLogs = "";
-  server.stdout.on("data", (chunk) => {
-    serverLogs += chunk.toString();
-  });
-  server.stderr.on("data", (chunk) => {
-    serverLogs += chunk.toString();
-  });
+  const server = startContractServer({ port: testPort, bootstrapAdminEmails: adminEmail });
 
   try {
-    await waitForServerReady();
+    await server.waitForReady();
 
     const adminUser = await registerUser(adminEmail, password);
     const memberUser = await registerUser(memberEmail, password);
@@ -116,7 +67,7 @@ async function main() {
       body: JSON.stringify({ name: "Role Assignment Gym", code: gymCode }),
     });
 
-    assert.equal(createGymResponse.status, 201, `Expected create gym to pass. Logs:\n${serverLogs}`);
+    assert.equal(createGymResponse.status, 201, `Expected create gym to pass. Logs:\n${server.getLogs()}`);
     const createdGym = (await createGymResponse.json()) as { id: string };
 
     const assignClientResponse = await fetch(`${baseUrl}/admin/gyms/${createdGym.id}/users/${memberUser.id}/assign-role`, {
@@ -206,8 +157,7 @@ async function main() {
     assert.equal(conflictPayload.error, "GYM_MEMBERSHIP_CONFLICT");
   } finally {
     await prisma.$disconnect();
-    server.kill("SIGTERM");
-    await sleep(500);
+    await server.stop();
   }
 
   console.log("admin assign gym role contract test passed");
