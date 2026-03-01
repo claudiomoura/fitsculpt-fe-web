@@ -423,7 +423,9 @@ export default function TrainerClientContextClient() {
     { id: "summary", label: t("trainer.clientContext.tabs.summary") },
     { id: "progress", label: t("trainer.clientContext.tabs.progress") },
     { id: "plan", label: t("trainer.clientContext.tabs.plan") },
-    { id: "notes", label: t("trainer.clientContext.tabs.notes") },
+    ...(trainerClientServiceCapabilities.canManageNotes
+      ? [{ id: "notes" as const, label: t("trainer.clientContext.tabs.notes") }]
+      : []),
   ];
 
   return (

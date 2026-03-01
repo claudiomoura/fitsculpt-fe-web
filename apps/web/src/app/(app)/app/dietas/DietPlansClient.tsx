@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/Input";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { NutritionPlanListItem } from "@/lib/types";
-import { PlanListCard } from "../biblioteca/entrenamientos/components/PlanListCard";
 
 function getPlanId(plan: NutritionPlanListItem): string {
   const candidate = (plan as NutritionPlanListItem & { planId?: string }).planId;
@@ -123,7 +122,7 @@ export default function DietPlansClient() {
             onRetry={() => setReloadKey((value) => value + 1)}
           />
         ) : null}
-        {state === "unavailable" ? <EmptyState className="mt-12" title={t("dietPlans.unavailable")} icon="warning" /> : null}
+        {state === "unavailable" ? <EmptyState className="mt-12" title={t("dietPlans.unavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
 
         {state === "ready" && plans.length === 0 ? (
           <EmptyState

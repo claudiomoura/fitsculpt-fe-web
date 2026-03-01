@@ -513,7 +513,9 @@ const notesErrorActions: ErrorAction[] = [
           <EmptyState
             title={trainingUnsupported ? t("common.notAvailable") : t("today.trainingEmptyTitle")}
             description={trainingUnsupported ? t("library.training.assignedUnavailable") : t("today.trainingAssignedEmptyDescription")}
-            actions={trainingUnsupported ? [] : [{ label: t("today.trainingCta"), href: "/app/biblioteca/entrenamientos", variant: "secondary" }]}
+            actions={trainingUnsupported
+              ? [{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]
+              : [{ label: t("today.trainingCta"), href: "/app/biblioteca/entrenamientos", variant: "secondary" }]}
           />
         }
       >
