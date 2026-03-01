@@ -211,7 +211,10 @@ jobs:
           APP_BASE_URL: http://127.0.0.1:3000
           ALLOW_SEED: "1"
           SKIP_DB_PREFLIGHT: "1"
-        run: npm run dev > /tmp/api-dev.log 2>&1 &
+        run: |
+          set -euo pipefail
+          npm run dev > /tmp/api-dev.log 2>&1 &
+          echo $! > /tmp/api-dev.pid
 
       - name: Wait for API health
         run: |
@@ -224,6 +227,33 @@ jobs:
             sleep 2
           done
           echo "API did not become healthy in time"
+          echo "---- API diagnostics (last 200 lines) ----"
+          if [ -f /tmp/api-dev.log ]; then
+            tail -n 200 /tmp/api-dev.log || true
+          else
+            echo "/tmp/api-dev.log not found"
+          fi
+
+          echo "---- API process status ----"
+          if [ -f /tmp/api-dev.pid ]; then
+            API_PID="$(cat /tmp/api-dev.pid)"
+            if ps -p "${API_PID}" > /dev/null 2>&1; then
+              echo "API launcher process is alive (pid=${API_PID})"
+              ps -fp "${API_PID}" || true
+            else
+              echo "API launcher process is not running (pid=${API_PID})"
+            fi
+          else
+            echo "No /tmp/api-dev.pid found"
+          fi
+
+          echo "---- Port 4000 listener check ----"
+          if ss -ltnp | grep -q ':4000'; then
+            echo "Port 4000 is listening"
+            ss -ltnp | grep ':4000' || true
+          else
+            echo "Port 4000 is not listening"
+          fi
           exit 1
 
       - name: Install Playwright browser
