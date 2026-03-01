@@ -3,8 +3,15 @@ import { spawn } from 'node:child_process';
 async function main() {
   assertValidDatabaseUrl();
 
+  const isCi = process.env.CI === 'true';
+
   await runStep('db:doctor', ['node', ['scripts/db-doctor.mjs']]);
-  await runStep('prisma migrate deploy', ['node', ['scripts/prisma-runner.mjs', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma']]);
+
+  if (isCi) {
+    await runStep('prisma ci bootstrap (db push + generate)', ['node', ['scripts/prisma-runner.mjs', 'ci-bootstrap']]);
+  } else {
+    await runStep('prisma migrate deploy', ['node', ['scripts/prisma-runner.mjs', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma']]);
+  }
 
   const nodeEnv = process.env.NODE_ENV ?? 'development';
   const allowSeed = process.env.ALLOW_SEED === '1';

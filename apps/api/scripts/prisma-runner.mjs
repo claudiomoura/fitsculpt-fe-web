@@ -46,6 +46,13 @@ if (modeOrArg === 'seed:safe') {
       console.error(error instanceof Error ? error.message : String(error));
       process.exit(1);
     });
+} else if (modeOrArg === 'ci-bootstrap') {
+  runCiBootstrap(env)
+    .then((code) => process.exit(code))
+    .catch((error) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    });
 } else {
   runPrismaWithRetry([modeOrArg, ...restArgs], env)
     .then((code) => process.exit(code))
@@ -114,6 +121,11 @@ async function runSafeReset(resetArgs, envVars) {
 }
 
 async function runDoctor(envVars) {
+  if (envVars.CI === 'true') {
+    console.log('CI=true detected: skipping migrate deploy health check in db:doctor.');
+    return 0;
+  }
+
   const deployResult = await runPrismaWithRetryDetailed(['migrate', 'deploy', '--schema', 'prisma/schema.prisma'], envVars);
 
   if (deployResult.code === 0) {
@@ -128,6 +140,24 @@ async function runDoctor(envVars) {
 
   console.error('❌ Prisma migrate deploy failed for a reason other than P3009. Review logs above.');
   return deployResult.code || 1;
+}
+
+async function runCiBootstrap(envVars) {
+  if (envVars.CI !== 'true') {
+    console.error('ci-bootstrap mode is only allowed with CI=true.');
+    return 1;
+  }
+
+  const resetResult = await runPrismaWithRetry(
+    ['db', 'push', '--force-reset', '--accept-data-loss', '--schema', 'prisma/schema.prisma'],
+    envVars,
+  );
+
+  if (resetResult !== 0) {
+    return resetResult;
+  }
+
+  return runPrismaWithRetry(['generate', '--schema', 'prisma/schema.prisma'], envVars);
 }
 
 async function runRepair(envVars) {

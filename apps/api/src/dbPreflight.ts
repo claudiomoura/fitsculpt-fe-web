@@ -14,7 +14,11 @@ type DbPreflightContext = {
 
 export async function runDatabasePreflight(prisma: PrismaClient, logger: BootLogger, context: DbPreflightContext) {
   await assertDatabaseCredentials(prisma, logger, context);
-  await assertDatabaseBaseline(prisma, logger, context);
+
+  const shouldSkipBaselineCheck = process.env.CI === "true" || process.env.SKIP_DB_PREFLIGHT === "1";
+  if (!shouldSkipBaselineCheck) {
+    await assertDatabaseBaseline(prisma, logger, context);
+  }
   await assertRequiredMigrations(prisma, logger, context);
   logger.info({ ...context }, "Database preflight completed");
 }

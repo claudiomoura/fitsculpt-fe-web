@@ -33,7 +33,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "seed:demo": "tsx ../../scripts/seed-demo.ts",
-    "test:route-parity": "tsx src/tests/routeParity.contract.test.ts"
+    "test:route-parity": "tsx src/tests/routeParity.contract.test.ts",
+    "db:bootstrap:ci": "CI=true node scripts/prisma-runner.mjs ci-bootstrap && node scripts/prisma-runner.mjs seed:safe && npm run db:import:free-exercise-db"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
