@@ -203,6 +203,7 @@ jobs:
         env:
           PORT: 4000
           HOST: 127.0.0.1
+          FS_CI_DB_MODE: push
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
