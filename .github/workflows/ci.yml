@@ -100,6 +100,9 @@ jobs:
           echo "Postgres did not become ready in time"
           exit 1
 
+      - name: Apply Prisma migrations
+        run: npm run db:deploy
+
       - name: Bootstrap test database
         env:
           ALLOW_SEED: "1"
