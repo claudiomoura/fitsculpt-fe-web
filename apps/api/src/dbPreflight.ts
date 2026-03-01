@@ -15,13 +15,14 @@ type DbPreflightContext = {
 export async function runDatabasePreflight(prisma: PrismaClient, logger: BootLogger, context: DbPreflightContext) {
   await assertDatabaseCredentials(prisma, logger, context);
 
-  const shouldSkipBaselineCheck = process.env.CI === "true" || process.env.SKIP_DB_PREFLIGHT === "1";
+  const shouldSkipAllMigrationChecks = shouldSkipMigrationPreflight();
+  const shouldSkipBaselineCheck = shouldSkipAllMigrationChecks;
   if (!shouldSkipBaselineCheck) {
     await assertDatabaseBaseline(prisma, logger, context);
   }
 
-  if (shouldSkipRequiredMigrationsCheck()) {
-    logger.info({ ...context, fsCiDbMode: process.env.FS_CI_DB_MODE }, "Database preflight: skipping required migrations check in CI db push mode");
+  if (shouldSkipAllMigrationChecks) {
+    logger.info({ ...context, fsCiDbMode: process.env.FS_CI_DB_MODE }, "Skipping DB preflight (CI push mode)");
   } else {
     await assertRequiredMigrations(prisma, logger, context);
   }
@@ -123,6 +124,18 @@ function isPrismaErrorCode(error: unknown, code: string) {
   return typed.errorCode === code;
 }
 
-function shouldSkipRequiredMigrationsCheck() {
+function shouldSkipMigrationPreflight() {
+  if (isTruthyEnvFlag(process.env.SKIP_DB_PREFLIGHT)) {
+    return true;
+  }
   return process.env.CI === "true" && process.env.FS_CI_DB_MODE === "push";
+}
+
+function isTruthyEnvFlag(value: string | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }

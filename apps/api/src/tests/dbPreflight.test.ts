@@ -78,7 +78,7 @@ async function testMissingRequiredMigrationsFails() {
 }
 
 
-async function testCiPushModeSkipsRequiredMigrationsCheck() {
+async function testCiPushModeSkipsMigrationPreflight() {
   const entries: LoggerEntry[] = [];
   const logger = createLogger(entries);
   const responses = [1];
@@ -96,8 +96,29 @@ async function testCiPushModeSkipsRequiredMigrationsCheck() {
     delete process.env.CI;
   }
 
-  const skipLog = entries.find((entry) => entry.msg.includes("skipping required migrations check"));
-  assert(Boolean(skipLog), "Expected CI db push skip log for required migrations check");
+  const skipLog = entries.find((entry) => entry.msg.includes("Skipping DB preflight (CI push mode)"));
+  assert(Boolean(skipLog), "Expected CI db push skip log");
+}
+
+
+async function testSkipDbPreflightTruthyFlagSkipsMigrationPreflight() {
+  const entries: LoggerEntry[] = [];
+  const logger = createLogger(entries);
+  const responses = [1];
+  const prisma = {
+    $queryRaw: async () => responses.shift(),
+  };
+
+  process.env.SKIP_DB_PREFLIGHT = "yes";
+
+  try {
+    await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
+  } finally {
+    delete process.env.SKIP_DB_PREFLIGHT;
+  }
+
+  const skipLog = entries.find((entry) => entry.msg.includes("Skipping DB preflight (CI push mode)"));
+  assert(Boolean(skipLog), "Expected skip log when SKIP_DB_PREFLIGHT is truthy");
 }
 
 async function testHappyPathPasses() {
@@ -124,7 +145,8 @@ async function testHappyPathPasses() {
 await testP1000LogsFriendlyError();
 await testMissingMigrationsWithTablesFails();
 await testMissingRequiredMigrationsFails();
-await testCiPushModeSkipsRequiredMigrationsCheck();
+await testCiPushModeSkipsMigrationPreflight();
+await testSkipDbPreflightTruthyFlagSkipsMigrationPreflight();
 await testHappyPathPasses();
 
 console.log("dbPreflight tests passed");
