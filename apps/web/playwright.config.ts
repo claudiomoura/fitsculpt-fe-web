@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { authStorageStatePath } from './e2e/support';
 
 const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 
@@ -19,10 +20,11 @@ export default defineConfig({
     reuseExistingServer: true,
     timeout: 120_000,
   },
+  globalSetup: './e2e/global-setup.ts',
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], storageState: authStorageStatePath },
     },
   ],
 });
