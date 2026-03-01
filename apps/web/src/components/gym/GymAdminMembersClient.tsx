@@ -293,7 +293,6 @@ export function GymAdminMembersClient() {
       {gymId && selectedUser ? (
         <AssignTrainingPlanModal
           open
-          gymId={gymId}
           userId={selectedUser.id}
           userLabel={selectedUser.name || selectedUser.email || "-"}
           onClose={() => setSelectedUser(null)}

@@ -332,14 +332,32 @@ export async function fetchAdminGymsList(): Promise<ServiceResult<{ gyms: GymLis
 
 export async function requestGymJoin(gymId: string): Promise<ServiceResult<null>> {
   const payload = JSON.stringify({ gymId });
-  const primary = await readJsonResponse<unknown>("/api/gym/join-request", {
+  const primary = await readJsonResponse<unknown>("/api/gym-flow/join", {
     method: "POST",
     headers: JSON_HEADERS,
     body: payload,
   });
 
   if (primary.ok) return { ok: true, data: null };
-  if (primary.reason !== "unsupported") return primary;
+  if (primary.reason !== "unsupported") {
+    const direct = await readJsonResponse<unknown>("/api/gym/join-request", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: payload,
+    });
+
+    if (!direct.ok) return direct;
+    return { ok: true, data: null };
+  }
+
+  const direct = await readJsonResponse<unknown>("/api/gym/join-request", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: payload,
+  });
+
+  if (direct.ok) return { ok: true, data: null };
+  if (direct.reason !== "unsupported") return direct;
 
   const legacy = await readJsonResponse<unknown>("/api/gyms/join", {
     method: "POST",
@@ -398,8 +416,8 @@ export async function fetchGymJoinRequests(): Promise<Response> {
   return fetch("/api/admin/gym-join-requests", { cache: "no-store", credentials: "include" });
 }
 
-export async function fetchGymMembers(gymId: string): Promise<Response> {
-  return fetch(`/api/admin/gyms/${gymId}/members`, { cache: "no-store", credentials: "include" });
+export async function fetchGymMembers(_gymId: string): Promise<Response> {
+  return fetch("/api/gym-flow/members", { cache: "no-store", credentials: "include" });
 }
 
 function asFirstError(value: unknown): string | null {
@@ -501,12 +519,46 @@ export async function reviewGymJoinRequest(
   membershipId: string,
   action: "accept" | "reject",
 ): Promise<ServiceResult<null>> {
+  const flowResponse = await readJsonResponse<unknown>("/api/gym-flow/approve", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ membershipId, action }),
+  });
+
+  if (flowResponse.ok) return { ok: true, data: null };
+  if (flowResponse.reason !== "unsupported") return flowResponse;
+
   const response = await readJsonResponse<unknown>(`/api/admin/gym-join-requests/${membershipId}/${action}`, {
     method: "POST",
   });
 
   if (!response.ok) return response;
   return { ok: true, data: null };
+}
+
+export async function assignGymMemberTrainingPlan(input: {
+  memberId: string;
+  trainingPlanId: string;
+}): Promise<ServiceResult<unknown>> {
+  const memberId = input.memberId.trim();
+  const trainingPlanId = input.trainingPlanId.trim();
+
+  if (!memberId || !trainingPlanId) {
+    return {
+      ok: false,
+      reason: "validation",
+      status: 400,
+      message: "memberId and trainingPlanId are required",
+    };
+  }
+
+  const result = await readJsonResponse<unknown>("/api/gym-flow/assign", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ memberId, trainingPlanId }),
+  });
+
+  return result;
 }
 
 export async function updateGymMemberRole(
