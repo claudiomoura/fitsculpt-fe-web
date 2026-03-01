@@ -5,6 +5,12 @@ on:
     branches:
       - dev
   workflow_dispatch:
+    inputs:
+      include_token_lifecycle:
+        description: "Run optional AI token lifecycle smoke test"
+        required: false
+        default: "false"
+        type: boolean
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -174,14 +180,15 @@ jobs:
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
 
-      - name: Run single smoke test
+      - name: Run Beta Ready smoke pack (core loop + optional token lifecycle)
         working-directory: apps/web
         env:
           E2E_BASE_URL: http://127.0.0.1:3000
           E2E_BACKEND_URL: http://127.0.0.1:4000
           E2E_DEMO_USER_EMAIL: demo.user@fitsculpt.local
           E2E_DEMO_USER_PASSWORD: DemoUser123!
-        run: npm run e2e -- e2e/library-smoke.spec.ts
+          E2E_INCLUDE_TOKEN_LIFECYCLE: ${{ github.event_name == 'workflow_dispatch' && inputs.include_token_lifecycle && '1' || '0' }}
+        run: npm run e2e:smoke:beta
 
       - name: Upload E2E failure artifacts
         if: failure()

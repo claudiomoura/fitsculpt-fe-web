@@ -11,6 +11,9 @@
     "test": "vitest run",
     "test:contracts": "vitest run src/test/bffContractsRcV1.contract.test.ts",
     "e2e": "playwright test",
+    "e2e:smoke:core": "playwright test e2e/core-loop.spec.ts",
+    "e2e:smoke:token": "playwright test e2e/token-lifecycle.spec.ts",
+    "e2e:smoke:beta": "node scripts/run-beta-smoke.mjs",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
     "lint:ds": "node scripts/lint-design-system-guardrails.mjs"
