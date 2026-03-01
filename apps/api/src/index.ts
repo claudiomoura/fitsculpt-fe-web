@@ -6595,8 +6595,8 @@ app.post(
           retryOnParseError: false,
         });
         payload = result.payload;
+        aiResult = result;
         if (shouldChargeAi) {
-          aiResult = result;
           aiAttemptUsed = attempt;
         }
         return parseTrainingPlanPayload(
@@ -7036,48 +7036,28 @@ const nutritionPlanHandler = async (
           })),
           attempt > 0,
         );
+        const result = await callOpenAi(
+          promptAttempt,
+          attempt,
+          extractTopLevelJson,
+          {
+            responseFormat: {
+              type: "json_schema",
+              json_schema: {
+                name: "nutrition_plan",
+                schema: nutritionPlanJsonSchema as any,
+                strict: true,
+              },
+            },
+            model: "gpt-4o-mini",
+            maxTokens: 1200,
+            retryOnParseError: false,
+          },
+        );
+        payload = result.payload;
+        aiResult = result;
         if (shouldChargeAi) {
-          const result = await callOpenAi(
-            promptAttempt,
-            attempt,
-            extractTopLevelJson,
-            {
-              responseFormat: {
-                type: "json_schema",
-                json_schema: {
-                  name: "nutrition_plan",
-                  schema: nutritionPlanJsonSchema as any,
-                  strict: true,
-                },
-              },
-              model: "gpt-4o-mini",
-              maxTokens: 1200,
-              retryOnParseError: false,
-            },
-          );
-          payload = result.payload;
-          aiResult = result;
           aiAttemptUsed = attempt;
-        } else {
-          const result = await callOpenAi(
-            promptAttempt,
-            attempt,
-            extractTopLevelJson,
-            {
-              responseFormat: {
-                type: "json_schema",
-                json_schema: {
-                  name: "nutrition_plan",
-                  schema: nutritionPlanJsonSchema as any,
-                  strict: true,
-                },
-              },
-              model: "gpt-4o-mini",
-              maxTokens: 1200,
-              retryOnParseError: false,
-            },
-          );
-          payload = result.payload;
         }
         return parseNutritionPlanPayload(payload, startDate, daysCount);
       };
@@ -7450,16 +7430,18 @@ app.post(
                 result: aiResult,
                 createHttpError,
               });
-              return persistedPlan;
+              return { persistedPlan };
             })
-          : await saveTrainingPlan(
-              prisma,
-              user.id,
-              resolvedPlan,
-              startDate,
-              trainingInput.daysCount ?? expectedDays,
-              trainingInput,
-            );
+          : {
+              persistedPlan: await saveTrainingPlan(
+                prisma,
+                user.id,
+                resolvedPlan,
+                startDate,
+                trainingInput.daysCount ?? expectedDays,
+                trainingInput,
+              ),
+            };
 
       if (aiResult && !shouldChargeAi) {
         await persistAiUsageLog({
@@ -7494,7 +7476,7 @@ app.post(
 
       const exactUsage = extractExactProviderUsage(aiResult?.usage);
       return reply.status(200).send({
-        planId: savedPlan.id,
+        planId: savedPlan.persistedPlan.id,
         summary: summarizeTrainingPlan(resolvedPlan),
         plan: resolvedPlan,
         aiRequestId: aiResult?.requestId ?? null,
