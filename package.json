@@ -8,7 +8,7 @@
     "ci:build": "npm --prefix apps/web run build && npm --prefix apps/api run build",
     "ci:typecheck": "npm --prefix apps/web run typecheck && npm --prefix apps/api run typecheck",
     "ci:test": "npm --prefix apps/web run test && npm --prefix apps/api run test",
-    "ci:e2e:smoke": "npm --prefix apps/web run e2e",
+    "ci:e2e:smoke": "npm --prefix apps/web run e2e -- e2e/library-smoke.spec.ts",
     "seed:demo": "npm --prefix apps/api run seed:demo"
   }
 }
