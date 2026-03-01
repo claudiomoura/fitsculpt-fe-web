@@ -74,8 +74,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "Running E2E DB bootstrap with prisma db push using DATABASE_URL=${DATABASE_URL}"
-          npm run db:doctor
           npx prisma db push --schema prisma/schema.prisma
+          npx prisma generate --schema prisma/schema.prisma
           npm run db:seed
           npm run db:import:free-exercise-db
 
