@@ -19,7 +19,13 @@ export async function runDatabasePreflight(prisma: PrismaClient, logger: BootLog
   if (!shouldSkipBaselineCheck) {
     await assertDatabaseBaseline(prisma, logger, context);
   }
-  await assertRequiredMigrations(prisma, logger, context);
+
+  if (shouldSkipRequiredMigrationsCheck()) {
+    logger.info({ ...context, fsCiDbMode: process.env.FS_CI_DB_MODE }, "Database preflight: skipping required migrations check in CI db push mode");
+  } else {
+    await assertRequiredMigrations(prisma, logger, context);
+  }
+
   logger.info({ ...context }, "Database preflight completed");
 }
 
@@ -115,4 +121,8 @@ function isPrismaErrorCode(error: unknown, code: string) {
   }
   const typed = error as { errorCode?: string };
   return typed.errorCode === code;
+}
+
+function shouldSkipRequiredMigrationsCheck() {
+  return process.env.CI === "true" && process.env.FS_CI_DB_MODE === "push";
 }

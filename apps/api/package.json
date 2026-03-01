@@ -18,6 +18,7 @@
     "db:reset": "node scripts/prisma-runner.mjs reset:safe --force --skip-seed --schema prisma/schema.prisma",
     "db:generate": "prisma generate",
     "db:push:emergency": "prisma db push",
+    "db:push:ci": "CI=true node scripts/prisma-runner.mjs db push --force-reset --accept-data-loss --schema prisma/schema.prisma && npm run db:generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "repair:user-columns": "tsx scripts/repair-user-columns.ts",
