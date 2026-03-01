@@ -31,13 +31,13 @@ type JoinRequestsResponse = {
 };
 
 test.describe('Gym flow smoke (manager approval + assignment)', () => {
-  test('login → join gym → manager approves → manager assigns plan → member sees assigned plan', async ({ page }) => {
+  test('login → join gym → manager approves → manager assigns plan → member sees assigned plan', async ({ page }, testInfo) => {
     await resetDemoState();
 
     const managerContext = await request.newContext({ baseURL: backendURL });
     const memberContext = await request.newContext({ baseURL: backendURL });
 
-    const assertNoConsoleErrors = attachConsoleErrorCollector(page);
+    const assertNoConsoleErrors = attachConsoleErrorCollector(page, testInfo);
 
     try {
       const managerLoginResponse = await managerContext.post('/auth/login', {

@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { attachConsoleErrorCollector, fetchTrackingCount } from './support';
 
 test.describe('Core loop (demo anti-regression)', () => {
-  test('login → Hoy → acción rápida → persistencia tras recarga', async ({ page }) => {
-    const assertNoConsoleErrors = attachConsoleErrorCollector(page);
+  test('login → Hoy → acción rápida → persistencia tras recarga', async ({ page }, testInfo) => {
+    const assertNoConsoleErrors = attachConsoleErrorCollector(page, testInfo);
 
     try {
       await page.goto('/app/hoy');

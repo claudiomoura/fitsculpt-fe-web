@@ -2,9 +2,9 @@ import { expect, test } from '@playwright/test';
 import { attachConsoleErrorCollector, loginAsDemoUser, resetDemoState } from './support';
 
 test.describe('Library smoke (demo anti-regression)', () => {
-  test('login → Biblioteca (lista) → detalle de ejercicio', async ({ page }) => {
+  test('login → Biblioteca (lista) → detalle de ejercicio', async ({ page }, testInfo) => {
     await resetDemoState();
-    const assertNoConsoleErrors = attachConsoleErrorCollector(page);
+    const assertNoConsoleErrors = attachConsoleErrorCollector(page, testInfo);
 
     try {
       await loginAsDemoUser(page);
