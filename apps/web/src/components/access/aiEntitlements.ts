@@ -1,29 +1,20 @@
-export type AiEntitlementProfile = {
-  entitlements?: {
-    modules?: {
-      ai?: { enabled?: boolean };
-      strength?: { enabled?: boolean };
-      nutrition?: { enabled?: boolean };
-    };
-  } | null;
-} & Record<string, unknown>;
+import type { AuthMeResponse } from "@/lib/types";
+import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 
-function hasEnabledModule(
-  profile: AiEntitlementProfile | null | undefined,
-  moduleName: "strength" | "nutrition",
-): boolean {
-  if (!profile) return false;
-  return profile.entitlements?.modules?.[moduleName]?.enabled === true;
+export type AiEntitlementProfile = AuthMeResponse;
+
+function readModules(profile: AiEntitlementProfile | null | undefined) {
+  return readAuthEntitlementSnapshot(profile).aiEntitlements;
 }
 
 export function hasStrengthAiEntitlement(profile: AiEntitlementProfile | null | undefined): boolean {
-  return hasEnabledModule(profile, "strength");
+  return readModules(profile).strength;
 }
 
 export function hasNutritionAiEntitlement(profile: AiEntitlementProfile | null | undefined): boolean {
-  return hasEnabledModule(profile, "nutrition");
+  return readModules(profile).nutrition;
 }
 
 export function hasAiEntitlement(profile: AiEntitlementProfile | null | undefined): boolean {
-  return hasStrengthAiEntitlement(profile) || hasNutritionAiEntitlement(profile);
+  return readModules(profile).ai;
 }

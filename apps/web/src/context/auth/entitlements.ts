@@ -20,6 +20,7 @@ function toPlan(value: unknown): SubscriptionPlan | null {
 export type AuthEntitlementSnapshot = {
   subscriptionPlan: SubscriptionPlan;
   aiEntitlements: {
+    ai: boolean;
     nutrition: boolean;
     strength: boolean;
   };
@@ -35,11 +36,15 @@ export function readAuthEntitlementSnapshot(payload: AuthMeResponse | null | und
     "FREE";
 
   const nutrition =
-    payload?.aiEntitlements?.nutrition === true ||
-    payload?.entitlements?.modules?.nutrition?.enabled === true;
+    payload?.entitlements?.modules?.nutrition?.enabled === true ||
+    payload?.aiEntitlements?.nutrition === true;
   const strength =
-    payload?.aiEntitlements?.strength === true ||
-    payload?.entitlements?.modules?.strength?.enabled === true;
+    payload?.entitlements?.modules?.strength?.enabled === true ||
+    payload?.aiEntitlements?.strength === true;
+  const ai =
+    payload?.entitlements?.modules?.ai?.enabled === true ||
+    nutrition ||
+    strength;
 
   const tokenBalanceRaw =
     typeof payload?.aiTokenBalance === "number"
@@ -50,7 +55,7 @@ export function readAuthEntitlementSnapshot(payload: AuthMeResponse | null | und
 
   return {
     subscriptionPlan,
-    aiEntitlements: { nutrition, strength },
+    aiEntitlements: { ai, nutrition, strength },
     tokenBalance: Number.isFinite(tokenBalanceRaw) && tokenBalanceRaw > 0 ? tokenBalanceRaw : 0,
   };
 }

@@ -14,6 +14,7 @@ import {
 import { requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { readAuthEntitlementSnapshot, type SubscriptionPlan } from "@/context/auth/entitlements";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import TrainingAdjustmentDiffSummary, {
   buildTrainingAdjustmentDiff,
@@ -155,7 +156,7 @@ export default function TrackingClient() {
   const [adjustmentEntitlementChecked, setAdjustmentEntitlementChecked] = useState(false);
   const [hasAdjustmentEntitlement, setHasAdjustmentEntitlement] = useState(false);
   const [adjustmentTokenBalance, setAdjustmentTokenBalance] = useState<number | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<AiEntitlementProfile["subscriptionPlan"]>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan | null>(null);
   const [trackingSupports, setTrackingSupports] = useState<{
     energy: boolean | null;
     notes: boolean | null;
@@ -224,11 +225,10 @@ export default function TrackingClient() {
         const response = await fetch("/api/auth/me", { cache: "no-store" });
         const data = (await response.json()) as AiEntitlementProfile & {
           aiTokenBalance?: number;
-          subscriptionPlan?: "FREE" | "PRO" | null;
         };
         if (!active) return;
         setHasAdjustmentEntitlement(hasAiEntitlement(data));
-        setSubscriptionPlan(data.subscriptionPlan === "FREE" || data.subscriptionPlan === "PRO" ? data.subscriptionPlan : null);
+        setSubscriptionPlan(readAuthEntitlementSnapshot(data).subscriptionPlan);
         setAdjustmentTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       } catch (_err) {
         if (!active) return;
