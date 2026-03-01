@@ -7834,6 +7834,17 @@ const assignTrainingPlanBodySchema = z
 const trainerMemberParamsSchema = z.object({
   userId: z.string().min(1),
 });
+const assignedTrainingPlanSummarySelect = {
+  id: true,
+  title: true,
+  goal: true,
+  level: true,
+  daysPerWeek: true,
+  focus: true,
+  equipment: true,
+  startDate: true,
+  daysCount: true,
+} as const;
 const trainerMemberIdParamsSchema = z.object({
   id: z.string().min(1),
 });
@@ -8571,17 +8582,7 @@ app.get(
           role: true,
           gym: { select: { id: true, name: true } },
           assignedTrainingPlan: {
-            select: {
-              id: true,
-              title: true,
-              goal: true,
-              level: true,
-              daysPerWeek: true,
-              focus: true,
-              equipment: true,
-              startDate: true,
-              daysCount: true,
-            },
+            select: assignedTrainingPlanSummarySelect,
           },
         },
         orderBy: { updatedAt: "desc" },
@@ -8601,6 +8602,39 @@ app.get(
     }
   },
 );
+
+app.get("/members/me/assigned-training-plan", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+
+    const membership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      select: {
+        gym: { select: { id: true, name: true } },
+        assignedTrainingPlan: {
+          select: assignedTrainingPlanSummarySelect,
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!membership) {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    return reply.status(200).send({
+      memberId: user.id,
+      gym: membership.gym,
+      assignedPlan: membership.assignedTrainingPlan,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
 
 app.get("/nutrition-plans", async (request, reply) => {
   try {
