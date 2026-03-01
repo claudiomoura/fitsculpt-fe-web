@@ -65,8 +65,8 @@ jobs:
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
-          CORS_ORIGIN: http://127.0.0.1:3000
-          APP_BASE_URL: http://127.0.0.1:3000
+          CORS_ORIGIN: http://localhost:3000
+          APP_BASE_URL: http://localhost:3000
           ALLOW_SEED: "1"
           SKIP_DB_PREFLIGHT: "1"
         run: |
@@ -81,8 +81,8 @@ jobs:
           HOST: 127.0.0.1
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
-          CORS_ORIGIN: http://127.0.0.1:3000
-          APP_BASE_URL: http://127.0.0.1:3000
+          CORS_ORIGIN: http://localhost:3000
+          APP_BASE_URL: http://localhost:3000
           ALLOW_SEED: "1"
           SKIP_DB_PREFLIGHT: "1"
         run: |
@@ -95,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..60}; do
-            if curl --silent --fail http://127.0.0.1:4000/health > /dev/null; then
+            if curl --silent --fail http://localhost:4000/health > /dev/null; then
               echo "API is healthy"
               exit 0
             fi
@@ -128,8 +128,8 @@ jobs:
       - name: Run E2E smoke tests
         working-directory: apps/web
         env:
-          E2E_BASE_URL: http://127.0.0.1:3000
-          E2E_BACKEND_URL: http://127.0.0.1:4000
+          E2E_BASE_URL: http://localhost:3000
+          E2E_BACKEND_URL: http://localhost:4000
           E2E_DEMO_USER_EMAIL: demo.user@fitsculpt.local
           E2E_DEMO_USER_PASSWORD: DemoUser123!
         run: |
