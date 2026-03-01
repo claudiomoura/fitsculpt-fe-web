@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { once } from "node:events";
 import { setTimeout as sleep } from "node:timers/promises";
 import { apiRoot } from "./testPaths.js";
 
@@ -40,6 +41,19 @@ function getServerEnv(port: number, bootstrapAdminEmails?: string) {
   };
 }
 
+async function waitForProcessExit(server: ChildProcessWithoutNullStreams, timeoutMs: number) {
+  if (server.exitCode !== null || server.signalCode !== null) {
+    return;
+  }
+
+  await Promise.race([
+    once(server, "exit"),
+    sleep(timeoutMs).then(() => {
+      throw new Error(`Timed out waiting for server process to exit after ${timeoutMs}ms`);
+    }),
+  ]);
+}
+
 export function startContractServer(options: StartContractServerOptions): StartedContractServer {
   const baseUrl = `http://127.0.0.1:${options.port}`;
   const server = spawn("npx", ["tsx", "src/index.ts"], {
@@ -51,6 +65,7 @@ export function startContractServer(options: StartContractServerOptions): Starte
   let serverLogs = "";
   let exitCode: number | null = null;
   let exitSignal: NodeJS.Signals | null = null;
+  let stopped = false;
 
   server.stdout.on("data", (chunk) => {
     serverLogs += chunk.toString();
@@ -77,12 +92,20 @@ export function startContractServer(options: StartContractServerOptions): Starte
         );
       }
 
+      const controller = new AbortController();
+      const requestTimeout = setTimeout(() => controller.abort(), 1_500);
+
       try {
-        const response = await fetch(`${baseUrl}/health`);
-        if (response.ok) return;
+        const response = await fetch(`${baseUrl}/health`, { signal: controller.signal });
+        if (response.ok) {
+          clearTimeout(requestTimeout);
+          return;
+        }
         lastError = `GET /health returned ${response.status}`;
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
+      } finally {
+        clearTimeout(requestTimeout);
       }
 
       await sleep(250);
@@ -92,8 +115,23 @@ export function startContractServer(options: StartContractServerOptions): Starte
   }
 
   async function stop() {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+
+    if (server.exitCode !== null || server.signalCode !== null) {
+      return;
+    }
+
     server.kill("SIGTERM");
-    await sleep(500);
+
+    try {
+      await waitForProcessExit(server, 5_000);
+    } catch {
+      server.kill("SIGKILL");
+      await waitForProcessExit(server, 5_000);
+    }
   }
 
   return {

@@ -159,8 +159,7 @@ async function main() {
     assert.equal(activeMembership.status, "ACTIVE");
     assert.equal(activeMembership.gymId, createdGym.id);
   } finally {
-    await prisma.$disconnect();
-    await server.stop();
+    await Promise.allSettled([server.stop(), prisma.$disconnect()]);
   }
 
   console.log("gym join + membership state contract test passed");

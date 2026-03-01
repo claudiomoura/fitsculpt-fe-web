@@ -156,8 +156,7 @@ async function main() {
     const conflictPayload = (await conflictResponse.json()) as { error?: string };
     assert.equal(conflictPayload.error, "GYM_MEMBERSHIP_CONFLICT");
   } finally {
-    await prisma.$disconnect();
-    await server.stop();
+    await Promise.allSettled([server.stop(), prisma.$disconnect()]);
   }
 
   console.log("admin assign gym role contract test passed");
