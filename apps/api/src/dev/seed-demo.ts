@@ -52,6 +52,18 @@ const DEMO_ASSIGNED_PLAN = {
   daysCount: 3650,
 } as const;
 
+const DEMO_ASSIGNED_DAY = {
+  date: new Date("2024-01-02T09:00:00.000Z"),
+  label: "Día A",
+  focus: "Strength",
+  duration: 45,
+  order: 1,
+  exercises: [
+    { name: "Sentadilla trasera con barra", sets: 3, reps: "8" },
+    { name: "Jalón al pecho", sets: 3, reps: "10" },
+  ],
+} as const;
+
 type DemoAccountSummary = {
   email: string;
   password: string;
@@ -131,6 +143,15 @@ export async function seedDemoState(prisma: PrismaClient) {
     const memberOne = await upsertDemoUser(tx, DEMO_USERS.memberOne);
     const memberTwo = await upsertDemoUser(tx, DEMO_USERS.memberTwo);
 
+    const demoUserIds = [manager.id, trainer.id, memberOne.id, memberTwo.id];
+
+    await tx.gymMembership.deleteMany({
+      where: {
+        userId: { in: demoUserIds },
+        gymId: { not: gym.id },
+      },
+    });
+
     const memberOnePlan = await tx.trainingPlan.upsert({
       where: {
         userId_startDate_daysCount: {
@@ -145,16 +166,13 @@ export async function seedDemoState(prisma: PrismaClient) {
         days: {
           create: [
             {
-              date: new Date(),
-              label: "Día A",
-              focus: "Strength",
-              duration: 45,
-              order: 1,
+              date: DEMO_ASSIGNED_DAY.date,
+              label: DEMO_ASSIGNED_DAY.label,
+              focus: DEMO_ASSIGNED_DAY.focus,
+              duration: DEMO_ASSIGNED_DAY.duration,
+              order: DEMO_ASSIGNED_DAY.order,
               exercises: {
-                create: [
-                  { name: "Sentadilla trasera con barra", sets: 3, reps: "8" },
-                  { name: "Jalón al pecho", sets: 3, reps: "10" },
-                ],
+                create: DEMO_ASSIGNED_DAY.exercises.map((exercise) => ({ ...exercise })),
               },
             },
           ],
@@ -172,16 +190,13 @@ export async function seedDemoState(prisma: PrismaClient) {
           deleteMany: {},
           create: [
             {
-              date: new Date(),
-              label: "Día A",
-              focus: "Strength",
-              duration: 45,
-              order: 1,
+              date: DEMO_ASSIGNED_DAY.date,
+              label: DEMO_ASSIGNED_DAY.label,
+              focus: DEMO_ASSIGNED_DAY.focus,
+              duration: DEMO_ASSIGNED_DAY.duration,
+              order: DEMO_ASSIGNED_DAY.order,
               exercises: {
-                create: [
-                  { name: "Sentadilla trasera con barra", sets: 3, reps: "8" },
-                  { name: "Jalón al pecho", sets: 3, reps: "10" },
-                ],
+                create: DEMO_ASSIGNED_DAY.exercises.map((exercise) => ({ ...exercise })),
               },
             },
           ],
