@@ -1,6 +1,6 @@
 import { expect, type APIRequestContext, request, type Page } from '@playwright/test';
 
-const defaultBackendURL = 'http://127.0.0.1:4000';
+const defaultBackendURL = 'http://localhost:4000';
 const defaultDemoUserEmail = 'demo.user@fitsculpt.local';
 const defaultDemoUserPassword = 'DemoUser123!';
 

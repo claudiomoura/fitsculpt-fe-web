@@ -1,7 +1,7 @@
 import { expect, request, test } from '@playwright/test';
 import { attachConsoleErrorCollector, loginAsDemoUser, resetDemoState } from './support';
 
-const backendURL = process.env.E2E_BACKEND_URL ?? 'http://127.0.0.1:4000';
+const backendURL = process.env.E2E_BACKEND_URL ?? 'http://localhost:4000';
 const demoUserEmail = process.env.E2E_DEMO_USER_EMAIL ?? 'demo.user@fitsculpt.local';
 const demoUserPassword = process.env.E2E_DEMO_USER_PASSWORD ?? 'DemoUser123!';
 const demoManagerEmail = process.env.E2E_MANAGER_EMAIL ?? 'demo-admin@fitsculpt.local';

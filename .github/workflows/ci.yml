@@ -192,8 +192,8 @@ jobs:
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
-          CORS_ORIGIN: http://127.0.0.1:3000
-          APP_BASE_URL: http://127.0.0.1:3000
+          CORS_ORIGIN: http://localhost:3000
+          APP_BASE_URL: http://localhost:3000
           ALLOW_SEED: "1"
           SKIP_DB_PREFLIGHT: "1"
         run: npm run db:bootstrap
@@ -208,8 +208,8 @@ jobs:
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
-          CORS_ORIGIN: http://127.0.0.1:3000
-          APP_BASE_URL: http://127.0.0.1:3000
+          CORS_ORIGIN: http://localhost:3000
+          APP_BASE_URL: http://localhost:3000
           ALLOW_SEED: "1"
           SKIP_DB_PREFLIGHT: "1"
         run: |
@@ -221,7 +221,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..60}; do
-            if curl --silent --fail http://127.0.0.1:4000/health > /dev/null; then
+            if curl --silent --fail http://localhost:4000/health > /dev/null; then
               echo "API is healthy"
               exit 0
             fi
@@ -264,8 +264,8 @@ jobs:
       - name: Run Beta Ready smoke pack (core loop + optional token lifecycle)
         working-directory: apps/web
         env:
-          E2E_BASE_URL: http://127.0.0.1:3000
-          E2E_BACKEND_URL: http://127.0.0.1:4000
+          E2E_BASE_URL: http://localhost:3000
+          E2E_BACKEND_URL: http://localhost:4000
           E2E_DEMO_USER_EMAIL: demo.user@fitsculpt.local
           E2E_DEMO_USER_PASSWORD: DemoUser123!
           E2E_INCLUDE_TOKEN_LIFECYCLE: ${{ github.event_name == 'workflow_dispatch' && inputs.include_token_lifecycle && '1' || '0' }}
@@ -292,11 +292,11 @@ jobs:
           fi
 
           echo "---- Health checks ----"
-          if curl -i http://127.0.0.1:3000/api/health; then
+          if curl -i http://localhost:3000/api/health; then
             echo "Web /api/health responded"
           else
             echo "Web /api/health unavailable; checking API /health"
-            curl -i http://127.0.0.1:4000/health || true
+            curl -i http://localhost:4000/health || true
           fi
 
       - name: Upload E2E failure artifacts
