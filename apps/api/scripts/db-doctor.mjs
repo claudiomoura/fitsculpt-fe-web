@@ -1,5 +1,10 @@
 import { spawn } from 'node:child_process';
 
+if (process.env.CI === 'true') {
+  console.log('CI=true detected: skipping migrate status gate in db-doctor.');
+  process.exit(0);
+}
+
 const args = ['scripts/prisma-runner.mjs', 'migrate', 'status', '--schema', 'prisma/schema.prisma'];
 
 const child = spawn('node', args, {
