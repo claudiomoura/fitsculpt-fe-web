@@ -271,6 +271,34 @@ jobs:
           E2E_INCLUDE_TOKEN_LIFECYCLE: ${{ github.event_name == 'workflow_dispatch' && inputs.include_token_lifecycle && '1' || '0' }}
         run: npm run e2e:smoke:beta
 
+      - name: Print API/Web diagnostics on Playwright failure
+        if: failure()
+        run: |
+          set +e
+          echo "---- API diagnostics (last 200 lines) ----"
+          tail -n 200 /tmp/api-dev.log || true
+
+          echo "---- Web server diagnostics (if available) ----"
+          WEB_LOG_FOUND=0
+          for WEB_LOG in /tmp/web-dev.log /tmp/web.log apps/web/.next/dev/logs/next.log; do
+            if [ -f "${WEB_LOG}" ]; then
+              echo "Tailing ${WEB_LOG}"
+              tail -n 200 "${WEB_LOG}" || true
+              WEB_LOG_FOUND=1
+            fi
+          done
+          if [ "${WEB_LOG_FOUND}" -eq 0 ]; then
+            echo "No known web dev server log file found"
+          fi
+
+          echo "---- Health checks ----"
+          if curl -i http://127.0.0.1:3000/api/health; then
+            echo "Web /api/health responded"
+          else
+            echo "Web /api/health unavailable; checking API /health"
+            curl -i http://127.0.0.1:4000/health || true
+          fi
+
       - name: Upload E2E failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
