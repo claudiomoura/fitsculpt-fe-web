@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { assignGymMemberTrainingPlan } from "@/services/gym";
 
 type TrainingPlanItem = {
   id: string;
@@ -16,14 +17,13 @@ type TrainingPlansResponse = {
 
 type AssignTrainingPlanModalProps = {
   open: boolean;
-  gymId: string;
   userId: string;
   userLabel: string;
   onClose: () => void;
   onAssigned: (assignedPlanTitle: string | null) => void;
 };
 
-export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClose, onAssigned }: AssignTrainingPlanModalProps) {
+export function AssignTrainingPlanModal({ open, userId, userLabel, onClose, onAssigned }: AssignTrainingPlanModalProps) {
   const { t } = useLanguage();
   const [plans, setPlans] = useState<TrainingPlanItem[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState("");
@@ -69,14 +69,12 @@ export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClos
     if (!selectedPlanId) return;
     setSubmitError(null);
     setSubmitting(true);
-    const response = await fetch(`/api/admin/gyms/${gymId}/members/${userId}/assign-training-plan`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ templatePlanId: selectedPlanId }),
+    const response = await assignGymMemberTrainingPlan({
+      memberId: userId,
+      trainingPlanId: selectedPlanId,
     });
     setSubmitting(false);
-    if (response.status === 404 || response.status === 405) {
+    if (!response.ok && (response.status === 404 || response.status === 405 || response.reason === "unsupported")) {
       setAssignUnsupported(true);
       setSubmitError(t("gym.admin.assignPlan.unavailable"));
       return;
@@ -88,7 +86,7 @@ export function AssignTrainingPlanModal({ open, gymId, userId, userLabel, onClos
     setAssignUnsupported(false);
     let assignedPlanTitle: string | null = null;
     try {
-      const payload = (await response.json()) as { assignedPlan?: { title?: string | null } };
+      const payload = response.data as { assignedPlan?: { title?: string | null } };
       assignedPlanTitle = payload.assignedPlan?.title?.trim() || null;
     } catch (_err) {
       assignedPlanTitle = plans.find((plan) => plan.id === selectedPlanId)?.title ?? null;
