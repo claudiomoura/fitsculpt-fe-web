@@ -14,7 +14,8 @@ describe("auth entitlement snapshot", () => {
     });
 
     expect(snapshot.subscriptionPlan).toBe("PRO");
-    expect(snapshot.aiEntitlements).toEqual({ nutrition: true, strength: false });
+    expect(snapshot.aiEntitlements).toMatchObject({ nutrition: true, strength: false });
+    expect(snapshot.aiEntitlements.ai).toBe(true);
     expect(snapshot.tokenBalance).toBe(19);
   });
 
@@ -31,7 +32,8 @@ describe("auth entitlement snapshot", () => {
     });
 
     expect(snapshot.subscriptionPlan).toBe("NUTRI_AI");
-    expect(snapshot.aiEntitlements).toEqual({ nutrition: true, strength: false });
+    expect(snapshot.aiEntitlements).toMatchObject({ nutrition: true, strength: false });
+    expect(snapshot.aiEntitlements.ai).toBe(true);
     expect(snapshot.tokenBalance).toBe(3);
   });
 
