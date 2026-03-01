@@ -24,7 +24,7 @@ export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
   }
 
   const snapshot = readAuthEntitlementSnapshot(payload);
-  const canUseAI = snapshot.subscriptionPlan !== "FREE";
+  const canUseAI = snapshot.aiEntitlements.ai;
   const canUseNutrition = snapshot.aiEntitlements.nutrition;
   const canUseStrength = snapshot.aiEntitlements.strength;
 
