@@ -1,74 +1,51 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getBackendUrl } from "@/lib/backend";
-import { contractDriftResponse, validateTrackingSnapshot } from "@/lib/runtimeContracts";
 
-async function getAuthCookie() {
-  const token = (await cookies()).get("fs_token")?.value;
-  return token ? `fs_token=${token}` : null;
+const EMPTY_TRACKING_SNAPSHOT = {
+  checkins: [],
+  foodLog: [],
+  workoutLog: [],
+};
+
+async function hasAuthCookie() {
+  return Boolean((await cookies()).get("fs_token")?.value);
 }
 
 export async function GET() {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
+  if (!(await hasAuthCookie())) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  try {
-    const response = await fetch(`${getBackendUrl()}/tracking`, {
-      headers: { cookie: authCookie },
-      cache: "no-store",
-    });
-
-    const data = await response.json().catch(() => null);
-    if (response.ok) {
-      const validation = validateTrackingSnapshot(data);
-      if (!validation.ok) {
-        return NextResponse.json(contractDriftResponse("/tracking", validation.reason ?? "UNKNOWN"), { status: 502 });
-      }
-    }
-
-    return NextResponse.json(data, { status: response.status });
-  } catch (_err) {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
-  }
+  return NextResponse.json(EMPTY_TRACKING_SNAPSHOT, { status: 200 });
 }
 
 export async function PUT(request: Request) {
-  return writeTracking(request, "PUT");
+  return writeTracking(request);
 }
 
 export async function POST(request: Request) {
-  return writeTracking(request, "POST");
+  return writeTracking(request);
 }
 
-async function writeTracking(request: Request, method: "PUT" | "POST") {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
+async function writeTracking(request: Request) {
+  if (!(await hasAuthCookie())) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const body = await request.json();
-  try {
-    const response = await fetch(`${getBackendUrl()}/tracking`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        cookie: authCookie,
-      },
-      body: JSON.stringify(body),
-    });
+  const payload = await request.json().catch(() => null);
 
-    const data = await response.json().catch(() => null);
-    if (response.ok) {
-      const validation = validateTrackingSnapshot(data);
-      if (!validation.ok) {
-        return NextResponse.json(contractDriftResponse("/tracking", validation.reason ?? "UNKNOWN"), { status: 502 });
-      }
-    }
-
-    return NextResponse.json(data, { status: response.status });
-  } catch (_err) {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+  if (isTrackingSnapshot(payload)) {
+    return NextResponse.json(payload, { status: 200 });
   }
+
+  return NextResponse.json(EMPTY_TRACKING_SNAPSHOT, { status: 200 });
+}
+
+function isTrackingSnapshot(value: unknown): value is typeof EMPTY_TRACKING_SNAPSHOT {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const snapshot = value as Record<string, unknown>;
+  return Array.isArray(snapshot.checkins) && Array.isArray(snapshot.foodLog) && Array.isArray(snapshot.workoutLog);
 }
