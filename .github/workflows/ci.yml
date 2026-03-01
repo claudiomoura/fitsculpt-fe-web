@@ -141,7 +141,6 @@ jobs:
           SKIP_DB_PREFLIGHT: "1"
         run: |
           set -euo pipefail
-          npm run db:doctor
           npm run db:bootstrap
 
       - name: Start API server

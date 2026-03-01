@@ -5,11 +5,11 @@ async function main() {
 
   const isCi = process.env.CI === 'true';
 
-  await runStep('db:doctor', ['node', ['scripts/db-doctor.mjs']]);
-
   if (isCi) {
+    console.log('CI=true detected: skipping db:doctor migrate-status gate for ephemeral bootstrap.');
     await runStep('prisma ci bootstrap (db push + generate)', ['node', ['scripts/prisma-runner.mjs', 'ci-bootstrap']]);
   } else {
+    await runStep('db:doctor', ['node', ['scripts/db-doctor.mjs']]);
     await runStep('prisma migrate deploy', ['node', ['scripts/prisma-runner.mjs', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma']]);
   }
 
