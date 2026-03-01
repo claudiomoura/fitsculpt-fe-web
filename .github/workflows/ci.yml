@@ -57,7 +57,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: npm run build:repro
 
       - name: Route parity guardrail (src/dist)
         run: npm run test:route-parity

@@ -82,6 +82,20 @@ npm run prisma:migrate      # local only (NUNCA no Render)
 npm run test
 ```
 
+## Build reproducível (src -> dist)
+
+- `dist/` é sempre gerado a partir de `src/` (fonte única).
+- `npm run build` limpa `dist/` antes de compilar para evitar artefatos antigos.
+- `npm run build:repro` executa dois builds consecutivos e valida que os artefatos em `dist/` são idênticos (rebuild consistente para CI).
+
+Fluxo recomendado em CI para backend:
+
+```bash
+npm ci
+npm run build:repro
+npm run test:route-parity
+```
+
 ## Seed local de exercícios (demo)
 
 Para popular o catálogo de exercícios de forma reproduzível em ambiente local, execute:

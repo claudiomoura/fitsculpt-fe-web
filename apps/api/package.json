@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate && tsc",
+    "build:clean": "node scripts/clean-dist.mjs",
+    "build:compile": "prisma generate && tsc -p tsconfig.json",
+    "build": "npm run build:clean && npm run build:compile",
+    "build:repro": "node scripts/verify-dist-rebuild.mjs",
     "start": "node dist/index.js",
     "start:prod": "npm run db:deploy && npm run start",
     "db:deploy": "node scripts/prisma-runner.mjs migrate deploy --schema prisma/schema.prisma",
