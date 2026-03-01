@@ -56,10 +56,39 @@ async function waitForProcessExit(server: ChildProcessWithoutNullStreams, timeou
 
 export function startContractServer(options: StartContractServerOptions): StartedContractServer {
   const baseUrl = `http://127.0.0.1:${options.port}`;
+  const activeTimers = new Set<NodeJS.Timeout>();
+
+  const startTimer = (callback: () => void, timeoutMs: number) => {
+    const timer = setTimeout(() => {
+      activeTimers.delete(timer);
+      callback();
+    }, timeoutMs);
+
+    activeTimers.add(timer);
+    return timer;
+  };
+
+  const clearTimer = (timer: NodeJS.Timeout) => {
+    if (activeTimers.delete(timer)) {
+      clearTimeout(timer);
+      return;
+    }
+
+    clearTimeout(timer);
+  };
+
+  const clearAllTimers = () => {
+    for (const timer of activeTimers) {
+      clearTimeout(timer);
+    }
+    activeTimers.clear();
+  };
+
   const server = spawn("npx", ["tsx", "src/index.ts"], {
     cwd: apiRoot,
     env: getServerEnv(options.port, options.bootstrapAdminEmails),
     stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
   });
 
   let serverLogs = "";
@@ -93,19 +122,19 @@ export function startContractServer(options: StartContractServerOptions): Starte
       }
 
       const controller = new AbortController();
-      const requestTimeout = setTimeout(() => controller.abort(), 1_500);
+      const requestTimeout = startTimer(() => controller.abort(), 1_500);
 
       try {
         const response = await fetch(`${baseUrl}/health`, { signal: controller.signal });
         if (response.ok) {
-          clearTimeout(requestTimeout);
+          clearTimer(requestTimeout);
           return;
         }
         lastError = `GET /health returned ${response.status}`;
       } catch (error) {
         lastError = error instanceof Error ? error.message : String(error);
       } finally {
-        clearTimeout(requestTimeout);
+        clearTimer(requestTimeout);
       }
 
       await sleep(250);
@@ -119,17 +148,26 @@ export function startContractServer(options: StartContractServerOptions): Starte
       return;
     }
     stopped = true;
+    clearAllTimers();
 
     if (server.exitCode !== null || server.signalCode !== null) {
       return;
     }
 
-    server.kill("SIGTERM");
+    try {
+      process.kill(-server.pid!, "SIGTERM");
+    } catch {
+      server.kill("SIGTERM");
+    }
 
     try {
       await waitForProcessExit(server, 5_000);
     } catch {
-      server.kill("SIGKILL");
+      try {
+        process.kill(-server.pid!, "SIGKILL");
+      } catch {
+        server.kill("SIGKILL");
+      }
       await waitForProcessExit(server, 5_000);
     }
   }
