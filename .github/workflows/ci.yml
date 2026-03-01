@@ -67,6 +67,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
       CI: "true"
+      FS_CI_DB_MODE: push
     defaults:
       run:
         working-directory: apps/api
@@ -100,8 +101,8 @@ jobs:
           echo "Postgres did not become ready in time"
           exit 1
 
-      - name: Apply Prisma migrations
-        run: npm run db:deploy
+      - name: Setup CI database schema (Prisma db push --force-reset)
+        run: npm run db:push:ci
 
       - name: Bootstrap test database
         env:

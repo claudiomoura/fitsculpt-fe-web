@@ -77,10 +77,40 @@ async function testMissingRequiredMigrationsFails() {
   assert(Boolean(missingMigrationLog), "Expected required-migrations boot message");
 }
 
+
+async function testCiPushModeSkipsRequiredMigrationsCheck() {
+  const entries: LoggerEntry[] = [];
+  const logger = createLogger(entries);
+  const responses = [1];
+  const prisma = {
+    $queryRaw: async () => responses.shift(),
+  };
+
+  process.env.CI = "true";
+  process.env.FS_CI_DB_MODE = "push";
+
+  try {
+    await runDatabasePreflight(prisma as never, logger, { source: "DATABASE_URL", host: "db.example.com", database: "app" });
+  } finally {
+    delete process.env.FS_CI_DB_MODE;
+    delete process.env.CI;
+  }
+
+  const skipLog = entries.find((entry) => entry.msg.includes("skipping required migrations check"));
+  assert(Boolean(skipLog), "Expected CI db push skip log for required migrations check");
+}
+
 async function testHappyPathPasses() {
   const entries: LoggerEntry[] = [];
   const logger = createLogger(entries);
-  const responses = [1, [{ exists: true }]];
+  const responses = [
+    1,
+    [{ exists: true }],
+    [
+      { migration_name: "20260228120000_ai_usage_log_repair_columns" },
+      { migration_name: "20260228153000_add_stripe_webhook_event_idempotency" },
+    ],
+  ];
   const prisma = {
     $queryRaw: async () => responses.shift(),
   };
@@ -94,6 +124,7 @@ async function testHappyPathPasses() {
 await testP1000LogsFriendlyError();
 await testMissingMigrationsWithTablesFails();
 await testMissingRequiredMigrationsFails();
+await testCiPushModeSkipsRequiredMigrationsCheck();
 await testHappyPathPasses();
 
 console.log("dbPreflight tests passed");
