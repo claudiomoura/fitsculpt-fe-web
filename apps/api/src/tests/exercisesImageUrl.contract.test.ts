@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { setTimeout as sleep } from "node:timers/promises";
 import bcrypt from "bcryptjs";
-import { apiRoot } from "./testPaths.js";
+import { startContractServer } from "./contractTestServer.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -34,20 +32,6 @@ const password = "ContractTest123!";
 const exerciseWithImageSlug = `${marker}-with-image`;
 const exerciseWithImageName = `Contract ImageUrl With Image ${now}`;
 const seededImageUrl = `https://cdn.example.com/${marker}.jpg`;
-
-async function waitForServerReady() {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${baseUrl}/health`);
-      if (response.ok) return;
-    } catch {
-      // retry until timeout
-    }
-    await sleep(300);
-  }
-  throw new Error("Server did not become ready in time");
-}
 
 async function main() {
   const prisma = await createPrismaClient();
@@ -83,35 +67,17 @@ async function main() {
     },
   });
 
-  const server = spawn("npx", ["tsx", "src/index.ts"], {
-    cwd: apiRoot,
-    env: {
-      ...process.env,
-      PORT: String(testPort),
-      HOST: "127.0.0.1",
-      NODE_ENV: "test",
-      ADMIN_EMAIL_SEED: "",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-
-  let serverLogs = "";
-  server.stdout.on("data", (chunk) => {
-    serverLogs += chunk.toString();
-  });
-  server.stderr.on("data", (chunk) => {
-    serverLogs += chunk.toString();
-  });
+  const server = startContractServer({ port: testPort });
 
   try {
-    await waitForServerReady();
+    await server.waitForReady();
 
     const loginRes = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    assert.equal(loginRes.status, 200, `Expected login status 200, got ${loginRes.status}. Logs:\n${serverLogs}`);
+    assert.equal(loginRes.status, 200, `Expected login status 200, got ${loginRes.status}. Logs:\n${server.getLogs()}`);
 
     const cookieHeader = loginRes.headers.get("set-cookie");
     assert.ok(cookieHeader, "Expected auth cookie from /auth/login");
@@ -132,8 +98,7 @@ async function main() {
       "Expected GET /exercises to return at least one matching exercise with a non-empty imageUrl"
     );
   } finally {
-    server.kill("SIGTERM");
-    await sleep(500);
+    await server.stop();
     await prisma.exercise.deleteMany({ where: { slug: exerciseWithImageSlug } });
     await prisma.user.deleteMany({ where: { email } });
     await prisma.$disconnect();
