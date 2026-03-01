@@ -79,17 +79,27 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
       });
       expect(joinResponse.ok(), 'member gym join request should succeed').toBeTruthy();
 
-      const pendingRequestsResponse = await managerContext.get('/admin/gym-join-requests');
-      expect(pendingRequestsResponse.ok(), 'manager should fetch pending join requests').toBeTruthy();
-      const pendingRequests = (await pendingRequestsResponse.json()) as JoinRequestsResponse;
+      const membershipId = await expect
+        .poll(
+          async () => {
+            const pendingRequestsResponse = await managerContext.get('/admin/gym-join-requests');
+            expect(pendingRequestsResponse.ok(), 'manager should fetch pending join requests').toBeTruthy();
 
-      const targetRequest = (pendingRequests.items ?? []).find((item) => {
-        const itemEmail = item.user?.email?.toLowerCase();
-        return itemEmail === demoUserEmail.toLowerCase() && item.gym?.id === gymId;
-      });
+            const pendingRequests = (await pendingRequestsResponse.json()) as JoinRequestsResponse;
+            const targetRequest = (pendingRequests.items ?? []).find((item) => {
+              const itemEmail = item.user?.email?.toLowerCase();
+              return itemEmail === demoUserEmail.toLowerCase() && item.gym?.id === gymId;
+            });
 
-      const membershipId = targetRequest?.membershipId ?? targetRequest?.id;
-      expect(membershipId, 'join request membership id must exist').toBeTruthy();
+            return targetRequest?.membershipId ?? targetRequest?.id ?? null;
+          },
+          {
+            message: 'join request membership id should appear for the demo member',
+            intervals: [500, 1000, 2000],
+            timeout: 15_000,
+          }
+        )
+        .not.toBeNull();
 
       const acceptResponse = await managerContext.post(`/admin/gym-join-requests/${membershipId}/accept`);
       expect(acceptResponse.ok(), 'manager should approve pending join request').toBeTruthy();
@@ -116,16 +126,34 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
       });
       expect(assignPlanResponse.ok(), 'manager should assign created plan to member').toBeTruthy();
 
-      const memberActivePlanResponse = await memberContext.get('/training-plans/active');
-      expect(memberActivePlanResponse.ok(), 'member should read active plan').toBeTruthy();
-      const memberActivePlanPayload = (await memberActivePlanResponse.json()) as {
-        source?: string;
-        plan?: { id?: string; title?: string };
-      };
+      await expect
+        .poll(
+          async () => {
+            const memberActivePlanResponse = await memberContext.get('/training-plans/active');
+            expect(memberActivePlanResponse.ok(), 'member should read active plan').toBeTruthy();
 
-      expect(memberActivePlanPayload.source).toBe('assigned');
-      expect(memberActivePlanPayload.plan?.id).toBe(createdPlan.id);
-      expect(memberActivePlanPayload.plan?.title).toBe(createdPlanTitle);
+            const memberActivePlanPayload = (await memberActivePlanResponse.json()) as {
+              source?: string;
+              plan?: { id?: string; title?: string };
+            };
+
+            return {
+              source: memberActivePlanPayload.source,
+              planId: memberActivePlanPayload.plan?.id,
+              title: memberActivePlanPayload.plan?.title,
+            };
+          },
+          {
+            message: 'member active plan should resolve to the assigned plan',
+            intervals: [500, 1000, 2000],
+            timeout: 15_000,
+          }
+        )
+        .toMatchObject({
+          source: 'assigned',
+          planId: createdPlan.id,
+          title: createdPlanTitle,
+        });
 
       await loginAsDemoUser(page);
       await page.goto('/app/entrenamiento');
