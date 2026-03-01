@@ -1,8 +1,11 @@
+import path from 'node:path';
 import { expect, type APIRequestContext, request, type Page } from '@playwright/test';
 
 const defaultBackendURL = 'http://localhost:4000';
 const defaultDemoUserEmail = 'demo.user@fitsculpt.local';
 const defaultDemoUserPassword = 'DemoUser123!';
+
+export const authStorageStatePath = path.resolve(process.cwd(), 'e2e', '.auth', 'demo-user.json');
 
 export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Promise<void> {
   const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
@@ -26,6 +29,31 @@ export async function loginAsDemoUser(page: Page): Promise<void> {
     page.waitForURL(/\/app(\/.*)?$/),
     page.locator('button[type="submit"]').click(),
   ]);
+}
+
+export async function createDemoUserStorageState(storageStatePath: string = authStorageStatePath): Promise<void> {
+  const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
+  const authRequest = await request.newContext({
+    baseURL: backendURL,
+    storageState: undefined,
+  });
+
+  try {
+    const loginResponse = await authRequest.post('/auth/login', {
+      data: {
+        email: process.env.E2E_DEMO_USER_EMAIL ?? defaultDemoUserEmail,
+        password: process.env.E2E_DEMO_USER_PASSWORD ?? defaultDemoUserPassword,
+      },
+    });
+    expect(loginResponse.ok(), 'demo user login should succeed during E2E global setup').toBeTruthy();
+
+    const meResponse = await authRequest.get('/auth/me');
+    expect(meResponse.ok(), 'demo user /auth/me should succeed during E2E global setup').toBeTruthy();
+
+    await authRequest.storageState({ path: storageStatePath });
+  } finally {
+    await authRequest.dispose();
+  }
 }
 
 export function attachConsoleErrorCollector(page: Page): () => void {

@@ -1,14 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { attachConsoleErrorCollector, fetchTrackingCount, loginAsDemoUser, resetDemoState } from './support';
+import { attachConsoleErrorCollector, fetchTrackingCount } from './support';
 
 test.describe('Core loop (demo anti-regression)', () => {
   test('login → Hoy → acción rápida → persistencia tras recarga', async ({ page }) => {
-    await resetDemoState();
     const assertNoConsoleErrors = attachConsoleErrorCollector(page);
 
     try {
-      await loginAsDemoUser(page);
-
       await page.goto('/app/hoy');
       await expect(page.locator('.today-actions-grid')).toBeVisible();
 
