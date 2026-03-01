@@ -98,10 +98,12 @@ async function main() {
       "Expected GET /exercises to return at least one matching exercise with a non-empty imageUrl"
     );
   } finally {
-    await server.stop();
-    await prisma.exercise.deleteMany({ where: { slug: exerciseWithImageSlug } });
-    await prisma.user.deleteMany({ where: { email } });
-    await prisma.$disconnect();
+    await Promise.allSettled([
+      server.stop(),
+      prisma.exercise.deleteMany({ where: { slug: exerciseWithImageSlug } }),
+      prisma.user.deleteMany({ where: { email } }),
+      prisma.$disconnect(),
+    ]);
   }
 
   console.log("exercises imageUrl contract test passed");
