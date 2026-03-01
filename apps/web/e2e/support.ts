@@ -30,6 +30,8 @@ export async function loginAsDemoUser(page: Page): Promise<void> {
 
 export function attachConsoleErrorCollector(page: Page): () => void {
   const errors: string[] = [];
+  const shouldLogNetworkInCI = process.env.CI === 'true';
+  const authErrorCounts = new Map<string, number>();
 
   const onConsole = (message: { type: () => string; text: () => string }) => {
     if (message.type() === 'error') {
@@ -41,12 +43,52 @@ export function attachConsoleErrorCollector(page: Page): () => void {
     errors.push(`pageerror: ${error.message}`);
   };
 
+  const getResponsePath = (url: string): string => {
+    try {
+      return new URL(url).pathname;
+    } catch {
+      return url;
+    }
+  };
+
+  const onResponse = (response: { status: () => number; url: () => string; request: () => { method: () => string } }) => {
+    if (!shouldLogNetworkInCI) {
+      return;
+    }
+
+    const status = response.status();
+    if (status < 400) {
+      return;
+    }
+
+    const method = response.request().method();
+    const path = getResponsePath(response.url());
+    console.log(`[e2e:network-error] ${method} ${path} -> ${status}`);
+
+    if (status === 401 || status === 502) {
+      authErrorCounts.set(path, (authErrorCounts.get(path) ?? 0) + 1);
+    }
+  };
+
   page.on('console', onConsole);
   page.on('pageerror', onPageError);
+  page.on('response', onResponse);
 
   return () => {
     page.off('console', onConsole);
     page.off('pageerror', onPageError);
+    page.off('response', onResponse);
+
+    if (shouldLogNetworkInCI && authErrorCounts.size > 0) {
+      const topAuthErrorPaths = [...authErrorCounts.entries()]
+        .sort(([, countA], [, countB]) => countB - countA)
+        .slice(0, 5);
+
+      console.log('[e2e:network-summary] Top 401/502 URL paths:');
+      for (const [path, count] of topAuthErrorPaths) {
+        console.log(`[e2e:network-summary] ${count}x ${path}`);
+      }
+    }
 
     expect(errors, errors.length > 0 ? `Console/runtime errors detected:\n${errors.join('\n')}` : undefined).toEqual([]);
   };
