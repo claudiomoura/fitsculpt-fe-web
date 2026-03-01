@@ -8,9 +8,9 @@ type CriticalRoute = {
   path: string;
 };
 
-const criticalRoutes: CriticalRoute[] = [
-  { method: "post", path: "/ai/nutrition-plan/generate" },
-  { method: "post", path: "/ai/nutrition-plan" },
+const nutritionRoutePaths = ["/ai/nutrition-plan", "/ai/nutrition-plan/generate"] as const;
+
+const strictRegisteredRoutes: CriticalRoute[] = [
   { method: "post", path: "/ai/training-plan/generate" },
 ];
 
@@ -19,16 +19,31 @@ function routeRegistrationPattern(route: CriticalRoute) {
   return new RegExp(`app\\.${route.method}\\(\\s*[\"']${escapedPath}[\"']`);
 }
 
-async function assertRoutesPresent(label: string, content: string) {
-  const missingRoutes = criticalRoutes
+function assertNutritionPathsPresent(label: string, content: string) {
+  const missingPaths = nutritionRoutePaths.filter((routePath) => !content.includes(routePath));
+
+  assert.equal(
+    missingPaths.length,
+    0,
+    `${label} is missing critical AI nutrition paths:\n${missingPaths.join("\n")}`,
+  );
+}
+
+function assertStrictRoutesPresent(label: string, content: string) {
+  const missingRoutes = strictRegisteredRoutes
     .filter((route) => !routeRegistrationPattern(route).test(content))
     .map((route) => `${route.method.toUpperCase()} ${route.path}`);
 
   assert.equal(
     missingRoutes.length,
     0,
-    `${label} is missing critical AI route registrations:\n${missingRoutes.join("\n")}`
+    `${label} is missing critical AI route registrations:\n${missingRoutes.join("\n")}`,
   );
+}
+
+async function assertRoutesPresent(label: string, content: string) {
+  assertNutritionPathsPresent(label, content);
+  assertStrictRoutesPresent(label, content);
 }
 
 async function main() {

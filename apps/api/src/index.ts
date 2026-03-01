@@ -6677,95 +6677,54 @@ app.post(
           meta: { attempt: aiAttemptUsed ?? 0 },
           createHttpError,
         });
-        const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
-          personalized,
-          exerciseCatalog,
+        aiTokenBalance = charged.balance;
+        debit =
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : {
+                costCents: charged.costCents,
+                balanceBefore,
+                balanceAfter: charged.balance,
+                totalTokens: charged.totalTokens,
+                model: charged.model,
+                usage: charged.usage,
+              };
+        app.log.info(
           {
-            daysPerWeek: data.daysPerWeek,
-            level: data.level,
-            goal: data.goal,
-            equipment: data.equipment,
-          },
-          startDate,
-          { userId: user.id, route: "/ai/training-plan" },
-        );
-        await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
-        await saveTrainingPlan(
-          prisma,
-          user.id,
-          resolvedPlan,
-          startDate,
-          daysCount,
-          data,
-        );
-        await storeAiContent(user.id, "training", "ai", resolvedPlan);
-        if (shouldChargeAi && aiResult) {
-          const balanceBefore = effectiveTokens;
-          const charged = await chargeAiUsageForResult({
-            prisma,
-            pricing: aiPricing,
-            user: {
-              id: user.id,
-              plan: user.plan,
-              aiTokenBalance: user.aiTokenBalance ?? 0,
-              aiTokenResetAt: user.aiTokenResetAt,
-              aiTokenRenewalAt: user.aiTokenRenewalAt,
-            },
+            userId: user.id,
             feature: "training",
-            result: aiResult,
-            meta: { attempt: aiAttemptUsed ?? 0 },
-            createHttpError,
-          });
-          aiTokenBalance = charged.balance;
-          debit =
-            process.env.NODE_ENV === "production"
-              ? undefined
-              : {
-                  costCents: charged.costCents,
-                  balanceBefore,
-                  balanceAfter: charged.balance,
-                  totalTokens: charged.totalTokens,
-                  model: charged.model,
-                  usage: charged.usage,
-                };
-          app.log.info(
-            {
-              userId: user.id,
-              feature: "training",
-              balanceBefore,
-              balanceAfter: charged.balance,
-              charged: true,
-              attempt: aiAttemptUsed ?? 0,
-            },
-            "ai charge complete",
-          );
-        } else if (shouldChargeAi) {
-          app.log.info(
-            {
-              userId: user.id,
-              feature: "training",
-              charged: false,
-              failureReason: "missing_ai_result",
-            },
-            "ai charge skipped",
-          );
-        }
-        const aiResponse = aiResult as OpenAiResponse | null;
-        const exactUsage = extractExactProviderUsage(aiResponse?.usage);
-        return reply.status(200).send({
-          plan: resolvedPlan,
-          aiRequestId: aiResponse?.requestId ?? null,
-          aiTokenBalance: shouldChargeAi
-            ? aiTokenBalance
-            : aiMeta.aiTokenBalance,
-          aiTokenRenewalAt: shouldChargeAi
-            ? getUserTokenExpiryAt(user)
-            : aiMeta.aiTokenRenewalAt,
-          ...(exactUsage ? { usage: exactUsage } : {}),
-          ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
-          ...(debit ? { debit } : {}),
-        });
+            balanceBefore,
+            balanceAfter: charged.balance,
+            charged: true,
+            attempt: aiAttemptUsed ?? 0,
+          },
+          "ai charge complete",
+        );
+      } else if (shouldChargeAi) {
+        app.log.info(
+          {
+            userId: user.id,
+            feature: "training",
+            charged: false,
+            failureReason: "missing_ai_result",
+          },
+          "ai charge skipped",
+        );
       }
+
+      const aiResponse = aiResult as OpenAiResponse | null;
+      const exactUsage = extractExactProviderUsage(aiResponse?.usage);
+      return reply.status(200).send({
+        plan: resolvedPlan,
+        aiRequestId: aiResponse?.requestId ?? null,
+        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        aiTokenRenewalAt: shouldChargeAi
+          ? getUserTokenExpiryAt(user)
+          : aiMeta.aiTokenRenewalAt,
+        ...(exactUsage ? { usage: exactUsage } : {}),
+        ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
+        ...(debit ? { debit } : {}),
+      });
     } catch (error) {
       return handleRequestError(reply, error);
     }

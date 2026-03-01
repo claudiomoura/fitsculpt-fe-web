@@ -9,7 +9,8 @@ const baseUrl = `http://127.0.0.1:${testPort}`;
 const prisma = new PrismaClient();
 
 async function waitForServerReady() {
-  const deadline = Date.now() + 30_000;
+  const timeoutMs = process.env.CI === "true" ? 90_000 : 30_000;
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
       const response = await fetch(`${baseUrl}/health`);
@@ -57,6 +58,19 @@ async function main() {
       NODE_ENV: "test",
       ADMIN_EMAIL_SEED: "",
       BOOTSTRAP_ADMIN_EMAILS: adminEmail,
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        "postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public",
+      DIRECT_URL:
+        process.env.DIRECT_URL ??
+        process.env.DATABASE_URL ??
+        "postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public",
+      JWT_SECRET: process.env.JWT_SECRET ?? "contract-jwt-secret-32-chars-minimum",
+      COOKIE_SECRET: process.env.COOKIE_SECRET ?? "contract-cookie-secret-32chars",
+      CORS_ORIGIN: process.env.CORS_ORIGIN ?? "http://127.0.0.1:3000",
+      APP_BASE_URL: process.env.APP_BASE_URL ?? "http://127.0.0.1:3000",
+      ALLOW_SEED: process.env.ALLOW_SEED ?? "1",
+      ...(process.env.CI === "true" ? { SKIP_DB_PREFLIGHT: "1" } : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

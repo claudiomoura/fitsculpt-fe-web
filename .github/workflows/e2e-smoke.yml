@@ -70,14 +70,12 @@ jobs:
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
           CORS_ORIGIN: http://127.0.0.1:3000
           APP_BASE_URL: http://127.0.0.1:3000
-          ALLOW_SEED: "true"
+          ALLOW_SEED: "1"
+          SKIP_DB_PREFLIGHT: "1"
         run: |
           set -euo pipefail
-          echo "Running E2E DB bootstrap with prisma db push using DATABASE_URL=${DATABASE_URL}"
-          npx prisma db push --schema prisma/schema.prisma
-          npx prisma generate --schema prisma/schema.prisma
-          npm run db:seed
-          npm run db:import:free-exercise-db
+          echo "Running E2E DB bootstrap (CI mode) using DATABASE_URL=${DATABASE_URL}"
+          npm run db:bootstrap
 
       - name: Start API server
         working-directory: apps/api
@@ -88,7 +86,8 @@ jobs:
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
           CORS_ORIGIN: http://127.0.0.1:3000
           APP_BASE_URL: http://127.0.0.1:3000
-          ALLOW_SEED: "true"
+          ALLOW_SEED: "1"
+          SKIP_DB_PREFLIGHT: "1"
         run: |
           set -euo pipefail
           mkdir -p ../artifacts/e2e
