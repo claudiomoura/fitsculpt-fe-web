@@ -61,7 +61,7 @@ jobs:
           echo "Postgres did not become ready in time"
           exit 1
 
-      - name: Bootstrap API database
+      - name: Bootstrap API database (E2E schema push)
         working-directory: apps/api
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
@@ -73,10 +73,11 @@ jobs:
           ALLOW_SEED: "true"
         run: |
           set -euo pipefail
-          echo "Running db:bootstrap with DATABASE_URL=${DATABASE_URL}"
+          echo "Running E2E DB bootstrap with prisma db push using DATABASE_URL=${DATABASE_URL}"
           npm run db:doctor
-          npm run db:migrate
-          npm run db:bootstrap
+          npx prisma db push --schema prisma/schema.prisma
+          npm run db:seed
+          npm run db:import:free-exercise-db
 
       - name: Start API server
         working-directory: apps/api
