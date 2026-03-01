@@ -1,11 +1,16 @@
 import path from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
 import { expect, type APIRequestContext, request, type Page } from '@playwright/test';
+import type { TestInfo } from '@playwright/test';
 
 const defaultBackendURL = 'http://localhost:4000';
 const defaultDemoUserEmail = 'demo.user@fitsculpt.local';
 const defaultDemoUserPassword = 'DemoUser123!';
 
 export const authStorageStatePath = path.resolve(process.cwd(), 'e2e', '.auth', 'demo-user.json');
+
+const LOG_DUMP_MAX_LINES = 80;
+const failureLogPaths = ['/tmp/web-dev.log', '/tmp/api-dev.log'] as const;
 
 export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Promise<void> {
   const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
@@ -56,7 +61,27 @@ export async function createDemoUserStorageState(storageStatePath: string = auth
   }
 }
 
-export function attachConsoleErrorCollector(page: Page): () => void {
+function sanitizeLogLine(line: string): string {
+  const secretPattern = /(bearer\s+[\w.-]+|token[=:]\s*[^\s]+|cookie[=:]\s*[^\s]+|set-cookie[=:]\s*[^\s]+)/gi;
+  return line.replace(secretPattern, '[REDACTED]');
+}
+
+function printFailureLogSnippets(): void {
+  for (const logPath of failureLogPaths) {
+    if (!existsSync(logPath)) {
+      console.log(`[e2e:failure-log] ${logPath} not found`);
+      continue;
+    }
+
+    const lines = readFileSync(logPath, 'utf8').split('\n').slice(-LOG_DUMP_MAX_LINES).map(sanitizeLogLine);
+    console.log(`[e2e:failure-log] tail -n ${LOG_DUMP_MAX_LINES} ${logPath}`);
+    for (const line of lines) {
+      console.log(`[e2e:failure-log] ${line}`);
+    }
+  }
+}
+
+export function attachConsoleErrorCollector(page: Page, testInfo?: TestInfo): () => void {
   const errors: string[] = [];
   const shouldLogNetworkInCI = process.env.CI === 'true';
   const authErrorCounts = new Map<string, number>();
@@ -116,6 +141,10 @@ export function attachConsoleErrorCollector(page: Page): () => void {
       for (const [path, count] of topAuthErrorPaths) {
         console.log(`[e2e:network-summary] ${count}x ${path}`);
       }
+    }
+
+    if (testInfo && testInfo.status !== testInfo.expectedStatus) {
+      printFailureLogSnippets();
     }
 
     expect(errors, errors.length > 0 ? `Console/runtime errors detected:\n${errors.join('\n')}` : undefined).toEqual([]);
