@@ -7252,13 +7252,13 @@ const nutritionPlanHandler = async (
 };
 
 app.post(
-  nutritionPlanRouteCanonical,
+  "/ai/nutrition-plan/generate",
   { preHandler: aiNutritionDomainGuard },
   nutritionPlanHandler,
 );
 
 app.post(
-  nutritionPlanRouteAlias,
+  "/ai/nutrition-plan",
   { preHandler: aiNutritionDomainGuard },
   nutritionPlanHandler,
 );
