@@ -1,25 +1,16 @@
-import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
-import { readSessionRole } from "@/lib/auth/sessionRole";
+import GymJoinRequestsManager from "@/components/admin/GymJoinRequestsManager";
+import TrainerAdminNoGymPanel from "@/components/trainer/TrainerAdminNoGymPanel";
 
 export default async function AdminGymRequestsPage() {
-  if (process.env.NODE_ENV === "production") {
-    notFound();
-  }
-
-  const token = (await cookies()).get("fs_token")?.value;
-  const sessionRole = token ? readSessionRole(token) : "UNKNOWN";
-
-  if (sessionRole !== "ADMIN") {
-    notFound();
-  }
-
   return (
-    <div className="page">
-      <section className="card">
-        <h1 className="section-title">Gym requests</h1>
-        <p className="section-subtitle">No disponible en este entorno.</p>
+    <div className="page form-stack">
+      <section className="card form-stack">
+        <h1 className="section-title">Gym join requests</h1>
+        <p className="section-subtitle">Approve or reject pending requests and inspect members by gym.</p>
+        <GymJoinRequestsManager />
       </section>
+
+      <TrainerAdminNoGymPanel />
     </div>
   );
 }
