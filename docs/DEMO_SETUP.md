@@ -9,6 +9,23 @@ Sembrar un entorno demo **reproducible e idempotente** para beta venta con:
 - 2 miembros
 - 1 plan asignado a un miembro
 
+## Demo en 5 min
+
+Desde la raíz del repo:
+
+```bash
+npm run seed:demo
+```
+
+Checklist rápida:
+
+1. Ejecuta el seed (1 comando).
+2. Inicia sesión con cualquiera de las cuentas demo.
+3. Valida roles y membresías del gym.
+4. Valida que `demo.member1` tiene plan asignado.
+
+> El seed está preparado para correr múltiples veces sin duplicar registros clave.
+
 ## Ejecutar seed
 
 Desde la raíz del repo:
@@ -41,7 +58,9 @@ Gym demo:
 
 ## Idempotencia
 
-El script usa `upsert` para gym, usuarios, memberships y plan. Se puede correr varias veces sin romper ni duplicar datos clave.
+El script usa `upsert` para gym, usuarios, memberships y plan. Además limpia membresías de estas cuentas demo en gyms distintos al gym demo para evitar estados inconsistentes si se reutiliza una base compartida.
+
+También utiliza fecha fija para el día del plan asignado, garantizando reproducibilidad en validaciones e2e.
 
 ## Overrides por variables de entorno
 
