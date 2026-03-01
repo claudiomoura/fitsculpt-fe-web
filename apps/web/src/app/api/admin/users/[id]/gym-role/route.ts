@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 
-const FEATURE_NOT_AVAILABLE_IN_BETA = "FEATURE_NOT_AVAILABLE_IN_BETA";
 const UPSTREAM_ERROR = "UPSTREAM_ERROR";
 
 type ErrorPayload = { error: string };
@@ -48,8 +47,40 @@ function buildResponse(status: number, payload: unknown): NextResponse {
   return NextResponse.json(payload, { status });
 }
 
+type GymShape = { id?: string | null; name?: string | null };
+
+function normalizeGymsPayload(payload: unknown): { gyms: GymShape[] } {
+  if (!Array.isArray(payload)) return { gyms: [] };
+
+  const gyms = payload.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+
+    const id = "id" in entry && (typeof entry.id === "string" || entry.id === null) ? entry.id : undefined;
+    const name = "name" in entry && (typeof entry.name === "string" || entry.name === null) ? entry.name : undefined;
+
+    return [{ id, name }];
+  });
+
+  return { gyms };
+}
+
 export async function GET() {
-  return NextResponse.json({ error: FEATURE_NOT_AVAILABLE_IN_BETA }, { status: 403 });
+  try {
+    const response = await fetch(`${getBackendUrl()}/admin/gyms`, {
+      method: "GET",
+      headers: await buildHeaders(),
+      cache: "no-store",
+    });
+
+    const payload = await parsePayload(response);
+    if (response.status >= 200 && response.status < 300) {
+      return NextResponse.json(normalizeGymsPayload(payload), { status: response.status });
+    }
+
+    return buildResponse(response.status, payload);
+  } catch {
+    return NextResponse.json({ error: UPSTREAM_ERROR }, { status: 502 });
+  }
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
