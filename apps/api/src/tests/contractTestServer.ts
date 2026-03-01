@@ -3,6 +3,11 @@ import { once } from "node:events";
 import { setTimeout as sleep } from "node:timers/promises";
 import { apiRoot } from "./testPaths.js";
 
+declare global {
+  // eslint-disable-next-line no-var
+  var __fsCiOpenHandlesDiagnosticsInstalled: boolean | undefined;
+}
+
 type StartContractServerOptions = {
   port: number;
   bootstrapAdminEmails?: string;
@@ -15,6 +20,122 @@ type StartedContractServer = {
   stop: () => Promise<void>;
   getLogs: () => string;
 };
+
+function formatHandle(handle: unknown) {
+  if (!handle || typeof handle !== "object") {
+    return String(handle);
+  }
+
+  const typedHandle = handle as {
+    constructor?: { name?: string };
+    hasRef?: () => boolean;
+    fd?: number;
+    localAddress?: string;
+    localPort?: number;
+    remoteAddress?: string;
+    remotePort?: number;
+    destroyed?: boolean;
+    connecting?: boolean;
+    pending?: boolean;
+    spawnfile?: string;
+    pid?: number;
+  };
+
+  const handleName = typedHandle.constructor?.name ?? "UnknownHandle";
+  const details: Array<string> = [];
+
+  if (typeof typedHandle.hasRef === "function") {
+    details.push(`hasRef=${String(typedHandle.hasRef())}`);
+  }
+  if (typeof typedHandle.fd === "number") {
+    details.push(`fd=${typedHandle.fd}`);
+  }
+  if (typeof typedHandle.localPort === "number") {
+    details.push(`local=${typedHandle.localAddress ?? "?"}:${typedHandle.localPort}`);
+  }
+  if (typeof typedHandle.remotePort === "number") {
+    details.push(`remote=${typedHandle.remoteAddress ?? "?"}:${typedHandle.remotePort}`);
+  }
+  if (typeof typedHandle.destroyed === "boolean") {
+    details.push(`destroyed=${String(typedHandle.destroyed)}`);
+  }
+  if (typeof typedHandle.connecting === "boolean") {
+    details.push(`connecting=${String(typedHandle.connecting)}`);
+  }
+  if (typeof typedHandle.pending === "boolean") {
+    details.push(`pending=${String(typedHandle.pending)}`);
+  }
+  if (typedHandle.spawnfile) {
+    details.push(`spawnfile=${typedHandle.spawnfile}`);
+  }
+  if (typeof typedHandle.pid === "number") {
+    details.push(`pid=${typedHandle.pid}`);
+  }
+
+  return details.length > 0 ? `${handleName}(${details.join(", ")})` : handleName;
+}
+
+function installCiOpenHandlesDiagnostics() {
+  if (process.env.CI !== "true") {
+    return;
+  }
+
+  if (globalThis.__fsCiOpenHandlesDiagnosticsInstalled) {
+    return;
+  }
+  globalThis.__fsCiOpenHandlesDiagnosticsInstalled = true;
+
+  const dumpOpenResources = (reason: string) => {
+    const withInternals = process as NodeJS.Process & {
+      _getActiveHandles?: () => unknown[];
+      _getActiveRequests?: () => unknown[];
+    };
+
+    const activeHandles = withInternals._getActiveHandles?.() ?? [];
+    const activeRequests = withInternals._getActiveRequests?.() ?? [];
+
+    if (activeHandles.length === 0 && activeRequests.length === 0) {
+      return;
+    }
+
+    console.error(`[ci-open-handles] ${reason}`);
+
+    if (activeHandles.length > 0) {
+      console.error(`[ci-open-handles] Active handles (${activeHandles.length}):`);
+      for (const [index, handle] of activeHandles.entries()) {
+        console.error(`[ci-open-handles]   [${index}] ${formatHandle(handle)}`);
+      }
+    }
+
+    if (activeRequests.length > 0) {
+      console.error(`[ci-open-handles] Active requests (${activeRequests.length}):`);
+      for (const [index, request] of activeRequests.entries()) {
+        const requestName =
+          typeof request === "object" && request !== null && "constructor" in request
+            ? ((request as { constructor?: { name?: string } }).constructor?.name ?? "UnknownRequest")
+            : String(request);
+        console.error(`[ci-open-handles]   [${index}] ${requestName}`);
+      }
+    }
+  };
+
+  process.on("SIGTERM", () => {
+    dumpOpenResources("SIGTERM received while tests are running");
+    process.exitCode = process.exitCode ?? 143;
+  });
+
+  process.on("SIGINT", () => {
+    dumpOpenResources("SIGINT received while tests are running");
+    process.exitCode = process.exitCode ?? 130;
+  });
+
+  const watchdog = setInterval(() => {
+    dumpOpenResources("Periodic watchdog dump (process still alive)");
+  }, 30_000);
+  watchdog.unref();
+}
+
+installCiOpenHandlesDiagnostics();
 
 function getDatabaseUrl() {
   return process.env.DATABASE_URL ?? "postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public";
