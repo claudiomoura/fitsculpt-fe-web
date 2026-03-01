@@ -251,7 +251,7 @@ export default function TrainingLibraryClient() {
       {state === "error" ? (
         <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
       ) : null}
-      {state === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.sectionUnavailable")} icon="warning" /> : null}
+      {state === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.sectionUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
       {state === "ready" && plans.length === 0 ? <EmptyState className="mt-12" title={t("library.training.sectionEmpty")} icon="info" /> : null}
 
       {state === "ready" && plans.length > 0 ? (
@@ -318,7 +318,7 @@ export default function TrainingLibraryClient() {
         {assignedPlanState === "error" ? (
           <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
         ) : null}
-        {assignedPlanState === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.assignedUnavailable")} icon="warning" /> : null}
+        {assignedPlanState === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.assignedUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
         {assignedPlanState === "ready" && !assignedPlan ? <EmptyState className="mt-12" title={t("library.training.assignedEmpty")} icon="info" /> : null}
 
         {assignedPlanState === "ready" && assignedPlan ? (
@@ -362,6 +362,9 @@ export default function TrainingLibraryClient() {
           <div className="feature-card mt-12" role="status">
             <strong>{t("library.training.aiLockedTitle")}</strong>
             <p className="muted mt-6">{t("library.training.aiLockedDescription")}</p>
+            <div className="mt-12">
+              <Link href="/app/settings/billing" className="btn secondary">{t("billing.manageBilling")}</Link>
+            </div>
           </div>
         ) : null}
         {aiGateState === "eligible" ? (
