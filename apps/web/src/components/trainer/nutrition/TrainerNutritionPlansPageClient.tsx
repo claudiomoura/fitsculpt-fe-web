@@ -55,7 +55,7 @@ export default function TrainerNutritionPlansPageClient() {
   };
 
   return (
-    <section className="section-stack">
+    <section className="section-stack" data-testid="trainer-nutrition-plans-page">
       <h1 className="section-title">Planes de nutrición</h1>
       <form className="card form-stack" onSubmit={onSubmit}>
         <h2 style={{ margin: 0 }}>Crear plan de nutrición</h2>
