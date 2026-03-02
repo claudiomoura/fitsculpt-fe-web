@@ -103,11 +103,11 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
     const memberContext = await request.newContext({ baseURL: backendURL });
 
     const assertNoConsoleErrors = attachConsoleErrorCollector(page, testInfo);
-    const authGatewayErrors: Array<{ status: number; url: string }> = [];
+    const criticalNetworkErrors: Array<{ status: number; url: string }> = [];
     const onResponse = (response: { status: () => number; url: () => string }) => {
       const status = response.status();
-      if (status === 401 || status === 502) {
-        authGatewayErrors.push({ status, url: response.url() });
+      if (status === 401 || status === 404 || status === 502) {
+        criticalNetworkErrors.push({ status, url: response.url() });
       }
     };
     page.on('response', onResponse);
@@ -165,8 +165,11 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         password: demoManagerPassword,
       });
       await page.goto('/app/trainer/nutrition-plans');
-      await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
       await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
+
+      if (!/\/app\/trainer\/nutrition-plans(?:$|[?#])/.test(page.url())) {
+        throw new Error(`expected to remain on /app/trainer/nutrition-plans but ended on ${page.url()}`);
+      }
 
       const createButton = page.getByTestId('create-nutrition-plan-button');
       try {
@@ -239,7 +242,7 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       await expect(page.locator('main')).toBeVisible();
       await expect(page.locator('body')).not.toContainText('Application error');
       await expect(page.locator('body')).not.toContainText('Something went wrong');
-      expect(authGatewayErrors, 'page should not emit network 401/502 responses').toEqual([]);
+      expect(criticalNetworkErrors, 'page should not emit network 401/404/502 responses').toEqual([]);
     } finally {
       page.off('response', onResponse);
       await managerContext.dispose();

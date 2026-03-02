@@ -49,6 +49,16 @@ export async function loginAsDemoUser(page: Page): Promise<void> {
   });
 }
 
+async function assertAuthMeReady(page: Page): Promise<void> {
+  const response = await page.request.get('/api/auth/me');
+  if (response.status() === 200) {
+    return;
+  }
+
+  const body = await response.text().catch(() => '<unavailable>');
+  throw new Error(`login validation failed: GET /api/auth/me returned ${response.status()} with body: ${body}`);
+}
+
 export async function loginViaUI(page: Page, credentials: LoginCredentials): Promise<void> {
   await page.goto('/login');
 
@@ -73,6 +83,7 @@ export async function loginViaUI(page: Page, credentials: LoginCredentials): Pro
   });
 
   if (routeState === 'already-authenticated') {
+    await assertAuthMeReady(page);
     return;
   }
 
@@ -83,6 +94,8 @@ export async function loginViaUI(page: Page, credentials: LoginCredentials): Pro
     page.waitForURL(/\/app(\/.*)?$/, { timeout: 15_000 }),
     page.locator('button[type="submit"]').click(),
   ]);
+
+  await assertAuthMeReady(page);
 }
 
 export async function createDemoUserStorageState(storageStatePath: string = authStorageStatePath): Promise<void> {
