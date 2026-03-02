@@ -419,34 +419,6 @@ jobs:
           SKIP_DB_PREFLIGHT: "1"
         run: npm run db:bootstrap
 
-      - name: Start API server
-        working-directory: apps/api
-        env:
-          PORT: 4000
-          HOST: 127.0.0.1
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
-          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
-          JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
-          COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
-          CORS_ORIGIN: http://127.0.0.1:3000
-          APP_BASE_URL: http://127.0.0.1:3000
-          ALLOW_SEED: "1"
-          SKIP_DB_PREFLIGHT: "1"
-        run: npm run dev > /tmp/api-dev.log 2>&1 &
-
-      - name: Wait for API health
-        run: |
-          set -euo pipefail
-          for i in {1..60}; do
-            if curl --silent --fail http://127.0.0.1:4000/health > /dev/null; then
-              echo "API is healthy"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "API did not become healthy in time"
-          exit 1
-
       - name: Install Playwright browser
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
@@ -463,9 +435,65 @@ jobs:
         run: |
           set -euo pipefail
           rm -f /tmp/e2e-gym-flow-5x.log
+
           for run in {1..5}; do
             echo "=== gym-flow run ${run}/5 ===" | tee -a /tmp/e2e-gym-flow-5x.log
-            npm run e2e -- e2e/gym-flow.spec.ts --reporter=line 2>&1 | tee -a /tmp/e2e-gym-flow-5x.log
+
+            pkill -f "tsx watch src/index.ts" || true
+            rm -f /tmp/api-dev.log
+
+            (
+              cd ../api
+              npm run db:bootstrap
+            )
+
+            (
+              cd ../api
+              PORT=4000 \
+              HOST=127.0.0.1 \
+              DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public \
+              DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public \
+              JWT_SECRET=e2e-smoke-jwt-secret-32-chars-minimum \
+              COOKIE_SECRET=e2e-smoke-cookie-secret-32chars \
+              CORS_ORIGIN=http://127.0.0.1:3000 \
+              APP_BASE_URL=http://127.0.0.1:3000 \
+              ALLOW_SEED=1 \
+              SKIP_DB_PREFLIGHT=1 \
+              npm run dev > /tmp/api-dev.log 2>&1 &
+              echo $! > /tmp/api-dev.pid
+            )
+
+            API_PID="$(cat /tmp/api-dev.pid)"
+
+            healthy=0
+            for i in {1..30}; do
+              if curl -sf http://127.0.0.1:4000/health > /dev/null; then
+                healthy=1
+                break
+              fi
+              sleep 1
+            done
+
+            if [ "$healthy" -ne 1 ]; then
+              echo "API did not become healthy in time" | tee -a /tmp/e2e-gym-flow-5x.log
+              tail -n 200 /tmp/api-dev.log | tee -a /tmp/e2e-gym-flow-5x.log || true
+              kill "$API_PID" || true
+              wait "$API_PID" 2>/dev/null || true
+              rm -f /tmp/api-dev.log /tmp/api-dev.pid
+              exit 1
+            fi
+
+            if ! npm run e2e -- playwright test e2e/gym-flow.spec.ts --reporter=line 2>&1 | tee -a /tmp/e2e-gym-flow-5x.log; then
+              tail -n 200 /tmp/api-dev.log | tee -a /tmp/e2e-gym-flow-5x.log || true
+              kill "$API_PID" || true
+              wait "$API_PID" 2>/dev/null || true
+              rm -f /tmp/api-dev.log /tmp/api-dev.pid
+              exit 1
+            fi
+
+            kill "$API_PID" || true
+            wait "$API_PID" 2>/dev/null || true
+            rm -f /tmp/api-dev.log /tmp/api-dev.pid
           done
 
       - name: Upload E2E failure artifacts
