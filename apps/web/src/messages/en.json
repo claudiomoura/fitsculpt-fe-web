@@ -46,7 +46,8 @@
     "nutritionPlans": "Nutrition plans",
     "exerciseLibrary": "Exercise library",
     "trainingPlans": "Training plans",
-    "weeklyReview": "Weekly review"
+    "weeklyReview": "Weekly review",
+    "trainerNutritionPlans": "Nutrition plans"
   },
   "navSections": {
     "summary": "Summary",

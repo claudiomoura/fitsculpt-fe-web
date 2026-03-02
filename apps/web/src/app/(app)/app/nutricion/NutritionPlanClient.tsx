@@ -76,6 +76,12 @@ type DayPlan = {
 
 type NutritionPlan = NutritionPlanData;
 
+type AssignedNutritionPayload = {
+  assignedPlan?: NutritionPlan | null;
+  plan?: NutritionPlan | null;
+  trainerAssignedPlan?: NutritionPlan | null;
+};
+
 type NutritionPlanClientProps = {
   mode?: "suggested" | "manual";
 };
@@ -761,6 +767,9 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [aiEntitled, setAiEntitled] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
+  const [trainerAssignedPlan, setTrainerAssignedPlan] = useState<NutritionPlan | null>(null);
+  const [assignedLoading, setAssignedLoading] = useState(true);
+  const [assignedError, setAssignedError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -826,6 +835,37 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const loadAssignedPlan = async () => {
+      setAssignedLoading(true);
+      setAssignedError(null);
+      try {
+        const response = await fetch("/api/nutrition-plans/assigned", { cache: "no-store", credentials: "include" });
+        if (response.status === 404) {
+          if (!active) return;
+          setTrainerAssignedPlan(null);
+          setAssignedLoading(false);
+          return;
+        }
+        if (!response.ok) throw new Error("ASSIGNED_PLAN_ERROR");
+        const payload = (await response.json()) as AssignedNutritionPayload;
+        if (!active) return;
+        setTrainerAssignedPlan(payload.assignedPlan ?? payload.trainerAssignedPlan ?? payload.plan ?? null);
+      } catch {
+        if (!active) return;
+        setAssignedError(t("nutrition.errorTitle"));
+      } finally {
+        if (active) setAssignedLoading(false);
+      }
+    };
+
+    void loadAssignedPlan();
+    return () => {
+      active = false;
+    };
+  }, [t]);
+
   const refreshSubscription = async () => {
     try {
       const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -871,9 +911,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       t
     );
   }, [profile, mealTemplates, dayLabels, t]);
+  const trainerPlanVisible = useMemo(() => normalizeNutritionPlan(trainerAssignedPlan, dayLabels), [trainerAssignedPlan, dayLabels]);
   const visiblePlan = useMemo(
-    () => normalizeNutritionPlan(isManualView ? savedPlan ?? plan : savedPlan, dayLabels),
-    [isManualView, savedPlan, plan, dayLabels]
+    () => normalizeNutritionPlan(trainerPlanVisible ?? (isManualView ? savedPlan ?? plan : savedPlan), dayLabels),
+    [trainerPlanVisible, isManualView, savedPlan, plan, dayLabels]
   );
   const planStartDate = useMemo(
     () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
@@ -1982,7 +2023,7 @@ const nutritionPlanDetails = profile ? (
         <>
           
 
-          {loading ? (
+          {loading || assignedLoading ? (
             <section className="card">
               <div className="section-head">
                 <div>
@@ -2007,7 +2048,7 @@ const nutritionPlanDetails = profile ? (
                 </ButtonLink>
               </div>
             </section>
-          ) : !error && !hasPlan ? (
+          ) : !error && !assignedLoading && !hasPlan ? (
             <section className="card">
               <div className="empty-state">
                 <div className="empty-state-icon">
@@ -2056,6 +2097,7 @@ const nutritionPlanDetails = profile ? (
             <div className="section-head section-head-actions">
               <div>
                 <h2 className="section-title section-title-sm">{t("nutrition.formTitle")}</h2>
+                {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
                 <p className="section-subtitle">{t("nutrition.tips")}</p>
               </div>
 
@@ -2120,6 +2162,14 @@ const nutritionPlanDetails = profile ? (
                   </button>
                 </div>
               </div>
+            ) : assignedError ? (
+              <div className="status-card status-card--warning">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("nutrition.errorTitle")}</strong>
+                </div>
+                <p className="muted">{assignedError}</p>
+              </div>
             ) : aiError ? (
               <div className="status-card status-card--warning" role="alert" aria-live="polite">
                 <div className="inline-actions-sm">
@@ -2153,7 +2203,7 @@ const nutritionPlanDetails = profile ? (
           </section>
 
               {!loading && !error ? (
-                <section className="card nutrition-v2-layout" ref={generatedPlanSectionRef}>
+                <section className="card nutrition-v2-layout" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
                   <HeaderCompact
                     title={t("nutrition.dailyTargetTitle")}
                     subtitle={highlightedDay?.dayLabel ?? t("nutrition.viewToday")}
@@ -2205,6 +2255,7 @@ const nutritionPlanDetails = profile ? (
                   ) : null}
 
                   {calendarView === "week" ? (
+                    <div data-testid="nutrition-day-nav">
                     <WeeklyCalendar
                       previousWeekLabel={t("calendar.previousWeek")}
                       nextWeekLabel={t("calendar.nextWeek")}
@@ -2233,6 +2284,7 @@ const nutritionPlanDetails = profile ? (
                         })
                       }
                     />
+                    </div>
                   ) : null}
 
                   <div className="nutrition-v2-meals">
