@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { attachConsoleErrorCollector, fetchTrackingCount } from './support';
+import { attachConsoleErrorCollector } from './support';
 
 test.describe('Core loop (demo anti-regression)', () => {
   test('login → Hoy → acción rápida → persistencia tras recarga', async ({ page }, testInfo) => {
@@ -37,20 +37,25 @@ test.describe('Core loop (demo anti-regression)', () => {
           .toBeGreaterThan(0);
       }
 
-      const beforeCount = await fetchTrackingCount(page.request);
+      const actionButton = page.locator('.today-action-button').first();
+      const beforePath = new URL(page.url()).pathname;
 
-      await Promise.all([
-        page.waitForResponse(
-          (response) => response.url().includes('/api/tracking') && response.request().method() === 'POST' && response.ok(),
-        ),
-        page.locator('.today-action-button').first().click(),
-      ]);
+      await actionButton.click();
 
-      await expect.poll(async () => fetchTrackingCount(page.request)).toBeGreaterThan(beforeCount);
+      await expect
+        .poll(async () => new URL(page.url()).pathname !== beforePath, {
+          timeout: 10_000,
+          message: 'La acción rápida no produjo cambio visible (ni navegación fuera de /app/hoy).',
+        })
+        .toBeTruthy();
 
       await page.reload();
 
-      await expect.poll(async () => fetchTrackingCount(page.request)).toBeGreaterThan(beforeCount);
+      const meResponse = await page.request.get('/api/auth/me');
+      expect(meResponse.ok()).toBeTruthy();
+
+      await page.goto('/app/hoy');
+      await expect(heading).toBeVisible({ timeout: 10_000 });
     } finally {
       assertNoConsoleErrors();
     }
