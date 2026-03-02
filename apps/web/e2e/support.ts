@@ -17,6 +17,21 @@ type LoginCredentials = {
   password: string;
 };
 
+type BrowserAuthMeResponse = {
+  user?: { email?: string | null };
+  email?: string | null;
+};
+
+async function getAuthenticatedEmail(page: Page): Promise<string | null> {
+  const response = await page.request.get('/api/auth/me');
+  if (!response.ok()) {
+    return null;
+  }
+
+  const payload = (await response.json().catch(() => null)) as BrowserAuthMeResponse | null;
+  return payload?.user?.email?.toLowerCase() ?? payload?.email?.toLowerCase() ?? null;
+}
+
 async function getLoginDiagnostics(page: Page): Promise<{ url: string; title: string; heading: string }> {
   const url = page.url();
   const title = await page.title().catch(() => '<title unavailable>');
@@ -73,7 +88,14 @@ export async function loginViaUI(page: Page, credentials: LoginCredentials): Pro
   });
 
   if (routeState === 'already-authenticated') {
-    return;
+    const authenticatedEmail = await getAuthenticatedEmail(page);
+    const expectedEmail = credentials.email.toLowerCase();
+    if (authenticatedEmail === expectedEmail) {
+      return;
+    }
+
+    await page.context().clearCookies();
+    await page.goto('/login');
   }
 
   await page.locator('input[name="email"]').fill(credentials.email);
