@@ -7,14 +7,7 @@ export async function GET(request: Request) {
   const path = query ? `/trainer/nutrition-plans?${query}` : "/trainer/nutrition-plans";
 
   const result = await fetchBackend(path);
-  if (result.status < 200 || result.status >= 300) {
-    return NextResponse.json(result.payload, { status: result.status });
-  }
-
-  const payload = (result.payload ?? {}) as { items?: unknown[]; plans?: unknown[]; data?: unknown[]; total?: number };
-  const items = Array.isArray(payload.items) ? payload.items : Array.isArray(payload.plans) ? payload.plans : Array.isArray(payload.data) ? payload.data : [];
-
-  return NextResponse.json({ items, ...(typeof payload.total === "number" ? { total: payload.total } : {}) }, { status: result.status });
+  return NextResponse.json(result.payload, { status: result.status });
 }
 
 export async function POST(request: Request) {

@@ -3,5 +3,5 @@ import { proxyToBackend } from "../../gyms/_proxy";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return proxyToBackend("/nutrition-plans/assigned");
+  return proxyToBackend("/members/me/assigned-nutrition-plan");
 }

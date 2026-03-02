@@ -165,7 +165,13 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         password: demoManagerPassword,
       });
       await page.goto('/app/trainer/nutrition-plans');
-      await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
+      await page.waitForLoadState('networkidle');
+
+      const finalPathname = new URL(page.url()).pathname;
+      if (finalPathname !== '/app/trainer/nutrition-plans') {
+        throw new Error(`expected trainer nutrition plans URL, got ${page.url()}`);
+      }
+
       await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
 
       const createButton = page.getByTestId('create-nutrition-plan-button');

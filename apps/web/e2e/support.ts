@@ -17,20 +17,73 @@ type LoginCredentials = {
   password: string;
 };
 
-async function getLoginDiagnostics(page: Page): Promise<{ url: string; title: string; heading: string }> {
-  const url = page.url();
-  const title = await page.title().catch(() => '<title unavailable>');
-  const heading = await page
-    .locator('h1:visible, h2:visible, h3:visible')
-    .first()
-    .textContent()
-    .then((value) => value?.trim() || '<no visible heading>')
-    .catch(() => '<heading unavailable>');
-
-  return { url, title, heading };
+function extractFsToken(setCookieHeaders: string[]): string | null {
+  for (const setCookie of setCookieHeaders) {
+    const match = setCookie.match(/(?:^|\s|,)fs_token=([^;]+)/i);
+    if (match?.[1]) {
+      return decodeURIComponent(match[1]);
+    }
+  }
+  return null;
 }
 
-export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Promise<void> {
+async function assertFrontendAuthSession(page: Page): Promise<void> {
+  await page.goto('/app');
+
+  await expect
+    .poll(
+      async () => {
+        const response = await page.evaluate(async () => {
+          const res = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' });
+          return { status: res.status, body: await res.text() };
+        });
+
+        return response;
+      },
+      {
+        message: 'frontend auth session should be available via /api/auth/me after installing fs_token cookie',
+        intervals: [300, 600, 1000],
+        timeout: 12_000,
+      }
+    )
+    .toMatchObject({ status: 200 });
+}
+
+export async function loginViaApi(page: Page, credentials: LoginCredentials): Promise<void> {
+  const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
+  const authRequest = await request.newContext({
+    baseURL: backendURL,
+    storageState: undefined,
+  });
+
+  try {
+    const loginResponse = await authRequest.post('/auth/login', {
+      data: credentials,
+    });
+
+    expect(loginResponse.ok(), `backend login failed for ${credentials.email}`).toBeTruthy();
+
+    const fsToken = extractFsToken(loginResponse.headersArray().filter((header) => header.name.toLowerCase() === 'set-cookie').map((header) => header.value));
+    expect(fsToken, 'backend /auth/login must return fs_token cookie').toBeTruthy();
+
+    await page.context().addCookies([
+      {
+        name: 'fs_token',
+        value: fsToken!,
+        domain: 'localhost',
+        path: '/',
+        sameSite: 'Lax',
+        httpOnly: false,
+      },
+    ]);
+  } finally {
+    await authRequest.dispose();
+  }
+
+  await assertFrontendAuthSession(page);
+}
+
+export async function resetDemoState(tokenState: 'empty' | 'paid' = 'empty'): Promise<void> {
   const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
   const resetRequest = await request.newContext({ baseURL: backendURL });
 
@@ -43,46 +96,14 @@ export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Pr
 }
 
 export async function loginAsDemoUser(page: Page): Promise<void> {
-  await loginViaUI(page, {
+  await loginViaApi(page, {
     email: process.env.E2E_DEMO_USER_EMAIL ?? defaultDemoUserEmail,
     password: process.env.E2E_DEMO_USER_PASSWORD ?? defaultDemoUserPassword,
   });
 }
 
 export async function loginViaUI(page: Page, credentials: LoginCredentials): Promise<void> {
-  await page.goto('/login');
-
-  const routeState = await Promise.race([
-    page
-      .waitForSelector('input[name="email"]', { timeout: 15_000 })
-      .then(() => 'login-form' as const),
-    page.waitForURL(/\/app(\/|$)/, { timeout: 15_000 }).then(() => 'already-authenticated' as const),
-  ]).catch(async (error: unknown) => {
-    const { url, title, heading } = await getLoginDiagnostics(page);
-    console.log(`[e2e:login-diagnostics] url=${url} title=${title} h1=${heading}`);
-
-    throw new Error(
-      [
-        'loginViaUI failed while waiting for login form or authenticated redirect',
-        `url=${url}`,
-        `title=${title}`,
-        `visibleHeading=${heading}`,
-        `cause=${error instanceof Error ? error.message : String(error)}`,
-      ].join(' | ')
-    );
-  });
-
-  if (routeState === 'already-authenticated') {
-    return;
-  }
-
-  await page.locator('input[name="email"]').fill(credentials.email);
-  await page.locator('input[name="password"]').fill(credentials.password);
-
-  await Promise.all([
-    page.waitForURL(/\/app(\/.*)?$/, { timeout: 15_000 }),
-    page.locator('button[type="submit"]').click(),
-  ]);
+  await loginViaApi(page, credentials);
 }
 
 export async function createDemoUserStorageState(storageStatePath: string = authStorageStatePath): Promise<void> {
