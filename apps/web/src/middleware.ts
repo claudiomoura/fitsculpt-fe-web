@@ -54,10 +54,6 @@ export function middleware(req: NextRequest) {
     return redirectTo(req, "/app/trainer");
   }
 
-  if (sessionRole === "USER" && isTrainerPath(pathname)) {
-    return redirectTo(req, "/app");
-  }
-
   return NextResponse.next();
 }
 
