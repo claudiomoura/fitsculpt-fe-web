@@ -248,7 +248,7 @@ export default function TodayQuickActionsClient() {
           {ctaLabel}
         </Button>
 
-        <Stack gap="2">
+        <Stack gap="2" data-testid="today-actions-grid">
           {supportingActions.map((action) =>
             action.href ? (
               <ButtonLink key={action.id} as={Link} href={action.href} variant="secondary" size="lg" className="w-full">

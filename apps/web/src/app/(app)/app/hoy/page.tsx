@@ -6,7 +6,7 @@ export default async function TodayPage() {
   const { t } = await getServerT();
 
   return (
-    <PageContainer as="main" maxWidth="lg" className="py-6 md:py-8">
+    <PageContainer as="main" maxWidth="lg" className="py-6 md:py-8" data-testid="today-page">
       <Stack gap="4">
         <section className="card">
           <Stack gap="3">
