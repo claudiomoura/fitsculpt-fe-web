@@ -16,6 +16,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { useToast } from "@/components/ui/Toast";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
+import TrainerMemberNutritionPlanAssignmentCard from "@/components/trainer/TrainerMemberNutritionPlanAssignmentCard";
 import { fetchMyGymMembership } from "@/services/gym";
 import {
   getTrainerClientDetail,
@@ -529,6 +530,7 @@ export default function TrainerClientContextClient() {
             </p>
             {!hasPlanData ? <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.training.empty")}</p> : null}
             <TrainerMemberPlanAssignmentCard memberId={client.id} memberName={clientName} />
+            <TrainerMemberNutritionPlanAssignmentCard memberId={client.id} />
           </section>
 
           <section className="card form-stack" aria-label={t("trainer.clientContext.removeClient.title")}>
