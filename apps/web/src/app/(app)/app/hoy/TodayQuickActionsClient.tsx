@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { EmptyBlock, ErrorBlock, LoadingBlock, Stack } from "@/design-system/components";
+import { Stack } from "@/design-system/components";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
@@ -188,42 +188,6 @@ export default function TodayQuickActionsClient() {
     [availability.foodReady, availability.planReady, availability.trainingReady, returnToHoy, t],
   );
 
-  if (status === "loading") {
-    return <LoadingBlock title={t("quickActions.loadingAria")} centered={false} className="rounded-2xl border border-subtle" />;
-  }
-
-  if (status === "error") {
-    return (
-      <ErrorBlock
-        title={t("quickActions.errorTitle")}
-        description={t("quickActions.errorDescription")}
-        centered={false}
-        className="rounded-2xl border border-subtle"
-        retryAction={
-          <Button variant="secondary" onClick={() => void loadQuickActions()}>
-            {t("ui.retry")}
-          </Button>
-        }
-      />
-    );
-  }
-
-  if (status === "empty") {
-    return (
-      <EmptyBlock
-        title={t("quickActions.emptyTitle")}
-        description={t("quickActions.emptyDescription")}
-        centered={false}
-        className="rounded-2xl border border-subtle"
-        action={
-          <Button variant="secondary" onClick={() => void loadQuickActions()}>
-            {t("ui.retry")}
-          </Button>
-        }
-      />
-    );
-  }
-
   const ctaLabel = checkinActionStatus === "success" ? t("quickActions.completeTodayActionDoneCta") : t("quickActions.completeTodayActionCta");
   const ctaOutcome =
     checkinActionStatus === "success"
@@ -231,6 +195,15 @@ export default function TodayQuickActionsClient() {
       : checkinActionStatus === "error"
         ? t("quickActions.completeTodayActionError")
         : t("quickActions.completeTodayActionOutcome");
+
+  const statusMessage =
+    status === "loading"
+      ? t("quickActions.loadingAria")
+      : status === "error"
+        ? t("quickActions.errorDescription")
+        : status === "empty"
+          ? t("quickActions.emptyDescription")
+          : null;
 
   return (
     <section className="card" aria-live="polite">
@@ -244,11 +217,21 @@ export default function TodayQuickActionsClient() {
           <p className="text-sm text-text-muted">{ctaOutcome}</p>
         </div>
 
-        <Button size="lg" onClick={() => void handleLogTodayCheckin()} loading={checkinActionStatus === "loading"}>
-          {ctaLabel}
-        </Button>
-
         <Stack gap="2" data-testid="today-actions-grid">
+          <article className="rounded-xl border border-subtle bg-[var(--bg-panel)] p-3" data-testid="today-action-card">
+            <p className="m-0 text-sm font-medium text-text">{t("quickActions.completeTodayActionTitle")}</p>
+            <p className="m-0 text-xs text-text-muted">{statusMessage ?? t("quickActions.completeTodayActionDescription")}</p>
+            <Button
+              className="mt-3 w-full"
+              size="lg"
+              data-testid="today-action-button"
+              onClick={() => void handleLogTodayCheckin()}
+              loading={checkinActionStatus === "loading"}
+            >
+              {ctaLabel}
+            </Button>
+          </article>
+
           {supportingActions.map((action) =>
             action.href ? (
               <ButtonLink key={action.id} as={Link} href={action.href} variant="secondary" size="lg" className="w-full">
