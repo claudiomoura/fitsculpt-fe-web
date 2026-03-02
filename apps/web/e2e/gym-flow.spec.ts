@@ -189,7 +189,15 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
 
               const normalizedBody = responseBody || '<empty response body>';
               const truncatedBody = normalizedBody.length > 500 ? `${normalizedBody.slice(0, 500)}…` : normalizedBody;
-              console.log(`[e2e:manager:create-plan-retry] status=${createPlanResponse.status()} body=${truncatedBody}`);
+              const correlationId = createPlanResponse.headers()['x-correlation-id'];
+              if (createPlanResponse.status() === 500) {
+                console.log(
+                  `[e2e:manager:create-plan-retry:500] correlationId=${correlationId ?? '<missing>'} body=${truncatedBody}`
+                );
+              }
+              console.log(
+                `[e2e:manager:create-plan-retry] status=${createPlanResponse.status()} correlationId=${correlationId ?? '<missing>'} body=${truncatedBody}`
+              );
               return false;
             }
 
