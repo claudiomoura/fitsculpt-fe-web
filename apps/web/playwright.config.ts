@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { authStorageStatePath } from './e2e/support';
 
-const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
+const baseURL = 'http://localhost:3000';
 
 export default defineConfig({
   testDir: './e2e',
@@ -15,7 +15,7 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run dev -- --hostname localhost --port 3000',
     url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000,

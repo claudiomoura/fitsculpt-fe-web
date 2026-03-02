@@ -409,8 +409,8 @@ jobs:
           DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
-          CORS_ORIGIN: http://127.0.0.1:3000
-          APP_BASE_URL: http://127.0.0.1:3000
+          CORS_ORIGIN: http://localhost:3000
+          APP_BASE_URL: http://localhost:3000
           ALLOW_SEED: "1"
           SKIP_DB_PREFLIGHT: "1"
         run: npm run db:bootstrap
@@ -422,8 +422,8 @@ jobs:
       - name: Run gym-flow stability check (5 consecutive runs)
         working-directory: apps/web
         env:
-          E2E_BASE_URL: http://127.0.0.1:3000
-          E2E_BACKEND_URL: http://127.0.0.1:4000
+          E2E_BASE_URL: http://localhost:3000
+          E2E_BACKEND_URL: http://localhost:4000
           E2E_DEMO_USER_EMAIL: demo.user@fitsculpt.local
           E2E_DEMO_USER_PASSWORD: DemoUser123!
           E2E_MANAGER_EMAIL: demo-admin@fitsculpt.local
@@ -451,8 +451,8 @@ jobs:
               DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public \
               JWT_SECRET=e2e-smoke-jwt-secret-32-chars-minimum \
               COOKIE_SECRET=e2e-smoke-cookie-secret-32chars \
-              CORS_ORIGIN=http://127.0.0.1:3000 \
-              APP_BASE_URL=http://127.0.0.1:3000 \
+              CORS_ORIGIN=http://localhost:3000 \
+              APP_BASE_URL=http://localhost:3000 \
               ALLOW_SEED=1 \
               SKIP_DB_PREFLIGHT=1 \
               npm run dev > /tmp/api-dev.log 2>&1 &
