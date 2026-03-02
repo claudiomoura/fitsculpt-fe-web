@@ -1,25 +1,36 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getBackendUrl } from "@/lib/backend";
 import { contractDriftResponse, validateAuthMePayload } from "@/lib/runtimeContracts";
 
-function getAuthCookie(token?: string) {
-  return token ? `fs_token=${token}` : null;
+function getAuthCookieFromHeader(cookieHeader: string | null) {
+  if (!cookieHeader) return null;
+  const tokenPair = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith("fs_token="));
+  return tokenPair ?? null;
+}
+
+function getAuthCookie(token?: string, rawCookieHeader?: string | null) {
+  if (token) {
+    return `fs_token=${token}`;
+  }
+
+  return getAuthCookieFromHeader(rawCookieHeader ?? null);
 }
 
 export async function GET() {
   const token = (await cookies()).get("fs_token")?.value;
-  if (!token) {
+  const rawCookieHeader = (await headers()).get("cookie");
+  const authCookie = getAuthCookie(token, rawCookieHeader);
+  if (!authCookie) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const authCookie = getAuthCookie(token);
-  const headers: Record<string, string> = {};
-  if (authCookie) headers.cookie = authCookie;
-
   try {
     const response = await fetch(`${getBackendUrl()}/auth/me`, {
-      headers,
+      headers: { cookie: authCookie },
       cache: "no-store",
     });
     const data = await response.json().catch(() => null);

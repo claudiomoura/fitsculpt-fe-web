@@ -1,5 +1,5 @@
 import { expect, request, test, type APIRequestContext } from '@playwright/test';
-import { attachConsoleErrorCollector, loginViaUI, resetDemoState } from './support';
+import { attachConsoleErrorCollector, loginViaApi, resetDemoState } from './support';
 
 const backendURL = process.env.E2E_BACKEND_URL ?? 'http://localhost:4000';
 const demoUserEmail = process.env.E2E_DEMO_USER_EMAIL ?? 'demo.user@fitsculpt.local';
@@ -160,12 +160,15 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       const createdNutritionPlan = (await createNutritionPlanResponse.json()) as { id?: string; title?: string };
       expect(createdNutritionPlan.id, 'created nutrition plan id should exist').toBeTruthy();
 
-      await loginViaUI(page, {
+      await loginViaApi(page, {
         email: demoManagerEmail,
         password: demoManagerPassword,
       });
       await page.goto('/app/trainer/nutrition-plans');
-      await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
+      const trainerNutritionPlansPath = new URL(page.url()).pathname;
+      if (trainerNutritionPlansPath !== '/app/trainer/nutrition-plans') {
+        throw new Error(`unexpected redirect after navigation to trainer nutrition plans: ${page.url()}`);
+      }
       await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
 
       const createButton = page.getByTestId('create-nutrition-plan-button');
@@ -215,7 +218,7 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         )
         .toMatchObject({ id: createdNutritionPlan.id, title: nutritionPlanTitle });
 
-      await loginViaUI(page, {
+      await loginViaApi(page, {
         email: demoUserEmail,
         password: demoUserPassword,
       });

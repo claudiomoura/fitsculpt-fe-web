@@ -1,8 +1,9 @@
 const ADMIN_ROLE_TOKENS = new Set(["ADMIN", "ROLE_ADMIN", "ADMINISTRATOR"]);
 const TRAINER_ROLE_TOKENS = new Set(["TRAINER", "COACH", "ROLE_TRAINER", "ROLE_COACH"]);
+const MANAGER_ROLE_TOKENS = new Set(["MANAGER", "ROLE_MANAGER", "GYM_MANAGER"]);
 const USER_ROLE_TOKENS = new Set(["USER", "ROLE_USER"]);
 
-export type SessionRole = "ADMIN" | "TRAINER" | "USER" | "UNKNOWN";
+export type SessionRole = "ADMIN" | "TRAINER" | "MANAGER" | "USER" | "UNKNOWN";
 
 function toUpperString(value: unknown) {
   return typeof value === "string" ? value.toUpperCase() : null;
@@ -52,8 +53,8 @@ export function readSessionRole(token: string): SessionRole {
 
   if (roleTokens.some((roleToken) => ADMIN_ROLE_TOKENS.has(roleToken))) return "ADMIN";
   if (roleTokens.some((roleToken) => TRAINER_ROLE_TOKENS.has(roleToken))) return "TRAINER";
+  if (roleTokens.some((roleToken) => MANAGER_ROLE_TOKENS.has(roleToken))) return "MANAGER";
   if (roleTokens.some((roleToken) => USER_ROLE_TOKENS.has(roleToken))) return "USER";
 
   return "UNKNOWN";
 }
-

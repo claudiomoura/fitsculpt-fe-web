@@ -17,6 +17,61 @@ type LoginCredentials = {
   password: string;
 };
 
+
+function extractFsTokenFromSetCookie(setCookieHeader: string | null): string | null {
+  if (!setCookieHeader) return null;
+
+  const cookieParts = setCookieHeader
+    .split(/,(?=\s*[^;=]+=[^;]+)/g)
+    .map((part) => part.trim());
+
+  for (const cookiePart of cookieParts) {
+    const [nameValue] = cookiePart.split(';');
+    const [name, ...rest] = nameValue.split('=');
+    if (name?.trim() === 'fs_token') {
+      return rest.join('=').trim() || null;
+    }
+  }
+
+  return null;
+}
+
+export async function loginViaApi(page: Page, credentials: LoginCredentials): Promise<void> {
+  const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
+  const baseHost = process.env.E2E_BASE_HOST ?? 'localhost';
+  const authRequest = await request.newContext({ baseURL: backendURL, storageState: undefined });
+
+  try {
+    const loginResponse = await authRequest.post('/auth/login', {
+      data: credentials,
+    });
+    expect(loginResponse.ok(), `API login should succeed for ${credentials.email}`).toBeTruthy();
+
+    const setCookie = loginResponse.headers()['set-cookie'] ?? null;
+    const fsToken = extractFsTokenFromSetCookie(setCookie);
+    expect(fsToken, 'fs_token should be present in backend login Set-Cookie header').toBeTruthy();
+
+    await page.context().clearCookies();
+
+    await page.context().addCookies([
+      {
+        name: 'fs_token',
+        value: fsToken!,
+        domain: baseHost,
+        path: '/',
+        sameSite: 'Lax',
+        httpOnly: true,
+      },
+    ]);
+
+    const meResponse = await page.request.get('/api/auth/me');
+    expect(meResponse.ok(), 'browser-authenticated /api/auth/me should return 200 after API login').toBeTruthy();
+  } finally {
+    await authRequest.dispose();
+  }
+}
+
+
 async function getLoginDiagnostics(page: Page): Promise<{ url: string; title: string; heading: string }> {
   const url = page.url();
   const title = await page.title().catch(() => '<title unavailable>');
@@ -43,7 +98,7 @@ export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Pr
 }
 
 export async function loginAsDemoUser(page: Page): Promise<void> {
-  await loginViaUI(page, {
+  await loginViaApi(page, {
     email: process.env.E2E_DEMO_USER_EMAIL ?? defaultDemoUserEmail,
     password: process.env.E2E_DEMO_USER_PASSWORD ?? defaultDemoUserPassword,
   });
