@@ -221,6 +221,105 @@ const RESEND_COOLDOWN_MS = env.VERIFICATION_RESEND_COOLDOWN_MINUTES * 60 * 1000;
 
 app.get("/health", async () => ({ status: "ok" }));
 
+function resolveCorrelationId(request: FastifyRequest) {
+  const headerValue = request.headers["x-correlation-id"];
+  if (Array.isArray(headerValue)) {
+    return headerValue[0] ?? request.id;
+  }
+  if (typeof headerValue === "string" && headerValue.trim().length > 0) {
+    return headerValue.trim();
+  }
+  return request.id;
+}
+
+function getPayloadSize(value: unknown) {
+  if (value == null) return 0;
+  try {
+    return Buffer.byteLength(JSON.stringify(value), "utf8");
+  } catch {
+    return 0;
+  }
+}
+
+function mapTrainingPlanCreateError(error: unknown): {
+  statusCode: number;
+  payload: Record<string, unknown>;
+} | null {
+  if (error instanceof z.ZodError) {
+    return {
+      statusCode: 400,
+      payload: {
+        error: "VALIDATION_ERROR",
+        details: error.flatten(),
+      },
+    };
+  }
+
+  const prismaError = error as {
+    code?: string;
+    message?: string;
+    statusCode?: number;
+    debug?: Record<string, unknown>;
+  };
+
+  if (prismaError.code === "P2002") {
+    return {
+      statusCode: 409,
+      payload: {
+        error: "CONFLICT",
+        code: "TRAINING_PLAN_CONFLICT",
+      },
+    };
+  }
+
+  if (prismaError.statusCode === 401) {
+    return {
+      statusCode: 401,
+      payload: { error: "UNAUTHORIZED", code: prismaError.code ?? "UNAUTHORIZED" },
+    };
+  }
+
+  if (prismaError.statusCode === 403) {
+    return {
+      statusCode: 403,
+      payload: { error: "FORBIDDEN", code: prismaError.code ?? "FORBIDDEN" },
+    };
+  }
+
+  if (prismaError.statusCode === 409) {
+    return {
+      statusCode: 409,
+      payload: {
+        error: "CONFLICT",
+        code: prismaError.code ?? "CONFLICT",
+      },
+    };
+  }
+
+  return null;
+}
+
+app.addHook("onRequest", async (request, reply) => {
+  const correlationId = resolveCorrelationId(request);
+  (request as FastifyRequest & { startTimeMs?: number }).startTimeMs = Date.now();
+  reply.header("x-correlation-id", correlationId);
+});
+
+app.addHook("onResponse", async (request, reply) => {
+  const typedRequest = request as FastifyRequest & { startTimeMs?: number };
+  const durationMs = typedRequest.startTimeMs ? Date.now() - typedRequest.startTimeMs : undefined;
+  app.log.info(
+    {
+      route: request.routeOptions?.url ?? request.url,
+      method: request.method,
+      status: reply.statusCode,
+      durationMs,
+      correlationId: resolveCorrelationId(request),
+    },
+    "request completed",
+  );
+});
+
 function createHttpError(
   statusCode: number,
   code: string,
@@ -8174,13 +8273,19 @@ app.get("/training-plans", async (request, reply) => {
 });
 
 app.post("/training-plans", async (request, reply) => {
+  const correlationId = resolveCorrelationId(request);
+  const payloadSize = getPayloadSize(request.body);
   try {
     const user = await requireUser(request);
     const data = trainingPlanCreateSchema.parse(request.body);
     const startDate = parseDateInput(data.startDate);
 
     if (!startDate) {
-      return reply.status(400).send({ error: "INVALID_START_DATE" });
+      return reply.status(400).send({
+        error: "VALIDATION_ERROR",
+        code: "INVALID_START_DATE",
+        correlationId,
+      });
     }
 
     const dates = buildDateRange(startDate, data.daysCount);
@@ -8221,9 +8326,66 @@ app.post("/training-plans", async (request, reply) => {
       },
     });
 
+    app.log.info(
+      {
+        route: "/training-plans",
+        method: "POST",
+        status: 201,
+        correlationId,
+        userId: user.id,
+        payloadSize,
+        titleHash: crypto
+          .createHash("sha256")
+          .update(data.title.trim().toLowerCase())
+          .digest("hex")
+          .slice(0, 12),
+      },
+      "training plan created",
+    );
+
     return reply.status(201).send(plan);
   } catch (error) {
-    return handleRequestError(reply, error);
+    const mappedError = mapTrainingPlanCreateError(error);
+    if (mappedError) {
+      const authRequest = request as FastifyRequest & {
+        currentUser?: { id: string };
+        gymId?: string;
+        role?: string;
+      };
+      app.log.warn(
+        {
+          route: "/training-plans",
+          method: "POST",
+          status: mappedError.statusCode,
+          correlationId,
+          userId: authRequest.currentUser?.id,
+          gymId: authRequest.gymId,
+          role: authRequest.role,
+          payloadSize,
+          code: mappedError.payload.code ?? mappedError.payload.error,
+        },
+        "training plan create handled error",
+      );
+      return reply
+        .status(mappedError.statusCode)
+        .send({ ...mappedError.payload, correlationId });
+    }
+
+    app.log.error(
+      {
+        err: error,
+        route: "/training-plans",
+        method: "POST",
+        correlationId,
+        payloadSize,
+      },
+      "training plan create unhandled error",
+    );
+    return reply.status(500).send({
+      error: "INTERNAL_ERROR",
+      code: "INTERNAL_ERROR",
+      correlationId,
+    });
   }
 });
 
