@@ -1,5 +1,5 @@
-import { expect, request, test, type APIRequestContext, type Page } from '@playwright/test';
-import { attachConsoleErrorCollector, resetDemoState } from './support';
+import { expect, request, test, type APIRequestContext } from '@playwright/test';
+import { attachConsoleErrorCollector, loginViaUI, resetDemoState } from './support';
 
 const backendURL = process.env.E2E_BACKEND_URL ?? 'http://localhost:4000';
 const demoUserEmail = process.env.E2E_DEMO_USER_EMAIL ?? 'demo.user@fitsculpt.local';
@@ -28,14 +28,6 @@ type JoinRequestsResponse = {
     gym?: { id?: string | null };
   }>;
 };
-
-async function loginViaUI(page: Page, email: string, password: string): Promise<void> {
-  await page.goto('/login');
-  await expect(page.locator('input[name="email"]')).toBeVisible();
-  await page.locator('input[name="email"]').fill(email);
-  await page.locator('input[name="password"]').fill(password);
-  await Promise.all([page.waitForURL(/\/app(\/.*)?$/), page.locator('button[type="submit"]').click()]);
-}
 
 async function ensureMemberJoinedGym(managerContext: APIRequestContext, memberContext: APIRequestContext, gymId: string, memberUserId: string): Promise<void> {
   const joinResponse = await memberContext.post('/gyms/join', { data: { gymId } });
@@ -153,7 +145,10 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       const createdNutritionPlan = (await createNutritionPlanResponse.json()) as { id?: string; title?: string };
       expect(createdNutritionPlan.id, 'created nutrition plan id should exist').toBeTruthy();
 
-      await loginViaUI(page, demoManagerEmail, demoManagerPassword);
+      await loginViaUI(page, {
+        email: demoManagerEmail,
+        password: demoManagerPassword,
+      });
       await page.goto('/app/trainer/nutrition-plans');
       await expect(page.getByTestId('create-nutrition-plan-button')).toBeVisible();
       await expect(page.getByTestId('nutrition-plan-list')).toContainText(nutritionPlanTitle);
@@ -181,7 +176,10 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         )
         .toMatchObject({ id: createdNutritionPlan.id, title: nutritionPlanTitle });
 
-      await loginViaUI(page, demoUserEmail, demoUserPassword);
+      await loginViaUI(page, {
+        email: demoUserEmail,
+        password: demoUserPassword,
+      });
       await page.goto('/app/nutricion');
 
       await expect(page.getByTestId('member-assigned-nutrition-plan')).toBeVisible();

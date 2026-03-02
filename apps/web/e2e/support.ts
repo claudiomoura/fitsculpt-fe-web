@@ -12,6 +12,24 @@ export const authStorageStatePath = path.resolve(process.cwd(), 'e2e', '.auth', 
 const LOG_DUMP_MAX_LINES = 80;
 const failureLogPaths = ['/tmp/web-dev.log', '/tmp/api-dev.log'] as const;
 
+type LoginCredentials = {
+  email: string;
+  password: string;
+};
+
+async function getLoginDiagnostics(page: Page): Promise<{ url: string; title: string; heading: string }> {
+  const url = page.url();
+  const title = await page.title().catch(() => '<title unavailable>');
+  const heading = await page
+    .locator('h1:visible, h2:visible, h3:visible')
+    .first()
+    .textContent()
+    .then((value) => value?.trim() || '<no visible heading>')
+    .catch(() => '<heading unavailable>');
+
+  return { url, title, heading };
+}
+
 export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Promise<void> {
   const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
   const resetRequest = await request.newContext({ baseURL: backendURL });
@@ -25,29 +43,30 @@ export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Pr
 }
 
 export async function loginAsDemoUser(page: Page): Promise<void> {
+  await loginViaUI(page, {
+    email: process.env.E2E_DEMO_USER_EMAIL ?? defaultDemoUserEmail,
+    password: process.env.E2E_DEMO_USER_PASSWORD ?? defaultDemoUserPassword,
+  });
+}
+
+export async function loginViaUI(page: Page, credentials: LoginCredentials): Promise<void> {
   await page.goto('/login');
 
   const routeState = await Promise.race([
     page
-      .waitForSelector('input[name="email"]', { timeout: 10_000 })
+      .waitForSelector('input[name="email"]', { timeout: 15_000 })
       .then(() => 'login-form' as const),
-    page.waitForURL(/\/app(\/|$)/, { timeout: 10_000 }).then(() => 'already-authenticated' as const),
+    page.waitForURL(/\/app(\/|$)/, { timeout: 15_000 }).then(() => 'already-authenticated' as const),
   ]).catch(async (error: unknown) => {
-    const currentURL = page.url();
-    const pageTitle = await page.title().catch(() => '<title unavailable>');
-    const visibleHeading = await page
-      .locator('h1:visible, h2:visible, h3:visible')
-      .first()
-      .textContent()
-      .then((heading) => heading?.trim() || '<no visible heading>')
-      .catch(() => '<heading unavailable>');
+    const { url, title, heading } = await getLoginDiagnostics(page);
+    console.log(`[e2e:login-diagnostics] url=${url} title=${title} h1=${heading}`);
 
     throw new Error(
       [
-        'loginAsDemoUser failed while waiting for login form or authenticated redirect',
-        `url=${currentURL}`,
-        `title=${pageTitle}`,
-        `visibleHeading=${visibleHeading}`,
+        'loginViaUI failed while waiting for login form or authenticated redirect',
+        `url=${url}`,
+        `title=${title}`,
+        `visibleHeading=${heading}`,
         `cause=${error instanceof Error ? error.message : String(error)}`,
       ].join(' | ')
     );
@@ -57,11 +76,11 @@ export async function loginAsDemoUser(page: Page): Promise<void> {
     return;
   }
 
-  await page.locator('input[name="email"]').fill(process.env.E2E_DEMO_USER_EMAIL ?? defaultDemoUserEmail);
-  await page.locator('input[name="password"]').fill(process.env.E2E_DEMO_USER_PASSWORD ?? defaultDemoUserPassword);
+  await page.locator('input[name="email"]').fill(credentials.email);
+  await page.locator('input[name="password"]').fill(credentials.password);
 
   await Promise.all([
-    page.waitForURL(/\/app(\/.*)?$/),
+    page.waitForURL(/\/app(\/.*)?$/, { timeout: 15_000 }),
     page.locator('button[type="submit"]').click(),
   ]);
 }
