@@ -164,7 +164,13 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         email: demoManagerEmail,
         password: demoManagerPassword,
       });
-      await page.goto('/app/trainer/nutrition-plans');
+      await Promise.all([
+        page.waitForResponse(
+          (response) => response.url().includes('/api/auth/me') && response.status() === 200,
+          { timeout: 15_000 }
+        ),
+        page.goto('/app/trainer/nutrition-plans'),
+      ]);
       await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
       await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
 
@@ -219,7 +225,13 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         email: demoUserEmail,
         password: demoUserPassword,
       });
-      await page.goto('/app/nutricion');
+      await Promise.all([
+        page.waitForResponse(
+          (response) => response.url().includes('/api/auth/me') && response.status() === 200,
+          { timeout: 15_000 }
+        ),
+        page.goto('/app/nutricion'),
+      ]);
 
       await expect(page.getByTestId('member-assigned-nutrition-plan')).toBeVisible();
       await expect(page.getByTestId('member-assigned-nutrition-plan')).toContainText(nutritionPlanTitle);

@@ -135,6 +135,42 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
     expect(body.checkins.length).toBeGreaterThanOrEqual(0);
   });
 
+
+  it("validates GET /api/nutrition-plans/assigned forwards to assigned member endpoint", async () => {
+    cookiesMock.mockResolvedValue({
+      get: () => ({ value: "token_123" }),
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, {
+        assignedPlan: { id: "np_1", title: "Assigned plan" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { GET } = await import("@/app/api/nutrition-plans/assigned/route");
+    const response = await GET();
+    const body = await response.json();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://backend.local/members/me/assigned-nutrition-plan",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          cookie: "fs_token=token_123",
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(body).toEqual(
+      expect.objectContaining({
+        assignedPlan: expect.objectContaining({
+          id: expect.any(String),
+          title: expect.any(String),
+        }),
+      }),
+    );
+  });
   it("validates GET /api/exercises list minimal response shape", async () => {
     cookiesMock.mockResolvedValue({
       get: () => ({ value: "token_123" }),
