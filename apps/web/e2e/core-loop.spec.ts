@@ -7,7 +7,30 @@ test.describe('Core loop (demo anti-regression)', () => {
 
     try {
       await page.goto('/app/hoy');
-      await expect(page.locator('.today-actions-grid')).toBeVisible();
+      console.log(`[core-loop] URL after goto: ${page.url()}`);
+
+      const todayActionsGrid = page.locator('.today-actions-grid');
+
+      try {
+        await expect(todayActionsGrid).toBeVisible({ timeout: 20_000 });
+      } catch (error) {
+        const pageTitle = await page.title().catch(() => '<title unavailable>');
+        const headingText =
+          (await page
+            .locator('h1, [data-testid="page-title"], .page-title')
+            .first()
+            .textContent()
+            .catch(() => null)) ?? '<heading unavailable>';
+
+        console.error(
+          `[core-loop] .today-actions-grid not visible. Final URL: ${page.url()} | Title: ${pageTitle} | Heading: ${headingText
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 160)}`,
+        );
+
+        throw error;
+      }
 
       const beforeCount = await fetchTrackingCount(page.request);
 
