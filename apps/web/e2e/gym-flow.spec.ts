@@ -161,14 +161,17 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
         )
         .toBeTruthy();
 
-      const createdPlanTitle = `E2E Gym Smoke Plan ${Date.now()}`;
-      let createdPlan: { id?: string } = {};
+      let createdPlan: { id?: string; title?: string } = {};
+      let createPlanAttempt = 0;
       await expect
         .poll(
           async () => {
+            createPlanAttempt += 1;
+            const titleSuffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const currentPlanTitle = `E2E Gym Smoke Plan ${titleSuffix}`;
             const createPlanResponse = await managerContext.post('/training-plans', {
               data: {
-                title: createdPlanTitle,
+                title: currentPlanTitle,
                 goal: 'general_fitness',
                 level: 'beginner',
                 focus: 'full_body',
@@ -180,28 +183,34 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
             });
 
             if (!createPlanResponse.ok()) {
-              let responseBody = '';
+              let responseBodyText = '';
+              let responseCode = '<unknown>';
               try {
-                responseBody = await createPlanResponse.text();
+                responseBodyText = await createPlanResponse.text();
+                const parsedBody = responseBodyText ? (JSON.parse(responseBodyText) as { code?: string }) : null;
+                responseCode = parsedBody?.code ?? '<missing>';
               } catch {
-                responseBody = '<response body unavailable>';
+                responseBodyText = '<response body unavailable>';
               }
 
-              const normalizedBody = responseBody || '<empty response body>';
+              const normalizedBody = responseBodyText || '<empty response body>';
               const truncatedBody = normalizedBody.length > 500 ? `${normalizedBody.slice(0, 500)}…` : normalizedBody;
               const correlationId = createPlanResponse.headers()['x-correlation-id'];
-              if (createPlanResponse.status() === 500) {
-                console.log(
-                  `[e2e:manager:create-plan-retry:500] correlationId=${correlationId ?? '<missing>'} body=${truncatedBody}`
-                );
-              }
               console.log(
-                `[e2e:manager:create-plan-retry] status=${createPlanResponse.status()} correlationId=${correlationId ?? '<missing>'} body=${truncatedBody}`
+                `[e2e:manager:create-plan-retry] attempt=${createPlanAttempt} status=${createPlanResponse.status()} code=${responseCode} correlationId=${correlationId ?? '<missing>'} body=${truncatedBody}`
               );
+
+              if (createPlanResponse.status() === 409 && responseCode === 'TRAINING_PLAN_CONFLICT') {
+                return false;
+              }
+
               return false;
             }
 
-            createdPlan = (await createPlanResponse.json()) as { id?: string };
+            createdPlan = {
+              ...(await createPlanResponse.json()),
+              title: currentPlanTitle,
+            } as { id?: string; title?: string };
             return true;
           },
           {
@@ -244,13 +253,13 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
         .toMatchObject({
           source: 'assigned',
           planId: createdPlan.id,
-          title: createdPlanTitle,
+          title: createdPlan.title,
         });
 
       await loginAsDemoUser(page);
       await page.goto('/app/entrenamiento');
 
-      await expect(page.locator('.status-card strong')).toContainText(createdPlanTitle);
+      await expect(page.locator('.status-card strong')).toContainText(createdPlan.title ?? '');
     } finally {
       await managerContext.dispose();
       await memberContext.dispose();
