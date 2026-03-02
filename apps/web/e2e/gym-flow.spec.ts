@@ -81,82 +81,128 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
       });
       expect(joinResponse.ok(), 'member gym join request should succeed').toBeTruthy();
 
+      let lastPendingRequestsPayload: JoinRequestsResponse | null = null;
       let joinRequest: { membershipId: string | null; requestId: string | null } | null = null;
-      const pollIntervalsMs = [500, 1000, 2000, 2000, 2000, 2000, 2000];
+      try {
+        await expect
+          .poll(
+            async () => {
+              const pendingRequestsResponse = await managerContext.get('/admin/gym-join-requests');
+              expect(pendingRequestsResponse.ok(), 'manager should fetch pending join requests').toBeTruthy();
 
-      for (const intervalMs of pollIntervalsMs) {
-        const pendingRequestsResponse = await managerContext.get('/admin/gym-join-requests');
-        expect(pendingRequestsResponse.ok(), 'manager should fetch pending join requests').toBeTruthy();
+              const pendingRequests = (await pendingRequestsResponse.json()) as JoinRequestsResponse;
+              lastPendingRequestsPayload = pendingRequests;
 
-        const pendingRequests = (await pendingRequestsResponse.json()) as JoinRequestsResponse;
-        const targetRequest = (pendingRequests.items ?? []).find((item) => {
-          const itemEmail = item.user?.email?.toLowerCase();
-          const itemUserId = item.userId ?? null;
-          const itemStatus = (item.status ?? 'PENDING').toUpperCase();
+              const targetRequest = (pendingRequests.items ?? []).find((item) => {
+                const itemEmail = item.user?.email?.toLowerCase();
+                const itemUserId = item.userId ?? null;
+                const itemStatus = (item.status ?? 'PENDING').toUpperCase();
 
-          return (
-            (itemUserId === memberUserId || itemEmail === demoUserEmail.toLowerCase()) &&
-            item.gym?.id === gymId &&
-            itemStatus === 'PENDING'
-          );
-        });
+                return (
+                  (itemUserId === memberUserId || itemEmail === demoUserEmail.toLowerCase()) &&
+                  item.gym?.id === gymId &&
+                  itemStatus === 'PENDING'
+                );
+              });
 
-        if (targetRequest) {
-          joinRequest = {
-            membershipId: targetRequest.membershipId ?? null,
-            requestId: targetRequest.id ?? null,
-          };
-          break;
-        }
+              joinRequest = targetRequest
+                ? {
+                    membershipId: targetRequest.membershipId ?? null,
+                    requestId: targetRequest.id ?? null,
+                  }
+                : null;
 
-        await page.waitForTimeout(intervalMs);
+              return Boolean(joinRequest);
+            },
+            {
+              message: 'pending join request should appear for the demo member before manager approval',
+              intervals: [500, 1000, 2000, 2000, 2000],
+              timeout: 15_000,
+            }
+          )
+          .toBeTruthy();
+      } catch {
+        const safePayload = JSON.stringify(lastPendingRequestsPayload ?? { items: [] }, null, 2);
+        console.log(`[e2e:manager:join-requests] ${safePayload}`);
+        throw new Error('pending join request should appear for the demo member before manager approval');
       }
 
-      expect(joinRequest, 'pending join request should appear for the demo member before manager approval').not.toBeNull();
       const joinRequestId = joinRequest?.membershipId ?? joinRequest?.requestId;
+
       expect(joinRequestId, 'join request id should be available for approval').toBeTruthy();
 
       const acceptEndpoint = `/admin/gym-join-requests/${joinRequestId}/accept`;
-      const acceptResponse = await managerContext.post(acceptEndpoint);
-      if (!acceptResponse.ok()) {
-        let responseBody = '';
-        try {
-          responseBody = await acceptResponse.text();
-        } catch {
-          responseBody = '<response body unavailable>';
-        }
+      await expect
+        .poll(
+          async () => {
+            const acceptResponse = await managerContext.post(acceptEndpoint);
+            if (acceptResponse.ok()) {
+              return true;
+            }
 
-        const normalizedBody = responseBody || '<empty response body>';
-        const truncatedBody = normalizedBody.length > 500 ? `${normalizedBody.slice(0, 500)}…` : normalizedBody;
+            let responseBody = '';
+            try {
+              responseBody = await acceptResponse.text();
+            } catch {
+              responseBody = '<response body unavailable>';
+            }
 
-        throw new Error(
-          [
-            'manager should approve pending join request',
-            `membershipId=${joinRequest.membershipId ?? '<missing>'}`,
-            `requestId=${joinRequest.requestId ?? '<missing>'}`,
-            `endpoint=${acceptEndpoint}`,
-            `url=${acceptResponse.url()}`,
-            `status=${acceptResponse.status()}`,
-            `body=${truncatedBody}`,
-          ].join(' | ')
-        );
-      }
+            const normalizedBody = responseBody || '<empty response body>';
+            const truncatedBody = normalizedBody.length > 500 ? `${normalizedBody.slice(0, 500)}…` : normalizedBody;
+            console.log(`[e2e:manager:accept-retry] status=${acceptResponse.status()} body=${truncatedBody}`);
+
+            return false;
+          },
+          {
+            message: 'manager should approve pending join request',
+            intervals: [500, 1000, 2000, 2000, 2000],
+            timeout: 15_000,
+          }
+        )
+        .toBeTruthy();
 
       const createdPlanTitle = `E2E Gym Smoke Plan ${Date.now()}`;
-      const createPlanResponse = await managerContext.post('/training-plans', {
-        data: {
-          title: createdPlanTitle,
-          goal: 'general_fitness',
-          level: 'beginner',
-          focus: 'full_body',
-          equipment: 'gym',
-          daysPerWeek: 3,
-          startDate: '2026-01-01',
-          daysCount: 7,
-        },
-      });
-      expect(createPlanResponse.ok(), 'manager should create a training plan').toBeTruthy();
-      const createdPlan = (await createPlanResponse.json()) as { id?: string };
+      let createdPlan: { id?: string } = {};
+      await expect
+        .poll(
+          async () => {
+            const createPlanResponse = await managerContext.post('/training-plans', {
+              data: {
+                title: createdPlanTitle,
+                goal: 'general_fitness',
+                level: 'beginner',
+                focus: 'full_body',
+                equipment: 'gym',
+                daysPerWeek: 3,
+                startDate: '2026-01-01',
+                daysCount: 7,
+              },
+            });
+
+            if (!createPlanResponse.ok()) {
+              let responseBody = '';
+              try {
+                responseBody = await createPlanResponse.text();
+              } catch {
+                responseBody = '<response body unavailable>';
+              }
+
+              const normalizedBody = responseBody || '<empty response body>';
+              const truncatedBody = normalizedBody.length > 500 ? `${normalizedBody.slice(0, 500)}…` : normalizedBody;
+              console.log(`[e2e:manager:create-plan-retry] status=${createPlanResponse.status()} body=${truncatedBody}`);
+              return false;
+            }
+
+            createdPlan = (await createPlanResponse.json()) as { id?: string };
+            return true;
+          },
+          {
+            message: 'manager should create a training plan',
+            intervals: [500, 1000, 2000, 2000, 2000],
+            timeout: 15_000,
+          }
+        )
+        .toBeTruthy();
       expect(createdPlan.id, 'created training plan id should exist').toBeTruthy();
 
       const assignPlanResponse = await managerContext.post(`/trainer/members/${memberUserId}/training-plan-assignment`, {

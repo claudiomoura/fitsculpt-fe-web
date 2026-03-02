@@ -27,6 +27,36 @@ export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Pr
 export async function loginAsDemoUser(page: Page): Promise<void> {
   await page.goto('/login');
 
+  const routeState = await Promise.race([
+    page
+      .waitForSelector('input[name="email"]', { timeout: 10_000 })
+      .then(() => 'login-form' as const),
+    page.waitForURL(/\/app(\/|$)/, { timeout: 10_000 }).then(() => 'already-authenticated' as const),
+  ]).catch(async (error: unknown) => {
+    const currentURL = page.url();
+    const pageTitle = await page.title().catch(() => '<title unavailable>');
+    const visibleHeading = await page
+      .locator('h1:visible, h2:visible, h3:visible')
+      .first()
+      .textContent()
+      .then((heading) => heading?.trim() || '<no visible heading>')
+      .catch(() => '<heading unavailable>');
+
+    throw new Error(
+      [
+        'loginAsDemoUser failed while waiting for login form or authenticated redirect',
+        `url=${currentURL}`,
+        `title=${pageTitle}`,
+        `visibleHeading=${visibleHeading}`,
+        `cause=${error instanceof Error ? error.message : String(error)}`,
+      ].join(' | ')
+    );
+  });
+
+  if (routeState === 'already-authenticated') {
+    return;
+  }
+
   await page.locator('input[name="email"]').fill(process.env.E2E_DEMO_USER_EMAIL ?? defaultDemoUserEmail);
   await page.locator('input[name="password"]').fill(process.env.E2E_DEMO_USER_PASSWORD ?? defaultDemoUserPassword);
 
