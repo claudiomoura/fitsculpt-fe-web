@@ -164,8 +164,17 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         email: demoManagerEmail,
         password: demoManagerPassword,
       });
-      await page.goto('/app/trainer/nutrition-plans');
-      await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
+      const trainerNutritionPlansPath = '/app/trainer/nutrition-plans';
+      await page.goto(trainerNutritionPlansPath);
+      await page.waitForLoadState('domcontentloaded');
+
+      const currentPathname = new URL(page.url()).pathname;
+      if (currentPathname !== trainerNutritionPlansPath) {
+        throw new Error(
+          `unexpected redirect while opening trainer nutrition plans: expected ${trainerNutritionPlansPath} but got ${currentPathname} (full URL: ${page.url()})`
+        );
+      }
+
       await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
 
       const createButton = page.getByTestId('create-nutrition-plan-button');

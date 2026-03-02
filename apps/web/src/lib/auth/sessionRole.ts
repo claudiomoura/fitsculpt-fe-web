@@ -57,3 +57,10 @@ export function readSessionRole(token: string): SessionRole {
   return "UNKNOWN";
 }
 
+export function tokenHasAnyRole(token: string, acceptedRoles: readonly string[]): boolean {
+  const claims = decodeTokenPayload(token);
+  if (!claims) return false;
+
+  const accepted = new Set(acceptedRoles.map((role) => role.toUpperCase()));
+  return collectTokenClaims(claims).some((roleToken) => accepted.has(roleToken));
+}

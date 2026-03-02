@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { readSessionRole } from "@/lib/auth/sessionRole";
+import { readSessionRole, tokenHasAnyRole } from "@/lib/auth/sessionRole";
 
 const PROTECTED_PREFIXES = ["/app"];
 const TRAINER_PREFIXES = ["/app/trainer"];
@@ -20,6 +20,10 @@ function isAdminPath(pathname: string) {
 
 function isClientPath(pathname: string) {
   return pathname.startsWith("/app") && !isTrainerPath(pathname) && !isAdminPath(pathname);
+}
+
+function hasManagerGymRole(token: string) {
+  return tokenHasAnyRole(token, ["MANAGER", "ROLE_MANAGER"]);
 }
 
 function redirectTo(req: NextRequest, pathname: string, statusCode = 307) {
@@ -49,12 +53,13 @@ export function middleware(req: NextRequest) {
   }
 
   const sessionRole = readSessionRole(token);
+  const hasManagerRole = hasManagerGymRole(token);
 
-  if (sessionRole === "TRAINER" && isClientPath(pathname)) {
+  if ((sessionRole === "TRAINER" || hasManagerRole) && isClientPath(pathname)) {
     return redirectTo(req, "/app/trainer");
   }
 
-  if (sessionRole === "USER" && isTrainerPath(pathname)) {
+  if (sessionRole === "USER" && !hasManagerRole && isTrainerPath(pathname)) {
     return redirectTo(req, "/app");
   }
 
