@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { attachConsoleErrorCollector } from './support';
+import { attachConsoleErrorCollector, fetchTrackingCount } from './support';
 
 test.describe('Core loop (demo anti-regression)', () => {
   test('login → Hoy → acción rápida → persistencia tras recarga', async ({ page }, testInfo) => {
@@ -10,52 +10,39 @@ test.describe('Core loop (demo anti-regression)', () => {
       const heading = page.getByRole('heading', { name: /Acciones de hoy/i });
       await expect(heading).toBeVisible({ timeout: 10_000 });
 
-      const finalUrl = page.url();
-      const title = await page.title();
-      const headingText = await heading.first().textContent();
-      console.log(`[core-loop] URL final: ${finalUrl}`);
-      console.log(`[core-loop] title: ${title}`);
-      console.log(`[core-loop] heading: ${headingText?.trim() ?? '(vacío)'}`);
+      const todayActionsGrid = page.getByTestId('today-actions-grid');
+      await expect(todayActionsGrid).toBeVisible({ timeout: 10_000 });
 
-      const todayActionsGrid = page.locator('[data-testid="today-actions-grid"]');
-      const todayActionCards = page.locator('.today-action-card');
-      const todayActionButtons = page.locator('.today-action-button');
+      const firstTodayActionCard = page.getByTestId('today-action-card').first();
+      const firstTodayActionButton = page.getByTestId('today-action-button').first();
+      await expect(firstTodayActionCard).toBeVisible({ timeout: 10_000 });
+      await expect(firstTodayActionButton).toBeVisible({ timeout: 10_000 });
 
-      if ((await todayActionsGrid.count()) > 0) {
-        await expect(todayActionsGrid).toBeVisible({ timeout: 10_000 });
-      } else {
-        await expect
-          .poll(async () => {
-            const cardCount = await todayActionCards.count();
-            const buttonCount = await todayActionButtons.count();
-            return Math.max(cardCount, buttonCount);
-          }, {
-            timeout: 10_000,
-            message:
-              'No se encontraron acciones en Hoy: no existe [data-testid="today-actions-grid"] y tampoco hay .today-action-card ni .today-action-button',
-          })
-          .toBeGreaterThan(0);
-      }
+      const beforeCount = await fetchTrackingCount(page.request);
 
-      const actionButton = page.locator('.today-action-button').first();
-      const beforePath = new URL(page.url()).pathname;
+      const trackingPostResponsePromise = page.waitForResponse(
+        (response) => response.request().method() === 'POST' && response.url().includes('/api/tracking') && response.ok(),
+        { timeout: 10_000 },
+      );
 
-      await actionButton.click();
+      await firstTodayActionButton.click();
+
+      const trackingPostResponse = await trackingPostResponsePromise;
+      expect(trackingPostResponse.ok()).toBeTruthy();
 
       await expect
-        .poll(async () => new URL(page.url()).pathname !== beforePath, {
+        .poll(async () => fetchTrackingCount(page.request), {
           timeout: 10_000,
-          message: 'La acción rápida no produjo cambio visible (ni navegación fuera de /app/hoy).',
+          message: 'El count de checkins no subió después de clicar today-action-button.',
         })
-        .toBeTruthy();
+        .toBe(beforeCount + 1);
 
       await page.reload();
-
-      const meResponse = await page.request.get('/api/auth/me');
-      expect(meResponse.ok()).toBeTruthy();
-
-      await page.goto('/app/hoy');
       await expect(heading).toBeVisible({ timeout: 10_000 });
+      await expect(todayActionsGrid).toBeVisible({ timeout: 10_000 });
+
+      const afterReloadCount = await fetchTrackingCount(page.request);
+      expect(afterReloadCount).toBe(beforeCount + 1);
     } finally {
       assertNoConsoleErrors();
     }
