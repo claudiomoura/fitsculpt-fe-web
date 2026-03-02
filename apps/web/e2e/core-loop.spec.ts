@@ -7,7 +7,7 @@ test.describe('Core loop (demo anti-regression)', () => {
 
     try {
       await page.goto('/app/hoy');
-      await expect(page.getByTestId('today-actions-grid')).toBeVisible();
+      await expect(page.locator('[data-testid="today-actions-grid"]')).toBeVisible({ timeout: 10_000 });
 
       const beforeCount = await fetchTrackingCount(page.request);
 
