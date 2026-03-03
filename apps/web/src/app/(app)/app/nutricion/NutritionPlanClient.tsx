@@ -2219,6 +2219,8 @@ const nutritionPlanDetails = profile ? (
                     )}
                   />
 
+                  {trainerAssignedPlan?.title ? <p className="muted">{trainerAssignedPlan.title}</p> : null}
+
                   <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
 
                   <ObjectiveGrid items={objectiveItems} className="nutrition-v2-objective-grid" />
