@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { cn } from "@/lib/classNames";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { RecipeImage } from "@/components/nutrition/RecipeImage";
 
 type MealCardProps = {
   title: string;
@@ -17,8 +17,6 @@ type MealCardProps = {
 
 export function MealCard({ title, description, meta, imageUrl, onClick, className, ariaLabel }: MealCardProps) {
   const { t } = useLanguage();
-  const [imageError, setImageError] = useState(false);
-  const showImage = Boolean(imageUrl && imageUrl.trim().length > 0) && !imageError;
 
   return (
     <button
@@ -28,17 +26,13 @@ export function MealCard({ title, description, meta, imageUrl, onClick, classNam
       aria-label={ariaLabel ?? title ?? t("nutrition.mealTitleFallback")}
     >
       <div className="meal-card-media" aria-hidden="true">
-        {showImage ? (
-          <img
-            src={imageUrl ?? ""}
-            alt={title || t("nutrition.mealTitleFallback")}
-            className="meal-card-thumb"
-            onError={() => setImageError(true)}
-            loading="lazy"
-          />
-        ) : (
-          <div className="meal-card-thumb meal-card-thumb--placeholder" />
-        )}
+        <RecipeImage
+          src={imageUrl}
+          alt={title || t("nutrition.mealTitleFallback")}
+          className="meal-card-thumb"
+          fallbackClassName="meal-card-thumb meal-card-thumb--placeholder"
+          testId="meal-card-image"
+        />
       </div>
       <div className="meal-card-body">
         <strong className="meal-card-title">{title}</strong>

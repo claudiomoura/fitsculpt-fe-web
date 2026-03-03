@@ -29,6 +29,7 @@ import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { Modal } from "@/components/ui/Modal";
 import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
+import { RecipeImage } from "@/components/nutrition/RecipeImage";
 import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
 import AppLayout from "@/components/layout/AppLayout";
 import NutritionStats from "@/components/nutrition/NutritionStats";
@@ -2831,14 +2832,13 @@ const nutritionPlanDetails = profile ? (
                 <Badge variant="muted">{t("nutrition.localOnlyBadge")}</Badge>
               </div>
             </div>
-            {getMealMediaUrl(selectedMealDetails) ? (
-              <img
-                src={getMealMediaUrl(selectedMealDetails) ?? ""}
-                alt={selectedMealTitle}
-                className="meal-card-thumb"
-                loading="lazy"
-              />
-            ) : null}
+            <RecipeImage
+              src={getMealMediaUrl(selectedMealDetails)}
+              alt={selectedMealTitle}
+              className="meal-card-thumb"
+              fallbackClassName="meal-card-thumb meal-card-thumb--placeholder"
+              testId="nutrition-meal-detail-image"
+            />
             {selectedMealDescription ? (
               <p className="muted mt-4">{selectedMealDescription}</p>
             ) : null}

@@ -4,13 +4,13 @@ import { useLanguage } from "@/context/LanguageProvider";
 import type { Recipe } from "@/lib/types";
 import { ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { RecipeImage } from "@/components/nutrition/RecipeImage";
 
 type RecipeDetailClientProps = {
   recipe: Recipe | null;
   error?: string | null;
 };
 
-const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
 
 export default function RecipeDetailClient({ recipe, error }: RecipeDetailClientProps) {
   const { t } = useLanguage();
@@ -56,13 +56,12 @@ export default function RecipeDetailClient({ recipe, error }: RecipeDetailClient
       </div>
 
       <div className="recipe-media mt-16">
-        <img
-          src={recipe.photoUrl ?? RECIPE_PLACEHOLDER}
+        <RecipeImage
+          src={recipe.photoUrl}
           alt={recipe.name}
           className="recipe-detail-media"
-          onError={(event) => {
-            event.currentTarget.src = RECIPE_PLACEHOLDER;
-          }}
+          fallbackClassName="recipe-detail-media recipe-image-fallback--detail"
+          testId="recipe-detail-image"
         />
         {!hasPhoto ? <p className="muted">{t("recipes.mediaPlaceholder")}</p> : null}
       </div>
