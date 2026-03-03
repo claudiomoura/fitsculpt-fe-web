@@ -8028,10 +8028,13 @@ const assignedNutritionPlanSummarySelect = {
   createdAt: true,
   days: {
     orderBy: { order: "asc" as const },
-    select: {
-      id: true,
-      dayLabel: true,
-      order: true,
+    include: {
+      meals: {
+        orderBy: { order: "asc" as const },
+        include: {
+          ingredients: true,
+        },
+      },
     },
   },
 } as const;
