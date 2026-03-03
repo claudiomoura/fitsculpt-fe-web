@@ -29,6 +29,21 @@ type JoinRequestsResponse = {
   }>;
 };
 
+async function collectTrainerNutritionDebugInfo(page: import("@playwright/test").Page): Promise<string> {
+  const currentUrl = page.url();
+  const headingTexts = (await page.locator("h1, h2").allTextContents())
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  const bodySnippet = ((await page.locator("body").innerText()).replace(/\s+/g, " ").trim()).slice(0, 500);
+
+  return [
+    `current URL: ${currentUrl}`,
+    `visible headings: ${headingTexts.length ? headingTexts.join(" | ") : "<none>"}`,
+    `body snippet: ${bodySnippet || "<empty>"}`,
+  ].join("\n");
+}
+
 async function ensureMemberJoinedGym(managerContext: APIRequestContext, memberContext: APIRequestContext, gymId: string, memberUserId: string): Promise<void> {
   const joinResponse = await memberContext.post('/gyms/join', { data: { gymId } });
   expect(joinResponse.ok(), 'member gym join request should succeed').toBeTruthy();
@@ -150,8 +165,32 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         password: demoManagerPassword,
       });
       await page.goto('/app/trainer/nutrition-plans');
-      await expect(page.getByTestId('create-nutrition-plan-button')).toBeVisible();
-      await expect(page.getByTestId('nutrition-plan-list')).toContainText(nutritionPlanTitle);
+      await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
+      await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
+
+      const createButton = page.getByTestId('create-nutrition-plan-button');
+      try {
+        await expect(createButton).toBeVisible({ timeout: 15_000 });
+      } catch (error) {
+        const debugInfo = await collectTrainerNutritionDebugInfo(page);
+        throw new Error(
+          `create nutrition plan button was not visible after loading trainer nutrition plans page.\n${debugInfo}\n${String(error)}`
+        );
+      }
+
+      await expect
+        .poll(
+          async () => {
+            const listText = (await page.getByTestId('nutrition-plan-list').innerText()).replace(/\s+/g, ' ').trim();
+            return listText.includes(nutritionPlanTitle);
+          },
+          {
+            message: `nutrition plan list should include created plan ${nutritionPlanTitle}`,
+            intervals: [500, 1000, 1500, 2000],
+            timeout: 15_000,
+          }
+        )
+        .toBeTruthy();
 
       const assignNutritionResponse = await managerContext.post(`/trainer/clients/${memberUserId}/assigned-nutrition-plan`, {
         data: { nutritionPlanId: createdNutritionPlan.id },
