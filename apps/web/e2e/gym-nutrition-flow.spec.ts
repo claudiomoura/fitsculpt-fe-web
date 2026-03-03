@@ -225,16 +225,46 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       await expect(page.getByTestId('member-assigned-nutrition-plan')).toContainText(nutritionPlanTitle);
       await expect(page.getByTestId('nutrition-day-nav')).toBeVisible();
 
-      const selectedDayBefore = await page.locator('.nutrition-week-kpi.is-selected').first().textContent();
-      await page.locator('.nutrition-week-kpi').nth(1).click();
-      await expect(page.locator('.nutrition-week-kpi').nth(1)).toHaveClass(/is-selected/);
-      const selectedDayAfterFirstNav = await page.locator('.nutrition-week-kpi.is-selected').first().textContent();
-      expect(selectedDayAfterFirstNav?.trim()).not.toEqual(selectedDayBefore?.trim());
+      const kpis = page.locator('.nutrition-week-kpi');
 
-      await page.locator('.nutrition-week-kpi').nth(2).click();
-      await expect(page.locator('.nutrition-week-kpi').nth(2)).toHaveClass(/is-selected/);
-      const selectedDayAfterSecondNav = await page.locator('.nutrition-week-kpi.is-selected').first().textContent();
-      expect(selectedDayAfterSecondNav?.trim()).not.toEqual(selectedDayAfterFirstNav?.trim());
+      const getSelectedKpiIndex = async (): Promise<number> => {
+        const selectedIndex = await kpis.evaluateAll((nodes) =>
+          nodes.findIndex((node) => node.classList.contains('is-selected'))
+        );
+        expect(selectedIndex, 'one nutrition week KPI should be selected').toBeGreaterThanOrEqual(0);
+        return selectedIndex;
+      };
+
+      const clickDifferentKpi = async (currentIndex: number, blockedIndex?: number): Promise<number> => {
+        const kpiCount = await kpis.count();
+        expect(kpiCount, 'nutrition day nav should expose at least two KPI items').toBeGreaterThanOrEqual(2);
+
+        const candidateCount = Math.min(kpiCount, 3);
+        let targetIndex = (currentIndex + 1) % candidateCount;
+        if (blockedIndex !== undefined && targetIndex === blockedIndex) {
+          targetIndex = (targetIndex + 1) % candidateCount;
+        }
+        if (targetIndex === currentIndex) {
+          targetIndex = (currentIndex + 1) % kpiCount;
+        }
+
+        await kpis.nth(targetIndex).click();
+
+        await expect.poll(getSelectedKpiIndex, { message: `selected KPI index should switch to ${targetIndex}` }).toBe(targetIndex);
+        await expect(kpis.nth(targetIndex)).toHaveClass(/is-selected/);
+        if (currentIndex !== targetIndex) {
+          await expect(kpis.nth(currentIndex)).not.toHaveClass(/is-selected/);
+        }
+
+        return targetIndex;
+      };
+
+      const selectedIndexBefore = await getSelectedKpiIndex();
+      const selectedIndexAfterFirstNav = await clickDifferentKpi(selectedIndexBefore);
+      expect(selectedIndexAfterFirstNav).not.toEqual(selectedIndexBefore);
+
+      const selectedIndexAfterSecondNav = await clickDifferentKpi(selectedIndexAfterFirstNav, selectedIndexBefore);
+      expect(selectedIndexAfterSecondNav).not.toEqual(selectedIndexAfterFirstNav);
 
       await expect(page.locator('main')).toBeVisible();
       await expect(page.locator('body')).not.toContainText('Application error');

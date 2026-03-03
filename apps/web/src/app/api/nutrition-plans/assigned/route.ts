@@ -1,7 +1,54 @@
-import { proxyToBackend } from "../../gyms/_proxy";
+import { NextResponse } from "next/server";
+import { fetchBackend } from "../../gyms/_proxy";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return proxyToBackend("/nutrition-plans/assigned");
+type AssignedNutritionPayload = {
+  assignedPlan?: unknown;
+  trainerAssignedPlan?: unknown;
+  plan?: unknown;
+  data?: unknown;
+  title?: unknown;
+  days?: unknown;
+};
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+
+function unwrapPlanCandidate(value: unknown): unknown {
+  if (!isObject(value)) return value;
+  const candidate = value as AssignedNutritionPayload;
+  if (isObject(candidate.plan)) return candidate.plan;
+  return value;
+}
+
+function normalizeAssignedPlan(payload: unknown) {
+  if (!isObject(payload)) return null;
+
+  const direct = payload as AssignedNutritionPayload;
+  if (direct.assignedPlan) return unwrapPlanCandidate(direct.assignedPlan);
+  if (direct.trainerAssignedPlan) return unwrapPlanCandidate(direct.trainerAssignedPlan);
+  if (direct.plan) return unwrapPlanCandidate(direct.plan);
+
+  if (isObject(direct.data)) {
+    const nested = direct.data as AssignedNutritionPayload;
+    if (nested.assignedPlan) return unwrapPlanCandidate(nested.assignedPlan);
+    if (nested.trainerAssignedPlan) return unwrapPlanCandidate(nested.trainerAssignedPlan);
+    if (nested.plan) return unwrapPlanCandidate(nested.plan);
+    return unwrapPlanCandidate(nested);
+  }
+
+  return unwrapPlanCandidate(payload);
+}
+
+export async function GET(request: Request) {
+  const result = await fetchBackend("/members/me/assigned-nutrition-plan", { request });
+  if (result.status < 200 || result.status >= 300) {
+    return NextResponse.json(result.payload, { status: result.status });
+  }
+
+  const assignedPlan = normalizeAssignedPlan(result.payload);
+  return NextResponse.json({ assignedPlan }, { status: result.status });
 }

@@ -7,6 +7,13 @@ async function getAuthCookie() {
   return token ? `fs_token=${token}` : null;
 }
 
+async function getAuthCookieFromRequest(request?: Request) {
+  const storeCookie = await getAuthCookie();
+  if (storeCookie) return storeCookie;
+  const requestCookie = request?.headers.get("cookie")?.trim();
+  return requestCookie ? requestCookie : null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -26,6 +33,7 @@ export type ProxyErrorPayload = {
 export type ProxyOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
+  request?: Request;
 };
 
 export type ProxyResult = {
@@ -84,7 +92,7 @@ function normalizeErrorPayload(status: number, payload: unknown): ProxyErrorPayl
 }
 
 export async function fetchBackend(path: string, options: ProxyOptions = {}): Promise<ProxyResult> {
-  const authCookie = await getAuthCookie();
+  const authCookie = await getAuthCookieFromRequest(options.request);
   if (!authCookie) {
     return {
       status: 401,

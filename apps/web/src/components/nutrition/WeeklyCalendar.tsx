@@ -87,18 +87,16 @@ export function WeeklyCalendar({
         </div>
       )}
 
-      {hasWeeklyMeals ? (
-        <div className="nutrition-week-grid-kpis">
-          {days.map((day) => (
-            <button key={`${day.id}-meta`} type="button" className={`nutrition-week-kpi ${day.selected ? "is-selected" : ""}`} aria-label={selectWeekDayAria(day)} onClick={() => onSelectDay(day.id)}>
-              <span className="nutrition-week-kpi-dots">{"• ".repeat(Math.min(day.mealCount, 4)).trim() || "—"}</span>
-              <span className="nutrition-week-kpi-kcal">
-                {Math.round(day.dayCalories)} {kcalLabel}
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <div className="nutrition-week-grid-kpis" data-testid="nutrition-week-kpis">
+        {days.map((day) => (
+          <button key={`${day.id}-meta`} type="button" className={`nutrition-week-kpi ${day.selected ? "is-selected" : ""}`} aria-label={selectWeekDayAria(day)} onClick={() => onSelectDay(day.id)}>
+            <span className="nutrition-week-kpi-dots">{"• ".repeat(Math.min(day.mealCount, 4)).trim() || "—"}</span>
+            <span className="nutrition-week-kpi-kcal">
+              {Math.round(day.dayCalories)} {kcalLabel}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

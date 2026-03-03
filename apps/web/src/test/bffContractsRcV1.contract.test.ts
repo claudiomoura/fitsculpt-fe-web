@@ -13,10 +13,16 @@ type MockCookieStore = {
 };
 
 const cookiesMock = vi.fn<() => Promise<MockCookieStore>>();
+const headersMock = vi.fn<() => Promise<Headers>>();
 
-vi.mock("next/headers", () => ({
-  cookies: cookiesMock,
-}));
+vi.mock("next/headers", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/headers")>();
+  return {
+    ...actual,
+    cookies: cookiesMock,
+    headers: headersMock,
+  };
+});
 
 function jsonResponse(status: number, payload: unknown): Response {
   return {
@@ -31,6 +37,8 @@ function jsonResponse(status: number, payload: unknown): Response {
 describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
   beforeEach(() => {
     cookiesMock.mockReset();
+    headersMock.mockReset();
+    headersMock.mockResolvedValue(new Headers());
   });
 
   it("validates GET /api/auth/me minimal response shape", async () => {
