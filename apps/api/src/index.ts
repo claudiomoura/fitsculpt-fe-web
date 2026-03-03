@@ -10829,12 +10829,22 @@ app.get("/members/me/assigned-nutrition-plan", async (request, reply) => {
       where: {
         userId: user.id,
         status: "ACTIVE",
-        role: "MEMBER",
       },
-      select: {
-        gym: { select: { id: true, name: true } },
+      include: {
+        gym: true,
         assignedNutritionPlan: {
-          select: assignedNutritionPlanSummarySelect,
+          include: {
+            days: {
+              orderBy: { order: "asc" },
+              include: {
+                meals: {
+                  include: {
+                    ingredients: true,
+                  },
+                },
+              },
+            },
+          },
         },
       },
       orderBy: { updatedAt: "desc" },
@@ -10846,8 +10856,18 @@ app.get("/members/me/assigned-nutrition-plan", async (request, reply) => {
 
     return reply.status(200).send({
       memberId: user.id,
-      gym: membership.gym,
-      assignedPlan: membership.assignedNutritionPlan,
+      assignedNutritionPlan: membership?.assignedNutritionPlan ?? null,
+      gym: membership?.gym ?? null,
+      membership: membership
+        ? {
+            id: membership.id,
+            userId: membership.userId,
+            gymId: membership.gymId,
+            role: membership.role,
+            status: membership.status,
+            assignedNutritionPlanId: membership.assignedNutritionPlanId,
+          }
+        : null,
     });
   } catch (error) {
     return handleRequestError(reply, error);
