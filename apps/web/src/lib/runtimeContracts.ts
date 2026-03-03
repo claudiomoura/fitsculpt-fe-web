@@ -3,6 +3,8 @@ export type ContractValidationResult = {
   reason?: string;
 };
 
+import { isUuid } from "@/lib/aiRequestId";
+
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -173,7 +175,7 @@ export function validateAiTrainingGeneratePayload(payload: unknown): ContractVal
   if (payload.mode !== undefined && typeof payload.mode !== "string") {
     return { ok: false, reason: "AI_TRAINING_INVALID_MODE" };
   }
-  if (payload.aiRequestId !== undefined && typeof payload.aiRequestId !== "string") {
+  if (payload.aiRequestId !== undefined && (!isString(payload.aiRequestId) || !isUuid(payload.aiRequestId))) {
     return { ok: false, reason: "AI_TRAINING_INVALID_AI_REQUEST_ID" };
   }
   if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {
@@ -197,7 +199,7 @@ export function validateAiNutritionGeneratePayload(payload: unknown): ContractVa
   if (payload.mode !== undefined && typeof payload.mode !== "string") {
     return { ok: false, reason: "AI_NUTRITION_INVALID_MODE" };
   }
-  if (payload.aiRequestId !== undefined && typeof payload.aiRequestId !== "string") {
+  if (payload.aiRequestId !== undefined && (!isString(payload.aiRequestId) || !isUuid(payload.aiRequestId))) {
     return { ok: false, reason: "AI_NUTRITION_INVALID_AI_REQUEST_ID" };
   }
   if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {

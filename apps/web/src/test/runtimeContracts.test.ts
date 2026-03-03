@@ -65,13 +65,18 @@ describe("runtimeContracts", () => {
         plan: {},
         usage: { total_tokens: 123, prompt_tokens: 45, completion_tokens: 78 },
         mode: "AI",
-        aiRequestId: "req_123",
+        aiRequestId: "123e4567-e89b-42d3-a456-426614174000",
       }).ok,
     ).toBe(true);
   });
 
   it("rejects invalid AI usage fields", () => {
     expect(validateAiNutritionGeneratePayload({ plan: {}, usage: { total_tokens: "123" } }).ok).toBe(false);
+  });
+
+  it("rejects invalid aiRequestId format", () => {
+    expect(validateAiTrainingGeneratePayload({ plan: {}, aiRequestId: "req_123" }).ok).toBe(false);
+    expect(validateAiNutritionGeneratePayload({ plan: {}, aiRequestId: "req_123" }).ok).toBe(false);
   });
 });
 

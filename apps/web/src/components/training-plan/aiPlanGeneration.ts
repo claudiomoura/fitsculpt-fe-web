@@ -2,6 +2,7 @@ import { addDays, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
 import type { ProfileData, SessionTime, TrainingEquipment, TrainingFocus, TrainingLevel, Goal, TrainingPlanData } from "@/lib/profile";
 import { updateUserProfile } from "@/lib/profileService";
 import { normalizeAiErrorCode } from "@/lib/aiErrorMapping";
+import { createAiRequestId } from "@/lib/aiRequestId";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -132,6 +133,7 @@ function tryParseJson(value: unknown): unknown {
 
 export async function requestAiTrainingPlan(profile: ProfileData, input: TrainingPreferencesInput): Promise<TrainingPlanAiResult> {
   const startDate = toDateKey(startOfWeek(new Date()));
+  const aiRequestId = createAiRequestId();
   const response = await fetch("/api/ai/training-plan/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -154,6 +156,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       includeMobilityWarmups: profile.trainingPreferences.includeMobilityWarmups,
       workoutLength: profile.trainingPreferences.workoutLength,
       timerSound: profile.trainingPreferences.timerSound,
+      aiRequestId,
       injuries: profile.injuries || undefined,
       restrictions: profile.notes || undefined,
     }),
