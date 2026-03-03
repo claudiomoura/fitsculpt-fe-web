@@ -2483,8 +2483,43 @@ label {
 }
 
 .meal-card-thumb--placeholder {
-  background: var(--bg-highlight);
-  border: 1px dashed var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
+}
+
+.recipe-image-fallback {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--accent) 42%, transparent) 0%, transparent 44%),
+    linear-gradient(145deg, color-mix(in srgb, var(--bg-highlight) 72%, var(--accent) 28%), color-mix(in srgb, var(--bg-muted) 85%, var(--bg-card) 15%));
+  border: 1px solid color-mix(in srgb, var(--border) 68%, var(--accent) 32%);
+  overflow: hidden;
+}
+
+.recipe-image-fallback::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 40%, color-mix(in srgb, var(--bg-card) 60%, transparent) 50%, transparent 62%);
+  opacity: 0.45;
+}
+
+.recipe-image-fallback__icon {
+  position: relative;
+  z-index: 1;
+  font-size: 1.35rem;
+  line-height: 1;
+  filter: saturate(1.05);
+}
+
+.recipe-image-fallback--card {
+  min-height: 168px;
+  border-radius: 12px;
+}
+
+.recipe-image-fallback--detail {
+  min-height: 220px;
 }
 
 .meal-card-body {

@@ -9,12 +9,11 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import { SkeletonCard } from "@/components/ui/Skeleton";
+import { RecipeImage } from "@/components/nutrition/RecipeImage";
 
 type RecipeResponse = {
   items: Recipe[];
 };
-
-const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
 
 export default function RecipeLibraryClient() {
   const { t } = useLanguage();
@@ -133,20 +132,19 @@ export default function RecipeLibraryClient() {
         <div className="list-grid mt-16">
           {recipes.map((recipe) => {
             const ingredients = recipe.ingredients ?? [];
-            const photoUrl = recipe.photoUrl ?? RECIPE_PLACEHOLDER;
+            const photoUrl = recipe.photoUrl;
             return (
               <Link
                 key={recipe.id}
                 href={`/app/biblioteca/recetas/${recipe.id}`}
                 className="feature-card recipe-card library-card"
               >
-                <img
+                <RecipeImage
                   src={photoUrl}
                   alt={recipe.name}
                   className="recipe-card-media"
-                  onError={(event) => {
-                    event.currentTarget.src = RECIPE_PLACEHOLDER;
-                  }}
+                  fallbackClassName="recipe-card-media recipe-image-fallback--card"
+                  testId="recipe-library-image"
                 />
                 <h3>{recipe.name}</h3>
                 {recipe.description ? <p className="muted">{recipe.description}</p> : null}
