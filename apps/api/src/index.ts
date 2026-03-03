@@ -8006,6 +8006,9 @@ const trainerPlanExerciseUpdateSchema = z
 const trainerAssignPlanBodySchema = z.object({
   trainingPlanId: z.string().min(1),
 });
+const trainerAssignNutritionPlanBodySchema = z.object({
+  nutritionPlanId: z.string().min(1),
+});
 const trainerAssignPlanResultSchema = {
   id: true,
   title: true,
@@ -8016,6 +8019,36 @@ const trainerAssignPlanResultSchema = {
   equipment: true,
   startDate: true,
   daysCount: true,
+} as const;
+const assignedNutritionPlanSummarySelect = {
+  id: true,
+  title: true,
+  startDate: true,
+  daysCount: true,
+  createdAt: true,
+  days: {
+    orderBy: { order: "asc" as const },
+    select: {
+      id: true,
+      dayLabel: true,
+      order: true,
+    },
+  },
+} as const;
+const trainerAssignNutritionPlanResultSchema = {
+  id: true,
+  title: true,
+  startDate: true,
+  daysCount: true,
+  createdAt: true,
+  days: {
+    orderBy: { order: "asc" as const },
+    select: {
+      id: true,
+      dayLabel: true,
+      order: true,
+    },
+  },
 } as const;
 
 const trainingExerciseLegacySafeSelect = {
@@ -8054,6 +8087,19 @@ const nutritionPlanListSchema = z.object({
 });
 
 const nutritionPlanParamsSchema = z.object({ id: z.string().min(1) });
+
+const trainerNutritionPlanCreateSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  daysCount: z.coerce.number().int().min(1).max(14).optional(),
+  startDate: z.string().trim().min(1).optional(),
+  dailyCalories: z.coerce.number().positive().max(20000).optional(),
+  proteinG: z.coerce.number().min(0).max(2000).optional(),
+  fatG: z.coerce.number().min(0).max(1000).optional(),
+  carbsG: z.coerce.number().min(0).max(3000).optional(),
+});
+const trainerNutritionPlanParamsSchema = z.object({
+  id: z.string().min(1),
+});
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -10033,6 +10079,153 @@ app.get("/trainer/plans/:planId", async (request, reply) => {
   }
 });
 
+app.get("/trainer/nutrition-plans", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const { query, limit, offset } = nutritionPlanListSchema.parse(request.query);
+
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+
+    const plans = await prisma.nutritionPlan.findMany({
+      where: {
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: GymMembershipStatus.ACTIVE,
+                role: GymRole.MEMBER,
+              },
+            },
+          },
+        ],
+        ...(query
+          ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } }
+          : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        daysCount: true,
+        createdAt: true,
+        days: {
+          orderBy: { order: "asc" },
+          select: { id: true, dayLabel: true, order: true },
+        },
+      },
+      orderBy: [{ createdAt: "desc" }],
+      skip: offset,
+      take: limit,
+    });
+
+    return reply.status(200).send({ items: plans, limit, offset });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/nutrition-plans", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    await requireActiveGymManagerMembership(requester.id);
+    const payload = trainerNutritionPlanCreateSchema.parse(request.body);
+
+    const startDate = payload.startDate ? parseDateInput(payload.startDate) : new Date();
+    if (!startDate) {
+      return reply.status(400).send({ error: "INVALID_START_DATE" });
+    }
+
+    const daysCount = payload.daysCount ?? 7;
+    const dates = buildDateRange(startDate, daysCount);
+
+    const createdPlan = await prisma.nutritionPlan.create({
+      data: {
+        userId: requester.id,
+        title: payload.title,
+        dailyCalories: payload.dailyCalories ?? 2000,
+        proteinG: payload.proteinG ?? 120,
+        fatG: payload.fatG ?? 60,
+        carbsG: payload.carbsG ?? 220,
+        startDate,
+        daysCount,
+        days: {
+          create: dates.map((date, index) => ({
+            date: new Date(`${date}T00:00:00.000Z`),
+            dayLabel: `Día ${index + 1}`,
+            order: index + 1,
+          })),
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        daysCount: true,
+        createdAt: true,
+        days: {
+          orderBy: { order: "asc" },
+          select: { id: true, dayLabel: true, order: true },
+        },
+      },
+    });
+
+    return reply.status(201).send(createdPlan);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/nutrition-plans/:id", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { id } = trainerNutritionPlanParamsSchema.parse(request.params);
+
+    const plan = await prisma.nutritionPlan.findFirst({
+      where: {
+        id,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: GymMembershipStatus.ACTIVE,
+                role: GymRole.MEMBER,
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        daysCount: true,
+        createdAt: true,
+        days: {
+          orderBy: { order: "asc" },
+          include: {
+            meals: {
+              include: { ingredients: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!plan) {
+      return reply.status(404).send({ error: "NUTRITION_PLAN_NOT_FOUND" });
+    }
+
+    return reply.status(200).send(plan);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.patch("/trainer/plans/:planId", async (request, reply) => {
   try {
     const requester = await requireUser(request);
@@ -10427,6 +10620,7 @@ async function getTrainerMemberAssignment(
     status: string;
     role: string;
     assignedTrainingPlanId: string | null;
+    assignedNutritionPlanId: string | null;
     assignedTrainingPlan: {
       id: string;
       title: string;
@@ -10437,6 +10631,14 @@ async function getTrainerMemberAssignment(
       equipment: string;
       startDate: Date;
       daysCount: number;
+    } | null;
+    assignedNutritionPlan: {
+      id: string;
+      title: string;
+      startDate: Date;
+      daysCount: number;
+      createdAt: Date;
+      days: { id: string; dayLabel: string; order: number }[];
     } | null;
   };
 }> {
@@ -10451,8 +10653,12 @@ async function getTrainerMemberAssignment(
       role: true,
       status: true,
       assignedTrainingPlanId: true,
+      assignedNutritionPlanId: true,
       assignedTrainingPlan: {
         select: trainerAssignPlanResultSchema,
+      },
+      assignedNutritionPlan: {
+        select: trainerAssignNutritionPlanResultSchema,
       },
     },
   });
@@ -10556,6 +10762,92 @@ app.delete("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
       memberId: userId,
       gymId: managerMembership.gymId,
       assignedPlan: null,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post(
+  "/trainer/clients/:userId/assigned-nutrition-plan",
+  async (request, reply) => {
+    try {
+      const { userId } = trainerClientParamsSchema.parse(request.params);
+      const { nutritionPlanId } = trainerAssignNutritionPlanBodySchema.parse(request.body);
+      const requester = await requireUser(request);
+
+      const { managerMembership, targetMembership } = await getTrainerMemberAssignment(
+        requester.id,
+        userId,
+      );
+
+      const selectedPlan = await prisma.nutritionPlan.findFirst({
+        where: {
+          id: nutritionPlanId,
+          OR: [
+            { userId: requester.id },
+            {
+              gymAssignments: {
+                some: {
+                  gymId: managerMembership.gymId,
+                  status: "ACTIVE",
+                  role: "MEMBER",
+                },
+              },
+            },
+          ],
+        },
+        select: trainerAssignNutritionPlanResultSchema,
+      });
+
+      if (!selectedPlan) {
+        return reply.status(404).send({ error: "NUTRITION_PLAN_NOT_FOUND" });
+      }
+
+      await prisma.gymMembership.update({
+        where: { id: targetMembership.id },
+        data: { assignedNutritionPlanId: selectedPlan.id },
+      });
+
+      return reply.status(200).send({
+        ok: true,
+        memberId: userId,
+        gymId: managerMembership.gymId,
+        assignedPlan: selectedPlan,
+      });
+    } catch (error) {
+      return handleRequestError(reply, error);
+    }
+  },
+);
+
+app.get("/members/me/assigned-nutrition-plan", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+
+    const membership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      select: {
+        gym: { select: { id: true, name: true } },
+        assignedNutritionPlan: {
+          select: assignedNutritionPlanSummarySelect,
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!membership) {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    return reply.status(200).send({
+      memberId: user.id,
+      gym: membership.gym,
+      assignedPlan: membership.assignedNutritionPlan,
     });
   } catch (error) {
     return handleRequestError(reply, error);
