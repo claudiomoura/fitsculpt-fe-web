@@ -7,26 +7,25 @@ import { parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_UPSTREAM_ERROR = "UPSTREAM_ERROR";
-const UPSTREAM_TIMEOUT_ERROR = "UPSTREAM_TIMEOUT";
+const UPSTREAM_TIMEOUT_ERROR = "AI_TIMEOUT";
 const AI_GENERATE_TIMEOUT_MS = 120_000;
 
-function readErrorMessage(payload: unknown): string {
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const error = (payload as { error?: unknown }).error;
-    if (typeof error === "string" && error.trim().length > 0) {
-      return error;
-    }
-  }
-
-  return DEFAULT_UPSTREAM_ERROR;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
 }
 
-function mapUpstreamErrorStatus(status: number): number {
-  if (status >= 400 && status < 500) {
-    return status;
+function readAiRequestIdHeader(request: Request, requestBody: string): string | null {
+  const headerValue = request.headers.get("x-ai-request-id");
+  if (headerValue && headerValue.trim().length > 0) {
+    return headerValue;
   }
 
-  return 502;
+  const parsedBody = parseJsonOrNull(requestBody);
+  if (isRecord(parsedBody) && typeof parsedBody.aiRequestId === "string" && parsedBody.aiRequestId.trim().length > 0) {
+    return parsedBody.aiRequestId;
+  }
+
+  return null;
 }
 
 function logAiGenerateError(details: { upstreamStatus?: number; durationMs: number; errorKind: "network_error" | "status_error" }) {
@@ -58,10 +57,12 @@ export async function POST(request: Request) {
   try {
     const body = await request.text();
     const contentType = request.headers.get("content-type");
+    const aiRequestId = readAiRequestIdHeader(request, body);
     const response = await fetch(`${getBackendUrl()}/ai/nutrition-plan/generate`, {
       method: "POST",
       headers: {
         ...(contentType ? { "content-type": contentType } : {}),
+        ...(aiRequestId ? { "x-ai-request-id": aiRequestId } : {}),
         cookie: authCookie,
       },
       body,
@@ -78,8 +79,16 @@ export async function POST(request: Request) {
         errorKind: "status_error",
       });
 
-      const upstreamError = readErrorMessage(data);
-      return NextResponse.json({ error: upstreamError }, { status: mapUpstreamErrorStatus(response.status) });
+      if (data !== null) {
+        return NextResponse.json(data, { status: response.status });
+      }
+
+      return new NextResponse(responseText || JSON.stringify({ error: DEFAULT_UPSTREAM_ERROR }), {
+        status: response.status,
+        headers: {
+          "content-type": response.headers.get("content-type") ?? "text/plain; charset=utf-8",
+        },
+      });
     }
 
     if (data === null) {
@@ -100,7 +109,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (isAbortError(error)) {
       logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
-      return NextResponse.json({ error: UPSTREAM_TIMEOUT_ERROR }, { status: 502 });
+      return NextResponse.json({ error: UPSTREAM_TIMEOUT_ERROR }, { status: 504 });
     }
 
     logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });

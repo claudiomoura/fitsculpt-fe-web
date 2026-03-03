@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/backend", () => ({
   getBackendUrl: () => "http://backend.local",
@@ -42,15 +42,20 @@ async function invokeEndpoint(endpoint: EndpointContract, body = "{}") {
 }
 
 describe("AI generate proxy guardrail contract", () => {
-  it.each(ENDPOINTS)("$name endpoint maps upstream 5xx into 502 + { error: string }", async (endpoint) => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(503, "backend unavailable", "text/plain")));
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it.each(ENDPOINTS)("$name endpoint preserves upstream 5xx status + body", async (endpoint) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(503, JSON.stringify({ error: "AI_REQUEST_FAILED" }))));
 
     const response = await invokeEndpoint(endpoint);
 
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(503);
 
     const data = await response.json();
-    expect(data).toMatchObject({ error: expect.any(String) });
+    expect(data).toEqual({ error: "AI_REQUEST_FAILED" });
   });
 
 
@@ -80,11 +85,37 @@ describe("AI generate proxy guardrail contract", () => {
     expect(data).toMatchObject({ error: expect.any(String) });
   });
 
-  it.each(ENDPOINTS)("$name endpoint always returns JSON-parseable error bodies", async (endpoint) => {
+  it.each(ENDPOINTS)("$name endpoint preserves plain text upstream errors", async (endpoint) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(500, "<html>upstream down</html>", "text/html")));
 
     const response = await invokeEndpoint(endpoint);
 
-    await expect(response.json()).resolves.toMatchObject({ error: expect.any(String) });
+    expect(response.status).toBe(500);
+    await expect(response.text()).resolves.toContain("upstream down");
+  });
+
+  it.each(ENDPOINTS)("$name endpoint maps upstream abort to 504 AI_TIMEOUT", async (endpoint) => {
+    const abortError = new Error("The operation was aborted");
+    abortError.name = "AbortError";
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abortError));
+
+    const response = await invokeEndpoint(endpoint);
+
+    expect(response.status).toBe(504);
+    await expect(response.json()).resolves.toEqual({ error: "AI_TIMEOUT" });
+  });
+
+  it.each(ENDPOINTS)("$name endpoint uses 120s timeout and forwards aiRequestId header", async (endpoint) => {
+    const fetchMock = vi.fn().mockResolvedValue(mockBackendResponse(200, JSON.stringify({ plan: { days: [] }, aiRequestId: null })));
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    vi.stubGlobal("fetch", fetchMock);
+
+    await invokeEndpoint(endpoint, JSON.stringify({ aiRequestId: "123e4567-e89b-42d3-a456-426614174000" }));
+
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 120_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = new Headers(init.headers);
+    expect(headers.get("x-ai-request-id")).toBe("123e4567-e89b-42d3-a456-426614174000");
   });
 });
