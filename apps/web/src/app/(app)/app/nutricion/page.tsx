@@ -14,6 +14,9 @@ export default async function NutritionPlanPage() {
             <p className="section-subtitle">{t("app.nutritionSubtitle")}</p>
           </div>
           <div className="page-header-actions">
+            <ButtonLink variant="secondary" href="/app/dietas">
+              {t("dietPlans.title")}
+            </ButtonLink>
             <ButtonLink variant="secondary" href="/app/macros">
               {t("app.nutritionMacrosLink")}
             </ButtonLink>
