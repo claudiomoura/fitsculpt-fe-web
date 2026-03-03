@@ -225,16 +225,25 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       await expect(page.getByTestId('member-assigned-nutrition-plan')).toContainText(nutritionPlanTitle);
       await expect(page.getByTestId('nutrition-day-nav')).toBeVisible();
 
-      const selectedDayBefore = await page.locator('.nutrition-week-kpi.is-selected').first().textContent();
+      const getSelectedKpiIndex = async () =>
+        page.locator('.nutrition-week-kpi').evaluateAll((nodes) =>
+          nodes.findIndex((node) => node.classList.contains('is-selected'))
+        );
+
+      const selectedIndexBefore = await getSelectedKpiIndex();
+      expect(selectedIndexBefore, 'one nutrition week KPI should be selected by default').toBeGreaterThanOrEqual(0);
+
       await page.locator('.nutrition-week-kpi').nth(1).click();
       await expect(page.locator('.nutrition-week-kpi').nth(1)).toHaveClass(/is-selected/);
-      const selectedDayAfterFirstNav = await page.locator('.nutrition-week-kpi.is-selected').first().textContent();
-      expect(selectedDayAfterFirstNav?.trim()).not.toEqual(selectedDayBefore?.trim());
+      const selectedIndexAfterFirstNav = await getSelectedKpiIndex();
+      expect(selectedIndexAfterFirstNav).toBe(1);
+      expect(selectedIndexAfterFirstNav).not.toEqual(selectedIndexBefore);
 
       await page.locator('.nutrition-week-kpi').nth(2).click();
       await expect(page.locator('.nutrition-week-kpi').nth(2)).toHaveClass(/is-selected/);
-      const selectedDayAfterSecondNav = await page.locator('.nutrition-week-kpi.is-selected').first().textContent();
-      expect(selectedDayAfterSecondNav?.trim()).not.toEqual(selectedDayAfterFirstNav?.trim());
+      const selectedIndexAfterSecondNav = await getSelectedKpiIndex();
+      expect(selectedIndexAfterSecondNav).toBe(2);
+      expect(selectedIndexAfterSecondNav).not.toEqual(selectedIndexAfterFirstNav);
 
       await expect(page.locator('main')).toBeVisible();
       await expect(page.locator('body')).not.toContainText('Application error');
