@@ -55,54 +55,73 @@ function mockResponse(payload: unknown, status = 200): Response {
   } as Response;
 }
 
+function setupFetchMock(
+  planExercises: Array<Record<string, unknown>>,
+  exerciseFetchHandler?: (url: string) => Response | null,
+) {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url === "/api/ai/quota") {
+      return mockResponse({ tokens: 10 });
+    }
+    if (url === "/api/auth/me") {
+      return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+    }
+    if (url.startsWith("/api/training-plans/active")) {
+      return mockResponse({
+        source: "assigned",
+        plan: {
+          id: "plan-1",
+          title: "Plan premium",
+          startDate: today.toISOString(),
+          days: [
+            {
+              label: "Día 1",
+              focus: "Fuerza",
+              duration: 50,
+              date: todayKey,
+              exercises: planExercises,
+            },
+          ],
+        },
+      });
+    }
+
+    const handled = exerciseFetchHandler?.(url) ?? null;
+    if (handled) {
+      return handled;
+    }
+
+    throw new Error(`Unhandled fetch: ${url}`);
+  });
+
+  vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+  return fetchMock;
+}
+
 describe("Training premium UX from plan", () => {
   beforeEach(() => {
     resetMockNavigation();
     setMockPathname("/app/entrenamiento");
-
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url === "/api/ai/quota") {
-        return mockResponse({ tokens: 10 });
-      }
-      if (url === "/api/auth/me") {
-        return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
-      }
-      if (url.startsWith("/api/training-plans/active")) {
-        return mockResponse({
-          source: "assigned",
-          plan: {
-            id: "plan-1",
-            title: "Plan premium",
-            startDate: today.toISOString(),
-            days: [
-              {
-                label: "Día 1",
-                focus: "Fuerza",
-                duration: 50,
-                date: todayKey,
-                exercises: [
-                  { exerciseId: "ex-1", name: "Press banca", sets: "4", reps: "8" },
-                  { exerciseId: "ex-2", name: "Sentadilla", sets: "4", reps: "10", notes: "Controlar tempo" },
-                ],
-              },
-            ],
-          },
-        });
-      }
-      if (url === "/api/exercises/ex-1") {
-        return mockResponse({ id: "ex-1", imageUrl: "https://cdn.test/ex-1.jpg", name: "Press banca" });
-      }
-      if (url === "/api/exercises/ex-2") {
-        return mockResponse({ id: "ex-2", imageUrl: "https://cdn.test/ex-2.jpg", name: "Sentadilla" });
-      }
-      throw new Error(`Unhandled fetch: ${url}`);
-    });
-
-    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
   });
 
   it("renders distinct thumbnails when exercise media differs by exerciseId", async () => {
+    setupFetchMock(
+      [
+        { exerciseId: "ex-1", name: "Press banca", sets: "4", reps: "8" },
+        { exerciseId: "ex-2", name: "Sentadilla", sets: "4", reps: "10", notes: "Controlar tempo" },
+      ],
+      (url) => {
+        if (url === "/api/exercises/ex-1") {
+          return mockResponse({ id: "ex-1", imageUrl: "https://cdn.test/ex-1.jpg", name: "Press banca" });
+        }
+        if (url === "/api/exercises/ex-2") {
+          return mockResponse({ id: "ex-2", imageUrl: "https://cdn.test/ex-2.jpg", name: "Sentadilla" });
+        }
+        return null;
+      }
+    );
+
     renderWithProviders(<TrainingPlanClient />);
 
     await screen.findByText("Press banca");
@@ -116,7 +135,76 @@ describe("Training premium UX from plan", () => {
     });
   });
 
+  it("uses exerciseId instead of plan entry id for detail/media resolution", async () => {
+    const fetchMock = setupFetchMock(
+      [{ id: "cmmay-plan-entry-1", exerciseId: "ex-1", name: "Press banca", sets: "4", reps: "8" }],
+      (url) => {
+        if (url === "/api/exercises/ex-1") {
+          return mockResponse({ id: "ex-1", imageUrl: "https://cdn.test/ex-1.jpg", name: "Press banca" });
+        }
+        if (url.startsWith("/api/exercises/cmmay")) {
+          return mockResponse({}, 404);
+        }
+        return null;
+      }
+    );
+
+    renderWithProviders(<TrainingPlanClient />);
+
+    await screen.findByText("Press banca");
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/exercises/ex-1", expect.any(Object));
+    });
+
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/exercises/cmmay-plan-entry-1", expect.any(Object));
+
+    fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
+    expect(await screen.findByTestId("training-exercise-detail-modal")).toBeInTheDocument();
+    expect(screen.getAllByAltText("Press banca").some((image) => image.getAttribute("src")?.includes("ex-1.jpg"))).toBe(true);
+  });
+
+  it("falls back without 404 spam when catalog exercise is missing", async () => {
+    const fetchMock = setupFetchMock(
+      [{ exerciseId: "ex-missing", name: "Ejercicio desconocido", sets: "3", reps: "12" }],
+      (url) => {
+        if (url === "/api/exercises/ex-missing") {
+          return mockResponse({}, 404);
+        }
+        return null;
+      }
+    );
+
+    renderWithProviders(<TrainingPlanClient />);
+
+    await screen.findByText("Ejercicio desconocido");
+
+    fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
+    expect(await screen.findByTestId("training-exercise-detail-modal")).toBeInTheDocument();
+
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls.filter(([input]) => String(input) === "/api/exercises/ex-missing");
+      expect(calls).toHaveLength(1);
+    });
+  });
+
   it("opens exercise modal from plan and closes without losing selected day context", async () => {
+    setupFetchMock(
+      [
+        { exerciseId: "ex-1", name: "Press banca", sets: "4", reps: "8" },
+        { exerciseId: "ex-2", name: "Sentadilla", sets: "4", reps: "10", notes: "Controlar tempo" },
+      ],
+      (url) => {
+        if (url === "/api/exercises/ex-1") {
+          return mockResponse({ id: "ex-1", imageUrl: "https://cdn.test/ex-1.jpg", name: "Press banca" });
+        }
+        if (url === "/api/exercises/ex-2") {
+          return mockResponse({ id: "ex-2", imageUrl: "https://cdn.test/ex-2.jpg", name: "Sentadilla" });
+        }
+        return null;
+      }
+    );
+
     renderWithProviders(<TrainingPlanClient />);
 
     const selectedDayLabel = await screen.findByText(/Ejercicios de hoy/i);
