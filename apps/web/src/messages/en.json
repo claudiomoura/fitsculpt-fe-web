@@ -1037,7 +1037,8 @@
     "calendarViewToggleAria": "Select nutrition calendar view",
     "selectDayAria": "Select day {{date}}",
     "selectWeekDayAria": "Select {{day}} with {{meals}} meals and {{calories}} kcal",
-    "aiSuccessRequiresPlanId": "Could not open the generated plan in Diets. Backend must return planId (requires PR-S4-01)."
+    "aiSuccessRequiresPlanId": "Could not open the generated plan in Diets. Backend must return planId (requires PR-S4-01).",
+    "assignedPlanCta": "Generate with AI or create manually"
   },
   "training": {
     "formTitle": "Plan details",
