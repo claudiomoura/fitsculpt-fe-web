@@ -96,11 +96,12 @@ async function ensureMemberJoinedGym(managerContext: APIRequestContext, memberCo
 }
 
 test.describe('Gym nutrition flow (manager assignment + member consumption)', () => {
-  test('manager creates + assigns nutrition plan, member sees it and can navigate days', async ({ page }, testInfo) => {
+  test('manager creates + assigns nutrition plan, member sees it and can navigate days', async ({ page, browser }, testInfo) => {
     await resetDemoState();
 
-    const managerContext = await request.newContext({ baseURL: backendURL });
+    const managerApiContext = await request.newContext({ baseURL: backendURL });
     const memberContext = await request.newContext({ baseURL: backendURL });
+    const baseURL = testInfo.project.use?.baseURL ?? 'http://localhost:3000';
 
     const assertNoConsoleErrors = attachConsoleErrorCollector(page, testInfo);
     const authGatewayErrors: Array<{ status: number; url: string }> = [];
@@ -113,7 +114,7 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
     page.on('response', onResponse);
 
     try {
-      const managerLoginResponse = await managerContext.post('/auth/login', {
+      const managerLoginResponse = await managerApiContext.post('/auth/login', {
         data: { email: demoManagerEmail, password: demoManagerPassword },
       });
       expect(managerLoginResponse.ok(), 'manager login should succeed').toBeTruthy();
@@ -123,13 +124,13 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       });
       expect(memberLoginResponse.ok(), 'member login should succeed').toBeTruthy();
 
-      const gymsResponse = await managerContext.get('/gyms');
+      const gymsResponse = await managerApiContext.get('/gyms');
       expect(gymsResponse.ok(), 'gym list should be available').toBeTruthy();
       const gymsPayload = (await gymsResponse.json()) as GymListResponse;
       const gymId = (gymsPayload.items ?? gymsPayload.gyms ?? [])[0]?.id;
       expect(gymId, 'at least one gym is required for nutrition flow').toBeTruthy();
 
-      const managerMeResponse = await managerContext.get('/auth/me');
+      const managerMeResponse = await managerApiContext.get('/auth/me');
       expect(managerMeResponse.ok(), 'manager /auth/me should succeed').toBeTruthy();
       const managerMe = (await managerMeResponse.json()) as AuthMeResponse;
       const managerUserId = managerMe.user?.id ?? managerMe.id;
@@ -141,15 +142,15 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       const memberUserId = memberMe.user?.id ?? memberMe.id;
       expect(memberUserId, 'member user id must exist').toBeTruthy();
 
-      const assignTrainerRoleResponse = await managerContext.post(`/admin/users/${managerUserId}/assign-gym-role`, {
+      const assignTrainerRoleResponse = await managerApiContext.post(`/admin/users/${managerUserId}/assign-gym-role`, {
         data: { gymId, role: 'TRAINER' },
       });
       expect(assignTrainerRoleResponse.ok(), 'manager must become trainer in gym').toBeTruthy();
 
-      await ensureMemberJoinedGym(managerContext, memberContext, gymId!, memberUserId!);
+      await ensureMemberJoinedGym(managerApiContext, memberContext, gymId!, memberUserId!);
 
       const nutritionPlanTitle = `E2E Gym Nutrition Plan ${Date.now()}`;
-      const createNutritionPlanResponse = await managerContext.post('/trainer/nutrition-plans', {
+      const createNutritionPlanResponse = await managerApiContext.post('/trainer/nutrition-plans', {
         data: {
           title: nutritionPlanTitle,
           description: 'Sprint BETA-3 e2e nutrition assignment flow',
@@ -160,39 +161,42 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       const createdNutritionPlan = (await createNutritionPlanResponse.json()) as { id?: string; title?: string };
       expect(createdNutritionPlan.id, 'created nutrition plan id should exist').toBeTruthy();
 
-      await loginViaUI(page, {
+      const managerContext = await browser.newContext({ baseURL, storageState: undefined });
+      const managerPage = await managerContext.newPage();
+      await loginViaUI(managerPage, {
         email: demoManagerEmail,
         password: demoManagerPassword,
       });
-      await page.goto('/app/trainer/nutrition-plans');
-      await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
-      await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
+      await managerPage.goto('/app/trainer/nutrition-plans');
+      await expect(managerPage.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
 
-      const createButton = page.getByTestId('create-nutrition-plan-button');
       try {
+        const createButton = managerPage.getByTestId('create-nutrition-plan-button');
         await expect(createButton).toBeVisible({ timeout: 15_000 });
+
+        await expect
+          .poll(
+            async () => {
+              const listText = (await managerPage.getByTestId('nutrition-plan-list').innerText()).replace(/\s+/g, ' ').trim();
+              return listText.includes(nutritionPlanTitle);
+            },
+            {
+              message: `nutrition plan list should include created plan ${nutritionPlanTitle}`,
+              intervals: [500, 1000, 1500, 2000],
+              timeout: 15_000,
+            }
+          )
+          .toBeTruthy();
       } catch (error) {
-        const debugInfo = await collectTrainerNutritionDebugInfo(page);
+        const debugInfo = await collectTrainerNutritionDebugInfo(managerPage);
         throw new Error(
           `create nutrition plan button was not visible after loading trainer nutrition plans page.\n${debugInfo}\n${String(error)}`
         );
+      } finally {
+        await managerContext.close();
       }
 
-      await expect
-        .poll(
-          async () => {
-            const listText = (await page.getByTestId('nutrition-plan-list').innerText()).replace(/\s+/g, ' ').trim();
-            return listText.includes(nutritionPlanTitle);
-          },
-          {
-            message: `nutrition plan list should include created plan ${nutritionPlanTitle}`,
-            intervals: [500, 1000, 1500, 2000],
-            timeout: 15_000,
-          }
-        )
-        .toBeTruthy();
-
-      const assignNutritionResponse = await managerContext.post(`/trainer/clients/${memberUserId}/assigned-nutrition-plan`, {
+      const assignNutritionResponse = await managerApiContext.post(`/trainer/clients/${memberUserId}/assigned-nutrition-plan`, {
         data: { nutritionPlanId: createdNutritionPlan.id },
       });
       expect(assignNutritionResponse.ok(), 'manager should assign nutrition plan to member').toBeTruthy();
@@ -242,7 +246,7 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       expect(authGatewayErrors, 'page should not emit network 401/502 responses').toEqual([]);
     } finally {
       page.off('response', onResponse);
-      await managerContext.dispose();
+      await managerApiContext.dispose();
       await memberContext.dispose();
       assertNoConsoleErrors();
     }
