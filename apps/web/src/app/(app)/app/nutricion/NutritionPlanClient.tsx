@@ -724,9 +724,14 @@ function calculatePlan(
 
 export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: string[]): NutritionPlan | null {
   if (!plan) return null;
-  const normalizedDays = plan.days.map((day) => ({
+  const sourceDays = Array.isArray(plan.days) ? plan.days : [];
+  if (sourceDays.length === 0) {
+    return { ...plan, days: [] };
+  }
+
+  const normalizedDays = sourceDays.map((day) => ({
     ...day,
-    meals: day.meals.map((meal) => ({
+    meals: (Array.isArray(day.meals) ? day.meals : []).map((meal) => ({
       ...meal,
       description: meal.description ?? "",
       ingredients: meal.ingredients ?? [],

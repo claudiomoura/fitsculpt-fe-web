@@ -50,39 +50,56 @@ export async function loginAsDemoUser(page: Page): Promise<void> {
 }
 
 export async function loginViaUI(page: Page, credentials: LoginCredentials): Promise<void> {
-  await page.goto('/login');
+  const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
+  await page.context().clearCookies();
 
-  const routeState = await Promise.race([
-    page
-      .waitForSelector('input[name="email"]', { timeout: 15_000 })
-      .then(() => 'login-form' as const),
-    page.waitForURL(/\/app(\/|$)/, { timeout: 15_000 }).then(() => 'already-authenticated' as const),
-  ]).catch(async (error: unknown) => {
+  const authRequest = await request.newContext({ baseURL: backendURL, storageState: undefined });
+
+  try {
+    const loginResponse = await authRequest.post('/auth/login', {
+      data: {
+        email: credentials.email,
+        password: credentials.password,
+      },
+    });
+
+    expect(loginResponse.ok(), 'backend login should succeed before setting browser cookie').toBeTruthy();
+
+    const setCookieHeader = loginResponse.headers()['set-cookie'] ?? '';
+    const tokenMatch = /(?:^|\s|,)fs_token=([^;\s,]+)/.exec(setCookieHeader);
+    expect(tokenMatch?.[1], 'backend login must return fs_token cookie').toBeTruthy();
+
+    await page.context().addCookies([
+      {
+        name: 'fs_token',
+        value: tokenMatch![1],
+        domain: 'localhost',
+        path: '/',
+        httpOnly: false,
+        secure: false,
+        sameSite: 'Lax',
+      },
+    ]);
+  } finally {
+    await authRequest.dispose();
+  }
+
+  const meResponse = await page.request.get('/api/auth/me', { failOnStatusCode: false });
+  expect(meResponse.status(), 'frontend /api/auth/me should succeed after cookie login').toBe(200);
+
+  await page.goto('/app');
+  await page.waitForURL(/\/app(\/.*)?$/, { timeout: 15_000 }).catch(async (error: unknown) => {
     const { url, title, heading } = await getLoginDiagnostics(page);
-    console.log(`[e2e:login-diagnostics] url=${url} title=${title} h1=${heading}`);
-
     throw new Error(
       [
-        'loginViaUI failed while waiting for login form or authenticated redirect',
+        'loginViaUI failed after backend cookie bootstrap',
         `url=${url}`,
         `title=${title}`,
         `visibleHeading=${heading}`,
         `cause=${error instanceof Error ? error.message : String(error)}`,
-      ].join(' | ')
+      ].join(' | '),
     );
   });
-
-  if (routeState === 'already-authenticated') {
-    return;
-  }
-
-  await page.locator('input[name="email"]').fill(credentials.email);
-  await page.locator('input[name="password"]').fill(credentials.password);
-
-  await Promise.all([
-    page.waitForURL(/\/app(\/.*)?$/, { timeout: 15_000 }),
-    page.locator('button[type="submit"]').click(),
-  ]);
 }
 
 export async function createDemoUserStorageState(storageStatePath: string = authStorageStatePath): Promise<void> {

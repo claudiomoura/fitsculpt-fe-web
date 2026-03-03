@@ -1,5 +1,5 @@
 const ADMIN_ROLE_TOKENS = new Set(["ADMIN", "ROLE_ADMIN", "ADMINISTRATOR"]);
-const TRAINER_ROLE_TOKENS = new Set(["TRAINER", "COACH", "ROLE_TRAINER", "ROLE_COACH"]);
+const TRAINER_ROLE_TOKENS = new Set(["TRAINER", "COACH", "ROLE_TRAINER", "ROLE_COACH", "MANAGER", "ROLE_MANAGER"]);
 const USER_ROLE_TOKENS = new Set(["USER", "ROLE_USER"]);
 
 export type SessionRole = "ADMIN" | "TRAINER" | "USER" | "UNKNOWN";
@@ -56,4 +56,3 @@ export function readSessionRole(token: string): SessionRole {
 
   return "UNKNOWN";
 }
-

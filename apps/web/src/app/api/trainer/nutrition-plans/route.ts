@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const query = url.searchParams.toString();
   const path = query ? `/trainer/nutrition-plans?${query}` : "/trainer/nutrition-plans";
 
-  const result = await fetchBackend(path);
+  const result = await fetchBackend(path, { request });
   if (result.status < 200 || result.status >= 300) {
     return NextResponse.json(result.payload, { status: result.status });
   }
@@ -20,5 +20,5 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const parsed = await readJsonBody(request);
   if (!parsed.ok) return parsed.response;
-  return proxyToBackend("/trainer/nutrition-plans", { method: "POST", body: parsed.body });
+  return proxyToBackend("/trainer/nutrition-plans", { method: "POST", body: parsed.body, request });
 }
