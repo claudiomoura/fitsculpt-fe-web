@@ -2096,6 +2096,7 @@
       "past_due": "Pago vencido",
       "incomplete": "Incompleta",
       "canceled": "Cancelada",
+      "expired": "Expirada",
       "unpaid": "Impaga",
       "unknown": "Desconocido"
     },
