@@ -21,7 +21,6 @@ import { isProfileComplete } from "@/lib/profileCompletion";
 import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
-import { Modal } from "@/components/ui/Modal";
 import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
@@ -39,6 +38,7 @@ import { ErrorBlock } from "@/design-system";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
 import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
+import { ExercisePlanDetailModal } from "@/components/exercise-library/detail/ExercisePlanDetailModal";
 
 type Exercise = {
   id?: string;
@@ -101,6 +101,15 @@ type AiTokenSnapshot = {
 type ExerciseDetailState = {
   exercise: Exercise;
   date: Date;
+};
+
+type ExerciseCatalogItem = {
+  id: string;
+  name?: string | null;
+  imageUrl?: string | null;
+  posterUrl?: string | null;
+  mediaUrl?: string | null;
+  videoUrl?: string | null;
 };
 
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
@@ -346,6 +355,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [calendarView, setCalendarView] = useState<"week" | "month" | "list">("week");
   const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
   const [exerciseDetail, setExerciseDetail] = useState<ExerciseDetailState | null>(null);
+  const [exerciseCatalogById, setExerciseCatalogById] = useState<Record<string, ExerciseCatalogItem>>({});
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
     const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
@@ -535,6 +545,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const getExerciseImageUrl = (exercise: Exercise) => getExerciseThumbUrl(exercise);
 
+  const mergeExerciseWithCatalog = (exercise: Exercise): Exercise => {
+    const exerciseId = getExerciseIdentifier(exercise);
+    if (!exerciseId) return exercise;
+    const catalogExercise = exerciseCatalogById[exerciseId];
+    if (!catalogExercise) return exercise;
+    return {
+      ...exercise,
+      id: exercise.id ?? catalogExercise.id,
+      exerciseId: exercise.exerciseId ?? catalogExercise.id,
+      name: exercise.name || catalogExercise.name || exercise.name,
+      imageUrl: exercise.imageUrl ?? catalogExercise.imageUrl ?? catalogExercise.posterUrl ?? undefined,
+    };
+  };
+
   const buildExerciseTechniqueHref = (exerciseId: string) => {
     const params = new URLSearchParams();
     params.set("from", "plan");
@@ -597,6 +621,48 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
     return Array.from(all.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [maxProjectedWeeksAhead, planEntries, modelWeekStart]);
+
+  useEffect(() => {
+    const exerciseIds = Array.from(
+      new Set(
+        planDays
+          .flatMap((day) => day.exercises)
+          .map((exercise) => getExerciseIdentifier(exercise))
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+    const missingExerciseIds = exerciseIds.filter((id) => !exerciseCatalogById[id]);
+    if (missingExerciseIds.length === 0) return;
+
+    let active = true;
+    const loadCatalogExercises = async () => {
+      const responses = await Promise.allSettled(
+        missingExerciseIds.map(async (exerciseId) => {
+          const response = await fetch(`/api/exercises/${exerciseId}`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (!response.ok) return null;
+          return (await response.json()) as ExerciseCatalogItem;
+        })
+      );
+      if (!active) return;
+
+      setExerciseCatalogById((prev) => {
+        const next = { ...prev };
+        for (const result of responses) {
+          if (result.status !== "fulfilled" || !result.value?.id) continue;
+          next[result.value.id] = result.value;
+        }
+        return next;
+      });
+    };
+
+    void loadCatalogExercises();
+    return () => {
+      active = false;
+    };
+  }, [exerciseCatalogById, planDays]);
   const visibleDayMap = useMemo(() => {
     const next = new Map<string, { day: TrainingDay; index: number; date: Date; isReplicated: boolean }>();
     visiblePlanEntries.forEach((entry) => {
@@ -996,7 +1062,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const hasPlan = Boolean(visiblePlan?.days.length);
 
   const openExerciseDetail = (exercise: Exercise, date: Date) => {
-    setExerciseDetail({ exercise, date });
+    setExerciseDetail({ exercise: mergeExerciseWithCatalog(exercise), date });
   };
 
   const closeExerciseDetail = () => {
@@ -1008,7 +1074,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     ?? projectedWeek.days[0]
     ?? null;
   const selectedEntryDate = selectedEntry?.date ?? selectedDate;
-  const selectedExercises = selectedEntry?.day.exercises ?? [];
+  const selectedExercises = (selectedEntry?.day.exercises ?? []).map(mergeExerciseWithCatalog);
+  const detailExerciseId = exerciseDetail ? getExerciseIdentifier(exerciseDetail.exercise) : null;
   const dayEditorPlanId = selectedPlanId.trim();
   const dayEditorDay = toDateKey(selectedEntryDate);
   const canOpenDayEditor = Boolean(dayEditorPlanId && dayEditorDay);
@@ -1358,6 +1425,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                 key={`${exercise.name}-${exerciseIdx}`}
                                 type="button"
                                 className="exercise-mini-card is-clickable"
+                                data-testid="training-plan-exercise-item"
                                 aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
                                 aria-pressed={false}
                                 onClick={() => openExerciseDetail(exercise, dayDate ?? selectedEntryDate)}
@@ -1528,6 +1596,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         key={`${exercise.name}-${index}`}
                         type="button"
                         className="exercise-mini-card exercise-mini-card-compact is-clickable"
+                        data-testid="training-plan-exercise-item"
                         aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
                         aria-pressed={false}
                         onClick={() => openExerciseDetail(exercise, selectedEntryDate)}
@@ -1722,38 +1791,19 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         ctaLabel={t("billing.manageBilling")}
       />
 
-      <Modal
+      <ExercisePlanDetailModal
         open={Boolean(exerciseDetail)}
         onClose={closeExerciseDetail}
         title={exerciseDetail?.exercise.name ?? safeT("training.exerciseDetailTitle", "Detalle del ejercicio")}
         description={exerciseDetail ? exerciseDetail.date.toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "short" }) : undefined}
-      >
-        {exerciseDetail ? (
-          <div className="form-stack">
-            <ExerciseThumbnail
-              className="exercise-thumb"
-              src={getExerciseImageUrl(exerciseDetail.exercise)}
-              alt={exerciseDetail.exercise.name}
-              width={96}
-              height={96}
-            />
-            <div className="feature-card">
-              <p className="m-0"><strong>{safeT("training.exerciseDetailPrescription", "Prescripción")}</strong></p>
-              <p className="m-0 muted">
-                {exerciseDetail.exercise.reps
-                  ? `${exerciseDetail.exercise.sets} x ${exerciseDetail.exercise.reps}`
-                  : exerciseDetail.exercise.sets}
-              </p>
-            </div>
-            <div className="feature-card">
-              <p className="m-0"><strong>{safeT("training.exerciseDetailNotes", "Notas")}</strong></p>
-              <p className="m-0 muted">
-                {exerciseDetail.exercise.notes?.trim() || safeT("training.exerciseDetailEmpty", "Sin detalle adicional para este ejercicio.")}
-              </p>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
+        exercise={exerciseDetail?.exercise ?? null}
+        imageUrl={exerciseDetail ? getExerciseImageUrl(exerciseDetail.exercise) : null}
+        prescriptionLabel={safeT("training.exerciseDetailPrescription", "Prescripción")}
+        notesLabel={safeT("training.exerciseDetailNotes", "Notas")}
+        emptyNotesLabel={safeT("training.exerciseDetailEmpty", "Sin detalle adicional para este ejercicio.")}
+        viewLibraryLabel={safeT("training.viewTechnique", "Ver en biblioteca")}
+        viewLibraryHref={detailExerciseId ? buildExerciseTechniqueHref(detailExerciseId) : null}
+      />
 
       <AiPlanPreviewModal
         open={Boolean(aiPreviewPlan)}
