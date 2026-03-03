@@ -724,15 +724,18 @@ function calculatePlan(
 
 export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: string[]): NutritionPlan | null {
   if (!plan) return null;
-  const normalizedDays = plan.days.map((day) => ({
+  const safeDays = Array.isArray(plan.days) ? plan.days : [];
+  const normalizedDays = safeDays.map((day) => ({
     ...day,
-    meals: day.meals.map((meal) => ({
-      ...meal,
-      description: meal.description ?? "",
-      ingredients: meal.ingredients ?? [],
-    })),
+    meals: Array.isArray(day.meals)
+      ? day.meals.map((meal) => ({
+          ...meal,
+          description: meal.description ?? "",
+          ingredients: meal.ingredients ?? [],
+        }))
+      : [],
   }));
-  if (normalizedDays.length >= dayLabels.length) {
+  if (normalizedDays.length === 0 || normalizedDays.length >= dayLabels.length) {
     return { ...plan, days: normalizedDays };
   }
   const nextDays = [...normalizedDays];

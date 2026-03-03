@@ -4,6 +4,30 @@ import { useEffect, useState } from "react";
 
 type NutritionPlan = { id: string; title: string };
 
+function normalizePlanListPayload(payload: unknown): NutritionPlan[] {
+  if (!payload || typeof payload !== "object") return [];
+  const data = payload as { items?: unknown; nutritionPlans?: unknown; plans?: unknown; data?: unknown };
+  const list = Array.isArray(data.items)
+    ? data.items
+    : Array.isArray(data.nutritionPlans)
+      ? data.nutritionPlans
+      : Array.isArray(data.plans)
+        ? data.plans
+        : Array.isArray(data.data)
+          ? data.data
+          : [];
+
+  return list.filter(
+    (item): item is NutritionPlan =>
+      Boolean(item)
+      && typeof item === "object"
+      && "id" in item
+      && typeof (item as { id?: unknown }).id === "string"
+      && "title" in item
+      && typeof (item as { title?: unknown }).title === "string"
+  );
+}
+
 export default function TrainerMemberNutritionPlanAssignmentCard({ memberId }: { memberId: string }) {
   const [plans, setPlans] = useState<NutritionPlan[]>([]);
   const [assigned, setAssigned] = useState<NutritionPlan | null>(null);
@@ -17,9 +41,9 @@ export default function TrainerMemberNutritionPlanAssignmentCard({ memberId }: {
         fetch("/api/trainer/nutrition-plans?limit=100", { credentials: "include", cache: "no-store" }),
         fetch(`/api/trainer/clients/${memberId}/assigned-nutrition-plan`, { credentials: "include", cache: "no-store" }),
       ]);
-      const plansData = plansRes.ok ? (await plansRes.json()) as { items?: NutritionPlan[] } : { items: [] };
+      const plansData = plansRes.ok ? (await plansRes.json()) as unknown : null;
       const assignedData = assignedRes.ok ? (await assignedRes.json()) as { assignedPlan?: NutritionPlan | null; plan?: NutritionPlan | null } : {};
-      setPlans(plansData.items ?? []);
+      setPlans(normalizePlanListPayload(plansData));
       setAssigned(assignedData.assignedPlan ?? assignedData.plan ?? null);
     } finally {
       setLoading(false);

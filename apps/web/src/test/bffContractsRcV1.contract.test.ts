@@ -14,9 +14,16 @@ type MockCookieStore = {
 
 const cookiesMock = vi.fn<() => Promise<MockCookieStore>>();
 
-vi.mock("next/headers", () => ({
-  cookies: cookiesMock,
-}));
+vi.mock("next/headers", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/headers")>();
+  return {
+    ...actual,
+    cookies: cookiesMock,
+    headers: vi.fn(async () => ({
+      get: (name: string) => (name.toLowerCase() === "cookie" ? "fs_token=abc" : null),
+    })),
+  };
+});
 
 function jsonResponse(status: number, payload: unknown): Response {
   return {

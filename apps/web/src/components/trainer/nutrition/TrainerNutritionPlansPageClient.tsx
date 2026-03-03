@@ -5,6 +5,22 @@ import { useLanguage } from "@/context/LanguageProvider";
 
 type NutritionPlanItem = { id: string; title: string; description?: string | null };
 
+function normalizePlansPayload(data: unknown): NutritionPlanItem[] {
+  if (!data || typeof data !== "object") return [];
+  const payload = data as { items?: unknown; nutritionPlans?: unknown; plans?: unknown; data?: unknown };
+  const list = Array.isArray(payload.items)
+    ? payload.items
+    : Array.isArray(payload.nutritionPlans)
+      ? payload.nutritionPlans
+      : Array.isArray(payload.plans)
+        ? payload.plans
+        : Array.isArray(payload.data)
+          ? payload.data
+          : [];
+
+  return list.filter((item): item is NutritionPlanItem => Boolean(item) && typeof item === "object" && "id" in item && "title" in item);
+}
+
 export default function TrainerNutritionPlansPageClient() {
   const { t } = useLanguage();
   const [plans, setPlans] = useState<NutritionPlanItem[]>([]);
@@ -20,8 +36,8 @@ export default function TrainerNutritionPlansPageClient() {
     try {
       const res = await fetch("/api/trainer/nutrition-plans?limit=100", { credentials: "include", cache: "no-store" });
       if (!res.ok) throw new Error("LOAD_ERROR");
-      const data = (await res.json()) as { items?: NutritionPlanItem[] };
-      setPlans(data.items ?? []);
+      const data = (await res.json()) as unknown;
+      setPlans(normalizePlansPayload(data));
     } catch {
       setError(t("trainer.error"));
     } finally {
