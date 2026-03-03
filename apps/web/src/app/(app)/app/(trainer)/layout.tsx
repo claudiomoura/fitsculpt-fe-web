@@ -6,7 +6,7 @@ export default async function TrainerLayout({ children }: { children: React.Reac
   const token = (await cookies()).get("fs_token")?.value;
   const sessionRole = token ? readSessionRole(token) : "UNKNOWN";
 
-  if (sessionRole !== "TRAINER" && sessionRole !== "ADMIN") {
+  if (sessionRole !== "TRAINER" && sessionRole !== "MANAGER" && sessionRole !== "ADMIN") {
     redirect("/app");
   }
 

@@ -165,7 +165,12 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         password: demoManagerPassword,
       });
       await page.goto('/app/trainer/nutrition-plans');
-      await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
+      const trainerNutritionUrl = new URL(page.url());
+      if (trainerNutritionUrl.pathname !== '/app/trainer/nutrition-plans') {
+        throw new Error(
+          `unexpected redirect while opening trainer nutrition plans page: finalPathname=${trainerNutritionUrl.pathname} finalUrl=${page.url()}`,
+        );
+      }
       await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
 
       const createButton = page.getByTestId('create-nutrition-plan-button');

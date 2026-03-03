@@ -17,18 +17,27 @@ type LoginCredentials = {
   password: string;
 };
 
-async function getLoginDiagnostics(page: Page): Promise<{ url: string; title: string; heading: string }> {
-  const url = page.url();
-  const title = await page.title().catch(() => '<title unavailable>');
-  const heading = await page
-    .locator('h1:visible, h2:visible, h3:visible')
-    .first()
-    .textContent()
-    .then((value) => value?.trim() || '<no visible heading>')
-    .catch(() => '<heading unavailable>');
-
-  return { url, title, heading };
+function extractFsTokenFromSetCookie(setCookieHeaders: string[]): string | null {
+  for (const headerValue of setCookieHeaders) {
+    const firstPart = headerValue.split(";")[0]?.trim();
+    if (!firstPart) continue;
+    const [name, ...rest] = firstPart.split("=");
+    if (name === "fs_token") {
+      const token = rest.join("=").trim();
+      if (token) return token;
+    }
+  }
+  return null;
 }
+
+async function assertBrowserAuthCookieWorks(page: Page): Promise<void> {
+  const meResponse = await page.request.get('/api/auth/me');
+  if (!meResponse.ok()) {
+    const bodyText = await meResponse.text().catch(() => '<body unavailable>');
+    throw new Error(`login helper failed browser auth validation: GET /api/auth/me -> ${meResponse.status()} ${bodyText}`);
+  }
+}
+
 
 export async function resetDemoState(tokenState: "empty" | "paid" = "empty"): Promise<void> {
   const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
@@ -50,39 +59,45 @@ export async function loginAsDemoUser(page: Page): Promise<void> {
 }
 
 export async function loginViaUI(page: Page, credentials: LoginCredentials): Promise<void> {
-  await page.goto('/login');
-
-  const routeState = await Promise.race([
-    page
-      .waitForSelector('input[name="email"]', { timeout: 15_000 })
-      .then(() => 'login-form' as const),
-    page.waitForURL(/\/app(\/|$)/, { timeout: 15_000 }).then(() => 'already-authenticated' as const),
-  ]).catch(async (error: unknown) => {
-    const { url, title, heading } = await getLoginDiagnostics(page);
-    console.log(`[e2e:login-diagnostics] url=${url} title=${title} h1=${heading}`);
-
-    throw new Error(
-      [
-        'loginViaUI failed while waiting for login form or authenticated redirect',
-        `url=${url}`,
-        `title=${title}`,
-        `visibleHeading=${heading}`,
-        `cause=${error instanceof Error ? error.message : String(error)}`,
-      ].join(' | ')
-    );
+  const backendURL = process.env.E2E_BACKEND_URL ?? defaultBackendURL;
+  const loginRequest = await request.newContext({
+    baseURL: backendURL,
+    storageState: undefined,
   });
 
-  if (routeState === 'already-authenticated') {
-    return;
+  try {
+    const loginResponse = await loginRequest.post('/auth/login', {
+      data: {
+        email: credentials.email,
+        password: credentials.password,
+      },
+    });
+    expect(loginResponse.ok(), `login via backend should succeed for ${credentials.email}`).toBeTruthy();
+
+    const fsToken = extractFsTokenFromSetCookie(
+      loginResponse
+        .headersArray()
+        .filter((header) => header.name.toLowerCase() === 'set-cookie')
+        .map((header) => header.value),
+    );
+
+    expect(fsToken, 'fs_token must be present in /auth/login set-cookie header').toBeTruthy();
+
+    await page.context().clearCookies();
+    await page.context().addCookies([
+      {
+        name: 'fs_token',
+        value: fsToken!,
+        domain: 'localhost',
+        path: '/',
+        sameSite: 'Lax',
+      },
+    ]);
+
+    await assertBrowserAuthCookieWorks(page);
+  } finally {
+    await loginRequest.dispose();
   }
-
-  await page.locator('input[name="email"]').fill(credentials.email);
-  await page.locator('input[name="password"]').fill(credentials.password);
-
-  await Promise.all([
-    page.waitForURL(/\/app(\/.*)?$/, { timeout: 15_000 }),
-    page.locator('button[type="submit"]').click(),
-  ]);
 }
 
 export async function createDemoUserStorageState(storageStatePath: string = authStorageStatePath): Promise<void> {

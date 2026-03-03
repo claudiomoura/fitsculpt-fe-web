@@ -1,20 +1,28 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { fetchBackend, proxyToBackend, readJsonBody } from "../../gyms/_proxy";
+import { getBackendUrl } from "@/lib/backend";
+import { proxyToBackend, readJsonBody } from "../../gyms/_proxy";
 
 export async function GET(request: Request) {
+  const token = (await cookies()).get("fs_token")?.value;
+  if (!token) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
   const url = new URL(request.url);
   const query = url.searchParams.toString();
   const path = query ? `/trainer/nutrition-plans?${query}` : "/trainer/nutrition-plans";
 
-  const result = await fetchBackend(path);
-  if (result.status < 200 || result.status >= 300) {
-    return NextResponse.json(result.payload, { status: result.status });
+  try {
+    const response = await fetch(`${getBackendUrl()}${path}`, {
+      headers: { cookie: `fs_token=${token}` },
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => null);
+    return NextResponse.json(payload, { status: response.status });
+  } catch {
+    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 503 });
   }
-
-  const payload = (result.payload ?? {}) as { items?: unknown[]; plans?: unknown[]; data?: unknown[]; total?: number };
-  const items = Array.isArray(payload.items) ? payload.items : Array.isArray(payload.plans) ? payload.plans : Array.isArray(payload.data) ? payload.data : [];
-
-  return NextResponse.json({ items, ...(typeof payload.total === "number" ? { total: payload.total } : {}) }, { status: result.status });
 }
 
 export async function POST(request: Request) {
