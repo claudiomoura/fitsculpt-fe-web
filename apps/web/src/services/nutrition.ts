@@ -1,4 +1,7 @@
+import { createAiRequestId } from "@/lib/aiRequestId";
+
 export type NutritionGenerateRequest = {
+  aiRequestId?: string;
   name?: string;
   age: number;
   sex: "male" | "female";
@@ -54,11 +57,12 @@ export type NutritionGenerateResponse = {
 };
 
 export async function generateNutritionPlan(request: NutritionGenerateRequest): Promise<NutritionGenerateResponse> {
+  const aiRequestId = request.aiRequestId ?? createAiRequestId();
   const response = await fetch("/api/ai/nutrition-plan/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify(request),
+    body: JSON.stringify({ ...request, aiRequestId }),
   });
 
   const payload = (await response.json().catch(() => null)) as {
