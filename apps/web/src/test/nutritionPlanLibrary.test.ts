@@ -26,10 +26,11 @@ describe("nutritionPlanLibrary", () => {
     expect(getNutritionPlansFromResponse({})).toEqual([]);
   });
 
-  it("resolves active plan id from query first and falls back to storage", () => {
-    expect(resolveActiveNutritionPlanId(" query-plan ", "stored-plan")).toBe("query-plan");
-    expect(resolveActiveNutritionPlanId("   ", " stored-plan ")).toBe("stored-plan");
-    expect(resolveActiveNutritionPlanId(null, "")).toBeNull();
+  it("resolves active plan id from query first, then storage, then assigned", () => {
+    expect(resolveActiveNutritionPlanId(" query-plan ", "stored-plan", "assigned-plan")).toBe("query-plan");
+    expect(resolveActiveNutritionPlanId("   ", " stored-plan ", "assigned-plan")).toBe("stored-plan");
+    expect(resolveActiveNutritionPlanId(null, "", " assigned-plan ")).toBe("assigned-plan");
+    expect(resolveActiveNutritionPlanId(null, "", "")).toBeNull();
   });
 
   it("builds next search params for active-plan selection", () => {

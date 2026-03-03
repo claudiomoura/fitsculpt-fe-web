@@ -1999,13 +1999,14 @@
     "loadErrorTitle": "We couldn't load the workout"
   },
   "dietPlans": {
-    "title": "Diet plans",
-    "subtitle": "Review your saved nutrition plans.",
+    "title": "Nutrition plans",
+    "subtitle": "Review and choose your active nutrition plan.",
     "searchPlaceholder": "Search plans...",
     "loading": "Loading plans...",
     "loadErrorList": "We couldn't load your plans.",
     "empty": "You don't have diet plans yet.",
-    "emptyCta": "Create a nutrition plan",
+    "emptyCta": "Generate with AI",
+    "emptyManualCta": "Create manual plan",
     "daysLabel": "days",
     "searchLabel": "Search plans",
     "searchHelper": "Filter your saved diet plans by title.",
@@ -2019,7 +2020,12 @@
     "selectActiveCta": "Select as active",
     "goToCalendar": "Go to calendar",
     "activePlanCalendarTitle": "Active plan",
-    "activePlanCalendarDescription": "Open your nutrition calendar with the selected active plan."
+    "activePlanCalendarDescription": "Open your nutrition calendar with the selected active plan.",
+    "assignedSectionTitle": "Coach-assigned plan",
+    "assignedBadge": "Assigned",
+    "assignedEmpty": "You do not have a coach-assigned plan yet.",
+    "assignedLoadError": "We could not load your assigned plan.",
+    "assignedUnavailable": "Coach-assigned plan is not available in this environment."
   },
   "dietPlanDetail": {
     "backToPlans": "Back to diet plans",

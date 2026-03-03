@@ -2002,13 +2002,14 @@
     "loadErrorTitle": "No pudimos cargar el entrenamiento"
   },
   "dietPlans": {
-    "title": "Dietas",
-    "subtitle": "Revisa tus planes de nutrición guardados.",
+    "title": "Planes de nutrición",
+    "subtitle": "Revisa y selecciona tu plan activo de nutrición.",
     "searchPlaceholder": "Buscar planes...",
     "loading": "Cargando planes...",
     "loadErrorList": "No pudimos cargar tus planes.",
     "empty": "Todavía no tienes dietas guardadas.",
-    "emptyCta": "Crear un plan de nutrición",
+    "emptyCta": "Generar con IA",
+    "emptyManualCta": "Crear plan manual",
     "daysLabel": "días",
     "searchLabel": "Buscar planes",
     "searchHelper": "Filtra tus dietas guardadas por título.",
@@ -2022,7 +2023,12 @@
     "selectActiveCta": "Seleccionar como activo",
     "goToCalendar": "Ir al calendario",
     "activePlanCalendarTitle": "Plan activo",
-    "activePlanCalendarDescription": "Abre tu calendario de nutrición con el plan activo seleccionado."
+    "activePlanCalendarDescription": "Abre tu calendario de nutrición con el plan activo seleccionado.",
+    "assignedSectionTitle": "Plan asignado por entrenador",
+    "assignedBadge": "Asignado",
+    "assignedEmpty": "No tienes un plan asignado por tu entrenador.",
+    "assignedLoadError": "No pudimos cargar tu plan asignado.",
+    "assignedUnavailable": "El plan asignado por entrenador no está disponible en este entorno."
   },
   "dietPlanDetail": {
     "backToPlans": "Volver a dietas",

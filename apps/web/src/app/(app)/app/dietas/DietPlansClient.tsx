@@ -23,6 +23,10 @@ import {
 
 type SectionState = "loading" | "ready" | "error" | "unavailable";
 
+type AssignedPlanResponse = {
+  assignedPlan?: NutritionPlanListItem | null;
+};
+
 export default function DietPlansClient() {
   const { t, locale } = useLanguage();
   const router = useRouter();
@@ -32,13 +36,16 @@ export default function DietPlansClient() {
   const [reloadKey, setReloadKey] = useState(0);
   const [plans, setPlans] = useState<NutritionPlanListItem[]>([]);
   const [state, setState] = useState<SectionState>("loading");
+  const [assignedPlan, setAssignedPlan] = useState<NutritionPlanListItem | null>(null);
+  const [assignedState, setAssignedState] = useState<SectionState>("loading");
   const [storedActivePlanId] = useState(() => {
     if (typeof window === "undefined") return null;
     return normalizePlanSelection(window.localStorage.getItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY));
   });
 
   const queryPlanId = normalizePlanSelection(searchParams.get("planId"));
-  const activePlanId = resolveActiveNutritionPlanId(queryPlanId, storedActivePlanId);
+  const assignedPlanId = normalizePlanSelection(assignedPlan?.id);
+  const activePlanId = resolveActiveNutritionPlanId(queryPlanId, storedActivePlanId, assignedPlanId);
 
   useEffect(() => {
     if (queryPlanId) {
@@ -84,6 +91,39 @@ export default function DietPlansClient() {
     void loadPlans();
     return () => controller.abort();
   }, [query, reloadKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadAssignedPlan = async () => {
+      setAssignedState("loading");
+
+      try {
+        const response = await fetch("/api/nutrition-plans/assigned", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          setAssignedPlan(null);
+          setAssignedState(isUnavailableNutritionStatus(response.status) ? "unavailable" : "error");
+          return;
+        }
+
+        const data = (await response.json()) as AssignedPlanResponse;
+        setAssignedPlan(data.assignedPlan ?? null);
+        setAssignedState("ready");
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setAssignedPlan(null);
+        setAssignedState("error");
+      }
+    };
+
+    void loadAssignedPlan();
+
+    return () => controller.abort();
+  }, [reloadKey]);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
@@ -155,12 +195,14 @@ export default function DietPlansClient() {
         ) : null}
 
         {state === "error" ? (
-          <ErrorState
-            className="mt-12"
-            title={t("dietPlans.loadErrorList")}
-            retryLabel={t("ui.retry")}
-            onRetry={() => setReloadKey((value) => value + 1)}
-          />
+          <div data-testid="nutrition-plans-error-state">
+            <ErrorState
+              className="mt-12"
+              title={t("dietPlans.loadErrorList")}
+              retryLabel={t("ui.retry")}
+              onRetry={() => setReloadKey((value) => value + 1)}
+            />
+          </div>
         ) : null}
         {state === "unavailable" ? <EmptyState className="mt-12" title={t("dietPlans.unavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
 
@@ -169,7 +211,10 @@ export default function DietPlansClient() {
             className="mt-12"
             title={t("dietPlans.empty")}
             description={t("dietPlans.emptyDescription")}
-            actions={[{ label: t("dietPlans.emptyCta"), href: "/app/nutricion", variant: "secondary" }]}
+            actions={[
+              { label: t("dietPlans.emptyCta"), href: "/app/nutricion?ai=1", variant: "primary" },
+              { label: t("dietPlans.emptyManualCta"), href: "/app/nutricion/editar", variant: "secondary" },
+            ]}
           />
         ) : null}
 
@@ -216,6 +261,54 @@ export default function DietPlansClient() {
               );
             })}
           </div>
+        ) : null}
+      </section>
+
+      <section className="card">
+        <h2 className="section-title section-title-sm">{t("dietPlans.assignedSectionTitle")}</h2>
+
+        {assignedState === "loading" ? (
+          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
+        ) : null}
+
+        {assignedState === "error" ? (
+          <ErrorState className="mt-12" title={t("dietPlans.assignedLoadError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
+        ) : null}
+
+        {assignedState === "unavailable" ? (
+          <EmptyState className="mt-12" title={t("dietPlans.assignedUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} />
+        ) : null}
+
+        {assignedState === "ready" && !assignedPlan ? (
+          <EmptyState className="mt-12" title={t("dietPlans.assignedEmpty")} icon="info" />
+        ) : null}
+
+        {assignedState === "ready" && assignedPlan ? (
+          <article className="feature-card mt-12" data-testid="nutrition-assigned-plan-card">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
+              <div>
+                <h3 className="m-0">{assignedPlan.title}</h3>
+                <p className="muted mt-6">{t("dietPlans.planMeta", {
+                  date: formatPlanDate(assignedPlan),
+                  days: assignedPlan.daysCount,
+                })}</p>
+              </div>
+              <span className="badge">{t("dietPlans.assignedBadge")}</span>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+              <Button
+                variant={activePlanId === getNutritionPlanId(assignedPlan) ? "secondary" : "primary"}
+                onClick={() => selectActivePlan(getNutritionPlanId(assignedPlan))}
+                data-testid="nutrition-select-assigned-plan"
+              >
+                {activePlanId === getNutritionPlanId(assignedPlan) ? t("dietPlans.activeBadge") : t("dietPlans.selectActiveCta")}
+              </Button>
+              <Link href={`/app/dietas/${getNutritionPlanId(assignedPlan)}`} className="btn secondary" data-testid="nutrition-view-assigned-plan">
+                {t("dietPlans.viewDetail")}
+              </Link>
+            </div>
+          </article>
         ) : null}
       </section>
     </>
