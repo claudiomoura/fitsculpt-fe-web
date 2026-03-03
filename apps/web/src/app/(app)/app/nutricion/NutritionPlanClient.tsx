@@ -77,14 +77,31 @@ type DayPlan = {
 type NutritionPlan = NutritionPlanData;
 
 type AssignedNutritionPayload = {
-  assignedPlan?: NutritionPlan | null;
+  assignedPlan?: NutritionPlan | { plan?: NutritionPlan | null; title?: string | null } | null;
   plan?: NutritionPlan | null;
-  trainerAssignedPlan?: NutritionPlan | null;
+  trainerAssignedPlan?: NutritionPlan | { plan?: NutritionPlan | null; title?: string | null } | null;
 };
 
 type NutritionPlanClientProps = {
   mode?: "suggested" | "manual";
 };
+
+function resolveAssignedNutritionPlan(payload: AssignedNutritionPayload): NutritionPlan | null {
+  const rawPlan = payload.assignedPlan ?? payload.trainerAssignedPlan ?? payload.plan ?? null;
+  if (!rawPlan) return null;
+  if ("days" in rawPlan && Array.isArray(rawPlan.days)) {
+    return rawPlan as NutritionPlan;
+  }
+  if ("plan" in rawPlan && rawPlan.plan && typeof rawPlan.plan === "object") {
+    return rawPlan.plan as NutritionPlan;
+  }
+  return rawPlan as NutritionPlan;
+}
+
+function readAssignedNutritionPlanTitle(plan: NutritionPlan | null): string | null {
+  const title = typeof plan?.title === "string" ? plan.title.trim() : "";
+  return title.length > 0 ? title : null;
+}
 
 type MealMediaCandidate = {
   imageUrl?: unknown;
@@ -856,7 +873,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         if (!response.ok) throw new Error("ASSIGNED_PLAN_ERROR");
         const payload = (await response.json()) as AssignedNutritionPayload;
         if (!active) return;
-        setTrainerAssignedPlan(payload.assignedPlan ?? payload.trainerAssignedPlan ?? payload.plan ?? null);
+        setTrainerAssignedPlan(resolveAssignedNutritionPlan(payload));
       } catch {
         if (!active) return;
         setAssignedError(t("nutrition.errorTitle"));
@@ -917,6 +934,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     );
   }, [profile, mealTemplates, dayLabels, t]);
   const trainerPlanVisible = useMemo(() => normalizeNutritionPlan(trainerAssignedPlan, dayLabels), [trainerAssignedPlan, dayLabels]);
+  const assignedPlanTitle = useMemo(() => readAssignedNutritionPlanTitle(trainerAssignedPlan), [trainerAssignedPlan]);
   const visiblePlan = useMemo(
     () => normalizeNutritionPlan(trainerPlanVisible ?? (isManualView ? savedPlan ?? plan : savedPlan), dayLabels),
     [trainerPlanVisible, isManualView, savedPlan, plan, dayLabels]
@@ -2219,7 +2237,7 @@ const nutritionPlanDetails = profile ? (
                     )}
                   />
 
-                  {trainerAssignedPlan?.title ? <p className="muted">{trainerAssignedPlan.title}</p> : null}
+                  {assignedPlanTitle ? <p className="muted">{assignedPlanTitle}</p> : null}
 
                   <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
 

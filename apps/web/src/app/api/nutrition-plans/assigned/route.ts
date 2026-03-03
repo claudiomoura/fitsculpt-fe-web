@@ -8,29 +8,39 @@ type AssignedNutritionPayload = {
   trainerAssignedPlan?: unknown;
   plan?: unknown;
   data?: unknown;
+  title?: unknown;
+  days?: unknown;
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+
+function unwrapPlanCandidate(value: unknown): unknown {
+  if (!isObject(value)) return value;
+  const candidate = value as AssignedNutritionPayload;
+  if (isObject(candidate.plan)) return candidate.plan;
+  return value;
+}
+
 function normalizeAssignedPlan(payload: unknown) {
   if (!isObject(payload)) return null;
 
   const direct = payload as AssignedNutritionPayload;
-  if (direct.assignedPlan) return direct.assignedPlan;
-  if (direct.trainerAssignedPlan) return direct.trainerAssignedPlan;
-  if (direct.plan) return direct.plan;
+  if (direct.assignedPlan) return unwrapPlanCandidate(direct.assignedPlan);
+  if (direct.trainerAssignedPlan) return unwrapPlanCandidate(direct.trainerAssignedPlan);
+  if (direct.plan) return unwrapPlanCandidate(direct.plan);
 
   if (isObject(direct.data)) {
     const nested = direct.data as AssignedNutritionPayload;
-    if (nested.assignedPlan) return nested.assignedPlan;
-    if (nested.trainerAssignedPlan) return nested.trainerAssignedPlan;
-    if (nested.plan) return nested.plan;
-    return nested;
+    if (nested.assignedPlan) return unwrapPlanCandidate(nested.assignedPlan);
+    if (nested.trainerAssignedPlan) return unwrapPlanCandidate(nested.trainerAssignedPlan);
+    if (nested.plan) return unwrapPlanCandidate(nested.plan);
+    return unwrapPlanCandidate(nested);
   }
 
-  return payload;
+  return unwrapPlanCandidate(payload);
 }
 
 export async function GET(request: Request) {
