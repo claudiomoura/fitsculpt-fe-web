@@ -356,6 +356,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
   const [exerciseDetail, setExerciseDetail] = useState<ExerciseDetailState | null>(null);
   const [exerciseCatalogById, setExerciseCatalogById] = useState<Record<string, ExerciseCatalogItem>>({});
+  const requestedCatalogExerciseIds = useRef<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
     const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
@@ -538,7 +539,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   );
   const planDays = visiblePlan?.days ?? [];
   const getExerciseIdentifier = (exercise: Exercise) => {
-    if (typeof exercise.id === "string" && exercise.id.trim().length > 0) return exercise.id;
     if (typeof exercise.exerciseId === "string" && exercise.exerciseId.trim().length > 0) return exercise.exerciseId;
     return null;
   };
@@ -631,8 +631,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           .filter((id): id is string => Boolean(id))
       )
     );
-    const missingExerciseIds = exerciseIds.filter((id) => !exerciseCatalogById[id]);
+    const missingExerciseIds = exerciseIds.filter(
+      (id) => !exerciseCatalogById[id] && !requestedCatalogExerciseIds.current.has(id)
+    );
     if (missingExerciseIds.length === 0) return;
+
+    missingExerciseIds.forEach((id) => requestedCatalogExerciseIds.current.add(id));
 
     let active = true;
     const loadCatalogExercises = async () => {
