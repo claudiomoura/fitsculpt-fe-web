@@ -8,12 +8,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const parsed = await readJsonBody(request);
   if (!parsed.ok) return parsed.response;
 
-  return proxyToBackend(`/trainer/members/${id}/nutrition-plan-assignment`, { method: "POST", body: parsed.body });
+  return proxyToBackend(`/trainer/clients/${id}/assigned-nutrition-plan`, { method: "POST", body: parsed.body });
 }
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  return proxyToBackend(`/trainer/members/${id}/nutrition-plan-assignment`, { method: "DELETE" });
+  return proxyToBackend(`/trainer/clients/${id}/assigned-nutrition-plan`, { method: "DELETE" });
 }
 
 export async function OPTIONS() {

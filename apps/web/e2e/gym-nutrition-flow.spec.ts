@@ -149,16 +149,6 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       await ensureMemberJoinedGym(managerContext, memberContext, gymId!, memberUserId!);
 
       const nutritionPlanTitle = `E2E Gym Nutrition Plan ${Date.now()}`;
-      const createNutritionPlanResponse = await managerContext.post('/trainer/nutrition-plans', {
-        data: {
-          title: nutritionPlanTitle,
-          description: 'Sprint BETA-3 e2e nutrition assignment flow',
-          daysCount: 7,
-        },
-      });
-      expect(createNutritionPlanResponse.ok(), 'manager should create nutrition plan').toBeTruthy();
-      const createdNutritionPlan = (await createNutritionPlanResponse.json()) as { id?: string; title?: string };
-      expect(createdNutritionPlan.id, 'created nutrition plan id should exist').toBeTruthy();
 
       await loginViaUI(page, {
         email: demoManagerEmail,
@@ -178,6 +168,9 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         );
       }
 
+      await page.getByTestId('create-nutrition-plan-title-input').fill(nutritionPlanTitle);
+      await createButton.click();
+
       await expect
         .poll(
           async () => {
@@ -187,15 +180,15 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
           {
             message: `nutrition plan list should include created plan ${nutritionPlanTitle}`,
             intervals: [500, 1000, 1500, 2000],
-            timeout: 15_000,
+            timeout: 20_000,
           }
         )
         .toBeTruthy();
 
-      const assignNutritionResponse = await managerContext.post(`/trainer/clients/${memberUserId}/assigned-nutrition-plan`, {
-        data: { nutritionPlanId: createdNutritionPlan.id },
-      });
-      expect(assignNutritionResponse.ok(), 'manager should assign nutrition plan to member').toBeTruthy();
+      await page.getByTestId('assign-member-select').selectOption(memberUserId!);
+      await page.getByTestId('assign-plan-select').selectOption({ label: nutritionPlanTitle });
+      await page.getByTestId('assign-nutrition-plan-from-plans-page').click();
+      await expect(page.getByTestId('nutrition-plan-assignment-success')).toContainText(nutritionPlanTitle);
 
       await expect
         .poll(
@@ -213,7 +206,7 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
             timeout: 15_000,
           }
         )
-        .toMatchObject({ id: createdNutritionPlan.id, title: nutritionPlanTitle });
+        .toMatchObject({ title: nutritionPlanTitle });
 
       await loginViaUI(page, {
         email: demoUserEmail,
@@ -222,7 +215,7 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       await page.goto('/app/nutricion');
 
       await expect(page.getByTestId('member-assigned-nutrition-plan')).toBeVisible();
-      await expect(page.getByTestId('member-assigned-nutrition-plan')).toContainText(nutritionPlanTitle);
+      await expect(page.getByTestId('member-assigned-nutrition-plan-title')).toContainText(nutritionPlanTitle);
       await expect(page.getByTestId('nutrition-day-nav')).toBeVisible();
 
       const kpis = page.locator('.nutrition-week-kpi');

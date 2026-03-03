@@ -93,7 +93,11 @@ function resolveAssignedNutritionPlan(payload: AssignedNutritionPayload): Nutrit
     return rawPlan as NutritionPlan;
   }
   if ("plan" in rawPlan && rawPlan.plan && typeof rawPlan.plan === "object") {
-    return rawPlan.plan as NutritionPlan;
+    const nestedPlan = rawPlan.plan as NutritionPlan;
+    if (typeof rawPlan.title === "string" && rawPlan.title.trim().length > 0 && typeof nestedPlan.title !== "string") {
+      return { ...nestedPlan, title: rawPlan.title };
+    }
+    return nestedPlan;
   }
   return rawPlan as NutritionPlan;
 }
@@ -2071,9 +2075,19 @@ const nutritionPlanDetails = profile ? (
                 </ButtonLink>
               </div>
             </section>
+          ) : assignedError ? (
+            <section className="card">
+              <div className="status-card status-card--warning" role="alert" aria-live="polite" data-testid="member-nutrition-assigned-error">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("nutrition.errorTitle")}</strong>
+                </div>
+                <p className="muted">{assignedError}</p>
+              </div>
+            </section>
           ) : !error && !assignedLoading && !hasPlan ? (
             <section className="card">
-              <div className="empty-state">
+              <div className="empty-state" data-testid="member-nutrition-empty-state">
                 <div className="empty-state-icon">
                   <Icon name="info" />
                 </div>
@@ -2102,7 +2116,7 @@ const nutritionPlanDetails = profile ? (
                       {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
                     </Button>
                     <ButtonLink variant="secondary" href="/app/nutricion/editar">
-                      {t("nutrition.manualCreate")}
+                      {t("nutrition.assignedPlanCta")}
                     </ButtonLink>
                     {isOutOfTokens ? (
                       <ButtonLink variant="ghost" href="/app/settings/billing">
@@ -2237,7 +2251,7 @@ const nutritionPlanDetails = profile ? (
                     )}
                   />
 
-                  {assignedPlanTitle ? <p className="muted">{assignedPlanTitle}</p> : null}
+                  {assignedPlanTitle ? <p className="muted" data-testid="member-assigned-nutrition-plan-title">{assignedPlanTitle}</p> : null}
 
                   <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
 

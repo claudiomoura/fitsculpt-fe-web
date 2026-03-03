@@ -1041,7 +1041,8 @@
     "calendarViewToggleAria": "Seleccionar vista del calendario de nutrición",
     "selectDayAria": "Seleccionar día {{date}}",
     "selectWeekDayAria": "Seleccionar {{day}} con {{meals}} comidas y {{calories}} kcal",
-    "aiSuccessRequiresPlanId": "No se pudo abrir el plan generado en Dietas. El backend debe retornar planId (requiere PR-S4-01)."
+    "aiSuccessRequiresPlanId": "No se pudo abrir el plan generado en Dietas. El backend debe retornar planId (requiere PR-S4-01).",
+    "assignedPlanCta": "Generar con IA o crear manual"
   },
   "training": {
     "formTitle": "Datos del plan",
