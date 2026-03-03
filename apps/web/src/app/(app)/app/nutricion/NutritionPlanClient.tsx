@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { hasNutritionAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { hasNutritionAiEntitlement, type AiEntitlementProfile } from "@/domains/ai";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { Modal } from "@/components/ui/Modal";
 import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
@@ -38,9 +38,8 @@ import { Accordion, HeaderCompact, ObjectiveGrid, SegmentedControl } from "@/des
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
-import { generateNutritionPlan, type NutritionGenerateError } from "@/services/nutrition";
+import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
-import { normalizePlanSelection } from "@/lib/nutritionPlanLibrary";
 
 type NutritionForm = {
   age: number;

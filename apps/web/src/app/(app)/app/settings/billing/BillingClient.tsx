@@ -16,7 +16,7 @@ import {
   postBillingPortal,
   type BillingPlanSummary,
   type BillingRedirectResponse,
-} from "@/services/billing";
+} from "@/domains/billing";
 
 type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | "ULTRA" | (string & {});
 
