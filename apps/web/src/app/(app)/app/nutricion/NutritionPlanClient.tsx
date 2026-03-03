@@ -2198,6 +2198,7 @@ const nutritionPlanDetails = profile ? (
                 ) : (
                   <div className="empty-state-actions">
                     <Button
+                      data-testid="nutrition-generate-ai"
                       disabled={isAiDisabled}
                       loading={aiLoading}
                       onClick={handleGenerateClick}
@@ -2334,7 +2335,7 @@ const nutritionPlanDetails = profile ? (
                     title={t("nutrition.dailyTargetTitle")}
                     subtitle={highlightedDay?.dayLabel ?? t("nutrition.viewToday")}
                     trailing={(
-                      <Button className="nutrition-dominant-cta" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
+                      <Button className="nutrition-dominant-cta" data-testid="nutrition-generate-ai" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
                         {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
                       </Button>
                     )}
