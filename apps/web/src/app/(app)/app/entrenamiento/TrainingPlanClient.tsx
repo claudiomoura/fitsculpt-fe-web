@@ -33,6 +33,7 @@ import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
+import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 
 type Exercise = {
   id?: string;
@@ -521,7 +522,27 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     [visiblePlan?.startDate, visiblePlan?.days]
   );
   const planDays = visiblePlan?.days ?? [];
-  const getExerciseImageUrl = (exercise: Exercise) => exercise.imageUrl ?? null;
+  const getExerciseIdentifier = (exercise: Exercise) => {
+    if (typeof exercise.id === "string" && exercise.id.trim().length > 0) return exercise.id;
+    if (typeof exercise.exerciseId === "string" && exercise.exerciseId.trim().length > 0) return exercise.exerciseId;
+    return null;
+  };
+
+  const getExerciseImageUrl = (exercise: Exercise) => getExerciseThumbUrl(exercise);
+
+  const buildExerciseTechniqueHref = (exerciseId: string) => {
+    const params = new URLSearchParams();
+    params.set("from", "plan");
+    const currentParams = new URLSearchParams(searchParamsString);
+    const dayParam = toDateKey(selectedEntryDate);
+    if (dayParam) {
+      params.set("dayKey", dayParam);
+      currentParams.set("day", dayParam);
+    }
+    const returnTo = `${pathname}${currentParams.toString() ? `?${currentParams.toString()}` : ""}`;
+    params.set("returnTo", returnTo);
+    return `/app/biblioteca/${exerciseId}?${params.toString()}`;
+  };
 
   const planEntries = useMemo(
     () =>
@@ -1202,6 +1223,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                      <button
   type="button"
   className="btn secondary"
+  data-testid="training-generate-ai"
   onClick={handleGenerateClick}
   disabled={isAiDisabled}
   title={isAiLocked ? aiLockDescription : ""}
@@ -1324,31 +1346,48 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           </span>
                         </summary>
                         <div className="list-grid mt-12">
-                          {day.exercises.map((exercise, exerciseIdx) => (
-                            <button
-                              key={`${exercise.name}-${exerciseIdx}`}
-                              type="button"
-                              className="exercise-mini-card is-clickable"
-                              aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
-                              aria-pressed={false}
-                              onClick={() => openExerciseDetail(exercise, dayDate ?? selectedEntryDate)}
-                            >
-                              <ExerciseThumbnail
-                                className="exercise-thumb"
-                                src={getExerciseImageUrl(exercise)}
-                                alt={exercise.name}
-                                width={72}
-                                height={72}
-                              />
-                              <div className="exercise-mini-top">
-                                <strong>{exercise.name}</strong>
-                                <Icon name="chevron-down" size={18} className="exercise-item-chevron" />
-                              </div>
-                              <span className="muted">
-                                {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
-                              </span>
-                            </button>
-                          ))}
+                          {day.exercises.map((exercise, exerciseIdx) => {
+                            const exerciseId = getExerciseIdentifier(exercise);
+                            return (
+                              <button
+                                key={`${exercise.name}-${exerciseIdx}`}
+                                type="button"
+                                className="exercise-mini-card is-clickable"
+                                aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                                aria-pressed={false}
+                                onClick={() => openExerciseDetail(exercise, dayDate ?? selectedEntryDate)}
+                              >
+                                <ExerciseThumbnail
+                                  className="exercise-thumb"
+                                  src={getExerciseImageUrl(exercise)}
+                                  alt={exercise.name}
+                                  width={72}
+                                  height={72}
+                                />
+                                <div className="exercise-mini-top">
+                                  <strong>{exercise.name}</strong>
+                                  <Icon name="chevron-down" size={18} className="exercise-item-chevron" />
+                                </div>
+                                <span className="muted">
+                                  {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
+                                </span>
+                                <div className="mt-8">
+                                  {exerciseId ? (
+                                    <Link
+                                      href={buildExerciseTechniqueHref(exerciseId)}
+                                      className="btn secondary fit-content"
+                                      data-testid="training-plan-view-technique"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      {t("training.viewTechnique")}
+                                    </Link>
+                                  ) : (
+                                    <span className="muted">{t("training.techniqueUnavailable")}</span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </details>
                       );
@@ -1477,32 +1516,49 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 {selectedExercises.length === 0 ? (
                   <p className="muted">{t("training.calendarEmptyDay")}</p>
                 ) : (
-                  selectedExercises.map((exercise, index) => (
-                    <button
-                      key={`${exercise.name}-${index}`}
-                      type="button"
-                      className="exercise-mini-card exercise-mini-card-compact is-clickable"
-                      aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
-                      aria-pressed={false}
-                      onClick={() => openExerciseDetail(exercise, selectedEntryDate)}
-                    >
-                      <ExerciseThumbnail
-                        className="exercise-thumb"
-                        src={getExerciseImageUrl(exercise)}
-                        alt={exercise.name}
-                        width={72}
-                        height={72}
-                      />
-                      <div className="exercise-mini-top">
-                        <strong>{exercise.name}</strong>
-                        <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
-                      </div>
-                      <span className="exercise-mini-card-callout">
-                        {safeT("training.exerciseDetailCta", "Ver detalle")}
-                        <Icon name="chevron-down" size={18} className="exercise-item-chevron" />
-                      </span>
-                    </button>
-                  ))
+                  selectedExercises.map((exercise, index) => {
+                    const exerciseId = getExerciseIdentifier(exercise);
+                    return (
+                      <button
+                        key={`${exercise.name}-${index}`}
+                        type="button"
+                        className="exercise-mini-card exercise-mini-card-compact is-clickable"
+                        aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                        aria-pressed={false}
+                        onClick={() => openExerciseDetail(exercise, selectedEntryDate)}
+                      >
+                        <ExerciseThumbnail
+                          className="exercise-thumb"
+                          src={getExerciseImageUrl(exercise)}
+                          alt={exercise.name}
+                          width={72}
+                          height={72}
+                        />
+                        <div className="exercise-mini-top">
+                          <strong>{exercise.name}</strong>
+                          <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                        </div>
+                        <span className="exercise-mini-card-callout">
+                          {safeT("training.exerciseDetailCta", "Ver detalle")}
+                          <Icon name="chevron-down" size={18} className="exercise-item-chevron" />
+                        </span>
+                        <div className="mt-8">
+                          {exerciseId ? (
+                            <Link
+                              href={buildExerciseTechniqueHref(exerciseId)}
+                              className="btn secondary fit-content"
+                              data-testid="training-plan-view-technique"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              {t("training.viewTechnique")}
+                            </Link>
+                          ) : (
+                            <span className="muted">{t("training.techniqueUnavailable")}</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </section>
