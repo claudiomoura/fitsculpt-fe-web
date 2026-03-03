@@ -6,14 +6,18 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
 import {
+  hasAiEntitlement,
+  requestAiTrainingPlan,
+  saveAiTrainingPlan,
+  type AiEntitlementProfile,
+} from "@/domains/ai";
+import {
   canApplyTrainingAdjustment,
   generateAndSaveTrainingPlan,
   getTrainingAdjustmentInput,
   hasTrainingPlanAdjustmentCapability,
-} from "@/lib/trainingPlanAdjustment";
-import { requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
+} from "@/domains/training";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { readAuthEntitlementSnapshot, type SubscriptionPlan } from "@/context/auth/entitlements";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import TrainingAdjustmentDiffSummary, {

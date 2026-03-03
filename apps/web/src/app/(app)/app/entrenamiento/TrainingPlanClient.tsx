@@ -24,8 +24,13 @@ import { Icon } from "@/components/ui/Icon";
 import { Modal } from "@/components/ui/Modal";
 import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { hasStrengthAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
-import { AiPlanRequestError, requestAiTrainingPlan, saveAiTrainingPlan } from "@/components/training-plan/aiPlanGeneration";
+import {
+  AiPlanRequestError,
+  hasStrengthAiEntitlement,
+  requestAiTrainingPlan,
+  saveAiTrainingPlan,
+  type AiEntitlementProfile,
+} from "@/domains/ai";
 import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 import { EmptyState } from "@/components/states";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
