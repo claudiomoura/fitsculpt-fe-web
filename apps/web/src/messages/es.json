@@ -2017,7 +2017,12 @@
     "emptyDescription": "Crea un plan de nutrición para verlo listado aquí.",
     "planMeta": "Creado {date} · {days} días",
     "planDateFallback": "Sin fecha",
-    "viewDetail": "Ver detalle"
+    "viewDetail": "Ver detalle",
+    "activeBadge": "Activo",
+    "selectActiveCta": "Seleccionar como activo",
+    "goToCalendar": "Ir al calendario",
+    "activePlanCalendarTitle": "Plan activo",
+    "activePlanCalendarDescription": "Abre tu calendario de nutrición con el plan activo seleccionado."
   },
   "dietPlanDetail": {
     "backToPlans": "Volver a dietas",

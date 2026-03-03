@@ -39,6 +39,7 @@ import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/n
 import { useToast } from "@/components/ui/Toast";
 import { generateNutritionPlan, type NutritionGenerateError } from "@/services/nutrition";
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
+import { normalizePlanSelection } from "@/lib/nutritionPlanLibrary";
 
 type NutritionForm = {
   age: number;
@@ -811,6 +812,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [lastGeneratedTokensBalance, setLastGeneratedTokensBalance] = useState<number | null>(null);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
+  const [selectedLibraryPlan, setSelectedLibraryPlan] = useState<NutritionPlan | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<"month" | "week" | "list">("week");
   const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
@@ -837,6 +839,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const renderedTokenToastId = useRef(0);
   const calendarInitialized = useRef(false);
   const urlSyncInitialized = useRef(false);
+  const selectedPlanId = normalizePlanSelection(searchParams.get("planId"));
   const isManualView = mode === "manual";
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -892,6 +895,92 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     };
   }, [t]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadSelectedPlan = async () => {
+      if (!selectedPlanId) {
+        setSelectedLibraryPlan(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/nutrition-plans/${encodeURIComponent(selectedPlanId)}`, { cache: "no-store", credentials: "include" });
+        if (!response.ok) {
+          if (active) setSelectedLibraryPlan(null);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          title?: string;
+          startDate?: string | null;
+          dailyCalories?: number;
+          proteinG?: number;
+          fatG?: number;
+          carbsG?: number;
+          days?: Array<{
+            dayLabel?: string;
+            date?: string;
+            meals?: Array<{
+              type?: "breakfast" | "lunch" | "dinner" | "snack";
+              title?: string;
+              description?: string;
+              calories?: number;
+              protein?: number;
+              carbs?: number;
+              fats?: number;
+              ingredients?: Array<{ name?: string; grams?: number }>;
+            }>;
+          }>;
+        };
+
+        if (!active) return;
+        const normalizedDays = Array.isArray(payload.days)
+          ? payload.days.map((day, dayIndex) => ({
+            date: typeof day.date === "string" ? day.date : undefined,
+            dayLabel: typeof day.dayLabel === "string" && day.dayLabel.trim().length > 0 ? day.dayLabel : `Día ${dayIndex + 1}`,
+            meals: Array.isArray(day.meals)
+              ? day.meals.map((meal) => ({
+                type: meal.type ?? "lunch",
+                title: meal.title ?? "Comida",
+                description: meal.description,
+                macros: {
+                  calories: Number(meal.calories ?? 0),
+                  protein: Number(meal.protein ?? 0),
+                  carbs: Number(meal.carbs ?? 0),
+                  fats: Number(meal.fats ?? 0),
+                },
+                ingredients: Array.isArray(meal.ingredients)
+                  ? meal.ingredients.map((ingredient) => ({
+                    name: ingredient.name ?? "Ingrediente",
+                    grams: Number(ingredient.grams ?? 0),
+                  }))
+                  : [],
+              }))
+              : [],
+          }))
+          : [];
+
+        setSelectedLibraryPlan({
+          title: payload.title,
+          startDate: payload.startDate ?? null,
+          dailyCalories: Number(payload.dailyCalories ?? 0),
+          proteinG: Number(payload.proteinG ?? 0),
+          fatG: Number(payload.fatG ?? 0),
+          carbsG: Number(payload.carbsG ?? 0),
+          days: normalizedDays,
+        });
+      } catch {
+        if (active) setSelectedLibraryPlan(null);
+      }
+    };
+
+    void loadSelectedPlan();
+    return () => {
+      active = false;
+    };
+  }, [selectedPlanId]);
+
   const refreshSubscription = async () => {
     try {
       const response = await fetch("/api/auth/me", { cache: "no-store" });
@@ -940,8 +1029,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const trainerPlanVisible = useMemo(() => normalizeNutritionPlan(trainerAssignedPlan, dayLabels), [trainerAssignedPlan, dayLabels]);
   const assignedPlanTitle = useMemo(() => readAssignedNutritionPlanTitle(trainerAssignedPlan), [trainerAssignedPlan]);
   const visiblePlan = useMemo(
-    () => normalizeNutritionPlan(trainerPlanVisible ?? (isManualView ? savedPlan ?? plan : savedPlan), dayLabels),
-    [trainerPlanVisible, isManualView, savedPlan, plan, dayLabels]
+    () => normalizeNutritionPlan(selectedLibraryPlan ?? trainerPlanVisible ?? (isManualView ? savedPlan ?? plan : savedPlan), dayLabels),
+    [selectedLibraryPlan, trainerPlanVisible, isManualView, savedPlan, plan, dayLabels]
   );
   const planStartDate = useMemo(
     () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
