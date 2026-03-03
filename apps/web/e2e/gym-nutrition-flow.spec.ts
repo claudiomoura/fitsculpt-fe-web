@@ -212,7 +212,17 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         email: demoUserEmail,
         password: demoUserPassword,
       });
-      await page.goto('/app/nutricion');
+      await page.goto('/app/dietas');
+      await expect(page.getByTestId('nutrition-assigned-plan-card')).toBeVisible();
+
+      const firstPlanCard = page.locator('[data-testid^="nutrition-plan-card-"]').first();
+      await expect(firstPlanCard).toBeVisible();
+
+      await firstPlanCard.locator('[data-testid^="nutrition-select-active-"]').click();
+      await expect(firstPlanCard.locator('[data-testid^="nutrition-plan-active-badge-"]')).toBeVisible();
+
+      await page.getByTestId('nutrition-go-calendar-cta').click();
+      await page.waitForURL('**/app/nutricion**', { timeout: 15_000 });
 
       await expect(page.getByTestId('member-assigned-nutrition-plan')).toBeVisible();
       await expect(page.getByTestId('member-assigned-nutrition-plan-title')).toContainText(nutritionPlanTitle);

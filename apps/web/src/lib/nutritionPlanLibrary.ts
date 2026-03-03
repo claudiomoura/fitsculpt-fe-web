@@ -38,8 +38,9 @@ export function normalizePlanSelection(planId: string | null | undefined): strin
 export function resolveActiveNutritionPlanId(
   queryPlanId: string | null | undefined,
   storedPlanId: string | null | undefined,
+  assignedPlanId?: string | null | undefined,
 ): string | null {
-  return normalizePlanSelection(queryPlanId) ?? normalizePlanSelection(storedPlanId);
+  return normalizePlanSelection(queryPlanId) ?? normalizePlanSelection(storedPlanId) ?? normalizePlanSelection(assignedPlanId);
 }
 
 export function buildNutritionPlanSearch(pathname: string, currentSearch: string, planId: string): string {
