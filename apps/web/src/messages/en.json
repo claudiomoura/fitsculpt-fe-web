@@ -2134,6 +2134,7 @@
       "past_due": "Past due",
       "incomplete": "Incomplete",
       "canceled": "Canceled",
+      "expired": "Expired",
       "unpaid": "Unpaid",
       "unknown": "Unknown"
     },

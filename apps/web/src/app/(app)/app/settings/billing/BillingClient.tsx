@@ -26,6 +26,7 @@ type BillingProfile = {
   tokens?: number;
   tokensExpiresAt?: string | null;
   subscriptionStatus?: string | null;
+  billingStatus?: string | null;
 };
 
 type BillingAction = "checkout" | "portal" | null;
@@ -331,7 +332,7 @@ setPlans([]);
             </CardHeader>
             <CardContent className="stack-sm">
               <Badge variant={currentPlan ? "success" : "muted"}>{resolvePlanLabel(currentPlan, t)}</Badge>
-              <p className="muted m-0">{`${t("billing.stripeStatusLabel")}: ${resolveStatusLabel(profile?.subscriptionStatus, t)}`}</p>
+              <p className="muted m-0">{`${t("billing.stripeStatusLabel")}: ${resolveStatusLabel(profile?.billingStatus ?? profile?.subscriptionStatus, t)}`}</p>
               <p className="muted m-0">{`${t("billing.tokenRenewalLabel")}: ${formatDate(profile?.tokensExpiresAt)}`}</p>
               <p className="muted m-0">{`${t("billing.aiTokensLabel")}: ${profile?.tokens ?? t("ui.notAvailable")}`}</p>
             </CardContent>

@@ -77,6 +77,7 @@ import {
 import { runDatabasePreflight } from "./dbPreflight.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
 import { tokenGrantForPlan } from "./billing/tokenPolicy.js";
+import { resolveAiTokens, resolveBillingStatusReason } from "./billing/resolveAiTokens.js";
 import {
   defaultTracking,
   trackingDeleteSchema,
@@ -5864,15 +5865,23 @@ app.post(
               await getLatestActiveSubscription(customerId);
             const effectivePlan =
               getPlanFromSubscription(effectiveSubscription) ?? invoicePlan;
+            const resolvedSubscriptionStatus = effectiveSubscription?.status ?? null;
+            const planAllowance = getPlanTokenAllowance(effectivePlan);
+            const resolvedTokens = resolveAiTokens({
+              subscriptionStatus: resolvedSubscriptionStatus,
+              planMonthlyAllowance: planAllowance,
+            });
             const effectivePeriodEnd =
-              getSubscriptionPeriodEnd(effectiveSubscription) ?? getTokenExpiry(30);
+              resolvedTokens > 0
+                ? (getSubscriptionPeriodEnd(effectiveSubscription) ?? getTokenExpiry(30))
+                : null;
             await applyBillingStateForCustomer(customerId, {
-              plan: effectivePlan,
-              aiTokenBalance: getPlanTokenAllowance(effectivePlan),
-              aiTokenMonthlyAllowance: getPlanTokenAllowance(effectivePlan),
+              plan: resolvedTokens > 0 ? effectivePlan : "FREE",
+              aiTokenBalance: resolvedTokens,
+              aiTokenMonthlyAllowance: planAllowance,
               aiTokenResetAt: effectivePeriodEnd,
               aiTokenRenewalAt: effectivePeriodEnd,
-              subscriptionStatus: effectiveSubscription?.status ?? null,
+              subscriptionStatus: resolvedSubscriptionStatus,
               stripeSubscriptionId: effectiveSubscription?.id ?? null,
               currentPeriodEnd: getSubscriptionPeriodEnd(effectiveSubscription),
             });
@@ -5881,8 +5890,9 @@ app.post(
                 stripeCustomerId: customerId,
                 invoicePlan,
                 effectivePlan,
-                aiTokenBalance: getPlanTokenAllowance(effectivePlan),
+                aiTokenBalance: resolvedTokens,
                 aiTokenResetAt: effectivePeriodEnd?.toISOString() ?? null,
+                billingStatus: resolveBillingStatusReason(resolvedSubscriptionStatus),
               },
               "invoice paid",
             );
@@ -6315,14 +6325,18 @@ app.get("/billing/status", async (request, reply) => {
     const subscriptionStatus = syncError
       ? null
       : (refreshedUser.subscriptionStatus ?? null);
-    const isActive = syncError
-      ? false
-      : isActiveSubscriptionStatus(subscriptionStatus);
+    const billingStatus = resolveBillingStatusReason(subscriptionStatus);
+    const isActive = !syncError && billingStatus === "active";
     const tokenExpiryAt = getUserTokenExpiryAt(refreshedUser);
     const tokensExpired = tokenExpiryAt
       ? tokenExpiryAt.getTime() < Date.now()
       : false;
-    const tokens = tokensExpired ? 0 : getEffectiveTokenBalance(refreshedUser);
+    const effectiveTokenBalance = tokensExpired ? 0 : getEffectiveTokenBalance(refreshedUser);
+    const planAllowance = typeof refreshedUser.aiTokenMonthlyAllowance === "number" ? refreshedUser.aiTokenMonthlyAllowance : 0;
+    const tokens = resolveAiTokens({
+      subscriptionStatus,
+      planMonthlyAllowance: Math.min(planAllowance, effectiveTokenBalance),
+    });
     const plan: SubscriptionPlan = syncError || !isActive ? "FREE" : rawPlan;
     const isPaid = plan !== "FREE";
     const isPro = plan === "PRO";
@@ -6334,6 +6348,7 @@ app.get("/billing/status", async (request, reply) => {
       tokens,
       tokensExpiresAt: tokenExpiryAt ? tokenExpiryAt.toISOString() : null,
       subscriptionStatus,
+      billingStatus,
       availablePlans,
     };
     app.log.info(
