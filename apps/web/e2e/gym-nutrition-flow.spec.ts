@@ -96,8 +96,9 @@ async function ensureMemberJoinedGym(managerContext: APIRequestContext, memberCo
 }
 
 test.describe('Gym nutrition flow (manager assignment + member consumption)', () => {
-  test('manager creates + assigns nutrition plan, member sees it and can navigate days', async ({ page }, testInfo) => {
+  test('manager creates + assigns nutrition plan, member sees it and can navigate days', async ({ page, browser }, testInfo) => {
     await resetDemoState();
+    const baseURL = testInfo.project.use?.baseURL ?? 'http://localhost:3000';
 
     const managerContext = await request.newContext({ baseURL: backendURL });
     const memberContext = await request.newContext({ baseURL: backendURL });
@@ -160,37 +161,43 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       const createdNutritionPlan = (await createNutritionPlanResponse.json()) as { id?: string; title?: string };
       expect(createdNutritionPlan.id, 'created nutrition plan id should exist').toBeTruthy();
 
-      await loginViaUI(page, {
-        email: demoManagerEmail,
-        password: demoManagerPassword,
-      });
-      await page.goto('/app/trainer/nutrition-plans');
-      await page.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
-      await expect(page.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
-
-      const createButton = page.getByTestId('create-nutrition-plan-button');
+      const managerBrowserContext = await browser.newContext({ baseURL });
       try {
-        await expect(createButton).toBeVisible({ timeout: 15_000 });
-      } catch (error) {
-        const debugInfo = await collectTrainerNutritionDebugInfo(page);
-        throw new Error(
-          `create nutrition plan button was not visible after loading trainer nutrition plans page.\n${debugInfo}\n${String(error)}`
-        );
-      }
+        const managerPage = await managerBrowserContext.newPage();
+        await loginViaUI(managerPage, {
+          email: demoManagerEmail,
+          password: demoManagerPassword,
+        });
+        await managerPage.goto('/app/trainer/nutrition-plans');
+        await managerPage.waitForURL('**/app/trainer/nutrition-plans', { timeout: 15_000 });
+        await expect(managerPage.getByTestId('trainer-nutrition-plans-page')).toBeVisible({ timeout: 15_000 });
 
-      await expect
-        .poll(
-          async () => {
-            const listText = (await page.getByTestId('nutrition-plan-list').innerText()).replace(/\s+/g, ' ').trim();
-            return listText.includes(nutritionPlanTitle);
-          },
-          {
-            message: `nutrition plan list should include created plan ${nutritionPlanTitle}`,
-            intervals: [500, 1000, 1500, 2000],
-            timeout: 15_000,
-          }
-        )
-        .toBeTruthy();
+        const createButton = managerPage.getByTestId('create-nutrition-plan-button');
+        try {
+          await expect(createButton).toBeVisible({ timeout: 15_000 });
+        } catch (error) {
+          const debugInfo = await collectTrainerNutritionDebugInfo(managerPage);
+          throw new Error(
+            `create nutrition plan button was not visible after loading trainer nutrition plans page.\n${debugInfo}\n${String(error)}`
+          );
+        }
+
+        await expect
+          .poll(
+            async () => {
+              const listText = (await managerPage.getByTestId('nutrition-plan-list').innerText()).replace(/\s+/g, ' ').trim();
+              return listText.includes(nutritionPlanTitle);
+            },
+            {
+              message: `nutrition plan list should include created plan ${nutritionPlanTitle}`,
+              intervals: [500, 1000, 1500, 2000],
+              timeout: 15_000,
+            }
+          )
+          .toBeTruthy();
+      } finally {
+        await managerBrowserContext.close();
+      }
 
       const assignNutritionResponse = await managerContext.post(`/trainer/clients/${memberUserId}/assigned-nutrition-plan`, {
         data: { nutritionPlanId: createdNutritionPlan.id },
@@ -215,6 +222,7 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         )
         .toMatchObject({ id: createdNutritionPlan.id, title: nutritionPlanTitle });
 
+      await page.context().clearCookies();
       await loginViaUI(page, {
         email: demoUserEmail,
         password: demoUserPassword,
