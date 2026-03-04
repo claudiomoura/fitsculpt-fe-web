@@ -12,7 +12,7 @@ La fuente de verdad del shape validado es:
 
 - `docs/contracts/CONTRACTS_RC_V1.md`
 
-## Endpoints cubiertos por el gate
+## Endpoints cubiertos por los contract tests
 
 El gate valida shape mínimo (campos críticos) para:
 
@@ -59,3 +59,18 @@ Para confirmar que el gate falla ante cambios de shape:
 ## Resultado esperado en CI
 
 El job `Web Contract Drift Gate (BFF critical endpoints)` debe quedar en **PASS** para permitir merge sin drift en contratos críticos.
+
+
+## BETA-11 guardrail #2 (subset crítico)
+
+Además del gate RC v1 existente, se agregó un subset crítico para IA + billing + core loop:
+
+1. `POST /api/ai/training-plan/generate`
+2. `POST /api/ai/nutrition-plan/generate`
+3. `GET /api/ai/quota`
+4. `GET /api/billing/status`
+5. `GET /api/training-plans/active`
+
+Documentación de criterio y contrato mínimo: `docs/contracts/BETA11_CRITICAL_ENDPOINTS.md`.
+
+Tests: `apps/web/src/test/aiGenerateGuardrail.contract.test.ts` y `apps/web/src/test/betaCriticalBff.contract.test.ts`.
