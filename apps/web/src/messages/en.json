@@ -258,10 +258,11 @@
     "hubTitle": "TODAY WOW",
     "hubSubtitle": "Training, nutrition, and check-in in one place.",
     "hubProgress": "Day progress: {{completed}}/{{total}}",
-    "progressHeuristicDisclaimer": "Progress uses available signals. Full validation requires implementation.",
-    "hubErrorMessage": "We couldn't load your today hub. Please retry.",
-    "hubEmptyDescription": "No tasks marked yet today. Start with your daily plan.",
-    "hubEmptyCta": "View plans",
+    "progressHeuristicDisclaimer": "Live signals for your day progress.",
+    "hubLoadingMessage": "Preparing your day…",
+    "hubErrorMessage": "We couldn't load TODAY WOW.",
+    "hubEmptyDescription": "No activity yet today. Start with one quick action.",
+    "hubEmptyCta": "Start now",
     "cardTrainingTitle": "Training",
     "cardTrainingSubtitle": "Today's session",
     "cardTrainingReady": "Your session for today is ready.",
@@ -276,9 +277,10 @@
     "cardCheckinSubtitle": "Daily tracking",
     "cardCheckinReady": "You already logged today's check-in.",
     "cardCheckinEmpty": "You still need to log today's check-in.",
-    "cardCheckinCta": "Go to check-in",
+    "cardCheckinCta": "Log check-in",
     "cardCompleted": "Completed",
-    "cardPending": "Pending"
+    "cardPending": "Pending",
+    "hubSuccessToast": "Saved ✅"
   },
   "foods": {
     "salmon": "Salmon",
