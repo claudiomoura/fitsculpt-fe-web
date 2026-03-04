@@ -10,9 +10,15 @@ type TodayCardProps = {
   href?: string;
   onClick?: () => void;
   loading?: boolean;
+  onCtaClick?: () => void;
 };
 
-export function TodayCard({ title, subtitle, body, ctaLabel, progressLabel, href, onClick, loading = false }: TodayCardProps) {
+export function TodayCard({ title, subtitle, body, ctaLabel, progressLabel, href, onClick, loading = false, onCtaClick }: TodayCardProps) {
+  const handleButtonClick = () => {
+    onCtaClick?.();
+    onClick?.();
+  };
+
   return (
     <article className="flex h-full flex-col rounded-xl border border-subtle bg-[var(--bg-panel)] p-4" data-testid="today-action-card">
       <p className="m-0 text-xs font-semibold uppercase tracking-wide text-text-muted">{subtitle}</p>
@@ -20,11 +26,11 @@ export function TodayCard({ title, subtitle, body, ctaLabel, progressLabel, href
       <p className="mt-2 text-sm text-text-muted">{body}</p>
       <p className="mt-3 text-xs font-medium text-text-muted">{progressLabel}</p>
       {href ? (
-        <ButtonLink as={Link} href={href} size="lg" className="mt-4 w-full" data-testid="today-action-button">
+        <ButtonLink as={Link} href={href} size="lg" className="mt-4 w-full" data-testid="today-action-button" onClick={onCtaClick}>
           {ctaLabel}
         </ButtonLink>
       ) : (
-        <Button className="mt-4 w-full" size="lg" onClick={onClick} loading={loading} data-testid="today-action-button">
+        <Button className="mt-4 w-full" size="lg" onClick={handleButtonClick} loading={loading} data-testid="today-action-button">
           {ctaLabel}
         </Button>
       )}
