@@ -16,7 +16,9 @@
     "e2e:smoke:beta": "node scripts/run-beta-smoke.mjs",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
-    "lint:ds": "node scripts/lint-design-system-guardrails.mjs"
+    "lint:ds": "node scripts/lint-design-system-guardrails.mjs",
+    "endpoints:inventory": "node scripts/endpoints-inventory.mjs",
+    "endpoints:inventory:check": "node scripts/endpoints-inventory.mjs --check"
   },
   "dependencies": {
     "next": "16.1.1",
