@@ -171,7 +171,7 @@ app.post("/training-plans", async (request, reply) => {
         startDate,
         daysCount: data.daysCount,
         days: {
-          create: dates.map((date, index) => ({
+          create: dates.map((date: string, index: number) => ({
             date: new Date(`${date}T00:00:00.000Z`),
             label: `Día ${index + 1}`,
             focus: data.focus,
