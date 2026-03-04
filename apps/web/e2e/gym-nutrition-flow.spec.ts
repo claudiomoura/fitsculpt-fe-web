@@ -214,15 +214,21 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       });
       await page.goto('/app/dietas');
 
-      await page.waitForResponse(
-        (response) =>
-          response.url().includes('/api/nutrition-plans/assigned') &&
-          response.request().method() === 'GET' &&
-          response.status() === 200,
-        { timeout: 15_000 }
-      );
+      await expect
+        .poll(
+          async () => {
+            const assignedResponse = await memberContext.get('/members/me/assigned-nutrition-plan');
+            return assignedResponse.status();
+          },
+          {
+            message: 'member assigned-nutrition-plan endpoint should return 200 before UI checks',
+            intervals: [500, 1000, 2000, 2000],
+            timeout: 15_000,
+          }
+        )
+        .toBe(200);
 
-      await expect(page.getByRole('heading', { name: /dietas guardadas|saved diet plans/i })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId('nutrition-page-root')).toBeVisible({ timeout: 15_000 });
       await expect(page.getByTestId('nutrition-assigned-plan-card')).toBeVisible({ timeout: 15_000 });
 
       const firstPlanCard = page.locator('[data-testid^="nutrition-plan-card-"]').first();
