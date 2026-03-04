@@ -6372,6 +6372,7 @@ const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply
   }
 };
 
+// Route orchestration (modular domains first, preserving current registration order).
 registerBillingRoutes(app, {
   billingCheckoutHandler,
   billingPlansHandler,
@@ -6479,6 +6480,10 @@ app.delete("/tracking/:collection/:id", async (request, reply) => {
   }
 });
 
+// TODO(BETA-13, follow-up): keep migrating remaining inline routes into
+// register*Routes modules without changing behavior in this PR.
+// Remaining inline domains include: auth/profile, tracking, feed/recipes,
+// admin user management and dev-only endpoints.
 registerWeeklyReviewRoute(app, {
   requireUser,
   getOrCreateProfile,
