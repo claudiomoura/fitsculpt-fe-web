@@ -15,12 +15,13 @@ type PlanCardProps = {
   title: string;
   metadata: string;
   statusLabel?: string;
+  statusTestId?: string;
   badges?: ReactNode;
   actions?: PlanCardAction[];
   testId?: string;
 };
 
-function PlanCard({ title, metadata, statusLabel, badges, actions = [], testId }: PlanCardProps) {
+function PlanCard({ title, metadata, statusLabel, statusTestId, badges, actions = [], testId }: PlanCardProps) {
   return (
     <article className="feature-card" data-testid={testId}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
@@ -28,7 +29,7 @@ function PlanCard({ title, metadata, statusLabel, badges, actions = [], testId }
           <h3 className="m-0">{title}</h3>
           <p className="muted mt-6">{metadata}</p>
         </div>
-        {statusLabel ? <Badge variant="success">{statusLabel}</Badge> : null}
+        {statusLabel ? <Badge variant="success" data-testid={statusTestId}>{statusLabel}</Badge> : null}
       </div>
 
       {badges ? <div className="badge-list mt-12">{badges}</div> : null}

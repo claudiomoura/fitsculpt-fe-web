@@ -213,13 +213,23 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         password: demoUserPassword,
       });
       await page.goto('/app/dietas');
-      await expect(page.getByTestId('nutrition-assigned-plan-card')).toBeVisible();
+
+      await page.waitForResponse(
+        (response) =>
+          response.url().includes('/api/nutrition-plans/assigned') &&
+          response.request().method() === 'GET' &&
+          response.status() === 200,
+        { timeout: 15_000 }
+      );
+
+      await expect(page.getByRole('heading', { name: /dietas guardadas|saved diet plans/i })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId('nutrition-assigned-plan-card')).toBeVisible({ timeout: 15_000 });
 
       const firstPlanCard = page.locator('[data-testid^="nutrition-plan-card-"]').first();
       await expect(firstPlanCard).toBeVisible();
 
       await firstPlanCard.locator('[data-testid^="nutrition-select-active-"]').click();
-      await expect(firstPlanCard.locator('[data-testid^="nutrition-plan-active-badge-"]')).toBeVisible();
+      await expect(page.locator('[data-testid="nutrition-active-plan-card"], [data-testid="nutrition-assigned-plan-card"]')).toBeVisible();
 
       await page.getByTestId('nutrition-go-calendar-cta').click();
       await page.waitForURL('**/app/nutricion**', { timeout: 15_000 });

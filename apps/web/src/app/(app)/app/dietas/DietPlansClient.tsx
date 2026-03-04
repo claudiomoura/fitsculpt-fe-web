@@ -63,6 +63,7 @@ export default function DietPlansClient() {
 
     return mergedPlans.filter((plan) => getNutritionPlanId(plan) !== activePlanId);
   }, [activePlanId, assignedPlan, plans]);
+  const assignedPlanCardId = assignedPlan ? getNutritionPlanId(assignedPlan) : null;
 
   useEffect(() => {
     if (queryPlanId) {
@@ -205,7 +206,7 @@ export default function DietPlansClient() {
             title={activePlan.title}
             metadata={t("dietPlans.planMeta", { date: formatPlanDate(activePlan), days: activePlan.daysCount })}
             statusLabel={t("plans.activeBadge")}
-            testId="nutrition-active-plan-card"
+            testId={getNutritionPlanId(activePlan) === assignedPlanCardId ? "nutrition-assigned-plan-card" : "nutrition-active-plan-card"}
             actions={[
               { label: t("dietPlans.viewDetail"), href: `/app/dietas/${getNutritionPlanId(activePlan)}`, variant: "secondary", testId: "nutrition-view-active-plan" },
               { label: t("dietPlans.goToCalendar"), href: `/app/nutricion?planId=${encodeURIComponent(getNutritionPlanId(activePlan))}`, testId: "nutrition-go-calendar-cta" },
@@ -245,6 +246,8 @@ export default function DietPlansClient() {
                   key={planId}
                   title={plan.title}
                   metadata={t("dietPlans.planMeta", { date: formatPlanDate(plan), days: plan.daysCount })}
+                  statusLabel={isSelected ? t("dietPlans.activeBadge") : undefined}
+                  statusTestId={isSelected ? `nutrition-plan-active-badge-${planId}` : undefined}
                   badges={
                     <>
                       <span className="badge">{Math.round(plan.dailyCalories)} kcal</span>
@@ -257,7 +260,7 @@ export default function DietPlansClient() {
                     { label: isSelected ? t("dietPlans.activeBadge") : t("dietPlans.selectActiveCta"), onClick: () => selectActivePlan(planId), variant: isSelected ? "secondary" : "primary", testId: `nutrition-select-active-${planId}` },
                     { label: t("dietPlans.viewDetail"), href: `/app/dietas/${planId}`, variant: "secondary", testId: `nutrition-view-plan-${planId}` },
                   ]}
-                  testId={`nutrition-plan-card-${planId}`}
+                  testId={planId === assignedPlanCardId ? "nutrition-assigned-plan-card" : `nutrition-plan-card-${planId}`}
                 />
               );
             })}
