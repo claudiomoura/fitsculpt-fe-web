@@ -21,6 +21,7 @@ export type NutritionGenerateRequest = {
 export type NutritionGenerateError = {
   status: number;
   code: string | null;
+  kind: string | null;
   message: string | null;
   retryAfterSec: number | null;
   details: unknown;
@@ -72,6 +73,7 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
     retryAfterSec?: unknown;
     details?: unknown;
     debug?: unknown;
+    kind?: unknown;
     plan?: unknown;
     aiTokenBalance?: unknown;
     aiTokenRenewalAt?: unknown;
@@ -99,6 +101,7 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
           : typeof payload?.code === "string"
             ? payload.code
             : null,
+      kind: typeof payload?.kind === "string" ? payload.kind : null,
       message: typeof payload?.message === "string" ? payload.message : null,
       retryAfterSec: typeof payload?.retryAfterSec === "number" ? payload.retryAfterSec : null,
       details: extractNutritionErrorDetails(payload),

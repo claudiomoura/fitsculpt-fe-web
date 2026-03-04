@@ -2070,7 +2070,13 @@
     "notPro": "AI generation is a Pro feature. Upgrade to Pro to use it.",
     "tokenConsumed": "1 AI token was consumed for this usage",
     "tokensExhaustedTitle": "AI tokens exhausted",
-    "tokensExhaustedDescription": "You ran out of AI tokens. Buy more to keep going."
+    "tokensExhaustedDescription": "You ran out of AI tokens. Buy more to keep going.",
+    "errorState": {
+      "title": "We could not complete AI generation"
+    },
+    "authUnavailable": "Your session or permissions do not allow AI right now. Please log in again.",
+    "validationUnavailable": "Please review your input data and try again.",
+    "serviceUnavailable": "Service is temporarily unavailable. Please try again in a few minutes."
   },
   "billing": {
     "title": "Billing",
