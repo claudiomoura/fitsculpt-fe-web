@@ -258,10 +258,11 @@
     "hubTitle": "HOY WOW",
     "hubSubtitle": "Entreno, nutrición y check-in en un solo lugar.",
     "hubProgress": "Progreso del día: {{completed}}/{{total}}",
-    "progressHeuristicDisclaimer": "Progreso con señales disponibles. Requiere implementación para validación completa.",
-    "hubErrorMessage": "No pudimos cargar tu hub de hoy. Reintenta.",
-    "hubEmptyDescription": "Hoy aún no hay tareas marcadas. Empieza con tu plan del día.",
-    "hubEmptyCta": "Ver planes",
+    "progressHeuristicDisclaimer": "Señales en tiempo real para tu progreso de hoy.",
+    "hubLoadingMessage": "Preparando tu día…",
+    "hubErrorMessage": "No pudimos cargar Hoy WOW.",
+    "hubEmptyDescription": "Aún no hay actividad hoy. Empieza con una acción rápida.",
+    "hubEmptyCta": "Empezar ahora",
     "cardTrainingTitle": "Entreno",
     "cardTrainingSubtitle": "Sesión de hoy",
     "cardTrainingReady": "Tu sesión de hoy está lista.",
@@ -276,9 +277,10 @@
     "cardCheckinSubtitle": "Seguimiento diario",
     "cardCheckinReady": "Ya registraste tu check-in de hoy.",
     "cardCheckinEmpty": "Te falta registrar tu check-in de hoy.",
-    "cardCheckinCta": "Ir a check-in",
+    "cardCheckinCta": "Registrar check-in",
     "cardCompleted": "Completado",
-    "cardPending": "Pendiente"
+    "cardPending": "Pendiente",
+    "hubSuccessToast": "Guardado ✅"
   },
   "foods": {
     "salmon": "Salmón",

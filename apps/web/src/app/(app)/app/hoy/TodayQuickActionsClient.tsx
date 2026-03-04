@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Stack } from "@/design-system/components";
+import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { createTrackingEntry } from "@/services/tracking";
@@ -64,6 +65,7 @@ const hasCheckinToday = (payload?: TrackingPayload | null) => {
 
 export default function TodayQuickActionsClient() {
   const { t } = useLanguage();
+  const { notify } = useToast();
   const [status, setStatus] = useState<ViewStatus>("loading");
   const [signals, setSignals] = useState<TodaySignals>({
     trainingReady: false,
@@ -173,10 +175,11 @@ export default function TodayQuickActionsClient() {
         sidePhotoUrl: null,
       });
       setSignals((previous) => ({ ...previous, checkinDone: true }));
+      notify({ title: t("today.hubSuccessToast"), variant: "success" });
     } finally {
       setCheckinActionStatus("idle");
     }
-  }, [checkinActionStatus, t]);
+  }, [checkinActionStatus, notify, t]);
 
   const completedCount = useMemo(
     () => [signals.trainingReady, signals.nutritionReady, signals.checkinDone].filter(Boolean).length,
@@ -198,7 +201,12 @@ export default function TodayQuickActionsClient() {
           <p className="mt-1 text-xs text-text-muted">{t("today.progressHeuristicDisclaimer")}</p>
         </header>
 
-        {status === "loading" ? <TodaySkeleton /> : null}
+        {status === "loading" ? (
+          <>
+            <p className="m-0 text-sm text-text-muted">{t("today.hubLoadingMessage")}</p>
+            <TodaySkeleton />
+          </>
+        ) : null}
 
         {status === "error" ? (
           <TodayErrorState message={t("today.hubErrorMessage")} retryLabel={t("ui.retry")} onRetry={() => void loadTodaySignals()} />
