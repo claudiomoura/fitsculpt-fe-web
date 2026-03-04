@@ -5,11 +5,10 @@ import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Recipe } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
 import { Input } from "@/components/ui/Input";
 import { SkeletonCard } from "@/components/ui/Skeleton";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
+import { EmptyState, ErrorState } from "@/components/states";
 
 type RecipeResponse = {
   items: Recipe[];
@@ -90,44 +89,31 @@ export default function RecipeLibraryClient() {
       </div>
 
       {loading ? (
-        <div className="list-grid mt-16">
+        <div className="list-grid mt-16" role="status" aria-live="polite" aria-label={t("recipes.loading")}>
           {Array.from({ length: 6 }).map((_, idx) => (
             <SkeletonCard key={idx} />
           ))}
         </div>
       ) : error ? (
-        <div className="empty-state mt-16">
-          <div className="empty-state-icon">
-            <Icon name="warning" />
-          </div>
-          <div>
-            <h3 className="m-0">{t("recipes.errorTitle")}</h3>
-            <p className="muted">{error}</p>
-          </div>
-          <Button variant="secondary" onClick={() => setRetryKey((prev) => prev + 1)}>
-            {t("ui.retry")}
-          </Button>
-        </div>
+        <ErrorState
+          className="mt-16"
+          title={t("recipes.loadErrorStateTitle")}
+          description={error}
+          retryLabel={t("ui.retry")}
+          onRetry={() => setRetryKey((prev) => prev + 1)}
+          ariaLabel={t("recipes.loadErrorStateTitle")}
+        />
       ) : recipes.length === 0 ? (
-        <div className="empty-state mt-16">
-          <div className="empty-state-icon">
-            <Icon name="info" />
-          </div>
-          <div>
-            <h3 className="m-0">{t("recipes.emptyTitle")}</h3>
-            <p className="muted">{t("recipes.empty")}</p>
-          </div>
-          <div className="empty-state-actions">
-            {isAdmin ? (
-              <Link className="btn secondary" href="/app/nutricion">
-                {t("recipes.emptyAdminCta")}
-              </Link>
-            ) : null}
-            <Button onClick={() => setRetryKey((prev) => prev + 1)}>
-              {t("recipes.retrySearch")}
-            </Button>
-          </div>
-        </div>
+        <EmptyState
+          className="mt-16"
+          title={t("recipes.emptyTitle")}
+          description={t("recipes.empty")}
+          ariaLabel={t("recipes.emptyTitle")}
+          actions={[
+            ...(isAdmin ? [{ label: t("recipes.emptyAdminCta"), href: "/app/nutricion", variant: "secondary" as const }] : []),
+            { label: t("recipes.retrySearch"), onClick: () => setRetryKey((prev) => prev + 1) },
+          ]}
+        />
       ) : (
         <div className="list-grid mt-16">
           {recipes.map((recipe) => {

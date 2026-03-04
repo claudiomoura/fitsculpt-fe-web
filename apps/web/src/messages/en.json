@@ -1851,7 +1851,7 @@
   },
   "recipes": {
     "loading": "Loading recipes...",
-    "empty": "No recipes available yet.",
+    "empty": "No recipes yet.",
     "emptyAdminCta": "Generate a nutrition plan",
     "loadError": "We couldn't load the recipe.",
     "loadErrorList": "We couldn't load the recipes.",
@@ -1880,7 +1880,8 @@
     "filterQueryLabel": "Query:",
     "errorTitle": "We couldn't load recipes",
     "emptyTitle": "No results",
-    "retrySearch": "Retry search"
+    "retrySearch": "Retry search",
+    "loadErrorStateTitle": "Couldn't load recipes"
   },
   "trainingPlans": {
     "loading": "Loading training plans...",
