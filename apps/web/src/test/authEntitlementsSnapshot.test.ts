@@ -3,7 +3,7 @@ import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 import { getUiEntitlements } from "@/lib/entitlements";
 
 describe("auth entitlement snapshot", () => {
-  it("prefers backend aiEntitlements + tokenBalance fields", () => {
+  it("derives capabilities from supported subscription plan", () => {
     const snapshot = readAuthEntitlementSnapshot({
       subscriptionPlan: "PRO",
       aiEntitlements: {
@@ -14,7 +14,7 @@ describe("auth entitlement snapshot", () => {
     });
 
     expect(snapshot.subscriptionPlan).toBe("PRO");
-    expect(snapshot.aiEntitlements).toMatchObject({ nutrition: true, strength: false });
+    expect(snapshot.aiEntitlements).toMatchObject({ nutrition: true, strength: true });
     expect(snapshot.aiEntitlements.ai).toBe(true);
     expect(snapshot.tokenBalance).toBe(19);
   });

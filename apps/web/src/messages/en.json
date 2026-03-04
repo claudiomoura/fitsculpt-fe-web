@@ -2109,7 +2109,6 @@
       "nutri_ai": "NutriAI",
       "strengthai": "StrengthAI",
       "nutriai": "NutriAI",
-      "ultra": "Pro",
       "unknown": "Unknown plan"
     },
     "plans": {
@@ -2125,7 +2124,7 @@
       },
       "pro": {
         "name": "Pro",
-        "description": "Bundle with StrengthAI + NutriAI in one plan.",
+        "description": "Includes StrengthAI + NutriAI in one plan.",
         "price": "$29/month"
       }
     },

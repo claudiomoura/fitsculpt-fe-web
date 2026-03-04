@@ -28,7 +28,7 @@ describe("/auth/me entitlements contract (minimal)", () => {
     }
   });
 
-  it("keeps AI disabled when module entitlement is not present", () => {
+  it("derives AI access from supported subscription plans", () => {
     const payload: AuthMePayload = {
       subscriptionPlan: "PRO",
     };
@@ -36,9 +36,9 @@ describe("/auth/me entitlements contract (minimal)", () => {
     expect(getUiEntitlements(payload)).toEqual({
       status: "known",
       features: {
-        canUseAI: false,
-        canUseNutrition: false,
-        canUseStrength: false,
+        canUseAI: true,
+        canUseNutrition: true,
+        canUseStrength: true,
       },
     });
   });

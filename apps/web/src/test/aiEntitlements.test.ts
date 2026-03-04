@@ -1,44 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { hasAiEntitlement, hasNutritionAiEntitlement, hasStrengthAiEntitlement } from "@/components/access/aiEntitlements";
 
-describe("ai entitlements by module", () => {
-  it("does not allow StrengthAI surface with ai/pro module only", () => {
-    expect(
-      hasStrengthAiEntitlement({
-        entitlements: { modules: { ai: { enabled: true } } },
-      }),
-    ).toBe(false);
+describe("ai entitlements by real subscription plans", () => {
+  it("does not allow StrengthAI surface on FREE", () => {
+    expect(hasStrengthAiEntitlement({ subscriptionPlan: "FREE" })).toBe(false);
   });
 
-  it("allows StrengthAI surface with strength module", () => {
-    expect(
-      hasStrengthAiEntitlement({
-        entitlements: { modules: { strength: { enabled: true } } },
-      }),
-    ).toBe(true);
+  it("allows StrengthAI surface on STRENGTH_AI", () => {
+    expect(hasStrengthAiEntitlement({ subscriptionPlan: "STRENGTH_AI" })).toBe(true);
   });
 
-  it("does not allow NutriAI surface with ai/pro module only", () => {
-    expect(
-      hasNutritionAiEntitlement({
-        entitlements: { modules: { ai: { enabled: true } } },
-      }),
-    ).toBe(false);
+  it("does not allow NutriAI surface on FREE", () => {
+    expect(hasNutritionAiEntitlement({ subscriptionPlan: "FREE" })).toBe(false);
   });
 
-  it("allows NutriAI surface with nutrition module", () => {
-    expect(
-      hasNutritionAiEntitlement({
-        entitlements: { modules: { nutrition: { enabled: true } } },
-      }),
-    ).toBe(true);
+  it("allows NutriAI surface on NUTRI_AI", () => {
+    expect(hasNutritionAiEntitlement({ subscriptionPlan: "NUTRI_AI" })).toBe(true);
   });
 
-  it("allows generic AI only when at least one domain module is enabled", () => {
-    const profile = { entitlements: { modules: { strength: { enabled: true } } } };
-
-    expect(hasStrengthAiEntitlement(profile)).toBe(true);
-    expect(hasNutritionAiEntitlement(profile)).toBe(false);
-    expect(hasAiEntitlement(profile)).toBe(true);
+  it("allows generic AI only on paid AI plans", () => {
+    expect(hasAiEntitlement({ subscriptionPlan: "FREE" })).toBe(false);
+    expect(hasAiEntitlement({ subscriptionPlan: "PRO" })).toBe(true);
   });
 });
