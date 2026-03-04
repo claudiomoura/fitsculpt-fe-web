@@ -99,8 +99,23 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
     resolveNutritionPlanRecipeIds,
   } = deps;
 
+  const aiQuotaRequestSchema = z.object({}).passthrough();
+  const aiTrainingPlanRequestSchema = z.object(aiTrainingSchema.shape);
+  const aiNutritionPlanGenerateRequestSchema = z.object(aiNutritionSchema.shape);
+  const aiTrainingPlanGenerateRequestSchema = z.object(
+    aiGenerateTrainingSchema.shape,
+  );
+  const aiDailyTipRequestSchema = z.object(aiTipSchema.shape);
+
+  type AiTrainingPlanRequest = z.infer<typeof aiTrainingPlanRequestSchema>;
+  type AiTrainingPlanGenerateRequest = z.infer<
+    typeof aiTrainingPlanGenerateRequestSchema
+  >;
+  type AiDailyTipRequest = z.infer<typeof aiDailyTipRequestSchema>;
+
 app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
+    aiQuotaRequestSchema.parse(request.query ?? {});
     const authRequest = request as AuthenticatedEntitlementsRequest;
     const user = authRequest.currentUser ?? (await requireUser(request));
     const entitlements =
@@ -144,7 +159,9 @@ app.post(
       const entitlements =
         authRequest.currentEntitlements ?? getUserEntitlements(user);
       await requireCompleteProfile(user.id);
-      const data = aiTrainingSchema.parse(request.body);
+      const data: AiTrainingPlanRequest = aiTrainingPlanRequestSchema.parse(
+        request.body,
+      );
       const exerciseCatalog = await loadExerciseCatalogForAi();
       const expectedDays = Math.min(data.daysPerWeek, 7);
       const daysCount = Math.min(data.daysCount ?? 7, 14);
@@ -425,7 +442,9 @@ const nutritionPlanHandler = async (
       const entitlements =
         authRequest.currentEntitlements ?? getUserEntitlements(user);
       await requireCompleteProfile(user.id);
-      const nutritionInput = aiNutritionSchema.safeParse(request.body);
+      const nutritionInput = aiNutritionPlanGenerateRequestSchema.safeParse(
+        request.body,
+      );
       if (!nutritionInput.success) {
         const issues = getSafeValidationIssues(nutritionInput.error);
         app.log.warn(
@@ -918,7 +937,8 @@ app.post(
         );
       }
 
-      const payload = aiGenerateTrainingSchema.parse(request.body);
+      const payload: AiTrainingPlanGenerateRequest =
+        aiTrainingPlanGenerateRequestSchema.parse(request.body);
       if (payload.userId && payload.userId !== user.id) {
         throw createHttpError(400, "INVALID_INPUT", {
           message: "userId must match authenticated user",
@@ -1168,7 +1188,9 @@ app.post(
         (await requireUser(request, { logContext: "/ai/daily-tip" }));
       const entitlements =
         authRequest.currentEntitlements ?? getUserEntitlements(user);
-      const data = aiTipSchema.parse(request.body);
+      const data: AiDailyTipRequest = aiDailyTipRequestSchema.parse(
+        request.body,
+      );
       const cacheKey = buildCacheKey("tip", data);
       const template = buildTipTemplate();
       const effectiveTokens = getEffectiveTokenBalance(user);
