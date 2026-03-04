@@ -92,6 +92,7 @@ import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 import { registerAiRoutes } from "./domains/ai/registerAiRoutes.js";
+import { registerBillingRoutes } from "./domains/billing/registerBillingRoutes.js";
 import {
   buildEntitlementGuard,
   resolveUserEntitlements,
@@ -5430,7 +5431,7 @@ app.get("/auth/verify-email", async (request, reply) => {
   }
 });
 
-app.post("/billing/checkout", async (request, reply) => {
+const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   /**
    * Billing checkout contract:
    * - Auth required.
@@ -5561,9 +5562,9 @@ app.post("/billing/checkout", async (request, reply) => {
     );
     return reply.status(500).send({ error: "CHECKOUT_SESSION_FAILED" });
   }
-});
+};
 
-app.get("/billing/plans", async (request, reply) => {
+const billingPlansHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     await requireUser(request);
     const availablePlans = getAvailableBillingPlans();
@@ -5637,9 +5638,9 @@ app.get("/billing/plans", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
 
-app.post("/billing/portal", async (request, reply) => {
+const billingPortalHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
     const customerId = await getOrCreateStripeCustomer(user);
@@ -5654,9 +5655,12 @@ app.post("/billing/portal", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
 
-app.post("/billing/admin/reset-customer-link", async (request, reply) => {
+const billingAdminResetCustomerLinkHandler = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
   const schema = z
     .object({
       userId: z.string().min(1).optional(),
@@ -5692,12 +5696,12 @@ app.post("/billing/admin/reset-customer-link", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
 
-app.post(
-  "/billing/stripe/webhook",
-  { config: { rawBody: true } },
-  async (request, reply) => {
+const billingStripeWebhookHandler = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
     try {
       const signature = request.headers["stripe-signature"];
       if (typeof signature !== "string") {
@@ -5942,8 +5946,7 @@ app.post(
     } catch (error) {
       return handleRequestError(reply, error);
     }
-  },
-);
+};
 
 app.get("/auth/me", async (request, reply) => {
   try {
@@ -6302,7 +6305,7 @@ app.put("/profile", async (request, reply) => {
   }
 });
 
-app.get("/billing/status", async (request, reply) => {
+const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
     const query = request.query as { sync?: string };
@@ -6364,6 +6367,15 @@ app.get("/billing/status", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
+};
+
+registerBillingRoutes(app, {
+  billingCheckoutHandler,
+  billingPlansHandler,
+  billingPortalHandler,
+  billingAdminResetCustomerLinkHandler,
+  billingStripeWebhookHandler,
+  billingStatusHandler,
 });
 
 app.get("/tracking", async (request, reply) => {
