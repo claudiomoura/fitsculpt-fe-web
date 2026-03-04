@@ -4,6 +4,10 @@ import { z } from "zod";
 import type { OpenAiResponse } from "../../ai/provider/openaiClient.js";
 import type { AuthenticatedEntitlementsRequest } from "../../middleware/entitlements.js";
 
+type RecipeWithIngredients = Prisma.RecipeGetPayload<{
+  include: { ingredients: true };
+}>;
+
 export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>) {
   const {
     aiAccessGuard,
@@ -486,7 +490,7 @@ const nutritionPlanHandler = async (
         );
         const resolvedCatalogMeals = applyNutritionCatalogResolution(
           normalizedMeals,
-          recipes.map((recipe) => ({
+          recipes.map((recipe: RecipeWithIngredients) => ({
             id: recipe.id,
             name: recipe.name,
             description: recipe.description,
@@ -546,7 +550,7 @@ const nutritionPlanHandler = async (
           );
           const scaled = applyRecipeScalingToPlan(
             validated,
-            recipes.map((recipe) => ({
+            recipes.map((recipe: RecipeWithIngredients) => ({
               id: recipe.id,
               name: recipe.name,
               description: recipe.description,
@@ -574,7 +578,7 @@ const nutritionPlanHandler = async (
           );
           const resolvedCatalogMeals = applyNutritionCatalogResolution(
             normalizedMeals,
-            recipes.map((recipe) => ({
+            recipes.map((recipe: RecipeWithIngredients) => ({
               id: recipe.id,
               name: recipe.name,
               description: recipe.description,
@@ -647,7 +651,7 @@ const nutritionPlanHandler = async (
       const fetchNutritionPayload = async (attempt: number) => {
         const promptAttempt = buildNutritionPrompt(
           data,
-          recipes.map((recipe) => ({
+          recipes.map((recipe: RecipeWithIngredients) => ({
             id: recipe.id,
             name: recipe.name,
             description: recipe.description,
@@ -728,7 +732,7 @@ const nutritionPlanHandler = async (
       }
       const scaledPayload = applyRecipeScalingToPlan(
         parsedPayload,
-        recipes.map((recipe) => ({
+        recipes.map((recipe: RecipeWithIngredients) => ({
           id: recipe.id,
           name: recipe.name,
           description: recipe.description,
@@ -756,7 +760,7 @@ const nutritionPlanHandler = async (
       );
       const resolvedCatalogMeals = applyNutritionCatalogResolution(
         normalizedMeals,
-        recipes.map((recipe) => ({
+        recipes.map((recipe: RecipeWithIngredients) => ({
           id: recipe.id,
           name: recipe.name,
           description: recipe.description,
@@ -786,7 +790,7 @@ const nutritionPlanHandler = async (
       const balanceBefore = effectiveTokens;
       const savedPlan =
         shouldChargeAi && aiResult
-          ? await prisma.$transaction(async (tx) => {
+          ? await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
               const persistedPlan = await saveNutritionPlan(
                 tx,
                 user.id,
@@ -1036,7 +1040,7 @@ app.post(
 
       const savedPlan =
         aiResult && shouldChargeAi
-          ? await prisma.$transaction(async (tx) => {
+          ? await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
               const persistedPlan = await saveTrainingPlan(
                 tx,
                 user.id,
