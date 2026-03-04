@@ -93,7 +93,6 @@ export default function TrackingClient() {
   const { t } = useLanguage();
   const router = useRouter();
   const CHECKIN_MODE_KEY = "fs_checkin_mode_v1";
-  const SHOW_WORKOUT_LOG = false;
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [checkinWeight, setCheckinWeight] = useState(75);
@@ -1591,63 +1590,61 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         </div>
       </section>
 
-      {SHOW_WORKOUT_LOG ? (
-        <section className="card">
-          <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.sectionWorkouts")}</h2>
-          <form onSubmit={addWorkoutEntry} className="form-stack">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-              <label className="form-stack">
-                {t("tracking.workoutDate")}
-                <input type="date" value={workoutDate} onChange={(e) => setWorkoutDate(e.target.value)} />
-              </label>
-              <label className="form-stack">
-                {t("tracking.workoutName")}
-                <input value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} />
-              </label>
-              <label className="form-stack">
-                {t("tracking.workoutDuration")}
-                <input
-                  type="number"
-                  min={0}
-                  value={workoutDuration}
-                  onChange={(e) => setWorkoutDuration(Number(e.target.value))}
-                />
-              </label>
-            </div>
+      <section className="card">
+        <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.sectionWorkouts")}</h2>
+        <form onSubmit={addWorkoutEntry} className="form-stack">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <label className="form-stack">
-              {t("tracking.workoutNotes")}
-              <textarea value={workoutNotes} onChange={(e) => setWorkoutNotes(e.target.value)} rows={2} />
+              {t("tracking.workoutDate")}
+              <input type="date" value={workoutDate} onChange={(e) => setWorkoutDate(e.target.value)} />
             </label>
-            <button type="submit" className="btn" style={{ width: "fit-content" }}>
-              {t("tracking.workoutAdd")}
-            </button>
-          </form>
-
-          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-            {workoutLog.length === 0 ? (
-              <p className="muted">{t("tracking.workoutEmpty")}</p>
-            ) : (
-              workoutLog.map((entry) => (
-                <div key={entry.id} className="feature-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                    <span>
-                      <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
-                    </span>
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      onClick={() => handleDeleteEntry("workoutLog", entry.id)}
-                    >
-                      {t("tracking.delete")}
-                    </button>
-                  </div>
-                  {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
-                </div>
-              ))
-            )}
+            <label className="form-stack">
+              {t("tracking.workoutName")}
+              <input value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} />
+            </label>
+            <label className="form-stack">
+              {t("tracking.workoutDuration")}
+              <input
+                type="number"
+                min={0}
+                value={workoutDuration}
+                onChange={(e) => setWorkoutDuration(Number(e.target.value))}
+              />
+            </label>
           </div>
-        </section>
-      ) : null}
+          <label className="form-stack">
+            {t("tracking.workoutNotes")}
+            <textarea value={workoutNotes} onChange={(e) => setWorkoutNotes(e.target.value)} rows={2} />
+          </label>
+          <button type="submit" className="btn" style={{ width: "fit-content" }}>
+            {t("tracking.workoutAdd")}
+          </button>
+        </form>
+
+        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+          {workoutLog.length === 0 ? (
+            <p className="muted">{t("tracking.workoutEmpty")}</p>
+          ) : (
+            workoutLog.map((entry) => (
+              <div key={entry.id} className="feature-card">
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                  <span>
+                    <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
+                  </span>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => handleDeleteEntry("workoutLog", entry.id)}
+                  >
+                    {t("tracking.delete")}
+                  </button>
+                </div>
+                {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
+              </div>
+            ))
+          )}
+        </div>
+      </section>
 
       {foodModalOpen && (
         <div className="modal-backdrop" role="presentation" onClick={() => setFoodModalOpen(false)}>
