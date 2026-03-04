@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "smoke": "pnpm lint && pnpm typecheck && pnpm test && pnpm e2e -- e2e/gym-nutrition-flow.spec.ts --reporter=line && pnpm build",
     "test:contracts": "vitest run src/test/aiGenerateGuardrail.contract.test.ts src/test/betaCriticalBff.contract.test.ts src/test/bffContractsRcV1.contract.test.ts",
     "e2e": "playwright test",
     "e2e:smoke:core": "playwright test e2e/core-loop.spec.ts",
