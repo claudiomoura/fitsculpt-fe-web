@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stack } from "@/design-system/components";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
+import { trackEvent } from "@/lib/analytics";
 import { createTrackingEntry } from "@/services/tracking";
 import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 import { TodayCard } from "./TodayCard";
@@ -73,6 +74,7 @@ export default function TodayQuickActionsClient() {
     checkinDone: false,
   });
   const [checkinActionStatus, setCheckinActionStatus] = useState<CheckinActionStatus>("idle");
+  const hasTrackedViewRef = useRef(false);
 
   const loadTodaySignals = useCallback(async () => {
     setStatus("loading");
@@ -143,6 +145,16 @@ export default function TodayQuickActionsClient() {
       window.clearTimeout(timer);
     };
   }, [loadTodaySignals]);
+
+  useEffect(() => {
+    if (hasTrackedViewRef.current) return;
+    hasTrackedViewRef.current = true;
+    trackEvent("today_view");
+  }, []);
+
+  const trackTodayCtaClick = useCallback((target: "training" | "nutrition" | "checkin") => {
+    trackEvent("today_cta_click", { target });
+  }, []);
 
 
   const handleLogTodayCheckin = useCallback(async () => {
@@ -229,6 +241,7 @@ export default function TodayQuickActionsClient() {
                 body={signals.checkinDone ? t("today.cardCheckinReady") : t("today.cardCheckinEmpty")}
                 ctaLabel={t("quickActions.completeTodayActionCta")}
                 onClick={() => void handleLogTodayCheckin()}
+                onCtaClick={() => trackTodayCtaClick("checkin")}
                 loading={checkinActionStatus === "loading"}
                 progressLabel={signals.checkinDone ? t("today.cardCompleted") : t("today.cardPending")}
               />
@@ -238,6 +251,7 @@ export default function TodayQuickActionsClient() {
                 body={signals.trainingReady ? t("today.cardTrainingReady") : t("today.cardTrainingEmpty")}
                 ctaLabel={t("today.cardTrainingCta")}
                 href="/app/entrenamiento"
+                onCtaClick={() => trackTodayCtaClick("training")}
                 progressLabel={signals.trainingReady ? t("today.cardCompleted") : t("today.cardPending")}
               />
               <TodayCard
@@ -246,6 +260,7 @@ export default function TodayQuickActionsClient() {
                 body={signals.nutritionReady ? t("today.cardNutritionReady") : t("today.cardNutritionEmpty")}
                 ctaLabel={t("today.cardNutritionCta")}
                 href="/app/nutricion"
+                onCtaClick={() => trackTodayCtaClick("nutrition")}
                 progressLabel={signals.nutritionReady ? t("today.cardCompleted") : t("today.cardPending")}
               />
             </section>
