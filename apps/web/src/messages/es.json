@@ -2069,6 +2069,7 @@
     "tokensRemaining": "Tokens IA restantes:",
     "tokensReset": "Renueva",
     "insufficientTokens": "No tienes tokens suficientes para usar la IA.",
+    "quotaUnavailable": "IA no disponible: sin crédito o tokens.",
     "notPro": "La generación con IA es una función Pro. Mejora a Pro para usarla.",
     "tokenConsumed": "Se ha consumido 1 token por uso de IA",
     "tokensExhaustedTitle": "Tokens IA agotados",

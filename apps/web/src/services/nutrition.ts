@@ -67,6 +67,7 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
 
   const payload = (await response.json().catch(() => null)) as {
     error?: unknown;
+    code?: unknown;
     message?: unknown;
     retryAfterSec?: unknown;
     details?: unknown;
@@ -92,7 +93,12 @@ export async function generateNutritionPlan(request: NutritionGenerateRequest): 
   if (!response.ok) {
     const error: NutritionGenerateError = {
       status: response.status,
-      code: typeof payload?.error === "string" ? payload.error : null,
+      code:
+        typeof payload?.error === "string"
+          ? payload.error
+          : typeof payload?.code === "string"
+            ? payload.code
+            : null,
       message: typeof payload?.message === "string" ? payload.message : null,
       retryAfterSec: typeof payload?.retryAfterSec === "number" ? payload.retryAfterSec : null,
       details: extractNutritionErrorDetails(payload),

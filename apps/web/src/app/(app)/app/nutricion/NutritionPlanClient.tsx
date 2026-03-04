@@ -801,6 +801,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<NutritionAiErrorState | null>(null);
+  const [aiQuotaExceededError, setAiQuotaExceededError] = useState(false);
   const [aiRetryCount, setAiRetryCount] = useState(0);
   const [aiSuccessModalOpen, setAiSuccessModalOpen] = useState(false);
   const [tokensExhaustedModalOpen, setTokensExhaustedModalOpen] = useState(false);
@@ -1598,6 +1599,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     if (!profile || aiLoading || aiGenerationInFlight.current) return;
     if (!aiEntitled) return;
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiQuotaExceededError(false);
       setAiError({
         title: t("nutrition.aiErrorState.title"),
         description: t("ai.insufficientTokens"),
@@ -1615,6 +1617,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     aiGenerationInFlight.current = true;
     setAiLoading(true);
     setAiError(null);
+    setAiQuotaExceededError(false);
    try {
   const startDate = toDateKey(startOfWeek(new Date()));
 
@@ -1718,7 +1721,17 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       const retriesReached = aiRetryCount >= MAX_AI_RETRIES;
       const errorCode = normalizeAiErrorCode(requestError?.code);
       const backendMessage = sanitizeErrorMessage(requestError?.message) ?? sanitizeErrorMessage(requestError?.code);
-      if (errorCode === "INSUFFICIENT_TOKENS") {
+      if (errorCode === "AI_QUOTA_EXCEEDED") {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: t("ai.quotaUnavailable"),
+          actionableHint: null,
+          details: null,
+          canRetry: false,
+        });
+        setAiQuotaExceededError(true);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (errorCode === "INSUFFICIENT_TOKENS") {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
           description: t("ai.insufficientTokens"),
@@ -1808,6 +1821,8 @@ useEffect(() => {
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
+      setAiQuotaExceededError(false);
+      setAiQuotaExceededError(false);
       setAiError({
         title: t("nutrition.aiErrorState.title"),
         description: aiLockDescription,
@@ -2315,12 +2330,21 @@ const nutritionPlanDetails = profile ? (
                   <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
                     {t("ui.retry")}
                   </button>
-                  <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
-                    {t("nutrition.aiErrorState.generateSimple")}
-                  </button>
-                  <Link href="/app/nutricion/editar" className="btn secondary fit-content">
-                    {t("nutrition.aiErrorState.adjustGoals")}
-                  </Link>
+                  {aiQuotaExceededError ? (
+                    <Link href="/app/settings/billing" className="btn secondary fit-content">
+                      {t("billing.manageBilling")}
+                    </Link>
+                  ) : null}
+                  {!aiQuotaExceededError ? (
+                    <>
+                      <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
+                        {t("nutrition.aiErrorState.generateSimple")}
+                      </button>
+                      <Link href="/app/nutricion/editar" className="btn secondary fit-content">
+                        {t("nutrition.aiErrorState.adjustGoals")}
+                      </Link>
+                    </>
+                  ) : null}
                 </div>
                 {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
               </div>

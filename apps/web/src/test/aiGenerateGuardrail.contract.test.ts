@@ -47,17 +47,30 @@ describe("AI generate proxy guardrail contract", () => {
     vi.unstubAllGlobals();
   });
 
-  it.each(ENDPOINTS)("$name endpoint preserves upstream 5xx status + body", async (endpoint) => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(503, JSON.stringify({ error: "AI_REQUEST_FAILED" }))));
+  it.each(ENDPOINTS)("$name endpoint maps upstream 5xx to stable AI_REQUEST_FAILED payload", async (endpoint) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(503, JSON.stringify({ error: "provider down" }))));
 
     const response = await invokeEndpoint(endpoint);
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(502);
 
     const data = await response.json();
-    expect(data).toEqual({ error: "AI_REQUEST_FAILED" });
+    expect(data).toEqual({ error: "provider down", code: "UPSTREAM_ERROR", kind: "upstream" });
   });
 
+  it.each(ENDPOINTS)("$name endpoint maps provider insufficient_quota to AI_QUOTA_EXCEEDED", async (endpoint) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(mockBackendResponse(429, JSON.stringify({ error: "insufficient_quota", code: "insufficient_quota" })))
+    );
+
+    const response = await invokeEndpoint(endpoint);
+
+    expect(response.status).toBe(429);
+
+    const data = await response.json();
+    expect(data).toEqual({ error: "AI_QUOTA_EXCEEDED", code: "AI_QUOTA_EXCEEDED", kind: "quota" });
+  });
 
   it.each(ENDPOINTS)("$name endpoint preserves 409 passthrough + { error: string }", async (endpoint) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(409, JSON.stringify({ error: "CONFLICT_ACTIVE_PLAN" }))));
@@ -67,7 +80,7 @@ describe("AI generate proxy guardrail contract", () => {
     expect(response.status).toBe(409);
 
     const data = await response.json();
-    expect(data).toEqual({ error: "CONFLICT_ACTIVE_PLAN" });
+    expect(data).toEqual({ error: "CONFLICT_ACTIVE_PLAN", code: "AI_REQUEST_FAILED", kind: "request" });
     expect(data).toMatchObject({ error: expect.any(String) });
   });
 
@@ -81,17 +94,17 @@ describe("AI generate proxy guardrail contract", () => {
 
     expect(response.status).toBe(400);
     const data = await response.json();
-    expect(data).toEqual({ error: "INVALID_INPUT" });
+    expect(data).toEqual({ error: "INVALID_INPUT", code: "AI_REQUEST_FAILED", kind: "request" });
     expect(data).toMatchObject({ error: expect.any(String) });
   });
 
-  it.each(ENDPOINTS)("$name endpoint preserves plain text upstream errors", async (endpoint) => {
+  it.each(ENDPOINTS)("$name endpoint maps plain text upstream errors", async (endpoint) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(500, "<html>upstream down</html>", "text/html")));
 
     const response = await invokeEndpoint(endpoint);
 
-    expect(response.status).toBe(500);
-    await expect(response.text()).resolves.toContain("upstream down");
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({ error: "AI_REQUEST_FAILED", code: "UPSTREAM_ERROR", kind: "upstream" });
   });
 
   it.each(ENDPOINTS)("$name endpoint maps upstream abort to 504 AI_TIMEOUT", async (endpoint) => {

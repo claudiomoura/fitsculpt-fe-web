@@ -4,7 +4,8 @@ export type AiErrorCode =
   | "AI_INPUT_INVALID"
   | "RATE_LIMITED"
   | "UPSTREAM_ERROR"
-  | "EXERCISE_CATALOG_UNAVAILABLE";
+  | "EXERCISE_CATALOG_UNAVAILABLE"
+  | "AI_QUOTA_EXCEEDED";
 
 export function normalizeAiErrorCode(value: unknown): AiErrorCode | null {
   if (typeof value !== "string") return null;
@@ -19,6 +20,7 @@ export function normalizeAiErrorCode(value: unknown): AiErrorCode | null {
     case "RATE_LIMITED":
     case "UPSTREAM_ERROR":
     case "EXERCISE_CATALOG_UNAVAILABLE":
+    case "AI_QUOTA_EXCEEDED":
       return normalized;
     default:
       return null;
@@ -26,7 +28,9 @@ export function normalizeAiErrorCode(value: unknown): AiErrorCode | null {
 }
 
 export function shouldTreatAsUpstreamError(status: number | null | undefined, code: string | null | undefined): boolean {
-  if (normalizeAiErrorCode(code) === "UPSTREAM_ERROR") return true;
+  const normalizedCode = normalizeAiErrorCode(code);
+  if (normalizedCode === "UPSTREAM_ERROR") return true;
+  if (code?.trim().toUpperCase() === "UPSTREAM_ERROR") return true;
   return typeof status === "number" && status >= 500;
 }
 
