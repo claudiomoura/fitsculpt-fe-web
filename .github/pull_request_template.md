@@ -5,13 +5,15 @@
 ## Dependency statement (mandatory)
 Depends on PR-01 to reference the real CI gates.
 
-## Release Candidate DoD checklist (mandatory)
-- [ ] FE PASS (`build` + `lint` + `typecheck`) **si aplica**
-- [ ] BE PASS (`build` + `test`) **si aplica**
-- [ ] 0 console errors en flujos afectados
-- [ ] No rompe `fs_token`
-- [ ] No rompe `/api/*`
-- [ ] No rompe rutas existentes
+## BETA-11 operational guardrail (mandatory)
+- [ ] No toqué endpoints BFF (`/apps/web/src/app/api/**`)
+- [ ] Si toqué endpoints BFF: corrí `pnpm --filter web endpoints:inventory` y commiteé cambios
+- [ ] Si toqué endpoints críticos: actualicé/validé contract tests y dejé evidencia
+- [ ] Corrí `pnpm --filter web smoke`
+
+Referencias obligatorias:
+- Contratos BFF: [`docs/contracts/`](../docs/contracts/) · [`docs/contracts/BETA11_CRITICAL_ENDPOINTS.md`](../docs/contracts/BETA11_CRITICAL_ENDPOINTS.md) · [`docs/contracts/bff-error-shape.md`](../docs/contracts/bff-error-shape.md)
+- Smoke pack / demo: [`docs/beta/beta-readiness.md`](../docs/beta/beta-readiness.md)
 
 ## Gates + smoke + evidence (mandatory)
 - [ ] Gates de CI (PR-01) ejecutados y enlazados
