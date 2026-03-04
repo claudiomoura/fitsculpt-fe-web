@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Stack } from "@/design-system/components";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
+import { createTrackingEntry } from "@/services/tracking";
 import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 import { TodayCard } from "./TodayCard";
 import { TodayEmptyState } from "./TodayEmptyState";
@@ -11,6 +12,7 @@ import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
 
 type ViewStatus = "loading" | "success" | "error";
+type CheckinActionStatus = "idle" | "loading";
 
 type TodaySignals = {
   trainingReady: boolean;
@@ -68,6 +70,7 @@ export default function TodayQuickActionsClient() {
     nutritionReady: false,
     checkinDone: false,
   });
+  const [checkinActionStatus, setCheckinActionStatus] = useState<CheckinActionStatus>("idle");
 
   const loadTodaySignals = useCallback(async () => {
     setStatus("loading");
@@ -139,6 +142,42 @@ export default function TodayQuickActionsClient() {
     };
   }, [loadTodaySignals]);
 
+
+  const handleLogTodayCheckin = useCallback(async () => {
+    if (checkinActionStatus === "loading") return;
+
+    setCheckinActionStatus("loading");
+
+    const now = new Date();
+    const todayDate = toDateKey(now);
+    const timestamp = now.getTime();
+
+    try {
+      await createTrackingEntry("checkins", {
+        id: `today-checkin-${timestamp}`,
+        date: todayDate,
+        weightKg: 0,
+        chestCm: 0,
+        waistCm: 0,
+        hipsCm: 0,
+        bicepsCm: 0,
+        thighCm: 0,
+        calfCm: 0,
+        neckCm: 0,
+        bodyFatPercent: 0,
+        energy: 0,
+        hunger: 0,
+        notes: t("quickActions.todayActionDefaultNotes"),
+        recommendation: t("quickActions.todayActionDefaultRecommendation"),
+        frontPhotoUrl: null,
+        sidePhotoUrl: null,
+      });
+      setSignals((previous) => ({ ...previous, checkinDone: true }));
+    } finally {
+      setCheckinActionStatus("idle");
+    }
+  }, [checkinActionStatus, t]);
+
   const completedCount = useMemo(
     () => [signals.trainingReady, signals.nutritionReady, signals.checkinDone].filter(Boolean).length,
     [signals.checkinDone, signals.nutritionReady, signals.trainingReady],
@@ -153,7 +192,7 @@ export default function TodayQuickActionsClient() {
         <header>
           <h1 className="section-title">{t("today.hubTitle")}</h1>
           <p className="section-subtitle">{t("today.hubSubtitle")}</p>
-          <p className="mt-2 text-sm font-semibold text-text" data-testid="today-wow-progress">
+          <p className="mt-2 text-sm font-semibold text-text" data-testid="today-progress">
             {progressLabel}
           </p>
           <p className="mt-1 text-xs text-text-muted">{t("today.progressHeuristicDisclaimer")}</p>
@@ -177,6 +216,15 @@ export default function TodayQuickActionsClient() {
 
             <section className="grid gap-3 md:grid-cols-3" data-testid="today-actions-grid">
               <TodayCard
+                title={t("today.cardCheckinTitle")}
+                subtitle={t("today.cardCheckinSubtitle")}
+                body={signals.checkinDone ? t("today.cardCheckinReady") : t("today.cardCheckinEmpty")}
+                ctaLabel={t("quickActions.completeTodayActionCta")}
+                onClick={() => void handleLogTodayCheckin()}
+                loading={checkinActionStatus === "loading"}
+                progressLabel={signals.checkinDone ? t("today.cardCompleted") : t("today.cardPending")}
+              />
+              <TodayCard
                 title={t("today.cardTrainingTitle")}
                 subtitle={t("today.cardTrainingSubtitle")}
                 body={signals.trainingReady ? t("today.cardTrainingReady") : t("today.cardTrainingEmpty")}
@@ -191,14 +239,6 @@ export default function TodayQuickActionsClient() {
                 ctaLabel={t("today.cardNutritionCta")}
                 href="/app/nutricion"
                 progressLabel={signals.nutritionReady ? t("today.cardCompleted") : t("today.cardPending")}
-              />
-              <TodayCard
-                title={t("today.cardCheckinTitle")}
-                subtitle={t("today.cardCheckinSubtitle")}
-                body={signals.checkinDone ? t("today.cardCheckinReady") : t("today.cardCheckinEmpty")}
-                ctaLabel={t("today.cardCheckinCta")}
-                href="/app/seguimiento"
-                progressLabel={signals.checkinDone ? t("today.cardCompleted") : t("today.cardPending")}
               />
             </section>
           </>
