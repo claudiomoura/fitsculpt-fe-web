@@ -348,6 +348,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiConfirmSaving, setAiConfirmSaving] = useState(false);
   const [aiPreviewPlan, setAiPreviewPlan] = useState<TrainingPlan | null>(null);
   const [aiActionableError, setAiActionableError] = useState<string | null>(null);
+  const [aiQuotaExceededError, setAiQuotaExceededError] = useState(false);
   const [tokensExhaustedModalOpen, setTokensExhaustedModalOpen] = useState(false);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
@@ -840,6 +841,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     if (!profile || !form || aiGenerationInFlight.current || aiLoading) return;
     if (!aiEntitled) return;
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiQuotaExceededError(false);
       setAiActionableError(t("ai.insufficientTokens"));
       setTokensExhaustedModalOpen(true);
       return;
@@ -852,6 +854,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setAiLoading(true);
     setError(null);
     setAiActionableError(null);
+    setAiQuotaExceededError(false);
     try {
       const result = await requestAiTrainingPlan(profile, {
         goal: form.goal,
@@ -888,7 +891,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const status = err instanceof AiPlanRequestError ? err.status : null;
       const errorCode = err instanceof AiPlanRequestError ? normalizeAiErrorCode(err.code) : null;
       const backendMessage = err instanceof AiPlanRequestError ? sanitizeErrorMessage(err.userMessage) : null;
-      if (err instanceof AiPlanRequestError && errorCode === "INSUFFICIENT_TOKENS") {
+      if (err instanceof AiPlanRequestError && errorCode === "AI_QUOTA_EXCEEDED") {
+        setAiActionableError(t("ai.quotaUnavailable"));
+        setAiQuotaExceededError(true);
+      } else if (err instanceof AiPlanRequestError && errorCode === "INSUFFICIENT_TOKENS") {
         setAiActionableError(t("ai.insufficientTokens"));
         setTokensExhaustedModalOpen(true);
       } else if (err instanceof AiPlanRequestError && status === 503 && errorCode === "EXERCISE_CATALOG_UNAVAILABLE") {
@@ -1017,10 +1023,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
+      setAiQuotaExceededError(false);
       setAiActionableError(safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO"));
       return;
     }
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiQuotaExceededError(false);
       setAiActionableError(t("ai.insufficientTokens"));
       setTokensExhaustedModalOpen(true);
       return;
@@ -1030,6 +1038,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       return;
     }
     setAiActionableError(null);
+    setAiQuotaExceededError(false);
     void handleAiPlan();
   };
 
@@ -1328,9 +1337,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       title={safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA")}
                       description={aiActionableError}
                       retryAction={
-                        <button type="button" className="btn secondary fit-content" onClick={handleAiRetry} disabled={aiLoading}>
-                          {t("ui.retry")}
-                        </button>
+                        <div className="inline-actions-sm">
+                          <button type="button" className="btn secondary fit-content" onClick={handleAiRetry} disabled={aiLoading || aiQuotaExceededError}>
+                            {t("ui.retry")}
+                          </button>
+                          {aiQuotaExceededError ? (
+                            <Link className="btn secondary fit-content" href="/app/settings/billing">
+                              {t("billing.manageBilling")}
+                            </Link>
+                          ) : null}
+                        </div>
                       }
                     />
                   </div>

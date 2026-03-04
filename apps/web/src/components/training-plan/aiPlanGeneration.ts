@@ -164,9 +164,10 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
-      | { error?: string; message?: string; retryAfterSec?: number; hint?: string }
+      | { error?: string; code?: string; message?: string; retryAfterSec?: number; hint?: string }
       | null;
-    const errorCode = normalizeAiErrorCode(payload?.error);
+    const rawErrorCode = typeof payload?.error === "string" ? payload.error : payload?.code;
+    const errorCode = normalizeAiErrorCode(rawErrorCode);
     const userMessage = sanitizeBackendMessage(payload?.message) ?? sanitizeBackendMessage(payload?.error) ?? undefined;
     if (errorCode === "INSUFFICIENT_TOKENS") {
       throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status, {

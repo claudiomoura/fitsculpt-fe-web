@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { getBackendUrl } from "@/lib/backend";
 import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
 import { contractDriftResponse, validateAiTrainingGeneratePayload } from "@/lib/runtimeContracts";
-import { parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
+import { aiRequestFailedResponse, mapAiUpstreamError, parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_UPSTREAM_ERROR = "UPSTREAM_ERROR";
 const UPSTREAM_TIMEOUT_ERROR = "AI_TIMEOUT";
 const AI_GENERATE_TIMEOUT_MS = 120_000;
 
@@ -80,15 +79,10 @@ export async function POST(request: Request) {
       });
 
       if (data !== null) {
-        return NextResponse.json(data, { status: response.status });
+        return mapAiUpstreamError(response.status, data);
       }
 
-      return new NextResponse(responseText || JSON.stringify({ error: DEFAULT_UPSTREAM_ERROR }), {
-        status: response.status,
-        headers: {
-          "content-type": response.headers.get("content-type") ?? "text/plain; charset=utf-8",
-        },
-      });
+      return aiRequestFailedResponse(response.status);
     }
 
     if (data === null) {
@@ -97,7 +91,7 @@ export async function POST(request: Request) {
         durationMs: Date.now() - startedAt,
         errorKind: "status_error",
       });
-      return NextResponse.json({ error: DEFAULT_UPSTREAM_ERROR }, { status: 502 });
+      return aiRequestFailedResponse();
     }
 
     const validation = validateAiTrainingGeneratePayload(data);
@@ -113,7 +107,7 @@ export async function POST(request: Request) {
     }
 
     logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
-    return NextResponse.json({ error: DEFAULT_UPSTREAM_ERROR }, { status: 502 });
+    return aiRequestFailedResponse();
   } finally {
     clearTimeout(timeoutId);
   }
