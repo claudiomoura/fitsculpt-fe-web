@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { OpenAiResponse } from "../../ai/provider/openaiClient.js";
 import type { AuthenticatedEntitlementsRequest } from "../../middleware/entitlements.js";
+import { sendAiEndpointError } from "./mapAiEndpointError.js";
 
 type RecipeWithIngredients = Prisma.RecipeGetPayload<{
   include: { ingredients: true };
@@ -20,7 +21,6 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
     prisma,
     getAiTokenPayload,
     getSecondsUntilNextUtcDay,
-    handleRequestError,
     logAuthCookieDebug,
     requireCompleteProfile,
     aiTrainingSchema,
@@ -142,7 +142,7 @@ app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
       entitlements,
     });
   } catch (error) {
-    return handleRequestError(reply, error);
+    return sendAiEndpointError(reply, error);
   }
 });
 
@@ -417,7 +417,7 @@ app.post(
         ...(debit ? { debit } : {}),
       });
     } catch (error) {
-      return handleRequestError(reply, error);
+      return sendAiEndpointError(reply, error);
     }
   },
 );
@@ -451,7 +451,9 @@ const nutritionPlanHandler = async (
           { route: nutritionRoutePath, issues },
           "nutrition request validation failed",
         );
-        return reply.status(422).send({ error: "INVALID_INPUT", issues });
+        return reply
+          .status(400)
+          .send({ error: "INVALID_INPUT", kind: "validation", issues });
       }
       const data = nutritionInput.data;
       const expectedMealsPerDay = Math.min(data.mealsPerDay, 6);
@@ -899,7 +901,7 @@ const nutritionPlanHandler = async (
         ...(debit ? { debit } : {}),
       });
   } catch (error) {
-    return handleRequestError(reply, error);
+    return sendAiEndpointError(reply, error);
   }
 };
 
@@ -1172,7 +1174,15 @@ app.post(
 
       return reply
         .status(classified.statusCode)
-        .send({ error: classified.error });
+        .send({
+          error: classified.error,
+          kind:
+            classified.errorKind === "validation_error"
+              ? "validation"
+              : classified.errorKind === "upstream_error"
+                ? "upstream"
+                : "internal",
+        });
     }
   },
 );
@@ -1314,7 +1324,7 @@ app.post(
         ...(debit ? { debit } : {}),
       });
     } catch (error) {
-      return handleRequestError(reply, error);
+      return sendAiEndpointError(reply, error);
     }
   },
 );

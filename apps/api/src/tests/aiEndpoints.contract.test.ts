@@ -194,6 +194,7 @@ async function run() {
   assert.equal(response.statusCode, 400);
   body = response.json();
   assert.equal(body.error, "INVALID_INPUT");
+  assert.equal(body.kind, "validation");
   await app.close();
 
   app = await buildApp({ assertSufficientAiTokenBalance: () => { throw httpError(429, "AI_QUOTA_EXCEEDED", { kind: "quota" }); } });
@@ -201,6 +202,7 @@ async function run() {
   assert.equal(response.statusCode, 429);
   body = response.json();
   assert.equal(body.error, "AI_QUOTA_EXCEEDED");
+  assert.equal(body.kind, "quota");
   await app.close();
 
   app = await buildApp({ callOpenAi: async () => { throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }); } });
@@ -208,6 +210,7 @@ async function run() {
   assert.equal(response.statusCode, 502);
   body = response.json();
   assert.equal(body.error, "AI_REQUEST_FAILED");
+  assert.equal(body.kind, "upstream");
   await app.close();
 
   app = await buildApp();
@@ -218,9 +221,10 @@ async function run() {
   assert.ok(body.plan);
 
   response = await app.inject({ method: "POST", url: "/ai/nutrition-plan/generate", payload: { mealsPerDay: "4" } });
-  assert.equal(response.statusCode, 422);
+  assert.equal(response.statusCode, 400);
   body = response.json();
   assert.equal(body.error, "INVALID_INPUT");
+  assert.equal(body.kind, "validation");
   await app.close();
 
   app = await buildApp({ buildNutritionTemplate: () => null, enforceAiQuota: async () => { throw httpError(429, "AI_QUOTA_EXCEEDED", { kind: "quota" }); } });
@@ -228,7 +232,7 @@ async function run() {
   assert.equal(response.statusCode, 429);
   body = response.json();
   assert.equal(body.error, "AI_QUOTA_EXCEEDED");
-  assert.equal(body.debug.kind, "quota");
+  assert.equal(body.kind, "quota");
   await app.close();
 
   app = await buildApp({ buildNutritionTemplate: () => null, callOpenAi: async () => { throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }); } });
@@ -236,7 +240,7 @@ async function run() {
   assert.equal(response.statusCode, 502);
   body = response.json();
   assert.equal(body.error, "AI_REQUEST_FAILED");
-  assert.equal(body.debug.kind, "upstream");
+  assert.equal(body.kind, "upstream");
   await app.close();
 
   app = await buildApp();
@@ -258,6 +262,7 @@ async function run() {
   assert.equal(response.statusCode, 400);
   body = response.json();
   assert.equal(body.error, "INVALID_INPUT");
+  assert.equal(body.kind, "validation");
   await app.close();
 
   app = await buildApp({ buildTipTemplate: () => null, enforceAiQuota: async () => { throw httpError(429, "AI_QUOTA_EXCEEDED", { kind: "quota" }); } });
@@ -265,7 +270,7 @@ async function run() {
   assert.equal(response.statusCode, 429);
   body = response.json();
   assert.equal(body.error, "AI_QUOTA_EXCEEDED");
-  assert.equal(body.debug.kind, "quota");
+  assert.equal(body.kind, "quota");
   await app.close();
 
   app = await buildApp({ buildTipTemplate: () => null, callOpenAi: async () => { throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }); } });
@@ -273,7 +278,7 @@ async function run() {
   assert.equal(response.statusCode, 502);
   body = response.json();
   assert.equal(body.error, "AI_REQUEST_FAILED");
-  assert.equal(body.debug.kind, "upstream");
+  assert.equal(body.kind, "upstream");
   await app.close();
 
   console.log("ai per-endpoint contracts passed");
