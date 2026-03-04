@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import { ActivePlanSection, PlanCard, PlanHistoryList } from "@/components/plans/PlanSections";
 import type { NutritionPlanListItem } from "@/lib/types";
 import {
   ACTIVE_NUTRITION_PLAN_STORAGE_KEY,
@@ -46,6 +45,25 @@ export default function DietPlansClient() {
   const queryPlanId = normalizePlanSelection(searchParams.get("planId"));
   const assignedPlanId = normalizePlanSelection(assignedPlan?.id);
   const activePlanId = resolveActiveNutritionPlanId(queryPlanId, storedActivePlanId, assignedPlanId);
+
+  const activePlan = useMemo(() => {
+    if (!activePlanId) return null;
+    if (assignedPlan && getNutritionPlanId(assignedPlan) === activePlanId) return assignedPlan;
+    return plans.find((plan) => getNutritionPlanId(plan) === activePlanId) ?? null;
+  }, [activePlanId, assignedPlan, plans]);
+
+  const historyPlans = useMemo(() => {
+    const mergedPlans = [...plans];
+    if (assignedPlan) {
+      const assignedId = getNutritionPlanId(assignedPlan);
+      if (!mergedPlans.some((plan) => getNutritionPlanId(plan) === assignedId)) {
+        mergedPlans.unshift(assignedPlan);
+      }
+    }
+
+    return mergedPlans.filter((plan) => getNutritionPlanId(plan) !== activePlanId);
+  }, [activePlanId, assignedPlan, plans]);
+  const assignedPlanCardId = assignedPlan ? getNutritionPlanId(assignedPlan) : null;
 
   useEffect(() => {
     if (queryPlanId) {
@@ -144,11 +162,15 @@ export default function DietPlansClient() {
     };
   }, []);
 
-  const formatter = useMemo(() => new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }), [locale]);
+  const formatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
+    [locale]
+  );
 
   const formatPlanDate = (plan: NutritionPlanListItem): string => {
     const parsed = new Date(getNutritionPlanDate(plan));
@@ -175,42 +197,38 @@ export default function DietPlansClient() {
         />
       </section>
 
-      {activePlanId ? (
-        <section className="card" data-testid="nutrition-active-plan-calendar-card">
-          <h2 className="section-title section-title-sm">{t("dietPlans.activePlanCalendarTitle")}</h2>
-          <p className="muted mt-6">{t("dietPlans.activePlanCalendarDescription")}</p>
-          <div className="mt-12">
-            <Link href={`/app/nutricion?planId=${encodeURIComponent(activePlanId)}`} className="btn" data-testid="nutrition-go-calendar-cta">
-              {t("dietPlans.goToCalendar")}
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="card">
-        <h2 className="section-title section-title-sm">{t("dietPlans.sectionTitle")}</h2>
-
-        {state === "loading" ? (
-          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
+      <ActivePlanSection title={t("plans.activeTitle")} emptyTitle={t("plans.activeEmpty")}>
+        {assignedState === "loading" ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
+        {assignedState === "error" ? <ErrorState className="mt-12" title={t("dietPlans.assignedLoadError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
+        {assignedState === "unavailable" ? <EmptyState className="mt-12" title={t("dietPlans.assignedUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
+        {assignedState === "ready" && activePlan ? (
+          <PlanCard
+            title={activePlan.title}
+            metadata={t("dietPlans.planMeta", { date: formatPlanDate(activePlan), days: activePlan.daysCount })}
+            statusLabel={t("plans.activeBadge")}
+            testId={getNutritionPlanId(activePlan) === assignedPlanCardId ? "nutrition-assigned-plan-card" : "nutrition-active-plan-card"}
+            actions={[
+              { label: t("dietPlans.viewDetail"), href: `/app/dietas/${getNutritionPlanId(activePlan)}`, variant: "secondary", testId: "nutrition-view-active-plan" },
+              { label: t("dietPlans.goToCalendar"), href: `/app/nutricion?planId=${encodeURIComponent(getNutritionPlanId(activePlan))}`, testId: "nutrition-go-calendar-cta" },
+            ]}
+          />
         ) : null}
+      </ActivePlanSection>
 
+      <PlanHistoryList title={t("plans.historyTitle")} emptyTitle={t("plans.historyEmpty")}>
+        {state === "loading" ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
         {state === "error" ? (
           <div data-testid="nutrition-plans-error-state">
-            <ErrorState
-              className="mt-12"
-              title={t("dietPlans.loadErrorList")}
-              retryLabel={t("ui.retry")}
-              onRetry={() => setReloadKey((value) => value + 1)}
-            />
+            <ErrorState className="mt-12" title={t("dietPlans.loadErrorList")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
           </div>
         ) : null}
         {state === "unavailable" ? <EmptyState className="mt-12" title={t("dietPlans.unavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
 
-        {state === "ready" && plans.length === 0 ? (
+        {state === "ready" && historyPlans.length === 0 ? (
           <EmptyState
             className="mt-12"
-            title={t("dietPlans.empty")}
-            description={t("dietPlans.emptyDescription")}
+            title={t("plans.historyEmpty")}
+            description={t("plans.historyEmptyDescription")}
             actions={[
               { label: t("dietPlans.emptyCta"), href: "/app/nutricion?ai=1", variant: "primary" },
               { label: t("dietPlans.emptyManualCta"), href: "/app/nutricion/editar", variant: "secondary" },
@@ -218,99 +236,37 @@ export default function DietPlansClient() {
           />
         ) : null}
 
-        {state === "ready" && plans.length > 0 ? (
+        {state === "ready" && historyPlans.length > 0 ? (
           <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            {plans.map((plan) => {
+            {historyPlans.map((plan) => {
               const planId = getNutritionPlanId(plan);
               const isSelected = activePlanId === planId;
               return (
-                <article key={planId} className="feature-card" data-testid={`nutrition-plan-card-${planId}`}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-                    <div>
-                      <h3 className="m-0">{plan.title}</h3>
-                      <p className="muted mt-6">
-                        {t("dietPlans.planMeta", {
-                          date: formatPlanDate(plan),
-                          days: plan.daysCount,
-                        })}
-                      </p>
-                    </div>
-                    {isSelected ? <span className="badge badge-success" data-testid={`nutrition-plan-active-badge-${planId}`}>{t("dietPlans.activeBadge")}</span> : null}
-                  </div>
-
-                  <div className="badge-list mt-12">
-                    <span className="badge">{Math.round(plan.dailyCalories)} kcal</span>
-                    <span className="badge">P {Math.round(plan.proteinG)}</span>
-                    <span className="badge">C {Math.round(plan.carbsG)}</span>
-                    <span className="badge">G {Math.round(plan.fatG)}</span>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                    <Button
-                      variant={isSelected ? "secondary" : "primary"}
-                      onClick={() => selectActivePlan(planId)}
-                      data-testid={`nutrition-select-active-${planId}`}
-                    >
-                      {isSelected ? t("dietPlans.activeBadge") : t("dietPlans.selectActiveCta")}
-                    </Button>
-                    <Link href={`/app/dietas/${planId}`} className="btn secondary" data-testid={`nutrition-view-plan-${planId}`}>
-                      {t("dietPlans.viewDetail")}
-                    </Link>
-                  </div>
-                </article>
+                <PlanCard
+                  key={planId}
+                  title={plan.title}
+                  metadata={t("dietPlans.planMeta", { date: formatPlanDate(plan), days: plan.daysCount })}
+                  statusLabel={isSelected ? t("dietPlans.activeBadge") : undefined}
+                  statusTestId={isSelected ? `nutrition-plan-active-badge-${planId}` : undefined}
+                  badges={
+                    <>
+                      <span className="badge">{Math.round(plan.dailyCalories)} kcal</span>
+                      <span className="badge">P {Math.round(plan.proteinG)}</span>
+                      <span className="badge">C {Math.round(plan.carbsG)}</span>
+                      <span className="badge">G {Math.round(plan.fatG)}</span>
+                    </>
+                  }
+                  actions={[
+                    { label: isSelected ? t("dietPlans.activeBadge") : t("dietPlans.selectActiveCta"), onClick: () => selectActivePlan(planId), variant: isSelected ? "secondary" : "primary", testId: `nutrition-select-active-${planId}` },
+                    { label: t("dietPlans.viewDetail"), href: `/app/dietas/${planId}`, variant: "secondary", testId: `nutrition-view-plan-${planId}` },
+                  ]}
+                  testId={planId === assignedPlanCardId ? "nutrition-assigned-plan-card" : `nutrition-plan-card-${planId}`}
+                />
               );
             })}
           </div>
         ) : null}
-      </section>
-
-      <section className="card">
-        <h2 className="section-title section-title-sm">{t("dietPlans.assignedSectionTitle")}</h2>
-
-        {assignedState === "loading" ? (
-          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
-        ) : null}
-
-        {assignedState === "error" ? (
-          <ErrorState className="mt-12" title={t("dietPlans.assignedLoadError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
-        ) : null}
-
-        {assignedState === "unavailable" ? (
-          <EmptyState className="mt-12" title={t("dietPlans.assignedUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} />
-        ) : null}
-
-        {assignedState === "ready" && !assignedPlan ? (
-          <EmptyState className="mt-12" title={t("dietPlans.assignedEmpty")} icon="info" />
-        ) : null}
-
-        {assignedState === "ready" && assignedPlan ? (
-          <article className="feature-card mt-12" data-testid="nutrition-assigned-plan-card">
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-              <div>
-                <h3 className="m-0">{assignedPlan.title}</h3>
-                <p className="muted mt-6">{t("dietPlans.planMeta", {
-                  date: formatPlanDate(assignedPlan),
-                  days: assignedPlan.daysCount,
-                })}</p>
-              </div>
-              <span className="badge">{t("dietPlans.assignedBadge")}</span>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-              <Button
-                variant={activePlanId === getNutritionPlanId(assignedPlan) ? "secondary" : "primary"}
-                onClick={() => selectActivePlan(getNutritionPlanId(assignedPlan))}
-                data-testid="nutrition-select-assigned-plan"
-              >
-                {activePlanId === getNutritionPlanId(assignedPlan) ? t("dietPlans.activeBadge") : t("dietPlans.selectActiveCta")}
-              </Button>
-              <Link href={`/app/dietas/${getNutritionPlanId(assignedPlan)}`} className="btn secondary" data-testid="nutrition-view-assigned-plan">
-                {t("dietPlans.viewDetail")}
-              </Link>
-            </div>
-          </article>
-        ) : null}
-      </section>
+      </PlanHistoryList>
     </>
   );
 }

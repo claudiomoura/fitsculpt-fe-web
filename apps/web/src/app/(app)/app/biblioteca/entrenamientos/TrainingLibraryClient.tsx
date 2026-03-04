@@ -5,9 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { getRoleFlags } from "@/lib/roles";
-import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
+import { ActivePlanSection, PlanCard, PlanHistoryList } from "@/components/plans/PlanSections";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
 
@@ -223,9 +223,23 @@ export default function TrainingLibraryClient() {
     const parsed = new Date(dateValue);
     return Number.isNaN(parsed.getTime()) ? t("library.training.planDateFallback") : formatter.format(parsed);
   };
-  const noPlansAvailable = useMemo(
-    () => fitSculptState === "ready" && assignedPlanState === "ready" && fitSculptPlans.length === 0 && !assignedPlan,
-    [assignedPlan, assignedPlanState, fitSculptPlans.length, fitSculptState]
+  const allPlans = useMemo(() => {
+    const map = new Map<string, TrainingPlanListItem>();
+    fitSculptPlans.forEach((plan) => map.set(getPlanId(plan), plan));
+    gymPlans.forEach((plan) => map.set(getPlanId(plan), plan));
+    if (assignedPlan) map.set(getPlanId(assignedPlan), assignedPlan);
+    return Array.from(map.values());
+  }, [assignedPlan, fitSculptPlans, gymPlans]);
+
+  const resolvedActivePlanId = activePlanId ?? (assignedPlan ? getPlanId(assignedPlan) : null);
+  const activePlan = useMemo(() => {
+    if (!resolvedActivePlanId) return null;
+    return allPlans.find((plan) => getPlanId(plan) === resolvedActivePlanId) ?? null;
+  }, [allPlans, resolvedActivePlanId]);
+
+  const historyPlans = useMemo(
+    () => allPlans.filter((plan) => getPlanId(plan) !== resolvedActivePlanId),
+    [allPlans, resolvedActivePlanId]
   );
 
   const selectPlan = (planId: string) => {
@@ -240,59 +254,6 @@ export default function TrainingLibraryClient() {
     router.replace(`${pathname}?${nextParams.toString()}`);
   };
 
-  const renderSection = (titleKey: string, plans: TrainingPlanListItem[], state: SectionState) => (
-    <section className="card">
-      <h2 className="section-title section-title-sm">{t(titleKey)}</h2>
-
-      {state === "loading" ? (
-        <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
-      ) : null}
-
-      {state === "error" ? (
-        <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
-      ) : null}
-      {state === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.sectionUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
-      {state === "ready" && plans.length === 0 ? <EmptyState className="mt-12" title={t("library.training.sectionEmpty")} icon="info" /> : null}
-
-      {state === "ready" && plans.length > 0 ? (
-        <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-          {plans.map((plan) => {
-            const planId = getPlanId(plan);
-            const isSelected = activePlanId === planId;
-            return (
-              <article key={planId} className="feature-card">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-                  <div>
-                    <h3 className="m-0">{plan.title}</h3>
-                    <p className="muted mt-6">
-                      {t("library.training.planMeta", {
-                        days: plan.daysCount,
-                        level: plan.level,
-                        date: formatPlanDate(plan),
-                      })}
-                    </p>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    {isSelected ? <span className="badge badge-success">{t("library.training.selected")}</span> : null}
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                  <Button variant={isSelected ? "secondary" : "primary"} onClick={() => selectPlan(planId)}>
-                    {isSelected ? t("library.training.selected") : t("library.training.choose")}
-                  </Button>
-                  <Link href={`/app/biblioteca/entrenamientos/${planId}`} className="btn secondary">
-                    {t("trainingPlans.viewDetail")}
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      ) : null}
-    </section>
-  );
-
   return (
     <>
       <section className="card">
@@ -305,47 +266,52 @@ export default function TrainingLibraryClient() {
         />
       </section>
 
-      {renderSection("library.training.sections.fitsculpt", fitSculptPlans, fitSculptState)}
-      {renderSection("library.training.sections.gym", gymPlans, gymState)}
+      <ActivePlanSection title={t("plans.activeTitle")} emptyTitle={t("plans.activeEmpty")}>
+        {(fitSculptState === "loading" || assignedPlanState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
+        {(fitSculptState === "error" || assignedPlanState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
+        {activePlan ? (
+          <PlanCard
+            title={activePlan.title}
+            metadata={t("library.training.planMeta", { days: activePlan.daysCount, level: activePlan.level, date: formatPlanDate(activePlan) })}
+            statusLabel={t("plans.activeBadge")}
+            actions={[
+              { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${getPlanId(activePlan)}`, variant: "secondary" },
+              { label: t("library.training.choose"), onClick: () => selectPlan(getPlanId(activePlan)), variant: "secondary" },
+              // Requiere implementación: deep link directo a semana específica cuando el backend exponga ese contexto.
+              { label: t("library.training.goToWeek"), href: `/app/entrenamiento?planId=${encodeURIComponent(getPlanId(activePlan))}` },
+            ]}
+          />
+        ) : null}
+      </ActivePlanSection>
 
-      <section className="card">
-        <h2 className="section-title section-title-sm">{t("library.training.sections.assigned")}</h2>
-
-        {assignedPlanState === "loading" ? (
-          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
+      <PlanHistoryList title={t("plans.historyTitle")} emptyTitle={t("plans.historyEmpty")}>
+        {(fitSculptState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
+        {(fitSculptState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
+        {fitSculptState === "unavailable" && gymState === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.sectionUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
+        {fitSculptState === "ready" && (!canLoadGymPlans || gymState === "ready" || gymState === "unavailable") && historyPlans.length === 0 ? (
+          <EmptyState className="mt-12" title={t("plans.historyEmpty")} description={t("plans.historyEmptyDescription")} icon="info" />
         ) : null}
 
-        {assignedPlanState === "error" ? (
-          <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} />
+        {historyPlans.length > 0 ? (
+          <div className="mt-12" style={{ display: "grid", gap: 12 }}>
+            {historyPlans.map((plan) => {
+              const planId = getPlanId(plan);
+              const isSelected = resolvedActivePlanId === planId;
+              return (
+                <PlanCard
+                  key={planId}
+                  title={plan.title}
+                  metadata={t("library.training.planMeta", { days: plan.daysCount, level: plan.level, date: formatPlanDate(plan) })}
+                  actions={[
+                    { label: isSelected ? t("library.training.selected") : t("library.training.choose"), onClick: () => selectPlan(planId), variant: isSelected ? "secondary" : "primary" },
+                    { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${planId}`, variant: "secondary" },
+                  ]}
+                />
+              );
+            })}
+          </div>
         ) : null}
-        {assignedPlanState === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.assignedUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
-        {assignedPlanState === "ready" && !assignedPlan ? <EmptyState className="mt-12" title={t("library.training.assignedEmpty")} icon="info" /> : null}
-
-        {assignedPlanState === "ready" && assignedPlan ? (
-          <article className="feature-card mt-12">
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-              <div>
-                <h3 className="m-0">{assignedPlan.title}</h3>
-                <p className="muted mt-6">{t("library.training.planMeta", {
-                  days: assignedPlan.daysCount,
-                  level: assignedPlan.level,
-                  date: formatPlanDate(assignedPlan),
-                })}</p>
-              </div>
-              <span className="badge">{t("library.training.assignedByTrainer")}</span>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-              <Button variant={activePlanId === getPlanId(assignedPlan) ? "secondary" : "primary"} onClick={() => selectPlan(getPlanId(assignedPlan))}>
-                {activePlanId === getPlanId(assignedPlan) ? t("library.training.selected") : t("library.training.choose")}
-              </Button>
-              <Link href={`/app/biblioteca/entrenamientos/${getPlanId(assignedPlan)}`} className="btn secondary">
-                {t("trainingPlans.viewDetail")}
-              </Link>
-            </div>
-          </article>
-        ) : null}
-
-      </section>
+      </PlanHistoryList>
 
       <section className="card">
         <h2 className="section-title section-title-sm">{t("library.training.sections.ai")}</h2>
@@ -378,17 +344,6 @@ export default function TrainingLibraryClient() {
         ) : null}
       </section>
 
-      {noPlansAvailable ? (
-        <section className="card">
-          <strong>{t("library.training.emptyVisiblePlansTitle")}</strong>
-          <p className="muted mt-6">{t("library.training.noAssignedOrAvailable")}</p>
-          <div className="mt-12">
-            <Link href="/app/entrenamiento" className="btn">
-              {t("library.training.emptyVisiblePlansCta")}
-            </Link>
-          </div>
-        </section>
-      ) : null}
     </>
   );
 }

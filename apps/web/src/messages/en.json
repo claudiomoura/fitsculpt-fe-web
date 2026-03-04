@@ -1846,7 +1846,8 @@
       "assignedEmpty": "No assigned plan is available with current data.",
       "assignedUnavailable": "We cannot verify an assigned plan with current data.",
       "aiUnavailableTitle": "AI plans unavailable",
-      "aiUnavailableDescription": "We cannot validate AI plan access with current data."
+      "aiUnavailableDescription": "We cannot validate AI plan access with current data.",
+      "goToWeek": "Go to week"
     }
   },
   "recipes": {
@@ -3283,5 +3284,13 @@
     "accept": "Accept",
     "nowNo": "Not now",
     "undo": "Undo"
+  },
+  "plans": {
+    "activeTitle": "Active plan",
+    "activeBadge": "Active",
+    "activeEmpty": "You do not have an active plan yet.",
+    "historyTitle": "History",
+    "historyEmpty": "There are no plans in history yet.",
+    "historyEmptyDescription": "When you activate a new plan, previous plans will appear here."
   }
 }

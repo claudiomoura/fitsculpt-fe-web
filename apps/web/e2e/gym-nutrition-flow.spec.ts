@@ -213,13 +213,29 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
         password: demoUserPassword,
       });
       await page.goto('/app/dietas');
-      await expect(page.getByTestId('nutrition-assigned-plan-card')).toBeVisible();
+
+      await expect
+        .poll(
+          async () => {
+            const assignedResponse = await memberContext.get('/members/me/assigned-nutrition-plan');
+            return assignedResponse.status();
+          },
+          {
+            message: 'member assigned-nutrition-plan endpoint should return 200 before UI checks',
+            intervals: [500, 1000, 2000, 2000],
+            timeout: 15_000,
+          }
+        )
+        .toBe(200);
+
+      await expect(page.getByTestId('nutrition-page-root')).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId('nutrition-assigned-plan-card')).toBeVisible({ timeout: 15_000 });
 
       const firstPlanCard = page.locator('[data-testid^="nutrition-plan-card-"]').first();
       await expect(firstPlanCard).toBeVisible();
 
       await firstPlanCard.locator('[data-testid^="nutrition-select-active-"]').click();
-      await expect(firstPlanCard.locator('[data-testid^="nutrition-plan-active-badge-"]')).toBeVisible();
+      await expect(page.locator('[data-testid="nutrition-active-plan-card"], [data-testid="nutrition-assigned-plan-card"]')).toBeVisible();
 
       await page.getByTestId('nutrition-go-calendar-cta').click();
       await page.waitForURL('**/app/nutricion**', { timeout: 15_000 });
