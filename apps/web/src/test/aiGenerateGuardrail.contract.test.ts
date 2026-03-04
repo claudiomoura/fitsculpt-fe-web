@@ -55,7 +55,7 @@ describe("AI generate proxy guardrail contract", () => {
     expect(response.status).toBe(502);
 
     const data = await response.json();
-    expect(data).toEqual({ error: "provider down", code: "UPSTREAM_ERROR", kind: "upstream" });
+    expect(data).toEqual({ error: "AI_REQUEST_FAILED", code: "UPSTREAM_ERROR", kind: "upstream" });
   });
 
   it.each(ENDPOINTS)("$name endpoint maps provider insufficient_quota to AI_QUOTA_EXCEEDED", async (endpoint) => {

@@ -59,7 +59,7 @@ export function mapAiUpstreamError(status: number, payload: unknown): NextRespon
 
   if (status >= 500) {
     return NextResponse.json(
-      { error: upstreamMessage ?? CLIENT_ERROR_CODE, code: UPSTREAM_ERROR_CODE, kind: "upstream" },
+      { error: CLIENT_ERROR_CODE, code: UPSTREAM_ERROR_CODE, kind: "upstream" },
       { status: 502 }
     );
   }
