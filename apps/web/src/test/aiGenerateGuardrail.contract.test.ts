@@ -55,7 +55,7 @@ describe("AI generate proxy guardrail contract", () => {
     expect(response.status).toBe(502);
 
     const data = await response.json();
-    expect(data).toEqual({ error: "AI_REQUEST_FAILED", code: "UPSTREAM_ERROR", kind: "upstream" });
+    expect(data).toEqual({ error: "AI_REQUEST_FAILED", code: "UPSTREAM_ERROR", kind: "upstream", status: 502 });
   });
 
   it.each(ENDPOINTS)("$name endpoint maps provider insufficient_quota to AI_QUOTA_EXCEEDED", async (endpoint) => {
@@ -69,10 +69,31 @@ describe("AI generate proxy guardrail contract", () => {
     expect(response.status).toBe(429);
 
     const data = await response.json();
-    expect(data).toEqual({ error: "AI_QUOTA_EXCEEDED", code: "AI_QUOTA_EXCEEDED", kind: "quota" });
+    expect(data).toEqual({ error: "AI_QUOTA_EXCEEDED", code: "AI_QUOTA_EXCEEDED", kind: "quota", status: 429 });
   });
 
-  it.each(ENDPOINTS)("$name endpoint preserves 409 passthrough + { error: string }", async (endpoint) => {
+  it.each(ENDPOINTS)("$name endpoint maps auth and not-found upstream errors to stable BFF shape", async (endpoint) => {
+    for (const status of [401, 403, 404] as const) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(status, JSON.stringify({ error: "UPSTREAM_ERROR" }))));
+      const response = await invokeEndpoint(endpoint);
+      const data = await response.json();
+
+      if (status === 401) expect(data).toEqual({ error: "UNAUTHORIZED", kind: "auth", status: 401 });
+      if (status === 403) expect(data).toEqual({ error: "FORBIDDEN", kind: "auth", status: 403 });
+      if (status === 404) expect(data).toEqual({ error: "NOT_FOUND", kind: "not_found", status: 404 });
+    }
+  });
+
+  it.each(ENDPOINTS)("$name endpoint maps upstream 400 to INVALID_REQUEST", async (endpoint) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(400, JSON.stringify({ error: "INVALID_INPUT" }))));
+
+    const response = await invokeEndpoint(endpoint);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "INVALID_REQUEST", kind: "validation", status: 400 });
+  });
+
+  it.each(ENDPOINTS)("$name endpoint preserves non-mapped 409 with stable kind", async (endpoint) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(409, JSON.stringify({ error: "CONFLICT_ACTIVE_PLAN" }))));
 
     const response = await invokeEndpoint(endpoint);
@@ -80,22 +101,7 @@ describe("AI generate proxy guardrail contract", () => {
     expect(response.status).toBe(409);
 
     const data = await response.json();
-    expect(data).toEqual({ error: "CONFLICT_ACTIVE_PLAN", code: "AI_REQUEST_FAILED", kind: "request" });
-    expect(data).toMatchObject({ error: expect.any(String) });
-  });
-
-  it("nutrition endpoint preserves validation 400 passthrough + { error: string }", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(400, JSON.stringify({ error: "INVALID_INPUT" }))));
-
-    const nutritionEndpoint = ENDPOINTS.find((endpoint) => endpoint.name === "nutrition");
-    expect(nutritionEndpoint).toBeDefined();
-
-    const response = await invokeEndpoint(nutritionEndpoint!);
-
-    expect(response.status).toBe(400);
-    const data = await response.json();
-    expect(data).toEqual({ error: "INVALID_INPUT", code: "AI_REQUEST_FAILED", kind: "request" });
-    expect(data).toMatchObject({ error: expect.any(String) });
+    expect(data).toEqual({ error: "CONFLICT_ACTIVE_PLAN", code: "AI_REQUEST_FAILED", kind: "unknown", status: 409 });
   });
 
   it.each(ENDPOINTS)("$name endpoint maps plain text upstream errors", async (endpoint) => {
@@ -104,7 +110,7 @@ describe("AI generate proxy guardrail contract", () => {
     const response = await invokeEndpoint(endpoint);
 
     expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toEqual({ error: "AI_REQUEST_FAILED", code: "UPSTREAM_ERROR", kind: "upstream" });
+    await expect(response.json()).resolves.toEqual({ error: "AI_REQUEST_FAILED", code: "UPSTREAM_ERROR", kind: "upstream", status: 502 });
   });
 
   it.each(ENDPOINTS)("$name endpoint maps upstream abort to 504 AI_TIMEOUT", async (endpoint) => {
@@ -115,7 +121,7 @@ describe("AI generate proxy guardrail contract", () => {
     const response = await invokeEndpoint(endpoint);
 
     expect(response.status).toBe(504);
-    await expect(response.json()).resolves.toEqual({ error: "AI_TIMEOUT" });
+    await expect(response.json()).resolves.toEqual({ error: "AI_TIMEOUT", code: "AI_REQUEST_FAILED", kind: "upstream", status: 504 });
   });
 
   it.each(ENDPOINTS)("$name endpoint uses 120s timeout and forwards aiRequestId header", async (endpoint) => {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { jsonBffError } from "@/app/api/_utils/normalizeBffError";
 
 type CheckinEntry = {
   id: string;
@@ -70,7 +71,7 @@ function getSnapshotForKey(key: string): TrackingSnapshot {
 export async function GET() {
   const key = await getTrackingStoreKey();
   if (!key) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return jsonBffError({ status: 401 });
   }
 
   return NextResponse.json(getSnapshotForKey(key), { status: 200 });
@@ -87,10 +88,14 @@ export async function POST(request: Request) {
 async function writeTracking(request: Request) {
   const key = await getTrackingStoreKey();
   if (!key) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return jsonBffError({ status: 401 });
   }
 
-  const payload = await request.json().catch(() => null);
+  const payload = await request.json().catch(() => undefined);
+  if (payload === undefined) {
+    return jsonBffError({ status: 400, type: "validation" });
+  }
+
   const currentSnapshot = getSnapshotForKey(key);
 
   if (isTrackingSnapshot(payload)) {

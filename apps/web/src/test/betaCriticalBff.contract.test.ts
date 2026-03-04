@@ -120,4 +120,31 @@ describe("BETA-11 critical BFF contract tests", () => {
       }),
     );
   });
+
+  it("normalizes GET /api/billing/status auth error shape", async () => {
+    cookiesMock.mockResolvedValue({
+      get: () => undefined,
+    });
+
+    const { GET } = await import("@/app/api/billing/status/route");
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: "UNAUTHORIZED", kind: "auth", status: 401 });
+  });
+
+  it("normalizes GET /api/billing/status upstream 404 error shape", async () => {
+    cookiesMock.mockResolvedValue({
+      get: () => ({ value: "token_123" }),
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(404, { error: "missing" })));
+
+    const { GET } = await import("@/app/api/billing/status/route");
+    const response = await GET(new Request("http://localhost/api/billing/status"));
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: "NOT_FOUND", kind: "not_found", status: 404 });
+  });
 });

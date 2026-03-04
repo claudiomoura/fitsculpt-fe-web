@@ -46,7 +46,7 @@ function isAbortError(error: unknown): boolean {
 export async function POST(request: Request) {
   const { header: authCookie } = await getBackendAuthCookie(request);
   if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED_NO_FS_TOKEN" }, { status: 401 });
+    return NextResponse.json({ error: "UNAUTHORIZED", kind: "auth", status: 401 }, { status: 401 });
   }
 
   const startedAt = Date.now();
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (isAbortError(error)) {
       logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
-      return NextResponse.json({ error: UPSTREAM_TIMEOUT_ERROR }, { status: 504 });
+      return NextResponse.json({ error: UPSTREAM_TIMEOUT_ERROR, code: "AI_REQUEST_FAILED", kind: "upstream", status: 504 }, { status: 504 });
     }
 
     logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
