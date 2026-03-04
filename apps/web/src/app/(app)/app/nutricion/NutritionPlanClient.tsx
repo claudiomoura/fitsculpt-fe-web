@@ -39,7 +39,8 @@ import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
 import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
-import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
+import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError, classifyAiError } from "@/lib/aiErrorMapping";
+import { mapAiErrorToUiState } from "@/lib/aiErrorUi";
 
 type NutritionForm = {
   age: number;
@@ -193,15 +194,9 @@ type NutritionAiErrorState = {
   actionableHint: string | null;
   details: string | null;
   canRetry: boolean;
+  ctaHref: string | null;
+  ctaLabel: string | null;
 };
-
-function sanitizeErrorMessage(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const firstLine = value.split("\n").find((line) => line.trim().length > 0)?.trim() ?? "";
-  if (!firstLine) return null;
-  if (/^error:\s*/i.test(firstLine) || /\bat\s+.+\(.+\)/.test(firstLine)) return null;
-  return firstLine;
-}
 
 const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
 const NUTRITION_PLANS_UPDATED_AT_KEY = "fs_nutrition_plans_updated_at";
@@ -1606,6 +1601,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         actionableHint: null,
         details: null,
         canRetry: false,
+        ctaHref: null,
+        ctaLabel: null,
       });
       setTokensExhaustedModalOpen(true);
       return;
@@ -1720,26 +1717,21 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       const requestError = err as NutritionGenerateError;
       const retriesReached = aiRetryCount >= MAX_AI_RETRIES;
       const errorCode = normalizeAiErrorCode(requestError?.code);
-      const backendMessage = sanitizeErrorMessage(requestError?.message) ?? sanitizeErrorMessage(requestError?.code);
-      if (errorCode === "AI_QUOTA_EXCEEDED") {
+      if (errorCode === "AI_QUOTA_EXCEEDED" || errorCode === "INSUFFICIENT_TOKENS") {
+        const uiError = mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t);
         setAiError({
-          title: t("nutrition.aiErrorState.title"),
-          description: t("ai.quotaUnavailable"),
+          title: uiError.title,
+          description: uiError.description,
           actionableHint: null,
           details: null,
           canRetry: false,
+          ctaHref: uiError.ctaHref,
+          ctaLabel: uiError.ctaLabel,
         });
         setAiQuotaExceededError(true);
-        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (errorCode === "INSUFFICIENT_TOKENS") {
-        setAiError({
-          title: t("nutrition.aiErrorState.title"),
-          description: t("ai.insufficientTokens"),
-          actionableHint: null,
-          details: null,
-          canRetry: false,
-        });
-        setTokensExhaustedModalOpen(true);
+        if (errorCode === "INSUFFICIENT_TOKENS") {
+          setTokensExhaustedModalOpen(true);
+        }
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
       } else if (requestError?.status === 400 && errorCode === "INVALID_AI_OUTPUT") {
         setAiError({
@@ -1748,16 +1740,33 @@ const planToSave = ensurePlanStartDate(candidatePlan);
           actionableHint: extractAiActionableHint(requestError.details, t),
           details: extractAiDiffDetails(requestError.details),
           canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (requestError?.status === 400) {
+      } else if (classifyAiError({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }) === "auth") {
+        const uiError = mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t);
         setAiError({
-          title: t("nutrition.aiErrorState.title"),
-          description: backendMessage ?? extractAiFieldErrorsMessage(requestError.details) ?? t("nutrition.aiErrorState.genericDescription"),
+          title: uiError.title,
+          description: uiError.description,
+          actionableHint: null,
+          details: null,
+          canRetry: false,
+          ctaHref: uiError.ctaHref,
+          ctaLabel: uiError.ctaLabel,
+        });
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (requestError?.status === 400 || classifyAiError({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }) === "validation") {
+        const uiError = mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t);
+        setAiError({
+          title: uiError.title,
+          description: uiError.description,
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: uiError.ctaHref,
+          ctaLabel: uiError.ctaLabel,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
@@ -1768,6 +1777,8 @@ const planToSave = ensurePlanStartDate(candidatePlan);
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
@@ -1778,26 +1789,32 @@ const planToSave = ensurePlanStartDate(candidatePlan);
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
       } else if (shouldTreatAsUpstreamError(requestError?.status, requestError?.code)) {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
-          description: t("nutrition.aiErrorState.upstreamDescription"),
+          description: mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t).description,
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
       } else {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
-          description: backendMessage ?? t("nutrition.aiErrorState.genericDescription"),
+          description: mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t).description,
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
@@ -1822,13 +1839,14 @@ useEffect(() => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
       setAiQuotaExceededError(false);
-      setAiQuotaExceededError(false);
       setAiError({
         title: t("nutrition.aiErrorState.title"),
         description: aiLockDescription,
         actionableHint: null,
         details: null,
         canRetry: false,
+        ctaHref: null,
+        ctaLabel: null,
       });
       return;
     }
@@ -1839,6 +1857,8 @@ useEffect(() => {
         actionableHint: null,
         details: null,
         canRetry: false,
+        ctaHref: null,
+        ctaLabel: null,
       });
       setTokensExhaustedModalOpen(true);
       return;
@@ -2330,9 +2350,9 @@ const nutritionPlanDetails = profile ? (
                   <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
                     {t("ui.retry")}
                   </button>
-                  {aiQuotaExceededError ? (
-                    <Link href="/app/settings/billing" className="btn secondary fit-content">
-                      {t("billing.manageBilling")}
+                  {aiError.ctaHref && aiError.ctaLabel ? (
+                    <Link href={aiError.ctaHref} className="btn secondary fit-content">
+                      {aiError.ctaLabel}
                     </Link>
                   ) : null}
                   {!aiQuotaExceededError ? (

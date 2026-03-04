@@ -36,7 +36,8 @@ import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/components/ui/Toast";
 import { ErrorBlock } from "@/design-system";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
-import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError } from "@/lib/aiErrorMapping";
+import { classifyAiError } from "@/lib/aiErrorMapping";
+import { mapAiErrorToUiState, type AiErrorUiState } from "@/lib/aiErrorUi";
 import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 import { ExercisePlanDetailModal } from "@/components/exercise-library/detail/ExercisePlanDetailModal";
 
@@ -301,14 +302,6 @@ function shouldTriggerAiGeneration(aiQueryParam: string | null): boolean {
   return normalized === "1" || normalized === "true";
 }
 
-function sanitizeErrorMessage(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const firstLine = value.split("\n").find((line) => line.trim().length > 0)?.trim() ?? "";
-  if (!firstLine) return null;
-  if (/^error:\s*/i.test(firstLine) || /\bat\s+.+\(.+\)/.test(firstLine)) return null;
-  return firstLine;
-}
-
 const periodization = [
   { label: "weekBase", detailKey: "weekBaseDesc", setsDelta: 0 },
   { label: "weekBuild", detailKey: "weekBuildDesc", setsDelta: 1 },
@@ -347,8 +340,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiLoading, setAiLoading] = useState(false);
   const [aiConfirmSaving, setAiConfirmSaving] = useState(false);
   const [aiPreviewPlan, setAiPreviewPlan] = useState<TrainingPlan | null>(null);
-  const [aiActionableError, setAiActionableError] = useState<string | null>(null);
-  const [aiQuotaExceededError, setAiQuotaExceededError] = useState(false);
+  const [aiActionableError, setAiActionableError] = useState<AiErrorUiState | null>(null);
   const [tokensExhaustedModalOpen, setTokensExhaustedModalOpen] = useState(false);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
@@ -841,8 +833,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     if (!profile || !form || aiGenerationInFlight.current || aiLoading) return;
     if (!aiEntitled) return;
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
-      setAiQuotaExceededError(false);
-      setAiActionableError(t("ai.insufficientTokens"));
+      setAiActionableError(mapAiErrorToUiState({ code: "INSUFFICIENT_TOKENS" }, t));
       setTokensExhaustedModalOpen(true);
       return;
     }
@@ -854,7 +845,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setAiLoading(true);
     setError(null);
     setAiActionableError(null);
-    setAiQuotaExceededError(false);
     try {
       const result = await requestAiTrainingPlan(profile, {
         goal: form.goal,
@@ -889,28 +879,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       void refreshSubscription();
     } catch (err) {
       const status = err instanceof AiPlanRequestError ? err.status : null;
-      const errorCode = err instanceof AiPlanRequestError ? normalizeAiErrorCode(err.code) : null;
-      const backendMessage = err instanceof AiPlanRequestError ? sanitizeErrorMessage(err.userMessage) : null;
-      if (err instanceof AiPlanRequestError && errorCode === "AI_QUOTA_EXCEEDED") {
-        setAiActionableError(t("ai.quotaUnavailable"));
-        setAiQuotaExceededError(true);
-      } else if (err instanceof AiPlanRequestError && errorCode === "INSUFFICIENT_TOKENS") {
-        setAiActionableError(t("ai.insufficientTokens"));
+      const code = err instanceof AiPlanRequestError ? err.code ?? null : err instanceof Error ? err.message : null;
+      const kind = err instanceof AiPlanRequestError ? err.kind ?? null : null;
+      setAiActionableError(mapAiErrorToUiState({ status, code, kind }, t));
+      if (classifyAiError({ status, code, kind }) === "quota") {
         setTokensExhaustedModalOpen(true);
-      } else if (err instanceof AiPlanRequestError && status === 503 && errorCode === "EXERCISE_CATALOG_UNAVAILABLE") {
-        setAiActionableError(backendMessage ?? (err.hint?.trim() || safeT("training.aiRetryErrorDescription", "Revisa tu conexión e inténtalo de nuevo.")));
-      } else if (err instanceof Error && err.message === "INVALID_AI_OUTPUT") {
-        setAiActionableError(t("training.aiInvalidOutput"));
-      } else if (err instanceof AiPlanRequestError && err.status === 400) {
-        setAiActionableError(backendMessage ?? t("training.aiError"));
-      } else if (err instanceof AiPlanRequestError && (status === 429 || errorCode === "RATE_LIMITED")) {
-        setAiActionableError(backendMessage ?? t("training.aiError"));
-      } else if (err instanceof AiPlanRequestError && shouldTreatAsConflictError(status)) {
-        setAiActionableError(t("training.aiConflictError"));
-      } else if (err instanceof AiPlanRequestError && shouldTreatAsUpstreamError(status, err.code)) {
-        setAiActionableError(t("training.aiUpstreamError"));
-      } else {
-        setAiActionableError(backendMessage ?? t("training.aiError"));
       }
       notify({
         title: safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA"),
@@ -1023,13 +996,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
-      setAiQuotaExceededError(false);
-      setAiActionableError(safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO"));
+      setAiActionableError({ title: t("ai.errorState.title"), description: safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO"), ctaHref: "/app/settings/billing", ctaLabel: t("billing.manageBilling") });
       return;
     }
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
-      setAiQuotaExceededError(false);
-      setAiActionableError(t("ai.insufficientTokens"));
+      setAiActionableError(mapAiErrorToUiState({ code: "INSUFFICIENT_TOKENS" }, t));
       setTokensExhaustedModalOpen(true);
       return;
     }
@@ -1038,7 +1009,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       return;
     }
     setAiActionableError(null);
-    setAiQuotaExceededError(false);
     void handleAiPlan();
   };
 
@@ -1335,15 +1305,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <div className="mt-12">
                     <ErrorBlock
                       title={safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA")}
-                      description={aiActionableError}
+                      description={aiActionableError.description}
                       retryAction={
                         <div className="inline-actions-sm">
-                          <button type="button" className="btn secondary fit-content" onClick={handleAiRetry} disabled={aiLoading || aiQuotaExceededError}>
+                          <button type="button" className="btn secondary fit-content" onClick={handleAiRetry} disabled={aiLoading}>
                             {t("ui.retry")}
                           </button>
-                          {aiQuotaExceededError ? (
-                            <Link className="btn secondary fit-content" href="/app/settings/billing">
-                              {t("billing.manageBilling")}
+                          {aiActionableError.ctaHref && aiActionableError.ctaLabel ? (
+                            <Link className="btn secondary fit-content" href={aiActionableError.ctaHref}>
+                              {aiActionableError.ctaLabel}
                             </Link>
                           ) : null}
                         </div>

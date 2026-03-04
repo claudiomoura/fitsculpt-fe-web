@@ -2073,7 +2073,13 @@
     "notPro": "La generación con IA es una función Pro. Mejora a Pro para usarla.",
     "tokenConsumed": "Se ha consumido 1 token por uso de IA",
     "tokensExhaustedTitle": "Tokens IA agotados",
-    "tokensExhaustedDescription": "Se te acabaron los tokens IA. Compra más para seguir."
+    "tokensExhaustedDescription": "Se te acabaron los tokens IA. Compra más para seguir.",
+    "errorState": {
+      "title": "No pudimos completar la generación con IA"
+    },
+    "authUnavailable": "Tu sesión o permisos no permiten usar IA ahora. Inicia sesión nuevamente.",
+    "validationUnavailable": "Revisa tus datos e inténtalo de nuevo.",
+    "serviceUnavailable": "Servicio temporalmente no disponible. Intenta nuevamente en unos minutos."
   },
   "billing": {
     "title": "Facturación",

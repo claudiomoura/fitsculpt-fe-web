@@ -46,14 +46,16 @@ export type TrainingPlanAiResult = {
 export class AiPlanRequestError extends Error {
   status: number;
   code?: string;
+  kind?: string;
   hint?: string;
   userMessage?: string;
 
-  constructor(message: string, status: number, options?: { code?: string; hint?: string; userMessage?: string }) {
+  constructor(message: string, status: number, options?: { code?: string; kind?: string; hint?: string; userMessage?: string }) {
     super(message);
     this.name = "AiPlanRequestError";
     this.status = status;
     this.code = options?.code;
+    this.kind = options?.kind;
     this.hint = options?.hint;
     this.userMessage = options?.userMessage;
   }
@@ -164,7 +166,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
-      | { error?: string; code?: string; message?: string; retryAfterSec?: number; hint?: string }
+      | { error?: string; code?: string; kind?: string; message?: string; retryAfterSec?: number; hint?: string }
       | null;
     const rawErrorCode = typeof payload?.error === "string" ? payload.error : payload?.code;
     const errorCode = normalizeAiErrorCode(rawErrorCode);
@@ -172,6 +174,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
     if (errorCode === "INSUFFICIENT_TOKENS") {
       throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status, {
         code: errorCode,
+        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
         hint: payload?.hint,
         userMessage,
       });
@@ -179,6 +182,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
     if (response.status === 400) {
       throw new AiPlanRequestError("AI_INPUT_INVALID", response.status, {
         code: errorCode ?? "AI_INPUT_INVALID",
+        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
         hint: payload?.hint,
         userMessage,
       });
@@ -186,12 +190,14 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
     if (response.status === 429) {
       throw new AiPlanRequestError("RATE_LIMITED", response.status, {
         code: errorCode ?? "RATE_LIMITED",
+        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
         hint: payload?.hint,
         userMessage,
       });
     }
     throw new AiPlanRequestError("AI_GENERATION_FAILED", response.status, {
       code: errorCode ?? undefined,
+      kind: typeof payload?.kind === "string" ? payload.kind : undefined,
       hint: payload?.hint,
       userMessage,
     });
