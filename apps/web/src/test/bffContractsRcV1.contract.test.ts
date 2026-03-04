@@ -143,6 +143,26 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
     expect(body.checkins.length).toBeGreaterThanOrEqual(0);
   });
 
+  it("normalizes tracking auth and validation error shapes", async () => {
+    cookiesMock.mockResolvedValue({ get: () => undefined });
+    const { GET, POST } = await import("@/app/api/tracking/route");
+
+    const unauthorizedResponse = await GET();
+    await expect(unauthorizedResponse.json()).resolves.toEqual({ error: "UNAUTHORIZED", kind: "auth", status: 401 });
+
+    cookiesMock.mockResolvedValue({ get: () => ({ value: "token_123" }) });
+    const invalidPayloadResponse = await POST(
+      new Request("http://localhost/api/tracking", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{",
+      }),
+    );
+
+    expect(invalidPayloadResponse.status).toBe(400);
+    await expect(invalidPayloadResponse.json()).resolves.toEqual({ error: "INVALID_REQUEST", kind: "validation", status: 400 });
+  });
+
   it("validates GET /api/exercises list minimal response shape", async () => {
     cookiesMock.mockResolvedValue({
       get: () => ({ value: "token_123" }),

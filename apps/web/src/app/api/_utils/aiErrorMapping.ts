@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeBffError } from "@/app/api/_utils/normalizeBffError";
 
 const UPSTREAM_ERROR_CODE = "UPSTREAM_ERROR";
 const CLIENT_ERROR_CODE = "AI_REQUEST_FAILED";
@@ -52,25 +53,41 @@ export function parseJsonOrNull(text: string): unknown | null {
 
 export function mapAiUpstreamError(status: number, payload: unknown): NextResponse {
   if (isProviderQuotaExceeded(status, payload)) {
-    return NextResponse.json({ error: QUOTA_EXCEEDED_ERROR_CODE, code: QUOTA_EXCEEDED_ERROR_CODE, kind: "quota" }, { status: 429 });
+    return NextResponse.json(
+      { error: QUOTA_EXCEEDED_ERROR_CODE, code: QUOTA_EXCEEDED_ERROR_CODE, kind: "quota", status: 429 },
+      { status: 429 }
+    );
+  }
+
+  if (status === 401 || status === 403 || status === 404) {
+    const normalized = normalizeBffError({ status, type: "upstream" });
+    return NextResponse.json(normalized.payload, { status: normalized.status });
   }
 
   const upstreamMessage = getErrorMessage(payload);
 
   if (status >= 500) {
     return NextResponse.json(
-      { error: CLIENT_ERROR_CODE, code: UPSTREAM_ERROR_CODE, kind: "upstream" },
+      { error: CLIENT_ERROR_CODE, code: UPSTREAM_ERROR_CODE, kind: "upstream", status: 502 },
       { status: 502 }
     );
   }
 
-  return NextResponse.json({ error: upstreamMessage ?? CLIENT_ERROR_CODE, code: CLIENT_ERROR_CODE, kind: "request" }, { status });
+  if (status === 400) {
+    return NextResponse.json({ error: "INVALID_REQUEST", kind: "validation", status: 400 }, { status: 400 });
+  }
+
+  return NextResponse.json({ error: upstreamMessage ?? CLIENT_ERROR_CODE, code: CLIENT_ERROR_CODE, kind: "unknown", status }, { status });
 }
 
 export function aiRequestFailedResponse(status = 502): NextResponse {
   if (status >= 500) {
-    return NextResponse.json({ error: CLIENT_ERROR_CODE, code: UPSTREAM_ERROR_CODE, kind: "upstream" }, { status: 502 });
+    return NextResponse.json({ error: CLIENT_ERROR_CODE, code: UPSTREAM_ERROR_CODE, kind: "upstream", status: 502 }, { status: 502 });
   }
 
-  return NextResponse.json({ error: CLIENT_ERROR_CODE, code: CLIENT_ERROR_CODE, kind: "request" }, { status });
+  if (status === 400) {
+    return NextResponse.json({ error: "INVALID_REQUEST", kind: "validation", status: 400 }, { status: 400 });
+  }
+
+  return NextResponse.json({ error: CLIENT_ERROR_CODE, code: CLIENT_ERROR_CODE, kind: "unknown", status }, { status });
 }
