@@ -1,22 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, ButtonLink } from "@/components/ui/Button";
 import { Stack } from "@/design-system/components";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
-import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 import { createTrackingEntry } from "@/services/tracking";
+import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
+import { TodayCard } from "./TodayCard";
+import { TodayEmptyState } from "./TodayEmptyState";
+import { TodayErrorState } from "./TodayErrorState";
+import { TodaySkeleton } from "./TodaySkeleton";
 
-type ViewStatus = "loading" | "success" | "empty" | "error";
-type CheckinActionStatus = "idle" | "loading" | "success" | "error";
+type ViewStatus = "loading" | "success" | "error";
+type CheckinActionStatus = "idle" | "loading";
 
-type ActionAvailability = {
+type TodaySignals = {
   trainingReady: boolean;
-  foodReady: boolean;
-  planReady: boolean;
-  checkinReady: boolean;
+  nutritionReady: boolean;
+  checkinDone: boolean;
 };
 
 type TrainingPlansPayload = {
@@ -25,6 +26,10 @@ type TrainingPlansPayload = {
 
 type NutritionPlansPayload = {
   items?: NutritionPlanListItem[];
+};
+
+type TrackingPayload = {
+  checkins?: Array<{ date?: string | null }>;
 };
 
 const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
@@ -52,18 +57,22 @@ const hasTodayNutrition = (plan?: NutritionPlanDetail | null) => {
   return Boolean(day && day.meals.length > 0);
 };
 
+const hasCheckinToday = (payload?: TrackingPayload | null) => {
+  const todayKey = toDateKey(new Date());
+  return Boolean(payload?.checkins?.some((entry) => entry.date === todayKey));
+};
+
 export default function TodayQuickActionsClient() {
   const { t } = useLanguage();
   const [status, setStatus] = useState<ViewStatus>("loading");
-  const [availability, setAvailability] = useState<ActionAvailability>({
+  const [signals, setSignals] = useState<TodaySignals>({
     trainingReady: false,
-    foodReady: false,
-    planReady: false,
-    checkinReady: true,
+    nutritionReady: false,
+    checkinDone: false,
   });
   const [checkinActionStatus, setCheckinActionStatus] = useState<CheckinActionStatus>("idle");
 
-  const loadQuickActions = useCallback(async () => {
+  const loadTodaySignals = useCallback(async () => {
     setStatus("loading");
 
     try {
@@ -79,7 +88,13 @@ export default function TodayQuickActionsClient() {
       }
 
       let trainingReady = false;
-      let foodReady = trackingResponse.ok;
+      let nutritionReady = false;
+      let checkinDone = false;
+
+      if (trackingResponse.ok) {
+        const tracking = (await trackingResponse.json()) as TrackingPayload;
+        checkinDone = hasCheckinToday(tracking);
+      }
 
       if (trainingListResponse.ok) {
         const trainingList = (await trainingListResponse.json()) as TrainingPlansPayload;
@@ -106,17 +121,13 @@ export default function TodayQuickActionsClient() {
           });
           if (nutritionDetailResponse.ok) {
             const nutritionDetail = (await nutritionDetailResponse.json()) as NutritionPlanDetail;
-            foodReady = foodReady || hasTodayNutrition(nutritionDetail);
+            nutritionReady = hasTodayNutrition(nutritionDetail);
           }
         }
       }
 
-      const planReady = trainingReady || foodReady;
-      const nextAvailability = { trainingReady, foodReady, planReady, checkinReady: true };
-      setAvailability(nextAvailability);
-
-      const hasEnabledAction = Object.values(nextAvailability).some(Boolean);
-      setStatus(hasEnabledAction ? "success" : "empty");
+      setSignals({ trainingReady, nutritionReady, checkinDone });
+      setStatus("success");
     } catch {
       setStatus("error");
     }
@@ -124,15 +135,17 @@ export default function TodayQuickActionsClient() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadQuickActions();
+      void loadTodaySignals();
     }, 0);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [loadQuickActions]);
+  }, [loadTodaySignals]);
+
 
   const handleLogTodayCheckin = useCallback(async () => {
     if (checkinActionStatus === "loading") return;
+
     setCheckinActionStatus("loading");
 
     const now = new Date();
@@ -159,91 +172,77 @@ export default function TodayQuickActionsClient() {
         frontPhotoUrl: null,
         sidePhotoUrl: null,
       });
-      setCheckinActionStatus("success");
-    } catch {
-      setCheckinActionStatus("error");
+      setSignals((previous) => ({ ...previous, checkinDone: true }));
+    } finally {
+      setCheckinActionStatus("idle");
     }
   }, [checkinActionStatus, t]);
 
-  const returnToHoy = encodeURIComponent("/app/hoy");
-
-  const supportingActions = useMemo(
-    () => [
-      {
-        id: "register-training",
-        label: t("quickActions.registerTrainingCta"),
-        href: availability.trainingReady ? `/app/entrenamiento?from=hoy&returnTo=${returnToHoy}` : undefined,
-      },
-      {
-        id: "register-food",
-        label: t("quickActions.registerFoodCta"),
-        href: availability.foodReady ? `/app/macros?from=hoy&returnTo=${returnToHoy}` : undefined,
-      },
-      {
-        id: "view-plan-today",
-        label: t("quickActions.viewTodayPlanCta"),
-        href: availability.planReady ? `/app/entrenamiento?from=hoy&returnTo=${returnToHoy}` : undefined,
-      },
-    ],
-    [availability.foodReady, availability.planReady, availability.trainingReady, returnToHoy, t],
+  const completedCount = useMemo(
+    () => [signals.trainingReady, signals.nutritionReady, signals.checkinDone].filter(Boolean).length,
+    [signals.checkinDone, signals.nutritionReady, signals.trainingReady],
   );
 
-  const ctaLabel = checkinActionStatus === "success" ? t("quickActions.completeTodayActionDoneCta") : t("quickActions.completeTodayActionCta");
-  const ctaOutcome =
-    checkinActionStatus === "success"
-      ? t("quickActions.completeTodayActionSuccess")
-      : checkinActionStatus === "error"
-        ? t("quickActions.completeTodayActionError")
-        : t("quickActions.completeTodayActionOutcome");
-
-  const statusMessage =
-    status === "loading"
-      ? t("quickActions.loadingAria")
-      : status === "error"
-        ? t("quickActions.errorDescription")
-        : status === "empty"
-          ? t("quickActions.emptyDescription")
-          : null;
+  const progressLabel = t("today.hubProgress", { completed: completedCount, total: 3 });
+  const showEmptyBanner = status === "success" && completedCount === 0;
 
   return (
-    <section className="card" aria-live="polite">
+    <section className="card" aria-live="polite" data-testid="today-wow-hub">
       <Stack gap="4">
-        <div className="inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--color-primary)_15%,transparent)] px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">
-          {t("today.focusTitle")}
-        </div>
-        <div>
-          <h2 className="section-title section-title-sm">{t("quickActions.completeTodayActionTitle")}</h2>
-          <p className="section-subtitle">{t("quickActions.completeTodayActionDescription")}</p>
-          <p className="text-sm text-text-muted">{ctaOutcome}</p>
-        </div>
+        <header>
+          <h1 className="section-title">{t("today.hubTitle")}</h1>
+          <p className="section-subtitle">{t("today.hubSubtitle")}</p>
+          <p className="mt-2 text-sm font-semibold text-text" data-testid="today-progress">
+            {progressLabel}
+          </p>
+          <p className="mt-1 text-xs text-text-muted">{t("today.progressHeuristicDisclaimer")}</p>
+        </header>
 
-        <Stack gap="2" data-testid="today-actions-grid">
-          <article className="rounded-xl border border-subtle bg-[var(--bg-panel)] p-3" data-testid="today-action-card">
-            <p className="m-0 text-sm font-medium text-text">{t("quickActions.completeTodayActionTitle")}</p>
-            <p className="m-0 text-xs text-text-muted">{statusMessage ?? t("quickActions.completeTodayActionDescription")}</p>
-            <Button
-              className="mt-3 w-full"
-              size="lg"
-              data-testid="today-action-button"
-              onClick={() => void handleLogTodayCheckin()}
-              loading={checkinActionStatus === "loading"}
-            >
-              {ctaLabel}
-            </Button>
-          </article>
+        {status === "loading" ? <TodaySkeleton /> : null}
 
-          {supportingActions.map((action) =>
-            action.href ? (
-              <ButtonLink key={action.id} as={Link} href={action.href} variant="secondary" size="lg" className="w-full">
-                {action.label}
-              </ButtonLink>
-            ) : (
-              <Button key={action.id} variant="secondary" size="lg" className="w-full" disabled>
-                {action.label}
-              </Button>
-            ),
-          )}
-        </Stack>
+        {status === "error" ? (
+          <TodayErrorState message={t("today.hubErrorMessage")} retryLabel={t("ui.retry")} onRetry={() => void loadTodaySignals()} />
+        ) : null}
+
+        {status === "success" ? (
+          <>
+            {showEmptyBanner ? (
+              <TodayEmptyState
+                description={t("today.hubEmptyDescription")}
+                ctaLabel={t("today.hubEmptyCta")}
+                href="/app/entrenamientos"
+              />
+            ) : null}
+
+            <section className="grid gap-3 md:grid-cols-3" data-testid="today-actions-grid">
+              <TodayCard
+                title={t("today.cardCheckinTitle")}
+                subtitle={t("today.cardCheckinSubtitle")}
+                body={signals.checkinDone ? t("today.cardCheckinReady") : t("today.cardCheckinEmpty")}
+                ctaLabel={t("quickActions.completeTodayActionCta")}
+                onClick={() => void handleLogTodayCheckin()}
+                loading={checkinActionStatus === "loading"}
+                progressLabel={signals.checkinDone ? t("today.cardCompleted") : t("today.cardPending")}
+              />
+              <TodayCard
+                title={t("today.cardTrainingTitle")}
+                subtitle={t("today.cardTrainingSubtitle")}
+                body={signals.trainingReady ? t("today.cardTrainingReady") : t("today.cardTrainingEmpty")}
+                ctaLabel={t("today.cardTrainingCta")}
+                href="/app/entrenamiento"
+                progressLabel={signals.trainingReady ? t("today.cardCompleted") : t("today.cardPending")}
+              />
+              <TodayCard
+                title={t("today.cardNutritionTitle")}
+                subtitle={t("today.cardNutritionSubtitle")}
+                body={signals.nutritionReady ? t("today.cardNutritionReady") : t("today.cardNutritionEmpty")}
+                ctaLabel={t("today.cardNutritionCta")}
+                href="/app/nutricion"
+                progressLabel={signals.nutritionReady ? t("today.cardCompleted") : t("today.cardPending")}
+              />
+            </section>
+          </>
+        ) : null}
       </Stack>
     </section>
   );
