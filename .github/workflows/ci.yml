@@ -53,6 +53,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Endpoint inventory drift check
+        run: npm run endpoints:inventory:check
+
   api-gates:
     name: API gates (build + typecheck + tests)
     runs-on: ubuntu-latest

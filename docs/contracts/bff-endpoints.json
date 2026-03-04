@@ -1,0 +1,687 @@
+{
+  "generatedBy": "apps/web/scripts/endpoints-inventory.mjs",
+  "endpoints": [
+    {
+      "path": "/api/admin/gym-join-requests",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/admin/gym-join-requests/route.ts"
+    },
+    {
+      "path": "/api/admin/gym-join-requests/[membershipId]/[action]",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/gym-join-requests/[membershipId]/[action]/route.ts"
+    },
+    {
+      "path": "/api/admin/gym-join-requests/[membershipId]/accept",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/gym-join-requests/[membershipId]/accept/route.ts"
+    },
+    {
+      "path": "/api/admin/gym-join-requests/[membershipId]/reject",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/gym-join-requests/[membershipId]/reject/route.ts"
+    },
+    {
+      "path": "/api/admin/gyms",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/gyms/route.ts"
+    },
+    {
+      "path": "/api/admin/gyms/[gymId]",
+      "methods": [
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/admin/gyms/[gymId]/route.ts"
+    },
+    {
+      "path": "/api/admin/gyms/[gymId]/members",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/admin/gyms/[gymId]/members/route.ts"
+    },
+    {
+      "path": "/api/admin/gyms/[gymId]/members/[userId]/assign-training-plan",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/gyms/[gymId]/members/[userId]/assign-training-plan/route.ts"
+    },
+    {
+      "path": "/api/admin/gyms/[gymId]/members/[userId]/role",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "apps/web/src/app/api/admin/gyms/[gymId]/members/[userId]/role/route.ts"
+    },
+    {
+      "path": "/api/admin/users",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/users/route.ts"
+    },
+    {
+      "path": "/api/admin/users/[id]",
+      "methods": [
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/admin/users/[id]/route.ts"
+    },
+    {
+      "path": "/api/admin/users/[id]/block",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "apps/web/src/app/api/admin/users/[id]/block/route.ts"
+    },
+    {
+      "path": "/api/admin/users/[id]/gym-role",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/users/[id]/gym-role/route.ts"
+    },
+    {
+      "path": "/api/admin/users/[id]/reset-password",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/users/[id]/reset-password/route.ts"
+    },
+    {
+      "path": "/api/admin/users/[id]/unblock",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "apps/web/src/app/api/admin/users/[id]/unblock/route.ts"
+    },
+    {
+      "path": "/api/admin/users/[id]/verify-email",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/admin/users/[id]/verify-email/route.ts"
+    },
+    {
+      "path": "/api/ai/daily-tip",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/ai/daily-tip/route.ts"
+    },
+    {
+      "path": "/api/ai/nutrition-plan",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/ai/nutrition-plan/route.ts"
+    },
+    {
+      "path": "/api/ai/nutrition-plan/generate",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/ai/nutrition-plan/generate/route.ts"
+    },
+    {
+      "path": "/api/ai/quota",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/ai/quota/route.ts"
+    },
+    {
+      "path": "/api/ai/training-plan",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/ai/training-plan/route.ts"
+    },
+    {
+      "path": "/api/ai/training-plan/generate",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/ai/training-plan/generate/route.ts"
+    },
+    {
+      "path": "/api/auth/change-password",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/auth/change-password/route.ts"
+    },
+    {
+      "path": "/api/auth/google/callback",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/auth/google/callback/route.ts"
+    },
+    {
+      "path": "/api/auth/google/start",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/auth/google/start/route.ts"
+    },
+    {
+      "path": "/api/auth/me",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/auth/me/route.ts"
+    },
+    {
+      "path": "/api/auth/resend-verification",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/auth/resend-verification/route.ts"
+    },
+    {
+      "path": "/api/auth/verify-email",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/auth/verify-email/route.ts"
+    },
+    {
+      "path": "/api/billing/checkout",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/billing/checkout/route.ts"
+    },
+    {
+      "path": "/api/billing/plans",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/billing/plans/route.ts"
+    },
+    {
+      "path": "/api/billing/portal",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/billing/portal/route.ts"
+    },
+    {
+      "path": "/api/billing/status",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/billing/status/route.ts"
+    },
+    {
+      "path": "/api/exercises",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/exercises/route.ts"
+    },
+    {
+      "path": "/api/exercises/[id]",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/exercises/[id]/route.ts"
+    },
+    {
+      "path": "/api/feed",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/feed/route.ts"
+    },
+    {
+      "path": "/api/feed/generate",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/feed/generate/route.ts"
+    },
+    {
+      "path": "/api/gym-flow/approve",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/gym-flow/approve/route.ts"
+    },
+    {
+      "path": "/api/gym-flow/assign",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/gym-flow/assign/route.ts"
+    },
+    {
+      "path": "/api/gym-flow/assigned-plan",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/gym-flow/assigned-plan/route.ts"
+    },
+    {
+      "path": "/api/gym-flow/join",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/gym-flow/join/route.ts"
+    },
+    {
+      "path": "/api/gym-flow/members",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/gym-flow/members/route.ts"
+    },
+    {
+      "path": "/api/gym/admin/members/[userId]/role",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "apps/web/src/app/api/gym/admin/members/[userId]/role/route.ts"
+    },
+    {
+      "path": "/api/gym/join-code",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/gym/join-code/route.ts"
+    },
+    {
+      "path": "/api/gym/join-request",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/gym/join-request/route.ts"
+    },
+    {
+      "path": "/api/gym/me",
+      "methods": [
+        "GET",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/gym/me/route.ts"
+    },
+    {
+      "path": "/api/gyms",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/gyms/route.ts"
+    },
+    {
+      "path": "/api/gyms/join",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/gyms/join/route.ts"
+    },
+    {
+      "path": "/api/gyms/join-by-code",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/gyms/join-by-code/route.ts"
+    },
+    {
+      "path": "/api/gyms/membership",
+      "methods": [
+        "GET",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/gyms/membership/route.ts"
+    },
+    {
+      "path": "/api/nutrition-plans",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/nutrition-plans/route.ts"
+    },
+    {
+      "path": "/api/nutrition-plans/[id]",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/nutrition-plans/[id]/route.ts"
+    },
+    {
+      "path": "/api/nutrition-plans/assigned",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/nutrition-plans/assigned/route.ts"
+    },
+    {
+      "path": "/api/profile",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "source": "apps/web/src/app/api/profile/route.ts"
+    },
+    {
+      "path": "/api/recipes",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/recipes/route.ts"
+    },
+    {
+      "path": "/api/recipes/[id]",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/recipes/[id]/route.ts"
+    },
+    {
+      "path": "/api/review/weekly",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/review/weekly/route.ts"
+    },
+    {
+      "path": "/api/tracking",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT"
+      ],
+      "source": "apps/web/src/app/api/tracking/route.ts"
+    },
+    {
+      "path": "/api/tracking/[collection]/[id]",
+      "methods": [
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/tracking/[collection]/[id]/route.ts"
+    },
+    {
+      "path": "/api/trainer/assign-training-plan",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/trainer/assign-training-plan/route.ts"
+    },
+    {
+      "path": "/api/trainer/capabilities",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/trainer/capabilities/route.ts"
+    },
+    {
+      "path": "/api/trainer/clients",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/trainer/clients/route.ts"
+    },
+    {
+      "path": "/api/trainer/clients/[id]",
+      "methods": [
+        "GET",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/trainer/clients/[id]/route.ts"
+    },
+    {
+      "path": "/api/trainer/clients/[id]/assigned-nutrition-plan",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/trainer/clients/[id]/assigned-nutrition-plan/route.ts"
+    },
+    {
+      "path": "/api/trainer/clients/[id]/assigned-plan",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/trainer/clients/[id]/assigned-plan/route.ts"
+    },
+    {
+      "path": "/api/trainer/clients/[id]/notes",
+      "methods": [
+        "GET",
+        "POST",
+        "OPTIONS"
+      ],
+      "source": "apps/web/src/app/api/trainer/clients/[id]/notes/route.ts"
+    },
+    {
+      "path": "/api/trainer/clients/[id]/plan",
+      "methods": [],
+      "source": "apps/web/src/app/api/trainer/clients/[id]/plan/route.ts"
+    },
+    {
+      "path": "/api/trainer/join-requests",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/trainer/join-requests/route.ts"
+    },
+    {
+      "path": "/api/trainer/join-requests/[membershipId]/[action]",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/trainer/join-requests/[membershipId]/[action]/route.ts"
+    },
+    {
+      "path": "/api/trainer/join-requests/[membershipId]/accept",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/trainer/join-requests/[membershipId]/accept/route.ts"
+    },
+    {
+      "path": "/api/trainer/join-requests/[membershipId]/reject",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/trainer/join-requests/[membershipId]/reject/route.ts"
+    },
+    {
+      "path": "/api/trainer/members",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/trainer/members/route.ts"
+    },
+    {
+      "path": "/api/trainer/members/[id]/assigned-plan",
+      "methods": [],
+      "source": "apps/web/src/app/api/trainer/members/[id]/assigned-plan/route.ts"
+    },
+    {
+      "path": "/api/trainer/members/[id]/nutrition-plan-assignment",
+      "methods": [
+        "POST",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "source": "apps/web/src/app/api/trainer/members/[id]/nutrition-plan-assignment/route.ts"
+    },
+    {
+      "path": "/api/trainer/members/[id]/training-plan-assignment",
+      "methods": [
+        "POST",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "source": "apps/web/src/app/api/trainer/members/[id]/training-plan-assignment/route.ts"
+    },
+    {
+      "path": "/api/trainer/nutrition-plans",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/trainer/nutrition-plans/route.ts"
+    },
+    {
+      "path": "/api/trainer/nutrition-plans/[id]",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/trainer/nutrition-plans/[id]/route.ts"
+    },
+    {
+      "path": "/api/trainer/plans",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/trainer/plans/route.ts"
+    },
+    {
+      "path": "/api/trainer/plans/[id]",
+      "methods": [
+        "GET",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "source": "apps/web/src/app/api/trainer/plans/[id]/route.ts"
+    },
+    {
+      "path": "/api/trainer/plans/[id]/days/[dayId]",
+      "methods": [
+        "DELETE",
+        "OPTIONS"
+      ],
+      "source": "apps/web/src/app/api/trainer/plans/[id]/days/[dayId]/route.ts"
+    },
+    {
+      "path": "/api/trainer/plans/[id]/days/[dayId]/exercises",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "source": "apps/web/src/app/api/trainer/plans/[id]/days/[dayId]/exercises/route.ts"
+    },
+    {
+      "path": "/api/trainer/plans/[id]/days/[dayId]/exercises/[exerciseId]",
+      "methods": [
+        "PATCH",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "source": "apps/web/src/app/api/trainer/plans/[id]/days/[dayId]/exercises/[exerciseId]/route.ts"
+    },
+    {
+      "path": "/api/training-plans",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/training-plans/route.ts"
+    },
+    {
+      "path": "/api/training-plans/[id]",
+      "methods": [
+        "GET"
+      ],
+      "source": "apps/web/src/app/api/training-plans/[id]/route.ts"
+    },
+    {
+      "path": "/api/training-plans/[id]/days/[dayId]/exercises",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/training-plans/[id]/days/[dayId]/exercises/route.ts"
+    },
+    {
+      "path": "/api/training-plans/active",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/training-plans/active/route.ts"
+    },
+    {
+      "path": "/api/user-foods",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/user-foods/route.ts"
+    },
+    {
+      "path": "/api/user-foods/[id]",
+      "methods": [
+        "PUT",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/user-foods/[id]/route.ts"
+    },
+    {
+      "path": "/api/workout-sessions/[id]",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "apps/web/src/app/api/workout-sessions/[id]/route.ts"
+    },
+    {
+      "path": "/api/workout-sessions/[id]/finish",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/workout-sessions/[id]/finish/route.ts"
+    },
+    {
+      "path": "/api/workouts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/workouts/route.ts"
+    },
+    {
+      "path": "/api/workouts/[id]",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "source": "apps/web/src/app/api/workouts/[id]/route.ts"
+    },
+    {
+      "path": "/api/workouts/[id]/start",
+      "methods": [
+        "POST"
+      ],
+      "source": "apps/web/src/app/api/workouts/[id]/start/route.ts"
+    }
+  ]
+}

@@ -33,6 +33,7 @@ jobs:
           npm run typecheck | tee ../artifacts/web/typecheck.log
           npm run build | tee ../artifacts/web/build.log
           npm test | tee ../artifacts/web/test.log
+          npm run endpoints:inventory:check | tee ../artifacts/web/endpoints-inventory-check.log
 
       - name: Upload web gate logs
         if: always()
