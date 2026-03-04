@@ -10,6 +10,8 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
+import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
+import { normalizeSubscriptionPlan } from "@/lib/subscriptionPlan";
 import {
   getBillingPlans,
   postBillingCheckout,
@@ -18,7 +20,7 @@ import {
   type BillingRedirectResponse,
 } from "@/domains/billing";
 
-type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | "ULTRA" | (string & {});
+type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | (string & {});
 
 type BillingProfile = {
   plan?: BillingPlan;
@@ -53,13 +55,12 @@ function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (k
 }
 
 function resolvePlanLabel(plan: BillingPlan | null | undefined, t: (key: string) => string) {
-  if (!plan) {
+  const normalizedPlan = normalizeSubscriptionPlan(plan);
+  if (!normalizedPlan) {
     return t("billing.planLabels.unknown");
   }
 
-  const normalized = plan.toLowerCase();
-  const messageKey = `billing.planLabels.${normalized}`;
-
+  const messageKey = `billing.planLabels.${normalizedPlan.toLowerCase()}`;
   return t(messageKey) === messageKey ? t("billing.planLabels.unknown") : t(messageKey);
 }
 
@@ -112,7 +113,7 @@ export default function BillingClient() {
   const checkoutStatus = searchParams.get("checkout");
 
   const { isAdmin, isDev } = useAccess();
-  const { reload: refetchProfile } = useAuthEntitlements();
+  const { authMe, reload: refetchProfile } = useAuthEntitlements();
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
   const [gymMembership, setGymMembership] = useState<GymMembership>({ state: "unknown", gymId: null, gymName: null });
@@ -281,7 +282,8 @@ setPlans([]);
     }
   };
 
-  const currentPlan = profile?.plan;
+  const authSnapshot = readAuthEntitlementSnapshot(authMe);
+  const currentPlan = authSnapshot.subscriptionPlan;
   const hasSubscriptionStatus = typeof profile?.subscriptionStatus === "string" && profile.subscriptionStatus.length > 0;
   const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
   const hasGymSelectionEndpoint = false;

@@ -1,21 +1,11 @@
 import type { AuthMeResponse } from "@/lib/types";
+import {
+  getPlanCapabilities,
+  normalizeSubscriptionPlan,
+  type SubscriptionPlan,
+} from "@/lib/subscriptionPlan";
 
-export type SubscriptionPlan = "FREE" | "STRENGTH_AI" | "NUTRI_AI" | "PRO";
-
-const PLAN_BY_TOKEN: Record<string, SubscriptionPlan> = {
-  FREE: "FREE",
-  PRO: "PRO",
-  STRENGTH_AI: "STRENGTH_AI",
-  NUTRI_AI: "NUTRI_AI",
-  STRENGTHAI: "STRENGTH_AI",
-  NUTRIAI: "NUTRI_AI",
-};
-
-function toPlan(value: unknown): SubscriptionPlan | null {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().replace(/[\s-]/g, "_").toUpperCase();
-  return PLAN_BY_TOKEN[normalized] ?? null;
-}
+export type { SubscriptionPlan } from "@/lib/subscriptionPlan";
 
 export type AuthEntitlementSnapshot = {
   subscriptionPlan: SubscriptionPlan;
@@ -29,22 +19,12 @@ export type AuthEntitlementSnapshot = {
 
 export function readAuthEntitlementSnapshot(payload: AuthMeResponse | null | undefined): AuthEntitlementSnapshot {
   const subscriptionPlan =
-    toPlan(payload?.subscriptionPlan) ??
-    toPlan(payload?.plan) ??
-    toPlan(payload?.entitlements?.plan?.effective) ??
-    toPlan(payload?.entitlements?.plan?.base) ??
+    normalizeSubscriptionPlan(payload?.subscriptionPlan) ??
+    normalizeSubscriptionPlan(payload?.plan) ??
+    normalizeSubscriptionPlan(payload?.entitlements?.plan?.effective) ??
+    normalizeSubscriptionPlan(payload?.entitlements?.plan?.base) ??
     "FREE";
-
-  const nutrition =
-    payload?.entitlements?.modules?.nutrition?.enabled === true ||
-    payload?.aiEntitlements?.nutrition === true;
-  const strength =
-    payload?.entitlements?.modules?.strength?.enabled === true ||
-    payload?.aiEntitlements?.strength === true;
-  const ai =
-    payload?.entitlements?.modules?.ai?.enabled === true ||
-    nutrition ||
-    strength;
+  const capabilities = getPlanCapabilities(subscriptionPlan);
 
   const tokenBalanceRaw =
     typeof payload?.aiTokenBalance === "number"
@@ -55,7 +35,11 @@ export function readAuthEntitlementSnapshot(payload: AuthMeResponse | null | und
 
   return {
     subscriptionPlan,
-    aiEntitlements: { ai, nutrition, strength },
+    aiEntitlements: {
+      ai: capabilities.hasAI,
+      nutrition: capabilities.hasNutriAI,
+      strength: capabilities.hasStrengthAI,
+    },
     tokenBalance: Number.isFinite(tokenBalanceRaw) && tokenBalanceRaw > 0 ? tokenBalanceRaw : 0,
   };
 }
