@@ -302,7 +302,13 @@
     "progressCardEyebrow": "Objetivo actual",
     "progressCardBody": "Sigue tu objetivo semanal con un resumen rápido.",
     "progressCardHelper": "Objetivo y porcentaje · Requiere implementación",
-    "progressCardCta": "Ver progreso"
+    "progressCardCta": "Ver progreso",
+    "streakChip": "Racha: {{days}} días",
+    "viewDetailCta": "Ver detalle",
+    "unlockCta": "Desbloquear",
+    "lockedDescription": "Disponible en Premium. Activa tu plan para continuar.",
+    "checkinSecondaryCta": "Ver check-in",
+    "trainingExerciseCount": "{{count}} ejercicios hoy"
   },
   "foods": {
     "salmon": "Salmón",

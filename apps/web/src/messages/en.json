@@ -302,7 +302,13 @@
     "progressCardEyebrow": "Current goal",
     "progressCardBody": "Track your weekly objective with a quick summary.",
     "progressCardHelper": "Goal and percentage · Requires implementation",
-    "progressCardCta": "View progress"
+    "progressCardCta": "View progress",
+    "streakChip": "Streak: {{days}} days",
+    "viewDetailCta": "View detail",
+    "unlockCta": "Unlock",
+    "lockedDescription": "Available on Premium. Upgrade your plan to continue.",
+    "checkinSecondaryCta": "View check-in",
+    "trainingExerciseCount": "{{count}} exercises today"
   },
   "foods": {
     "salmon": "Salmon",
