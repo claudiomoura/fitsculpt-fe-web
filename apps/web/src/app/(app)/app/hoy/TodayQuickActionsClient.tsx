@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { trackEvent } from "@/lib/analytics";
 import { createTrackingEntry } from "@/services/tracking";
-import type { NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
+import type { AuthMeResponse, NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 import { TodayCard } from "./TodayCard";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
@@ -20,6 +20,12 @@ type TodaySignals = {
   trainingReady: boolean;
   nutritionReady: boolean;
   checkinDone: boolean;
+  userName: string;
+  trainingFocus: string;
+  trainingDuration: number | null;
+  nutritionCalories: number | null;
+  nutritionProtein: number | null;
+  currentWeightKg: number | null;
 };
 
 type TrainingPlansPayload = {
@@ -31,7 +37,7 @@ type NutritionPlansPayload = {
 };
 
 type TrackingPayload = {
-  checkins?: Array<{ date?: string | null }>;
+  checkins?: Array<{ date?: string | null; weightKg?: number | null }>;
 };
 
 const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
@@ -48,20 +54,18 @@ const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: st
   return days[index];
 };
 
-const hasTodayTraining = (plan?: TrainingPlanDetail | null) => {
-  if (!plan?.days?.length) return false;
-  return Boolean(findTodayPlanDay(plan.days, plan.startDate));
-};
+const getLatestWeight = (payload?: TrackingPayload | null) => {
+  const checkins = payload?.checkins ?? [];
+  const validEntries = checkins
+    .map((entry) => ({ entry, parsed: parseDate(entry.date) }))
+    .filter(
+      (item): item is { entry: { weightKg?: number | null }; parsed: Date } =>
+        item.parsed !== null && Number.isFinite(item.entry.weightKg)
+    );
 
-const hasTodayNutrition = (plan?: NutritionPlanDetail | null) => {
-  if (!plan?.days?.length) return false;
-  const day = findTodayPlanDay(plan.days, plan.startDate);
-  return Boolean(day && day.meals.length > 0);
-};
-
-const hasCheckinToday = (payload?: TrackingPayload | null) => {
-  const todayKey = toDateKey(new Date());
-  return Boolean(payload?.checkins?.some((entry) => entry.date === todayKey));
+  if (validEntries.length === 0) return null;
+  const latest = validEntries.sort((a, b) => b.parsed.getTime() - a.parsed.getTime())[0];
+  return latest ? Number(latest.entry.weightKg) : null;
 };
 
 export default function TodayQuickActionsClient() {
@@ -72,6 +76,12 @@ export default function TodayQuickActionsClient() {
     trainingReady: false,
     nutritionReady: false,
     checkinDone: false,
+    userName: "",
+    trainingFocus: "",
+    trainingDuration: null,
+    nutritionCalories: null,
+    nutritionProtein: null,
+    currentWeightKg: null,
   });
   const [checkinActionStatus, setCheckinActionStatus] = useState<CheckinActionStatus>("idle");
   const hasTrackedViewRef = useRef(false);
@@ -80,10 +90,11 @@ export default function TodayQuickActionsClient() {
     setStatus("loading");
 
     try {
-      const [trackingResponse, trainingListResponse, nutritionListResponse] = await Promise.all([
+      const [trackingResponse, trainingListResponse, nutritionListResponse, authMeResponse] = await Promise.all([
         fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
         fetch("/api/training-plans?limit=1", { cache: "no-store", credentials: "include" }),
         fetch("/api/nutrition-plans?limit=1", { cache: "no-store", credentials: "include" }),
+        fetch("/api/auth/me", { cache: "no-store", credentials: "include" }),
       ]);
 
       if (!trackingResponse.ok && !trainingListResponse.ok && !nutritionListResponse.ok) {
@@ -94,10 +105,23 @@ export default function TodayQuickActionsClient() {
       let trainingReady = false;
       let nutritionReady = false;
       let checkinDone = false;
+      let userName = "";
+      let trainingFocus = "";
+      let trainingDuration: number | null = null;
+      let nutritionCalories: number | null = null;
+      let nutritionProtein: number | null = null;
+      let currentWeightKg: number | null = null;
+
+      if (authMeResponse.ok) {
+        const authMe = (await authMeResponse.json()) as AuthMeResponse;
+        userName = authMe.name?.trim() ?? "";
+      }
 
       if (trackingResponse.ok) {
         const tracking = (await trackingResponse.json()) as TrackingPayload;
-        checkinDone = hasCheckinToday(tracking);
+        const todayKey = toDateKey(new Date());
+        checkinDone = Boolean(tracking.checkins?.some((entry) => entry.date === todayKey));
+        currentWeightKg = getLatestWeight(tracking);
       }
 
       if (trainingListResponse.ok) {
@@ -110,7 +134,10 @@ export default function TodayQuickActionsClient() {
           });
           if (trainingDetailResponse.ok) {
             const trainingDetail = (await trainingDetailResponse.json()) as TrainingPlanDetail;
-            trainingReady = hasTodayTraining(trainingDetail);
+            const trainingDay = findTodayPlanDay(trainingDetail.days, trainingDetail.startDate);
+            trainingReady = Boolean(trainingDay);
+            trainingFocus = trainingDay?.focus ?? "";
+            trainingDuration = Number.isFinite(trainingDay?.duration) ? Number(trainingDay?.duration) : null;
           }
         }
       }
@@ -125,12 +152,25 @@ export default function TodayQuickActionsClient() {
           });
           if (nutritionDetailResponse.ok) {
             const nutritionDetail = (await nutritionDetailResponse.json()) as NutritionPlanDetail;
-            nutritionReady = hasTodayNutrition(nutritionDetail);
+            const nutritionDay = findTodayPlanDay(nutritionDetail.days, nutritionDetail.startDate);
+            nutritionReady = Boolean(nutritionDay && nutritionDay.meals.length > 0);
+            nutritionCalories = Number.isFinite(nutritionDetail.dailyCalories) ? nutritionDetail.dailyCalories : null;
+            nutritionProtein = Number.isFinite(nutritionDetail.proteinG) ? nutritionDetail.proteinG : null;
           }
         }
       }
 
-      setSignals({ trainingReady, nutritionReady, checkinDone });
+      setSignals({
+        trainingReady,
+        nutritionReady,
+        checkinDone,
+        userName,
+        trainingFocus,
+        trainingDuration,
+        nutritionCalories,
+        nutritionProtein,
+        currentWeightKg,
+      });
       setStatus("success");
     } catch {
       setStatus("error");
@@ -155,7 +195,6 @@ export default function TodayQuickActionsClient() {
   const trackTodayCtaClick = useCallback((target: "training" | "nutrition" | "checkin") => {
     trackEvent("today_cta_click", { target });
   }, []);
-
 
   const handleLogTodayCheckin = useCallback(async () => {
     if (checkinActionStatus === "loading") return;
@@ -200,25 +239,27 @@ export default function TodayQuickActionsClient() {
 
   const progressLabel = t("today.hubProgress", { completed: completedCount, total: 3 });
   const showEmptyBanner = status === "success" && completedCount === 0;
+  const userName = signals.userName || t("ui.userFallback");
 
   return (
-    <section className="card" aria-live="polite" data-testid="today-wow-hub">
+    <section
+      className="rounded-[28px] border p-5 md:p-6"
+      style={{ background: "#0B0E13", borderColor: "rgba(255,255,255,0.06)" }}
+      aria-live="polite"
+      data-testid="today-wow-hub"
+    >
       <Stack gap="4">
-        <header>
-          <h1 className="section-title">{t("today.hubTitle")}</h1>
-          <p className="section-subtitle">{t("today.hubSubtitle")}</p>
-          <p className="mt-2 text-sm font-semibold text-text" data-testid="today-progress">
+        <header className="space-y-2">
+          <h1 className="text-2xl font-semibold text-slate-100">{t("today.title")}</h1>
+          <p className="text-xl font-medium text-slate-100">{t("today.greeting", { name: userName })}</p>
+          {/* Requiere implementación: la racha real debe venir de backend cuando exista dato confiable. */}
+          <p className="text-sm text-slate-400">{t("today.streakPending")}</p>
+          <p className="text-sm font-medium text-slate-300" data-testid="today-progress">
             {progressLabel}
           </p>
-          <p className="mt-1 text-xs text-text-muted">{t("today.progressHeuristicDisclaimer")}</p>
         </header>
 
-        {status === "loading" ? (
-          <>
-            <p className="m-0 text-sm text-text-muted">{t("today.hubLoadingMessage")}</p>
-            <TodaySkeleton />
-          </>
-        ) : null}
+        {status === "loading" ? <TodaySkeleton /> : null}
 
         {status === "error" ? (
           <TodayErrorState message={t("today.hubErrorMessage")} retryLabel={t("ui.retry")} onRetry={() => void loadTodaySignals()} />
@@ -234,34 +275,62 @@ export default function TodayQuickActionsClient() {
               />
             ) : null}
 
-            <section className="grid gap-3 md:grid-cols-3" data-testid="today-actions-grid">
+            <section className="grid gap-4 md:grid-cols-2" data-testid="today-actions-grid">
               <TodayCard
                 title={t("today.cardCheckinTitle")}
-                subtitle={t("today.cardCheckinSubtitle")}
+                subtitle={t("today.checkinCardEyebrow")}
                 body={signals.checkinDone ? t("today.cardCheckinReady") : t("today.cardCheckinEmpty")}
-                ctaLabel={t("quickActions.completeTodayActionCta")}
+                ctaLabel={t("today.checkinPrimaryCta")}
                 onClick={() => void handleLogTodayCheckin()}
                 onCtaClick={() => trackTodayCtaClick("checkin")}
                 loading={checkinActionStatus === "loading"}
                 progressLabel={signals.checkinDone ? t("today.cardCompleted") : t("today.cardPending")}
+                metric={signals.currentWeightKg ? `${signals.currentWeightKg.toFixed(1)} kg` : undefined}
+                helper={signals.currentWeightKg ? t("today.checkinWeightHelper") : t("today.checkinWeightFallback")}
+                orderClassName="order-3"
               />
+
               <TodayCard
-                title={t("today.cardTrainingTitle")}
-                subtitle={t("today.cardTrainingSubtitle")}
-                body={signals.trainingReady ? t("today.cardTrainingReady") : t("today.cardTrainingEmpty")}
-                ctaLabel={t("today.cardTrainingCta")}
+                title={t("today.trainingHeroTitle")}
+                subtitle={t("today.trainingCardEyebrow")}
+                body={signals.trainingReady ? t("today.trainingHeroReady") : t("today.trainingHeroEmpty")}
+                ctaLabel={t("today.trainingHeroCta")}
                 href="/app/entrenamiento"
                 onCtaClick={() => trackTodayCtaClick("training")}
-                progressLabel={signals.trainingReady ? t("today.cardCompleted") : t("today.cardPending")}
+                progressLabel={t("today.trainingProgressPending")}
+                tone="hero"
+                metric={signals.trainingDuration ? `${signals.trainingDuration} min` : undefined}
+                helper={signals.trainingFocus || t("today.trainingFocusFallback")}
+                orderClassName="order-1 md:col-span-2"
               />
+
               <TodayCard
-                title={t("today.cardNutritionTitle")}
-                subtitle={t("today.cardNutritionSubtitle")}
+                title={t("today.nutritionCardTitle")}
+                subtitle={t("today.nutritionCardEyebrow")}
                 body={signals.nutritionReady ? t("today.cardNutritionReady") : t("today.cardNutritionEmpty")}
-                ctaLabel={t("today.cardNutritionCta")}
+                ctaLabel={t("today.nutritionPrimaryCta")}
                 href="/app/nutricion"
                 onCtaClick={() => trackTodayCtaClick("nutrition")}
                 progressLabel={signals.nutritionReady ? t("today.cardCompleted") : t("today.cardPending")}
+                helper={
+                  signals.nutritionCalories || signals.nutritionProtein
+                    ? `${signals.nutritionCalories ?? "--"} kcal · ${signals.nutritionProtein ?? "--"} g proteína`
+                    : t("today.nutritionMetricsFallback")
+                }
+                orderClassName="order-2"
+              />
+
+              <TodayCard
+                title={t("today.progressCardTitle")}
+                subtitle={t("today.progressCardEyebrow")}
+                body={t("today.progressCardBody")}
+                ctaLabel={t("today.progressCardCta")}
+                href="/app/seguimiento"
+                onCtaClick={() => trackTodayCtaClick("checkin")}
+                progressLabel={progressLabel}
+                metric={`${Math.round((completedCount / 3) * 100)}%`}
+                helper={t("today.progressCardHelper")}
+                orderClassName="order-4"
               />
             </section>
           </>
