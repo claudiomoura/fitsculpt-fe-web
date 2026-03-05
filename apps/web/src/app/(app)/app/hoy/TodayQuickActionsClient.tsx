@@ -16,15 +16,17 @@ import type {
   TrainingPlanDetail,
   TrainingPlanListItem,
 } from "@/lib/types";
-import { createTrackingEntry } from "@/services/tracking";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { StartWorkoutModal } from "./StartWorkoutModal";
 import { TodaySkeleton } from "./TodaySkeleton";
+import { CheckInModal } from "./CheckInModal";
+import { QuickAddMealModal } from "./QuickAddMealModal";
 import { UpgradePaywallModal } from "./UpgradePaywallModal";
 
 type ViewStatus = "loading" | "success" | "error";
 type CheckinActionStatus = "idle" | "loading";
+type PaywallContext = "training" | "nutrition";
 
 type TodaySignals = {
   trainingReady: boolean;
@@ -141,7 +143,10 @@ export default function TodayQuickActionsClient() {
   });
   const [checkinActionStatus, setCheckinActionStatus] = useState<CheckinActionStatus>("idle");
   const [startWorkoutModalOpen, setStartWorkoutModalOpen] = useState(false);
+  const [quickAddMealModalOpen, setQuickAddMealModalOpen] = useState(false);
+  const [checkinModalOpen, setCheckinModalOpen] = useState(false);
   const [upgradePaywallModalOpen, setUpgradePaywallModalOpen] = useState(false);
+  const [paywallContext, setPaywallContext] = useState<PaywallContext>("training");
   const hasTrackedViewRef = useRef(false);
 
   const loadTodaySignals = useCallback(async () => {
@@ -276,46 +281,6 @@ export default function TodayQuickActionsClient() {
     trackEvent("today_cta_click", { target });
   }, []);
 
-  const handleLogTodayCheckin = useCallback(async () => {
-    if (checkinActionStatus === "loading") return;
-
-    setCheckinActionStatus("loading");
-
-    const now = new Date();
-    const todayDate = toDateKey(now);
-    const timestamp = now.getTime();
-
-    try {
-      await createTrackingEntry("checkins", {
-        id: `today-checkin-${timestamp}`,
-        date: todayDate,
-        weightKg: 0,
-        chestCm: 0,
-        waistCm: 0,
-        hipsCm: 0,
-        bicepsCm: 0,
-        thighCm: 0,
-        calfCm: 0,
-        neckCm: 0,
-        bodyFatPercent: 0,
-        energy: 0,
-        hunger: 0,
-        notes: t("quickActions.todayActionDefaultNotes"),
-        recommendation: t("quickActions.todayActionDefaultRecommendation"),
-        frontPhotoUrl: null,
-        sidePhotoUrl: null,
-      });
-      setSignals((previous) => ({
-        ...previous,
-        checkinDoneThisWeek: true,
-        streakDays: Math.max(1, previous.streakDays),
-      }));
-      notify({ title: t("today.hubSuccessToast"), variant: "success" });
-    } finally {
-      setCheckinActionStatus("idle");
-    }
-  }, [checkinActionStatus, notify, t]);
-
   const trainingRoute = "/app/entrenamiento";
   const billingRoute = "/app/settings/billing";
 
@@ -325,8 +290,24 @@ export default function TodayQuickActionsClient() {
       setStartWorkoutModalOpen(true);
       return;
     }
+    setPaywallContext("training");
     setUpgradePaywallModalOpen(true);
   }, [signals.hasTrainingAccess, trackTodayCtaClick]);
+
+  const handleNutritionPrimaryAction = useCallback(() => {
+    trackTodayCtaClick("nutrition");
+    if (!signals.hasNutritionAccess) {
+      setPaywallContext("nutrition");
+      setUpgradePaywallModalOpen(true);
+      return;
+    }
+    setQuickAddMealModalOpen(true);
+  }, [signals.hasNutritionAccess, trackTodayCtaClick]);
+
+  const handleCheckinPrimaryAction = useCallback(() => {
+    trackTodayCtaClick("checkin");
+    setCheckinModalOpen(true);
+  }, [trackTodayCtaClick]);
 
   const userName = signals.userName || t("ui.userFallback");
   const initials = userName
@@ -394,7 +375,7 @@ export default function TodayQuickActionsClient() {
                 <div className="mt-4 h-1.5 w-full rounded-full bg-slate-800">
                   <div className="h-full rounded-full" style={{ width: signals.checkinDoneThisWeek ? "100%" : "32%", background: "#34D399" }} />
                 </div>
-                <Button className="mt-5 min-h-11 w-full" size="lg" onClick={() => { trackTodayCtaClick("checkin"); void handleLogTodayCheckin(); }} loading={checkinActionStatus === "loading"} data-testid="today-action-button">
+                <Button className="mt-5 min-h-11 w-full" size="lg" onClick={handleCheckinPrimaryAction} loading={checkinActionStatus === "loading"} data-testid="today-action-button">
                   {signals.checkinDoneThisWeek ? t("today.checkinSecondaryCta") : t("today.checkinPrimaryCta")}
                 </Button>
               </article>
@@ -441,9 +422,9 @@ export default function TodayQuickActionsClient() {
                   ) : (
                     <p className="mt-2 text-sm text-slate-300">{t("today.lockedDescription")}</p>
                   )}
-                  <ButtonLink as={Link} href={signals.hasNutritionAccess ? "/app/nutricion" : "/app/settings/billing"} size="lg" className="mt-5 min-h-11 w-full" data-testid="today-action-button" onClick={() => trackTodayCtaClick("nutrition")}>
+                  <Button size="lg" className="mt-5 min-h-11 w-full" data-testid="today-action-button" onClick={handleNutritionPrimaryAction}>
                     {signals.hasNutritionAccess ? t("today.nutritionPrimaryCta") : t("today.unlockCta")}
-                  </ButtonLink>
+                  </Button>
                 </article>
               </div>
 
@@ -487,10 +468,46 @@ export default function TodayQuickActionsClient() {
             <UpgradePaywallModal
               open={upgradePaywallModalOpen}
               onClose={() => setUpgradePaywallModalOpen(false)}
-              context="training"
+              context={paywallContext}
               onGoBilling={() => {
                 setUpgradePaywallModalOpen(false);
                 router.push(billingRoute);
+              }}
+            />
+
+            <QuickAddMealModal
+              open={quickAddMealModalOpen}
+              supportSearch={false}
+              onClose={() => setQuickAddMealModalOpen(false)}
+              onSaved={(savedMeal) => {
+                setQuickAddMealModalOpen(false);
+                setSignals((previous) => ({
+                  ...previous,
+                  nutritionConsumedCalories: previous.nutritionConsumedCalories + savedMeal.calories,
+                  nutritionConsumedProtein: previous.nutritionConsumedProtein + savedMeal.protein,
+                }));
+                notify({ title: t("today.hubSuccessToast"), variant: "success" });
+                void loadTodaySignals();
+              }}
+            />
+
+            <CheckInModal
+              open={checkinModalOpen}
+              onClose={() => {
+                if (checkinActionStatus === "loading") return;
+                setCheckinModalOpen(false);
+              }}
+              onSavingChange={(isSaving) => setCheckinActionStatus(isSaving ? "loading" : "idle")}
+              onSaved={(weightKg) => {
+                setCheckinModalOpen(false);
+                setSignals((previous) => ({
+                  ...previous,
+                  checkinDoneThisWeek: true,
+                  currentWeightKg: weightKg,
+                  streakDays: Math.max(1, previous.streakDays),
+                }));
+                notify({ title: t("today.hubSuccessToast"), variant: "success" });
+                void loadTodaySignals();
               }}
             />
           </>
