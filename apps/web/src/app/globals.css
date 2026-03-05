@@ -3792,6 +3792,15 @@ textarea:disabled {
   font-size: 14px;
 }
 
+.today-premium-modal {
+  width: min(560px, 100%);
+  border-radius: 24px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #0f1624;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.45);
+  color: #e2e8f0;
+}
+
 .trainer-plans-exercise-editor-modal {
   max-height: min(88vh, 880px);
 }
