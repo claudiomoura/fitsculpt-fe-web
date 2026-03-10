@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Button } from "./Button";
 import { cn } from "@/lib/classNames";
 
@@ -23,7 +30,13 @@ function createId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export function ToastProvider({ children, duration = 4000 }: { children: ReactNode; duration?: number }) {
+export function ToastProvider({
+  children,
+  duration = 4000,
+}: {
+  children: ReactNode;
+  duration?: number;
+}) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const notify = useCallback(
@@ -35,7 +48,7 @@ export function ToastProvider({ children, duration = 4000 }: { children: ReactNo
         setToasts((prev) => prev.filter((entry) => entry.id !== id));
       }, duration);
     },
-    [duration]
+    [duration],
   );
 
   const value = useMemo(() => ({ notify }), [notify]);
@@ -45,18 +58,30 @@ export function ToastProvider({ children, duration = 4000 }: { children: ReactNo
       {children}
       <div className="ui-toast-viewport" role="status" aria-live="polite">
         {toasts.map((toast) => (
-          <div key={toast.id} className={cn("ui-toast", toast.variant && `ui-toast--${toast.variant}`)}>
+          <div
+            key={toast.id}
+            className={cn(
+              "ui-toast",
+              toast.variant && `ui-toast--${toast.variant}`,
+            )}
+          >
             <Button
               variant="ghost"
               size="sm"
               className="ui-toast-close"
               aria-label="Close"
-              onClick={() => setToasts((prev) => prev.filter((entry) => entry.id !== toast.id))}
+              onClick={() =>
+                setToasts((prev) =>
+                  prev.filter((entry) => entry.id !== toast.id),
+                )
+              }
             >
               ×
             </Button>
             <div className="ui-toast-title">{toast.title}</div>
-            {toast.description ? <div className="ui-toast-description">{toast.description}</div> : null}
+            {toast.description ? (
+              <div className="ui-toast-description">{toast.description}</div>
+            ) : null}
           </div>
         ))}
       </div>
