@@ -1,7 +1,7 @@
 "use client"
 
-import { Dumbbell, Flame, Heart, TrendingUp } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Dumbbell, Flame, Heart, TrendingUp } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
 
 interface OnboardingStep1Props {
   selectedObjetivo: string

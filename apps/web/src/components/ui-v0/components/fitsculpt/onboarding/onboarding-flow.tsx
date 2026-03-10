@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Dumbbell } from "lucide-react"
+import { Dumbbell } from "@/components/ui-v0/icons"
 import { OnboardingStep1 } from "./onboarding-step1"
 import { OnboardingStep2 } from "./onboarding-step2"
 import { OnboardingStep3 } from "./onboarding-step3"

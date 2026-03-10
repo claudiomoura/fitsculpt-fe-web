@@ -1,7 +1,7 @@
 "use client"
 
-import { Home, Dumbbell, Apple, TrendingUp, User } from "lucide-react"
-import type { TabType } from "@/app/page"
+import { Home, Dumbbell, Apple, TrendingUp, User } from "@/components/ui-v0/icons"
+import type { TabType } from "@/components/ui-v0/types"
 
 interface BottomNavProps {
   activeTab: TabType

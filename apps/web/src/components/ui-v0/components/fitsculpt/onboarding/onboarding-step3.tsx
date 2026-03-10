@@ -1,7 +1,7 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { ChevronLeft, Minus, Plus, Sparkles } from "lucide-react"
+import { Button } from "@/components/ui-v0/button"
+import { ChevronLeft, Minus, Plus, Sparkles } from "@/components/ui-v0/icons"
 
 interface OnboardingStep3Props {
   diasSemana: number

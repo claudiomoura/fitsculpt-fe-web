@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, ChevronRight, Plus, Timer, X, Check } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ChevronLeft, ChevronRight, Plus, Timer, X, Check } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
 
 interface SesionEnCursoProps {
   onFinish: () => void

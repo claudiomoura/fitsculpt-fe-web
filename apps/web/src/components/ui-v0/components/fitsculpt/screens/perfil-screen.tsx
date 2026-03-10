@@ -1,8 +1,8 @@
 "use client"
 
-import { ChevronRight, Crown, Globe, Scale, User, Shield, LogOut, Dumbbell } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import type { ScreenType } from "@/app/page"
+import { ChevronRight, Crown, Globe, Scale, User, Shield, LogOut, Dumbbell } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
+import type { ScreenType } from "@/components/ui-v0/types"
 
 interface PerfilScreenProps {
   onNavigate: (screen: ScreenType) => void
