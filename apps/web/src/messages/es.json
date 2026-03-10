@@ -308,21 +308,7 @@
     "unlockCta": "Desbloquear",
     "lockedDescription": "Disponible en Premium. Activa tu plan para continuar.",
     "checkinSecondaryCta": "Ver check-in",
-    "trainingExerciseCount": "{{count}} ejercicios hoy",
-    "startWorkoutDefaultTitle": "Entrenamiento de hoy",
-    "startWorkoutDuration": "Duración estimada: {{minutes}} min",
-    "startWorkoutPreviewTitle": "Primeros ejercicios",
-    "startWorkoutConfirm": "Empezar sesión",
-    "paywallTitle": "Desbloquea FitSculpt",
-    "paywallTrainingBullet1": "Planes adaptativos para tu objetivo.",
-    "paywallTrainingBullet2": "Progresión semanal guiada.",
-    "paywallTrainingBullet3": "IA de entreno para ajustar más rápido.",
-    "paywallNutritionBullet1": "Plan semanal personalizado.",
-    "paywallNutritionBullet2": "Lista inteligente para comprar fácil.",
-    "paywallNutritionBullet3": "IA de nutrición para resolver en segundos.",
-    "paywallPlansLabel": "Planes disponibles",
-    "paywallPrimaryCta": "Ver planes",
-    "paywallSecondaryCta": "Ahora no"
+    "trainingExerciseCount": "{{count}} ejercicios hoy"
   },
   "foods": {
     "salmon": "Salmón",

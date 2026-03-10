@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Stack } from "@/design-system/components";
@@ -19,9 +18,7 @@ import type {
 import { createTrackingEntry } from "@/services/tracking";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
-import { StartWorkoutModal } from "./StartWorkoutModal";
 import { TodaySkeleton } from "./TodaySkeleton";
-import { UpgradePaywallModal } from "./UpgradePaywallModal";
 
 type ViewStatus = "loading" | "success" | "error";
 type CheckinActionStatus = "idle" | "loading";
@@ -35,7 +32,6 @@ type TodaySignals = {
   trainingName: string;
   trainingDuration: number | null;
   trainingExerciseCount: number;
-  trainingExercisePreview: string[];
   nutritionTargetCalories: number | null;
   nutritionTargetProtein: number | null;
   nutritionTargetCarbs: number | null;
@@ -112,7 +108,6 @@ const hasWeeklyCheckin = (payload?: TrackingPayload | null) => {
 const progressBarWidth = (value: number, total: number) => Math.min(100, Math.max(0, total > 0 ? Math.round((value / total) * 100) : 0));
 
 export default function TodayQuickActionsClient() {
-  const router = useRouter();
   const { t } = useLanguage();
   const { notify } = useToast();
   const [status, setStatus] = useState<ViewStatus>("loading");
@@ -125,7 +120,6 @@ export default function TodayQuickActionsClient() {
     trainingName: "",
     trainingDuration: null,
     trainingExerciseCount: 0,
-    trainingExercisePreview: [],
     nutritionTargetCalories: null,
     nutritionTargetProtein: null,
     nutritionTargetCarbs: null,
@@ -140,8 +134,6 @@ export default function TodayQuickActionsClient() {
     goalLabel: "",
   });
   const [checkinActionStatus, setCheckinActionStatus] = useState<CheckinActionStatus>("idle");
-  const [startWorkoutModalOpen, setStartWorkoutModalOpen] = useState(false);
-  const [upgradePaywallModalOpen, setUpgradePaywallModalOpen] = useState(false);
   const hasTrackedViewRef = useRef(false);
 
   const loadTodaySignals = useCallback(async () => {
@@ -169,7 +161,6 @@ export default function TodayQuickActionsClient() {
         trainingName: "",
         trainingDuration: null,
         trainingExerciseCount: 0,
-        trainingExercisePreview: [],
         nutritionTargetCalories: null,
         nutritionTargetProtein: null,
         nutritionTargetCarbs: null,
@@ -216,10 +207,6 @@ export default function TodayQuickActionsClient() {
               nextSignals.trainingName = trainingDay.label || trainingDay.focus || trainingDetail.title;
               nextSignals.trainingDuration = Number.isFinite(trainingDay.duration) ? Number(trainingDay.duration) : null;
               nextSignals.trainingExerciseCount = trainingDay.exercises?.length ?? 0;
-              nextSignals.trainingExercisePreview = (trainingDay.exercises ?? [])
-                .map((exercise) => exercise.name?.trim())
-                .filter((exerciseName): exerciseName is string => Boolean(exerciseName))
-                .slice(0, 3);
             }
             nextSignals.goalLabel = trainingDetail.goal || "";
           }
@@ -316,18 +303,6 @@ export default function TodayQuickActionsClient() {
     }
   }, [checkinActionStatus, notify, t]);
 
-  const trainingRoute = "/app/entrenamiento";
-  const billingRoute = "/app/settings/billing";
-
-  const handleTrainingPrimaryAction = useCallback(() => {
-    trackTodayCtaClick("training");
-    if (signals.hasTrainingAccess) {
-      setStartWorkoutModalOpen(true);
-      return;
-    }
-    setUpgradePaywallModalOpen(true);
-  }, [signals.hasTrainingAccess, trackTodayCtaClick]);
-
   const userName = signals.userName || t("ui.userFallback");
   const initials = userName
     .split(" ")
@@ -414,10 +389,10 @@ export default function TodayQuickActionsClient() {
                     <div className="h-full rounded-full" style={{ width: signals.trainingReady ? "28%" : "0%", background: "#22D3EE" }} />
                   </div>
                   <div className="mt-5 flex gap-2">
-                    <Button size="lg" className="min-h-11 flex-1" data-testid="today-action-button" style={{ background: "#22D3EE", color: "#05212a", borderColor: "rgba(34,211,238,0.7)", boxShadow: "0 10px 26px rgba(34,211,238,0.28)" }} onClick={handleTrainingPrimaryAction}>
+                    <ButtonLink as={Link} href={signals.hasTrainingAccess ? "/app/entrenamiento" : "/app/settings/billing"} size="lg" className="min-h-11 flex-1" data-testid="today-action-button" style={{ background: "#22D3EE", color: "#05212a", borderColor: "rgba(34,211,238,0.7)", boxShadow: "0 10px 26px rgba(34,211,238,0.28)" }} onClick={() => trackTodayCtaClick("training")}>
                       {signals.hasTrainingAccess ? t("today.trainingHeroCta") : t("today.unlockCta")}
-                    </Button>
-                    <ButtonLink as={Link} href={trainingRoute} variant="secondary" className="min-h-11" onClick={() => trackTodayCtaClick("training")}>
+                    </ButtonLink>
+                    <ButtonLink as={Link} href="/app/entrenamiento" variant="secondary" className="min-h-11" onClick={() => trackTodayCtaClick("training")}>
                       {t("today.viewDetailCta")}
                     </ButtonLink>
                   </div>
@@ -467,32 +442,6 @@ export default function TodayQuickActionsClient() {
                 </article>
               </div>
             </section>
-
-            <StartWorkoutModal
-              open={startWorkoutModalOpen}
-              onClose={() => setStartWorkoutModalOpen(false)}
-              workoutName={signals.trainingName}
-              durationMinutes={signals.trainingDuration}
-              exercises={signals.trainingExercisePreview}
-              onStart={() => {
-                setStartWorkoutModalOpen(false);
-                router.push(trainingRoute);
-              }}
-              onViewDetail={() => {
-                setStartWorkoutModalOpen(false);
-                router.push(trainingRoute);
-              }}
-            />
-
-            <UpgradePaywallModal
-              open={upgradePaywallModalOpen}
-              onClose={() => setUpgradePaywallModalOpen(false)}
-              context="training"
-              onGoBilling={() => {
-                setUpgradePaywallModalOpen(false);
-                router.push(billingRoute);
-              }}
-            />
           </>
         ) : null}
       </Stack>
