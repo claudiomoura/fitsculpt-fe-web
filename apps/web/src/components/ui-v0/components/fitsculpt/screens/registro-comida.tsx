@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Search, ChevronLeft, Plus, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Search, ChevronLeft, Plus, X } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
 import { SuccessToast } from "../ui/ui-states"
 
 interface RegistroComidaProps {

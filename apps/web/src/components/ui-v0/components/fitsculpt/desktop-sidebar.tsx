@@ -1,7 +1,7 @@
 "use client"
 
-import { Home, Dumbbell, Apple, TrendingUp, User, Sparkles, BookOpen } from "lucide-react"
-import type { TabType, ScreenType } from "@/app/page"
+import { Home, Dumbbell, Apple, TrendingUp, User, Sparkles, BookOpen } from "@/components/ui-v0/icons"
+import type { TabType, ScreenType } from "@/components/ui-v0/types"
 
 interface DesktopSidebarProps {
   activeTab: TabType

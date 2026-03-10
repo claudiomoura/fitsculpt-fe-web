@@ -1,7 +1,7 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { ChevronLeft } from "lucide-react"
+import { Button } from "@/components/ui-v0/button"
+import { ChevronLeft } from "@/components/ui-v0/icons"
 
 interface OnboardingStep2Props {
   selectedNivel: string
