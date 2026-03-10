@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronRight, ChevronLeft, Calendar, Dumbbell, Clock, CheckCircle2, Circle, Minus, Sparkles, BookOpen } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import type { ScreenType } from "@/app/page"
+import { ChevronRight, ChevronLeft, Calendar, Dumbbell, Clock, CheckCircle2, Circle, Minus, Sparkles, BookOpen } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
+import type { ScreenType } from "@/components/ui-v0/types"
 
 interface EntrenoScreenProps {
   onNavigate: (screen: ScreenType) => void

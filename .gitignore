@@ -147,3 +147,6 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# v0 exports
+apps/web/src/components/ui-v0/*.zip

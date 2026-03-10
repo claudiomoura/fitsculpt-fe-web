@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, ChevronRight, Settings, Apple, Utensils } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import type { ScreenType } from "@/app/page"
+import { Plus, ChevronRight, Settings, Apple, Utensils } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
+import type { ScreenType } from "@/components/ui-v0/types"
 
 interface NutricionScreenProps {
   onNavigate: (screen: ScreenType) => void

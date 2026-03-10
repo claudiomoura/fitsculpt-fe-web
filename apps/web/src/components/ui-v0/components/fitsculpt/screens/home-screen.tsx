@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dumbbell, Apple, Scale, Flame, ChevronRight, Clock, TrendingUp, Sparkles } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Dumbbell, Apple, Scale, Flame, ChevronRight, Clock, TrendingUp, Sparkles } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
 import { ListSkeleton, ErrorState, SuccessToast } from "../ui/ui-states"
-import type { ScreenType } from "@/app/page"
+import type { ScreenType } from "@/components/ui-v0/types"
 
 interface HomeScreenProps {
   onNavigate: (screen: ScreenType) => void

@@ -1,7 +1,7 @@
 "use client"
 
-import { AlertCircle, Loader2, Check } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { AlertCircle, Loader2, Check } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
 
 // Loading Skeleton
 export function CardSkeleton() {

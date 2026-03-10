@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronLeft, Sparkles, Target, Calendar, Dumbbell, TrendingUp, Loader2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ChevronLeft, Sparkles, Target, Calendar, Dumbbell, TrendingUp, Loader2 } from "@/components/ui-v0/icons"
+import { Button } from "@/components/ui-v0/button"
 
 interface AIGenerationScreenProps {
   onBack: () => void
