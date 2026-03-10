@@ -7,17 +7,26 @@ interface DesktopSidebarProps {
   activeTab: TabType
   onTabChange: (tab: TabType) => void
   onNavigate: (screen: ScreenType) => void
+  showTools?: boolean
 }
 
 const mainTabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "hoy", label: "Hoy", icon: Home },
   { id: "entreno", label: "Entreno", icon: Dumbbell },
   { id: "nutricion", label: "Nutricion", icon: Apple },
-  { id: "progreso", label: "Progreso", icon: TrendingUp },
+  { id: "progreso", label: "Biblioteca", icon: TrendingUp },
   { id: "perfil", label: "Perfil", icon: User },
 ]
 
-export function DesktopSidebar({ activeTab, onTabChange, onNavigate }: DesktopSidebarProps) {
+const tabTestIds: Partial<Record<TabType, string>> = {
+  hoy: "nav-home",
+  entreno: "nav-training",
+  nutricion: "nav-nutrition",
+  progreso: "nav-library",
+  perfil: "nav-profile",
+}
+
+export function DesktopSidebar({ activeTab, onTabChange, onNavigate, showTools = true }: DesktopSidebarProps) {
   return (
     <aside className="w-64 h-screen sticky top-0 border-r border-border bg-card/50 backdrop-blur-xl flex flex-col">
       {/* Logo */}
@@ -46,6 +55,7 @@ export function DesktopSidebar({ activeTab, onTabChange, onNavigate }: DesktopSi
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
+                data-testid={tabTestIds[tab.id]}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                   isActive
                     ? "bg-primary/10 text-primary"
@@ -59,27 +69,29 @@ export function DesktopSidebar({ activeTab, onTabChange, onNavigate }: DesktopSi
           })}
         </div>
 
-        <div className="mt-8">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4 px-3">
-            Herramientas
-          </p>
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={() => onNavigate("ai-generation")}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
-            >
-              <Sparkles className="w-5 h-5" />
-              <span className="font-medium">Generar con IA</span>
-            </button>
-            <button
-              onClick={() => onNavigate("biblioteca")}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
-            >
-              <BookOpen className="w-5 h-5" />
-              <span className="font-medium">Biblioteca</span>
-            </button>
+        {showTools ? (
+          <div className="mt-8">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-4 px-3">
+              Herramientas
+            </p>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => onNavigate("ai-generation")}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
+              >
+                <Sparkles className="w-5 h-5" />
+                <span className="font-medium">Generar con IA</span>
+              </button>
+              <button
+                onClick={() => onNavigate("biblioteca")}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
+              >
+                <BookOpen className="w-5 h-5" />
+                <span className="font-medium">Biblioteca</span>
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
       </nav>
 
       {/* User info */}

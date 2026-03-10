@@ -12,9 +12,17 @@ const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: "hoy", label: "Hoy", icon: Home },
   { id: "entreno", label: "Entreno", icon: Dumbbell },
   { id: "nutricion", label: "Nutricion", icon: Apple },
-  { id: "progreso", label: "Progreso", icon: TrendingUp },
+  { id: "progreso", label: "Biblioteca", icon: TrendingUp },
   { id: "perfil", label: "Perfil", icon: User },
 ]
+
+const tabTestIds: Partial<Record<TabType, string>> = {
+  hoy: "nav-home",
+  entreno: "nav-training",
+  nutricion: "nav-nutrition",
+  progreso: "nav-library",
+  perfil: "nav-profile",
+}
 
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
@@ -27,6 +35,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
+              data-testid={tabTestIds[tab.id]}
               className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-all duration-200 ${
                 isActive
                   ? "text-primary"
