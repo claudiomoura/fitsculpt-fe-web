@@ -10,8 +10,16 @@ type V0TrainingShellProps = {
 
 export function V0TrainingShell({ title, subtitle, actions, children }: V0TrainingShellProps) {
   return (
-    <V0ScreenShell title={title} subtitle={subtitle} actions={actions}>
-      {children}
-    </V0ScreenShell>
+    <section className="v0-route-shell v0-route-shell--training">
+      <div className="v0-route-shell__container">
+        <header className="v0-route-shell__topbar">
+          <span aria-hidden="true" className="v0-route-shell__badge">Entrenamiento</span>
+          <h1>{title ?? "Plan de entrenamiento"}</h1>
+        </header>
+        <V0ScreenShell subtitle={subtitle} actions={actions}>
+          {children}
+        </V0ScreenShell>
+      </div>
+    </section>
   );
 }
