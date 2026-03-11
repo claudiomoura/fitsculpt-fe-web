@@ -4,13 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Icon } from "@/components/ui/Icon";
-import { applyEntitlementGating, applyTabEntitlementGating, buildNavigationSections, getMostSpecificActiveHref, mainTabsMobile, trainerTabsMobile } from "./navConfig";
+import {
+  applyEntitlementGating,
+  applyTabEntitlementGating,
+  buildNavigationSections,
+  getMostSpecificActiveHref,
+  mainTabsMobile,
+  splitV0NavigationItems,
+  trainerTabsMobile,
+} from "./navConfig";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { useAccess } from "@/lib/useAccess";
 import { V0BottomNav } from "@/components/v0";
 import { isV0NavEnabled } from "@/config/featureFlags";
-
-const V0_PRIMARY_ITEM_IDS = ["today", "training", "nutrition-calendar", "dashboard", "profile"];
 
 export default function MobileTabBar() {
   const { t } = useLanguage();
@@ -27,25 +33,32 @@ export default function MobileTabBar() {
   };
 
   if (isV0NavEnabled()) {
-    const sections = applyEntitlementGating(buildNavigationSections({ role, isAdmin, isCoach, isDev, gymMembershipState }), entitlements);
+    const sections = applyEntitlementGating(
+      buildNavigationSections({
+        role,
+        isAdmin,
+        isCoach,
+        isDev,
+        gymMembershipState,
+      }),
+      entitlements,
+    );
     const activeHref = getMostSpecificActiveHref(pathname, sections);
-    const allItems = sections.flatMap((section) => section.items).filter((item) => !item.disabled);
-    const primaryItems = V0_PRIMARY_ITEM_IDS.map((id) => allItems.find((item) => item.id === id)).filter((item) => item !== undefined);
-    const extraItems = allItems.filter((item) => !V0_PRIMARY_ITEM_IDS.includes(item.id));
-    const moreHref = extraItems[0]?.href;
+    const allItems = sections.flatMap((section) => section.items);
+    const { coreItems, moreItems } = splitV0NavigationItems(allItems);
 
     const items = [
-      ...primaryItems.map((item) => ({
+      ...coreItems.map((item) => ({
         label: t(item.labelKey),
         href: item.href,
         active: activeHref === item.href,
       })),
-      ...(moreHref
+      ...(moreItems[0]
         ? [
             {
               label: t("common.more"),
-              href: moreHref,
-              active: activeHref === moreHref,
+              href: moreItems[0].href,
+              active: moreItems.some((item) => activeHref === item.href),
             },
           ]
         : []),
