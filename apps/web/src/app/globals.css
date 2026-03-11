@@ -108,6 +108,38 @@
   --vv-offset-bottom: 0px;
   --mobile-tab-bar-offset-effective: calc(var(--mobile-tab-bar-offset) + var(--vv-offset-bottom));
   --mobile-tab-count: 6;
+
+  /* v0/shadcn token bridge (aliases + fallbacks) */
+  --background: var(--bg, var(--color-bg, #f6f4f1));
+  --foreground: var(--text-primary, var(--color-text, #0f172a));
+  --card: var(--bg-card, var(--color-surface, #ffffff));
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+  --primary: var(--accent, var(--color-primary, #00f5c3));
+  --primary-foreground: var(--bg, #f6f4f1);
+  --secondary: var(--bg-muted, var(--color-surface-muted, #f8fafc));
+  --secondary-foreground: var(--foreground);
+  --muted: var(--bg-muted, var(--color-surface-muted, #f8fafc));
+  --muted-foreground: var(--text-muted, var(--color-text-muted, #64748b));
+  --accent-foreground: var(--foreground);
+  --destructive: var(--color-danger, #ff3b3b);
+  --destructive-foreground: #ffffff;
+  --input: var(--border, var(--color-border, #e2e8f0));
+  --ring: var(--color-ring, color-mix(in srgb, var(--primary) 35%, transparent));
+  --radius: var(--radius-md, 14px);
+
+  /* Additional legacy aliases used by older generated blocks */
+  --fs-background: var(--background);
+  --fs-foreground: var(--foreground);
+  --fs-card: var(--card);
+  --fs-card-foreground: var(--card-foreground);
+  --fs-primary: var(--primary);
+  --fs-primary-foreground: var(--primary-foreground);
+  --fs-muted: var(--muted);
+  --fs-muted-foreground: var(--muted-foreground);
+  --fs-border: var(--input);
+  --fs-ring: var(--ring);
 }
 
 html,
@@ -188,6 +220,37 @@ html.theme-dark {
   --hero-bg: radial-gradient(circle at top, color-mix(in srgb, var(--color-primary) 28%, transparent), rgba(15, 17, 21, 0.95));
   --skeleton-base: rgba(148, 163, 184, 0.12);
   --skeleton-highlight: rgba(148, 163, 184, 0.22);
+
+  /* v0/shadcn token bridge (dark) */
+  --background: var(--bg, var(--color-bg, #0b0e13));
+  --foreground: var(--text-primary, var(--color-text, #e6eaf2));
+  --card: var(--bg-card, var(--color-surface, #141822));
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--card-foreground);
+  --primary: var(--accent, var(--color-primary, #00f5c3));
+  --primary-foreground: var(--bg, #0b0e13);
+  --secondary: var(--bg-muted, var(--color-surface-muted, #0f1420));
+  --secondary-foreground: var(--foreground);
+  --muted: var(--bg-muted, var(--color-surface-muted, #0f1420));
+  --muted-foreground: var(--text-muted, var(--color-text-muted, #9aa3b2));
+  --accent-foreground: var(--foreground);
+  --destructive: var(--color-danger, #ff6b6b);
+  --destructive-foreground: #ffffff;
+  --input: var(--border, var(--color-border, #232a3a));
+  --ring: var(--color-ring, color-mix(in srgb, var(--primary) 42%, transparent));
+  --radius: var(--radius-md, 14px);
+
+  --fs-background: var(--background);
+  --fs-foreground: var(--foreground);
+  --fs-card: var(--card);
+  --fs-card-foreground: var(--card-foreground);
+  --fs-primary: var(--primary);
+  --fs-primary-foreground: var(--primary-foreground);
+  --fs-muted: var(--muted);
+  --fs-muted-foreground: var(--muted-foreground);
+  --fs-border: var(--input);
+  --fs-ring: var(--ring);
 }
 
 html.theme-light {
