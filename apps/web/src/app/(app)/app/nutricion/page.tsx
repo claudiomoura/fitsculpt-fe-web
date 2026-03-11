@@ -2,6 +2,7 @@ import NutritionPlanClient from "./NutritionPlanClient";
 import { getServerT } from "@/lib/serverI18n";
 import { ButtonLink } from "@/components/ui/Button";
 import { V0PageHero } from "@/components/surfaces/V0PageHero";
+import { V0NutritionShell } from "@/components/v0";
 
 export default async function NutritionPlanPage() {
   const { t } = await getServerT();
@@ -24,7 +25,9 @@ export default async function NutritionPlanPage() {
           </>
         }
       />
-      <NutritionPlanClient />
+      <V0NutritionShell>
+        <NutritionPlanClient />
+      </V0NutritionShell>
     </div>
   );
 }
