@@ -2,36 +2,46 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/classNames";
 import { V0Card } from "../V0Card";
 
-type V0TrainingTileProps = {
+export type V0TrainingTileProps = {
+  label?: ReactNode;
+  icon?: ReactNode;
   title?: ReactNode;
-  subtitle?: ReactNode;
-  rightSlot?: ReactNode;
+  meta?: ReactNode;
+  cta?: ReactNode;
   footerSlot?: ReactNode;
-  children?: ReactNode;
   className?: string;
 };
 
 export function V0TrainingTile({
+  label,
+  icon,
   title,
-  subtitle,
-  rightSlot,
+  meta,
+  cta,
   footerSlot,
-  children,
   className,
 }: V0TrainingTileProps) {
   return (
     <V0Card className={cn("space-y-4", className)}>
-      <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-base font-semibold text-white md:text-lg">{title ?? "Entrenamiento"}</h3>
-          {subtitle ? <p className="mt-1 text-sm text-white/65">{subtitle}</p> : null}
+      <header className="flex items-center gap-2 text-white/75">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/90">
+          {icon ?? "🏋️"}
         </div>
-        {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/65">
+          {label ?? "Treino"}
+        </p>
       </header>
-      {children ? <div className="space-y-3">{children}</div> : null}
-      {footerSlot ? <footer>{footerSlot}</footer> : null}
+
+      <h3 className="text-lg font-semibold leading-tight text-white md:text-xl">
+        {title ?? "Entrenamiento do dia"}
+      </h3>
+
+      <div className="rounded-xl border border-white/10 bg-black/20 px-3.5 py-2.5 text-sm text-white/75">
+        {meta ?? "Sem meta definida."}
+      </div>
+
+      {cta ? <footer className="pt-1">{cta}</footer> : null}
+      {footerSlot ? <div>{footerSlot}</div> : null}
     </V0Card>
   );
 }
-
-export type { V0TrainingTileProps };
