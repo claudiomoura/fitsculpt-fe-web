@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { cn } from '@/lib/classNames';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'primaryGlow' | 'accentGlow';
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -18,6 +18,10 @@ const variantClasses: Record<ButtonVariant, string> = {
     'border border-border bg-surface text-text shadow-sm hover:bg-surface-muted focus-visible:ring-primary/25',
   ghost:
     'bg-transparent text-text hover:bg-surface-muted focus-visible:ring-primary/20',
+  primaryGlow:
+    'bg-primary text-white shadow-sm hover:bg-primary/90 focus-visible:ring-primary/35 glow-primary',
+  accentGlow:
+    'border border-border bg-surface text-text shadow-sm hover:bg-surface-muted focus-visible:ring-primary/25 glow-accent',
 };
 
 export function Button({
