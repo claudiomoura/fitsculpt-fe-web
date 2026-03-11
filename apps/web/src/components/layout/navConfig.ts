@@ -62,12 +62,6 @@ export const mainTabsMobile: MobileTab[] = [
     icon: "dumbbell",
   },
   {
-    id: "library",
-    href: "/app/biblioteca",
-    labelKey: "nav.exerciseLibrary",
-    icon: "book",
-  },
-  {
     id: "nutrition",
     href: "/app/nutricion",
     labelKey: "nav.nutritionCalendar",
@@ -75,7 +69,19 @@ export const mainTabsMobile: MobileTab[] = [
     feature: "nutrition",
     upgradeHref: "/app/settings/billing",
   },
-  { id: "settings", href: "/app/settings", labelKey: "nav.settings", icon: "info" },
+  {
+    id: "progress",
+    href: "/app/seguimiento",
+    labelKey: "nav.tracking",
+    icon: "book",
+  },
+  {
+    id: "profile",
+    href: "/app/profile",
+    labelKey: "nav.profile",
+    icon: "info",
+  },
+  // Requiere implementación: tab de "Más"/hamburguesa para usuario normal en v0.
 ];
 
 

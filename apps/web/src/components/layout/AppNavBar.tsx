@@ -137,26 +137,28 @@ export default function AppNavBar() {
             <LanguageSwitcher />
           </div>
 
-          <button
-            ref={toggleButtonRef}
-            type="button"
-            className="nav-toggle"
-            aria-expanded={open}
-            aria-controls="app-nav-drawer"
-            aria-label="Abrir menú"
-            onClick={(event) => {
-              triggerRef.current = event.currentTarget;
+          {isAdmin ? (
+            <button
+              ref={toggleButtonRef}
+              type="button"
+              className="nav-toggle"
+              aria-expanded={open}
+              aria-controls="app-nav-drawer"
+              aria-label="Abrir menú"
+              onClick={(event) => {
+                triggerRef.current = event.currentTarget;
 
-              if (open) {
-                closeMenu(event.currentTarget);
-                return;
-              }
+                if (open) {
+                  closeMenu(event.currentTarget);
+                  return;
+                }
 
-              setOpen(true);
-            }}
-          >
-            <span aria-hidden="true">{open ? "✕" : "☰"}</span>
-          </button>
+                setOpen(true);
+              }}
+            >
+              <span aria-hidden="true">{open ? "✕" : "☰"}</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
