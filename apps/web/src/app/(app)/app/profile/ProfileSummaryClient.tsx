@@ -10,12 +10,59 @@ import TrainerProfileSummary from "@/components/trainer/profile/TrainerProfileSu
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 
 type CheckinEntry = {
   date?: string;
 };
 
 const UNKNOWN_MEMBERSHIP: GymMembership = { state: "unknown", gymId: null, gymName: null };
+
+function hasProfileData(profile: ProfileData) {
+  return Boolean(
+    profile.name.trim() ||
+      profile.sex ||
+      profile.age !== null ||
+      profile.heightCm !== null ||
+      profile.weightKg !== null ||
+      profile.goalWeightKg !== null ||
+      profile.goal ||
+      profile.goals.length ||
+      profile.activity ||
+      profile.profilePhotoUrl ||
+      profile.avatarDataUrl ||
+      profile.injuries.trim() ||
+      profile.notes.trim() ||
+      profile.trainingPreferences.level ||
+      profile.trainingPreferences.daysPerWeek !== null ||
+      profile.trainingPreferences.sessionTime ||
+      profile.trainingPreferences.focus ||
+      profile.trainingPreferences.equipment ||
+      profile.trainingPreferences.workoutLength ||
+      profile.trainingPreferences.timerSound ||
+      profile.nutritionPreferences.mealsPerDay !== null ||
+      profile.nutritionPreferences.dietType ||
+      profile.nutritionPreferences.allergies.length ||
+      profile.nutritionPreferences.preferredFoods.trim() ||
+      profile.nutritionPreferences.dislikedFoods.trim() ||
+      profile.nutritionPreferences.dietaryPrefs.trim() ||
+      profile.nutritionPreferences.cookingTime ||
+      profile.nutritionPreferences.mealDistribution.preset ||
+      profile.macroPreferences.formula ||
+      profile.macroPreferences.proteinGPerKg !== null ||
+      profile.macroPreferences.fatGPerKg !== null ||
+      profile.macroPreferences.cutPercent !== null ||
+      profile.macroPreferences.bulkPercent !== null ||
+      profile.measurements.chestCm !== null ||
+      profile.measurements.waistCm !== null ||
+      profile.measurements.hipsCm !== null ||
+      profile.measurements.bicepsCm !== null ||
+      profile.measurements.thighCm !== null ||
+      profile.measurements.calfCm !== null ||
+      profile.measurements.neckCm !== null ||
+      profile.measurements.bodyFatPercent !== null
+  );
+}
 
 export default function ProfileSummaryClient() {
   const { t } = useLanguage();
@@ -157,6 +204,27 @@ export default function ProfileSummaryClient() {
         .join(", ")
     : t("profile.noData");
 
+  const isProfileEmpty = !hasProfileData(profile);
+
+  if (loading) {
+    return <LoadingState ariaLabel={t("ui.loading")} title={t("profile.summaryTitle")} lines={4} />;
+  }
+
+  if (error) {
+    return <ErrorState title={t("profile.errorTitle")} description={error} retryLabel={t("ui.retry")} onRetry={() => window.location.reload()} wrapInCard />;
+  }
+
+  if (isProfileEmpty) {
+    return (
+      <EmptyState
+        title={t("profile.emptyTitle")}
+        description={t("profile.emptyDescription")}
+        wrapInCard
+        actions={[{ label: t("profile.editProfile"), href: "/app/onboarding", variant: "secondary" }]}
+      />
+    );
+  }
+
   return (
     <div className="page">
       <section className="card">
@@ -169,18 +237,6 @@ export default function ProfileSummaryClient() {
             {isTrainer ? t("profile.trainerGoToGym") : t("profile.editProfile")}
           </ButtonLink>
         </div>
-        {error ? (
-          <div className="status-card status-card--warning">
-            <div className="inline-actions-sm">
-              <Icon name="warning" />
-              <strong>{t("profile.errorTitle")}</strong>
-            </div>
-            <p className="muted">{error}</p>
-            <Button variant="secondary" onClick={() => window.location.reload()}>
-              {t("ui.retry")}
-            </Button>
-          </div>
-        ) : null}
         {loading ? (
           <div className="profile-avatar-card">
             <Skeleton className="profile-avatar-skeleton" />
