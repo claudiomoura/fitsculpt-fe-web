@@ -1,18 +1,22 @@
 import ProfileSummaryClient from "./ProfileSummaryClient";
 import { getServerT } from "@/lib/serverI18n";
+import { ButtonLink } from "@/components/ui/Button";
+import { V0PageHero } from "@/components/surfaces/V0PageHero";
 
 export default async function ProfilePage() {
   const { t } = await getServerT();
   return (
     <div className="page">
-      <section className="card">
-        <div className="page-header">
-          <div className="page-header-body">
-            <h1 className="section-title">{t("app.profileTitle")}</h1>
-            <p className="section-subtitle">{t("app.profileSubtitle")}</p>
-          </div>
-        </div>
-      </section>
+      <V0PageHero
+        eyebrow={t("nav.profile")}
+        title={t("app.profileTitle")}
+        subtitle={t("app.profileSubtitle")}
+        actions={
+          <ButtonLink variant="secondary" href="/app/settings">
+            {t("nav.settings")}
+          </ButtonLink>
+        }
+      />
       <ProfileSummaryClient />
     </div>
   );

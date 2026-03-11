@@ -1,4 +1,6 @@
 import { getServerT } from "@/lib/serverI18n";
+import { ButtonLink } from "@/components/ui/Button";
+import { SectionHeader } from "@/components/surfaces/SectionHeader";
 import DashboardClient from "../DashboardClient";
 
 export default async function DashboardPage() {
@@ -6,12 +8,21 @@ export default async function DashboardPage() {
   return (
     <div className="page">
       <section className="card">
-        <div className="page-header">
-          <div className="page-header-body">
-            <h1 className="section-title">{t("dashboard.title")}</h1>
-            <p className="section-subtitle">{t("dashboard.subtitle")}</p>
-          </div>
-        </div>
+        <SectionHeader
+          className="section-head--card"
+          title={t("dashboard.title")}
+          subtitle={t("dashboard.subtitle")}
+          actions={
+            <>
+              <ButtonLink variant="ghost" href="/app/hoy">
+                {t("dashboard.kpiGoToday")}
+              </ButtonLink>
+              <ButtonLink variant="secondary" href="/app/seguimiento">
+                {t("dashboard.progressCta")}
+              </ButtonLink>
+            </>
+          }
+        />
       </section>
       <DashboardClient />
     </div>

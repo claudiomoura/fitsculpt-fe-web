@@ -3147,6 +3147,9 @@ label {
 .dashboard-summary-card {
   display: grid;
   gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent) 24%);
+  background: linear-gradient(165deg, color-mix(in srgb, var(--bg-card) 94%, #ffffff 6%) 0%, color-mix(in srgb, var(--bg-card) 88%, var(--accent-soft) 12%) 100%);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
 }
 
 .dashboard-summary-loading {
@@ -3199,6 +3202,8 @@ label {
   display: grid;
   gap: 12px;
   align-content: space-between;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent) 28%);
+  background: linear-gradient(165deg, color-mix(in srgb, var(--bg-card) 95%, #ffffff 5%) 0%, color-mix(in srgb, var(--bg-card) 90%, var(--accent-soft) 10%) 100%);
 }
 
 .dashboard-kpi-value {

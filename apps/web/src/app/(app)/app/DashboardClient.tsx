@@ -12,6 +12,7 @@ import type { CheckinEntry, FoodEntry, TrackingSnapshot, WorkoutEntry } from "@/
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { SectionHeader } from "@/components/surfaces/SectionHeader";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 
 type UserFood = {
@@ -652,12 +653,7 @@ export default function DashboardClient() {
   return (
     <div className="page page-with-tabbar-safe-area">
       <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title section-title-sm">{t("dashboard.todayTitle")}</h2>
-            <p className="section-subtitle">{t("dashboard.todaySubtitle")}</p>
-          </div>
-        </div>
+        <SectionHeader title={t("dashboard.todayTitle")} subtitle={t("dashboard.todaySubtitle")} />
         {profileLoading ? (
           <div className="list-grid dashboard-summary-grid" aria-busy="true" aria-live="polite">
             <div className="feature-card today-calories-card dashboard-summary-card">
@@ -788,12 +784,7 @@ export default function DashboardClient() {
       </section>
 
       <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title section-title-sm">{t("dashboard.aiSectionTitle")}</h2>
-            <p className="section-subtitle">{t("dashboard.aiSectionSubtitle")}</p>
-          </div>
-        </div>
+        <SectionHeader title={t("dashboard.aiSectionTitle")} subtitle={t("dashboard.aiSectionSubtitle")} />
         <div className="list-grid dashboard-ai-grid">
           {entitlementsLoading ? (
             <div className="feature-card stack-md">
@@ -860,29 +851,29 @@ export default function DashboardClient() {
       </section>
 
       <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title section-title-sm">{t("dashboard.weightProgressTitle")}</h2>
-            <p className="section-subtitle">{t("dashboard.weightProgressSubtitle")}</p>
-          </div>
-          <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry">
-            {t("dashboard.weightProgressCta")}
-          </ButtonLink>
-        </div>
+        <SectionHeader
+          title={t("dashboard.weightProgressTitle")}
+          subtitle={t("dashboard.weightProgressSubtitle")}
+          actions={
+            <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry">
+              {t("dashboard.weightProgressCta")}
+            </ButtonLink>
+          }
+        />
 
         {weightProgressContent}
       </section>
 
       <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title section-title-sm">{t("dashboard.progressTitle")}</h2>
-            <p className="section-subtitle">{t("dashboard.kpiSubtitle")}</p>
-          </div>
-          <ButtonLink variant="secondary" href="/app/seguimiento">
-            {t("dashboard.progressCta")}
-          </ButtonLink>
-        </div>
+        <SectionHeader
+          title={t("dashboard.progressTitle")}
+          subtitle={t("dashboard.kpiSubtitle")}
+          actions={
+            <ButtonLink variant="secondary" href="/app/seguimiento">
+              {t("dashboard.progressCta")}
+            </ButtonLink>
+          }
+        />
 
         {loading ? (
           <div className="dashboard-loading mt-12">
