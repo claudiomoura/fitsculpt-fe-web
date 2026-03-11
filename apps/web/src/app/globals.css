@@ -5123,3 +5123,67 @@ html { scroll-behavior: smooth; }
     pointer-events: none;
   }
 }
+
+.v0-route-shell {
+  padding: clamp(16px, 2vw, 28px);
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+}
+
+.v0-route-shell__container {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.v0-route-shell__topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.v0-route-shell__topbar h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  line-height: 1.2;
+}
+
+.v0-route-shell__badge {
+  width: fit-content;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.v0-route-shell--home {
+  background: linear-gradient(180deg, #101529 0%, #0f172a 100%);
+  color: #f8fafc;
+}
+
+.v0-route-shell--training {
+  background: linear-gradient(180deg, #06221e 0%, #0b3d33 100%);
+  color: #ecfdf5;
+}
+
+.v0-route-shell--nutrition {
+  background: linear-gradient(180deg, #261238 0%, #3b1f5f 100%);
+  color: #f5f3ff;
+}
+
+.v0-route-shell .ui-card,
+.v0-route-shell .card {
+  background: color-mix(in srgb, #ffffff 94%, transparent);
+  color: var(--text-color);
+}
+
+.v0-route-shell__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
