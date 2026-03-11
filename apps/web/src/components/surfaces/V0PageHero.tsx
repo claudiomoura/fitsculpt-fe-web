@@ -6,11 +6,12 @@ type V0PageHeroProps = {
   subtitle?: string;
   eyebrow?: string;
   actions?: ReactNode;
+  decorative?: boolean;
 };
 
-export function V0PageHero({ title, subtitle, eyebrow, actions }: V0PageHeroProps) {
+export function V0PageHero({ title, subtitle, eyebrow, actions, decorative = false }: V0PageHeroProps) {
   return (
-    <section className="card">
+    <section className="card" aria-hidden={decorative}>
       <ProHeader title={title} subtitle={subtitle} eyebrow={eyebrow} actions={actions} compact className="border-b-0 pb-0" />
     </section>
   );
