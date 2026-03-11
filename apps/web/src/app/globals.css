@@ -208,6 +208,47 @@ html.theme-light {
   background-image: var(--hero-glow);
 }
 
+.gradient-bg {
+  background:
+    radial-gradient(circle at 12% 12%, color-mix(in srgb, var(--color-primary) 26%, transparent) 0%, transparent 52%),
+    radial-gradient(circle at 88% 22%, color-mix(in srgb, var(--color-secondary) 22%, transparent) 0%, transparent 58%),
+    linear-gradient(150deg, color-mix(in srgb, var(--bg-card) 82%, var(--bg) 18%) 0%, color-mix(in srgb, var(--bg) 86%, var(--bg-card) 14%) 100%);
+}
+
+.glass-card {
+  background: color-mix(in srgb, var(--bg-card) 74%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+}
+
+.card-hover {
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+}
+
+.card-hover:hover,
+.card-hover:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--color-primary) 38%, var(--border));
+}
+
+.glow-primary {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-primary) 22%, transparent),
+    0 0 30px color-mix(in srgb, var(--color-primary) 36%, transparent),
+    0 10px 40px color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
+.glow-accent {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-secondary) 26%, transparent),
+    0 0 30px color-mix(in srgb, var(--color-secondary) 34%, transparent),
+    0 10px 40px color-mix(in srgb, var(--color-secondary) 22%, transparent);
+}
+
 * {
   box-sizing: border-box;
 }
