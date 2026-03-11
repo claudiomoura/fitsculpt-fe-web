@@ -9,6 +9,10 @@ import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { EmptyState, LoadingState, ErrorState } from "@/components/states";
 import { applyEntitlementGating } from "./navConfig";
+import { V0DesktopSidebar } from "@/components/v0";
+import { isV0NavEnabled } from "@/config/featureFlags";
+
+const V0_PRIMARY_ITEM_IDS = ["today", "training", "nutrition-calendar", "dashboard", "profile"];
 
 export default function AppSidebar() {
   const { t } = useLanguage();
@@ -42,6 +46,32 @@ export default function AppSidebar() {
         wrapInCard
       />
     );
+  }
+
+  if (isV0NavEnabled()) {
+    const allItems = sections.flatMap((section) => section.items).filter((item) => !item.disabled);
+    const primaryItems = V0_PRIMARY_ITEM_IDS.map((id) => allItems.find((item) => item.id === id)).filter((item) => item !== undefined);
+    const extraItems = allItems.filter((item) => !V0_PRIMARY_ITEM_IDS.includes(item.id));
+    const moreHref = extraItems[0]?.href;
+
+    const items = [
+      ...primaryItems.map((item) => ({
+        label: t(item.labelKey),
+        href: item.href,
+        active: isActive(item.href),
+      })),
+      ...(moreHref
+        ? [
+            {
+              label: t("common.more"),
+              href: moreHref,
+              active: isActive(moreHref),
+            },
+          ]
+        : []),
+    ];
+
+    return <V0DesktopSidebar items={items} />;
   }
 
   return (
