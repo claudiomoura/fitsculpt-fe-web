@@ -1,0 +1,6 @@
+{
+  "name": "lucide-react",
+  "version": "0.564.0-local",
+  "main": "index.js",
+  "types": "index.d.ts"
+}

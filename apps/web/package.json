@@ -22,6 +22,7 @@
     "endpoints:inventory:check": "node scripts/endpoints-inventory.mjs --check"
   },
   "dependencies": {
+    "lucide-react": "file:vendor/lucide-react",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"
