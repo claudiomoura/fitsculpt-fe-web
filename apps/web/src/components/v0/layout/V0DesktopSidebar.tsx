@@ -45,7 +45,7 @@ export function V0DesktopSidebar({
       {moreItems.length ? (
         <div className="mt-5 border-t border-white/10 pt-4">
           <p className="mb-2 px-2 text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
-            Más
+            Herramientas/Más
           </p>
           <nav aria-label="More navigation" className="flex flex-col gap-1">
             {moreItems.map((item) => (
