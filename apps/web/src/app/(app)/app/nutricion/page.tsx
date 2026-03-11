@@ -21,7 +21,7 @@ export default async function NutritionPlanPage() {
             <ButtonLink href="/app/nutricion?ai=1">{t("nutrition.aiGenerate")}</ButtonLink>
           </div>
         </V0Card>
-        <V0Card className="p-0">
+        <V0Card className="p-0 [&_.card]:border-white/10 [&_.card]:bg-white/5 [&_.ui-card]:border-white/10 [&_.ui-card]:bg-white/5">
           <NutritionPlanClient />
         </V0Card>
       </div>

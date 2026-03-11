@@ -24,7 +24,7 @@ export default async function TrainingPlanPage() {
             }
           />
         </V0Card>
-        <V0Card>
+        <V0Card className="[&_.card]:border-white/10 [&_.card]:bg-white/5 [&_.ui-card]:border-white/10 [&_.ui-card]:bg-white/5">
           <TrainingPlanClient mode="suggested" />
         </V0Card>
       </div>
