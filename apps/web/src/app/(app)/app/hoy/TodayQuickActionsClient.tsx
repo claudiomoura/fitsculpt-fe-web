@@ -443,7 +443,7 @@ export default function TodayQuickActionsClient() {
                   <div className="mt-4 h-1.5 w-full rounded-full bg-slate-800">
                     <div className="h-full rounded-full" style={{ width: signals.checkinDoneThisWeek ? "100%" : "32%", background: "#34D399" }} />
                   </div>
-                  <Button className="mt-5 min-h-11 w-full" size="lg" onClick={() => { trackTodayCtaClick("checkin"); void handleLogTodayCheckin(); }} loading={checkinActionStatus === "loading"} data-testid="today-action-button">
+                  <Button className="mt-5 min-h-11 w-full" size="lg" onClick={() => { trackTodayCtaClick("checkin"); void handleLogTodayCheckin(); }} loading={checkinActionStatus === "loading"} data-testid="today-quick-action-track">
                     {signals.checkinDoneThisWeek ? t("today.checkinSecondaryCta") : t("today.checkinPrimaryCta")}
                   </Button>
                 </article>

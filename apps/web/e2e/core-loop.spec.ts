@@ -14,26 +14,27 @@ test.describe('Core loop (demo anti-regression)', () => {
       await expect(todayActionsGrid).toBeVisible({ timeout: 10_000 });
 
       const firstTodayActionCard = page.getByTestId('today-action-card').first();
-      const firstTodayActionButton = page.getByTestId('today-action-button').first();
+      const trackQuickActionButton = page.getByTestId('today-quick-action-track');
       await expect(firstTodayActionCard).toBeVisible({ timeout: 10_000 });
-      await expect(firstTodayActionButton).toBeVisible({ timeout: 10_000 });
+      await expect(trackQuickActionButton).toBeVisible({ timeout: 10_000 });
 
       const beforeCount = await fetchTrackingCount(page.request);
 
-      const trackingPostResponsePromise = page.waitForResponse(
-        (response) => response.request().method() === 'POST' && response.url().includes('/api/tracking') && response.ok(),
+      const trackingPostRequestPromise = page.waitForRequest(
+        (request) => request.method() === 'POST' && request.url().includes('/api/tracking'),
         { timeout: 10_000 },
       );
 
-      await firstTodayActionButton.click();
+      await trackQuickActionButton.click();
 
-      const trackingPostResponse = await trackingPostResponsePromise;
-      expect(trackingPostResponse.ok()).toBeTruthy();
+      const trackingPostRequest = await trackingPostRequestPromise;
+      const trackingPostResponse = await trackingPostRequest.response();
+      expect(trackingPostResponse?.ok()).toBeTruthy();
 
       await expect
         .poll(async () => fetchTrackingCount(page.request), {
           timeout: 10_000,
-          message: 'El count de checkins no subió después de clicar today-action-button.',
+          message: 'El count de checkins no subió después de clicar today-quick-action-track.',
         })
         .toBe(beforeCount + 1);
 
