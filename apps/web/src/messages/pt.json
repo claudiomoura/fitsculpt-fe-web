@@ -138,5 +138,9 @@
   },
   "onboarding": {
     "defaultsHint": "Valores orientativos não médicos. Pode editá-los quando quiser."
+  },
+  "profile": {
+    "emptyTitle": "Seu perfil ainda está vazio",
+    "emptyDescription": "Complete o onboarding para adicionar seus dados, preferências e métricas."
   }
 }

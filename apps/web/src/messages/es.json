@@ -1532,7 +1532,9 @@
     "macroProteinPlaceholder": "Ej: 2.0",
     "macroFatPlaceholder": "Ej: 0.8",
     "macroCutPercentPlaceholder": "Ej: 20",
-    "macroBulkPercentPlaceholder": "Ej: 10"
+    "macroBulkPercentPlaceholder": "Ej: 10",
+    "emptyTitle": "Tu perfil todavía está vacío",
+    "emptyDescription": "Completa el onboarding para agregar tus datos, preferencias y métricas."
   },
   "tracking": {
     "sectionCheckins": "Check-ins semanales",
