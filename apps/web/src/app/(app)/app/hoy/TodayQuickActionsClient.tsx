@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/ui/Button";
-import { Stack } from "@/design-system/components";
+import { PageHero, Section, Stack } from "@/design-system/components";
 import { useToast } from "@/components/ui/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
@@ -347,33 +347,46 @@ export default function TodayQuickActionsClient() {
   return (
     <section className="rounded-[28px] border p-4 md:p-6" style={{ background: "#0B0E13", borderColor: "rgba(255,255,255,0.06)" }}>
       <Stack gap="4">
-        <header className="sticky top-2 z-10 rounded-2xl border p-3 backdrop-blur" style={{ background: "rgba(15,22,36,0.82)", borderColor: "rgba(255,255,255,0.06)" }}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h1 className="m-0 text-2xl font-semibold text-slate-100">{t("today.title")}</h1>
-              <p className="m-0 mt-1 text-base font-medium text-slate-100">{t("today.greeting", { name: userName })}</p>
-            </div>
-            <div className="flex items-center gap-2">
+        <PageHero
+          title={t("today.title")}
+          subtitle={t("today.greeting", { name: userName })}
+          actions={
+            <div className="flex items-center justify-end gap-2">
               {signals.planLabel ? (
-                <span className="rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-200" style={{ borderColor: "rgba(52,211,153,0.4)", background: "rgba(52,211,153,0.12)" }}>
+                <span
+                  className="rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-200"
+                  style={{ borderColor: "rgba(52,211,153,0.4)", background: "rgba(52,211,153,0.12)" }}
+                >
                   {signals.planLabel}
                 </span>
               ) : null}
               {signals.avatarUrl ? (
-                <img src={signals.avatarUrl} alt={t("profile.avatarTitle")} className="h-10 w-10 rounded-full border object-cover" style={{ borderColor: "rgba(255,255,255,0.16)" }} />
+                <img
+                  src={signals.avatarUrl}
+                  alt={t("profile.avatarTitle")}
+                  className="h-10 w-10 rounded-full border object-cover"
+                  style={{ borderColor: "rgba(255,255,255,0.16)" }}
+                />
               ) : (
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border text-xs font-semibold text-slate-200" style={{ borderColor: "rgba(255,255,255,0.16)" }}>
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-full border text-xs font-semibold text-slate-200"
+                  style={{ borderColor: "rgba(255,255,255,0.16)" }}
+                >
                   {initials || "FS"}
                 </div>
               )}
             </div>
-          </div>
+          }
+        >
           {signals.streakDays > 0 ? (
-            <p className="mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs text-cyan-200" style={{ borderColor: "rgba(34,211,238,0.4)", background: "rgba(34,211,238,0.12)" }}>
+            <p
+              className="mt-3 inline-flex rounded-full border px-2.5 py-1 text-xs text-cyan-200"
+              style={{ borderColor: "rgba(34,211,238,0.4)", background: "rgba(34,211,238,0.12)" }}
+            >
               {t("today.streakChip", { days: signals.streakDays })}
             </p>
           ) : null}
-        </header>
+        </PageHero>
 
         {status === "loading" ? <TodaySkeleton /> : null}
         {status === "error" ? <TodayErrorState message={t("today.hubErrorMessage")} retryLabel={t("ui.retry")} onRetry={() => void loadTodaySignals()} /> : null}
@@ -384,7 +397,8 @@ export default function TodayQuickActionsClient() {
               <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamientos" />
             ) : null}
 
-            <section className="grid gap-4 lg:grid-cols-[1.5fr_1fr]" data-testid="today-actions-grid">
+            <Section className="space-y-0" data-testid="today-actions-grid">
+              <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
               <article className="order-3 rounded-3xl border p-5 lg:order-2" style={{ background: "#0F1624", borderColor: "rgba(255,255,255,0.06)" }} data-testid="today-action-card">
                 <p className="m-0 text-xs font-semibold uppercase tracking-[0.1em] text-cyan-300">{t("today.checkinCardEyebrow")}</p>
                 <h2 className="mt-2 text-xl font-semibold text-slate-100">{t("today.cardCheckinTitle")}</h2>
@@ -466,7 +480,8 @@ export default function TodayQuickActionsClient() {
                   </ButtonLink>
                 </article>
               </div>
-            </section>
+              </div>
+            </Section>
 
             <StartWorkoutModal
               open={startWorkoutModalOpen}
