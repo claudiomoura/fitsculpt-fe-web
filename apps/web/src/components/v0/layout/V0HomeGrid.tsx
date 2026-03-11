@@ -6,8 +6,6 @@ type V0HomeGridProps = {
   children?: ReactNode;
 };
 
-const DEFAULT_RIGHT_SLOT_TITLES = ["Check-in", "Progreso", "IA"];
-
 const renderSlotCards = (content?: ReactNode, fallbackTitles?: string[]) => {
   const nodes = Children.toArray(content);
 
@@ -28,11 +26,12 @@ const renderSlotCards = (content?: ReactNode, fallbackTitles?: string[]) => {
 
 export function V0HomeGrid({ left, right, children }: V0HomeGridProps) {
   const leftContent = left ?? children;
+  const rightContent = Children.toArray(right);
 
   return (
     <div className="v0-home-grid" data-testid="v0-home-grid">
       <div className="v0-home-grid__column v0-home-grid__column--left">{renderSlotCards(leftContent, ["Entreno", "Nutrición"])}</div>
-      <div className="v0-home-grid__column v0-home-grid__column--right">{renderSlotCards(right, DEFAULT_RIGHT_SLOT_TITLES)}</div>
+      <div className="v0-home-grid__column v0-home-grid__column--right">{rightContent.length > 0 ? renderSlotCards(right) : null}</div>
     </div>
   );
 }
