@@ -9,6 +9,12 @@ import type { ScreenType } from "@/app/page"
 interface HomeScreenProps {
   onNavigate: (screen: ScreenType) => void
   isDesktop?: boolean
+  userName?: string
+  streakDays?: number
+  workoutToday?: { name: string; duration: string; exerciseCount: number; completedExercises: number }
+  nutritionToday?: { caloriesConsumed: number; caloriesTarget: number; proteinConsumed: number; proteinTarget: number }
+  checkIn?: { weightKg: number }
+  goalProgress?: { goalLabel: string; completedPercent: number }
 }
 
 // Progress ring component
@@ -50,11 +56,19 @@ function ProgressRing({ progress, size = 80, strokeWidth = 8, color = "primary" 
   )
 }
 
-export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
+export function HomeScreen({
+  onNavigate,
+  isDesktop,
+  userName,
+  streakDays,
+  workoutToday,
+  nutritionToday,
+  checkIn,
+  goalProgress,
+}: HomeScreenProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
-  const [completedTasks, setCompletedTasks] = useState(0)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -87,12 +101,12 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
     )
   }
 
-  const caloriesConsumed = 1450
-  const caloriesTarget = 2200
-  const caloriesProgress = (caloriesConsumed / caloriesTarget) * 100
-  const proteinConsumed = 80
-  const proteinTarget = 150
-  const proteinProgress = (proteinConsumed / proteinTarget) * 100
+  const caloriesConsumed = nutritionToday?.caloriesConsumed ?? 0
+  const caloriesTarget = nutritionToday?.caloriesTarget ?? 0
+  const caloriesProgress = caloriesTarget > 0 ? (caloriesConsumed / caloriesTarget) * 100 : 0
+  const proteinConsumed = nutritionToday?.proteinConsumed ?? 0
+  const proteinTarget = nutritionToday?.proteinTarget ?? 0
+  const proteinProgress = proteinTarget > 0 ? (proteinConsumed / proteinTarget) * 100 : 0
 
   return (
     <div className={`px-4 pt-12 pb-4 ${isDesktop ? "lg:px-8 lg:pt-8 lg:pb-8" : ""}`}>
@@ -102,16 +116,18 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
       <header className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground lg:text-3xl">Buenos dias, Juan</h1>
+            <h1 className="text-2xl font-bold text-foreground lg:text-3xl">Buenos dias{userName ? `, ${userName}` : ""}</h1>
             <p className="text-muted-foreground">Tu plan de hoy esta listo</p>
           </div>
+          {typeof streakDays === "number" && (
           <div className="flex items-center gap-2 glass-card px-4 py-2 rounded-xl">
             <Flame className="w-5 h-5 text-primary" />
             <div className="text-right">
-              <p className="text-xl font-bold text-primary">7</p>
+              <p className="text-xl font-bold text-primary">{streakDays}</p>
               <p className="text-[10px] text-muted-foreground leading-none">dias racha</p>
             </div>
           </div>
+          )}
         </div>
       </header>
 
@@ -120,6 +136,7 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
         {/* Main content */}
         <div className="flex flex-col gap-4">
           {/* Entrenamiento Card */}
+          {workoutToday && (
           <div className="glass-card rounded-2xl p-5 card-hover">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
@@ -127,25 +144,25 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Entrenamiento de hoy</p>
-                <h3 className="font-semibold text-lg text-foreground">Upper Body</h3>
+                <h3 className="font-semibold text-lg text-foreground">{workoutToday.name}</h3>
               </div>
             </div>
             
             <div className="flex items-center gap-4 mb-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4" />
-                <span>45 min</span>
+                <span>{workoutToday.duration}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Dumbbell className="w-4 h-4" />
-                <span>5 ejercicios</span>
+                <span>{workoutToday.exerciseCount} ejercicios</span>
               </div>
             </div>
 
             {/* Progress indicator */}
             <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl mb-4">
               <span className="text-sm text-muted-foreground">Progreso</span>
-              <span className="text-sm font-medium text-foreground">0 / 5 ejercicios</span>
+              <span className="text-sm font-medium text-foreground">{workoutToday.completedExercises} / {workoutToday.exerciseCount} ejercicios</span>
             </div>
             
             <Button 
@@ -155,8 +172,10 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
               Empezar entrenamiento
             </Button>
           </div>
+          )}
 
           {/* Nutricion Card */}
+          {nutritionToday && (
           <div className="glass-card rounded-2xl p-5 card-hover">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -195,7 +214,7 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Te faltan {caloriesTarget - caloriesConsumed} kcal
+                  Te faltan {Math.max(caloriesTarget - caloriesConsumed, 0)} kcal
                 </p>
               </div>
             </div>
@@ -208,11 +227,13 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
               Registrar comida
             </Button>
           </div>
+          )}
         </div>
 
         {/* Side content */}
         <div className="flex flex-col gap-4">
           {/* Check-in Card */}
+          {checkIn && (
           <div className="glass-card rounded-2xl p-5 card-hover">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -227,7 +248,7 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
             </div>
 
             <div className="flex items-baseline gap-1 mb-4">
-              <span className="text-4xl font-bold text-foreground">82.4</span>
+              <span className="text-4xl font-bold text-foreground">{checkIn.weightKg}</span>
               <span className="text-lg text-muted-foreground">kg</span>
             </div>
 
@@ -239,40 +260,43 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
               Registrar check-in semanal
             </Button>
           </div>
+          )}
 
           {/* Progress Card */}
-          <div className="glass-card rounded-2xl p-5 card-hover">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-primary" />
+          {goalProgress && (
+            <div className="glass-card rounded-2xl p-5 card-hover">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Progreso</p>
+                    <h3 className="font-semibold text-lg text-foreground">Meta: {goalProgress.goalLabel}</h3>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Progreso</p>
-                  <h3 className="font-semibold text-lg text-foreground">Meta: -5 kg</h3>
+              </div>
+
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-muted-foreground">Completado</span>
+                  <span className="text-primary font-medium">{goalProgress.completedPercent}%</span>
+                </div>
+                <div className="h-3 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${goalProgress.completedPercent}%` }} />
                 </div>
               </div>
-            </div>
 
-            <div className="mb-4">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">Completado</span>
-                <span className="text-primary font-medium">35%</span>
-              </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full w-[35%] transition-all duration-500" />
-              </div>
+              <Button 
+                onClick={() => onNavigate("progreso")} 
+                variant="outline"
+                className="w-full h-12 rounded-xl font-medium border-border hover:bg-muted"
+              >
+                Ver progreso
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
             </div>
-
-            <Button 
-              onClick={() => onNavigate("progreso")} 
-              variant="outline"
-              className="w-full h-12 rounded-xl font-medium border-border hover:bg-muted"
-            >
-              Ver progreso
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
+          )}
 
           {/* AI Generation CTA - Desktop only */}
           {isDesktop && (
@@ -296,6 +320,5 @@ export function HomeScreen({ onNavigate, isDesktop }: HomeScreenProps) {
           )}
         </div>
       </div>
-    </div>
   )
 }

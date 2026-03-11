@@ -8,6 +8,14 @@ import type { ScreenType } from "@/app/page"
 interface NutricionScreenProps {
   onNavigate: (screen: ScreenType) => void
   isDesktop?: boolean
+  mealsToday?: MealData[]
+  weeklyPlan?: { dia: string; comidas: string[] }[]
+  targets?: {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+  }
 }
 
 type ViewType = "hoy" | "semana"
@@ -21,23 +29,6 @@ interface MealData {
   fat: number
   logged: boolean
 }
-
-const comidasHoy: MealData[] = [
-  { id: "1", name: "Desayuno", calories: 450, protein: 25, carbs: 45, fat: 18, logged: true },
-  { id: "2", name: "Almuerzo", calories: 650, protein: 40, carbs: 60, fat: 22, logged: true },
-  { id: "3", name: "Cena", calories: 0, protein: 0, carbs: 0, fat: 0, logged: false },
-  { id: "4", name: "Snacks", calories: 150, protein: 10, carbs: 15, fat: 5, logged: true },
-]
-
-const planSemanal = [
-  { dia: "Lunes", comidas: ["Huevos revueltos", "Pollo a la plancha", "Salmon con verduras"] },
-  { dia: "Martes", comidas: ["Avena con frutas", "Ensalada cesar", "Pasta con carne"] },
-  { dia: "Miercoles", comidas: ["Tostadas con aguacate", "Bowl de arroz", "Tacos de pescado"] },
-  { dia: "Jueves", comidas: ["Yogur con granola", "Wrap de pollo", "Filete con patatas"] },
-  { dia: "Viernes", comidas: ["Smoothie de proteina", "Sushi", "Pizza casera"] },
-  { dia: "Sabado", comidas: ["Pancakes", "Hamburguesa", "Paella"] },
-  { dia: "Domingo", comidas: ["Brunch", "Libre", "Asado"] },
-]
 
 // Progress ring component
 function ProgressRing({ progress, size = 120, strokeWidth = 10, color = "primary" }: { 
@@ -78,17 +69,21 @@ function ProgressRing({ progress, size = 120, strokeWidth = 10, color = "primary
   )
 }
 
-export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps) {
+export function NutricionScreen({ onNavigate, isDesktop, mealsToday = [], weeklyPlan = [], targets }: NutricionScreenProps) {
   const [currentView, setCurrentView] = useState<ViewType>("hoy")
 
-  const totalCalories = comidasHoy.reduce((sum, m) => sum + m.calories, 0)
-  const totalProtein = comidasHoy.reduce((sum, m) => sum + m.protein, 0)
-  const totalCarbs = comidasHoy.reduce((sum, m) => sum + m.carbs, 0)
-  const totalFat = comidasHoy.reduce((sum, m) => sum + m.fat, 0)
-  const targetCalories = 2200
-  const targetProtein = 150
-  const targetCarbs = 250
-  const targetFat = 70
+  const totalCalories = mealsToday.reduce((sum, m) => sum + m.calories, 0)
+  const totalProtein = mealsToday.reduce((sum, m) => sum + m.protein, 0)
+  const totalCarbs = mealsToday.reduce((sum, m) => sum + m.carbs, 0)
+  const totalFat = mealsToday.reduce((sum, m) => sum + m.fat, 0)
+  const targetCalories = targets?.calories ?? 0
+  const targetProtein = targets?.protein ?? 0
+  const targetCarbs = targets?.carbs ?? 0
+  const targetFat = targets?.fat ?? 0
+  const progressCalories = targetCalories > 0 ? (totalCalories / targetCalories) * 100 : 0
+  const progressProtein = targetProtein > 0 ? Math.min((totalProtein / targetProtein) * 100, 100) : 0
+  const progressCarbs = targetCarbs > 0 ? Math.min((totalCarbs / targetCarbs) * 100, 100) : 0
+  const progressFat = targetFat > 0 ? Math.min((totalFat / targetFat) * 100, 100) : 0
 
   const renderHoyView = () => (
     <div className={`px-4 pt-12 pb-4 ${isDesktop ? "lg:px-8 lg:pt-8" : ""}`}>
@@ -122,11 +117,12 @@ export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps)
           </div>
 
           {/* Progress card with ring */}
+          {targetCalories > 0 && (
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-6">
               {/* Calories ring */}
               <div className="relative flex-shrink-0">
-                <ProgressRing progress={(totalCalories / targetCalories) * 100} size={120} />
+                <ProgressRing progress={progressCalories} size={120} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-2xl font-bold text-foreground">{totalCalories}</span>
                   <span className="text-xs text-muted-foreground">/ {targetCalories}</span>
@@ -145,7 +141,7 @@ export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps)
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-accent rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min((totalProtein / targetProtein) * 100, 100)}%` }}
+                      style={{ width: `${progressProtein}%` }}
                     />
                   </div>
                 </div>
@@ -159,7 +155,7 @@ export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps)
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min((totalCarbs / targetCarbs) * 100, 100)}%` }}
+                      style={{ width: `${progressCarbs}%` }}
                     />
                   </div>
                 </div>
@@ -173,17 +169,18 @@ export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps)
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-chart-3 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min((totalFat / targetFat) * 100, 100)}%` }}
+                      style={{ width: `${progressFat}%` }}
                     />
                   </div>
                 </div>
               </div>
             </div>
           </div>
+          )}
 
           {/* Meals list */}
           <div className="flex flex-col gap-3">
-            {comidasHoy.map((comida) => (
+            {mealsToday.map((comida) => (
               <div
                 key={comida.id}
                 className="glass-card rounded-2xl p-4 card-hover"
@@ -240,6 +237,7 @@ export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps)
             </Button>
 
             {/* Daily summary */}
+            {targetCalories > 0 && (
             <div className="glass-card rounded-2xl p-5">
               <h3 className="font-semibold text-foreground mb-4">Resumen del dia</h3>
               <div className="space-y-3">
@@ -257,8 +255,10 @@ export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps)
                 </div>
               </div>
             </div>
+            )}
 
             {/* Tip */}
+            {targetProtein > 0 && (
             <div className="glass-card rounded-2xl p-5">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
@@ -270,6 +270,7 @@ export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps)
                 Te faltan {targetProtein - totalProtein}g de proteina. Considera una porcion de pollo o pescado para la cena.
               </p>
             </div>
+            )}
           </div>
         )}
       </div>
@@ -301,7 +302,7 @@ export function NutricionScreen({ onNavigate, isDesktop }: NutricionScreenProps)
 
       {/* Weekly plan */}
       <div className={isDesktop ? "grid grid-cols-2 gap-4" : "flex flex-col gap-3"}>
-        {planSemanal.map((dia, index) => (
+        {weeklyPlan.map((dia) => (
           <div
             key={dia.dia}
             className="glass-card rounded-2xl p-4 card-hover"

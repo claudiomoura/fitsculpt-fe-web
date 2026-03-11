@@ -8,39 +8,23 @@ import type { ScreenType } from "@/app/page"
 interface EntrenoScreenProps {
   onNavigate: (screen: ScreenType) => void
   isDesktop?: boolean
+  weekDays?: string[]
+  weekTrainings?: { dia: number; nombre: string; duracion: string; estado: "completado" | "pendiente" | "descanso" }[]
+  dayExercises?: { nombre: string; sets: number; reps: string; peso: string; musculos: string[] }[]
 }
 
 type ViewType = "semana" | "mes" | "dia"
 
-const diasSemana = ["L", "M", "X", "J", "V", "S", "D"]
-
-const entrenosSemana = [
-  { dia: 0, nombre: "Upper Body", duracion: "35 min", estado: "completado" },
-  { dia: 1, nombre: "Lower Body", duracion: "40 min", estado: "completado" },
-  { dia: 2, nombre: "Descanso", duracion: "", estado: "descanso" },
-  { dia: 3, nombre: "Full Body", duracion: "45 min", estado: "pendiente" },
-  { dia: 4, nombre: "Core + Cardio", duracion: "30 min", estado: "pendiente" },
-  { dia: 5, nombre: "Descanso", duracion: "", estado: "descanso" },
-  { dia: 6, nombre: "Descanso", duracion: "", estado: "descanso" },
-]
-
-const ejerciciosDia = [
-  { nombre: "Press de banca", sets: 4, reps: "8-10", peso: "60 kg", musculos: ["Pecho", "Triceps"] },
-  { nombre: "Remo con mancuernas", sets: 4, reps: "10-12", peso: "22 kg", musculos: ["Espalda", "Biceps"] },
-  { nombre: "Press militar", sets: 3, reps: "10", peso: "40 kg", musculos: ["Hombros"] },
-  { nombre: "Curl de biceps", sets: 3, reps: "12", peso: "12 kg", musculos: ["Biceps"] },
-  { nombre: "Extension de triceps", sets: 3, reps: "12", peso: "15 kg", musculos: ["Triceps"] },
-]
-
-export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
+export function EntrenoScreen({ onNavigate, isDesktop, weekDays = [], weekTrainings = [], dayExercises = [] }: EntrenoScreenProps) {
   const [currentView, setCurrentView] = useState<ViewType>("semana")
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
   const [showBottomSheet, setShowBottomSheet] = useState(false)
 
-  const proximoEntreno = entrenosSemana.find(e => e.estado === "pendiente")
+  const proximoEntreno = weekTrainings.find(e => e.estado === "pendiente")
 
   const handleDayClick = (dayIndex: number) => {
-    const entreno = entrenosSemana[dayIndex]
+    const entreno = weekTrainings[dayIndex]
+    if (!entreno) return
     if (entreno.estado !== "descanso") {
       setSelectedDay(dayIndex)
       if (currentView === "mes") {
@@ -85,8 +69,9 @@ export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
           {/* Week calendar */}
           <div className="glass-card rounded-2xl p-5">
             <div className="flex justify-between mb-4">
-              {diasSemana.map((dia, index) => {
-                const entreno = entrenosSemana[index]
+              {weekDays.map((dia, index) => {
+                const entreno = weekTrainings[index]
+                if (!entreno) return null
                 return (
                   <button
                     key={dia}
@@ -150,7 +135,7 @@ export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
                       <Clock className="w-4 h-4" />
                       <span>{proximoEntreno.duracion}</span>
                       <span className="mx-1">|</span>
-                      <span>5 ejercicios</span>
+                      <span>{dayExercises.length} ejercicios</span>
                     </div>
                   </div>
                 </div>
@@ -208,11 +193,15 @@ export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
               <h3 className="font-semibold text-foreground mb-4">Esta semana</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center p-3 bg-muted/50 rounded-xl">
-                  <p className="text-2xl font-bold text-primary">2</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {weekTrainings.filter((entreno) => entreno.estado === "completado").length}
+                  </p>
                   <p className="text-xs text-muted-foreground">Completados</p>
                 </div>
                 <div className="text-center p-3 bg-muted/50 rounded-xl">
-                  <p className="text-2xl font-bold text-foreground">3</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {weekTrainings.filter((entreno) => entreno.estado === "pendiente").length}
+                  </p>
                   <p className="text-xs text-muted-foreground">Pendientes</p>
                 </div>
               </div>
@@ -280,7 +269,7 @@ export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
         {/* Month calendar */}
         <div className="glass-card rounded-2xl p-5 mb-4">
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {diasSemana.map((dia) => (
+            {weekDays.map((dia) => (
               <div key={dia} className="text-center text-xs text-muted-foreground py-2">
                 {dia}
               </div>
@@ -338,16 +327,16 @@ export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
             />
             <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] glass-card rounded-t-3xl z-50 p-6 pb-safe animate-in slide-in-from-bottom duration-300">
               <div className="w-12 h-1 bg-muted rounded-full mx-auto mb-6" />
-              <h3 className="text-xl font-bold text-foreground mb-2">Full Body</h3>
+              <h3 className="text-xl font-bold text-foreground mb-2">{proximoEntreno?.nombre}</h3>
               <p className="text-muted-foreground mb-4">Jueves, 10 de marzo</p>
               <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
-                  <span>45 min</span>
+                  <span>{proximoEntreno?.duracion}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Dumbbell className="w-4 h-4" />
-                  <span>5 ejercicios</span>
+                  <span>{dayExercises.length} ejercicios</span>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -386,7 +375,7 @@ export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
           Volver
         </button>
         <h1 className="text-2xl font-bold text-foreground">
-          {selectedDay !== null ? entrenosSemana[selectedDay].nombre : "Full Body"}
+          {selectedDay !== null ? weekTrainings[selectedDay]?.nombre : proximoEntreno?.nombre}
         </h1>
         <p className="text-muted-foreground">Jueves, 10 de marzo</p>
       </header>
@@ -394,7 +383,7 @@ export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
       {/* Stats */}
       <div className="flex gap-3 mb-6">
         <div className="flex-1 glass-card rounded-xl p-4 text-center">
-          <p className="text-2xl font-bold text-foreground">5</p>
+          <p className="text-2xl font-bold text-foreground">{dayExercises.length}</p>
           <p className="text-xs text-muted-foreground">Ejercicios</p>
         </div>
         <div className="flex-1 glass-card rounded-xl p-4 text-center">
@@ -409,7 +398,7 @@ export function EntrenoScreen({ onNavigate, isDesktop }: EntrenoScreenProps) {
 
       {/* Exercises list */}
       <div className="flex flex-col gap-3 mb-6">
-        {ejerciciosDia.map((ejercicio, index) => (
+        {dayExercises.map((ejercicio, index) => (
           <div
             key={index}
             className="glass-card rounded-2xl p-4 card-hover"
