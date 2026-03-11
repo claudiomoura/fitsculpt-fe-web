@@ -39,7 +39,7 @@ export default function MobileTabBar() {
               className={`mobile-tab ${active ? "is-active" : ""}`}
               aria-current={active ? "page" : undefined}
             >
-              <span className="mobile-tab-icon" aria-hidden="true">
+              <span className={`mobile-tab-icon ${active ? "is-active" : ""}`} aria-hidden="true">
                 <Icon name={tab.icon} size={18} />
               </span>
               <span className="mobile-tab-label">{tabLabel}</span>
