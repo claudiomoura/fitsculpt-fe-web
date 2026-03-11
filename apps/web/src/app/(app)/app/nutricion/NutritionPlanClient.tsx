@@ -34,7 +34,7 @@ import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
 import AppLayout from "@/components/layout/AppLayout";
 import NutritionStats from "@/components/nutrition/NutritionStats";
 import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
-import { Accordion, HeaderCompact, ObjectiveGrid, SegmentedControl } from "@/design-system/components";
+import { Accordion, HeaderCompact, MealCardCompact, ObjectiveGrid, SegmentedControl } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
@@ -1096,6 +1096,24 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const highlightedDay = selectedVisiblePlanDay?.day ?? visiblePlan?.days[0] ?? null;
   const highlightedDayKey = selectedVisiblePlanDay?.date ? toDateKey(selectedVisiblePlanDay.date) : toDateKey(selectedDate);
   const highlightedMeals = highlightedDay?.meals ?? [];
+  const highlightedMealsByType = useMemo(() => {
+    const mealOrder: NutritionMeal["type"][] = ["breakfast", "lunch", "dinner", "snack"];
+    return mealOrder.map((mealType) => {
+      const meal = highlightedMeals.find((entry) => entry.type === mealType) ?? null;
+      return {
+        mealType,
+        label:
+          mealType === "breakfast"
+            ? t("nutrition.mealTypeBreakfast")
+            : mealType === "lunch"
+              ? t("nutrition.mealTypeLunch")
+              : mealType === "dinner"
+                ? t("nutrition.mealTypeDinner")
+                : t("nutrition.mealTypeSnack"),
+        meal,
+      };
+    });
+  }, [highlightedMeals, t]);
   const highlightedMealsTotals = useMemo(
     () =>
       highlightedMeals.reduce(
@@ -2460,28 +2478,72 @@ const nutritionPlanDetails = profile ? (
                     </div>
                   ) : null}
 
-                  <div className="nutrition-v2-meals">
-                    <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
-                    <div className="nutrition-meal-list nutrition-meal-list-v2">
-                      {highlightedMeals.length > 0 ? (
-                        highlightedMeals.map((meal, mealIndex) => {
-                          const mealKey = getMealKey(meal, highlightedDay?.dayLabel ?? "meal", mealIndex);
-                          return (
-                            <MealCard
-                              key={mealKey}
-                              title={getMealTitle(meal, t)}
-                              description={getMealDescription(meal)}
-                              meta={`${meal.macros.calories} ${t("units.kcal")}`}
-                              imageUrl={getMealMediaUrl(meal)}
-                              onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
-                              className="meal-card--horizontal"
-                            />
-                          );
-                        })
-                      ) : (
-                        <p className="muted">{t("nutrition.emptySubtitle")}</p>
-                      )}
+                  <div className="nutrition-v2-meals stack-sm">
+                    <div className="inline-actions-space">
+                      <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
+                      <ButtonLink variant="secondary" href="/app/nutricion/editar">
+                        {t("ui.edit")}
+                      </ButtonLink>
                     </div>
+                    {highlightedMealsByType.map((mealSection, mealIndex) => {
+                      const meal = mealSection.meal;
+                      if (!meal) {
+                        return (
+                          <div key={mealSection.mealType} className="feature-card stack-sm">
+                            <div className="inline-actions-space">
+                              <strong>{mealSection.label}</strong>
+                              <span className="badge">{t("nutrition.viewToday")}</span>
+                            </div>
+                            <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                            <ButtonLink href="/app/nutricion/editar">{t("ui.edit")}</ButtonLink>
+                          </div>
+                        );
+                      }
+
+                      const mealKey = getMealKey(meal, highlightedDay?.dayLabel ?? "meal", mealIndex);
+                      return (
+                        <div key={mealKey} className="feature-card stack-sm">
+                          <div className="inline-actions-space">
+                            <strong>{mealSection.label}</strong>
+                            <span className="badge">{meal.macros.calories} {t("units.kcal")}</span>
+                          </div>
+                          <MealCard
+                            title={getMealTitle(meal, t)}
+                            description={getMealDescription(meal)}
+                            meta={`${meal.macros.calories} ${t("units.kcal")}`}
+                            imageUrl={getMealMediaUrl(meal)}
+                            onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
+                            className="meal-card--horizontal"
+                          />
+                          <MealCardCompact
+                            title={getMealTitle(meal, t)}
+                            subtitle={getMealTypeLabel(meal, t)}
+                            kcal={meal.macros.calories}
+                            imageSrc={getMealMediaUrl(meal)}
+                            imageAlt={getMealTitle(meal, t)}
+                            onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="nutrition-meal-list">
+                    <article className="feature-card stack-sm">
+                      <div className="inline-actions-sm">
+                        <Icon name="sparkles" />
+                        <strong>{t("nutrition.aiGenerate")}</strong>
+                      </div>
+                      <p className="muted">{t("nutrition.tips")}</p>
+                      <div className="inline-actions-sm">
+                        <Button data-testid="nutrition-generate-ai-secondary" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
+                          {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                        </Button>
+                        <ButtonLink variant="secondary" href="/app/nutricion/editar">
+                          {t("nutrition.aiErrorState.adjustGoals")}
+                        </ButtonLink>
+                      </div>
+                    </article>
                   </div>
 
                   {calendarView === "list" ? (
