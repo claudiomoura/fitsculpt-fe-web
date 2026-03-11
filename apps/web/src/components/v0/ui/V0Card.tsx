@@ -9,7 +9,7 @@ export function V0Card({ className, children, ...props }: V0CardProps) {
   return (
     <section
       className={cn(
-        "rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg backdrop-blur md:p-6",
+        "rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg backdrop-blur md:p-5",
         className,
       )}
       {...props}

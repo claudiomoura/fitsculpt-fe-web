@@ -108,6 +108,15 @@
   --vv-offset-bottom: 0px;
   --mobile-tab-bar-offset-effective: calc(var(--mobile-tab-bar-offset) + var(--vv-offset-bottom));
   --mobile-tab-count: 6;
+
+  /* v0 rhythm tokens */
+  --v0-space-1: 8px;
+  --v0-space-2: 12px;
+  --v0-space-3: 16px;
+  --v0-space-4: 20px;
+  --v0-space-5: 24px;
+  --v0-title-tracking: -0.015em;
+  --v0-subtitle-size: 0.95rem;
 }
 
 html,
@@ -5125,7 +5134,7 @@ html { scroll-behavior: smooth; }
 }
 
 .v0-route-shell {
-  padding: clamp(16px, 2vw, 28px);
+  padding: clamp(var(--v0-space-3), 1.8vw, var(--v0-space-5));
   border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
 }
@@ -5134,19 +5143,19 @@ html { scroll-behavior: smooth; }
   width: min(1120px, 100%);
   margin: 0 auto;
   display: grid;
-  gap: 14px;
+  gap: var(--v0-space-3);
 }
 
 .v0-route-shell__topbar {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .v0-route-shell__topbar h1 {
   margin: 0;
-  font-size: clamp(1.2rem, 2vw, 1.5rem);
-  line-height: 1.2;
+  font-size: clamp(1.25rem, 1.4vw + 0.9rem, 1.65rem);
+  line-height: 1.15;
 }
 
 .v0-route-shell__badge {
@@ -5155,7 +5164,7 @@ html { scroll-behavior: smooth; }
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 700;
-  padding: 4px 8px;
+  padding: 5px 10px;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 18%, transparent);
 }
@@ -5179,12 +5188,12 @@ html { scroll-behavior: smooth; }
 
 .v0-home-grid {
   display: grid;
-  gap: 14px;
+  gap: var(--v0-space-3);
 }
 
 .v0-home-grid__column {
   display: grid;
-  gap: 12px;
+  gap: var(--v0-space-2);
   align-content: start;
 }
 
@@ -5192,7 +5201,7 @@ html { scroll-behavior: smooth; }
   border-radius: 20px;
   border: 1px solid color-mix(in srgb, #ffffff 8%, transparent);
   background: color-mix(in srgb, #0f172a 72%, #ffffff 28%);
-  padding: clamp(12px, 1.6vw, 18px);
+  padding: clamp(var(--v0-space-2), 1.4vw, var(--v0-space-4));
 }
 
 .v0-home-grid__card--placeholder {
@@ -5230,7 +5239,7 @@ html { scroll-behavior: smooth; }
 
 .v0-progress {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .v0-progress__meta {
@@ -5238,18 +5247,18 @@ html { scroll-behavior: smooth; }
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: color-mix(in srgb, currentColor 74%, transparent);
 }
 
 .v0-progress__meta strong {
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   color: currentColor;
 }
 
 .v0-progress__bar {
   overflow: hidden;
-  height: 10px;
+  height: 9px;
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 14%, transparent);
 }
@@ -5262,7 +5271,7 @@ html { scroll-behavior: smooth; }
 }
 
 .v0-ring {
-  width: 120px;
+  width: 116px;
   aspect-ratio: 1;
   position: relative;
   display: grid;
