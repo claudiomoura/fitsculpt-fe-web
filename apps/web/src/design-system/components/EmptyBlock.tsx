@@ -29,16 +29,18 @@ export function EmptyBlock({
       className={cn(centered ? 'py-16 md:py-20' : 'py-8 md:py-12', className)}
       {...props}
     >
-      <Stack align="center" gap="4" className="text-center">
+      <Stack align="center" gap="5" className="text-center">
         {icon ? (
-          <div className="rounded-full bg-[var(--color-surface-muted)] p-3 text-[var(--color-text-secondary)]">{icon}</div>
+          <div className="glass-card flex h-14 w-14 items-center justify-center rounded-2xl text-[var(--color-text-secondary)] shadow-sm">
+            {icon}
+          </div>
         ) : null}
         <Stack align="center" gap="2" className="max-w-xl">
-          <p className="m-0 text-base font-semibold text-text">{title}</p>
-          {description ? <p className="m-0 text-sm text-text-muted">{description}</p> : null}
+          <p className="m-0 text-xl font-semibold tracking-tight text-text md:text-2xl">{title}</p>
+          {description ? <p className="m-0 text-sm leading-relaxed text-text-muted md:text-base">{description}</p> : null}
         </Stack>
         {children}
-        {action ? <div className="pt-2">{action}</div> : null}
+        {action ? <div className="pt-1 md:pt-2">{action}</div> : null}
       </Stack>
     </PageContainer>
   );

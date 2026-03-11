@@ -10,6 +10,7 @@ export type ProHeaderProps = HTMLAttributes<HTMLElement> & {
   eyebrow?: ReactNode;
   actions?: ReactNode;
   compact?: boolean;
+  hero?: boolean;
 };
 
 export function ProHeader({
@@ -18,6 +19,7 @@ export function ProHeader({
   eyebrow,
   actions,
   compact = false,
+  hero = false,
   className,
   ...props
 }: ProHeaderProps) {
@@ -26,6 +28,7 @@ export function ProHeader({
       className={cn(
         'flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-end md:justify-between',
         compact ? 'gap-2 pb-3' : undefined,
+        hero ? 'gradient-bg rounded-xl border-b border-border/70 px-4 py-4 md:px-6 md:py-5' : undefined,
         className,
       )}
       {...props}
