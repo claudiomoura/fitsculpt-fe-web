@@ -4,6 +4,8 @@ export type { V0NavItem } from "./layout/v0-nav.types";
 
 export { V0ScreenShell } from "./layout/V0ScreenShell";
 
+export { V0Card, V0SectionHeader, V0StatRow } from "./ui";
+
 export { V0HomeShell } from "./screens/V0HomeShell";
 export { V0NutritionShell } from "./screens/V0NutritionShell";
 export { V0LibraryShell } from "./screens/V0LibraryShell";
