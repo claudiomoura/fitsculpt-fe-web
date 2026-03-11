@@ -3,8 +3,8 @@
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Recipe } from "@/lib/types";
 import { ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
+import { EmptyState, ErrorState } from "@/components/states";
 
 type RecipeDetailClientProps = {
   recipe: Recipe | null;
@@ -14,21 +14,30 @@ type RecipeDetailClientProps = {
 
 export default function RecipeDetailClient({ recipe, error }: RecipeDetailClientProps) {
   const { t } = useLanguage();
-  if (error || !recipe) {
+  if (error) {
     return (
       <section className="card centered-card">
-        <div className="empty-state">
-          <div className="empty-state-icon">
-            <Icon name="warning" />
-          </div>
-          <div>
-            <h3 className="m-0">{t("recipes.errorTitle")}</h3>
-            <p className="muted">{error ?? t("recipes.loadError")}</p>
-          </div>
-          <ButtonLink href="/app/biblioteca/recetas" className="fit-content">
-            {t("recipes.backToRecipes")}
-          </ButtonLink>
-        </div>
+        <ErrorState
+          className="mt-12"
+          title={t("recipes.errorTitle")}
+          description={error}
+          retryLabel={t("ui.retry")}
+          onRetry={() => window.location.reload()}
+          actions={[{ label: t("recipes.backToRecipes"), href: "/app/biblioteca/recetas", variant: "secondary" }]}
+        />
+      </section>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <section className="card centered-card">
+        <EmptyState
+          className="mt-12"
+          title={t("recipes.emptyTitle")}
+          description={t("recipes.noDetails")}
+          actions={[{ label: t("recipes.backToRecipes"), href: "/app/biblioteca/recetas", variant: "secondary" }]}
+        />
       </section>
     );
   }
