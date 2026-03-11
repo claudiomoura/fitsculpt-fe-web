@@ -1,7 +1,23 @@
-import { canAccessAdmin, canAccessTrainer, type RoleAccessInput } from "@/config/roleAccess";
-import { canAccessFeature, type EntitlementFeature, type UiEntitlements } from "@/lib/entitlements";
+import {
+  canAccessAdmin,
+  canAccessTrainer,
+  type RoleAccessInput,
+} from "@/config/roleAccess";
+import {
+  canAccessFeature,
+  type EntitlementFeature,
+  type UiEntitlements,
+} from "@/lib/entitlements";
 
-export type NavSection = "fitness" | "training" | "nutrition" | "account" | "more" | "admin" | "trainer" | "development";
+export type NavSection =
+  | "fitness"
+  | "training"
+  | "nutrition"
+  | "account"
+  | "more"
+  | "admin"
+  | "trainer"
+  | "development";
 
 export type NavItem = {
   id: string;
@@ -26,17 +42,21 @@ export function isPathActive(pathname: string | null, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function getMostSpecificActiveHref(pathname: string | null, sections: NavSectionGroup[]): string | null {
+export function getMostSpecificActiveHref(
+  pathname: string | null,
+  sections: NavSectionGroup[],
+): string | null {
   if (!pathname) return null;
 
-  const hrefs = sections.flatMap((section) => section.items.map((item) => item.href));
+  const hrefs = sections.flatMap((section) =>
+    section.items.map((item) => item.href),
+  );
   const activeHrefs = hrefs.filter((href) => isPathActive(pathname, href));
 
   if (!activeHrefs.length) return null;
 
   return activeHrefs.sort((a, b) => b.length - a.length)[0] ?? null;
 }
-
 
 export type MobileTab = {
   id: string;
@@ -75,9 +95,13 @@ export const mainTabsMobile: MobileTab[] = [
     feature: "nutrition",
     upgradeHref: "/app/settings/billing",
   },
-  { id: "settings", href: "/app/settings", labelKey: "nav.settings", icon: "info" },
+  {
+    id: "settings",
+    href: "/app/settings",
+    labelKey: "nav.settings",
+    icon: "info",
+  },
 ];
-
 
 export const trainerTabsMobile: MobileTab[] = [
   {
@@ -118,19 +142,55 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.fitness",
     items: [
       { id: "today", href: "/app/hoy", labelKey: "nav.today" },
-      { id: "training", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
-      { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
-      { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
+      {
+        id: "training",
+        href: "/app/entrenamiento",
+        labelKey: "nav.trainingCalendar",
+      },
+      {
+        id: "exercise-library",
+        href: "/app/biblioteca",
+        labelKey: "nav.exerciseLibrary",
+      },
+      {
+        id: "training-plans",
+        href: "/app/biblioteca/entrenamientos",
+        labelKey: "nav.trainingPlans",
+      },
     ],
   },
   {
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      {
+        id: "nutrition-calendar",
+        href: "/app/nutricion",
+        labelKey: "nav.nutritionCalendar",
+        feature: "nutrition",
+        upgradeHref: "/app/settings/billing",
+      },
+      {
+        id: "recipe-library",
+        href: "/app/biblioteca/recetas",
+        labelKey: "nav.recipeLibrary",
+        feature: "nutrition",
+        upgradeHref: "/app/settings/billing",
+      },
+      {
+        id: "diet-plans",
+        href: "/app/dietas",
+        labelKey: "nav.nutritionPlans",
+        feature: "nutrition",
+        upgradeHref: "/app/settings/billing",
+      },
+      {
+        id: "macros",
+        href: "/app/macros",
+        labelKey: "nav.macros",
+        feature: "nutrition",
+        upgradeHref: "/app/settings/billing",
+      },
     ],
   },
   {
@@ -140,7 +200,11 @@ export const sidebarUser: NavSectionGroup[] = [
       { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
-      { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
+      {
+        id: "weekly-review",
+        href: "/app/weekly-review",
+        labelKey: "nav.weeklyReview",
+      },
       { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
       { id: "gym", href: "/app/gym", labelKey: "nav.gym" },
@@ -154,7 +218,11 @@ export const sidebarAdmin: NavSectionGroup[] = [
     labelKey: "navSections.admin",
     items: [
       { id: "admin-dashboard", href: "/app/admin", labelKey: "nav.admin" },
-      { id: "admin-users", href: "/app/admin/users", labelKey: "nav.adminUsers" },
+      {
+        id: "admin-users",
+        href: "/app/admin/users",
+        labelKey: "nav.adminUsers",
+      },
       { id: "admin-gyms", href: "/app/admin/gyms", labelKey: "nav.adminGyms" },
       {
         id: "admin-gym-requests",
@@ -164,7 +232,11 @@ export const sidebarAdmin: NavSectionGroup[] = [
         disabledNoteKey: "common.comingSoon",
       },
       { id: "admin-labs", href: "/app/admin/labs", labelKey: "nav.adminLabs" },
-      { id: "admin-preview", href: "/app/admin/preview", labelKey: "nav.adminPreview" },
+      {
+        id: "admin-preview",
+        href: "/app/admin/preview",
+        labelKey: "nav.adminPreview",
+      },
     ],
   },
 ];
@@ -175,9 +247,21 @@ export const sidebarTrainer: NavSectionGroup[] = [
     labelKey: "navSections.trainer",
     items: [
       { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
-      { id: "trainer-clients", href: "/app/trainer/clients", labelKey: "nav.trainerClients" },
-      { id: "trainer-plans", href: "/app/trainer/plans", labelKey: "nav.trainerPlans" },
-      { id: "trainer-nutrition-plans", href: "/app/trainer/nutrition-plans", labelKey: "nav.trainerNutritionPlans" },
+      {
+        id: "trainer-clients",
+        href: "/app/trainer/clients",
+        labelKey: "nav.trainerClients",
+      },
+      {
+        id: "trainer-plans",
+        href: "/app/trainer/plans",
+        labelKey: "nav.trainerPlans",
+      },
+      {
+        id: "trainer-nutrition-plans",
+        href: "/app/trainer/nutrition-plans",
+        labelKey: "nav.trainerNutritionPlans",
+      },
       {
         id: "trainer-exercises",
         href: "/app/trainer/exercises",
@@ -192,7 +276,12 @@ export const sidebarDevelopment: NavSectionGroup[] = [
     id: "development",
     labelKey: "navSections.development",
     items: [
-      { id: "dev-trainer-home", href: "/app/trainer", labelKey: "nav.trainer", meta: "/app/trainer" },
+      {
+        id: "dev-trainer-home",
+        href: "/app/trainer",
+        labelKey: "nav.trainer",
+        meta: "/app/trainer",
+      },
       {
         id: "dev-trainer-requests",
         href: "/app/trainer/requests",
@@ -229,10 +318,30 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         labelKey: "nav.newExercise",
         meta: "/app/trainer/exercises/new",
       },
-      { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
-      { id: "dev-dashboard", href: "/app/dashboard", labelKey: "nav.dashboard", meta: "/app/dashboard" },
-      { id: "dev-weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview", meta: "/app/weekly-review" },
-      { id: "dev-workouts", href: "/app/entrenamiento", labelKey: "nav.workouts", meta: "/app/workouts" },
+      {
+        id: "dev-onboarding",
+        href: "/app/onboarding",
+        labelKey: "nav.onboarding",
+        meta: "/app/onboarding",
+      },
+      {
+        id: "dev-dashboard",
+        href: "/app/dashboard",
+        labelKey: "nav.dashboard",
+        meta: "/app/dashboard",
+      },
+      {
+        id: "dev-weekly-review",
+        href: "/app/weekly-review",
+        labelKey: "nav.weeklyReview",
+        meta: "/app/weekly-review",
+      },
+      {
+        id: "dev-workouts",
+        href: "/app/entrenamiento",
+        labelKey: "nav.workouts",
+        meta: "/app/workouts",
+      },
       {
         id: "dev-training-edit",
         href: "/app/entrenamiento/editar",
@@ -287,7 +396,9 @@ export const sidebarDevelopment: NavSectionGroup[] = [
   },
 ];
 
-const sidebarAccountOnly: NavSectionGroup[] = sidebarUser.filter((section) => section.id === "account");
+const sidebarAccountOnly: NavSectionGroup[] = sidebarUser.filter(
+  (section) => section.id === "account",
+);
 
 export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
   const isAdmin = canAccessAdmin(input);
@@ -304,7 +415,9 @@ export function buildUserSections(input: RoleAccessInput): NavSectionGroup[] {
   return sidebarUser;
 }
 
-export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup[] {
+export function buildNavigationSections(
+  input: RoleAccessInput,
+): NavSectionGroup[] {
   const isAdmin = canAccessAdmin(input);
   const isTrainer = canAccessTrainer(input);
 
@@ -322,10 +435,18 @@ export function buildNavigationSections(input: RoleAccessInput): NavSectionGroup
     return [...userSections, ...sidebarAdmin, ...sidebarTrainer];
   }
 
-  return [...userSections, ...sidebarAdmin, ...sidebarTrainer, ...sidebarDevelopment];
+  return [
+    ...userSections,
+    ...sidebarAdmin,
+    ...sidebarTrainer,
+    ...sidebarDevelopment,
+  ];
 }
 
-export function applyEntitlementGating(sections: NavSectionGroup[], entitlements: UiEntitlements): NavSectionGroup[] {
+export function applyEntitlementGating(
+  sections: NavSectionGroup[],
+  entitlements: UiEntitlements,
+): NavSectionGroup[] {
   return sections
     .map((section) => ({
       ...section,
@@ -344,6 +465,35 @@ export function applyEntitlementGating(sections: NavSectionGroup[], entitlements
     .filter((section) => section.items.length > 0);
 }
 
-export function applyTabEntitlementGating(tabs: MobileTab[], entitlements: UiEntitlements): MobileTab[] {
-  return tabs.filter((tab) => !tab.feature || canAccessFeature(entitlements, tab.feature));
+export function applyTabEntitlementGating(
+  tabs: MobileTab[],
+  entitlements: UiEntitlements,
+): MobileTab[] {
+  return tabs.filter(
+    (tab) => !tab.feature || canAccessFeature(entitlements, tab.feature),
+  );
+}
+
+export const V0_CORE_ITEM_IDS = [
+  "today",
+  "training",
+  "nutrition-calendar",
+  "dashboard",
+  "profile",
+] as const;
+
+export function splitV0NavigationItems(items: NavItem[]): {
+  coreItems: NavItem[];
+  moreItems: NavItem[];
+} {
+  const visibleItems = items.filter((item) => !item.disabled);
+
+  const coreItems = V0_CORE_ITEM_IDS.map((id) =>
+    visibleItems.find((item) => item.id === id),
+  ).filter((item): item is NavItem => item !== undefined);
+
+  const coreItemIds = new Set(coreItems.map((item) => item.id));
+  const moreItems = visibleItems.filter((item) => !coreItemIds.has(item.id));
+
+  return { coreItems, moreItems };
 }

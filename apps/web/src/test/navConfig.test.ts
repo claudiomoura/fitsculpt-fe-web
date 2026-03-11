@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { applyEntitlementGating, getMostSpecificActiveHref, isPathActive, sidebarUser } from "@/components/layout/navConfig";
+import {
+  applyEntitlementGating,
+  getMostSpecificActiveHref,
+  isPathActive,
+  sidebarUser,
+  splitV0NavigationItems,
+} from "@/components/layout/navConfig";
 
 describe("navConfig", () => {
   it("marks only exact and nested matches as active", () => {
-    expect(isPathActive("/app/biblioteca/entrenamientos", "/app/biblioteca")).toBe(true);
+    expect(
+      isPathActive("/app/biblioteca/entrenamientos", "/app/biblioteca"),
+    ).toBe(true);
     expect(isPathActive("/app/bibliotecario", "/app/biblioteca")).toBe(false);
   });
 
   it("prefers the most specific href as active", () => {
-    const activeHref = getMostSpecificActiveHref("/app/biblioteca/entrenamientos", sidebarUser);
+    const activeHref = getMostSpecificActiveHref(
+      "/app/biblioteca/entrenamientos",
+      sidebarUser,
+    );
 
     expect(activeHref).toBe("/app/biblioteca/entrenamientos");
   });
@@ -23,17 +34,25 @@ describe("navConfig", () => {
       },
     });
 
-    const nutritionSection = gated.find((section) => section.id === "nutrition");
+    const nutritionSection = gated.find(
+      (section) => section.id === "nutrition",
+    );
     const accountSection = gated.find((section) => section.id === "account");
     const gymItem = accountSection?.items.find((item) => item.id === "gym");
 
-    expect(nutritionSection?.items.every((item) => item.disabled === true)).toBe(true);
+    expect(
+      nutritionSection?.items.every((item) => item.disabled === true),
+    ).toBe(true);
     expect(gymItem?.disabled).not.toBe(true);
   });
 
   it("groups sidebar items into fitness, nutrition, and account sections", () => {
-    const fitnessSection = sidebarUser.find((section) => section.id === "fitness");
-    const nutritionSection = sidebarUser.find((section) => section.id === "nutrition");
+    const fitnessSection = sidebarUser.find(
+      (section) => section.id === "fitness",
+    );
+    const nutritionSection = sidebarUser.find(
+      (section) => section.id === "nutrition",
+    );
 
     expect(fitnessSection?.items.map((item) => item.href)).toEqual([
       "/app/hoy",
@@ -50,4 +69,18 @@ describe("navConfig", () => {
     ]);
   });
 
+  it("splits v0 navigation into core and more buckets", () => {
+    const allItems = sidebarUser.flatMap((section) => section.items);
+    const { coreItems, moreItems } = splitV0NavigationItems(allItems);
+
+    expect(coreItems.map((item) => item.id)).toEqual([
+      "today",
+      "training",
+      "nutrition-calendar",
+      "dashboard",
+      "profile",
+    ]);
+    expect(moreItems.some((item) => item.id === "exercise-library")).toBe(true);
+    expect(moreItems.some((item) => item.id === "settings")).toBe(true);
+  });
 });
