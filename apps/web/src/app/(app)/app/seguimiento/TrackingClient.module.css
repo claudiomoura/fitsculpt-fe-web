@@ -1,0 +1,66 @@
+.heroCard {
+  display: grid;
+  gap: 14px;
+}
+
+.heroHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.segmentedControl {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+  max-width: 320px;
+}
+
+.segmentedButton {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmentedButtonActive {
+  background: var(--brand);
+  color: #fff;
+}
+
+.overviewGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.leftColumn,
+.rightColumn,
+.metricCards {
+  display: grid;
+  gap: 16px;
+}
+
+.metricCards {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+@media (min-width: 1024px) {
+  .overviewGrid {
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    align-items: start;
+  }
+
+  .rightColumn {
+    position: sticky;
+    top: 88px;
+  }
+}
