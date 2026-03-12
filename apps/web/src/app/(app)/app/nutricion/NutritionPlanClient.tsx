@@ -34,7 +34,7 @@ import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
 import AppLayout from "@/components/layout/AppLayout";
 import NutritionStats from "@/components/nutrition/NutritionStats";
 import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
-import { Accordion, HeaderCompact, MealCardCompact, ObjectiveGrid, SegmentedControl } from "@/design-system/components";
+import { Accordion, MealCardCompact, ObjectiveGrid, ProgressBar, SegmentedControl } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
@@ -396,6 +396,10 @@ const getMealInstructions = (meal: NutritionMeal) => {
   if (typeof candidate.instructions !== "string") return null;
   const instructions = candidate.instructions.trim();
   return instructions.length > 0 ? instructions : null;
+};
+
+const getMealMeta = (meal: NutritionMeal, t: (key: string) => string) => {
+  return `${meal.macros.calories} ${t("units.kcal")} · ${t("nutrition.protein")}: ${meal.macros.protein}g · ${t("nutrition.carbs")}: ${meal.macros.carbs}g · ${t("nutrition.fat")}: ${meal.macros.fats}g`;
 };
 
 const getMealKey = (meal: NutritionMeal, dayKey: string, index: number) => {
@@ -1535,6 +1539,13 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const isSelectedMealFavorite = selectedMealFavorite
     ? quickFavorites.some((favorite) => favorite.id === selectedMealFavorite.id)
     : false;
+  const highlightedCompletedMeals = useMemo(
+    () => highlightedMeals.reduce((count, meal, mealIndex) => count + (isConsumed(getMealKey(meal, highlightedDayKey, mealIndex), highlightedDayKey) ? 1 : 0), 0),
+    [highlightedDayKey, highlightedMeals, isConsumed]
+  );
+  const highlightedMealsProgress = highlightedMeals.length > 0
+    ? Math.round((highlightedCompletedMeals / highlightedMeals.length) * 100)
+    : 0;
 
   const handleUseFavorite = (favorite: NutritionQuickFavorite) => {
     const dayKey = toDateKey(selectedDate);
@@ -2393,21 +2404,47 @@ const nutritionPlanDetails = profile ? (
 
               {!loading && !error ? (
                 <section className="card nutrition-v2-layout" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
-                  <HeaderCompact
-                    title={t("nutrition.dailyTargetTitle")}
-                    subtitle={highlightedDay?.dayLabel ?? t("nutrition.viewToday")}
-                    trailing={(
+                  <div className="feature-card stack-sm">
+                    <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+                      <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
+                        <h2 className="section-title section-title-sm m-0">{t("app.nutritionTitle")}</h2>
+                        <p className="section-subtitle m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</p>
+                        {assignedPlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{assignedPlanTitle}</p> : null}
+                      </div>
                       <Button className="nutrition-dominant-cta" data-testid="nutrition-generate-ai" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
                         {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
                       </Button>
-                    )}
-                  />
+                    </div>
+                    <div className="stack-xs">
+                      <div className="inline-actions-space">
+                        <span className="muted">{t("nutrition.dailyTargetTitle")}</span>
+                        <strong>{highlightedMealsProgress}%</strong>
+                      </div>
+                      <ProgressBar value={highlightedMealsProgress} max={100} aria-label={t("nutrition.dailyTargetTitle")} />
+                    </div>
+                  </div>
 
-                  {assignedPlanTitle ? <p className="muted" data-testid="member-assigned-nutrition-plan-title">{assignedPlanTitle}</p> : null}
-
-                  <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
-
-                  <ObjectiveGrid items={objectiveItems} className="nutrition-v2-objective-grid" />
+                  <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+                    <div className="stack-sm">
+                      <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
+                      <ObjectiveGrid items={objectiveItems} className="nutrition-v2-objective-grid" />
+                    </div>
+                    <article className="feature-card stack-sm">
+                      <div className="inline-actions-sm">
+                        <Icon name="sparkles" />
+                        <strong>{t("nutrition.aiGenerate")}</strong>
+                      </div>
+                      <p className="muted">{t("nutrition.tips")}</p>
+                      <div className="inline-actions-sm">
+                        <Button data-testid="nutrition-generate-ai-secondary" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
+                          {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                        </Button>
+                        <ButtonLink variant="secondary" href="/app/nutricion/editar">
+                          {t("nutrition.aiErrorState.adjustGoals")}
+                        </ButtonLink>
+                      </div>
+                    </article>
+                  </div>
 
                   <div className="nutrition-v2-calendar-head">
                     <h3 className="section-title section-title-sm m-0">{t("nutrition.calendarTitle")}</h3>
@@ -2478,7 +2515,9 @@ const nutritionPlanDetails = profile ? (
                     </div>
                   ) : null}
 
-                  <div className="nutrition-v2-meals stack-sm">
+                  <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+                    <div className="stack-sm">
+                      <div className="nutrition-v2-meals stack-sm">
                     <div className="inline-actions-space">
                       <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
                       <ButtonLink variant="secondary" href="/app/nutricion/editar">
@@ -2510,7 +2549,7 @@ const nutritionPlanDetails = profile ? (
                           <MealCard
                             title={getMealTitle(meal, t)}
                             description={getMealDescription(meal)}
-                            meta={`${meal.macros.calories} ${t("units.kcal")}`}
+                            meta={getMealMeta(meal, t)}
                             imageUrl={getMealMediaUrl(meal)}
                             onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
                             className="meal-card--horizontal"
@@ -2526,24 +2565,6 @@ const nutritionPlanDetails = profile ? (
                         </div>
                       );
                     })}
-                  </div>
-
-                  <div className="nutrition-meal-list">
-                    <article className="feature-card stack-sm">
-                      <div className="inline-actions-sm">
-                        <Icon name="sparkles" />
-                        <strong>{t("nutrition.aiGenerate")}</strong>
-                      </div>
-                      <p className="muted">{t("nutrition.tips")}</p>
-                      <div className="inline-actions-sm">
-                        <Button data-testid="nutrition-generate-ai-secondary" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
-                          {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                        </Button>
-                        <ButtonLink variant="secondary" href="/app/nutricion/editar">
-                          {t("nutrition.aiErrorState.adjustGoals")}
-                        </ButtonLink>
-                      </div>
-                    </article>
                   </div>
 
                   {calendarView === "list" ? (
@@ -2565,7 +2586,7 @@ const nutritionPlanDetails = profile ? (
                                       key={mealKey}
                                       title={getMealTitle(meal, t)}
                                       description={getMealDescription(meal)}
-                                      meta={`${meal.macros.calories} ${t("units.kcal")}`}
+                                      meta={getMealMeta(meal, t)}
                                       imageUrl={getMealMediaUrl(meal)}
                                       onClick={() => {
                                         setSelectedDate(entry.date);
@@ -2587,7 +2608,9 @@ const nutritionPlanDetails = profile ? (
                     </div>
                   ) : null}
 
-                  <div className="nutrition-v2-shopping">
+                    </div>
+
+                    <div className="nutrition-v2-shopping">
                     <div className="inline-actions-space">
                       <h3 className="section-title section-title-sm m-0">{t("nutrition.shoppingTitle")}</h3>
                       <button
@@ -2619,6 +2642,7 @@ const nutritionPlanDetails = profile ? (
                         ]}
                       />
                     ) : null}
+                    </div>
                   </div>
                 </section>
               ) : null}
