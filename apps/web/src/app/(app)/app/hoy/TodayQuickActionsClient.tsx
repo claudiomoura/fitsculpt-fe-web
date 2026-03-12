@@ -11,7 +11,7 @@ import {
 import { useToast } from "@/components/ui/Toast";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Card, PageHero, Section, Stack } from "@/design-system/components";
+import { Card, Section, Stack } from "@/design-system/components";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { trackEvent } from "@/lib/analytics";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
@@ -34,11 +34,10 @@ type TrainingState = "workout" | "rest" | "no-plan";
 type TodaySignals = {
   checkinDoneThisWeek: boolean;
   userName: string;
-  avatarUrl: string;
   trainingName: string;
   trainingDuration: number | null;
   trainingExerciseCount: number;
-  trainingExercisePreview: string[];
+  trainingDayKey: string | null;
   trainingState: TrainingState;
   nutritionReady: boolean;
   nutritionTargetCalories: number | null;
@@ -46,7 +45,6 @@ type TodaySignals = {
   currentWeightKg: number | null;
   streakDays: number;
   hasTrainingAccess: boolean;
-  planLabel: string;
 };
 
 type TrackingPayload = {
@@ -66,6 +64,27 @@ function ProgressBar({ value, total, className = "" }: { value: number; total: n
   return (
     <div className={`h-2 w-full overflow-hidden rounded-full bg-slate-800 ${className}`}>
       <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${width}%` }} />
+    </div>
+  );
+}
+
+function NutritionRing({ value, total }: { value: number; total: number | null }) {
+  const safeTotal = total && total > 0 ? total : 0;
+  const progress = safeTotal > 0 ? Math.min(100, Math.max(0, Math.round((value / safeTotal) * 100))) : 0;
+  return (
+    <div className="relative h-24 w-24 shrink-0 rounded-full p-1" style={{ background: "rgba(148,163,184,0.24)" }}>
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: `conic-gradient(rgba(16,185,129,0.95) ${progress}%, rgba(30,41,59,0.95) ${progress}% 100%)`,
+        }}
+      />
+      <div className="relative flex h-full w-full items-center justify-center rounded-full bg-[#0B0E13] text-center">
+        <div>
+          <p className="m-0 text-lg font-semibold leading-none text-slate-100">{progress}%</p>
+          <p className="m-0 mt-1 text-[10px] uppercase tracking-[0.1em] text-slate-400">kcal</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -132,11 +151,10 @@ export default function TodayQuickActionsClient() {
   const [signals, setSignals] = useState<TodaySignals>({
     checkinDoneThisWeek: false,
     userName: "",
-    avatarUrl: "",
     trainingName: "",
     trainingDuration: null,
     trainingExerciseCount: 0,
-    trainingExercisePreview: [],
+    trainingDayKey: null,
     trainingState: "no-plan",
     nutritionReady: false,
     nutritionTargetCalories: null,
@@ -144,7 +162,6 @@ export default function TodayQuickActionsClient() {
     currentWeightKg: null,
     streakDays: 0,
     hasTrainingAccess: true,
-    planLabel: "",
   });
   const hasTrackedViewRef = useRef(false);
 
@@ -167,11 +184,10 @@ export default function TodayQuickActionsClient() {
       const nextSignals: TodaySignals = {
         checkinDoneThisWeek: false,
         userName: "",
-        avatarUrl: "",
         trainingName: "",
         trainingDuration: null,
         trainingExerciseCount: 0,
-        trainingExercisePreview: [],
+        trainingDayKey: null,
         trainingState: "no-plan",
         nutritionReady: false,
         nutritionTargetCalories: null,
@@ -179,15 +195,12 @@ export default function TodayQuickActionsClient() {
         currentWeightKg: null,
         streakDays: 0,
         hasTrainingAccess: true,
-        planLabel: "",
       };
 
       if (authMeResponse.ok) {
         const authMe = (await authMeResponse.json()) as AuthMeResponse;
         nextSignals.userName = authMe.name?.trim() ?? "";
-        nextSignals.avatarUrl = authMe.profilePhotoUrl ?? authMe.avatarUrl ?? authMe.imageUrl ?? authMe.avatarDataUrl ?? "";
         nextSignals.hasTrainingAccess = authMe.entitlements?.modules?.strength?.enabled !== false;
-        nextSignals.planLabel = authMe.subscriptionPlan ?? authMe.plan ?? authMe.entitlements?.plan?.effective ?? "";
       }
 
       if (trackingResponse.ok) {
@@ -207,10 +220,7 @@ export default function TodayQuickActionsClient() {
             nextSignals.trainingName = trainingDay.label || trainingDay.focus || trainingPlan.title;
             nextSignals.trainingDuration = Number.isFinite(trainingDay.duration) ? Number(trainingDay.duration) : null;
             nextSignals.trainingExerciseCount = trainingDay.exercises?.length ?? 0;
-            nextSignals.trainingExercisePreview = (trainingDay.exercises ?? [])
-              .map((exercise) => exercise.name?.trim())
-              .filter((name): name is string => Boolean(name))
-              .slice(0, 3);
+            nextSignals.trainingDayKey = trainingDay.date ? toDateKey(parseDate(trainingDay.date) ?? new Date()) : toDateKey(new Date());
           } else {
             nextSignals.trainingState = "rest";
           }
@@ -291,12 +301,6 @@ export default function TodayQuickActionsClient() {
   }, [checkinActionStatus, notify, t]);
 
   const userName = signals.userName || t("ui.userFallback");
-  const initials = userName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((chunk) => chunk[0]?.toUpperCase() ?? "")
-    .join("");
 
   const completedGoals = useMemo(
     () => [signals.trainingState === "workout", signals.nutritionReady, signals.checkinDoneThisWeek].filter(Boolean).length,
@@ -311,40 +315,32 @@ export default function TodayQuickActionsClient() {
         : t("today.trainingStateNoPlan");
 
   const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
+  const trainingMeta =
+    signals.trainingState === "workout"
+      ? [signals.trainingDuration ? `${signals.trainingDuration} min` : null, t("today.trainingExerciseCount", { count: signals.trainingExerciseCount })]
+          .filter(Boolean)
+          .join(" · ")
+      : signals.trainingState === "rest"
+        ? "Hoy toca recuperación"
+        : t("today.trainingStateNoPlan");
+  const todayTrainingHref = signals.trainingDayKey ? `${trainingRoute}?day=${signals.trainingDayKey}` : trainingRoute;
 
   return (
-    <Stack gap="4">
-      <PageHero
-        title={t("today.title")}
-        subtitle={t("today.greeting", { name: userName })}
-        actions={
-          <div className="flex items-center justify-end gap-2">
-            {signals.planLabel ? (
-              <span
-                className="rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-200"
-                style={{ borderColor: "rgba(52,211,153,0.4)", background: "rgba(52,211,153,0.12)" }}
-              >
-                {signals.planLabel}
-              </span>
-            ) : null}
-            {signals.avatarUrl ? (
-              <img
-                src={signals.avatarUrl}
-                alt={t("profile.avatarTitle")}
-                className="h-10 w-10 rounded-full border object-cover"
-                style={{ borderColor: "rgba(255,255,255,0.16)" }}
-              />
-            ) : (
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-full border text-xs font-semibold text-slate-200"
-                style={{ borderColor: "rgba(255,255,255,0.16)" }}
-              >
-                {initials || "FS"}
-              </div>
-            )}
-          </div>
-        }
-      />
+    <Stack gap="6">
+      <header className="flex items-start justify-between gap-4 px-1 pt-1">
+        <div className="min-w-0">
+          <h1 className="m-0 text-2xl font-semibold text-slate-100 md:text-3xl">Buenos días, {userName}</h1>
+          <p className="m-0 mt-2 text-sm text-slate-300 md:text-base">Tu plan de hoy está listo</p>
+        </div>
+        {signals.streakDays > 0 ? (
+          <span
+            className="shrink-0 rounded-full border border-amber-300/40 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100"
+            aria-label={t("today.streakChip", { days: signals.streakDays })}
+          >
+            {t("today.streakChip", { days: signals.streakDays })}
+          </span>
+        ) : null}
+      </header>
 
       {status === "loading" ? <TodaySkeleton /> : null}
       {status === "error" ? <TodayErrorState message={t("today.hubErrorMessage")} retryLabel={t("ui.retry")} onRetry={() => void loadTodaySignals()} /> : null}
@@ -353,9 +349,11 @@ export default function TodayQuickActionsClient() {
         <>
           {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamiento" /> : null}
 
+          <h2 className="m-0 px-1 text-sm font-semibold uppercase tracking-[0.08em] text-slate-300">Acciones de hoy</h2>
+
           <Section className="space-y-0" data-testid="today-actions-grid">
-            <div className="grid gap-4 md:grid-cols-2 xl:gap-6">
-              <Card variant="glass" hoverable className="rounded-2xl p-5 md:p-6" data-testid="today-action-card">
+            <div className="grid gap-6 md:grid-cols-2 xl:gap-8">
+              <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-300">
                     <PremiumWorkoutIcon width={22} height={22} />
@@ -366,18 +364,18 @@ export default function TodayQuickActionsClient() {
                   </div>
                 </div>
                 <p className="text-sm text-slate-300">{trainingDescription}</p>
-                <p className="mt-2 text-xs text-slate-400">{t("today.trainingExerciseCount", { count: signals.trainingExerciseCount })}</p>
+                <p className="mt-2 text-xs text-slate-400">{trainingMeta}</p>
                 <ProgressBar value={completedGoals} total={3} className="mt-3" />
 
                 {signals.trainingState === "no-plan" ? (
-                  <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                    <ButtonLink as={Link} href={manualPlanRoute} size="lg" className="min-h-11 w-full">
+                  <div className="mt-6 space-y-2">
+                    <ButtonLink as={Link} href={manualPlanRoute} size="lg" className="min-h-12 w-full">
                       {t("today.trainingManualCta")}
                     </ButtonLink>
                     <Button
                       size="lg"
                       variant="secondary"
-                      className="min-h-11 w-full"
+                      className="min-h-12 w-full"
                       disabled={!hasAiAccess}
                       onClick={() => {
                         if (!hasAiAccess) return;
@@ -390,21 +388,25 @@ export default function TodayQuickActionsClient() {
                 ) : (
                   <Button
                     size="lg"
-                    className="mt-5 min-h-11 w-full"
+                    className="mt-6 min-h-12 w-full"
                     onClick={() => {
                       if (!signals.hasTrainingAccess) {
                         router.push(billingRoute);
                         return;
                       }
-                      router.push(signals.trainingState === "workout" ? trainingRoute : "/app/entrenamientos");
+                      router.push(signals.trainingState === "workout" ? todayTrainingHref : trainingRoute);
                     }}
                   >
-                    {!signals.hasTrainingAccess ? t("today.unlockCta") : t("today.trainingHeroCta")}
+                    {!signals.hasTrainingAccess
+                      ? t("today.unlockCta")
+                      : signals.trainingState === "rest"
+                        ? "Ver semana"
+                        : t("today.trainingHeroCta")}
                   </Button>
                 )}
               </Card>
 
-              <Card variant="glass" hoverable className="rounded-2xl p-5 md:p-6" data-testid="today-action-card">
+              <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300">
                     <PremiumNutritionIcon width={22} height={22} />
@@ -414,16 +416,19 @@ export default function TodayQuickActionsClient() {
                     <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.nutritionCardTitle")}</h2>
                   </div>
                 </div>
-                <p className="text-sm text-slate-300">
-                  {signals.nutritionConsumedCalories} / {signals.nutritionTargetCalories ?? "--"} kcal
-                </p>
-                <ProgressBar value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories ?? 0} className="mt-3" />
-                <ButtonLink as={Link} href="/app/nutricion" size="lg" className="mt-5 min-h-11 w-full">
+                <div className="mt-1 flex items-center gap-4">
+                  <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} />
+                  <div>
+                    <p className="m-0 text-sm text-slate-300">{signals.nutritionConsumedCalories} kcal consumidas</p>
+                    <p className="m-0 mt-1 text-xs text-slate-400">Objetivo: {signals.nutritionTargetCalories ?? "--"} kcal</p>
+                  </div>
+                </div>
+                <ButtonLink as={Link} href="/app/nutricion" size="lg" className="mt-6 min-h-12 w-full">
                   {t("today.nutritionPrimaryCta")}
                 </ButtonLink>
               </Card>
 
-              <Card variant="glass" hoverable className="rounded-2xl p-5 md:p-6" data-testid="today-action-card">
+              <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/20 text-violet-300">
                     <PremiumProgressIcon width={22} height={22} />
@@ -438,11 +443,11 @@ export default function TodayQuickActionsClient() {
                 </p>
                 <p className="mt-1 text-sm text-slate-300">{t("today.hubProgress", { completed: completedGoals, total: 3 })}</p>
                 <p className="mt-1 text-xs text-slate-400">{t("today.streakChip", { days: signals.streakDays })}</p>
-                <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                  <Button className="min-h-11 w-full" size="lg" onClick={() => void handleLogTodayCheckin()} loading={checkinActionStatus === "loading"} data-testid="quick-action-tracking">
+                <div className="mt-6 space-y-2">
+                  <Button className="min-h-12 w-full" size="lg" onClick={() => void handleLogTodayCheckin()} loading={checkinActionStatus === "loading"} data-testid="quick-action-tracking">
                     {signals.checkinDoneThisWeek ? t("today.checkinSecondaryCta") : t("today.checkinPrimaryCta")}
                   </Button>
-                  <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" size="lg" className="min-h-11 w-full">
+                  <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" size="lg" className="min-h-12 w-full">
                     {t("today.progressCardCta")}
                   </ButtonLink>
                 </div>
