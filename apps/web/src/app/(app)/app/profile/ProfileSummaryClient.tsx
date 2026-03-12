@@ -115,40 +115,56 @@ export default function ProfileSummaryClient() {
 
       <section className={`card ${styles.planCard}`}>
         <div>
-          <p className={styles.planLabel}>{t("profile.goal")}</p>
+          <p className={styles.planLabel}>{t("nav.billing")}</p>
           <p className={styles.planName}>{normalizePlanLabel(auth.plan)}</p>
         </div>
         <ButtonLink href="/app/settings/billing" size="sm">
-          Actualizar
+          {t("ui.edit")}
         </ButtonLink>
       </section>
 
       <section className="card">
-        <h3 className={styles.groupTitle}>Tu plan de entrenamiento</h3>
+        <h3 className={styles.groupTitle}>{t("nav.trainingPlan")}</h3>
         <div className={styles.rows}>
-          <HubRow label="Objetivo" value={goalLabel} href="/app/onboarding" />
-          <HubRow label="Nivel" value={levelLabel} href="/app/onboarding" />
+          <HubRow label={t("profile.goal")} value={goalLabel} href="/app/onboarding" />
+          <HubRow label={t("profile.trainingLevel")} value={levelLabel} href="/app/onboarding" />
         </div>
       </section>
 
       <section className="card">
-        <h3 className={styles.groupTitle}>Preferencias</h3>
+        <h3 className={styles.groupTitle}>{t("profile.preferencesTitle")}</h3>
         <div className={styles.rows}>
-          <HubRow label="Idioma" value={localeLabel(locale)} href="/app/settings" />
-          <HubRow label="Unidades" value={`${t("units.kilograms")}/${t("units.centimeters")}`} href="/app/settings" />
+          <HubRow label={t("ui.language")} value={localeLabel(locale)} href="/app/settings" />
+          <HubRow
+            label={t("ui.select")}
+            value={`${t("units.kilograms")}/${t("units.centimeters")}`}
+            href="/app/settings"
+          />
         </div>
       </section>
 
       <section className="card">
-        <h3 className={styles.groupTitle}>Más</h3>
+        <h3 className={styles.groupTitle}>{t("navSections.account")}</h3>
         <div className={styles.rows}>
           <HubRow label={t("nav.settings")} href="/app/settings" />
-          <HubRow label="Facturación" href="/app/settings/billing" />
+          <HubRow label={t("nav.billing")} href="/app/settings/billing" />
+          <HubRow label={t("nav.profile")} href="/app/onboarding" />
+        </div>
+      </section>
+
+      <section className="card">
+        <h3 className={styles.groupTitle}>{t("navSections.more")}</h3>
+        <div className={styles.rows}>
+          <HubRow label={t("nav.tracking")} href="/app/seguimiento" />
+          <HubRow label={t("profile.checkinTitle")} href="/app/seguimiento/check-in" />
+          <HubRow label={t("nav.today")} href="/app/hoy" value={t("nav.weeklyReview")} />
+          <HubRow label={t("nav.weeklyReview")} href="/app/weekly-review" />
           <HubRow label={t("nav.library")} href="/app/biblioteca" />
-          <HubRow label="Biblioteca de entrenamientos" href="/app/biblioteca/entrenamientos" />
-          <HubRow label="Biblioteca de recetas" href="/app/biblioteca/recetas" />
-          <HubRow label={t("weeklyReview.title")} href="/app/weekly-review" />
-          {/* Requiere implementación: enlaces adicionales de cuenta fuera de los existentes actualmente. */}
+          <HubRow label={t("nav.trainingPlans")} href="/app/biblioteca/entrenamientos" />
+          <HubRow label={t("nav.recipeLibrary")} href="/app/biblioteca/recetas" />
+          <HubRow label={t("nav.feed")} href="/app/feed" />
+          <HubRow label={t("nav.gym")} href="/app/gym" />
+          {/* Requiere implementación: centro de notificaciones/cuenta dedicado fuera de las rutas existentes. */}
         </div>
       </section>
     </div>
