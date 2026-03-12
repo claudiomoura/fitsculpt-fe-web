@@ -1,0 +1,80 @@
+.stack {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.userCard {
+  background: linear-gradient(160deg, #121212, #1f1b2e);
+  color: #fff;
+}
+
+.userName {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.userEmail {
+  margin: 0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.planCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.planLabel {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.planName {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.groupTitle {
+  margin: 0 0 0.8rem;
+  font-size: 0.95rem;
+}
+
+.rows {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  color: inherit;
+  background: var(--surface-2);
+}
+
+.rowLabel {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.rowValue {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.chevron {
+  color: var(--muted);
+  font-size: 1rem;
+}
