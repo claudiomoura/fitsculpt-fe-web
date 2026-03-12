@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { applyEntitlementGating, getMostSpecificActiveHref, isPathActive, sidebarUser } from "@/components/layout/navConfig";
+import {
+  applyEntitlementGating,
+  getMostSpecificActiveHref,
+  isPathActive,
+  mainTabsMobile,
+  sidebarUser,
+} from "@/components/layout/navConfig";
 
 describe("navConfig", () => {
   it("marks only exact and nested matches as active", () => {
@@ -47,6 +53,16 @@ describe("navConfig", () => {
       "/app/biblioteca/recetas",
       "/app/dietas",
       "/app/macros",
+    ]);
+  });
+
+  it("defines the v0 mobile core tabs in the expected order", () => {
+    expect(mainTabsMobile.map((item) => item.href)).toEqual([
+      "/app/hoy",
+      "/app/entrenamiento",
+      "/app/nutricion",
+      "/app/seguimiento",
+      "/app/profile",
     ]);
   });
 
