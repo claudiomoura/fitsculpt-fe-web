@@ -57,6 +57,51 @@ type TrackingPayload = {
   checkins?: Array<{ date?: string | null; weightKg?: number | null }>;
 };
 
+function ProgressBar({ value, total, className = "" }: { value: number; total: number; className?: string }) {
+  const width = progressBarWidth(value, total);
+  return (
+    <div className={`h-2 w-full overflow-hidden rounded-full bg-slate-800 ${className}`}>
+      <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${width}%` }} />
+    </div>
+  );
+}
+
+function RingProgress({ value }: { value: number }) {
+  const radius = 32;
+  const circumference = 2 * Math.PI * radius;
+  const progress = Math.max(0, Math.min(100, value));
+  const offset = circumference - (progress / 100) * circumference;
+
+  return (
+    <div className="relative inline-flex h-20 w-20 items-center justify-center">
+      <svg width="80" height="80" viewBox="0 0 80 80" className="-rotate-90">
+        <circle cx="40" cy="40" r={radius} stroke="rgba(148,163,184,0.22)" strokeWidth="8" fill="none" />
+        <circle
+          cx="40"
+          cy="40"
+          r={radius}
+          stroke="rgb(52,211,153)"
+          strokeWidth="8"
+          strokeLinecap="round"
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+        />
+      </svg>
+      <span className="absolute text-sm font-semibold text-emerald-300">{progress}%</span>
+    </div>
+  );
+}
+
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg bg-slate-900/55 px-3 py-2 text-sm">
+      <span className="text-slate-400">{label}</span>
+      <span className="font-medium text-slate-100">{value}</span>
+    </div>
+  );
+}
+
 const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
   const todayKey = toDateKey(new Date());
   const dayFromDate = days.find((day) => {
@@ -253,7 +298,9 @@ export default function TodayQuickActionsClient() {
         }
       }
 
-      nextSignals.progressPercent = nextSignals.goalLabel ? Math.round(([nextSignals.trainingReady, nextSignals.nutritionReady, nextSignals.checkinDoneThisWeek].filter(Boolean).length / 3) * 100) : null;
+      nextSignals.progressPercent = nextSignals.goalLabel
+        ? Math.round(([nextSignals.trainingReady, nextSignals.nutritionReady, nextSignals.checkinDoneThisWeek].filter(Boolean).length / 3) * 100)
+        : null;
 
       setSignals(nextSignals);
       setStatus("success");
@@ -343,8 +390,6 @@ export default function TodayQuickActionsClient() {
     status === "success" && !signals.trainingReady && !signals.nutritionReady && !signals.checkinDoneThisWeek;
 
   const caloriesProgress = progressBarWidth(signals.nutritionConsumedCalories, signals.nutritionTargetCalories ?? 0);
-  const shouldShowProgressSummary = signals.progressPercent !== null || Boolean(signals.goalLabel);
-  const shouldShowStreakSummary = signals.streakDays > 0;
 
   return (
     <section className="rounded-[28px] border p-4 md:p-6 lg:p-8" style={{ background: "#0B0E13", borderColor: "rgba(255,255,255,0.06)" }}>
@@ -400,47 +445,44 @@ export default function TodayQuickActionsClient() {
             ) : null}
 
             <Section className="space-y-0" data-testid="today-actions-grid">
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:gap-6">
-                <div className="space-y-4 xl:space-y-6">
-                  <Card variant="glass" hoverable className="rounded-2xl p-5 md:p-6" data-testid="today-action-card">
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20">
-                        <span aria-hidden="true" className="text-xl">🏋️</span>
-                      </div>
-                      <div>
-                        <p className="m-0 text-xs uppercase tracking-[0.1em] text-slate-400">{t("today.trainingCardEyebrow")}</p>
-                        <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.trainingHeroTitle")}</h2>
-                      </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:gap-6">
+                <Card variant="glass" hoverable className="rounded-2xl p-5 md:p-6" data-testid="today-action-card">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20">
+                      <span aria-hidden="true" className="text-xl">🏋️</span>
                     </div>
-                    <div className="mb-4 flex items-center gap-4 text-sm text-slate-300">
-                      <div className="inline-flex items-center gap-1.5">
-                        <span aria-hidden="true">⏱️</span>
-                        <span>{signals.trainingDuration ? `${signals.trainingDuration} min` : "--"}</span>
-                      </div>
-                      <div className="inline-flex items-center gap-1.5">
-                        <span aria-hidden="true">🏋️</span>
-                        <span>{t("today.trainingExerciseCount", { count: signals.trainingExerciseCount })}</span>
-                      </div>
+                    <div>
+                      <p className="m-0 text-xs uppercase tracking-[0.1em] text-slate-400">{t("today.trainingCardEyebrow")}</p>
+                      <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.trainingHeroTitle")}</h2>
                     </div>
-                    <div className="rounded-xl bg-slate-900/70 p-3">
-                      <div className="flex items-center justify-between text-sm text-slate-300">
-                        <span>{signals.trainingReady ? signals.trainingName : signals.hasTrainingAccess ? t("today.trainingHeroEmpty") : t("today.lockedDescription")}</span>
-                        <span className="font-medium text-slate-200">{signals.trainingReady ? `1 / ${Math.max(signals.trainingExerciseCount, 1)}` : "0 / 0"}</span>
-                      </div>
-                    </div>
-                    <Button
-                      size="lg"
-                      className="mt-5 min-h-11 w-full"
-                      data-testid="today-action-button"
-                      style={{ background: "#22D3EE", color: "#05212a", borderColor: "rgba(34,211,238,0.7)", boxShadow: "0 10px 26px rgba(34,211,238,0.28)" }}
-                      onClick={handleTrainingPrimaryAction}
-                    >
-                      {signals.hasTrainingAccess ? t("today.trainingHeroCta") : t("today.unlockCta")}
-                    </Button>
-                  </Card>
+                  </div>
+                  <StatRow label={"Duración"} value={signals.trainingDuration ? `${signals.trainingDuration} min` : "--"} />
+                  <div className="mt-2">
+                    <StatRow label={"Ejercicios"} value={`${signals.trainingExerciseCount || 0}`} />
+                  </div>
+                  <p className="mt-4 text-sm text-slate-300">
+                    {signals.trainingReady
+                      ? signals.trainingName
+                      : signals.hasTrainingAccess
+                        ? t("today.trainingHeroEmpty")
+                        : t("today.lockedDescription")}
+                  </p>
+                  <p className="mt-3 text-xs text-slate-400">{progressLabel}</p>
+                  <ProgressBar value={[signals.trainingReady, signals.nutritionReady, signals.checkinDoneThisWeek].filter(Boolean).length} total={3} className="mt-2" />
+                  <Button
+                    size="lg"
+                    className="mt-5 min-h-11 w-full"
+                    data-testid="today-action-button"
+                    style={{ background: "#22D3EE", color: "#05212a", borderColor: "rgba(34,211,238,0.7)", boxShadow: "0 10px 26px rgba(34,211,238,0.28)" }}
+                    onClick={handleTrainingPrimaryAction}
+                  >
+                    {signals.hasTrainingAccess ? t("today.trainingHeroCta") : t("today.unlockCta")}
+                  </Button>
+                </Card>
 
-                  <Card variant="glass" hoverable className="rounded-2xl p-5" data-testid="today-action-card">
-                    <div className="mb-4 flex items-center gap-3">
+                <Card variant="glass" hoverable className="rounded-2xl p-5 md:p-6" data-testid="today-action-card">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20">
                         <span aria-hidden="true" className="text-xl">🍎</span>
                       </div>
@@ -449,92 +491,43 @@ export default function TodayQuickActionsClient() {
                         <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.nutritionCardTitle")}</h2>
                       </div>
                     </div>
-                    {signals.hasNutritionAccess ? (
-                      <>
-                        <p className="text-sm text-slate-300">{signals.nutritionConsumedCalories} / {signals.nutritionTargetCalories ?? "--"} kcal</p>
-                        <p className="mt-1 text-xs text-slate-400">{signals.nutritionConsumedProtein}g proteína · {signals.nutritionTargetCarbs ?? "--"}g carbos</p>
-                        <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                          <div className="h-full rounded-full bg-emerald-400" style={{ width: `${caloriesProgress}%` }} />
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-sm text-slate-300">{t("today.lockedDescription")}</p>
-                    )}
-                    <ButtonLink as={Link} href={signals.hasNutritionAccess ? "/app/nutricion" : "/app/settings/billing"} size="lg" className="mt-5 min-h-11 w-full" data-testid="today-action-button" onClick={() => trackTodayCtaClick("nutrition")}>
-                      {signals.hasNutritionAccess ? t("today.nutritionPrimaryCta") : t("today.unlockCta")}
+                    {signals.hasNutritionAccess ? <RingProgress value={caloriesProgress} /> : null}
+                  </div>
+                  {signals.hasNutritionAccess ? (
+                    <>
+                      <p className="text-sm text-slate-300">{signals.nutritionConsumedCalories} / {signals.nutritionTargetCalories ?? "--"} kcal</p>
+                      <p className="mt-1 text-xs text-slate-400">{signals.nutritionConsumedProtein}g proteína · {signals.nutritionTargetCarbs ?? "--"}g carbos</p>
+                      <ProgressBar value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories ?? 0} className="mt-4" />
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-300">{t("today.lockedDescription")}</p>
+                  )}
+                  <ButtonLink as={Link} href={signals.hasNutritionAccess ? "/app/nutricion" : "/app/settings/billing"} size="lg" className="mt-5 min-h-11 w-full" data-testid="today-action-button" onClick={() => trackTodayCtaClick("nutrition")}>
+                    {signals.hasNutritionAccess ? t("today.nutritionPrimaryCta") : t("today.unlockCta")}
+                  </ButtonLink>
+                </Card>
+
+                <Card variant="glass" hoverable className="rounded-2xl p-5 md:p-6" data-testid="today-action-card">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-700/70">
+                      <span aria-hidden="true" className="text-xl">⚖️</span>
+                    </div>
+                    <div>
+                      <p className="m-0 text-xs uppercase tracking-[0.1em] text-slate-400">{t("today.checkinCardEyebrow")}</p>
+                      <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.cardCheckinTitle")}</h2>
+                    </div>
+                  </div>
+                  <p className="text-3xl font-semibold text-emerald-300">{signals.currentWeightKg ? `${signals.currentWeightKg.toFixed(1)} kg` : "--"}</p>
+                  <p className="mt-2 text-sm text-slate-300">{signals.currentWeightKg ? t("today.checkinWeightHelper") : t("today.checkinWeightFallback")}</p>
+                  <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                    <Button className="min-h-11 w-full" size="lg" onClick={() => { trackTodayCtaClick("checkin"); void handleLogTodayCheckin(); }} loading={checkinActionStatus === "loading"} data-testid="quick-action-tracking">
+                      {signals.checkinDoneThisWeek ? t("today.checkinSecondaryCta") : t("today.checkinPrimaryCta")}
+                    </Button>
+                    <ButtonLink as={Link} href="/app/seguimiento/check-in" variant="secondary" size="lg" className="min-h-11 w-full" onClick={() => trackTodayCtaClick("checkin")}>
+                      {t("today.viewDetailCta")}
                     </ButtonLink>
-                  </Card>
-                </div>
-
-                <div className="space-y-4 xl:space-y-6">
-                  <Card variant="glass" hoverable className="rounded-2xl p-5" data-testid="today-action-card">
-                      <div className="mb-4 flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-700/70">
-                          <span aria-hidden="true" className="text-xl">⚖️</span>
-                        </div>
-                        <div>
-                          <p className="m-0 text-xs uppercase tracking-[0.1em] text-slate-400">{t("today.checkinCardEyebrow")}</p>
-                          <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.cardCheckinTitle")}</h2>
-                        </div>
-                      </div>
-                      <p className="text-3xl font-semibold text-emerald-300">{signals.currentWeightKg ? `${signals.currentWeightKg.toFixed(1)} kg` : "--"}</p>
-                      <p className="mt-2 text-sm text-slate-300">{signals.currentWeightKg ? t("today.checkinWeightHelper") : t("today.checkinWeightFallback")}</p>
-                      <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                        <Button className="min-h-11 w-full" size="lg" onClick={() => { trackTodayCtaClick("checkin"); void handleLogTodayCheckin(); }} loading={checkinActionStatus === "loading"} data-testid="quick-action-tracking">
-                          {signals.checkinDoneThisWeek ? t("today.checkinSecondaryCta") : t("today.checkinPrimaryCta")}
-                        </Button>
-                        <ButtonLink as={Link} href="/app/seguimiento/check-in" variant="secondary" size="lg" className="min-h-11 w-full" onClick={() => trackTodayCtaClick("checkin")}>
-                          {t("today.viewDetailCta")}
-                        </ButtonLink>
-                      </div>
-                    </Card>
-
-                  {shouldShowProgressSummary ? (
-                    <Card variant="glass" hoverable className="rounded-2xl p-5" data-testid="today-action-card">
-                      <div className="mb-4 flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20">
-                          <span aria-hidden="true" className="text-xl">📈</span>
-                        </div>
-                        <div>
-                          <p className="m-0 text-xs uppercase tracking-[0.1em] text-slate-400">{t("today.progressCardEyebrow")}</p>
-                          <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.progressCardTitle")}</h2>
-                        </div>
-                      </div>
-                      <p className="text-sm text-slate-300">{signals.goalLabel || t("today.progressCardHelper")}</p>
-                      {signals.progressPercent !== null ? (
-                        <>
-                          <p className="mt-3 text-2xl font-semibold text-cyan-300">{signals.progressPercent}%</p>
-                          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                            <div className="h-full rounded-full bg-cyan-400" style={{ width: `${signals.progressPercent}%` }} />
-                          </div>
-                        </>
-                      ) : null}
-                      <p className="mt-3 text-xs text-slate-400">{progressLabel}</p>
-                      <ButtonLink as={Link} href="/app/weekly-review" size="lg" className="mt-5 min-h-11 w-full" data-testid="today-action-button" onClick={() => trackTodayCtaClick("checkin")}>
-                        {t("today.progressCardCta")}
-                        <span aria-hidden="true">→</span>
-                      </ButtonLink>
-                    </Card>
-                  ) : null}
-
-                  {shouldShowStreakSummary ? (
-                    <Card variant="glass" hoverable className="rounded-2xl p-5" data-testid="today-action-card">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20">
-                          <span aria-hidden="true" className="text-xl">🔥</span>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-slate-100">{t("today.streakChip", { days: signals.streakDays })}</h3>
-                          <p className="text-sm text-slate-400">{t("today.viewDetailCta")}</p>
-                        </div>
-                        <ButtonLink as={Link} href={trainingRoute} variant="secondary" onClick={() => trackTodayCtaClick("training")}>
-                          <span aria-hidden="true">→</span>
-                        </ButtonLink>
-                      </div>
-                    </Card>
-                  ) : null}
-
-                </div>
+                  </div>
+                </Card>
               </div>
             </Section>
 
