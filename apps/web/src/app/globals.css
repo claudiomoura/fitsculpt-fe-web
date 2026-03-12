@@ -4082,6 +4082,18 @@ textarea:disabled {
   align-items: start;
 }
 
+.empty-state--premium {
+  padding: 32px 24px;
+  text-align: center;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--color-primary) 8%, var(--bg-card)) 0%, var(--bg-card) 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--border));
+}
+
+.empty-state--minimal {
+  gap: 8px;
+}
+
 .empty-state-icon {
   width: 44px;
   height: 44px;
@@ -4090,6 +4102,80 @@ textarea:disabled {
   display: grid;
   place-items: center;
   color: var(--text-primary);
+}
+
+.empty-state-icon--premium {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 20%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 15%, transparent) 100%);
+  color: var(--color-primary);
+}
+
+.empty-state-icon--premium svg {
+  width: 28px;
+  height: 28px;
+}
+
+.empty-state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.empty-state-title--premium {
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+
+.empty-state-description--premium {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.empty-state--premium .empty-state-actions {
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.loading-state--premium {
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.loading-title--premium {
+  font-size: 1.25rem;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+.loading-state--inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loading-state--inline .skeleton {
+  display: inline-block;
+}
+
+.skeleton--premium {
+  background: linear-gradient(90deg, var(--bg-muted) 25%, color-mix(in srgb, var(--bg-muted) 50%, var(--text-muted)) 50%, var(--bg-muted) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 @media (max-width: 720px) {

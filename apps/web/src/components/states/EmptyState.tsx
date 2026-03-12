@@ -14,6 +14,8 @@ type StateAction = {
   disabled?: boolean;
 };
 
+type EmptyStateVariant = "default" | "premium" | "minimal";
+
 type EmptyStateProps = {
   title: string;
   description?: string;
@@ -24,6 +26,7 @@ type EmptyStateProps = {
   cardClassName?: string;
   children?: ReactNode;
   ariaLabel?: string;
+  variant?: EmptyStateVariant;
 };
 
 function renderActions(actions?: StateAction[]) {
@@ -79,15 +82,31 @@ export function EmptyState({
   cardClassName,
   children,
   ariaLabel,
+  variant = "default",
 }: EmptyStateProps) {
+  const isPremium = variant === "premium";
+  const isMinimal = variant === "minimal";
+
   const content = (
-    <section className={cn("empty-state form-stack", className)} role="status" aria-live="polite" aria-label={ariaLabel}>
-      <div className="empty-state-icon">
-        <Icon name={icon} />
-      </div>
+    <section
+      className={cn(
+        "empty-state form-stack",
+        isPremium && "empty-state--premium",
+        isMinimal && "empty-state--minimal",
+        className
+      )}
+      role="status"
+      aria-live="polite"
+      aria-label={ariaLabel}
+    >
+      {!isMinimal && (
+        <div className={cn("empty-state-icon", isPremium && "empty-state-icon--premium")}>
+          <Icon name={icon} />
+        </div>
+      )}
       <div>
-        <h2 className="m-0">{title}</h2>
-        {description ? <p className="muted">{description}</p> : null}
+        <h2 className={cn("empty-state-title", isPremium && "empty-state-title--premium")}>{title}</h2>
+        {description ? <p className={cn("muted", isPremium && "empty-state-description--premium")}>{description}</p> : null}
         {children}
       </div>
       {renderActions(actions)}

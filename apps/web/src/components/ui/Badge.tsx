@@ -1,10 +1,11 @@
-import type { HTMLAttributes } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/classNames";
 
-type BadgeVariant = "default" | "success" | "warning" | "error" | "danger" | "info" | "muted";
+export type BadgeVariant = "default" | "success" | "warning" | "error" | "danger" | "info" | "muted" | "pro" | "muscleTag";
 
-type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
+export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
   variant?: BadgeVariant;
+  icon?: ReactNode;
 };
 
 const VARIANT_CLASS: Record<BadgeVariant, string> = {
@@ -15,8 +16,15 @@ const VARIANT_CLASS: Record<BadgeVariant, string> = {
   danger: "ui-badge--error",
   info: "ui-badge--info",
   muted: "ui-badge--muted",
+  pro: "ui-badge--info text-primary",
+  muscleTag: "ui-badge--warning text-text",
 };
 
-export function Badge({ variant = "default", className, ...props }: BadgeProps) {
-  return <span className={cn("ui-badge", VARIANT_CLASS[variant], className)} {...props} />;
+export function Badge({ variant = "default", icon, className, children, ...props }: BadgeProps) {
+  return (
+    <span className={cn("ui-badge inline-flex min-h-6 items-center gap-1", VARIANT_CLASS[variant], className)} {...props}>
+      {icon}
+      {children}
+    </span>
+  );
 }

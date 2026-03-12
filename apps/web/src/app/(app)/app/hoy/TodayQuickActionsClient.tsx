@@ -63,7 +63,7 @@ function ProgressBar({ value, total, className = "" }: { value: number; total: n
   const width = Math.min(100, Math.max(0, total > 0 ? Math.round((value / total) * 100) : 0));
   return (
     <div className={`h-2 w-full overflow-hidden rounded-full bg-slate-800 ${className}`}>
-      <div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${width}%` }} />
+      <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${width}%` }} />
     </div>
   );
 }
@@ -355,7 +355,7 @@ export default function TodayQuickActionsClient() {
             <div className="grid gap-6 md:grid-cols-2 xl:gap-8">
               <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-300">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-muted text-accent">
                     <PremiumWorkoutIcon width={22} height={22} />
                   </div>
                   <div>
@@ -408,7 +408,7 @@ export default function TodayQuickActionsClient() {
 
               <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-300">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-success-muted text-success">
                     <PremiumNutritionIcon width={22} height={22} />
                   </div>
                   <div>
@@ -430,7 +430,7 @@ export default function TodayQuickActionsClient() {
 
               <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/20 text-violet-300">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-info-muted text-info">
                     <PremiumProgressIcon width={22} height={22} />
                   </div>
                   <div>
@@ -438,7 +438,7 @@ export default function TodayQuickActionsClient() {
                     <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.progressCardTitle")}</h2>
                   </div>
                 </div>
-                <p className="text-3xl font-semibold text-emerald-300">
+                <p className="text-3xl font-semibold text-success">
                   {signals.currentWeightKg ? `${signals.currentWeightKg.toFixed(1)} kg` : "--"}
                 </p>
                 <p className="mt-1 text-sm text-slate-300">{t("today.hubProgress", { completed: completedGoals, total: 3 })}</p>

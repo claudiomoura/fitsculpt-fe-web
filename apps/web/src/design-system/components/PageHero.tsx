@@ -23,7 +23,7 @@ export function PageHero({ title, subtitle, eyebrow, actions, children, classNam
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0 space-y-2">
           {eyebrow ? (
-            <p className="m-0 text-xs font-semibold uppercase tracking-[0.1em] text-cyan-300">{eyebrow}</p>
+            <p className="m-0 text-xs font-semibold uppercase tracking-[0.1em] text-accent">{eyebrow}</p>
           ) : null}
           <h1 className="m-0 text-2xl font-semibold text-slate-100 md:text-3xl">{title}</h1>
           {subtitle ? <p className="m-0 text-sm text-slate-300 md:text-base">{subtitle}</p> : null}

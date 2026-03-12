@@ -2,15 +2,17 @@ import Link from "next/link";
 import type { ComponentPropsWithoutRef, ElementType } from "react";
 import { cn } from "@/lib/classNames";
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "primaryGlow" | "accentGlow";
 
-type ButtonSize = "sm" | "md" | "lg";
+export type ButtonSize = "sm" | "md" | "lg";
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   primary: "ui-button--primary",
   secondary: "ui-button--secondary",
   ghost: "ui-button--ghost",
   danger: "ui-button--danger",
+  primaryGlow: "ui-button--primary glow-primary",
+  accentGlow: "ui-button--secondary glow-accent",
 };
 
 const SIZE_CLASS: Record<ButtonSize, string> = {
@@ -19,7 +21,7 @@ const SIZE_CLASS: Record<ButtonSize, string> = {
   lg: "ui-button--lg",
 };
 
-type ButtonProps = ComponentPropsWithoutRef<"button"> & {
+export type ButtonProps = ComponentPropsWithoutRef<"button"> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;

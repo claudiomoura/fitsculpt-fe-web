@@ -5,6 +5,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Semantic tokens
+        accent: {
+          DEFAULT: "var(--color-primary)",
+          muted: "color-mix(in srgb, var(--color-primary) 20%, transparent)",
+          soft: "color-mix(in srgb, var(--color-primary) 12%, transparent)",
+        },
+        success: {
+          DEFAULT: "var(--color-success)",
+          muted: "color-mix(in srgb, var(--color-success) 20%, transparent)",
+          soft: "color-mix(in srgb, var(--color-success) 12%, transparent)",
+        },
+        warning: {
+          DEFAULT: "var(--color-warning)",
+          muted: "color-mix(in srgb, var(--color-warning) 20%, transparent)",
+        },
+        info: {
+          DEFAULT: "var(--color-info)",
+          muted: "color-mix(in srgb, var(--color-info) 20%, transparent)",
+        },
+        // Legacy tokens
         bg: "var(--fs-bg)",
         surface: "var(--fs-surface)",
         elevated: "var(--fs-elevated)",
