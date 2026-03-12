@@ -3,10 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Icon } from "@/components/ui/Icon";
+import {
+  PremiumHomeIcon,
+  PremiumNutritionIcon,
+  PremiumProfileIcon,
+  PremiumProgressIcon,
+  PremiumWorkoutIcon,
+} from "@/components/icons/PremiumIcons";
 import { applyTabEntitlementGating, mainTabsMobile, trainerTabsMobile } from "./navConfig";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { useAccess } from "@/lib/useAccess";
+
+const premiumTabIcons = {
+  "tab-home": PremiumHomeIcon,
+  "tab-workout": PremiumWorkoutIcon,
+  "tab-nutrition": PremiumNutritionIcon,
+  "tab-progress": PremiumProgressIcon,
+  "tab-profile": PremiumProfileIcon,
+} as const;
 
 export default function MobileTabBar() {
   const { t } = useLanguage();
@@ -30,7 +44,8 @@ export default function MobileTabBar() {
       >
         {tabs.map((tab) => {
           const active = isActive(tab.href);
-          const tabLabel = t(tab.labelKey);
+          const tabLabel = tab.label ?? (tab.labelKey ? t(tab.labelKey) : "");
+          const PremiumIcon = premiumTabIcons[tab.icon as keyof typeof premiumTabIcons];
 
           return (
             <Link
@@ -38,9 +53,10 @@ export default function MobileTabBar() {
               href={tab.href ?? "#"}
               className={`mobile-tab ${active ? "is-active" : ""}`}
               aria-current={active ? "page" : undefined}
+              aria-label={tabLabel}
             >
               <span className={`mobile-tab-icon ${active ? "is-active" : ""}`} aria-hidden="true">
-                <Icon name={tab.icon} size={18} />
+                {PremiumIcon ? <PremiumIcon width={18} height={18} /> : null}
               </span>
               <span className="mobile-tab-label">{tabLabel}</span>
               {typeof tab.badgeCount === "number" && tab.badgeCount > 0 ? (

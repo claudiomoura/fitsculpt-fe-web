@@ -60,4 +60,14 @@ describe("navConfig", () => {
     ]);
   });
 
+  it("defines USER mobile tabs with exact v0 labels", () => {
+    expect(mainTabsMobile.map((tab) => tab.label)).toEqual([
+      "Hoy",
+      "Entreno",
+      "Nutrición",
+      "Progreso",
+      "Perfil",
+    ]);
+  });
+
 });

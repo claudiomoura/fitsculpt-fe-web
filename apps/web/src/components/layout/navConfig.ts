@@ -41,8 +41,9 @@ export function getMostSpecificActiveHref(pathname: string | null, sections: Nav
 export type MobileTab = {
   id: string;
   href?: string;
-  labelKey: string;
-  icon: "sparkles" | "dumbbell" | "book" | "info" | "check";
+  label?: string;
+  labelKey?: string;
+  icon: "tab-home" | "tab-workout" | "tab-nutrition" | "tab-progress" | "tab-profile" | "sparkles" | "dumbbell" | "book" | "info" | "check";
   badgeCount?: number;
   feature?: EntitlementFeature;
   upgradeHref?: string;
@@ -52,23 +53,23 @@ export const mainTabsMobile: MobileTab[] = [
   {
     id: "today",
     href: "/app/hoy",
-    labelKey: "nav.today",
-    icon: "sparkles",
+    label: "Hoy",
+    icon: "tab-home",
   },
   {
     id: "training",
     href: "/app/entrenamiento",
-    labelKey: "nav.trainingCalendar",
-    icon: "dumbbell",
+    label: "Entreno",
+    icon: "tab-workout",
   },
   {
     id: "nutrition",
     href: "/app/nutricion",
-    labelKey: "nav.nutritionCalendar",
-    icon: "sparkles",
+    label: "Nutrición",
+    icon: "tab-nutrition",
   },
-  { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking", icon: "check" },
-  { id: "profile", href: "/app/profile", labelKey: "nav.profile", icon: "info" },
+  { id: "tracking", href: "/app/seguimiento", label: "Progreso", icon: "tab-progress" },
+  { id: "profile", href: "/app/profile", label: "Perfil", icon: "tab-profile" },
 ];
 
 
