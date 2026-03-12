@@ -5189,3 +5189,46 @@ html { scroll-behavior: smooth; }
     pointer-events: none;
   }
 }
+
+.tracking-checkin-modal-overlay {
+  padding: 12px;
+}
+
+.tracking-checkin-modal {
+  width: min(760px, 100%);
+  max-height: min(90vh, 960px);
+  overflow-y: auto;
+}
+
+.tracking-checkin-only {
+  display: grid;
+  gap: 16px;
+}
+
+.tracking-checkin-only-body {
+  display: grid;
+  gap: 16px;
+}
+
+.tracking-checkin-only .page,
+.tracking-checkin-only .page-with-tabbar-safe-area,
+.tracking-checkin-only-body.page,
+.tracking-checkin-only-body.page-with-tabbar-safe-area {
+  padding: 0;
+}
+
+@media (max-width: 720px) {
+  .tracking-checkin-modal-overlay {
+    padding: 0;
+    align-items: end;
+  }
+
+  .tracking-checkin-modal {
+    width: 100vw;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: none;
+    padding-bottom: calc(24px + var(--viewport-offset-bottom, 0px));
+  }
+}

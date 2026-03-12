@@ -89,9 +89,14 @@ type TrackingPayload = {
   workoutLog: WorkoutEntry[];
 };
 
-export default function TrackingClient() {
+type TrackingClientProps = {
+  view?: "all" | "checkin";
+};
+
+export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const { t } = useLanguage();
   const router = useRouter();
+  const isCheckinOnly = view === "checkin";
   const CHECKIN_MODE_KEY = "fs_checkin_mode_v1";
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -908,12 +913,13 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   }
 
   return (
-    <div className="page page-with-tabbar-safe-area">
+    <div className={isCheckinOnly ? "tracking-checkin-only-body" : "page page-with-tabbar-safe-area"}>
       {actionMessage && (
         <div className="toast" role="status" aria-live="polite">
           {actionMessage}
         </div>
       )}
+      {!isCheckinOnly ? (
       <section className="card" id="weight-entry">
         <div className="section-head">
           <div>
@@ -1045,6 +1051,8 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           </div>
         </div>
       </section>
+      ) : null}
+
       <section className="card" id="checkin-entry">
         <div className="section-head">
           <div>
@@ -1403,6 +1411,8 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         </div>
       </section>
 
+      {!isCheckinOnly ? (
+      <>
       <section className="card">
         <div className="section-head">
           <div>
@@ -1645,6 +1655,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           )}
         </div>
       </section>
+
+      </>
+      ) : null}
 
       {foodModalOpen && (
         <div className="modal-backdrop" role="presentation" onClick={() => setFoodModalOpen(false)}>

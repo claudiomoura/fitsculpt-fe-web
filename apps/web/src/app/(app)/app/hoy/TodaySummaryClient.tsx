@@ -372,7 +372,7 @@ export default function TodaySummaryClient() {
   const energyAction = useMemo(() => {
     if (!energySupported) return null;
     return (
-      <ButtonLink variant="secondary" href="/app/seguimiento#checkin-entry" size="lg">
+      <ButtonLink variant="secondary" href="/app/seguimiento/check-in" size="lg">
         {t("today.energyCta")}
       </ButtonLink>
     );
@@ -381,7 +381,7 @@ export default function TodaySummaryClient() {
   const notesAction = useMemo(() => {
     if (!notesSupported) return null;
     return (
-      <ButtonLink variant="secondary" href="/app/seguimiento#checkin-entry" size="lg">
+      <ButtonLink variant="secondary" href="/app/seguimiento/check-in" size="lg">
         {t("today.notesCta")}
       </ButtonLink>
     );
@@ -404,19 +404,19 @@ const nutritionErrorActions: ErrorAction[] = [
 ];
 
 const energyEmptyActions: EmptyAction[] | undefined = energySupported
-  ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
+  ? [{ label: t("today.energyCta"), href: "/app/seguimiento/check-in", variant: "secondary" }]
   : undefined;
 
 const notesEmptyActions: EmptyAction[] | undefined = notesSupported
-  ? [{ label: t("today.notesCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
+  ? [{ label: t("today.notesCta"), href: "/app/seguimiento/check-in", variant: "secondary" }]
   : undefined;
 const energyErrorActions: ErrorAction[] = [
-  ...(energySupported ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry" }] : []),
+  ...(energySupported ? [{ label: t("today.energyCta"), href: "/app/seguimiento/check-in" }] : []),
   { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
 ];
 
 const notesErrorActions: ErrorAction[] = [
-  ...(notesSupported ? [{ label: t("today.notesCta"), href: "/app/seguimiento#checkin-entry" }] : []),
+  ...(notesSupported ? [{ label: t("today.notesCta"), href: "/app/seguimiento/check-in" }] : []),
   { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
 ];
 
