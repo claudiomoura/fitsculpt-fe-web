@@ -502,7 +502,7 @@ export default function TodayQuickActionsClient() {
                       </>
                     ) : null}
                     <p className="mt-3 text-xs text-slate-400">{progressLabel}</p>
-                    <ButtonLink as={Link} href="/app/seguimiento" size="lg" className="mt-5 min-h-11 w-full" data-testid="today-action-button" onClick={() => trackTodayCtaClick("checkin")}>
+                    <ButtonLink as={Link} href="/app/weekly-review" size="lg" className="mt-5 min-h-11 w-full" data-testid="today-action-button" onClick={() => trackTodayCtaClick("checkin")}>
                       {t("today.progressCardCta")}
                       <span aria-hidden="true">→</span>
                     </ButtonLink>
