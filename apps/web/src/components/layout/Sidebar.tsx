@@ -1,5 +1,5 @@
-import AppSidebar from "@/components/layout/AppSidebar";
+import { AppSidebarWrapper } from "@/components/layout/AppSidebar";
 
 export default function Sidebar() {
-  return <AppSidebar />;
+  return <AppSidebarWrapper />;
 }

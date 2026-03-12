@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig";
@@ -9,8 +9,25 @@ import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { EmptyState, LoadingState, ErrorState } from "@/components/states";
 import { applyEntitlementGating } from "./navConfig";
+import { useSidebar, SidebarProvider } from "./SidebarContext";
+import { Icon } from "@/components/ui/Icon";
 
-export default function AppSidebar() {
+function SidebarToggle() {
+  const { isCollapsed, toggle } = useSidebar();
+
+  return (
+    <button
+      onClick={toggle}
+      className="sidebar-toggle"
+      aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+      title={isCollapsed ? "Expand" : "Collapse"}
+    >
+      <Icon name={isCollapsed ? "chevron-right" : "chevron-left"} />
+    </button>
+  );
+}
+
+function SidebarContent() {
   const { t } = useLanguage();
   const pathname = usePathname();
   const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
@@ -22,7 +39,6 @@ export default function AppSidebar() {
   }, [role, isCoach, isAdmin, isDev, gymMembershipState, entitlements]);
 
   const activeHref = getMostSpecificActiveHref(pathname, sections);
-
   const isActive = (href: string) => activeHref === href;
 
   if (loading) {
@@ -45,52 +61,72 @@ export default function AppSidebar() {
   }
 
   return (
-    <aside className="app-sidebar" aria-label={t("appName")}>
-      <div className="app-sidebar-inner">
-        {sections.map((section) => {
-          const isDevelopmentSection = section.id === "development";
+    <>
+      {sections.map((section) => {
+        const isDevelopmentSection = section.id === "development";
 
-          return (
-            <details key={section.id} className="sidebar-section" open={!isDevelopmentSection}>
-              <summary className="sidebar-section-title">{t(section.labelKey)}</summary>
-              <div className="sidebar-links">
-                {section.items.map((item) => {
-                  const active = isActive(item.href);
-                  if (item.disabled) {
-                    return (
-                      <div key={`${section.id}:${item.id}`} className="sidebar-link" aria-disabled="true">
-                        <span>
-                          {t(item.labelKey)}
-                          {item.disabledNoteKey ? (
-                            <span className="text-xs text-[var(--text-muted)]"> {t(item.disabledNoteKey)}</span>
-                          ) : null}
-                          {item.upgradeHref ? (
-                            <Link href={item.upgradeHref} className="ml-2 text-xs underline">
-                              {t("billing.upgradePro")}
-                            </Link>
-                          ) : null}
-                        </span>
-                      </div>
-                    );
-                  }
-
+        return (
+          <details key={section.id} className="sidebar-section" open={!isDevelopmentSection}>
+            <summary className="sidebar-section-title">{t(section.labelKey)}</summary>
+            <div className="sidebar-links">
+              {section.items.map((item) => {
+                const active = isActive(item.href);
+                if (item.disabled) {
                   return (
-                    <Link
-                      key={`${section.id}:${item.id}`}
-                      href={item.href}
-                      className={`sidebar-link ${active ? "is-active" : ""}`}
-                      aria-current={active ? "page" : undefined}
-                    >
-                      {t(item.labelKey)}
-                    </Link>
+                    <div key={`${section.id}:${item.id}`} className="sidebar-link" aria-disabled="true">
+                      <span>
+                        {t(item.labelKey)}
+                        {item.disabledNoteKey ? (
+                          <span className="text-xs text-[var(--text-muted)]"> {t(item.disabledNoteKey)}</span>
+                        ) : null}
+                        {item.upgradeHref ? (
+                          <Link href={item.upgradeHref} className="ml-2 text-xs underline">
+                            {t("billing.upgradePro")}
+                          </Link>
+                        ) : null}
+                      </span>
+                    </div>
                   );
-                })}
-              </div>
-            </details>
-          );
-        })}
+                }
 
+                return (
+                  <Link
+                    key={`${section.id}:${item.id}`}
+                    href={item.href}
+                    className={`sidebar-link ${active ? "is-active" : ""}`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {t(item.labelKey)}
+                  </Link>
+                );
+              })}
+            </div>
+          </details>
+        );
+      })}
+    </>
+  );
+}
+
+export default function AppSidebar() {
+  const { isCollapsed } = useSidebar();
+
+  return (
+    <aside className={`app-sidebar ${isCollapsed ? "is-collapsed" : ""}`}>
+      <div className="sidebar-header">
+        <SidebarToggle />
+      </div>
+      <div className="app-sidebar-inner">
+        <SidebarContent />
       </div>
     </aside>
+  );
+}
+
+export function AppSidebarWrapper() {
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+    </SidebarProvider>
   );
 }
