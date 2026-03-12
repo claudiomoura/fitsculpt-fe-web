@@ -343,10 +343,8 @@ export default function TodayQuickActionsClient() {
     status === "success" && !signals.trainingReady && !signals.nutritionReady && !signals.checkinDoneThisWeek;
 
   const caloriesProgress = progressBarWidth(signals.nutritionConsumedCalories, signals.nutritionTargetCalories ?? 0);
-  const shouldShowCheckinSummary = signals.currentWeightKg !== null || signals.checkinDoneThisWeek;
   const shouldShowProgressSummary = signals.progressPercent !== null || Boolean(signals.goalLabel);
   const shouldShowStreakSummary = signals.streakDays > 0;
-  const hasRightColumnCards = shouldShowCheckinSummary || shouldShowProgressSummary || shouldShowStreakSummary;
 
   return (
     <section className="rounded-[28px] border p-4 md:p-6 lg:p-8" style={{ background: "#0B0E13", borderColor: "rgba(255,255,255,0.06)" }}>
@@ -469,8 +467,7 @@ export default function TodayQuickActionsClient() {
                 </div>
 
                 <div className="space-y-4 xl:space-y-6">
-                  {shouldShowCheckinSummary ? (
-                    <Card variant="glass" hoverable className="rounded-2xl p-5" data-testid="today-action-card">
+                  <Card variant="glass" hoverable className="rounded-2xl p-5" data-testid="today-action-card">
                       <div className="mb-4 flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-700/70">
                           <span aria-hidden="true" className="text-xl">⚖️</span>
@@ -491,7 +488,6 @@ export default function TodayQuickActionsClient() {
                         </ButtonLink>
                       </div>
                     </Card>
-                  ) : null}
 
                   {shouldShowProgressSummary ? (
                     <Card variant="glass" hoverable className="rounded-2xl p-5" data-testid="today-action-card">
@@ -538,9 +534,6 @@ export default function TodayQuickActionsClient() {
                     </Card>
                   ) : null}
 
-                  {!hasRightColumnCards ? (
-                    <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.progressCardCta")} href="/app/weekly-review" />
-                  ) : null}
                 </div>
               </div>
             </Section>
