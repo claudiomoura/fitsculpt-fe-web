@@ -1066,6 +1066,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => entry.date.getTime() < today.getTime()).length;
   const totalPlannedSessions = Math.max(visiblePlanEntries.length, 1);
   const progressPercent = Math.min(100, Math.round((estimatedCompletedSessions / totalPlannedSessions) * 100));
+  const selectedEntryDateLabel = selectedEntryDate.toLocaleDateString(localeCode, {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  });
   const resultBalancePlaceholder = lastGeneratedUsage?.balanceAfter ?? aiTokenBalance;
 
   useEffect(() => {
@@ -1199,7 +1204,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   );
 
   return (
-    <div className="page">
+    <div className="page training-plan-layout">
       {!isManualView ? (
         <>
           {!loading && !error && profile && !isProfileComplete(profile) ? (
@@ -1250,16 +1255,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </section>
           ) : hasPlan ? (
             <>
-              <section className="card training-header-compact">
+              <section className="card training-header-compact training-main-section">
                 <div className="training-hero">
                   <div>
-                    <p className="training-hero-eyebrow">{t("training.todayTitle")}</p>
-                    <h2 className="section-title section-title-sm">{safeT("training.todayFocus", "Entrenamiento de hoy")}</h2>
-                    <p className="section-subtitle">
-                      {selectedEntry
-                        ? `${selectedEntry.day.focus} · ${selectedEntry.day.duration} ${t("training.minutesLabel")}`
-                        : t("training.calendarEmptyFocus")}
-                    </p>
+                    <p className="training-hero-eyebrow">{safeT("training.todayFocus", "Entrenamiento de hoy")}</p>
+                    <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
+                    <p className="section-subtitle">{selectedEntryDateLabel}</p>
                   </div>
                   <div className="training-hero-actions">
                     <Link
@@ -1299,6 +1300,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
  
                 </div>
 
+                <p className="muted training-hero-meta">
+                  {selectedEntry
+                    ? `${selectedEntry.day.focus} · ${selectedEntry.day.duration} ${t("training.minutesLabel")}`
+                    : t("training.calendarEmptyFocus")}
+                </p>
+
                 {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
 
                 {aiActionableError ? (
@@ -1336,7 +1343,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </div>
               </section>
 
-              <section className="card">
+              <section className="card training-main-section">
               <div className="section-head section-head-actions">
                 <div>
                   <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
@@ -1568,11 +1575,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               )}
             </section>
 
-            <section className="card">
+            <section className="card training-main-section">
               <div className="section-head">
                 <div>
                   <h2 className="section-title section-title-sm">{safeT("training.todayTrainingTitle", "Ejercicios de hoy")}</h2>
-                  <p className="section-subtitle">{selectedEntryDate.toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "short" })}</p>
+                  <p className="section-subtitle">{selectedEntryDateLabel}</p>
                 </div>
               </div>
               <div className="exercise-list compact-exercise-list">
@@ -1630,7 +1637,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           ) : null}
 
           {hasPlan && (
-            <section className="card">
+            <aside className="training-layout-insights">
+              <section className="card training-insights-card">
               <div className="section-head">
                 <div>
                   <h2 className="section-title section-title-sm">{t("training.periodTitle")}</h2>
@@ -1646,7 +1654,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
                 ))}
               </div>
-            </section>
+              </section>
+            </aside>
           )}
 
           {!loading && !error && hasPlan ? trainingPlanDetails : null}

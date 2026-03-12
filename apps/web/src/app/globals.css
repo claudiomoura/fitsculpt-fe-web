@@ -5190,6 +5190,43 @@ html { scroll-behavior: smooth; }
   }
 }
 
+
+.training-plan-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.training-hero-meta {
+  margin: 0;
+}
+
+.training-layout-insights {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 1080px) {
+  .training-plan-layout {
+    align-items: start;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
+  }
+
+  .training-plan-layout > * {
+    grid-column: 1;
+  }
+
+  .training-plan-layout > .training-layout-insights {
+    grid-column: 2;
+    grid-row: 2 / span 3;
+    position: sticky;
+    top: 170px;
+  }
+
+  .training-plan-layout > .training-main-section {
+    grid-column: 1;
+  }
+}
+
 .tracking-checkin-modal-overlay {
   padding: 12px;
 }
