@@ -42,7 +42,8 @@ export type MobileTab = {
   id: string;
   href?: string;
   labelKey: string;
-  icon: "sparkles" | "dumbbell" | "book" | "info" | "check";
+  mobileLabel?: string;
+  icon: "home" | "dumbbell" | "apple" | "trending-up" | "user" | "sparkles" | "book" | "check";
   badgeCount?: number;
   feature?: EntitlementFeature;
   upgradeHref?: string;
@@ -53,29 +54,33 @@ export const mainTabsMobile: MobileTab[] = [
     id: "today",
     href: "/app/hoy",
     labelKey: "nav.today",
-    icon: "sparkles",
+    mobileLabel: "Hoy",
+    icon: "home",
   },
   {
     id: "training",
     href: "/app/entrenamiento",
     labelKey: "nav.trainingCalendar",
+    mobileLabel: "Entreno",
     icon: "dumbbell",
-  },
-  {
-    id: "library",
-    href: "/app/biblioteca",
-    labelKey: "nav.exerciseLibrary",
-    icon: "book",
   },
   {
     id: "nutrition",
     href: "/app/nutricion",
     labelKey: "nav.nutritionCalendar",
-    icon: "sparkles",
+    mobileLabel: "Nutrición",
+    icon: "apple",
     feature: "nutrition",
     upgradeHref: "/app/settings/billing",
   },
-  { id: "settings", href: "/app/settings", labelKey: "nav.settings", icon: "info" },
+  {
+    id: "progress",
+    href: "/app/seguimiento",
+    labelKey: "nav.tracking",
+    mobileLabel: "Progreso",
+    icon: "trending-up",
+  },
+  { id: "profile", href: "/app/profile", labelKey: "nav.profile", mobileLabel: "Perfil", icon: "user" },
 ];
 
 
@@ -84,30 +89,35 @@ export const trainerTabsMobile: MobileTab[] = [
     id: "trainer-home",
     href: "/app/trainer",
     labelKey: "nav.trainer",
+    mobileLabel: "Entrenador",
     icon: "sparkles",
   },
   {
     id: "trainer-clients",
     href: "/app/trainer/clients",
     labelKey: "nav.trainerClients",
+    mobileLabel: "Clientes",
     icon: "book",
   },
   {
     id: "trainer-plans",
     href: "/app/trainer/plans",
     labelKey: "nav.trainerPlans",
+    mobileLabel: "Planes",
     icon: "dumbbell",
   },
   {
     id: "trainer-nutrition-plans",
     href: "/app/trainer/nutrition-plans",
     labelKey: "nav.trainerNutritionPlans",
+    mobileLabel: "Nutrición",
     icon: "sparkles",
   },
   {
     id: "trainer-exercises",
     href: "/app/trainer/exercises",
     labelKey: "nav.trainerExercises",
+    mobileLabel: "Ejercicios",
     icon: "check",
   },
 ];
