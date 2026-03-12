@@ -2146,7 +2146,10 @@
     },
     "authUnavailable": "Your session or permissions do not allow AI right now. Please log in again.",
     "validationUnavailable": "Please review your input data and try again.",
-    "serviceUnavailable": "Service is temporarily unavailable. Please try again in a few minutes."
+    "serviceUnavailable": "Service is temporarily unavailable. Please try again in a few minutes.",
+    "planUnavailable": "Not available for your plan",
+    "rateLimitUnavailable": "Too many requests, please try again",
+    "generateFailed": "We could not generate the plan, please try again"
   },
   "billing": {
     "title": "Billing",

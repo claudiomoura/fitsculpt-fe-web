@@ -17,6 +17,33 @@ type MapAiErrorToUiStateInput = {
 };
 
 export function mapAiErrorToUiState(input: MapAiErrorToUiStateInput, t: Translator): AiErrorUiState {
+  if (input.status === 403) {
+    return {
+      title: t("ai.errorState.title"),
+      description: t("ai.planUnavailable"),
+      ctaHref: "/app/settings/billing",
+      ctaLabel: t("billing.manageBilling"),
+    };
+  }
+
+  if (input.status === 429 || input.code?.trim().toUpperCase() === "RATE_LIMITED") {
+    return {
+      title: t("ai.errorState.title"),
+      description: t("ai.rateLimitUnavailable"),
+      ctaHref: null,
+      ctaLabel: null,
+    };
+  }
+
+  if (input.status === 400) {
+    return {
+      title: t("ai.errorState.title"),
+      description: t("ai.generateFailed"),
+      ctaHref: null,
+      ctaLabel: null,
+    };
+  }
+
   const category = classifyAiError(input);
 
   if (category === "quota") {
