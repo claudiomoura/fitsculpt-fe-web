@@ -62,20 +62,13 @@ export const mainTabsMobile: MobileTab[] = [
     icon: "dumbbell",
   },
   {
-    id: "library",
-    href: "/app/biblioteca",
-    labelKey: "nav.exerciseLibrary",
-    icon: "book",
-  },
-  {
     id: "nutrition",
     href: "/app/nutricion",
     labelKey: "nav.nutritionCalendar",
     icon: "sparkles",
-    feature: "nutrition",
-    upgradeHref: "/app/settings/billing",
   },
-  { id: "settings", href: "/app/settings", labelKey: "nav.settings", icon: "info" },
+  { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking", icon: "check" },
+  { id: "profile", href: "/app/profile", labelKey: "nav.profile", icon: "info" },
 ];
 
 

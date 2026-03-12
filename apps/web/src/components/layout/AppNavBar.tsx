@@ -23,6 +23,7 @@ export default function AppNavBar() {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
+  const showHamburgerMenu = isAdmin;
   const { entitlements, authMe, loading: authLoading, reload } = useAuthEntitlements();
 
   useEffect(() => {
@@ -137,31 +138,35 @@ export default function AppNavBar() {
             <LanguageSwitcher />
           </div>
 
-          <button
-            ref={toggleButtonRef}
-            type="button"
-            className="nav-toggle"
-            aria-expanded={open}
-            aria-controls="app-nav-drawer"
-            aria-label="Abrir menú"
-            onClick={(event) => {
-              triggerRef.current = event.currentTarget;
+          {showHamburgerMenu ? (
+            <button
+              ref={toggleButtonRef}
+              type="button"
+              className="nav-toggle"
+              aria-expanded={open}
+              aria-controls="app-nav-drawer"
+              aria-label="Abrir menú"
+              onClick={(event) => {
+                triggerRef.current = event.currentTarget;
 
-              if (open) {
-                closeMenu(event.currentTarget);
-                return;
-              }
+                if (open) {
+                  closeMenu(event.currentTarget);
+                  return;
+                }
 
-              setOpen(true);
-            }}
-          >
-            <span aria-hidden="true">{open ? "✕" : "☰"}</span>
-          </button>
+                setOpen(true);
+              }}
+            >
+              <span aria-hidden="true">{open ? "✕" : "☰"}</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
-      <div className={`nav-drawer-backdrop ${open ? "is-open" : ""}`} role="presentation" onClick={() => closeMenu()} />
-      <aside ref={drawerRef} id="app-nav-drawer" className={`nav-drawer ${open ? "is-open" : ""}`}>
+      {showHamburgerMenu ? (
+        <>
+          <div className={`nav-drawer-backdrop ${open ? "is-open" : ""}`} role="presentation" onClick={() => closeMenu()} />
+          <aside ref={drawerRef} id="app-nav-drawer" className={`nav-drawer ${open ? "is-open" : ""}`}>
         <div className="nav-drawer-header">
           <div>
             <p className="nav-drawer-title">{t("appName")}</p>
@@ -212,7 +217,9 @@ export default function AppNavBar() {
             </div>
           ))}
         </nav>
-      </aside>
+          </aside>
+        </>
+      ) : null}
     </header>
   );
 }

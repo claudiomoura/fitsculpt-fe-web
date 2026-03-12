@@ -84,6 +84,68 @@ describe("AppNavBar", () => {
     expect(billingLink).toHaveAttribute("href", "/app/settings/billing");
   });
 
+  it("hides hamburger menu for USER role", () => {
+    useAccessMock.mockReturnValue({
+      role: "USER",
+      isAdmin: false,
+      isCoach: false,
+      isDev: false,
+      gymMembershipState: "in_gym",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+        })
+      ) as unknown as typeof fetch
+    );
+
+    render(
+      <ThemeProvider>
+        <LanguageProvider>
+          <AccessProvider>
+            <AppNavBar />
+          </AccessProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    );
+
+    expect(screen.queryByRole("button", { name: /abrir menú/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps hamburger menu for ADMIN role", () => {
+    useAccessMock.mockReturnValue({
+      role: "ADMIN",
+      isAdmin: true,
+      isCoach: true,
+      isDev: true,
+      gymMembershipState: "in_gym",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+        })
+      ) as unknown as typeof fetch
+    );
+
+    render(
+      <ThemeProvider>
+        <LanguageProvider>
+          <AccessProvider>
+            <AppNavBar />
+          </AccessProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    );
+
+    expect(screen.getByRole("button", { name: /abrir menú/i })).toBeInTheDocument();
+  });
+
   it("renders disabled nav notes translated instead of i18n key literals", () => {
     vi.stubGlobal(
       "fetch",
