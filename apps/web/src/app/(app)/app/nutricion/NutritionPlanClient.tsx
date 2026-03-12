@@ -1800,14 +1800,15 @@ const planToSave = ensurePlanStartDate(candidatePlan);
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
       } else if (requestError?.status === 429 || errorCode === "RATE_LIMITED") {
+        const uiError = mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t);
         setAiError({
-          title: t("nutrition.aiErrorState.title"),
-          description: t("nutrition.aiRateLimit"),
+          title: uiError.title,
+          description: uiError.description,
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
-          ctaHref: null,
-          ctaLabel: null,
+          ctaHref: uiError.ctaHref,
+          ctaLabel: uiError.ctaLabel,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });

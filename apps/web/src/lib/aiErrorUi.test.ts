@@ -17,10 +17,23 @@ describe("mapAiErrorToUiState", () => {
     expect(state.ctaHref).toBe("/login");
   });
 
-  it("maps validation errors to review data copy", () => {
+  it("maps 403 errors to plan unavailable with billing CTA", () => {
+    const state = mapAiErrorToUiState({ status: 403 }, t);
+    expect(state.description).toBe("ai.planUnavailable");
+    expect(state.ctaHref).toBe("/app/settings/billing");
+  });
+
+  it("maps validation errors to retry copy", () => {
     const state = mapAiErrorToUiState({ kind: "validation", status: 400 }, t);
-    expect(state.description).toBe("ai.validationUnavailable");
+    expect(state.description).toBe("ai.generateFailed");
     expect(state.ctaHref).toBeNull();
+  });
+
+  it("maps 429/rate limited errors to retry later copy", () => {
+    const stateByStatus = mapAiErrorToUiState({ status: 429 }, t);
+    const stateByCode = mapAiErrorToUiState({ code: "RATE_LIMITED" }, t);
+    expect(stateByStatus.description).toBe("ai.rateLimitUnavailable");
+    expect(stateByCode.description).toBe("ai.rateLimitUnavailable");
   });
 
   it("maps unknown/upstream errors to service unavailable", () => {

@@ -2149,7 +2149,10 @@
     },
     "authUnavailable": "Tu sesión o permisos no permiten usar IA ahora. Inicia sesión nuevamente.",
     "validationUnavailable": "Revisa tus datos e inténtalo de nuevo.",
-    "serviceUnavailable": "Servicio temporalmente no disponible. Intenta nuevamente en unos minutos."
+    "serviceUnavailable": "Servicio temporalmente no disponible. Intenta nuevamente en unos minutos.",
+    "planUnavailable": "No disponible para tu plan",
+    "rateLimitUnavailable": "Demasiadas solicitudes, intenta de nuevo",
+    "generateFailed": "No se pudo generar el plan, intenta nuevamente"
   },
   "billing": {
     "title": "Facturación",
