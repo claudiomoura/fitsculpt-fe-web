@@ -14,26 +14,36 @@ test.describe('Core loop (demo anti-regression)', () => {
       await expect(todayActionsGrid).toBeVisible({ timeout: 10_000 });
 
       const firstTodayActionCard = page.getByTestId('today-action-card').first();
-      const firstTodayActionButton = page.getByTestId('today-action-button').first();
+      const quickActionTracking = page.getByTestId('quick-action-tracking');
       await expect(firstTodayActionCard).toBeVisible({ timeout: 10_000 });
-      await expect(firstTodayActionButton).toBeVisible({ timeout: 10_000 });
+      await expect(quickActionTracking).toBeVisible({ timeout: 10_000 });
 
       const beforeCount = await fetchTrackingCount(page.request);
+      const trackingResponses: string[] = [];
+      const logTrackingResponse = (response: import('@playwright/test').Response) => {
+        if (response.request().method() !== 'POST' || !response.url().includes('/api/tracking')) return;
+        trackingResponses.push(`${response.status()} ${response.url()}`);
+      };
+      page.on('response', logTrackingResponse);
 
       const trackingPostResponsePromise = page.waitForResponse(
         (response) => response.request().method() === 'POST' && response.url().includes('/api/tracking') && response.ok(),
         { timeout: 10_000 },
       );
 
-      await firstTodayActionButton.click();
+      await quickActionTracking.click();
 
-      const trackingPostResponse = await trackingPostResponsePromise;
+      const trackingPostResponse = await trackingPostResponsePromise.catch((error) => {
+        console.error('[core-loop] POST /api/tracking responses seen:', trackingResponses);
+        throw error;
+      });
+      page.off('response', logTrackingResponse);
       expect(trackingPostResponse.ok()).toBeTruthy();
 
       await expect
         .poll(async () => fetchTrackingCount(page.request), {
           timeout: 10_000,
-          message: 'El count de checkins no subió después de clicar today-action-button.',
+          message: 'El count de checkins no subió después de clicar quick-action-tracking.',
         })
         .toBe(beforeCount + 1);
 
