@@ -24,6 +24,7 @@ import TrainingAdjustmentDiffSummary, {
   buildTrainingAdjustmentDiff,
   type TrainingAdjustmentDiff,
 } from "@/components/tracking/TrainingAdjustmentDiffSummary";
+import styles from "./TrackingClient.module.css";
 
 type CheckinEntry = {
   id: string;
@@ -116,6 +117,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [energyValue, setEnergyValue] = useState(3);
   const [notesDate, setNotesDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notesValue, setNotesValue] = useState("");
+  const [progressRange, setProgressRange] = useState<"7" | "30" | "90">("30");
   const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
     if (typeof window === "undefined") return "quick";
     const storedMode = window.localStorage.getItem(CHECKIN_MODE_KEY);
@@ -686,9 +688,21 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     );
   }
 
-  const checkinChart = useMemo(() => {
+  const checkinsInRange = useMemo(() => {
     if (checkins.length === 0) return [];
-    const sorted = [...checkins]
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - (Number(progressRange) - 1));
+    return checkins.filter((entry) => {
+      const parsed = new Date(entry.date);
+      return parsed >= startDate && parsed <= endDate;
+    });
+  }, [checkins, progressRange]);
+
+  const checkinChart = useMemo(() => {
+    if (checkinsInRange.length === 0) return [];
+    const sorted = [...checkinsInRange]
       .sort((a, b) => a.date.localeCompare(b.date))
       .filter((entry) => Number.isFinite(entry.weightKg));
     if (sorted.length === 0) return [];
@@ -702,13 +716,30 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       bodyFat: supportsBodyFat ? entry.bodyFatPercent : null,
       percent: ((entry.weightKg - min) / range) * 100,
     }));
-  }, [checkins, supportsBodyFat]);
+  }, [checkinsInRange, supportsBodyFat]);
 
   const sortedCheckins = useMemo(
     () => [...checkins].sort((a, b) => b.date.localeCompare(a.date)),
     [checkins]
   );
   const latestCheckin = sortedCheckins[0];
+  const rangeFirstCheckin = checkinChart[0] ?? null;
+  const rangeLastCheckin = checkinChart[checkinChart.length - 1] ?? null;
+  const rangeWeightDelta =
+    rangeFirstCheckin && rangeLastCheckin ? rangeLastCheckin.weight - rangeFirstCheckin.weight : null;
+  const adherenceLast7Days = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 6);
+    const uniqueDays = new Set(
+      checkins
+        .filter((entry) => {
+          const parsed = new Date(entry.date);
+          return parsed >= cutoff;
+        })
+        .map((entry) => entry.date)
+    );
+    return Math.min(100, Math.round((uniqueDays.size / 7) * 100));
+  }, [checkins]);
   const latestEnergyCheckin = sortedCheckins.find((entry) => Number.isFinite(entry.energy) && entry.energy > 0);
   const latestNotesCheckin = sortedCheckins.find((entry) => entry.notes?.trim());
   const baseWeight = Number(latestCheckin?.weightKg ?? profile.weightKg ?? 0);
@@ -919,6 +950,100 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {actionMessage}
         </div>
       )}
+      {!isCheckinOnly ? (
+        <section className={`card ${styles.heroCard}`}>
+          <div className={styles.heroHeader}>
+            <div>
+              <h2 className="section-title" style={{ fontSize: 24 }}>{t("app.trackingTitle")}</h2>
+              <p className="section-subtitle">{t("app.trackingSubtitle")}</p>
+            </div>
+            <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
+              Nuevo check-in
+            </button>
+          </div>
+          <div className={styles.segmentedControl} role="tablist" aria-label="Rango">
+            {[
+              { value: "7", label: "Semana" },
+              { value: "30", label: "Mes" },
+              { value: "90", label: "3 meses" },
+            ].map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="tab"
+                aria-selected={progressRange === option.value}
+                className={`${styles.segmentedButton} ${progressRange === option.value ? styles.segmentedButtonActive : ""}`}
+                onClick={() => setProgressRange(option.value as "7" | "30" | "90")}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
+        <section className={styles.overviewGrid}>
+          <div className={styles.leftColumn}>
+            <section className="card">
+              <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.weeklyProgressTitle")}</h2>
+              {checkinChart.length === 0 ? (
+                <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
+              ) : (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {checkinChart.map((point, index) => (
+                    <div key={`${point.date}-${index}`} className="info-item">
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                        <strong>{point.date}</strong>
+                        <span className="muted">{point.weight} {t("units.kilograms")}</span>
+                      </div>
+                      <div className="tracking-weekly-progress-bar-track">
+                        <div className="tracking-weekly-progress-bar-value" style={{ width: `${point.percent}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className={styles.metricCards}>
+              <article className="card">
+                <p className="muted">{t("tracking.latestWeightTitle")}</p>
+                <strong>{latestCheckin ? `${latestCheckin.weightKg} ${t("units.kilograms")}` : "—"}</strong>
+              </article>
+              <article className="card">
+                <p className="muted">{t("tracking.weightHistoryTitle")}</p>
+                <strong>{rangeWeightDelta === null ? "—" : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}</strong>
+              </article>
+              <article className="card">
+                <p className="muted">Check-ins</p>
+                <strong>{checkinsInRange.length}</strong>
+              </article>
+            </section>
+          </div>
+          <aside className={styles.rightColumn}>
+            {latestCheckin ? (
+              <section className="card">
+                <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.checkinRecommendation")}</h3>
+                <p className="muted">{latestCheckin.recommendation}</p>
+              </section>
+            ) : null}
+            {checkins.length > 0 ? (
+              <section className="card">
+                <h3 className="section-title" style={{ fontSize: 18 }}>Adesão</h3>
+                <p className="muted">Últimos 7 dias</p>
+                <strong>{adherenceLast7Days}%</strong>
+              </section>
+            ) : null}
+            {profile.goal ? (
+              <section className="card">
+                <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.goal")}</h3>
+                <p className="muted">{profile.goal}</p>
+              </section>
+            ) : null}
+          </aside>
+        </section>
+      ) : null}
+
       {!isCheckinOnly ? (
       <section className="card" id="weight-entry">
         <div className="section-head">
@@ -1413,67 +1538,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
       {!isCheckinOnly ? (
       <>
-      <section className="card">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.weeklyProgressTitle")}</h2>
-            <p className="section-subtitle">
-              {supportsBodyFat ? t("tracking.weeklyProgressSubtitle") : t("tracking.weeklyProgressSubtitleWeightOnly")}
-            </p>
-          </div>
-        </div>
-        {isTrackingLoading ? (
-          <div className="tracking-weekly-skeleton" aria-hidden="true">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={`weekly-skeleton-${index}`} className="tracking-weekly-skeleton-row">
-                <Skeleton variant="line" className="tracking-weekly-skeleton-label" />
-                <Skeleton variant="line" className="tracking-weekly-skeleton-value" />
-                <Skeleton className="tracking-weekly-skeleton-bar" />
-              </div>
-            ))}
-          </div>
-        ) : isTrackingError ? (
-          <div className="status-card status-card--warning">
-            <strong>{t("tracking.weeklyProgressErrorTitle")}</strong>
-            <p className="muted">{t("tracking.weeklyProgressErrorSubtitle")}</p>
-            <button
-              type="button"
-              className="btn secondary fit-content"
-              onClick={() => refreshTrackingData({ showLoading: true, showError: true })}
-            >
-              {t("ui.retry")}
-            </button>
-          </div>
-        ) : checkinChart.length === 0 ? (
-          <div className="empty-state">
-            <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
-            <a className="btn secondary fit-content" href="#weight-entry">
-              {t("tracking.weightEntryCta")}
-            </a>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 12 }}>
-            {checkinChart.map((point, index) => (
-              <div key={`${point.date}-${index}`} className="info-item">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <strong>{point.date}</strong>
-                  <span className="muted">
-                    {point.weight} {t("units.kilograms")}
-                    {point.bodyFat !== null ? ` · ${point.bodyFat}${t("units.percent")}` : ""}
-                  </span>
-                </div>
-                <div className="tracking-weekly-progress-bar-track">
-                  <div
-                    className="tracking-weekly-progress-bar-value"
-                    style={{ width: `${point.percent}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
       <section className="card">
         <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.sectionMeals")}</h2>
         <form onSubmit={addFoodEntry} className="form-stack">
