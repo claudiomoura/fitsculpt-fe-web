@@ -58,39 +58,64 @@ describe("AI generate proxy guardrail contract", () => {
     expect(data).toEqual({ error: "AI_REQUEST_FAILED", code: "UPSTREAM_ERROR", kind: "upstream", status: 502 });
   });
 
-  it.each(ENDPOINTS)("$name endpoint maps provider insufficient_quota to AI_QUOTA_EXCEEDED", async (endpoint) => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(mockBackendResponse(429, JSON.stringify({ error: "insufficient_quota", code: "insufficient_quota" })))
-    );
+  it.each(ENDPOINTS)("$name endpoint propagates provider insufficient_quota payload", async (endpoint) => {
+    const upstreamPayload = { error: "insufficient_quota", code: "insufficient_quota" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(429, JSON.stringify(upstreamPayload))));
 
     const response = await invokeEndpoint(endpoint);
 
     expect(response.status).toBe(429);
 
     const data = await response.json();
-    expect(data).toEqual({ error: "AI_QUOTA_EXCEEDED", code: "AI_QUOTA_EXCEEDED", kind: "quota", status: 429 });
+    expect(data).toEqual(upstreamPayload);
   });
 
-  it.each(ENDPOINTS)("$name endpoint maps auth and not-found upstream errors to stable BFF shape", async (endpoint) => {
-    for (const status of [401, 403, 404] as const) {
-      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(status, JSON.stringify({ error: "UPSTREAM_ERROR" }))));
-      const response = await invokeEndpoint(endpoint);
-      const data = await response.json();
+  it.each(ENDPOINTS)("$name endpoint keeps 401/404 normalized but propagates 403 payload", async (endpoint) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(401, JSON.stringify({ error: "UPSTREAM_ERROR" }))));
+    let response = await invokeEndpoint(endpoint);
+    let data = await response.json();
+    expect(data).toEqual({ error: "UNAUTHORIZED", kind: "auth", status: 401 });
 
-      if (status === 401) expect(data).toEqual({ error: "UNAUTHORIZED", kind: "auth", status: 401 });
-      if (status === 403) expect(data).toEqual({ error: "FORBIDDEN", kind: "auth", status: 403 });
-      if (status === 404) expect(data).toEqual({ error: "NOT_FOUND", kind: "not_found", status: 404 });
-    }
+    const forbiddenPayload = { error: "UPSTREAM_ERROR", code: "SUBSCRIPTION_REQUIRED" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(403, JSON.stringify(forbiddenPayload))));
+    response = await invokeEndpoint(endpoint);
+    data = await response.json();
+    expect(data).toEqual(forbiddenPayload);
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(404, JSON.stringify({ error: "UPSTREAM_ERROR" }))));
+    response = await invokeEndpoint(endpoint);
+    data = await response.json();
+    expect(data).toEqual({ error: "NOT_FOUND", kind: "not_found", status: 404 });
   });
 
-  it.each(ENDPOINTS)("$name endpoint maps upstream 400 to INVALID_REQUEST", async (endpoint) => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(400, JSON.stringify({ error: "INVALID_INPUT" }))));
+  it.each(ENDPOINTS)("$name endpoint propagates upstream 400 payload", async (endpoint) => {
+    const upstreamPayload = { error: "INVALID_INPUT", code: "INVALID_PAYLOAD", reason: "missing age" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(400, JSON.stringify(upstreamPayload))));
 
     const response = await invokeEndpoint(endpoint);
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: "INVALID_REQUEST", kind: "validation", status: 400 });
+    await expect(response.json()).resolves.toEqual(upstreamPayload);
+  });
+
+  it.each(ENDPOINTS)("$name endpoint propagates upstream 403 payload", async (endpoint) => {
+    const upstreamPayload = { error: "FORBIDDEN", code: "SUBSCRIPTION_REQUIRED" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(403, JSON.stringify(upstreamPayload))));
+
+    const response = await invokeEndpoint(endpoint);
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual(upstreamPayload);
+  });
+
+  it.each(ENDPOINTS)("$name endpoint propagates upstream 429 payload", async (endpoint) => {
+    const upstreamPayload = { error: "RATE_LIMITED", code: "TOO_MANY_REQUESTS", reason: "retry later" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockBackendResponse(429, JSON.stringify(upstreamPayload))));
+
+    const response = await invokeEndpoint(endpoint);
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual(upstreamPayload);
   });
 
   it.each(ENDPOINTS)("$name endpoint preserves non-mapped 409 with stable kind", async (endpoint) => {

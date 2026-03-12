@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 
 const UPSTREAM_TIMEOUT_ERROR = "AI_TIMEOUT";
 const AI_GENERATE_TIMEOUT_MS = 120_000;
+const ENDPOINT = "/ai/training-plan/generate";
+const PASSTHROUGH_STATUSES = new Set([400, 403, 429]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
@@ -27,15 +29,34 @@ function readAiRequestIdHeader(request: Request, requestBody: string): string | 
   return null;
 }
 
-function logAiGenerateError(details: { upstreamStatus?: number; durationMs: number; errorKind: "network_error" | "status_error" }) {
-  if (process.env.NODE_ENV !== "development") {
-    return;
+function getUpstreamErrorMetadata(payload: unknown): { errorCode: string | null; errorReason: string | null } {
+  if (!isRecord(payload)) {
+    return { errorCode: null, errorReason: null };
   }
 
+  const errorCode = typeof payload.code === "string" && payload.code.trim().length > 0 ? payload.code : null;
+  const errorReason =
+    (typeof payload.reason === "string" && payload.reason.trim().length > 0 ? payload.reason : null) ??
+    (typeof payload.error === "string" && payload.error.trim().length > 0 ? payload.error : null);
+
+  return { errorCode, errorReason };
+}
+
+function logAiGenerateError(details: {
+  upstreamStatus?: number;
+  durationMs: number;
+  errorKind: "network_error" | "status_error";
+  endpoint: string;
+  upstreamErrorCode?: string | null;
+  upstreamErrorReason?: string | null;
+}) {
   console.warn("[bff.ai.training.generate.error]", {
     upstream_status: details.upstreamStatus ?? null,
     duration: details.durationMs,
+    endpoint: details.endpoint,
     error_kind: details.errorKind,
+    upstream_error_code: details.upstreamErrorCode ?? null,
+    upstream_error_reason: details.upstreamErrorReason ?? null,
   });
 }
 
@@ -72,11 +93,19 @@ export async function POST(request: Request) {
     const data = parseJsonOrNull(responseText);
 
     if (!response.ok) {
+      const upstreamErrorMetadata = getUpstreamErrorMetadata(data);
       logAiGenerateError({
         upstreamStatus: response.status,
         durationMs: Date.now() - startedAt,
         errorKind: "status_error",
+        endpoint: ENDPOINT,
+        upstreamErrorCode: upstreamErrorMetadata.errorCode,
+        upstreamErrorReason: upstreamErrorMetadata.errorReason,
       });
+
+      if (PASSTHROUGH_STATUSES.has(response.status) && data !== null) {
+        return NextResponse.json(data, { status: response.status });
+      }
 
       if (data !== null) {
         return mapAiUpstreamError(response.status, data);
@@ -90,6 +119,7 @@ export async function POST(request: Request) {
         upstreamStatus: response.status,
         durationMs: Date.now() - startedAt,
         errorKind: "status_error",
+        endpoint: ENDPOINT,
       });
       return aiRequestFailedResponse();
     }
@@ -102,11 +132,11 @@ export async function POST(request: Request) {
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     if (isAbortError(error)) {
-      logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
+      logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error", endpoint: ENDPOINT });
       return NextResponse.json({ error: UPSTREAM_TIMEOUT_ERROR, code: "AI_REQUEST_FAILED", kind: "upstream", status: 504 }, { status: 504 });
     }
 
-    logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
+    logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error", endpoint: ENDPOINT });
     return aiRequestFailedResponse();
   } finally {
     clearTimeout(timeoutId);
