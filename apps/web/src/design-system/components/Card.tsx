@@ -10,15 +10,15 @@ export type CardProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 const variantClasses: Record<CardVariant, string> = {
-  default: 'border border-border bg-surface',
-  elevated: 'border border-border/80 bg-surface shadow-md',
+  default: 'ui-card border-border bg-surface',
+  elevated: 'ui-card border-border/80 bg-surface shadow-md',
   glass: 'glass-card',
 };
 
 export function Card({ variant = 'default', hoverable = false, className, ...props }: CardProps) {
   return (
     <div
-      className={cn('rounded-xl p-4', variantClasses[variant], hoverable && 'card-hover', className)}
+      className={cn(variantClasses[variant], variant === 'elevated' && 'glow-primary', hoverable && 'card-hover', className)}
       {...props}
     />
   );
