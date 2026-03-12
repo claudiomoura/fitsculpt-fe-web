@@ -12,16 +12,11 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    'bg-primary text-white shadow-sm hover:bg-primary/90 focus-visible:ring-primary/35',
-  secondary:
-    'border border-border bg-surface text-text shadow-sm hover:bg-surface-muted focus-visible:ring-primary/25',
-  ghost:
-    'bg-transparent text-text hover:bg-surface-muted focus-visible:ring-primary/20',
-  primaryGlow:
-    'bg-primary text-white shadow-sm hover:bg-primary/90 focus-visible:ring-primary/35 glow-primary',
-  accentGlow:
-    'border border-border bg-surface text-text shadow-sm hover:bg-surface-muted focus-visible:ring-primary/25 glow-accent',
+  primary: 'ui-button ui-button--primary bg-primary text-white',
+  secondary: 'ui-button ui-button--secondary border border-border bg-surface text-text',
+  ghost: 'ui-button ui-button--ghost bg-transparent text-text',
+  primaryGlow: 'ui-button ui-button--primary bg-primary text-white glow-primary',
+  accentGlow: 'ui-button ui-button--secondary border border-border bg-surface text-text glow-accent',
 };
 
 export function Button({
@@ -41,8 +36,7 @@ export function Button({
       type="button"
       disabled={isDisabled}
       className={cn(
-        'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
+        'focus-visible:outline-none',
         variantClasses[variant],
         isDisabled && 'cursor-not-allowed opacity-55',
         className,
