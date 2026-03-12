@@ -349,6 +349,8 @@ export default function TodayQuickActionsClient() {
         <>
           {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamiento" /> : null}
 
+          <h2 className="m-0 px-1 text-sm font-semibold uppercase tracking-[0.08em] text-slate-300">Acciones de hoy</h2>
+
           <Section className="space-y-0" data-testid="today-actions-grid">
             <div className="grid gap-6 md:grid-cols-2 xl:gap-8">
               <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
