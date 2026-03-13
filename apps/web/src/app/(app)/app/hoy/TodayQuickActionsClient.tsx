@@ -9,6 +9,7 @@ import {
   PremiumWorkoutIcon,
 } from "@/components/icons/PremiumIcons";
 import { useToast } from "@/components/ui/Toast";
+import { MacroRing } from "@/components/ui/MacroRing";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 import { Card, Section, Stack } from "@/design-system/components";
@@ -62,7 +63,7 @@ type NutritionPlansPayload = {
 function ProgressBar({ value, total, className = "" }: { value: number; total: number; className?: string }) {
   const width = Math.min(100, Math.max(0, total > 0 ? Math.round((value / total) * 100) : 0));
   return (
-    <div className={`h-2 w-full overflow-hidden rounded-full bg-slate-800 ${className}`}>
+    <div className={`h-2 w-full overflow-hidden rounded-full bg-[var(--bg-muted)] ${className}`}>
       <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${width}%` }} />
     </div>
   );
@@ -70,22 +71,29 @@ function ProgressBar({ value, total, className = "" }: { value: number; total: n
 
 function NutritionRing({ value, total }: { value: number; total: number | null }) {
   const safeTotal = total && total > 0 ? total : 0;
-  const progress = safeTotal > 0 ? Math.min(100, Math.max(0, Math.round((value / safeTotal) * 100))) : 0;
+  const caloriesTarget = safeTotal;
+  
+  const protein = Math.round(value * 0.3 / 4);
+  const carbs = Math.round(value * 0.4 / 4);
+  const fats = Math.round(value * 0.3 / 9);
+  const proteinTarget = Math.round(caloriesTarget * 0.3 / 4) || 30;
+  const carbsTarget = Math.round(caloriesTarget * 0.4 / 4) || 40;
+  const fatsTarget = Math.round(caloriesTarget * 0.3 / 9) || 15;
+  
+  const segments = [
+    { key: "protein", label: "Proteína", grams: protein, target: proteinTarget, percent: (protein / proteinTarget) * 100, color: "var(--color-primary)" },
+    { key: "carbs", label: "Carbs", grams: carbs, target: carbsTarget, percent: (carbs / carbsTarget) * 100, color: "var(--color-warning)" },
+    { key: "fats", label: "Grasas", grams: fats, target: fatsTarget, percent: (fats / fatsTarget) * 100, color: "var(--color-info)" },
+  ];
+  
   return (
-    <div className="relative h-24 w-24 shrink-0 rounded-full p-1" style={{ background: "rgba(148,163,184,0.24)" }}>
-      <div
-        className="absolute inset-0 rounded-full"
-        style={{
-          background: `conic-gradient(rgba(16,185,129,0.95) ${progress}%, rgba(30,41,59,0.95) ${progress}% 100%)`,
-        }}
-      />
-      <div className="relative flex h-full w-full items-center justify-center rounded-full bg-[#0B0E13] text-center">
-        <div>
-          <p className="m-0 text-lg font-semibold leading-none text-slate-100">{progress}%</p>
-          <p className="m-0 mt-1 text-[10px] uppercase tracking-[0.1em] text-slate-400">kcal</p>
-        </div>
-      </div>
-    </div>
+    <MacroRing
+      segments={segments}
+      centerValue={`${Math.round((value / safeTotal) * 100)}%`}
+      centerLabel="kcal"
+      size="md"
+      showLegend={false}
+    />
   );
 }
 
@@ -329,8 +337,8 @@ export default function TodayQuickActionsClient() {
     <Stack gap="6">
       <header className="flex items-start justify-between gap-4 px-1 pt-1">
         <div className="min-w-0">
-          <h1 className="m-0 text-2xl font-semibold text-slate-100 md:text-3xl">Buenos días, {userName}</h1>
-          <p className="m-0 mt-2 text-sm text-slate-300 md:text-base">Tu plan de hoy está listo</p>
+          <h1 className="m-0 text-2xl font-semibold text-primary md:text-3xl">Buenos días, {userName}</h1>
+          <p className="m-0 mt-2 text-sm text-muted md:text-base">Tu plan de hoy está listo</p>
         </div>
         {signals.streakDays > 0 ? (
           <span
@@ -349,7 +357,7 @@ export default function TodayQuickActionsClient() {
         <>
           {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamiento" /> : null}
 
-          <h2 className="m-0 px-1 text-sm font-semibold uppercase tracking-[0.08em] text-slate-300">Acciones de hoy</h2>
+          <h2 className="m-0 px-1 text-sm font-semibold uppercase tracking-[0.08em] text-muted">Acciones de hoy</h2>
 
           <Section className="space-y-0" data-testid="today-actions-grid">
             <div className="grid gap-6 md:grid-cols-2 xl:gap-8">
@@ -359,12 +367,12 @@ export default function TodayQuickActionsClient() {
                     <PremiumWorkoutIcon width={22} height={22} />
                   </div>
                   <div>
-                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-slate-400">{t("today.trainingCardEyebrow")}</p>
-                    <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.trainingHeroTitle")}</h2>
+                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-muted">{t("today.trainingCardEyebrow")}</p>
+                    <h2 className="mt-1 text-xl font-semibold text-primary">{t("today.trainingHeroTitle")}</h2>
                   </div>
                 </div>
-                <p className="text-sm text-slate-300">{trainingDescription}</p>
-                <p className="mt-2 text-xs text-slate-400">{trainingMeta}</p>
+                <p className="text-sm text-muted">{trainingDescription}</p>
+                <p className="mt-2 text-xs text-muted">{trainingMeta}</p>
                 <ProgressBar value={completedGoals} total={3} className="mt-3" />
 
                 {signals.trainingState === "no-plan" ? (
@@ -412,15 +420,15 @@ export default function TodayQuickActionsClient() {
                     <PremiumNutritionIcon width={22} height={22} />
                   </div>
                   <div>
-                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-slate-400">{t("today.nutritionCardEyebrow")}</p>
-                    <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.nutritionCardTitle")}</h2>
+                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-muted">{t("today.nutritionCardEyebrow")}</p>
+                    <h2 className="mt-1 text-xl font-semibold text-primary">{t("today.nutritionCardTitle")}</h2>
                   </div>
                 </div>
                 <div className="mt-1 flex items-center gap-4">
                   <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} />
                   <div>
-                    <p className="m-0 text-sm text-slate-300">{signals.nutritionConsumedCalories} kcal consumidas</p>
-                    <p className="m-0 mt-1 text-xs text-slate-400">Objetivo: {signals.nutritionTargetCalories ?? "--"} kcal</p>
+                    <p className="m-0 text-sm text-muted">{signals.nutritionConsumedCalories} kcal consumidas</p>
+                    <p className="m-0 mt-1 text-xs text-muted">Objetivo: {signals.nutritionTargetCalories ?? "--"} kcal</p>
                   </div>
                 </div>
                 <ButtonLink as={Link} href="/app/nutricion" size="lg" className="mt-6 min-h-12 w-full">
@@ -434,15 +442,15 @@ export default function TodayQuickActionsClient() {
                     <PremiumProgressIcon width={22} height={22} />
                   </div>
                   <div>
-                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-slate-400">{t("today.progressCardEyebrow")}</p>
-                    <h2 className="mt-1 text-xl font-semibold text-slate-100">{t("today.progressCardTitle")}</h2>
+                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-muted">{t("today.progressCardEyebrow")}</p>
+                    <h2 className="mt-1 text-xl font-semibold text-primary">{t("today.progressCardTitle")}</h2>
                   </div>
                 </div>
                 <p className="text-3xl font-semibold text-success">
                   {signals.currentWeightKg ? `${signals.currentWeightKg.toFixed(1)} kg` : "--"}
                 </p>
-                <p className="mt-1 text-sm text-slate-300">{t("today.hubProgress", { completed: completedGoals, total: 3 })}</p>
-                <p className="mt-1 text-xs text-slate-400">{t("today.streakChip", { days: signals.streakDays })}</p>
+                <p className="mt-1 text-sm text-muted">{t("today.hubProgress", { completed: completedGoals, total: 3 })}</p>
+                <p className="mt-1 text-xs text-muted">{t("today.streakChip", { days: signals.streakDays })}</p>
                 <div className="mt-6 space-y-2">
                   <Button className="min-h-12 w-full" size="lg" onClick={() => void handleLogTodayCheckin()} loading={checkinActionStatus === "loading"} data-testid="quick-action-tracking">
                     {signals.checkinDoneThisWeek ? t("today.checkinSecondaryCta") : t("today.checkinPrimaryCta")}
