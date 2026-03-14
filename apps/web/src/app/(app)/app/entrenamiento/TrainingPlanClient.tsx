@@ -1257,69 +1257,57 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             <>
               <section className="card training-header-compact training-main-section">
                 <div className="training-hero">
-                  <div>
-                    <p className="training-hero-eyebrow">{safeT("training.todayFocus", "Entrenamiento de hoy")}</p>
-                    <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
-                    <p className="section-subtitle">{selectedEntryDateLabel}</p>
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/20">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                        <path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 10v4"/><path d="M21 10v4"/><path d="M6 6v12"/><path d="M18 6v12"/><path d="M6 14h.01"/><path d="M18 14h.01"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-muted">Entrenamiento de hoy</p>
+                      <h2 className="text-xl font-semibold text-primary mt-0.5">{selectedEntry?.day?.focus || safeT("training.calendarTitle", "Plan de entrenamiento")}</h2>
+                    </div>
                   </div>
-                  <div className="training-hero-actions">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      className="btn secondary rounded-xl h-11"
+                      data-testid="training-generate-ai"
+                      onClick={handleGenerateClick}
+                      disabled={isAiDisabled}
+                      title={isAiLocked ? aiLockDescription : ""}
+                    >
+                      {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
+                    </button>
                     <Link
-                      className="btn"
+                      className="btn rounded-xl h-11 font-semibold"
                       href="/app/entrenamientos"
                     >
-                      {safeT("training.startSession", "Iniciar sesión")}
+                      {safeT("training.startSession", "Empezar")}
                     </Link>
-                   {/* <Link
-                      className="btn"
-                      href="/app/entrenamientos"
-                    >
-                      
-                      {t("training.viewWeek")}
-                    </Link> */}
-                                     <button
-  type="button"
-  className="btn secondary"
-  data-testid="training-generate-ai"
-  onClick={handleGenerateClick}
-  disabled={isAiDisabled}
-  title={isAiLocked ? aiLockDescription : ""}
->
-  {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
-</button>
-                    {aiLoading ? (
-                      <span className="section-subtitle" role="status" aria-live="polite">
-                        {t("training.aiGenerating")}
-                      </span>
-                    ) : null}
-                    {isOutOfTokens ? (
-                      <Link className="btn secondary" href="/app/settings/billing">
-                        {t("billing.manageBilling")}
-                      </Link>
-                    ) : null}
                   </div>
- 
                 </div>
 
-                <p className="muted training-hero-meta">
+                <p className="muted training-hero-meta mt-3">
                   {selectedEntry
-                    ? `${selectedEntry.day.focus} · ${selectedEntry.day.duration} ${t("training.minutesLabel")}`
+                    ? `${selectedEntry.day.duration} min · ${selectedEntry.day.exercises?.length || 0} ejercicios`
                     : t("training.calendarEmptyFocus")}
                 </p>
 
-                {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
+                {isOutOfTokens ? <p className="muted mt-4">{t("ai.insufficientTokens")}</p> : null}
 
                 {aiActionableError ? (
-                  <div className="mt-12">
+                  <div className="mt-6">
                     <ErrorBlock
                       title={safeT("training.aiRetryErrorTitle", "No pudimos generar tu plan con IA")}
                       description={aiActionableError.description}
                       retryAction={
-                        <div className="inline-actions-sm">
-                          <button type="button" className="btn secondary fit-content" onClick={handleAiRetry} disabled={aiLoading}>
+                        <div className="flex gap-2 mt-3">
+                          <button type="button" className="btn secondary rounded-xl" onClick={handleAiRetry} disabled={aiLoading}>
                             {t("ui.retry")}
                           </button>
                           {aiActionableError.ctaHref && aiActionableError.ctaLabel ? (
-                            <Link className="btn secondary fit-content" href={aiActionableError.ctaHref}>
+                            <Link className="btn secondary rounded-xl" href={aiActionableError.ctaHref}>
                               {aiActionableError.ctaLabel}
                             </Link>
                           ) : null}
@@ -1329,16 +1317,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
                 ) : null}
 
-                <div className="training-progress">
-                  <div className="training-progress-head">
-                    <strong>{safeT("training.progressTitle", "Progreso")}</strong>
+                <div className="mt-6 p-4 bg-muted/50 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-primary">Progreso</span>
                     <span className="badge">{progressPercent}%</span>
                   </div>
-                  <div className="training-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
-                    <span className="training-progress-fill" style={{ width: `${progressPercent}%` }} />
+                  <div className="h-3 bg-muted rounded-full overflow-hidden mb-2">
+                    <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
                   </div>
-                  <p className="muted">
-                    {estimatedCompletedSessions}/{totalPlannedSessions} {safeT("training.progressSessions", "sesiones completadas")}
+                  <p className="text-xs text-muted">
+                    {estimatedCompletedSessions}/{totalPlannedSessions} sesiones completadas
                   </p>
                 </div>
               </section>
@@ -1347,17 +1335,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               <div className="section-head section-head-actions">
                 <div>
                   <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
-                  <p className="section-subtitle">{t("training.calendarSubtitle")}</p>
                 </div>
                 <div className="section-actions calendar-actions">
-                  <div className="segmented-control" role="group" aria-label={t("training.calendarViewToggleAria")}>
+                  <div className="flex gap-1 p-1 bg-muted rounded-xl" role="group" aria-label={t("training.calendarViewToggleAria")}>
                     {calendarOptions.map((option) => {
                       const isActive = calendarView === option.value;
                       return (
                         <button
                           key={option.value}
                           type="button"
-                          className={`segmented-control-btn ${isActive ? "active" : ""}`}
+                          className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${isActive ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
                           aria-pressed={isActive}
                           aria-label={t("training.calendarViewOptionAria", { view: option.label })}
                           onClick={() => {

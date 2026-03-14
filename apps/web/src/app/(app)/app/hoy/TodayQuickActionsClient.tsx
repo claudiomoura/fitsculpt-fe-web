@@ -11,8 +11,8 @@ import {
 import { useToast } from "@/components/ui/Toast";
 import { MacroRing } from "@/components/ui/MacroRing";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Card, Section, Stack } from "@/design-system/components";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { trackEvent } from "@/lib/analytics";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
@@ -35,6 +35,10 @@ type TrainingState = "workout" | "rest" | "no-plan";
 type TodaySignals = {
   checkinDoneThisWeek: boolean;
   userName: string;
+  subscriptionPlan: string;
+  aiTokenBalance: number;
+  canGenerateTrainingAi: boolean;
+  canGenerateNutritionAi: boolean;
   trainingName: string;
   trainingDuration: number | null;
   trainingExerciseCount: number;
@@ -94,6 +98,47 @@ function NutritionRing({ value, total }: { value: number; total: number | null }
       size="md"
       showLegend={false}
     />
+  );
+}
+
+function ProgressMetric({
+  label,
+  percent,
+  color,
+}: {
+  label: string;
+  percent: number;
+  color: string;
+}) {
+  return (
+    <div className="mb-5">
+      <div className="flex justify-between text-sm mb-2">
+        <span className="text-muted">{label}</span>
+        <span style={{ color }} className="font-semibold">{percent}%</span>
+      </div>
+      <div
+        className="overflow-hidden rounded-full"
+        style={{
+          height: 12,
+          background: "rgba(255,255,255,0.08)",
+          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.35)",
+        }}
+      >
+        <div
+          style={{
+            width: `${percent}%`,
+            height: "100%",
+            borderRadius: 999,
+            background: color,
+            boxShadow: `0 0 18px ${color}55`,
+            transition: "width 400ms ease",
+          }}
+        />
+      </div>
+      <p className="mt-2 text-sm font-semibold" style={{ color }}>
+        Completado {percent}%
+      </p>
+    </div>
   );
 }
 
@@ -159,6 +204,10 @@ export default function TodayQuickActionsClient() {
   const [signals, setSignals] = useState<TodaySignals>({
     checkinDoneThisWeek: false,
     userName: "",
+    subscriptionPlan: "FREE",
+    aiTokenBalance: 0,
+    canGenerateTrainingAi: false,
+    canGenerateNutritionAi: false,
     trainingName: "",
     trainingDuration: null,
     trainingExerciseCount: 0,
@@ -192,6 +241,10 @@ export default function TodayQuickActionsClient() {
       const nextSignals: TodaySignals = {
         checkinDoneThisWeek: false,
         userName: "",
+        subscriptionPlan: "FREE",
+        aiTokenBalance: 0,
+        canGenerateTrainingAi: false,
+        canGenerateNutritionAi: false,
         trainingName: "",
         trainingDuration: null,
         trainingExerciseCount: 0,
@@ -207,7 +260,12 @@ export default function TodayQuickActionsClient() {
 
       if (authMeResponse.ok) {
         const authMe = (await authMeResponse.json()) as AuthMeResponse;
+        const entitlementSnapshot = readAuthEntitlementSnapshot(authMe);
         nextSignals.userName = authMe.name?.trim() ?? "";
+        nextSignals.subscriptionPlan = entitlementSnapshot.subscriptionPlan;
+        nextSignals.aiTokenBalance = entitlementSnapshot.tokenBalance;
+        nextSignals.canGenerateTrainingAi = entitlementSnapshot.aiEntitlements.strength && entitlementSnapshot.tokenBalance > 0;
+        nextSignals.canGenerateNutritionAi = entitlementSnapshot.aiEntitlements.nutrition && entitlementSnapshot.tokenBalance > 0;
         nextSignals.hasTrainingAccess = authMe.entitlements?.modules?.strength?.enabled !== false;
       }
 
@@ -314,6 +372,10 @@ export default function TodayQuickActionsClient() {
     () => [signals.trainingState === "workout", signals.nutritionReady, signals.checkinDoneThisWeek].filter(Boolean).length,
     [signals.checkinDoneThisWeek, signals.nutritionReady, signals.trainingState],
   );
+  const dailyProgressPercent = Math.round((completedGoals / 3) * 100);
+  const nutritionProgressPercent = Math.round(Math.min((signals.nutritionConsumedCalories / (signals.nutritionTargetCalories || 1)) * 100, 100));
+  const checkinProgressPercent = signals.checkinDoneThisWeek ? 100 : 35;
+  const aiLockReason = signals.aiTokenBalance <= 0 ? "Sin tokens" : signals.subscriptionPlan === "FREE" ? "Plan Free" : null;
 
   const trainingDescription =
     signals.trainingState === "workout"
@@ -334,20 +396,19 @@ export default function TodayQuickActionsClient() {
   const todayTrainingHref = signals.trainingDayKey ? `${trainingRoute}?day=${signals.trainingDayKey}` : trainingRoute;
 
   return (
-    <Stack gap="6">
-      <header className="flex items-start justify-between gap-4 px-1 pt-1">
-        <div className="min-w-0">
-          <h1 className="m-0 text-2xl font-semibold text-primary md:text-3xl">Buenos días, {userName}</h1>
-          <p className="m-0 mt-2 text-sm text-muted md:text-base">Tu plan de hoy está listo</p>
+    <div className="flex flex-col gap-6">
+      <header className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <h1 className="m-0 text-2xl font-bold text-primary">Buenos días, {userName}</h1>
+          {signals.streakDays > 0 && (
+            <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1 text-sm font-semibold text-amber-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+              </svg>
+              {signals.streakDays} días
+            </span>
+          )}
         </div>
-        {signals.streakDays > 0 ? (
-          <span
-            className="shrink-0 rounded-full border border-amber-300/40 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-100"
-            aria-label={t("today.streakChip", { days: signals.streakDays })}
-          >
-            {t("today.streakChip", { days: signals.streakDays })}
-          </span>
-        ) : null}
       </header>
 
       {status === "loading" ? <TodaySkeleton /> : null}
@@ -357,113 +418,169 @@ export default function TodayQuickActionsClient() {
         <>
           {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamiento" /> : null}
 
-          <h2 className="m-0 px-1 text-sm font-semibold uppercase tracking-[0.08em] text-muted">Acciones de hoy</h2>
-
-          <Section className="space-y-0" data-testid="today-actions-grid">
-            <div className="grid gap-6 md:grid-cols-2 xl:gap-8">
-              <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-muted text-accent">
-                    <PremiumWorkoutIcon width={22} height={22} />
-                  </div>
-                  <div>
-                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-muted">{t("today.trainingCardEyebrow")}</p>
-                    <h2 className="mt-1 text-xl font-semibold text-primary">{t("today.trainingHeroTitle")}</h2>
-                  </div>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {/* Card 1: Entrenamiento */}
+            <section className="card xl:col-span-2">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
+                  <PremiumWorkoutIcon width={28} height={28} className="text-primary" />
                 </div>
-                <p className="text-sm text-muted">{trainingDescription}</p>
-                <p className="mt-2 text-xs text-muted">{trainingMeta}</p>
-                <ProgressBar value={completedGoals} total={3} className="mt-3" />
-
-                {signals.trainingState === "no-plan" ? (
-                  <div className="mt-6 space-y-2">
-                    <ButtonLink as={Link} href={manualPlanRoute} size="lg" className="min-h-12 w-full">
-                      {t("today.trainingManualCta")}
-                    </ButtonLink>
-                    <Button
-                      size="lg"
-                      variant="secondary"
-                      className="min-h-12 w-full"
-                      disabled={!hasAiAccess}
-                      onClick={() => {
-                        if (!hasAiAccess) return;
-                        router.push(aiPlanRoute);
-                      }}
-                    >
-                      {t("today.trainingAiCta")}
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    size="lg"
-                    className="mt-6 min-h-12 w-full"
-                    onClick={() => {
-                      if (!signals.hasTrainingAccess) {
-                        router.push(billingRoute);
-                        return;
-                      }
-                      router.push(signals.trainingState === "workout" ? todayTrainingHref : trainingRoute);
-                    }}
-                  >
-                    {!signals.hasTrainingAccess
-                      ? t("today.unlockCta")
-                      : signals.trainingState === "rest"
-                        ? "Ver semana"
-                        : t("today.trainingHeroCta")}
-                  </Button>
-                )}
-              </Card>
-
-              <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-success-muted text-success">
-                    <PremiumNutritionIcon width={22} height={22} />
-                  </div>
-                  <div>
-                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-muted">{t("today.nutritionCardEyebrow")}</p>
-                    <h2 className="mt-1 text-xl font-semibold text-primary">{t("today.nutritionCardTitle")}</h2>
-                  </div>
+                <div>
+                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Entrenamiento de hoy</p>
+                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">{signals.trainingState === "workout" ? signals.trainingName : signals.trainingState === "rest" ? "Descanso" : "Sin plan"}</h2>
                 </div>
-                <div className="mt-1 flex items-center gap-4">
-                  <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} />
-                  <div>
-                    <p className="m-0 text-sm text-muted">{signals.nutritionConsumedCalories} kcal consumidas</p>
-                    <p className="m-0 mt-1 text-xs text-muted">Objetivo: {signals.nutritionTargetCalories ?? "--"} kcal</p>
-                  </div>
+              </div>
+              
+              {signals.trainingState === "workout" && (
+                <div className="flex items-center gap-4 mb-4 text-sm text-muted">
+                  {signals.trainingDuration ? (
+                    <span className="flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      {signals.trainingDuration} min
+                    </span>
+                  ) : null}
+                  <span className="flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 10v4"/><path d="M21 10v4"/></svg>
+                    {signals.trainingExerciseCount} ejercicios
+                  </span>
                 </div>
-                <ButtonLink as={Link} href="/app/nutricion" size="lg" className="mt-6 min-h-12 w-full">
-                  {t("today.nutritionPrimaryCta")}
-                </ButtonLink>
-              </Card>
+              )}
 
-              <Card variant="glass" hoverable className="rounded-2xl p-6 md:p-7" data-testid="today-action-card">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-info-muted text-info">
-                    <PremiumProgressIcon width={22} height={22} />
-                  </div>
-                  <div>
-                    <p className="m-0 text-xs uppercase tracking-[0.1em] text-muted">{t("today.progressCardEyebrow")}</p>
-                    <h2 className="mt-1 text-xl font-semibold text-primary">{t("today.progressCardTitle")}</h2>
-                  </div>
-                </div>
-                <p className="text-3xl font-semibold text-success">
-                  {signals.currentWeightKg ? `${signals.currentWeightKg.toFixed(1)} kg` : "--"}
-                </p>
-                <p className="mt-1 text-sm text-muted">{t("today.hubProgress", { completed: completedGoals, total: 3 })}</p>
-                <p className="mt-1 text-xs text-muted">{t("today.streakChip", { days: signals.streakDays })}</p>
-                <div className="mt-6 space-y-2">
-                  <Button className="min-h-12 w-full" size="lg" onClick={() => void handleLogTodayCheckin()} loading={checkinActionStatus === "loading"} data-testid="quick-action-tracking">
-                    {signals.checkinDoneThisWeek ? t("today.checkinSecondaryCta") : t("today.checkinPrimaryCta")}
-                  </Button>
-                  <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" size="lg" className="min-h-12 w-full">
-                    {t("today.progressCardCta")}
+              <ProgressMetric label="Progreso" percent={dailyProgressPercent} color="var(--color-primary)" />
+
+              {signals.trainingState === "no-plan" ? (
+                <div className="space-y-2">
+                  <ButtonLink as={Link} href={manualPlanRoute} className="flex w-full h-12 rounded-xl font-semibold">
+                    {t("today.trainingManualCta")}
                   </ButtonLink>
+                  <Button variant="secondary" className="flex w-full h-12 rounded-xl font-medium" disabled={!hasAiAccess} onClick={() => hasAiAccess && router.push(aiPlanRoute)}>
+                    {t("today.trainingAiCta")}
+                  </Button>
                 </div>
-              </Card>
-            </div>
-          </Section>
+              ) : (
+                <Button className="flex w-full h-12 rounded-xl font-semibold" onClick={() => {
+                  if (!signals.hasTrainingAccess) { router.push(billingRoute); return; }
+                  router.push(signals.trainingState === "workout" ? todayTrainingHref : trainingRoute);
+                }}>
+                  {signals.trainingState === "rest" ? "Ver semana" : "Empezar entrenamiento"}
+                </Button>
+              )}
+            </section>
+
+            {/* Card 2: Nutrición */}
+            <section className="card">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/20">
+                  <PremiumNutritionIcon width={28} height={28} className="text-success" />
+                </div>
+                <div>
+                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Nutrición</p>
+                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Calorías</h2>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 mb-5">
+                <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} />
+                <div className="flex-1">
+                  <div className="mb-3">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-muted">Consumidas</span>
+                      <span className="font-semibold text-primary">{signals.nutritionConsumedCalories} kcal</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted">{Math.max(0, (signals.nutritionTargetCalories || 0) - signals.nutritionConsumedCalories)} kcal restantes</p>
+                  <ProgressMetric label="Objetivo diario" percent={nutritionProgressPercent} color="var(--color-success)" />
+                </div>
+              </div>
+
+              <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="flex w-full h-12 rounded-xl font-medium">
+                Ver plan
+              </ButtonLink>
+            </section>
+
+            {/* Card 3: Check-in */}
+            <section className="card">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-info/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-info">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Check-in</p>
+                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Peso actual</h2>
+                </div>
+              </div>
+
+              <div className="flex items-baseline gap-2 mb-5">
+                <span className="text-5xl font-bold text-primary">{signals.currentWeightKg ? signals.currentWeightKg.toFixed(1) : "--"}</span>
+                <span className="text-xl text-muted">kg</span>
+              </div>
+
+              <ProgressMetric label="Meta: -5 kg" percent={checkinProgressPercent} color="var(--color-info)" />
+
+              <Button className="flex w-full h-12 rounded-xl font-medium" onClick={() => void handleLogTodayCheckin()} loading={checkinActionStatus === "loading"}>
+                {signals.checkinDoneThisWeek ? "Actualizar" : "Registrar"}
+              </Button>
+            </section>
+
+            {/* Card 4: Progreso - solo desktop */}
+            <section className="hidden xl:block card">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-warning/20">
+                  <PremiumProgressIcon width={28} height={28} className="text-warning" />
+                </div>
+                <div>
+                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Progreso</p>
+                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Semanal</h2>
+                </div>
+              </div>
+
+              <ProgressMetric label="Completado" percent={dailyProgressPercent} color="var(--color-warning)" />
+
+              <p className="text-base text-muted mb-5">{completedGoals} de 3 acciones</p>
+
+              <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" className="flex w-full h-12 rounded-xl font-medium">
+                Ver más
+              </ButtonLink>
+            </section>
+
+            <section className="card">
+              <div className="flex items-center gap-4 mb-5">
+                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${signals.canGenerateTrainingAi ? "bg-primary/20" : "bg-muted"}`}>
+                  <PremiumWorkoutIcon width={28} height={28} className={signals.canGenerateTrainingAi ? "text-primary" : "text-muted"} />
+                </div>
+                <div>
+                  <p className="m-0 text-xs uppercase tracking-wider text-muted">IA entrenamiento</p>
+                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Generar plan</h2>
+                </div>
+              </div>
+              <p className="mb-5 text-sm text-muted">Crea una rutina con IA segun tu perfil.</p>
+              <ProgressMetric label="Tokens disponibles" percent={Math.min(signals.aiTokenBalance * 10, 100)} color={signals.canGenerateTrainingAi ? "var(--color-primary)" : "#7c8799"} />
+              <Button className="flex w-full h-12 rounded-xl font-medium" variant={signals.canGenerateTrainingAi ? "primary" : "secondary"} disabled={!signals.canGenerateTrainingAi} title={aiLockReason ?? undefined} onClick={() => router.push("/app/entrenamiento?ai=1")}>
+                {signals.canGenerateTrainingAi ? "Generar con IA" : aiLockReason ?? "No disponible"}
+              </Button>
+            </section>
+
+            <section className="card">
+              <div className="flex items-center gap-4 mb-5">
+                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${signals.canGenerateNutritionAi ? "bg-success/20" : "bg-muted"}`}>
+                  <PremiumNutritionIcon width={28} height={28} className={signals.canGenerateNutritionAi ? "text-success" : "text-muted"} />
+                </div>
+                <div>
+                  <p className="m-0 text-xs uppercase tracking-wider text-muted">IA nutricion</p>
+                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Generar dieta</h2>
+                </div>
+              </div>
+              <p className="mb-5 text-sm text-muted">Genera una dieta con IA adaptada a tu objetivo.</p>
+              <ProgressMetric label="Tokens disponibles" percent={Math.min(signals.aiTokenBalance * 10, 100)} color={signals.canGenerateNutritionAi ? "var(--color-success)" : "#7c8799"} />
+              <Button className="flex w-full h-12 rounded-xl font-medium" variant={signals.canGenerateNutritionAi ? "primary" : "secondary"} disabled={!signals.canGenerateNutritionAi} title={aiLockReason ?? undefined} onClick={() => router.push("/app/nutricion?ai=1")}>
+                {signals.canGenerateNutritionAi ? "Generar con IA" : aiLockReason ?? "No disponible"}
+              </Button>
+            </section>
+          </div>
         </>
       ) : null}
-    </Stack>
+    </div>
   );
 }

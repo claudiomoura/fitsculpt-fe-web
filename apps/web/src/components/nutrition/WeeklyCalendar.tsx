@@ -50,18 +50,18 @@ export function WeeklyCalendar({
 }: WeeklyCalendarProps) {
   return (
     <div className="calendar-week stack-sm">
-      <div className="calendar-range">
-        <button type="button" className="btn secondary fit-content" aria-label={previousWeekAriaLabel} onClick={onPreviousWeek}>
-          {previousWeekLabel}
+      <div className="calendar-range calendar-range--compact">
+        <button type="button" className="btn-sm" aria-label={previousWeekAriaLabel} onClick={onPreviousWeek}>
+          ←
         </button>
-        <div>
+        <div className="calendar-range-info">
           <strong>
             {weekLabel} {weekNumber}
           </strong>
           <span className="muted">{weekRangeLabel}</span>
         </div>
-        <button type="button" className="btn secondary fit-content" aria-label={nextWeekAriaLabel} onClick={onNextWeek} disabled={nextWeekDisabled}>
-          {nextWeekLabel}
+        <button type="button" className="btn-sm" aria-label={nextWeekAriaLabel} onClick={onNextWeek} disabled={nextWeekDisabled}>
+          →
         </button>
       </div>
 

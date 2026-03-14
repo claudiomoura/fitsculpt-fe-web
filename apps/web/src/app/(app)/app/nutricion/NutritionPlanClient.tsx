@@ -1101,7 +1101,18 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const highlightedDayKey = selectedVisiblePlanDay?.date ? toDateKey(selectedVisiblePlanDay.date) : toDateKey(selectedDate);
   const highlightedMeals = highlightedDay?.meals ?? [];
   const highlightedMealsByType = useMemo(() => {
-    const mealOrder: NutritionMeal["type"][] = ["breakfast", "lunch", "dinner", "snack"];
+    const mealsPerDay = profile?.nutritionPreferences.mealsPerDay ?? 3;
+    const mealOrder: NutritionMeal["type"][] = mealsPerDay === 1
+      ? ["lunch"]
+      : mealsPerDay === 2
+        ? ["breakfast", "dinner"]
+        : mealsPerDay === 3
+          ? ["breakfast", "lunch", "dinner"]
+          : mealsPerDay === 4
+            ? ["breakfast", "snack", "lunch", "dinner"]
+            : mealsPerDay === 5
+              ? ["breakfast", "snack", "lunch", "snack", "dinner"]
+              : ["breakfast", "snack", "lunch", "snack", "dinner", "snack"];
     return mealOrder.map((mealType) => {
       const meal = highlightedMeals.find((entry) => entry.type === mealType) ?? null;
       return {
@@ -1117,7 +1128,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         meal,
       };
     });
-  }, [highlightedMeals, t]);
+  }, [highlightedMeals, profile?.nutritionPreferences.mealsPerDay, t]);
   const highlightedMealsTotals = useMemo(
     () =>
       highlightedMeals.reduce(
@@ -1181,21 +1192,25 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         id: "objective-kcal",
         label: t("nutrition.calories"),
         value: `${visiblePlan?.dailyCalories ?? 0} ${t("units.kcal")}`,
+        tone: "primary" as const,
       },
       {
         id: "objective-protein",
         label: t("nutrition.protein"),
         value: `${visiblePlan?.proteinG ?? 0} ${t("nutrition.grams")}`,
+        tone: "success" as const,
       },
       {
         id: "objective-carbs",
         label: t("nutrition.carbs"),
         value: `${visiblePlan?.carbsG ?? 0} ${t("nutrition.grams")}`,
+        tone: "warning" as const,
       },
       {
         id: "objective-fat",
         label: t("nutrition.fat"),
         value: `${visiblePlan?.fatG ?? 0} ${t("nutrition.grams")}`,
+        tone: "primary" as const,
       },
     ],
     [t, visiblePlan?.carbsG, visiblePlan?.dailyCalories, visiblePlan?.fatG, visiblePlan?.proteinG]
@@ -2430,21 +2445,6 @@ const nutritionPlanDetails = profile ? (
                       <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
                       <ObjectiveGrid items={objectiveItems} className="nutrition-v2-objective-grid" />
                     </div>
-                    <article className="feature-card stack-sm">
-                      <div className="inline-actions-sm">
-                        <Icon name="sparkles" />
-                        <strong>{t("nutrition.aiGenerate")}</strong>
-                      </div>
-                      <p className="muted">{t("nutrition.tips")}</p>
-                      <div className="inline-actions-sm">
-                        <Button data-testid="nutrition-generate-ai-secondary" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
-                          {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                        </Button>
-                        <ButtonLink variant="secondary" href="/app/nutricion/editar">
-                          {t("nutrition.aiErrorState.adjustGoals")}
-                        </ButtonLink>
-                      </div>
-                    </article>
                   </div>
 
                   <div className="nutrition-v2-calendar-head">
@@ -2554,14 +2554,6 @@ const nutritionPlanDetails = profile ? (
                             imageUrl={getMealMediaUrl(meal)}
                             onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
                             className="meal-card--horizontal"
-                          />
-                          <MealCardCompact
-                            title={getMealTitle(meal, t)}
-                            subtitle={getMealTypeLabel(meal, t)}
-                            kcal={meal.macros.calories}
-                            imageSrc={getMealMediaUrl(meal)}
-                            imageAlt={getMealTitle(meal, t)}
-                            onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
                           />
                         </div>
                       );

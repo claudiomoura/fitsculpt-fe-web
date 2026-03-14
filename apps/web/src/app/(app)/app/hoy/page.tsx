@@ -5,7 +5,7 @@ export default async function TodayPage() {
   return (
     <PageContainer
       as="main"
-      maxWidth="lg"
+      maxWidth="xl"
       className="py-6 md:py-10"
       data-testid="today-page"
     >
