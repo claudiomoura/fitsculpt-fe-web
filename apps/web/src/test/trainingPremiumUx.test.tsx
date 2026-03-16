@@ -3,12 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultProfile } from "@/lib/profile";
 import { renderWithProviders, resetMockNavigation, setMockPathname } from "@/test/utils/renderWithProviders";
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => "/app/entrenamiento",
-  useSearchParams: () => new URLSearchParams(),
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
-}));
-
 import TrainingPlanClient from "@/app/(app)/app/entrenamiento/TrainingPlanClient";
 
 const today = new Date();
@@ -58,7 +52,9 @@ function mockResponse(payload: unknown, status = 200): Response {
 function setupFetchMock(
   planExercises: Array<Record<string, unknown>>,
   exerciseFetchHandler?: (url: string) => Response | null,
+  options?: { hasWorkoutForToday?: boolean }
 ) {
+  const hasWorkoutForToday = options?.hasWorkoutForToday ?? true;
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url === "/api/ai/quota") {
@@ -87,13 +83,17 @@ function setupFetchMock(
       });
     }
     if (url === "/api/workouts") {
-      return mockResponse([
-        {
-          id: "workout-1",
-          name: "Fuerza",
-          scheduledAt: `${todayKey}T08:00:00.000Z`,
-        },
-      ]);
+      return mockResponse(
+        hasWorkoutForToday
+          ? [
+              {
+                id: "workout-1",
+                name: "Fuerza",
+                scheduledAt: `${todayKey}T08:00:00.000Z`,
+              },
+            ]
+          : []
+      );
     }
 
     const handled = exerciseFetchHandler?.(url) ?? null;
@@ -265,6 +265,54 @@ describe("Training premium UX from plan", () => {
 
     await screen.findByRole("heading", { name: /Descanso/i });
 
-    expect(screen.queryByRole("link", { name: /Empezar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Empezar/i })).not.toBeInTheDocument();
+  });
+
+  it("creates workout when selected day has no existing workout", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url === "/api/auth/me") return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+      if (url.startsWith("/api/training-plans/active")) {
+        return mockResponse({
+          source: "assigned",
+          plan: {
+            id: "plan-1",
+            title: "Plan premium",
+            startDate: today.toISOString(),
+            days: [
+              {
+                label: "Dia 1",
+                focus: "Fuerza",
+                duration: 50,
+                date: todayKey,
+                exercises: [{ name: "Press banca", sets: "4", reps: "8" }],
+              },
+            ],
+          },
+        });
+      }
+      if (url === "/api/workouts") {
+        if (init?.method === "POST") return mockResponse({ id: "workout-new" });
+        const callCount = fetchMock.mock.calls.filter(([call]) => String(call) === "/api/workouts").length;
+        if (callCount <= 1) return mockResponse([]);
+        return mockResponse([{ id: "workout-new", name: "Fuerza", scheduledAt: `${todayKey}T12:00:00.000Z` }]);
+      }
+      return mockResponse({});
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    renderWithProviders(<TrainingPlanClient />);
+
+    const startButton = await screen.findByRole("button", { name: /Empezar/i });
+    fireEvent.click(startButton);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([input, init]) => String(input) === "/api/workouts" && (init as RequestInit | undefined)?.method === "POST"
+        )
+      ).toBe(true);
+    });
   });
 });

@@ -119,6 +119,11 @@ type WorkoutLookupItem = {
   scheduledAt?: string | null;
 };
 
+type PlanEntry = {
+  date: Date;
+  day: TrainingDay;
+};
+
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
   try {
     const quotaResponse = await fetch("/api/ai/quota", { cache: "no-store", credentials: "include" });
@@ -357,6 +362,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [exerciseCatalogById, setExerciseCatalogById] = useState<Record<string, ExerciseCatalogItem>>({});
   const [exerciseCatalogByName, setExerciseCatalogByName] = useState<Record<string, ExerciseCatalogItem>>({});
   const [workoutsByDate, setWorkoutsByDate] = useState<Record<string, WorkoutLookupItem[]>>({});
+  const [startCtaLoading, setStartCtaLoading] = useState(false);
+  const [detailsCtaLoading, setDetailsCtaLoading] = useState(false);
   const requestedCatalogExerciseIds = useRef<Set<string>>(new Set());
   const requestedCatalogExerciseNames = useRef<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -377,6 +384,33 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const renderedTokenToastId = useRef(0);
   const urlSyncInitialized = useRef(false);
   const isManualView = mode === "manual";
+
+  const normalizeWorkoutDateKey = (scheduledAt?: string | null) => {
+    if (!scheduledAt) return null;
+    const parsed = new Date(scheduledAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return toDateKey(parsed);
+  };
+
+  const loadWorkoutsForLookup = async (activeRef: { current: boolean }) => {
+    try {
+      const response = await fetch("/api/workouts", { cache: "no-store", credentials: "include" });
+      if (!response.ok || !activeRef.current) return;
+      const payload = (await response.json()) as WorkoutLookupItem[];
+      if (!activeRef.current || !Array.isArray(payload)) return;
+
+      const grouped: Record<string, WorkoutLookupItem[]> = {};
+      payload.forEach((workout) => {
+        const dateKey = normalizeWorkoutDateKey(workout.scheduledAt);
+        if (!dateKey) return;
+        grouped[dateKey] = grouped[dateKey] ? [...grouped[dateKey], workout] : [workout];
+      });
+
+      setWorkoutsByDate(grouped);
+    } catch (_err) {
+      if (!activeRef.current) return;
+    }
+  };
 
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -414,38 +448,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, []);
 
   useEffect(() => {
-    let active = true;
-
-    const normalizeWorkoutDateKey = (scheduledAt?: string | null) => {
-      if (!scheduledAt) return null;
-      const parsed = new Date(scheduledAt);
-      if (Number.isNaN(parsed.getTime())) return null;
-      return toDateKey(parsed);
-    };
-
-    const loadWorkoutsForLookup = async () => {
-      try {
-        const response = await fetch("/api/workouts", { cache: "no-store", credentials: "include" });
-        if (!response.ok) return;
-        const payload = (await response.json()) as WorkoutLookupItem[];
-        if (!active || !Array.isArray(payload)) return;
-
-        const grouped: Record<string, WorkoutLookupItem[]> = {};
-        payload.forEach((workout) => {
-          const dateKey = normalizeWorkoutDateKey(workout.scheduledAt);
-          if (!dateKey) return;
-          grouped[dateKey] = grouped[dateKey] ? [...grouped[dateKey], workout] : [workout];
-        });
-
-        setWorkoutsByDate(grouped);
-      } catch (_err) {
-        if (!active) return;
-      }
-    };
-
-    void loadWorkoutsForLookup();
+    const ref = { current: true };
+    void loadWorkoutsForLookup(ref);
     return () => {
-      active = false;
+      ref.current = false;
     };
   }, []);
 
@@ -1199,10 +1205,94 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
     return candidates[0]?.id ?? null;
   };
-  const selectedWorkoutId = pickWorkoutIdForDate(selectedEntryDate, selectedEntry?.day.focus);
   const nextPlannedWorkoutId = nextPlannedEntry ? pickWorkoutIdForDate(nextPlannedEntry.date, nextPlannedEntry.day.focus) : null;
-  const selectedWorkoutStartHref = selectedWorkoutId ? `/app/entrenamientos/${encodeURIComponent(selectedWorkoutId)}/start` : "/app/workouts";
-  const nextWorkoutDetailsHref = nextPlannedWorkoutId ? `/app/entrenamiento/${encodeURIComponent(nextPlannedWorkoutId)}` : "/app/workouts";
+
+  const parseRepsFromSets = (sets: string | number) => {
+    if (typeof sets !== "string") return null;
+    const match = sets.match(/x\s*(.+)$/i);
+    return match?.[1]?.trim() || null;
+  };
+
+  const buildWorkoutPayload = (entry: PlanEntry) => {
+    const isoDate = new Date(`${toDateKey(entry.date)}T12:00:00`).toISOString();
+    return {
+      name: entry.day.focus || entry.day.label || safeT("training.calendarTitle", "Plan de entrenamiento"),
+      notes: `${safeT("training.dayLabel", "Dia")}: ${entry.day.label}`,
+      scheduledAt: isoDate,
+      durationMin: entry.day.duration || 45,
+      exercises: (entry.day.exercises ?? []).map((exercise, index) => ({
+        exerciseId: getExerciseIdentifier(exercise) ?? undefined,
+        name: exercise.name,
+        sets: String(exercise.sets ?? "").trim() || undefined,
+        reps: (() => {
+          const value = exercise.reps ?? parseRepsFromSets(exercise.sets);
+          return value ? String(value) : undefined;
+        })(),
+        notes: exercise.notes ?? undefined,
+        order: index,
+      })),
+    };
+  };
+
+  const ensureWorkoutIdForEntry = async (entry: PlanEntry) => {
+    const existingId = pickWorkoutIdForDate(entry.date, entry.day.focus);
+    if (existingId) return existingId;
+
+    const createResponse = await fetch("/api/workouts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(buildWorkoutPayload(entry)),
+    });
+    if (!createResponse.ok) return null;
+
+    const created = (await createResponse.json()) as WorkoutLookupItem | null;
+    const createdId = created?.id ?? null;
+    if (!createdId) return null;
+
+    const refreshed = { current: true };
+    await loadWorkoutsForLookup(refreshed);
+    return createdId;
+  };
+
+  const openSelectedDayStart = async () => {
+    if (!selectedEntry || !selectedDayHasWorkout || startCtaLoading) return;
+    setStartCtaLoading(true);
+    try {
+      const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
+      if (!workoutId) {
+        notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
+        router.push("/app/workouts");
+        return;
+      }
+      router.push(`/app/entrenamientos/${encodeURIComponent(workoutId)}/start`);
+    } catch (_err) {
+      notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
+      router.push("/app/workouts");
+    } finally {
+      setStartCtaLoading(false);
+    }
+  };
+
+  const openNextDayDetails = async () => {
+    if (!nextPlannedEntry || !nextEntryHasWorkout || detailsCtaLoading) return;
+    setDetailsCtaLoading(true);
+    try {
+      const workoutId = nextPlannedWorkoutId ?? (await ensureWorkoutIdForEntry(nextPlannedEntry));
+      if (!workoutId) {
+        notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
+        router.push("/app/workouts");
+        return;
+      }
+      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}`);
+    } catch (_err) {
+      notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
+      router.push("/app/workouts");
+    } finally {
+      setDetailsCtaLoading(false);
+    }
+  };
+
   const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => entry.date.getTime() < today.getTime()).length;
   const totalPlannedSessions = Math.max(visiblePlanEntries.length, 1);
   const progressPercent = Math.min(100, Math.round((estimatedCompletedSessions / totalPlannedSessions) * 100));
@@ -1424,12 +1514,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       >
                         {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
                       </button>
-                      <Link
+                      <button
+                        type="button"
                         className="btn rounded-xl h-11 font-semibold"
-                        href={selectedWorkoutStartHref}
+                        onClick={() => void openSelectedDayStart()}
+                        disabled={startCtaLoading}
                       >
-                        {safeT("training.startSession", "Empezar")}
-                      </Link>
+                        {startCtaLoading ? t("ui.loading") : safeT("training.startSession", "Empezar")}
+                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -1666,9 +1758,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             </p>
                           </div>
                           {nextEntryHasWorkout ? (
-                            <Link className="btn rounded-xl h-11" href={nextWorkoutDetailsHref}>
-                              {safeT("training.detailsCta", "Detalles")}
-                            </Link>
+                            <button
+                              type="button"
+                              className="btn rounded-xl h-11"
+                              onClick={() => void openNextDayDetails()}
+                              disabled={detailsCtaLoading}
+                            >
+                              {detailsCtaLoading ? t("ui.loading") : safeT("training.detailsCta", "Detalles")}
+                            </button>
                           ) : null}
                         </div>
                       ) : null}
