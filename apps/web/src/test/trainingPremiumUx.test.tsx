@@ -315,4 +315,12 @@ describe("Training premium UX from plan", () => {
       ).toBe(true);
     });
   });
+
+  it("renders details CTA in next workout card", async () => {
+    setupFetchMock([{ name: "Press banca", sets: "4", reps: "8" }]);
+
+    renderWithProviders(<TrainingPlanClient />);
+
+    expect(await screen.findByRole("button", { name: /Detalles/i })).toBeInTheDocument();
+  });
 });

@@ -790,6 +790,13 @@ main {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+.calendar-month-cell.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
+  border-color: transparent;
+  background: transparent;
+}
+
 .calendar-agenda {
   display: grid;
   gap: 10px;

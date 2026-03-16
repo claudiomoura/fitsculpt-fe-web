@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
-import { addDays, buildMonthGrid, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
-import { addWeeks, clampWeekOffset, getWeekOffsetFromCurrent, getWeekStart, projectDaysForWeek } from "@/lib/planProjection";
+import { addDays, differenceInDays, isSameDay, parseDate, toDateKey } from "@/lib/calendar";
+import { addWeeks, getWeekOffsetFromCurrent, getWeekStart, projectDaysForWeek } from "@/lib/planProjection";
 import {
   type Goal,
   type TrainingEquipment,
@@ -40,6 +40,8 @@ import { classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState, type AiErrorUiState } from "@/lib/aiErrorUi";
 import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 import { ExercisePlanDetailModal } from "@/components/exercise-library/detail/ExercisePlanDetailModal";
+import { TRAINING_ANALYTICS_TODO } from "./analytics";
+import { clampDayKeyToPlanStart, clampDateNotBefore, useTrainingCalendar } from "./hooks/useTrainingCalendar";
 
 type Exercise = {
   id?: string;
@@ -326,6 +328,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  void TRAINING_ANALYTICS_TODO;
   const safeT = (key: string, fallback: string) => {
     const value = t(key);
     return value === key ? fallback : value;
@@ -634,13 +637,17 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         .filter((entry): entry is { day: TrainingDay; index: number; date: Date } => Boolean(entry)),
     [planDays, planStartDate]
   );
-  const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
   const maxProjectedWeeksAhead = 3;
+  const {
+    planStartDate: normalizedPlanStartDate,
+    clampedSelectedDate,
+    weekStart,
+    minWeekStart,
+    canGoPrevWeek,
+    weekDates,
+    monthDates,
+  } = useTrainingCalendar(selectedDate, planStartDate);
   const weekOffset = useMemo(() => getWeekOffsetFromCurrent(weekStart), [weekStart]);
-  const clampedWeekOffset = useMemo(
-    () => clampWeekOffset(weekOffset, maxProjectedWeeksAhead),
-    [weekOffset, maxProjectedWeeksAhead]
-  );
   const modelWeekStart = useMemo(() => {
     if (planEntries.length > 0) {
       return getWeekStart(planEntries[0].date);
@@ -794,11 +801,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     });
     return next;
   }, [visiblePlanEntries]);
-  const weekDates = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);
-  const monthDates = useMemo(() => buildMonthGrid(selectedDate), [selectedDate]);
   const localeCode = locale === "es" ? "es-ES" : locale === "pt" ? "pt-PT" : "en-US";
-  const monthLabel = selectedDate.toLocaleDateString(localeCode, { month: "long", year: "numeric" });
-  const today = new Date();
+  const monthLabel = clampedSelectedDate.toLocaleDateString(localeCode, { month: "long", year: "numeric" });
+  const today = useMemo(() => clampDateNotBefore(new Date(), normalizedPlanStartDate), [normalizedPlanStartDate]);
   const calendarOptions = useMemo(() => [
     { value: "month", label: t("calendar.viewMonth") },
     { value: "week", label: t("calendar.viewWeek") },
@@ -821,10 +826,17 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, [manualPlan, savedPlan, plan, form, locale, t]);
 
   useEffect(() => {
-    if (!planStartDate || calendarInitialized.current) return;
+    if (!normalizedPlanStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
-    setSelectedDate(new Date());
-  }, [planStartDate]);
+    const todayDate = new Date();
+    setSelectedDate(clampDateNotBefore(todayDate, normalizedPlanStartDate));
+  }, [normalizedPlanStartDate]);
+
+  useEffect(() => {
+    if (!normalizedPlanStartDate) return;
+    if (selectedDate.getTime() === clampedSelectedDate.getTime()) return;
+    setSelectedDate(clampedSelectedDate);
+  }, [clampedSelectedDate, normalizedPlanStartDate, selectedDate]);
 
   const ensurePlanStartDate = (planData: TrainingPlan, date = new Date()) => {
     const baseDate = parseDate(planData.startDate) ?? date;
@@ -1108,7 +1120,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
     const params = new URLSearchParams(searchParamsString);
     const offset = getWeekOffsetFromCurrent(weekStart);
-    params.set("day", toDateKey(selectedDate));
+    const nextDayKey = clampDayKeyToPlanStart(toDateKey(clampedSelectedDate), normalizedPlanStartDate);
+    if (nextDayKey) {
+      params.set("day", nextDayKey);
+    } else {
+      params.delete("day");
+    }
     if (offset !== 0) {
       params.set("weekOffset", String(offset));
     } else {
@@ -1118,7 +1135,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     if (nextParamsString === searchParamsString) return;
     const nextUrl = `${pathname}${nextParamsString ? `?${nextParamsString}` : ""}`;
     router.replace(nextUrl, { scroll: false });
-  }, [pathname, router, searchParamsString, selectedDate, weekStart]);
+  }, [clampedSelectedDate, normalizedPlanStartDate, pathname, router, searchParamsString, weekStart]);
 
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
@@ -1179,8 +1196,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setExerciseDetail(null);
   };
   const todayKey = toDateKey(today);
-  const selectedEntry = visibleDayMap.get(toDateKey(selectedDate)) ?? null;
-  const selectedEntryDate = selectedDate;
+  const selectedEntry = visibleDayMap.get(toDateKey(clampedSelectedDate)) ?? null;
+  const selectedEntryDate = clampedSelectedDate;
   const selectedExercises = (selectedEntry?.day.exercises ?? []).map(mergeExerciseWithCatalog);
   const selectedDayIsRest = selectedExercises.length === 0;
   const nextPlannedEntry = visiblePlanEntries.find((entry) => entry.date.getTime() >= today.getTime()) ?? selectedEntry;
@@ -1206,6 +1223,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return candidates[0]?.id ?? null;
   };
   const nextPlannedWorkoutId = nextPlannedEntry ? pickWorkoutIdForDate(nextPlannedEntry.date, nextPlannedEntry.day.focus) : null;
+  const isSelectedDayToday = isSameDay(selectedEntryDate, today);
+  const displayWeekNumber = useMemo(() => {
+    const weekOneStart = minWeekStart ?? modelWeekStart;
+    return Math.max(1, Math.floor(differenceInDays(weekStart, weekOneStart) / 7) + 1);
+  }, [minWeekStart, modelWeekStart, weekStart]);
 
   const parseRepsFromSets = (sets: string | number) => {
     if (typeof sets !== "string") return null;
@@ -1262,13 +1284,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
       if (!workoutId) {
         notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
-        router.push("/app/workouts");
+        router.push("/app/entrenamiento");
         return;
       }
       router.push(`/app/entrenamientos/${encodeURIComponent(workoutId)}/start`);
     } catch (_err) {
       notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
-      router.push("/app/workouts");
+      router.push("/app/entrenamiento");
     } finally {
       setStartCtaLoading(false);
     }
@@ -1281,13 +1303,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const workoutId = nextPlannedWorkoutId ?? (await ensureWorkoutIdForEntry(nextPlannedEntry));
       if (!workoutId) {
         notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-        router.push("/app/workouts");
+        router.push("/app/entrenamiento");
         return;
       }
       router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}`);
     } catch (_err) {
       notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-      router.push("/app/workouts");
+      router.push("/app/entrenamiento");
     } finally {
       setDetailsCtaLoading(false);
     }
@@ -1301,6 +1323,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     day: "numeric",
     month: "short",
   });
+  const nextPlannedEntryDateLabel = nextPlannedEntry?.date.toLocaleDateString(localeCode, {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  }) ?? "";
   const resultBalancePlaceholder = lastGeneratedUsage?.balanceAfter ?? aiTokenBalance;
 
   useEffect(() => {
@@ -1500,6 +1527,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           ? safeT("training.restDayTitle", "Descanso")
                           : selectedEntry?.day?.focus || safeT("training.calendarTitle", "Plan de entrenamiento")}
                       </h2>
+                      {!selectedDayIsRest ? (
+                        <p className="muted m-0 mt-1">{isSelectedDayToday ? safeT("training.selectedDayTodayLabel", "Hoy") : selectedEntryDateLabel}</p>
+                      ) : null}
                     </div>
                   </div>
                   {selectedDayHasWorkout ? (
@@ -1519,6 +1549,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         className="btn rounded-xl h-11 font-semibold"
                         onClick={() => void openSelectedDayStart()}
                         disabled={startCtaLoading}
+                        aria-label={safeT("training.startSessionAria", "Empezar sesion del dia seleccionado")}
                       >
                         {startCtaLoading ? t("ui.loading") : safeT("training.startSession", "Empezar")}
                       </button>
@@ -1700,14 +1731,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           type="button"
                           className="btn secondary"
                           aria-label={t("calendar.previousWeekAria")}
-                          onClick={() => setSelectedDate((prev) => addWeeks(prev, -1))}
+                          onClick={() => setSelectedDate((prev) => clampDateNotBefore(addWeeks(prev, -1), normalizedPlanStartDate))}
+                          disabled={!canGoPrevWeek}
                         >
                           {t("calendar.previousWeek")}
                         </button>
                         <strong>
-                          {t("training.weekLabel")} {clampedWeekOffset + 1}
+                          {t("training.weekLabel")} {displayWeekNumber}
                         </strong>
-                        <span className="muted">{weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
+                        <span className="muted">{weekDates[0]?.toLocaleDateString(localeCode, { month: "short", day: "numeric" }) ?? weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {weekDates[weekDates.length - 1]?.toLocaleDateString(localeCode, { month: "short", day: "numeric" }) ?? addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
                         <button
                           type="button"
                           className="btn secondary"
@@ -1756,6 +1788,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                 ? `${nextPlannedEntry.day.duration} ${t("training.minutesLabel")} · ${nextPlannedEntry.day.exercises?.length ?? 0} ejercicios`
                                 : safeT("training.restDaySubtitle", "Dia de recuperacion activa.")}
                             </p>
+                            {nextPlannedEntryDateLabel ? <p className="muted m-0">{nextPlannedEntryDateLabel}</p> : null}
                           </div>
                           {nextEntryHasWorkout ? (
                             <button
@@ -1763,6 +1796,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                               className="btn rounded-xl h-11"
                               onClick={() => void openNextDayDetails()}
                               disabled={detailsCtaLoading}
+                              aria-label={safeT("training.detailsSessionAria", "Ver detalles del proximo entrenamiento")}
                             >
                               {detailsCtaLoading ? t("ui.loading") : safeT("training.detailsCta", "Detalles")}
                             </button>
@@ -1778,9 +1812,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         <strong>{monthLabel}</strong>
                       </div>
                       <div className="calendar-month-grid">
-                        {monthDates.map((date) => {
+                        {monthDates.map((date, index) => {
+                          if (!date) {
+                            return <div key={`empty-${index}`} className="calendar-month-cell is-hidden" aria-hidden="true" />;
+                          }
                           const entry = visibleDayMap.get(toDateKey(date));
-                          const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
+                          const isCurrentMonth = date.getMonth() === clampedSelectedDate.getMonth();
                           return (
                             <button
                               key={toDateKey(date)}
