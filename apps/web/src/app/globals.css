@@ -4397,6 +4397,38 @@ textarea:disabled {
   max-width: 100%;
 }
 
+.focus-app-frame {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 14% 10%, color-mix(in srgb, var(--color-primary) 18%, transparent) 0%, transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 96%, black 4%) 0%, var(--color-bg) 100%);
+}
+
+.focus-app-content {
+  min-height: 100dvh;
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+
+.focus-session-layout {
+  min-height: 100dvh;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+
+.focus-session-page {
+  min-height: 100dvh;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+}
+
+.focus-session-sticky-bar {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+
+@media (max-width: 900px) {
+  .focus-session-page {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 112px);
+  }
+}
+
 @media (max-width: 900px) {
   .site-header,
   .app-shell,
