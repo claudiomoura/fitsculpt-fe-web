@@ -5536,6 +5536,152 @@ html { scroll-behavior: smooth; }
   gap: 12px;
 }
 
+.training-week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.training-week-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.training-week-pill:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--border));
+}
+
+.training-week-pill-label,
+.training-week-pill-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.training-week-pill-date {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.training-week-pill-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 18px;
+  font-weight: 700;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}
+
+.training-week-pill.state-done .training-week-pill-icon {
+  background: var(--color-primary);
+  color: var(--bg);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.training-week-pill.state-planned .training-week-pill-icon {
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+  background: transparent;
+}
+
+.training-week-pill.is-selected {
+  border-color: color-mix(in srgb, var(--color-primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-card));
+}
+
+.training-next-card {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-muted) 55%, transparent);
+}
+
+.training-next-card-icon {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+}
+
+.training-next-card-eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.training-insight-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+}
+
+.training-insight-link-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}
+
+.training-insight-link-icon.is-accent {
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+}
+
+.training-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.training-stat-box {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-muted) 60%, transparent);
+  text-align: center;
+}
+
+.training-stat-box strong {
+  font-size: 24px;
+  color: var(--color-primary);
+}
+
+.training-stat-box span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 @media (min-width: 1080px) {
   .training-plan-layout {
     align-items: start;
@@ -5555,6 +5701,23 @@ html { scroll-behavior: smooth; }
 
   .training-plan-layout > .training-main-section {
     grid-column: 1;
+  }
+}
+
+@media (max-width: 720px) {
+  .training-week-strip {
+    gap: 8px;
+  }
+
+  .training-week-pill-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .training-next-card {
+    grid-template-columns: 1fr;
+    justify-items: start;
   }
 }
 

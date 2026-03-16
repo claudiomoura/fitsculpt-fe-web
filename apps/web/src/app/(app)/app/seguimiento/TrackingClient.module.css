@@ -37,6 +37,33 @@
   color: #fff;
 }
 
+.insightTabs {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 4px;
+  gap: 4px;
+  width: min(100%, 420px);
+  margin-bottom: 16px;
+}
+
+.insightTabButton {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.insightTabButtonActive {
+  background: color-mix(in srgb, var(--brand) 86%, #ffffff 14%);
+  color: #fff;
+}
+
 .overviewGrid {
   display: grid;
   gap: 16px;

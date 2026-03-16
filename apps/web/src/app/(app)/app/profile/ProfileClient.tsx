@@ -20,7 +20,7 @@ import {
   type TimerSound,
   type WorkoutLength,
 } from "@/lib/profile";
-import { getUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
+import { getUserProfile, updateUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
 import BodyFatSelector from "@/components/profile/BodyFatSelector";
 
 export default function ProfileClient() {
@@ -34,6 +34,8 @@ export default function ProfileClient() {
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [allergyInput, setAllergyInput] = useState("");
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarMessage, setAvatarMessage] = useState<string | null>(null);
 
   const formatMetric = (value: number | null | undefined, suffix: string) => {
     if (value === null || value === undefined) return t("profile.noData");
@@ -254,19 +256,57 @@ export default function ProfileClient() {
     setProfile(nextProfile);
   }
 
-  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const nextUrl = String(reader.result || "");
-      setProfile((prev) => ({ ...prev, profilePhotoUrl: nextUrl, avatarDataUrl: nextUrl }));
-    };
-    reader.readAsDataURL(file);
+  async function readFileAsDataUrl(file: File) {
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const nextUrl = String(reader.result || "");
+        if (!nextUrl) {
+          reject(new Error("avatar-empty"));
+          return;
+        }
+        resolve(nextUrl);
+      };
+      reader.onerror = () => reject(new Error("avatar-read-failed"));
+      reader.readAsDataURL(file);
+    });
   }
 
-  function removeAvatar() {
-    setProfile((prev) => ({ ...prev, profilePhotoUrl: null, avatarDataUrl: null }));
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarSaving(true);
+    setAvatarMessage(null);
+    try {
+      const nextUrl = await readFileAsDataUrl(file);
+      const nextProfile = await updateUserProfile({ profilePhotoUrl: nextUrl, avatarDataUrl: nextUrl });
+      setProfile((prev) => ({
+        ...prev,
+        ...nextProfile,
+        profilePhotoUrl: nextProfile.profilePhotoUrl ?? nextUrl,
+        avatarDataUrl: nextProfile.avatarDataUrl ?? nextUrl,
+      }));
+      window.dispatchEvent(new Event("auth:refresh"));
+    } catch (_err) {
+      setAvatarMessage(t("profile.avatarUploadError"));
+    } finally {
+      setAvatarSaving(false);
+      e.target.value = "";
+    }
+  }
+
+  async function removeAvatar() {
+    setAvatarSaving(true);
+    setAvatarMessage(null);
+    try {
+      const nextProfile = await updateUserProfile({ profilePhotoUrl: null, avatarDataUrl: null });
+      setProfile((prev) => ({ ...prev, ...nextProfile, profilePhotoUrl: null, avatarDataUrl: null }));
+      window.dispatchEvent(new Event("auth:refresh"));
+    } catch (_err) {
+      setAvatarMessage(t("profile.avatarRemoveError"));
+    } finally {
+      setAvatarSaving(false);
+    }
   }
 
   async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
@@ -291,7 +331,7 @@ export default function ProfileClient() {
   return (
     <div className="page">
       {/* Card 1: Avatar & Basics */}
-      <section className="card">
+      <section className="card" style={{ position: "relative" }}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.basicsTitle")}</h2>
         </div>
@@ -325,14 +365,46 @@ export default function ProfileClient() {
             <div className="form-stack" style={{ flex: 1, minWidth: 200 }}>
               <label className="form-stack">
                 {t("profile.avatarUpload")}
-                <input type="file" accept="image/*" onChange={handleAvatarUpload} />
+                <input type="file" accept="image/*" onChange={handleAvatarUpload} disabled={avatarSaving} />
               </label>
+              {avatarMessage ? <p className="muted m-0">{avatarMessage}</p> : null}
               {profile.profilePhotoUrl && (
-                <button type="button" className="btn secondary" onClick={removeAvatar}>
+                <button type="button" className="btn secondary" onClick={removeAvatar} disabled={avatarSaving}>
                   {t("profile.avatarRemove")}
                 </button>
               )}
             </div>
+          </div>
+
+          <div
+            style={{
+              position: "absolute",
+              right: 16,
+              bottom: 16,
+              width: 56,
+              height: 56,
+              borderRadius: 999,
+              overflow: "hidden",
+              border: "2px solid var(--border-color)",
+              background: "var(--bg-card)",
+              display: "grid",
+              placeItems: "center",
+              boxShadow: "0 8px 20px rgba(0,0,0,0.2)",
+            }}
+            aria-label={t("profile.avatarTitle")}
+          >
+            {profile.profilePhotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.profilePhotoUrl}
+                alt={t("profile.avatarTitle")}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--link-active)" }}>
+                {(profile.name || t("profile.avatarTitle")).slice(0, 2).toUpperCase()}
+              </span>
+            )}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>

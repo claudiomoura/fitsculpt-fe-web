@@ -113,6 +113,12 @@ type ExerciseCatalogItem = {
   videoUrl?: string | null;
 };
 
+type WorkoutLookupItem = {
+  id: string;
+  name?: string | null;
+  scheduledAt?: string | null;
+};
+
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
   try {
     const quotaResponse = await fetch("/api/ai/quota", { cache: "no-store", credentials: "include" });
@@ -349,7 +355,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
   const [exerciseDetail, setExerciseDetail] = useState<ExerciseDetailState | null>(null);
   const [exerciseCatalogById, setExerciseCatalogById] = useState<Record<string, ExerciseCatalogItem>>({});
+  const [exerciseCatalogByName, setExerciseCatalogByName] = useState<Record<string, ExerciseCatalogItem>>({});
+  const [workoutsByDate, setWorkoutsByDate] = useState<Record<string, WorkoutLookupItem[]>>({});
   const requestedCatalogExerciseIds = useRef<Set<string>>(new Set());
+  const requestedCatalogExerciseNames = useRef<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
     const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
@@ -401,6 +410,42 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     void loadProfile(ref);
     return () => {
       ref.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const normalizeWorkoutDateKey = (scheduledAt?: string | null) => {
+      if (!scheduledAt) return null;
+      const parsed = new Date(scheduledAt);
+      if (Number.isNaN(parsed.getTime())) return null;
+      return toDateKey(parsed);
+    };
+
+    const loadWorkoutsForLookup = async () => {
+      try {
+        const response = await fetch("/api/workouts", { cache: "no-store", credentials: "include" });
+        if (!response.ok) return;
+        const payload = (await response.json()) as WorkoutLookupItem[];
+        if (!active || !Array.isArray(payload)) return;
+
+        const grouped: Record<string, WorkoutLookupItem[]> = {};
+        payload.forEach((workout) => {
+          const dateKey = normalizeWorkoutDateKey(workout.scheduledAt);
+          if (!dateKey) return;
+          grouped[dateKey] = grouped[dateKey] ? [...grouped[dateKey], workout] : [workout];
+        });
+
+        setWorkoutsByDate(grouped);
+      } catch (_err) {
+        if (!active) return;
+      }
+    };
+
+    void loadWorkoutsForLookup();
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -536,12 +581,19 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return null;
   };
 
+  const getExerciseNameKey = (exerciseName?: string | null) => {
+    if (typeof exerciseName !== "string") return null;
+    const normalized = exerciseName.trim().toLowerCase().replace(/\s+/g, " ");
+    return normalized.length > 0 ? normalized : null;
+  };
+
   const getExerciseImageUrl = (exercise: Exercise) => getExerciseThumbUrl(exercise);
 
   const mergeExerciseWithCatalog = (exercise: Exercise): Exercise => {
     const exerciseId = getExerciseIdentifier(exercise);
-    if (!exerciseId) return exercise;
-    const catalogExercise = exerciseCatalogById[exerciseId];
+    const catalogExercise = exerciseId
+      ? exerciseCatalogById[exerciseId]
+      : exerciseCatalogByName[getExerciseNameKey(exercise.name) ?? ""];
     if (!catalogExercise) return exercise;
     return {
       ...exercise,
@@ -660,6 +712,75 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       active = false;
     };
   }, [exerciseCatalogById, planDays]);
+
+  useEffect(() => {
+    const exerciseNameQueries = new Map<string, string>();
+    planDays.forEach((day) => {
+      day.exercises.forEach((exercise) => {
+        if (getExerciseIdentifier(exercise)) return;
+        if (getExerciseImageUrl(exercise)) return;
+        const nameKey = getExerciseNameKey(exercise.name);
+        if (!nameKey || exerciseNameQueries.has(nameKey)) return;
+        exerciseNameQueries.set(nameKey, exercise.name.trim());
+      });
+    });
+
+    const missingNameKeys = Array.from(exerciseNameQueries.keys()).filter(
+      (nameKey) => !exerciseCatalogByName[nameKey] && !requestedCatalogExerciseNames.current.has(nameKey)
+    );
+    if (missingNameKeys.length === 0) return;
+
+    missingNameKeys.forEach((nameKey) => requestedCatalogExerciseNames.current.add(nameKey));
+
+    let active = true;
+    const loadCatalogByName = async () => {
+      const responses = await Promise.allSettled(
+        missingNameKeys.map(async (nameKey) => {
+          const query = exerciseNameQueries.get(nameKey);
+          if (!query) return null;
+          const params = new URLSearchParams();
+          params.set("query", query);
+          params.set("limit", "8");
+          params.set("page", "1");
+          params.set("offset", "0");
+          const response = await fetch(`/api/exercises?${params.toString()}`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (!response.ok) return null;
+
+          const payload = (await response.json()) as {
+            items?: ExerciseCatalogItem[];
+            data?: ExerciseCatalogItem[];
+          };
+          const candidates = Array.isArray(payload.items)
+            ? payload.items
+            : Array.isArray(payload.data)
+              ? payload.data
+              : [];
+          const byName = candidates.find((item) => getExerciseNameKey(item.name) === nameKey);
+          const candidate = byName ?? candidates[0] ?? null;
+          if (!candidate?.id) return null;
+          return { nameKey, item: candidate };
+        })
+      );
+      if (!active) return;
+
+      setExerciseCatalogByName((prev) => {
+        const next = { ...prev };
+        for (const result of responses) {
+          if (result.status !== "fulfilled" || !result.value) continue;
+          next[result.value.nameKey] = result.value.item;
+        }
+        return next;
+      });
+    };
+
+    void loadCatalogByName();
+    return () => {
+      active = false;
+    };
+  }, [exerciseCatalogByName, planDays]);
   const visibleDayMap = useMemo(() => {
     const next = new Map<string, { day: TrainingDay; index: number; date: Date; isReplicated: boolean }>();
     visiblePlanEntries.forEach((entry) => {
@@ -1052,17 +1173,36 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     setExerciseDetail(null);
   };
   const todayKey = toDateKey(today);
-  const selectedEntry = visibleDayMap.get(toDateKey(selectedDate))
-    ?? visibleDayMap.get(todayKey)
-    ?? projectedWeek.days[0]
-    ?? null;
-  const selectedEntryDate = selectedEntry?.date ?? selectedDate;
+  const selectedEntry = visibleDayMap.get(toDateKey(selectedDate)) ?? null;
+  const selectedEntryDate = selectedDate;
   const selectedExercises = (selectedEntry?.day.exercises ?? []).map(mergeExerciseWithCatalog);
+  const selectedDayIsRest = selectedExercises.length === 0;
+  const nextPlannedEntry = visiblePlanEntries.find((entry) => entry.date.getTime() >= today.getTime()) ?? selectedEntry;
   const detailExerciseId = exerciseDetail ? getExerciseIdentifier(exerciseDetail.exercise) : null;
   const dayEditorPlanId = selectedPlanId.trim();
   const dayEditorDay = toDateKey(selectedEntryDate);
   const canOpenDayEditor = Boolean(dayEditorPlanId && dayEditorDay);
   const dayEditorHref = `/app/entrenamiento/editar?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
+  const selectedDayHasWorkout = selectedExercises.length > 0;
+  const nextEntryHasWorkout = (nextPlannedEntry?.day.exercises?.length ?? 0) > 0;
+  const normalizeName = (value?: string | null) => (value ?? "").trim().toLowerCase();
+  const pickWorkoutIdForDate = (date: Date, focus?: string | null) => {
+    const dateKey = toDateKey(date);
+    const candidates = workoutsByDate[dateKey] ?? [];
+    if (candidates.length === 0) return null;
+
+    const focusName = normalizeName(focus);
+    if (focusName) {
+      const byName = candidates.find((candidate) => normalizeName(candidate.name).includes(focusName) || focusName.includes(normalizeName(candidate.name)));
+      if (byName?.id) return byName.id;
+    }
+
+    return candidates[0]?.id ?? null;
+  };
+  const selectedWorkoutId = pickWorkoutIdForDate(selectedEntryDate, selectedEntry?.day.focus);
+  const nextPlannedWorkoutId = nextPlannedEntry ? pickWorkoutIdForDate(nextPlannedEntry.date, nextPlannedEntry.day.focus) : null;
+  const selectedWorkoutStartHref = selectedWorkoutId ? `/app/entrenamientos/${encodeURIComponent(selectedWorkoutId)}/start` : "/app/workouts";
+  const nextWorkoutDetailsHref = nextPlannedWorkoutId ? `/app/entrenamiento/${encodeURIComponent(nextPlannedWorkoutId)}` : "/app/workouts";
   const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => entry.date.getTime() < today.getTime()).length;
   const totalPlannedSessions = Math.max(visiblePlanEntries.length, 1);
   const progressPercent = Math.min(100, Math.round((estimatedCompletedSessions / totalPlannedSessions) * 100));
@@ -1264,34 +1404,42 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       </svg>
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-muted">Entrenamiento de hoy</p>
-                      <h2 className="text-xl font-semibold text-primary mt-0.5">{selectedEntry?.day?.focus || safeT("training.calendarTitle", "Plan de entrenamiento")}</h2>
+                      <p className="text-xs uppercase tracking-wider text-muted">{safeT("training.dayTrainingTitle", "Entrenamiento del dia")}</p>
+                      <h2 className="text-xl font-semibold text-primary mt-0.5">
+                        {selectedDayIsRest
+                          ? safeT("training.restDayTitle", "Descanso")
+                          : selectedEntry?.day?.focus || safeT("training.calendarTitle", "Plan de entrenamiento")}
+                      </h2>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      className="btn secondary rounded-xl h-11"
-                      data-testid="training-generate-ai"
-                      onClick={handleGenerateClick}
-                      disabled={isAiDisabled}
-                      title={isAiLocked ? aiLockDescription : ""}
-                    >
-                      {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
-                    </button>
-                    <Link
-                      className="btn rounded-xl h-11 font-semibold"
-                      href="/app/entrenamientos"
-                    >
-                      {safeT("training.startSession", "Empezar")}
-                    </Link>
-                  </div>
+                  {selectedDayHasWorkout ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="btn secondary rounded-xl h-11"
+                        data-testid="training-generate-ai"
+                        onClick={handleGenerateClick}
+                        disabled={isAiDisabled}
+                        title={isAiLocked ? aiLockDescription : ""}
+                      >
+                        {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
+                      </button>
+                      <Link
+                        className="btn rounded-xl h-11 font-semibold"
+                        href={selectedWorkoutStartHref}
+                      >
+                        {safeT("training.startSession", "Empezar")}
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
 
                 <p className="muted training-hero-meta mt-3">
-                  {selectedEntry
-                    ? `${selectedEntry.day.duration} min · ${selectedEntry.day.exercises?.length || 0} ejercicios`
-                    : t("training.calendarEmptyFocus")}
+                  {!selectedDayHasWorkout
+                    ? safeT("training.restDaySubtitle", "Dia de recuperacion activa.")
+                    : selectedEntry
+                      ? `${selectedEntry.day.duration} min · ${selectedEntry.day.exercises?.length || 0} ejercicios`
+                      : t("training.calendarEmptyFocus")}
                 </p>
 
                 {isOutOfTokens ? <p className="muted mt-4">{t("ai.insufficientTokens")}</p> : null}
@@ -1455,7 +1603,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 <>
                   {calendarView === "week" ? (
                     <div className="calendar-week">
-                      <div className="calendar-range">
+                      <div className="calendar-range calendar-range--compact">
                         <button
                           type="button"
                           className="btn secondary"
@@ -1479,35 +1627,51 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         </button>
                         {projectedWeek.isReplicated ? <Badge variant="muted">{t("plan.replicatedWeekLabel")}</Badge> : null}
                       </div>
-                      <div className="calendar-week-grid">
+                      <div className="training-week-strip">
                         {weekDates.map((date) => {
                           const entry = visibleDayMap.get(toDateKey(date));
+                          const isSelected = isSameDay(date, selectedDate);
+                          const isPast = date.getTime() < today.getTime();
+                          const state = entry ? (isPast ? "done" : "planned") : "rest";
                           return (
                             <button
                               key={toDateKey(date)}
                               type="button"
-                              className={`calendar-day-card ${entry ? "has-plan" : "is-empty"} ${isSameDay(date, today) ? "is-today" : ""}`}
+                              className={`training-week-pill state-${state} ${isSameDay(date, today) ? "is-today" : ""} ${isSelected ? "is-selected" : ""}`}
                               onClick={() => {
                                 setSelectedDate(date);
                               }}
                             >
-                              <div className="calendar-day-card-header">
-                                <span>{date.toLocaleDateString(localeCode, { weekday: "short" })}</span>
-                                <strong>{date.getDate()}</strong>
+                              <span className="training-week-pill-label">{date.toLocaleDateString(localeCode, { weekday: "short" })}</span>
+                              <div className="training-week-pill-icon" aria-hidden="true">
+                                {state === "done" ? "✓" : state === "planned" ? "○" : "-"}
                               </div>
-                              {entry ? (
-                                <div className="calendar-day-card-body">
-                                  <span className="badge">{entry.day.label}</span>
-                                  <p className="muted">{entry.day.focus}</p>
-                                  <span className="calendar-dot" />
-                                </div>
-                              ) : (
-                                <p className="muted">{safeT("training.calendarEmptyShort", t("training.emptySubtitle"))}</p>
-                              )}
+                              <span className="training-week-pill-date">{date.getDate()}</span>
                             </button>
                           );
                         })}
                       </div>
+                      {nextPlannedEntry ? (
+                        <div className="training-next-card">
+                          <div className="training-next-card-icon">
+                            <Icon name="dumbbell" size={24} />
+                          </div>
+                          <div className="training-next-card-body">
+                            <p className="training-next-card-eyebrow">{safeT("training.nextWorkout", "Proximo entrenamiento")}</p>
+                            <strong>{nextEntryHasWorkout ? (nextPlannedEntry.day.focus || nextPlannedEntry.day.label) : safeT("training.restDayTitle", "Descanso")}</strong>
+                            <p className="muted">
+                              {nextEntryHasWorkout
+                                ? `${nextPlannedEntry.day.duration} ${t("training.minutesLabel")} · ${nextPlannedEntry.day.exercises?.length ?? 0} ejercicios`
+                                : safeT("training.restDaySubtitle", "Dia de recuperacion activa.")}
+                            </p>
+                          </div>
+                          {nextEntryHasWorkout ? (
+                            <Link className="btn rounded-xl h-11" href={nextWorkoutDetailsHref}>
+                              {safeT("training.detailsCta", "Detalles")}
+                            </Link>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -1565,13 +1729,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             <section className="card training-main-section">
               <div className="section-head">
                 <div>
-                  <h2 className="section-title section-title-sm">{safeT("training.todayTrainingTitle", "Ejercicios de hoy")}</h2>
+                  <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
                   <p className="section-subtitle">{selectedEntryDateLabel}</p>
                 </div>
               </div>
               <div className="exercise-list compact-exercise-list">
                 {selectedExercises.length === 0 ? (
-                  <p className="muted">{t("training.calendarEmptyDay")}</p>
+                  <div className="stack-sm">
+                    <p className="m-0 font-medium text-primary">{safeT("training.restDayTitle", "Descanso")}</p>
+                    <p className="muted m-0">{safeT("training.restDaySubtitle", "Hoy prioriza recuperacion activa, movilidad suave o una caminata corta.")}</p>
+                  </div>
                 ) : (
                   selectedExercises.map((exercise, index) => {
                     const exerciseId = getExerciseIdentifier(exercise);
@@ -1625,6 +1792,49 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
           {hasPlan && (
             <aside className="training-layout-insights">
+              <section className="card training-insights-card">
+                <button
+                  type="button"
+                  className="training-insight-link"
+                  onClick={handleGenerateClick}
+                  disabled={isAiDisabled}
+                  title={isAiLocked ? aiLockDescription : ""}
+                >
+                  <div className="training-insight-link-icon is-accent">
+                    <Icon name="sparkles" size={20} />
+                  </div>
+                  <div>
+                    <strong>{safeT("training.generateAi", "Generar con IA")}</strong>
+                    <p className="muted">{safeT("training.aiSidebarCopy", "Crea un plan personalizado con inteligencia artificial.")}</p>
+                  </div>
+                </button>
+              </section>
+
+              <section className="card training-insights-card">
+                <Link href="/app/biblioteca/entrenamientos" className="training-insight-link">
+                  <div className="training-insight-link-icon">
+                    <Icon name="book" size={20} />
+                  </div>
+                  <div>
+                    <strong>{safeT("training.exerciseLibrary", "Biblioteca de entrenamientos")}</strong>
+                    <p className="muted">{safeT("training.exerciseLibraryCopy", "Explora rutinas y ejercicios guardados.")}</p>
+                  </div>
+                </Link>
+              </section>
+
+              <section className="card training-insights-card">
+                <div className="training-stats-grid">
+                  <div className="training-stat-box">
+                    <strong>{estimatedCompletedSessions}</strong>
+                    <span>{safeT("training.completedShort", "Completados")}</span>
+                  </div>
+                  <div className="training-stat-box">
+                    <strong>{Math.max(totalPlannedSessions - estimatedCompletedSessions, 0)}</strong>
+                    <span>{safeT("training.pendingShort", "Pendientes")}</span>
+                  </div>
+                </div>
+              </section>
+
               <section className="card training-insights-card">
               <div className="section-head">
                 <div>

@@ -5,14 +5,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { extractGymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 
-type SettingsSection = "account" | "profile" | "billing" | "notifications" | "support";
+type SettingsSection = "account" | "language" | "profile" | "billing" | "notifications" | "support";
 type MembershipState = "none" | "pending" | "active" | "rejected" | "unknown";
 
-const sectionOrder: SettingsSection[] = ["account", "profile", "billing", "notifications", "support"];
+const sectionOrder: SettingsSection[] = ["account", "language", "profile", "billing", "notifications", "support"];
 
 export default function SettingsClient() {
   const { t } = useLanguage();
@@ -86,6 +87,10 @@ export default function SettingsClient() {
         title: t("settings.sections.account.title"),
         description: t("settings.sections.account.description"),
         content: profileName ? profileName : t("settings.sections.account.empty"),
+      },
+      language: {
+        title: t("settings.sections.language.title"),
+        description: t("settings.sections.language.description"),
       },
       profile: {
         title: t("settings.sections.profile.title"),
@@ -166,6 +171,23 @@ export default function SettingsClient() {
                 </CardHeader>
                 <CardContent>
                   <EmptyState title={section.emptyTitle} icon="info" />
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (sectionKey === "language") {
+            const section = sections.language;
+            return (
+              <Card key={sectionKey}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>{section.title}</CardTitle>
+                    <CardDescription>{section.description}</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <LanguageSwitcher showLabel />
                 </CardContent>
               </Card>
             );

@@ -94,6 +94,8 @@ type TrackingClientProps = {
   view?: "all" | "checkin";
 };
 
+type ProgressInsightTab = "checkin" | "nutrition" | "training";
+
 export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const { t } = useLanguage();
   const router = useRouter();
@@ -118,6 +120,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [notesDate, setNotesDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notesValue, setNotesValue] = useState("");
   const [progressRange, setProgressRange] = useState<"7" | "30" | "90">("30");
+  const [progressInsightTab, setProgressInsightTab] = useState<ProgressInsightTab>("checkin");
   const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
     if (typeof window === "undefined") return "quick";
     const storedMode = window.localStorage.getItem(CHECKIN_MODE_KEY);
@@ -750,6 +753,73 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     !supportsNotes || !isTrackingReady || !isNotesValid || !notesDate || !hasBaseWeight || isNotesSubmitting;
   const isTrackingLoading = trackingStatus === "loading";
   const isTrackingError = trackingStatus === "error";
+  const rangeDays = Number(progressRange);
+  const daysBackForRange = Math.max(0, rangeDays - 1);
+
+  const formatEntryDate = (value: string) => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  };
+
+  const nutritionDateTotals = Object.entries(mealsByDate)
+    .map(([date, entries]) => ({ date, totals: macroTotals(entries) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const nutritionInRange = nutritionDateTotals.filter((entry) => {
+    const parsed = new Date(entry.date);
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - daysBackForRange);
+    return parsed >= cutoff;
+  });
+  const nutritionDaysLogged = nutritionInRange.length;
+  const nutritionTotals = nutritionInRange.reduce(
+    (acc, entry) => ({
+      calories: acc.calories + entry.totals.calories,
+      protein: acc.protein + entry.totals.protein,
+      carbs: acc.carbs + entry.totals.carbs,
+      fat: acc.fat + entry.totals.fat,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+  const nutritionAverages = nutritionDaysLogged > 0
+    ? {
+        calories: nutritionTotals.calories / nutritionDaysLogged,
+        protein: nutritionTotals.protein / nutritionDaysLogged,
+      }
+    : { calories: 0, protein: 0 };
+  const nutritionLoggingAdherence = Math.round((nutritionDaysLogged / Math.max(1, rangeDays)) * 100);
+  const nutritionCaloriesTargetAdherence = nutritionTargets && nutritionDaysLogged > 0
+    ? Math.round(
+        (nutritionInRange.filter(
+          (entry) =>
+            entry.totals.calories >= nutritionTargets.calories * 0.9
+            && entry.totals.calories <= nutritionTargets.calories * 1.1
+        ).length / nutritionDaysLogged)
+          * 100
+      )
+    : null;
+  const nutritionProteinTargetAdherence = nutritionTargets && nutritionDaysLogged > 0
+    ? Math.round(
+        (nutritionInRange.filter((entry) => entry.totals.protein >= nutritionTargets.protein * 0.9).length / nutritionDaysLogged)
+          * 100
+      )
+    : null;
+
+  const workoutsSorted = [...workoutLog].sort((a, b) => b.date.localeCompare(a.date));
+  const workoutsInRange = workoutsSorted.filter((entry) => {
+    const parsed = new Date(entry.date);
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - daysBackForRange);
+    return parsed >= cutoff;
+  });
+  const trainingSessions = workoutsInRange.length;
+  const trainingMinutes = workoutsInRange.reduce((sum, entry) => sum + entry.durationMin, 0);
+  const trainingAverageMinutes = trainingSessions > 0 ? Math.round(trainingMinutes / trainingSessions) : 0;
+  const targetSessions = Math.max(1, Number(profile.trainingPreferences.daysPerWeek ?? 3));
+  const trainingConsistency = Math.min(100, Math.round((trainingSessions / targetSessions) * 100));
+  const workoutsRecent = workoutsSorted.slice(0, 5);
 
   async function addQuickWeightEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -983,64 +1053,219 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {!isCheckinOnly ? (
-        <section className={styles.overviewGrid}>
-          <div className={styles.leftColumn}>
-            <section className="card">
-              <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.weeklyProgressTitle")}</h2>
-              {checkinChart.length === 0 ? (
-                <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
-              ) : (
-                <div style={{ display: "grid", gap: 12 }}>
-                  {checkinChart.map((point, index) => (
-                    <div key={`${point.date}-${index}`} className="info-item">
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                        <strong>{point.date}</strong>
-                        <span className="muted">{point.weight} {t("units.kilograms")}</span>
-                      </div>
-                      <div className="tracking-weekly-progress-bar-track">
-                        <div className="tracking-weekly-progress-bar-value" style={{ width: `${point.percent}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-            <section className={styles.metricCards}>
-              <article className="card">
-                <p className="muted">{t("tracking.latestWeightTitle")}</p>
-                <strong>{latestCheckin ? `${latestCheckin.weightKg} ${t("units.kilograms")}` : "—"}</strong>
-              </article>
-              <article className="card">
-                <p className="muted">{t("tracking.weightHistoryTitle")}</p>
-                <strong>{rangeWeightDelta === null ? "—" : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}</strong>
-              </article>
-              <article className="card">
-                <p className="muted">Check-ins</p>
-                <strong>{checkinsInRange.length}</strong>
-              </article>
-            </section>
+        <section className="card">
+          <div className={styles.insightTabs} role="tablist" aria-label={t("tracking.insightsLabel")}>
+            {([
+              { id: "checkin", label: t("tracking.progressTabCheckin") },
+              { id: "nutrition", label: t("tracking.progressTabNutrition") },
+              { id: "training", label: t("tracking.progressTabTraining") },
+            ] as const).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={progressInsightTab === tab.id}
+                className={`${styles.insightTabButton} ${progressInsightTab === tab.id ? styles.insightTabButtonActive : ""}`}
+                onClick={() => setProgressInsightTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <aside className={styles.rightColumn}>
-            {latestCheckin ? (
-              <section className="card">
-                <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.checkinRecommendation")}</h3>
-                <p className="muted">{latestCheckin.recommendation}</p>
-              </section>
-            ) : null}
-            {checkins.length > 0 ? (
-              <section className="card">
-                <h3 className="section-title" style={{ fontSize: 18 }}>Adesão</h3>
-                <p className="muted">Últimos 7 dias</p>
-                <strong>{adherenceLast7Days}%</strong>
-              </section>
-            ) : null}
-            {profile.goal ? (
-              <section className="card">
-                <h3 className="section-title" style={{ fontSize: 18 }}>{t("profile.goal")}</h3>
-                <p className="muted">{profile.goal}</p>
-              </section>
-            ) : null}
-          </aside>
+
+          {progressInsightTab === "checkin" ? (
+            <div className={styles.overviewGrid}>
+              <div className={styles.leftColumn}>
+                <section className="feature-card">
+                  <h2 className="section-title section-title-sm">{t("tracking.weeklyProgressTitle")}</h2>
+                  {checkinChart.length === 0 ? (
+                    <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
+                  ) : (
+                    <div style={{ display: "grid", gap: 12 }}>
+                      {checkinChart.map((point, index) => (
+                        <div key={`${point.date}-${index}`} className="info-item">
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                            <strong>{formatEntryDate(point.date)}</strong>
+                            <span className="muted">{point.weight.toFixed(1)} {t("units.kilograms")}</span>
+                          </div>
+                          <div className="tracking-weekly-progress-bar-track">
+                            <div className="tracking-weekly-progress-bar-value" style={{ width: `${point.percent}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+                <section className={styles.metricCards}>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.latestWeightTitle")}</p>
+                    <strong>{latestCheckin ? `${latestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}` : "—"}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.weightHistoryTitle")}</p>
+                    <strong>{rangeWeightDelta === null ? "—" : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.progressConsistency")}</p>
+                    <strong>{adherenceLast7Days}%</strong>
+                  </article>
+                </section>
+              </div>
+              <aside className={styles.rightColumn}>
+                {latestCheckin ? (
+                  <section className="feature-card">
+                    <h3 className="section-title section-title-sm">{t("profile.checkinRecommendation")}</h3>
+                    <p className="muted">{latestCheckin.recommendation}</p>
+                  </section>
+                ) : null}
+                {supportsBodyFat && latestCheckin ? (
+                  <section className="feature-card">
+                    <h3 className="section-title section-title-sm">{t("tracking.bodyFatPercent")}</h3>
+                    <strong>{latestCheckin.bodyFatPercent.toFixed(1)}{t("units.percent")}</strong>
+                  </section>
+                ) : null}
+                {profile.goal ? (
+                  <section className="feature-card">
+                    <h3 className="section-title section-title-sm">{t("profile.goal")}</h3>
+                    <p className="muted">{profile.goal}</p>
+                  </section>
+                ) : null}
+              </aside>
+            </div>
+          ) : null}
+
+          {progressInsightTab === "nutrition" ? (
+            <div className={styles.overviewGrid}>
+              <div className={styles.leftColumn}>
+                <section className={styles.metricCards}>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.progressDaysLogged")}</p>
+                    <strong>{nutritionDaysLogged}/{rangeDays}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.progressAverageCalories")}</p>
+                    <strong>{nutritionDaysLogged > 0 ? `${nutritionAverages.calories.toFixed(0)} ${t("units.kcal")}` : "—"}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.progressAverageProtein")}</p>
+                    <strong>{nutritionDaysLogged > 0 ? `${nutritionAverages.protein.toFixed(0)} ${t("units.grams")}` : "—"}</strong>
+                  </article>
+                </section>
+
+                {nutritionDaysLogged === 0 ? (
+                  <p className="muted">{t("tracking.mealEmpty")}</p>
+                ) : (
+                  <section className="feature-card">
+                    <h3 className="section-title section-title-sm">{t("tracking.progressComplianceTitle")}</h3>
+                    <div style={{ display: "grid", gap: 12 }}>
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                          <span className="muted">{t("tracking.progressLoggingLabel")}</span>
+                          <strong>{nutritionLoggingAdherence}%</strong>
+                        </div>
+                        <div className="tracking-weekly-progress-bar-track">
+                          <div className="tracking-weekly-progress-bar-value" style={{ width: `${nutritionLoggingAdherence}%` }} />
+                        </div>
+                      </div>
+                      {nutritionCaloriesTargetAdherence !== null ? (
+                        <div>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <span className="muted">{t("tracking.progressCaloriesTargetLabel")}</span>
+                            <strong>{nutritionCaloriesTargetAdherence}%</strong>
+                          </div>
+                          <div className="tracking-weekly-progress-bar-track">
+                            <div className="tracking-weekly-progress-bar-value" style={{ width: `${nutritionCaloriesTargetAdherence}%` }} />
+                          </div>
+                        </div>
+                      ) : null}
+                      {nutritionProteinTargetAdherence !== null ? (
+                        <div>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <span className="muted">{t("tracking.progressProteinTargetLabel")}</span>
+                            <strong>{nutritionProteinTargetAdherence}%</strong>
+                          </div>
+                          <div className="tracking-weekly-progress-bar-track">
+                            <div className="tracking-weekly-progress-bar-value" style={{ width: `${nutritionProteinTargetAdherence}%` }} />
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </section>
+                )}
+              </div>
+              <aside className={styles.rightColumn}>
+                <section className="feature-card">
+                  <h3 className="section-title section-title-sm">{t("tracking.progressRecentMeals")}</h3>
+                  {nutritionInRange.length === 0 ? (
+                    <p className="muted">{t("tracking.mealEmpty")}</p>
+                  ) : (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {nutritionInRange.slice(-5).reverse().map((entry) => (
+                        <div key={entry.date} className="info-item">
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <strong>{formatEntryDate(entry.date)}</strong>
+                            <span className="muted">{entry.totals.calories.toFixed(0)} {t("units.kcal")}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </aside>
+            </div>
+          ) : null}
+
+          {progressInsightTab === "training" ? (
+            <div className={styles.overviewGrid}>
+              <div className={styles.leftColumn}>
+                <section className={styles.metricCards}>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.progressSessions")}</p>
+                    <strong>{trainingSessions}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.progressTrainingTime")}</p>
+                    <strong>{trainingMinutes} min</strong>
+                  </article>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.workoutDuration")}</p>
+                    <strong>{trainingAverageMinutes > 0 ? `${trainingAverageMinutes} min` : "—"}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <p className="muted">{t("tracking.progressConsistency")}</p>
+                    <strong>{trainingConsistency}%</strong>
+                  </article>
+                </section>
+                <section className="feature-card">
+                  <h3 className="section-title section-title-sm">{t("tracking.progressSessionTarget")}</h3>
+                  <p className="muted">{targetSessions} {t("tracking.progressPerWeek")}</p>
+                  <div className="tracking-weekly-progress-bar-track">
+                    <div className="tracking-weekly-progress-bar-value" style={{ width: `${trainingConsistency}%` }} />
+                  </div>
+                </section>
+              </div>
+              <aside className={styles.rightColumn}>
+                <section className="feature-card">
+                  <h3 className="section-title section-title-sm">{t("tracking.progressRecentWorkouts")}</h3>
+                  {workoutsRecent.length === 0 ? (
+                    <p className="muted">{t("tracking.workoutEmpty")}</p>
+                  ) : (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {workoutsRecent.map((entry) => (
+                        <div key={entry.id} className="info-item">
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <strong>{entry.name}</strong>
+                            <span className="muted">{entry.durationMin} min</span>
+                          </div>
+                          <span className="muted">{formatEntryDate(entry.date)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </aside>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

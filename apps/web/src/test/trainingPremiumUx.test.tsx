@@ -86,6 +86,15 @@ function setupFetchMock(
         },
       });
     }
+    if (url === "/api/workouts") {
+      return mockResponse([
+        {
+          id: "workout-1",
+          name: "Fuerza",
+          scheduledAt: `${todayKey}T08:00:00.000Z`,
+        },
+      ]);
+    }
 
     const handled = exerciseFetchHandler?.(url) ?? null;
     if (handled) {
@@ -132,6 +141,33 @@ describe("Training premium UX from plan", () => {
       expect(pressThumbs.some((image) => image.src.includes("ex-1.jpg"))).toBe(true);
       expect(squatThumbs.some((image) => image.src.includes("ex-2.jpg"))).toBe(true);
       expect(pressThumbs[0].src).not.toEqual(squatThumbs[0].src);
+    });
+  });
+
+  it("resolves thumbnail from catalog search when exerciseId is missing", async () => {
+    const fetchMock = setupFetchMock(
+      [{ name: "Press banca", sets: "4", reps: "8" }],
+      (url) => {
+        if (url.startsWith("/api/exercises?")) {
+          return mockResponse({
+            items: [
+              { id: "ex-press", name: "Press banca", imageUrl: "https://cdn.test/ex-press.jpg" },
+            ],
+          });
+        }
+        return null;
+      }
+    );
+
+    renderWithProviders(<TrainingPlanClient />);
+
+    await screen.findByText("Press banca");
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) => String(input).includes("/api/exercises?query=Press+banca"))
+      ).toBe(true);
+      expect(screen.getAllByAltText("Press banca").some((image) => image.getAttribute("src")?.includes("ex-press.jpg"))).toBe(true);
     });
   });
 
@@ -207,7 +243,7 @@ describe("Training premium UX from plan", () => {
 
     renderWithProviders(<TrainingPlanClient />);
 
-    const selectedDayLabel = await screen.findByText(/Ejercicios de hoy/i);
+    const selectedDayLabel = await screen.findByText(/Ejercicios del dia|Ejercicios de hoy/i);
     expect(selectedDayLabel).toBeInTheDocument();
 
     fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
@@ -218,7 +254,17 @@ describe("Training premium UX from plan", () => {
 
     await waitFor(() => {
       expect(screen.queryByTestId("training-exercise-detail-modal")).not.toBeInTheDocument();
-      expect(screen.getByText(/Ejercicios de hoy/i)).toBeInTheDocument();
+      expect(screen.getByText(/Ejercicios del dia|Ejercicios de hoy/i)).toBeInTheDocument();
     });
+  });
+
+  it("shows rest day state and hides start CTA when selected day has no exercises", async () => {
+    setupFetchMock([]);
+
+    renderWithProviders(<TrainingPlanClient />);
+
+    await screen.findByRole("heading", { name: /Descanso/i });
+
+    expect(screen.queryByRole("link", { name: /Empezar/i })).not.toBeInTheDocument();
   });
 });
