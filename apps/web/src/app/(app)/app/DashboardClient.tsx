@@ -7,7 +7,7 @@ import type { ProfileData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
-import type { CheckinEntry, FoodEntry, TrackingSnapshot, WorkoutEntry } from "@/services/tracking";
+import type { CheckinEntry, FoodEntry, MealLogEntry, TrackingSnapshot, WorkoutEntry } from "@/services/tracking";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
@@ -121,7 +121,7 @@ export default function DashboardClient() {
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
-  const [mealLog, setMealLog] = useState<Array<{ date: string; mealKey: string }>>([]);
+  const [mealLog, setMealLog] = useState<MealLogEntry[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutItem[]>([]);
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
   const [loading, setLoading] = useState(true);
@@ -229,40 +229,20 @@ export default function DashboardClient() {
   const userFoodMap = useMemo(() => new Map(userFoods.map((food) => [food.id, food])), [userFoods]);
 
   const todayKey = toDateKey(new Date());
-  const todayEntries = useMemo(() => foodLog.filter((entry) => entry.date === todayKey), [foodLog, todayKey]);
-  const todayTotals = useMemo(() => {
-    const resolveFoodProfile = (key: string) => {
-      if (key.startsWith("user:")) {
-        const id = key.replace("user:", "");
-        const food = userFoodMap.get(id);
-        if (!food) return null;
-        return {
-          label: food.name,
-          protein: food.protein,
-          carbs: food.carbs,
-          fat: food.fat,
-          calories: food.calories,
-        };
-      }
-      const profile = defaultFoodProfiles[key];
-      if (!profile) return null;
-      const calories = profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
-      return { label: t(profile.labelKey), ...profile, calories };
-    };
-    return todayEntries.reduce(
-      (totals, entry) => {
-        const profile = resolveFoodProfile(entry.foodKey);
-        if (!profile) return totals;
-        const factor = entry.grams / 100;
-        totals.protein += profile.protein * factor;
-        totals.carbs += profile.carbs * factor;
-        totals.fat += profile.fat * factor;
-        totals.calories += profile.calories * factor;
-        return totals;
-      },
-      { protein: 0, carbs: 0, fat: 0, calories: 0 }
-    );
-  }, [todayEntries, userFoodMap, t]);
+  const todayEntries = useMemo(() => mealLog.filter((entry) => entry.date === todayKey), [mealLog, todayKey]);
+  const todayTotals = useMemo(
+    () =>
+      todayEntries.reduce(
+        (totals, entry) => ({
+          protein: totals.protein + Number(entry.protein ?? 0),
+          carbs: totals.carbs + Number(entry.carbs ?? 0),
+          fat: totals.fat + Number(entry.fats ?? 0),
+          calories: totals.calories + Number(entry.calories ?? 0),
+        }),
+        { protein: 0, carbs: 0, fat: 0, calories: 0 },
+      ),
+    [todayEntries],
+  );
 
   const getStatusClass = (value: number, target?: number | null) => {
     if (!target) return "status-under";
@@ -392,15 +372,11 @@ export default function DashboardClient() {
 
     const caloriesByDay = Array.from({ length: WEEK_DAYS }, () => 0);
     const calorieDays = new Set<string>();
-    foodLog.forEach((entry) => {
+    mealLog.forEach((entry) => {
       const currentDayIndex = dayIndexMap.get(entry.date);
       if (typeof currentDayIndex !== "number") return;
-      const profile = entry.foodKey.startsWith("user:")
-        ? userFoodMap.get(entry.foodKey.replace("user:", ""))
-        : defaultFoodProfiles[entry.foodKey];
-      if (!profile) return;
-      const baseCalories = profile.calories ?? profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
-      const calories = baseCalories * (entry.grams / 100);
+      const calories = Number(entry.calories ?? 0);
+      if (!Number.isFinite(calories)) return;
       caloriesByDay[currentDayIndex] += calories;
       calorieDays.add(entry.date);
     });
@@ -425,7 +401,7 @@ export default function DashboardClient() {
       if (previousWeekSet.has(dateKey)) activityDaysPrevious.add(dateKey);
     };
     [...workoutSessionDates, ...trackedWorkoutDates].forEach((dateKey) => ingest(dateKey));
-    foodLog.forEach((entry) => ingest(entry.date));
+    mealLog.forEach((entry) => ingest(entry.date));
     checkins.forEach((entry) => ingest(entry.date));
     currentWeekDays.forEach((day) => {
       if (adherenceByDay[dayIndexMap.get(day) ?? -1] > 0) ingest(day);
@@ -538,7 +514,7 @@ export default function DashboardClient() {
     checkins,
     currentWeekDays,
     currentWeekSet,
-    foodLog,
+    mealLog,
     nutritionTargets?.calories,
     previousWeekDays,
     previousWeekSet,
