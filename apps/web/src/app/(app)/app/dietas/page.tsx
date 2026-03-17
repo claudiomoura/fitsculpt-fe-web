@@ -4,7 +4,7 @@ import DietPlansClient from "./DietPlansClient";
 export default async function DietPlansPage() {
   const { t } = await getServerT();
   return (
-    <div className="page">
+    <div className="page" data-testid="nutrition-page-root">
       <section className="card">
         <div className="page-header">
           <div className="page-header-body">

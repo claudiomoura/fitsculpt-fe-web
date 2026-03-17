@@ -1,16 +1,24 @@
-import TrackingClient from "./TrackingClient";
-import { getServerT } from "@/lib/serverI18n";
+import { redirect } from "next/navigation";
 
-export default async function TrackingPage() {
-  const { t } = await getServerT();
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-  return (
-    <div className="page">
-      <section className="card">
-        <h1 className="section-title">{t("app.trackingTitle")}</h1>
-        <p className="section-subtitle">{t("app.trackingSubtitle")}</p>
-      </section>
-      <TrackingClient />
-    </div>
-  );
+function toQueryString(params?: Record<string, string | string[] | undefined>) {
+  if (!params) return "";
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.filter(Boolean).forEach((item) => query.append(key, item));
+      continue;
+    }
+    if (value) query.set(key, value);
+  }
+  const built = query.toString();
+  return built ? `?${built}` : "";
+}
+
+export default async function LegacyProgressPage({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : undefined;
+  redirect(`/app/progress${toQueryString(params)}`);
 }

@@ -2,22 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Badge } from "@/components/ui/Badge";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Badge } from "@/design-system/components/Badge";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/design-system/components/Card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import { trackEvent } from "@/lib/analytics";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
+import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
+import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
+import { normalizeSubscriptionPlan } from "@/lib/subscriptionPlan";
 import {
   getBillingPlans,
   postBillingCheckout,
   postBillingPortal,
   type BillingPlanSummary,
   type BillingRedirectResponse,
-} from "@/services/billing";
+} from "@/domains/billing";
 
-type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | "ULTRA" | (string & {});
+type BillingPlan = "FREE" | "PRO" | "STRENGTH_AI" | "NUTRI_AI" | (string & {});
 
 type BillingProfile = {
   plan?: BillingPlan;
@@ -25,6 +29,7 @@ type BillingProfile = {
   tokens?: number;
   tokensExpiresAt?: string | null;
   subscriptionStatus?: string | null;
+  billingStatus?: string | null;
 };
 
 type BillingAction = "checkout" | "portal" | null;
@@ -51,13 +56,12 @@ function resolveStatusLabel(subscriptionStatus: string | null | undefined, t: (k
 }
 
 function resolvePlanLabel(plan: BillingPlan | null | undefined, t: (key: string) => string) {
-  if (!plan) {
+  const normalizedPlan = normalizeSubscriptionPlan(plan);
+  if (!normalizedPlan) {
     return t("billing.planLabels.unknown");
   }
 
-  const normalized = plan.toLowerCase();
-  const messageKey = `billing.planLabels.${normalized}`;
-
+  const messageKey = `billing.planLabels.${normalizedPlan.toLowerCase()}`;
   return t(messageKey) === messageKey ? t("billing.planLabels.unknown") : t(messageKey);
 }
 
@@ -108,8 +112,11 @@ export default function BillingClient() {
   const searchParams = useSearchParams();
   const { t, locale } = useLanguage();
   const checkoutStatus = searchParams.get("checkout");
+  const returnToParam = searchParams.get("returnTo");
+  const safeReturnTo = returnToParam && returnToParam.startsWith("/app/") ? returnToParam : null;
 
   const { isAdmin, isDev } = useAccess();
+  const { authMe, reload: refetchProfile } = useAuthEntitlements();
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [plans, setPlans] = useState<BillingPlanSummary[]>([]);
   const [gymMembership, setGymMembership] = useState<GymMembership>({ state: "unknown", gymId: null, gymName: null });
@@ -160,6 +167,7 @@ export default function BillingClient() {
       }
 
       setProfile((await statusResponse.json()) as BillingProfile);
+      window.dispatchEvent(new Event("auth:refresh"));
 
       if (!plansResult.ok) {
         setPlanWarnings(plansResult.warnings);
@@ -203,7 +211,9 @@ setPlans([]);
       }
 
       if (shouldSync) {
-        router.replace("/app/settings/billing");
+        trackEvent("billing_checkout_returned", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });
+        await refetchProfile();
+        router.replace(safeReturnTo ?? "/app/settings/billing");
       }
     } catch {
       setError(t("billing.loadError"));
@@ -216,11 +226,18 @@ setPlans([]);
     } finally {
       setLoading(false);
     }
-  }, [checkoutStatus, router, t]);
+  }, [checkoutStatus, refetchProfile, router, safeReturnTo, t]);
 
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    window.dispatchEvent(new Event("auth:refresh"));
+    return () => {
+      window.dispatchEvent(new Event("auth:refresh"));
+    };
+  }, []);
 
   const handleCheckout = async () => {
     if (!selectedPlanId || selectedPlanId === currentPlan) {
@@ -232,7 +249,8 @@ setPlans([]);
     setError(null);
 
     try {
-      const response = await postBillingCheckout(selectedPlanId);
+      trackEvent("billing_checkout_started", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });
+      const response = await postBillingCheckout(selectedPlanId, safeReturnTo ?? "/app/settings/billing");
       const data = (await response.json()) as BillingRedirectResponse;
 
       if (!response.ok || !data.url) {
@@ -269,7 +287,8 @@ setPlans([]);
     }
   };
 
-  const currentPlan = profile?.plan;
+  const authSnapshot = readAuthEntitlementSnapshot(authMe);
+  const currentPlan = authSnapshot.subscriptionPlan;
   const hasSubscriptionStatus = typeof profile?.subscriptionStatus === "string" && profile.subscriptionStatus.length > 0;
   const portalDisabled = loading || action === "checkout" || !hasSubscriptionStatus;
   const hasGymSelectionEndpoint = false;
@@ -320,7 +339,7 @@ setPlans([]);
             </CardHeader>
             <CardContent className="stack-sm">
               <Badge variant={currentPlan ? "success" : "muted"}>{resolvePlanLabel(currentPlan, t)}</Badge>
-              <p className="muted m-0">{`${t("billing.stripeStatusLabel")}: ${resolveStatusLabel(profile?.subscriptionStatus, t)}`}</p>
+              <p className="muted m-0">{`${t("billing.stripeStatusLabel")}: ${resolveStatusLabel(profile?.billingStatus ?? profile?.subscriptionStatus, t)}`}</p>
               <p className="muted m-0">{`${t("billing.tokenRenewalLabel")}: ${formatDate(profile?.tokensExpiresAt)}`}</p>
               <p className="muted m-0">{`${t("billing.aiTokensLabel")}: ${profile?.tokens ?? t("ui.notAvailable")}`}</p>
             </CardContent>
@@ -332,6 +351,7 @@ setPlans([]);
               <CardDescription>{t("billing.planSelectionDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="stack-md">
+              <p className="muted m-0 text-sm">Elige el siguiente plan y continúa al checkout. Si llegaste desde un bloqueo premium, volverás a esa acción al terminar.</p>
               {billingState === "not_available" ? (
                 <EmptyState
                   title={t("billing.notAvailableTitle")}

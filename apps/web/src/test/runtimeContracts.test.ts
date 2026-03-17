@@ -14,6 +14,10 @@ describe("runtimeContracts", () => {
     expect(
       validateAuthMePayload({
         subscriptionPlan: "PRO",
+        tokenBalance: 120,
+        aiEntitlements: { nutrition: true, strength: true },
+        gymMembershipState: "ACTIVE",
+        gymRole: "TRAINER",
         entitlements: {
           modules: {
             ai: { enabled: true },
@@ -31,6 +35,7 @@ describe("runtimeContracts", () => {
         checkins: [{ id: "c1", date: "2026-02-20" }],
         foodLog: [],
         workoutLog: [],
+        mealLog: [],
       }).ok,
     ).toBe(false);
   });
@@ -61,12 +66,31 @@ describe("runtimeContracts", () => {
         plan: {},
         usage: { total_tokens: 123, prompt_tokens: 45, completion_tokens: 78 },
         mode: "AI",
-        aiRequestId: "req_123",
+        aiRequestId: "123e4567-e89b-42d3-a456-426614174000",
       }).ok,
     ).toBe(true);
   });
 
   it("rejects invalid AI usage fields", () => {
     expect(validateAiNutritionGeneratePayload({ plan: {}, usage: { total_tokens: "123" } }).ok).toBe(false);
+  });
+
+  it("rejects invalid aiRequestId format", () => {
+    expect(validateAiTrainingGeneratePayload({ plan: {}, aiRequestId: "req_123" }).ok).toBe(false);
+    expect(validateAiNutritionGeneratePayload({ plan: {}, aiRequestId: "req_123" }).ok).toBe(false);
+  });
+});
+
+
+describe("runtimeContracts auth/me gym fields", () => {
+  it("rejects invalid gym role", () => {
+    expect(validateAuthMePayload({ gymRole: "MEMBER" }).ok).toBe(false);
+  });
+});
+
+
+describe("runtimeContracts auth/me ai fields", () => {
+  it("rejects invalid aiEntitlements", () => {
+    expect(validateAuthMePayload({ aiEntitlements: { nutrition: "yes" } }).ok).toBe(false);
   });
 });

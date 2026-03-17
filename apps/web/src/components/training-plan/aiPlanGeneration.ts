@@ -1,6 +1,8 @@
 import { addDays, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
 import type { ProfileData, SessionTime, TrainingEquipment, TrainingFocus, TrainingLevel, Goal, TrainingPlanData } from "@/lib/profile";
 import { updateUserProfile } from "@/lib/profileService";
+import { normalizeAiErrorCode } from "@/lib/aiErrorMapping";
+import { createAiRequestId } from "@/lib/aiRequestId";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -27,23 +29,44 @@ type AdjustmentMetadata = {
 
 export type TrainingPlanAiResult = {
   plan: TrainingPlan;
+  planId?: string;
   aiTokenBalance?: number;
   aiTokenRenewalAt?: string | null;
+  usage?: {
+    totalTokens?: number;
+    promptTokens?: number;
+    completionTokens?: number;
+    balanceAfter?: number;
+  };
+  aiRequestId?: string;
+  balanceAfter?: number;
   metadata: AdjustmentMetadata;
 };
 
 export class AiPlanRequestError extends Error {
   status: number;
   code?: string;
+  kind?: string;
   hint?: string;
+  userMessage?: string;
 
-  constructor(message: string, status: number, options?: { code?: string; hint?: string }) {
+  constructor(message: string, status: number, options?: { code?: string; kind?: string; hint?: string; userMessage?: string }) {
     super(message);
     this.name = "AiPlanRequestError";
     this.status = status;
     this.code = options?.code;
+    this.kind = options?.kind;
     this.hint = options?.hint;
+    this.userMessage = options?.userMessage;
   }
+}
+
+function sanitizeBackendMessage(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const clean = value.split("\n").find((line) => line.trim().length > 0)?.trim() ?? "";
+  if (!clean) return null;
+  if (/^error:\s*/i.test(clean) || /\bat\s+.+\(.+\)/.test(clean)) return null;
+  return clean;
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -112,6 +135,7 @@ function tryParseJson(value: unknown): unknown {
 
 export async function requestAiTrainingPlan(profile: ProfileData, input: TrainingPreferencesInput): Promise<TrainingPlanAiResult> {
   const startDate = toDateKey(startOfWeek(new Date()));
+  const aiRequestId = createAiRequestId();
   const response = await fetch("/api/ai/training-plan/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -134,6 +158,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       includeMobilityWarmups: profile.trainingPreferences.includeMobilityWarmups,
       workoutLength: profile.trainingPreferences.workoutLength,
       timerSound: profile.trainingPreferences.timerSound,
+      aiRequestId,
       injuries: profile.injuries || undefined,
       restrictions: profile.notes || undefined,
     }),
@@ -141,29 +166,40 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as
-      | { error?: string; message?: string; retryAfterSec?: number; hint?: string }
+      | { error?: string; code?: string; kind?: string; message?: string; retryAfterSec?: number; hint?: string }
       | null;
-    if (payload?.error === "INSUFFICIENT_TOKENS") {
+    const rawErrorCode = typeof payload?.error === "string" ? payload.error : payload?.code;
+    const errorCode = normalizeAiErrorCode(rawErrorCode);
+    const userMessage = sanitizeBackendMessage(payload?.message) ?? sanitizeBackendMessage(payload?.error) ?? undefined;
+    if (errorCode === "INSUFFICIENT_TOKENS") {
       throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status, {
-        code: payload.error,
-        hint: payload.hint,
+        code: errorCode,
+        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
+        hint: payload?.hint,
+        userMessage,
       });
     }
     if (response.status === 400) {
-      throw new AiPlanRequestError(payload?.message ?? "AI_INPUT_INVALID", response.status, {
-        code: payload?.error,
+      throw new AiPlanRequestError("AI_INPUT_INVALID", response.status, {
+        code: errorCode ?? "AI_INPUT_INVALID",
+        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
         hint: payload?.hint,
+        userMessage,
       });
     }
     if (response.status === 429) {
-      throw new AiPlanRequestError(payload?.message ?? "RATE_LIMITED", response.status, {
-        code: payload?.error,
+      throw new AiPlanRequestError("RATE_LIMITED", response.status, {
+        code: errorCode ?? "RATE_LIMITED",
+        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
         hint: payload?.hint,
+        userMessage,
       });
     }
     throw new AiPlanRequestError("AI_GENERATION_FAILED", response.status, {
-      code: payload?.error,
+      code: errorCode ?? undefined,
+      kind: typeof payload?.kind === "string" ? payload.kind : undefined,
       hint: payload?.hint,
+      userMessage,
     });
   }
 
@@ -177,11 +213,37 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
 
   return {
     plan: ensurePlanStartDate(plan),
+    planId: typeof data?.planId === "string" ? data.planId : undefined,
     aiTokenBalance: typeof data?.aiTokenBalance === "number" ? data.aiTokenBalance : undefined,
     aiTokenRenewalAt:
       typeof data?.aiTokenRenewalAt === "string" || data?.aiTokenRenewalAt === null
         ? (data.aiTokenRenewalAt as string | null)
         : undefined,
+    usage: isRecord(data?.usage)
+      ? {
+          totalTokens:
+            typeof data.usage.totalTokens === "number"
+              ? data.usage.totalTokens
+              : typeof data.usage.total_tokens === "number"
+                ? data.usage.total_tokens
+                : undefined,
+          promptTokens:
+            typeof data.usage.promptTokens === "number"
+              ? data.usage.promptTokens
+              : typeof data.usage.prompt_tokens === "number"
+                ? data.usage.prompt_tokens
+                : undefined,
+          completionTokens:
+            typeof data.usage.completionTokens === "number"
+              ? data.usage.completionTokens
+              : typeof data.usage.completion_tokens === "number"
+                ? data.usage.completion_tokens
+                : undefined,
+          balanceAfter: typeof data.usage.balanceAfter === "number" ? data.usage.balanceAfter : undefined,
+        }
+      : undefined,
+    aiRequestId: typeof data?.aiRequestId === "string" ? data.aiRequestId : undefined,
+    balanceAfter: typeof data?.balanceAfter === "number" ? data.balanceAfter : undefined,
     metadata: {
       updatedAt: typeof data?.updatedAt === "string" ? data.updatedAt : undefined,
       effectiveFrom: typeof data?.effectiveFrom === "string" ? data.effectiveFrom : undefined,

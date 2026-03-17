@@ -2,72 +2,116 @@ import { NextResponse } from "next/server";
 import { getBackendUrl } from "@/lib/backend";
 import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
 import { contractDriftResponse, validateAiTrainingGeneratePayload } from "@/lib/runtimeContracts";
-import { parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
+import { aiRequestFailedResponse, mapAiUpstreamError, parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_UPSTREAM_ERROR = "UPSTREAM_ERROR";
+const UPSTREAM_TIMEOUT_ERROR = "AI_TIMEOUT";
+const AI_GENERATE_TIMEOUT_MS = 120_000;
+const ENDPOINT = "/ai/training-plan/generate";
+const PASSTHROUGH_STATUSES = new Set([400, 403, 429]);
 
-function readErrorMessage(payload: unknown): string {
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const error = (payload as { error?: unknown }).error;
-    if (typeof error === "string" && error.trim().length > 0) {
-      return error;
-    }
-  }
-
-  return DEFAULT_UPSTREAM_ERROR;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
 }
 
-function logAiGenerateError(details: { upstreamStatus?: number; durationMs: number; errorKind: "network_error" | "status_error" }) {
-  if (process.env.NODE_ENV !== "development") {
-    return;
+function readAiRequestIdHeader(request: Request, requestBody: string): string | null {
+  const headerValue = request.headers.get("x-ai-request-id");
+  if (headerValue && headerValue.trim().length > 0) {
+    return headerValue;
   }
 
+  const parsedBody = parseJsonOrNull(requestBody);
+  if (isRecord(parsedBody) && typeof parsedBody.aiRequestId === "string" && parsedBody.aiRequestId.trim().length > 0) {
+    return parsedBody.aiRequestId;
+  }
+
+  return null;
+}
+
+function getUpstreamErrorMetadata(payload: unknown): { errorCode: string | null; errorReason: string | null } {
+  if (!isRecord(payload)) {
+    return { errorCode: null, errorReason: null };
+  }
+
+  const errorCode = typeof payload.code === "string" && payload.code.trim().length > 0 ? payload.code : null;
+  const errorReason =
+    (typeof payload.reason === "string" && payload.reason.trim().length > 0 ? payload.reason : null) ??
+    (typeof payload.error === "string" && payload.error.trim().length > 0 ? payload.error : null);
+
+  return { errorCode, errorReason };
+}
+
+function logAiGenerateError(details: {
+  upstreamStatus?: number;
+  durationMs: number;
+  errorKind: "network_error" | "status_error";
+  endpoint: string;
+  upstreamErrorCode?: string | null;
+  upstreamErrorReason?: string | null;
+}) {
   console.warn("[bff.ai.training.generate.error]", {
     upstream_status: details.upstreamStatus ?? null,
     duration: details.durationMs,
+    endpoint: details.endpoint,
     error_kind: details.errorKind,
+    upstream_error_code: details.upstreamErrorCode ?? null,
+    upstream_error_reason: details.upstreamErrorReason ?? null,
   });
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
 
 export async function POST(request: Request) {
   const { header: authCookie } = await getBackendAuthCookie(request);
   if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED_NO_FS_TOKEN" }, { status: 401 });
+    return NextResponse.json({ error: "UNAUTHORIZED", kind: "auth", status: 401 }, { status: 401 });
   }
 
   const startedAt = Date.now();
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), AI_GENERATE_TIMEOUT_MS);
 
   try {
     const body = await request.text();
     const contentType = request.headers.get("content-type");
+    const aiRequestId = readAiRequestIdHeader(request, body);
     const response = await fetch(`${getBackendUrl()}/ai/training-plan/generate`, {
       method: "POST",
       headers: {
         ...(contentType ? { "content-type": contentType } : {}),
+        ...(aiRequestId ? { "x-ai-request-id": aiRequestId } : {}),
         cookie: authCookie,
       },
       body,
       cache: "no-store",
+      signal: abortController.signal,
     });
     const responseText = await response.text();
     const data = parseJsonOrNull(responseText);
 
     if (!response.ok) {
+      const upstreamErrorMetadata = getUpstreamErrorMetadata(data);
       logAiGenerateError({
         upstreamStatus: response.status,
         durationMs: Date.now() - startedAt,
         errorKind: "status_error",
+        endpoint: ENDPOINT,
+        upstreamErrorCode: upstreamErrorMetadata.errorCode,
+        upstreamErrorReason: upstreamErrorMetadata.errorReason,
       });
 
-      const upstreamError = readErrorMessage(data);
-      if (response.status >= 500) {
-        return NextResponse.json({ error: upstreamError }, { status: 502 });
+      if (PASSTHROUGH_STATUSES.has(response.status) && data !== null) {
+        return NextResponse.json(data, { status: response.status });
       }
 
-      return NextResponse.json({ error: upstreamError }, { status: response.status });
+      if (data !== null) {
+        return mapAiUpstreamError(response.status, data);
+      }
+
+      return aiRequestFailedResponse(response.status);
     }
 
     if (data === null) {
@@ -75,8 +119,9 @@ export async function POST(request: Request) {
         upstreamStatus: response.status,
         durationMs: Date.now() - startedAt,
         errorKind: "status_error",
+        endpoint: ENDPOINT,
       });
-      return NextResponse.json({ error: DEFAULT_UPSTREAM_ERROR }, { status: 502 });
+      return aiRequestFailedResponse();
     }
 
     const validation = validateAiTrainingGeneratePayload(data);
@@ -85,8 +130,15 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(data, { status: response.status });
-  } catch (_err) {
-    logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error" });
-    return NextResponse.json({ error: DEFAULT_UPSTREAM_ERROR }, { status: 502 });
+  } catch (error) {
+    if (isAbortError(error)) {
+      logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error", endpoint: ENDPOINT });
+      return NextResponse.json({ error: UPSTREAM_TIMEOUT_ERROR, code: "AI_REQUEST_FAILED", kind: "upstream", status: 504 }, { status: 504 });
+    }
+
+    logAiGenerateError({ durationMs: Date.now() - startedAt, errorKind: "network_error", endpoint: ENDPOINT });
+    return aiRequestFailedResponse();
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

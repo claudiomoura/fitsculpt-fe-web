@@ -1,4 +1,4 @@
-export type TrackingCollection = "checkins" | "foodLog" | "workoutLog";
+export type TrackingCollection = "checkins" | "foodLog" | "workoutLog" | "mealLog";
 
 export type CheckinEntry = {
   id: string;
@@ -35,16 +35,31 @@ export type WorkoutEntry = {
   notes: string;
 };
 
+export type MealLogEntry = {
+  id: string;
+  date: string;
+  mealKey: string;
+  mealType: string;
+  title: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  completedAt: string;
+};
+
 export type TrackingEntryByCollection = {
   checkins: CheckinEntry;
   foodLog: FoodEntry;
   workoutLog: WorkoutEntry;
+  mealLog: MealLogEntry;
 };
 
 export type TrackingSnapshot = {
   checkins: CheckinEntry[];
   foodLog: FoodEntry[];
   workoutLog: WorkoutEntry[];
+  mealLog: MealLogEntry[];
 };
 
 export async function createTrackingEntry<TCollection extends TrackingCollection>(

@@ -30,3 +30,12 @@ Si cualquiera falla (lint/typecheck/build/test), el PR **no** cumple los release
 ## Notas
 - Se usan scripts existentes en `package.json`.
 - Se añadió `typecheck` en frontend como alias a `tsc --noEmit` por ser requisito explícito del gate y no existir previamente.
+
+
+## Recommended beta gates
+- `pnpm --dir apps/web run e2e:smoke:beta`
+- Verificación manual de `returnTo` en billing
+- Verificación manual de Today 3 acciones
+- Verificación manual de focus mode en workout logger
+
+- Verificación manual de meal completion truth entre Today / Nutrition / Tracking

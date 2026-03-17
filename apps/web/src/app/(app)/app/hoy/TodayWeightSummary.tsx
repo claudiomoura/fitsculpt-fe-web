@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
+import { Skeleton } from "@/design-system/components/Skeleton";
 
 type CheckinEntry = {
   date?: string;
@@ -122,7 +122,7 @@ export default function TodayWeightSummary() {
       )}
 
       <div className="inline-actions" style={{ marginTop: 16 }}>
-        <ButtonLink href="/app/seguimiento" size="lg">
+        <ButtonLink href="/app/progress" size="lg">
           {t("today.recordWeightCta")}
         </ButtonLink>
       </div>

@@ -3,6 +3,8 @@ export type ContractValidationResult = {
   reason?: string;
 };
 
+import { isUuid } from "@/lib/aiRequestId";
+
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -29,6 +31,32 @@ export function validateAuthMePayload(payload: unknown): ContractValidationResul
   if (payload.plan !== undefined && payload.plan !== null && typeof payload.plan !== "string") {
     return { ok: false, reason: "AUTH_ME_INVALID_PLAN" };
   }
+  if (payload.tokenBalance !== undefined && payload.tokenBalance !== null && !isNumber(payload.tokenBalance)) {
+    return { ok: false, reason: "AUTH_ME_INVALID_TOKEN_BALANCE" };
+  }
+  if (payload.aiEntitlements !== undefined && payload.aiEntitlements !== null) {
+    if (!isRecord(payload.aiEntitlements)) return { ok: false, reason: "AUTH_ME_INVALID_AI_ENTITLEMENTS" };
+    if (payload.aiEntitlements.nutrition !== undefined && typeof payload.aiEntitlements.nutrition !== "boolean") {
+      return { ok: false, reason: "AUTH_ME_INVALID_AI_NUTRITION" };
+    }
+    if (payload.aiEntitlements.strength !== undefined && typeof payload.aiEntitlements.strength !== "boolean") {
+      return { ok: false, reason: "AUTH_ME_INVALID_AI_STRENGTH" };
+    }
+  }
+
+  if (payload.tokenBalance !== undefined && payload.tokenBalance !== null && !isNumber(payload.tokenBalance)) {
+    return { ok: false, reason: "AUTH_ME_INVALID_TOKEN_BALANCE" };
+  }
+
+  if (payload.aiEntitlements !== undefined && payload.aiEntitlements !== null) {
+    if (!isRecord(payload.aiEntitlements)) return { ok: false, reason: "AUTH_ME_INVALID_AI_ENTITLEMENTS" };
+    if (payload.aiEntitlements.nutrition !== undefined && typeof payload.aiEntitlements.nutrition !== "boolean") {
+      return { ok: false, reason: "AUTH_ME_INVALID_AI_ENTITLEMENTS_NUTRITION" };
+    }
+    if (payload.aiEntitlements.strength !== undefined && typeof payload.aiEntitlements.strength !== "boolean") {
+      return { ok: false, reason: "AUTH_ME_INVALID_AI_ENTITLEMENTS_STRENGTH" };
+    }
+  }
 
   if (payload.entitlements !== undefined && payload.entitlements !== null) {
     if (!isRecord(payload.entitlements)) return { ok: false, reason: "AUTH_ME_INVALID_ENTITLEMENTS" };
@@ -38,6 +66,20 @@ export function validateAuthMePayload(payload: unknown): ContractValidationResul
       if (!hasBooleanEnabled(modules.ai)) return { ok: false, reason: "AUTH_ME_INVALID_AI_MODULE" };
       if (!hasBooleanEnabled(modules.nutrition)) return { ok: false, reason: "AUTH_ME_INVALID_NUTRITION_MODULE" };
       if (!hasBooleanEnabled(modules.strength)) return { ok: false, reason: "AUTH_ME_INVALID_STRENGTH_MODULE" };
+    }
+  }
+
+  if (payload.gymMembershipState !== undefined) {
+    const allowedGymMembershipStates = new Set(["NONE", "PENDING", "ACTIVE"]);
+    if (typeof payload.gymMembershipState !== "string" || !allowedGymMembershipStates.has(payload.gymMembershipState)) {
+      return { ok: false, reason: "AUTH_ME_INVALID_GYM_MEMBERSHIP_STATE" };
+    }
+  }
+
+  if (payload.gymRole !== undefined) {
+    const allowedGymRoles = new Set(["USER", "TRAINER", "ADMIN"]);
+    if (typeof payload.gymRole !== "string" || !allowedGymRoles.has(payload.gymRole)) {
+      return { ok: false, reason: "AUTH_ME_INVALID_GYM_ROLE" };
     }
   }
 
@@ -75,6 +117,10 @@ function isTrackingWorkout(entry: unknown): boolean {
   return isRecord(entry) && isString(entry.id) && isString(entry.date) && isString(entry.name) && isNumber(entry.durationMin);
 }
 
+function isTrackingMealLog(entry: unknown): boolean {
+  return isRecord(entry) && isString(entry.id) && isString(entry.date) && isString(entry.mealKey) && isString(entry.mealType) && isString(entry.title) && isNumber(entry.calories);
+}
+
 export function validateTrackingSnapshot(payload: unknown): ContractValidationResult {
   if (!isRecord(payload)) return { ok: false, reason: "TRACKING_NOT_OBJECT" };
   if (!Array.isArray(payload.checkins) || !payload.checkins.every(isTrackingCheckin)) {
@@ -85,6 +131,9 @@ export function validateTrackingSnapshot(payload: unknown): ContractValidationRe
   }
   if (!Array.isArray(payload.workoutLog) || !payload.workoutLog.every(isTrackingWorkout)) {
     return { ok: false, reason: "TRACKING_INVALID_WORKOUT_LOG" };
+  }
+  if (!Array.isArray(payload.mealLog) || !payload.mealLog.every(isTrackingMealLog)) {
+    return { ok: false, reason: "TRACKING_INVALID_MEAL_LOG" };
   }
   return { ok: true };
 }
@@ -111,6 +160,10 @@ function isUsagePayload(value: unknown): boolean {
   if (value.total_tokens !== undefined && !isNumber(value.total_tokens)) return false;
   if (value.prompt_tokens !== undefined && !isNumber(value.prompt_tokens)) return false;
   if (value.completion_tokens !== undefined && !isNumber(value.completion_tokens)) return false;
+  if (value.totalTokens !== undefined && !isNumber(value.totalTokens)) return false;
+  if (value.promptTokens !== undefined && !isNumber(value.promptTokens)) return false;
+  if (value.completionTokens !== undefined && !isNumber(value.completionTokens)) return false;
+  if (value.balanceAfter !== undefined && !isNumber(value.balanceAfter)) return false;
   return true;
 }
 
@@ -129,8 +182,11 @@ export function validateAiTrainingGeneratePayload(payload: unknown): ContractVal
   if (payload.mode !== undefined && typeof payload.mode !== "string") {
     return { ok: false, reason: "AI_TRAINING_INVALID_MODE" };
   }
-  if (payload.aiRequestId !== undefined && typeof payload.aiRequestId !== "string") {
+  if (payload.aiRequestId !== undefined && (!isString(payload.aiRequestId) || !isUuid(payload.aiRequestId))) {
     return { ok: false, reason: "AI_TRAINING_INVALID_AI_REQUEST_ID" };
+  }
+  if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {
+    return { ok: false, reason: "AI_TRAINING_INVALID_BALANCE_AFTER" };
   }
   return { ok: true };
 }
@@ -150,8 +206,11 @@ export function validateAiNutritionGeneratePayload(payload: unknown): ContractVa
   if (payload.mode !== undefined && typeof payload.mode !== "string") {
     return { ok: false, reason: "AI_NUTRITION_INVALID_MODE" };
   }
-  if (payload.aiRequestId !== undefined && typeof payload.aiRequestId !== "string") {
+  if (payload.aiRequestId !== undefined && (!isString(payload.aiRequestId) || !isUuid(payload.aiRequestId))) {
     return { ok: false, reason: "AI_NUTRITION_INVALID_AI_REQUEST_ID" };
+  }
+  if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_BALANCE_AFTER" };
   }
   return { ok: true };
 }

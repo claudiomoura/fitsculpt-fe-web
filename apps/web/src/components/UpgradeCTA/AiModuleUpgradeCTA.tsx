@@ -1,4 +1,4 @@
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/design-system/components/Button";
 
 type AiModuleUpgradeCTAProps = {
   title: string;

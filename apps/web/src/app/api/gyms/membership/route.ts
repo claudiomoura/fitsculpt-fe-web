@@ -10,7 +10,7 @@ export async function DELETE() {
 
   if (result.status === 404 || result.status === 405) {
     console.warn("[BFF][gyms/membership] leave gym unsupported by backend", { status: result.status });
-    return NextResponse.json({ error: "UNSUPPORTED_OPERATION", feature: "leave_gym" }, { status: 405 });
+    return NextResponse.json({ error: "FEATURE_NOT_AVAILABLE_IN_BETA" }, { status: 403 });
   }
 
   return NextResponse.json(result.payload, { status: result.status });

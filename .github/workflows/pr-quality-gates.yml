@@ -1,7 +1,7 @@
 name: PR Quality Gates
 
 on:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   web-quality-gates:
@@ -30,9 +30,11 @@ jobs:
           mkdir -p ../artifacts/web
 
           npm run lint | tee ../artifacts/web/lint.log
+          npm run lint:ds:imports | tee ../artifacts/web/lint-ds-imports.log
           npm run typecheck | tee ../artifacts/web/typecheck.log
           npm run build | tee ../artifacts/web/build.log
           npm test | tee ../artifacts/web/test.log
+          npm run endpoints:inventory:check | tee ../artifacts/web/endpoints-inventory-check.log
 
       - name: Upload web gate logs
         if: always()

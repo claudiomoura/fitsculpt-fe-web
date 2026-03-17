@@ -11,6 +11,7 @@ export function normalizeTrackingSnapshot(value: unknown): TrackingSnapshot {
     checkins: Array.isArray(source.checkins) ? source.checkins : [],
     foodLog: Array.isArray(source.foodLog) ? source.foodLog : [],
     workoutLog: Array.isArray(source.workoutLog) ? source.workoutLog : [],
+    mealLog: Array.isArray(source.mealLog) ? source.mealLog : [],
   };
 }
 

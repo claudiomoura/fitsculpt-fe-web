@@ -10,11 +10,11 @@ import {
 } from "@/lib/exerciseRecents";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise, TrainingPlanDetail } from "@/lib/types";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { useToast } from "@/components/ui/Toast";
+import { Badge } from "@/design-system/components/Badge";
+import { Button } from "@/design-system/components/Button";
+import { Input } from "@/design-system/components/Input";
+import { Skeleton } from "@/design-system/components/Skeleton";
+import { useToast } from "@/design-system/components/Toast";
 import { EmptyState, ErrorState, ExerciseCard, SkeletonExerciseList } from "@/components/exercise-library";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
 import { getUserProfile } from "@/lib/profileService";
@@ -48,7 +48,7 @@ export default function ExerciseLibraryClient() {
       params.set("athleteUserId", athleteUserId);
     }
     params.set("from", "plan");
-    const returnTo = athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento";
+    const returnTo = athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/training";
     params.set("returnTo", returnTo);
     return params.toString();
   }, [athleteUserId]);
@@ -615,7 +615,7 @@ export default function ExerciseLibraryClient() {
         allowMultiSelect
         onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
-        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"}
+        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/training"}
       />
     </section>
   );

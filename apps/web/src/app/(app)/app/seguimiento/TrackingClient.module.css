@@ -1,0 +1,224 @@
+.heroCard {
+  display: grid;
+  gap: 14px;
+}
+
+.heroHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.segmentedControl {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 4px;
+  max-width: 320px;
+}
+
+.segmentedButton {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmentedButtonActive {
+  background: var(--brand);
+  color: #fff;
+}
+
+.insightTabs {
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 4px;
+  gap: 4px;
+  width: min(100%, 420px);
+  margin-bottom: 16px;
+}
+
+.insightTabButton {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.insightTabButtonActive {
+  background: color-mix(in srgb, var(--brand) 86%, #ffffff 14%);
+  color: #fff;
+}
+
+.overviewGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.leftColumn,
+.rightColumn,
+.metricCards {
+  display: grid;
+  gap: 16px;
+}
+
+.metricCards {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+@media (min-width: 1024px) {
+  .overviewGrid {
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    align-items: start;
+  }
+
+  .rightColumn {
+    position: sticky;
+    top: 88px;
+  }
+}
+
+
+.checkinShell {
+  display: grid;
+  gap: 16px;
+}
+
+.checkinHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.checkinLatestPill {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.04);
+}
+
+.checkinModeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checkinModeCard {
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  padding: 16px;
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.checkinModeCardActive {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 55%, transparent), var(--shadow-sm);
+  background: color-mix(in srgb, var(--brand) 12%, var(--bg-card));
+}
+
+.checkinFormGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .checkinModeGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 640px) {
+  .heroCard {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .heroHeader {
+    gap: 16px;
+  }
+
+  .segmentedControl,
+  .insightTabs {
+    width: 100%;
+    max-width: none;
+  }
+
+  .segmentedButton,
+  .insightTabButton {
+    padding: 12px 10px;
+    font-size: 0.92rem;
+  }
+
+  .metricCards {
+    grid-template-columns: 1fr;
+  }
+
+  .overviewGrid {
+    gap: 14px;
+  }
+
+  .rightColumn {
+    gap: 12px;
+  }
+
+  .checkinShell {
+    gap: 18px;
+    padding: 16px;
+  }
+
+  .checkinLatestPill {
+    width: 100%;
+  }
+
+  .checkinModeCard {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .checkinFormGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+@media (max-width: 640px) {
+  .checkinHero {
+    gap: 10px;
+  }
+
+  .checkinModeCard strong {
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .checkinShell :global(.inline-actions-sm) {
+    width: 100%;
+  }
+
+  .checkinShell :global(.inline-actions-sm .btn) {
+    width: 100%;
+  }
+}

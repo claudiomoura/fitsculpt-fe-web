@@ -20,23 +20,29 @@ import {
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
-import { Badge } from "@/components/ui/Badge";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { hasNutritionAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
+import { Badge } from "@/design-system/components/Badge";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
+import { Skeleton } from "@/design-system/components/Skeleton";
+import { hasNutritionAiEntitlement, type AiEntitlementProfile } from "@/domains/ai";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
-import { Modal } from "@/components/ui/Modal";
+import { Modal } from "@/design-system/components/Modal";
+import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
+import { RecipeImage } from "@/components/nutrition/RecipeImage";
 import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
 import AppLayout from "@/components/layout/AppLayout";
 import NutritionStats from "@/components/nutrition/NutritionStats";
 import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
-import { Accordion, HeaderCompact, ObjectiveGrid, SegmentedControl } from "@/design-system/components";
+import { Accordion, MealCardCompact, ProgressBar, SegmentedControl } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
+import { getNutritionMealKey } from "@/lib/nutritionMealKey";
+import { trackEvent } from "@/lib/analytics";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
-import { useToast } from "@/components/ui/Toast";
-import { generateNutritionPlan, type NutritionGenerateError } from "@/services/nutrition";
+import { useToast } from "@/design-system/components/Toast";
+import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
+import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError, classifyAiError } from "@/lib/aiErrorMapping";
+import { mapAiErrorToUiState } from "@/lib/aiErrorUi";
 
 type NutritionForm = {
   age: number;
@@ -74,9 +80,36 @@ type DayPlan = {
 
 type NutritionPlan = NutritionPlanData;
 
+type AssignedNutritionPayload = {
+  assignedPlan?: NutritionPlan | { plan?: NutritionPlan | null; title?: string | null } | null;
+  plan?: NutritionPlan | null;
+  trainerAssignedPlan?: NutritionPlan | { plan?: NutritionPlan | null; title?: string | null } | null;
+};
+
 type NutritionPlanClientProps = {
   mode?: "suggested" | "manual";
 };
+
+function resolveAssignedNutritionPlan(payload: AssignedNutritionPayload): NutritionPlan | null {
+  const rawPlan = payload.assignedPlan ?? payload.trainerAssignedPlan ?? payload.plan ?? null;
+  if (!rawPlan) return null;
+  if ("days" in rawPlan && Array.isArray(rawPlan.days)) {
+    return rawPlan as NutritionPlan;
+  }
+  if ("plan" in rawPlan && rawPlan.plan && typeof rawPlan.plan === "object") {
+    const nestedPlan = rawPlan.plan as NutritionPlan;
+    if (typeof rawPlan.title === "string" && rawPlan.title.trim().length > 0 && typeof nestedPlan.title !== "string") {
+      return { ...nestedPlan, title: rawPlan.title };
+    }
+    return nestedPlan;
+  }
+  return rawPlan as NutritionPlan;
+}
+
+function readAssignedNutritionPlanTitle(plan: NutritionPlan | null): string | null {
+  const title = typeof plan?.title === "string" ? plan.title.trim() : "";
+  return title.length > 0 ? title : null;
+}
 
 type MealMediaCandidate = {
   imageUrl?: unknown;
@@ -105,10 +138,57 @@ type AiTokenSnapshot = {
 };
 
 type AiUsageSummary = {
-  total_tokens?: number;
-  prompt_tokens?: number;
-  completion_tokens?: number;
+  totalTokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  balanceAfter?: number;
 };
+
+function normalizeAiUsageSummary(value: unknown): AiUsageSummary | null {
+  if (!value || typeof value !== "object") return null;
+  const usage = value as {
+    totalTokens?: unknown;
+    promptTokens?: unknown;
+    completionTokens?: unknown;
+    total_tokens?: unknown;
+    prompt_tokens?: unknown;
+    completion_tokens?: unknown;
+    balanceAfter?: unknown;
+  };
+
+  const normalized: AiUsageSummary = {
+    totalTokens:
+      typeof usage.totalTokens === "number"
+        ? usage.totalTokens
+        : typeof usage.total_tokens === "number"
+          ? usage.total_tokens
+          : undefined,
+    promptTokens:
+      typeof usage.promptTokens === "number"
+        ? usage.promptTokens
+        : typeof usage.prompt_tokens === "number"
+          ? usage.prompt_tokens
+          : undefined,
+    completionTokens:
+      typeof usage.completionTokens === "number"
+        ? usage.completionTokens
+        : typeof usage.completion_tokens === "number"
+          ? usage.completion_tokens
+          : undefined,
+    balanceAfter: typeof usage.balanceAfter === "number" ? usage.balanceAfter : undefined,
+  };
+
+  if (
+    normalized.totalTokens === undefined
+    && normalized.promptTokens === undefined
+    && normalized.completionTokens === undefined
+    && normalized.balanceAfter === undefined
+  ) {
+    return null;
+  }
+
+  return normalized;
+}
 
 type NutritionAiErrorState = {
   title: string;
@@ -116,9 +196,12 @@ type NutritionAiErrorState = {
   actionableHint: string | null;
   details: string | null;
   canRetry: boolean;
+  ctaHref: string | null;
+  ctaLabel: string | null;
 };
 
 const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
+const NUTRITION_PLANS_UPDATED_AT_KEY = "fs_nutrition_plans_updated_at";
 
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
   try {
@@ -317,17 +400,8 @@ const getMealInstructions = (meal: NutritionMeal) => {
   return instructions.length > 0 ? instructions : null;
 };
 
-const getMealKey = (meal: NutritionMeal, dayKey: string, index: number) => {
-  const maybeMeal = meal as unknown as { id?: unknown };
-  if (typeof maybeMeal.id === "string" && maybeMeal.id.trim().length > 0) {
-    return maybeMeal.id;
-  }
-  const title = meal.title?.trim();
-  const description = meal.description?.trim();
-  const safeTitle = title ? slugifyExerciseName(title) : "";
-  const safeDescription = description ? slugifyExerciseName(description) : "";
-  const parts = [dayKey, meal.type, safeTitle, safeDescription].filter((value) => typeof value === "string" && value.length > 0);
-  return parts.length > 0 ? parts.join(":") : `meal:${dayKey}:${index}`;
+const getMealMeta = (meal: NutritionMeal, t: (key: string) => string) => {
+  return `${meal.macros.calories} ${t("units.kcal")} · ${t("nutrition.protein")}: ${meal.macros.protein}g · ${t("nutrition.carbs")}: ${meal.macros.carbs}g · ${t("nutrition.fat")}: ${meal.macros.fats}g`;
 };
 
 const DAY_LABEL_KEYS = [
@@ -660,9 +734,14 @@ function calculatePlan(
 
 export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: string[]): NutritionPlan | null {
   if (!plan) return null;
-  const normalizedDays = plan.days.map((day) => ({
+  const sourceDays = Array.isArray(plan.days) ? plan.days : [];
+  if (sourceDays.length === 0) {
+    return { ...plan, days: [] };
+  }
+
+  const normalizedDays = sourceDays.map((day) => ({
     ...day,
-    meals: day.meals.map((meal) => ({
+    meals: (Array.isArray(day.meals) ? day.meals : []).map((meal) => ({
       ...meal,
       description: meal.description ?? "",
       ingredients: meal.ingredients ?? [],
@@ -703,19 +782,26 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [aiEntitled, setAiEntitled] = useState(false);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
+  const [trainerAssignedPlan, setTrainerAssignedPlan] = useState<NutritionPlan | null>(null);
+  const [assignedLoading, setAssignedLoading] = useState(true);
+  const [assignedError, setAssignedError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<NutritionAiErrorState | null>(null);
+  const [aiQuotaExceededError, setAiQuotaExceededError] = useState(false);
   const [aiRetryCount, setAiRetryCount] = useState(0);
   const [aiSuccessModalOpen, setAiSuccessModalOpen] = useState(false);
+  const [tokensExhaustedModalOpen, setTokensExhaustedModalOpen] = useState(false);
   const [lastGeneratedAiPlan, setLastGeneratedAiPlan] = useState<NutritionPlan | null>(null);
   const [lastGeneratedUsage, setLastGeneratedUsage] = useState<AiUsageSummary | null>(null);
   const [lastGeneratedMode, setLastGeneratedMode] = useState<string | null>(null);
   const [lastGeneratedAiRequestId, setLastGeneratedAiRequestId] = useState<string | null>(null);
+  const [lastGeneratedPlanId, setLastGeneratedPlanId] = useState<string | null>(null);
   const [lastGeneratedTokensBalance, setLastGeneratedTokensBalance] = useState<number | null>(null);
   const [pendingTokenToastId, setPendingTokenToastId] = useState(0);
   const [manualPlan, setManualPlan] = useState<NutritionPlan | null>(null);
+  const [selectedLibraryPlan, setSelectedLibraryPlan] = useState<NutritionPlan | null>(null);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<"month" | "week" | "list">("week");
   const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
@@ -737,10 +823,12 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   } | null>(null);
   const swipeStartX = useRef<number | null>(null);
   const autoGenerated = useRef(false);
+  const aiGenerationInFlight = useRef(false);
   const generatedPlanSectionRef = useRef<HTMLElement | null>(null);
   const renderedTokenToastId = useRef(0);
   const calendarInitialized = useRef(false);
   const urlSyncInitialized = useRef(false);
+  const selectedPlanId = normalizePlanSelection(searchParams.get("planId"));
   const isManualView = mode === "manual";
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -764,6 +852,123 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       ref.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadAssignedPlan = async () => {
+      setAssignedLoading(true);
+      setAssignedError(null);
+      try {
+        const response = await fetch("/api/nutrition-plans/assigned", { cache: "no-store", credentials: "include" });
+        if (response.status === 404) {
+          if (!active) return;
+          setTrainerAssignedPlan(null);
+          setAssignedLoading(false);
+          return;
+        }
+        if (!response.ok) throw new Error("ASSIGNED_PLAN_ERROR");
+        const payload = (await response.json()) as AssignedNutritionPayload;
+        if (!active) return;
+        setTrainerAssignedPlan(resolveAssignedNutritionPlan(payload));
+      } catch {
+        if (!active) return;
+        setAssignedError(t("nutrition.errorTitle"));
+      } finally {
+        if (active) setAssignedLoading(false);
+      }
+    };
+
+    void loadAssignedPlan();
+    return () => {
+      active = false;
+    };
+  }, [t]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadSelectedPlan = async () => {
+      if (!selectedPlanId) {
+        setSelectedLibraryPlan(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/nutrition-plans/${encodeURIComponent(selectedPlanId)}`, { cache: "no-store", credentials: "include" });
+        if (!response.ok) {
+          if (active) setSelectedLibraryPlan(null);
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          title?: string;
+          startDate?: string | null;
+          dailyCalories?: number;
+          proteinG?: number;
+          fatG?: number;
+          carbsG?: number;
+          days?: Array<{
+            dayLabel?: string;
+            date?: string;
+            meals?: Array<{
+              type?: "breakfast" | "lunch" | "dinner" | "snack";
+              title?: string;
+              description?: string;
+              calories?: number;
+              protein?: number;
+              carbs?: number;
+              fats?: number;
+              ingredients?: Array<{ name?: string; grams?: number }>;
+            }>;
+          }>;
+        };
+
+        if (!active) return;
+        const normalizedDays = Array.isArray(payload.days)
+          ? payload.days.map((day, dayIndex) => ({
+            date: typeof day.date === "string" ? day.date : undefined,
+            dayLabel: typeof day.dayLabel === "string" && day.dayLabel.trim().length > 0 ? day.dayLabel : `Día ${dayIndex + 1}`,
+            meals: Array.isArray(day.meals)
+              ? day.meals.map((meal) => ({
+                type: meal.type ?? "lunch",
+                title: meal.title ?? "Comida",
+                description: meal.description,
+                macros: {
+                  calories: Number(meal.calories ?? 0),
+                  protein: Number(meal.protein ?? 0),
+                  carbs: Number(meal.carbs ?? 0),
+                  fats: Number(meal.fats ?? 0),
+                },
+                ingredients: Array.isArray(meal.ingredients)
+                  ? meal.ingredients.map((ingredient) => ({
+                    name: ingredient.name ?? "Ingrediente",
+                    grams: Number(ingredient.grams ?? 0),
+                  }))
+                  : [],
+              }))
+              : [],
+          }))
+          : [];
+
+        setSelectedLibraryPlan({
+          title: payload.title,
+          startDate: payload.startDate ?? null,
+          dailyCalories: Number(payload.dailyCalories ?? 0),
+          proteinG: Number(payload.proteinG ?? 0),
+          fatG: Number(payload.fatG ?? 0),
+          carbsG: Number(payload.carbsG ?? 0),
+          days: normalizedDays,
+        });
+      } catch {
+        if (active) setSelectedLibraryPlan(null);
+      }
+    };
+
+    void loadSelectedPlan();
+    return () => {
+      active = false;
+    };
+  }, [selectedPlanId]);
 
   const refreshSubscription = async () => {
     try {
@@ -810,9 +1015,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       t
     );
   }, [profile, mealTemplates, dayLabels, t]);
+  const trainerPlanVisible = useMemo(() => normalizeNutritionPlan(trainerAssignedPlan, dayLabels), [trainerAssignedPlan, dayLabels]);
+  const assignedPlanTitle = useMemo(() => readAssignedNutritionPlanTitle(trainerAssignedPlan), [trainerAssignedPlan]);
   const visiblePlan = useMemo(
-    () => normalizeNutritionPlan(isManualView ? savedPlan ?? plan : savedPlan, dayLabels),
-    [isManualView, savedPlan, plan, dayLabels]
+    () => normalizeNutritionPlan(selectedLibraryPlan ?? trainerPlanVisible ?? (isManualView ? savedPlan ?? plan : savedPlan), dayLabels),
+    [selectedLibraryPlan, trainerPlanVisible, isManualView, savedPlan, plan, dayLabels]
   );
   const planStartDate = useMemo(
     () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
@@ -882,6 +1089,36 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const highlightedDay = selectedVisiblePlanDay?.day ?? visiblePlan?.days[0] ?? null;
   const highlightedDayKey = selectedVisiblePlanDay?.date ? toDateKey(selectedVisiblePlanDay.date) : toDateKey(selectedDate);
   const highlightedMeals = highlightedDay?.meals ?? [];
+  const hasHighlightedMeals = highlightedMeals.length > 0;
+  const highlightedMealsByType = useMemo(() => {
+    const mealsPerDay = profile?.nutritionPreferences.mealsPerDay ?? 3;
+    const mealOrder: NutritionMeal["type"][] = mealsPerDay === 1
+      ? ["lunch"]
+      : mealsPerDay === 2
+        ? ["breakfast", "dinner"]
+        : mealsPerDay === 3
+          ? ["breakfast", "lunch", "dinner"]
+          : mealsPerDay === 4
+            ? ["breakfast", "snack", "lunch", "dinner"]
+            : mealsPerDay === 5
+              ? ["breakfast", "snack", "lunch", "snack", "dinner"]
+              : ["breakfast", "snack", "lunch", "snack", "dinner", "snack"];
+    return mealOrder.map((mealType) => {
+      const meal = highlightedMeals.find((entry) => entry.type === mealType) ?? null;
+      return {
+        mealType,
+        label:
+          mealType === "breakfast"
+            ? t("nutrition.mealTypeBreakfast")
+            : mealType === "lunch"
+              ? t("nutrition.mealTypeLunch")
+              : mealType === "dinner"
+                ? t("nutrition.mealTypeDinner")
+                : t("nutrition.mealTypeSnack"),
+        meal,
+      };
+    });
+  }, [highlightedMeals, profile?.nutritionPreferences.mealsPerDay, t]);
   const highlightedMealsTotals = useMemo(
     () =>
       highlightedMeals.reduce(
@@ -945,45 +1182,29 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         id: "objective-kcal",
         label: t("nutrition.calories"),
         value: `${visiblePlan?.dailyCalories ?? 0} ${t("units.kcal")}`,
+        tone: "primary" as const,
       },
       {
         id: "objective-protein",
         label: t("nutrition.protein"),
         value: `${visiblePlan?.proteinG ?? 0} ${t("nutrition.grams")}`,
+        tone: "success" as const,
       },
       {
         id: "objective-carbs",
         label: t("nutrition.carbs"),
         value: `${visiblePlan?.carbsG ?? 0} ${t("nutrition.grams")}`,
+        tone: "warning" as const,
       },
       {
         id: "objective-fat",
         label: t("nutrition.fat"),
         value: `${visiblePlan?.fatG ?? 0} ${t("nutrition.grams")}`,
+        tone: "primary" as const,
       },
     ],
     [t, visiblePlan?.carbsG, visiblePlan?.dailyCalories, visiblePlan?.fatG, visiblePlan?.proteinG]
   );
-  const weekGridDays = useMemo(
-    () =>
-      weekDates.map((date) => {
-        const dayKey = toDateKey(date);
-        const entry = visibleDayMap.get(dayKey);
-        const mealsForDay = entry?.day?.meals ?? [];
-        const dayCalories = mealsForDay.reduce((sum, meal) => sum + Number(meal.macros?.calories ?? 0), 0);
-        return {
-          id: dayKey,
-          label: date.toLocaleDateString(localeCode, { weekday: "short" }),
-          date: String(date.getDate()),
-          selected: isSameDay(date, selectedDate),
-          complete: mealsForDay.length > 0,
-          dayCalories,
-          mealCount: mealsForDay.length,
-        };
-      }),
-    [localeCode, selectedDate, visibleDayMap, weekDates]
-  );
-
   useEffect(() => {
     if (!manualPlan && visiblePlan) {
       setManualPlan(visiblePlan);
@@ -994,8 +1215,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     if (!planStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
     const dayParam = searchParams.get("day");
-    setSelectedDate(parseDate(dayParam) ?? new Date());
-  }, [planStartDate, searchParams]);
+    setSelectedDate(parseDate(dayParam) ?? planEntries[0]?.date ?? planStartDate);
+  }, [planEntries, planStartDate, searchParams]);
 
   const updateNutritionSearchParams = (nextDayKey: string, dishKey?: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -1013,7 +1234,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       params.delete("dish");
     }
     const query = params.toString();
-    router.replace(`/app/nutricion${query.length > 0 ? `?${query}` : ""}`, { scroll: false });
+    router.replace(`/app/nutrition${query.length > 0 ? `?${query}` : ""}`, { scroll: false });
   };
 
   const openMealDetail = (
@@ -1248,6 +1469,32 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   } = useNutritionQuickFavorites();
   const [quickLogMessage, setQuickLogMessage] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  const weekGridDays = useMemo(
+    () =>
+      weekDates.map((date) => {
+        const dayKey = toDateKey(date);
+        const entry = visibleDayMap.get(dayKey);
+        const mealsForDay = entry?.day?.meals ?? [];
+        const dayCalories = mealsForDay.reduce((sum, meal) => sum + Number(meal.macros?.calories ?? 0), 0);
+        const completedMeals = mealsForDay.reduce((count, meal, index) => {
+          const mealKey = getNutritionMealKey(meal, dayKey, index);
+          return count + (isConsumed(mealKey, dayKey) ? 1 : 0);
+        }, 0);
+        return {
+          id: dayKey,
+          label: date.toLocaleDateString(localeCode, { weekday: "short" }),
+          date: String(date.getDate()),
+          selected: isSameDay(date, selectedDate),
+          complete: mealsForDay.length > 0 && completedMeals === mealsForDay.length,
+          dayCalories,
+          mealCount: mealsForDay.length,
+          completedMeals,
+        };
+      }),
+    [isConsumed, localeCode, selectedDate, visibleDayMap, weekDates]
+  );
+
+
   const selectedMealMacros = selectedMealDetails
     ? [
         Number.isFinite(selectedMealDetails.macros?.calories)
@@ -1278,17 +1525,29 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     };
   };
 
-  const handleQuickLogMeal = (mealKey: string, dayKey?: string | null) => {
+  const handleQuickLogMeal = async (mealKey: string, meal: NutritionMeal, dayKey?: string | null) => {
     if (!dayKey || adherenceError) {
       setQuickLogMessage({ type: "error", message: t("nutrition.quickLogError") });
       return;
     }
     const nextConsumed = !isConsumed(mealKey, dayKey);
-    toggle(mealKey, dayKey);
-    setQuickLogMessage({
-      type: "success",
-      message: nextConsumed ? t("nutrition.quickLogSuccess") : t("nutrition.quickLogUndo"),
-    });
+    try {
+      await toggle(mealKey, dayKey, {
+        mealType: meal.type,
+        title: getMealTitle(meal, t),
+        calories: Number(meal.macros?.calories ?? 0),
+        protein: Number(meal.macros?.protein ?? 0),
+        carbs: Number(meal.macros?.carbs ?? 0),
+        fats: Number(meal.macros?.fats ?? 0),
+      });
+      setQuickLogMessage({
+        type: "success",
+        message: nextConsumed ? t("nutrition.quickLogSuccess") : t("nutrition.quickLogUndo"),
+      });
+      trackEvent("nutrition_meal_logged", { target: "nutrition", origin: "nutrition_page", mealType: String(meal.type ?? "meal") });
+    } catch (_err) {
+      setQuickLogMessage({ type: "error", message: t("nutrition.quickLogError") });
+    }
   };
 
   const handleFavoriteAction = (meal: NutritionMeal) => {
@@ -1303,6 +1562,13 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const isSelectedMealFavorite = selectedMealFavorite
     ? quickFavorites.some((favorite) => favorite.id === selectedMealFavorite.id)
     : false;
+  const highlightedCompletedMeals = useMemo(
+    () => highlightedMeals.reduce((count, meal, mealIndex) => count + (isConsumed(getNutritionMealKey(meal, highlightedDayKey, mealIndex), highlightedDayKey) ? 1 : 0), 0),
+    [highlightedDayKey, highlightedMeals, isConsumed]
+  );
+  const highlightedMealsProgress = highlightedMeals.length > 0
+    ? Math.round((highlightedCompletedMeals / highlightedMeals.length) * 100)
+    : 0;
 
   const handleUseFavorite = (favorite: NutritionQuickFavorite) => {
     const dayKey = toDateKey(selectedDate);
@@ -1325,7 +1591,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       dayLabel: selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" }),
       mealKey: favoriteMealKey,
     });
-    handleQuickLogMeal(favoriteMealKey, dayKey);
+    void handleQuickLogMeal(favoriteMealKey, favoriteMeal, dayKey);
   };
 
   useEffect(() => {
@@ -1354,7 +1620,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       return;
     }
 
-    const mealEntry = dayEntry.meals.find((meal, index) => getMealKey(meal, dayParam, index) === dishParam);
+    const mealEntry = dayEntry.meals.find((meal, index) => getNutritionMealKey(meal, dayParam, index) === dishParam);
     if (mealEntry) {
       setSelectedMeal({
         meal: mealEntry,
@@ -1377,14 +1643,30 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const MAX_AI_RETRIES = 3;
 
   const handleAiPlan = async (mode: "default" | "simple" = "default") => {
-    if (!profile || aiLoading) return;
+    if (!profile || aiLoading || aiGenerationInFlight.current) return;
     if (!aiEntitled) return;
-    if (!isProfileComplete(profile)) {
-      router.push("/app/onboarding?ai=nutrition&next=/app/nutricion");
+    if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiQuotaExceededError(false);
+      setAiError({
+        title: t("nutrition.aiErrorState.title"),
+        description: t("ai.insufficientTokens"),
+        actionableHint: null,
+        details: null,
+        canRetry: false,
+        ctaHref: null,
+        ctaLabel: null,
+      });
+      setTokensExhaustedModalOpen(true);
       return;
     }
+    if (!isProfileComplete(profile)) {
+      router.push("/app/onboarding?ai=nutrition&next=/app/nutrition");
+      return;
+    }
+    aiGenerationInFlight.current = true;
     setAiLoading(true);
     setAiError(null);
+    setAiQuotaExceededError(false);
    try {
   const startDate = toDateKey(startOfWeek(new Date()));
 
@@ -1394,41 +1676,26 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   );
 
   const baseCalories = plan?.dailyCalories ?? 2000;
-  const targetKcal = clampInt(baseCalories, 600, 4000, 2000);
+  const calories = clampInt(baseCalories, 1200, 4000, 2000);
 
-  // 🔥 Forzar macroTargets en GRAMOS (lo que normalmente espera el backend)
-  const proteinRatio = 0.3;
-  const carbsRatio = 0.4;
-  const fatRatio = 0.3;
-
-  const proteinGrams = Math.round((targetKcal * proteinRatio) / 4);
-  const carbsGrams = Math.round((targetKcal * carbsRatio) / 4);
-  const fatGrams = Math.round((targetKcal * fatRatio) / 9);
-
-const macroTargets = {
-  proteinG: proteinGrams,
-  carbsG: carbsGrams,
-  fatsG: fatGrams,
-};
-
-const data = await generateNutritionPlan({
-  name: profile.name || undefined,
-  age: profile.age ?? undefined,
-  sex: profile.sex ?? undefined,
-  goal: profile.goal ?? undefined,
-      mealsPerDay,
-      targetKcal,
-      macroTargets,
-      startDate,
-      daysCount: 7,
-      dietType: profile.nutritionPreferences.dietType,
-      allergies: mode === "simple" ? [] : profile.nutritionPreferences.allergies,
-      preferredFoods: mode === "simple" ? "" : profile.nutritionPreferences.preferredFoods,
-      dislikedFoods: mode === "simple" ? "" : profile.nutritionPreferences.dislikedFoods,
-      mealDistribution:
-        mode === "simple"
-          ? { preset: "balanced", percentages: [25, 25, 30, 20] }
-          : profile.nutritionPreferences.mealDistribution,
+  const data = await generateNutritionPlan({
+    name: profile.name || undefined,
+    age: profile.age ?? 30,
+    sex: profile.sex === "male" || profile.sex === "female" ? profile.sex : "male",
+    goal: profile.goal === "cut" || profile.goal === "maintain" || profile.goal === "bulk" ? profile.goal : "maintain",
+    mealsPerDay,
+    calories,
+    startDate,
+    daysCount: 7,
+    dietType: profile.nutritionPreferences.dietType || undefined,
+    dietaryRestrictions: mode === "simple" ? "" : (profile.nutritionPreferences.dietaryPrefs || ""),
+    allergies: mode === "simple" ? [] : profile.nutritionPreferences.allergies,
+    preferredFoods: mode === "simple" ? "" : profile.nutritionPreferences.preferredFoods,
+    dislikedFoods: mode === "simple" ? "" : profile.nutritionPreferences.dislikedFoods,
+    mealDistribution:
+      mode === "simple"
+        ? { preset: "balanced", percentages: [25, 25, 30, 20] }
+        : profile.nutritionPreferences.mealDistribution,
   });
       const generatedPlan = data.plan ?? (data as unknown as NutritionPlan);
       if (typeof data.aiTokenBalance === "number") {
@@ -1460,6 +1727,13 @@ if (!isNutritionPlanData(candidatePlan)) {
 }
 
 const planToSave = ensurePlanStartDate(candidatePlan);
+      const generatedPlanIdFromResponse = typeof data.planId === "string" && data.planId.trim().length > 0
+        ? data.planId.trim()
+        : null;
+      const generatedPlanIdFromPlan =
+        "id" in planToSave && typeof (planToSave as { id?: unknown }).id === "string" && (planToSave as { id: string }).id.trim().length > 0
+          ? (planToSave as { id: string }).id.trim()
+          : null;
       setSavedPlan(planToSave);
       setSelectedDate(parseDate(planToSave.startDate) ?? selectedDate);
       const updated = await updateUserProfile({ nutritionPlan: planToSave });
@@ -1469,6 +1743,8 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       const tokensAfter = await readAiTokenSnapshot();
       const currentTokenBalance =
         tokensAfter.tokens
+        ?? (typeof data.usage?.balanceAfter === "number" ? data.usage.balanceAfter : null)
+        ?? (typeof data.balanceAfter === "number" ? data.balanceAfter : null)
         ?? (typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
 
       if (currentTokenBalance !== null) {
@@ -1476,79 +1752,128 @@ const planToSave = ensurePlanStartDate(candidatePlan);
       }
 
       setLastGeneratedAiPlan(updatedPlan);
-      setLastGeneratedUsage(data.usage ?? null);
+      setLastGeneratedUsage(normalizeAiUsageSummary(data.usage));
       setLastGeneratedMode(typeof data.mode === "string" ? data.mode : null);
       setLastGeneratedAiRequestId(typeof data.aiRequestId === "string" ? data.aiRequestId : null);
+      setLastGeneratedPlanId(generatedPlanIdFromResponse ?? generatedPlanIdFromPlan);
       setLastGeneratedTokensBalance(currentTokenBalance);
       setAiRetryCount(0);
       setAiSuccessModalOpen(true);
       setPendingTokenToastId((value) => value + 1);
       setSaveMessage(t("nutrition.aiSuccess"));
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(NUTRITION_PLANS_UPDATED_AT_KEY, String(Date.now()));
+      }
       void refreshSubscription();
     } catch (err) {
       const requestError = err as NutritionGenerateError;
       const retriesReached = aiRetryCount >= MAX_AI_RETRIES;
-      if (requestError?.code === "INSUFFICIENT_TOKENS") {
+      const errorCode = normalizeAiErrorCode(requestError?.code);
+      if (errorCode === "AI_QUOTA_EXCEEDED" || errorCode === "INSUFFICIENT_TOKENS") {
+        const uiError = mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t);
         setAiError({
-          title: t("nutrition.aiErrorState.title"),
-          description: t("ai.insufficientTokens"),
+          title: uiError.title,
+          description: uiError.description,
           actionableHint: null,
           details: null,
           canRetry: false,
+          ctaHref: uiError.ctaHref,
+          ctaLabel: uiError.ctaLabel,
         });
+        setAiQuotaExceededError(true);
+        if (errorCode === "INSUFFICIENT_TOKENS") {
+          setTokensExhaustedModalOpen(true);
+        }
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (requestError?.status === 400 && requestError?.code === "INVALID_AI_OUTPUT") {
+      } else if (requestError?.status === 400 && errorCode === "INVALID_AI_OUTPUT") {
         setAiError({
           title: t("nutrition.aiErrorState.invalidOutputTitle"),
           description: t("nutrition.aiErrorState.invalidOutputDescription"),
           actionableHint: extractAiActionableHint(requestError.details, t),
           details: extractAiDiffDetails(requestError.details),
           canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (requestError?.status === 400) {
+      } else if (classifyAiError({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }) === "auth") {
+        const uiError = mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t);
         setAiError({
-          title: t("nutrition.aiErrorState.title"),
-          description: extractAiFieldErrorsMessage(requestError.details) ?? requestError.message ?? t("nutrition.aiErrorState.genericDescription"),
+          title: uiError.title,
+          description: uiError.description,
+          actionableHint: null,
+          details: null,
+          canRetry: false,
+          ctaHref: uiError.ctaHref,
+          ctaLabel: uiError.ctaLabel,
+        });
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (requestError?.status === 400 || classifyAiError({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }) === "validation") {
+        const uiError = mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t);
+        setAiError({
+          title: uiError.title,
+          description: uiError.description,
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: uiError.ctaHref,
+          ctaLabel: uiError.ctaLabel,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (requestError?.status === 429) {
+      } else if (requestError?.status === 429 || errorCode === "RATE_LIMITED") {
+        const uiError = mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t);
         setAiError({
-          title: t("nutrition.aiErrorState.title"),
-          description: requestError.message ?? t("nutrition.aiRateLimit"),
+          title: uiError.title,
+          description: uiError.description,
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: uiError.ctaHref,
+          ctaLabel: uiError.ctaLabel,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
-      } else if (requestError?.code === "UPSTREAM_ERROR" || (typeof requestError?.status === "number" && requestError.status >= 500)) {
+      } else if (shouldTreatAsConflictError(requestError?.status)) {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
-          description: t("nutrition.aiErrorState.upstreamDescription"),
+          description: t("nutrition.aiErrorState.conflictDescription"),
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
+        });
+        setAiRetryCount((prev) => prev + 1);
+        notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
+      } else if (shouldTreatAsUpstreamError(requestError?.status, requestError?.code)) {
+        setAiError({
+          title: t("nutrition.aiErrorState.title"),
+          description: mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t).description,
+          actionableHint: null,
+          details: null,
+          canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
       } else {
         setAiError({
           title: t("nutrition.aiErrorState.title"),
-          description: t("nutrition.aiErrorState.genericDescription"),
+          description: mapAiErrorToUiState({ status: requestError?.status, code: requestError?.code, kind: requestError?.kind }, t).description,
           actionableHint: null,
           details: null,
           canRetry: !retriesReached,
+          ctaHref: null,
+          ctaLabel: null,
         });
         setAiRetryCount((prev) => prev + 1);
         notify({ title: t("nutrition.aiErrorState.toast"), variant: "error" });
       }
     } finally {
+      aiGenerationInFlight.current = false;
       setAiLoading(false);
       window.setTimeout(() => setSaveMessage(null), 2000);
     }
@@ -1564,16 +1889,43 @@ useEffect(() => {
 }, [aiEntitled, profile, searchParams]);
 
   const handleGenerateClick = () => {
-    if (!profile) return;
+    if (aiGenerationInFlight.current || aiLoading || !profile) return;
+    if (!aiEntitled) {
+      setAiQuotaExceededError(false);
+      setAiError({
+        title: t("nutrition.aiErrorState.title"),
+        description: aiLockDescription,
+        actionableHint: null,
+        details: null,
+        canRetry: false,
+        ctaHref: null,
+        ctaLabel: null,
+      });
+      return;
+    }
+    if (aiTokenBalance !== null && aiTokenBalance <= 0) {
+      setAiError({
+        title: t("nutrition.aiErrorState.title"),
+        description: t("ai.insufficientTokens"),
+        actionableHint: null,
+        details: null,
+        canRetry: false,
+        ctaHref: null,
+        ctaLabel: null,
+      });
+      setTokensExhaustedModalOpen(true);
+      return;
+    }
     if (!isProfileComplete(profile)) {
-      router.push("/app/onboarding?ai=nutrition&next=/app/nutricion");
+      router.push("/app/onboarding?ai=nutrition&next=/app/nutrition");
       return;
     }
     void handleAiPlan();
   };
 
   const isAiLocked = !aiEntitled;
-  const isAiDisabled = aiLoading || isAiLocked;
+  const isOutOfTokens = aiTokenBalance !== null && aiTokenBalance <= 0;
+  const isAiDisabled = aiLoading || isAiLocked || isOutOfTokens;
   const aiLockDescription = safeT("nutrition.aiModuleRequired", "Requiere NutriAI o PRO");
 
   const generatedPlanPreviewDay = useMemo(() => {
@@ -1592,9 +1944,12 @@ useEffect(() => {
 
   const handleViewGeneratedPlan = () => {
     setAiSuccessModalOpen(false);
-    window.requestAnimationFrame(() => {
-      generatedPlanSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    if (lastGeneratedPlanId) {
+      router.push(`/app/dietas/${lastGeneratedPlanId}`);
+      return;
+    }
+
+    notify({ title: t("nutrition.aiSuccessRequiresPlanId"), variant: "error" });
   };
 
   const handlePrevDay = () => {
@@ -1755,7 +2110,7 @@ const nutritionPlanDetails = profile ? (
       className="mt-16"
     >
       <div className="inline-actions-sm mb-12">
-        <Link href="/app/nutricion/editar" className="btn secondary">
+        <Link href="/app/nutrition/editar" className="btn secondary">
           {t("nutrition.editPlan")}
         </Link>
       </div>
@@ -1872,7 +2227,7 @@ const nutritionPlanDetails = profile ? (
         <>
           
 
-          {loading ? (
+          {loading || assignedLoading ? (
             <section className="card">
               <div className="section-head">
                 <div>
@@ -1892,14 +2247,24 @@ const nutritionPlanDetails = profile ? (
                   <h3 className="m-0">{t("nutrition.profileIncompleteTitle")}</h3>
                   <p className="muted">{t("nutrition.profileIncompleteSubtitle")}</p>
                 </div>
-                <ButtonLink href="/app/onboarding?next=/app/nutricion">
+                <ButtonLink href="/app/onboarding?next=/app/nutrition">
                   {t("profile.openOnboarding")}
                 </ButtonLink>
               </div>
             </section>
-          ) : !error && !hasPlan ? (
+          ) : assignedError ? (
             <section className="card">
-              <div className="empty-state">
+              <div className="status-card status-card--warning" role="alert" aria-live="polite" data-testid="member-nutrition-assigned-error">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("nutrition.errorTitle")}</strong>
+                </div>
+                <p className="muted">{assignedError}</p>
+              </div>
+            </section>
+          ) : !error && !assignedLoading && !hasPlan ? (
+            <section className="card">
+              <div className="empty-state" data-testid="member-nutrition-empty-state">
                 <div className="empty-state-icon">
                   <Icon name="info" />
                 </div>
@@ -1907,27 +2272,48 @@ const nutritionPlanDetails = profile ? (
                   <h3 className="m-0">{t("nutrition.emptyTitle")}</h3>
                   <p className="muted">{t("nutrition.emptySubtitle")}</p>
                 </div>
-                <div className="empty-state-actions">
-                  <Button
-                    disabled={isAiDisabled}
-                    loading={aiLoading}
-                    onClick={handleGenerateClick}
-                  >
-                    {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                  </Button>
-                  <ButtonLink variant="secondary" href="/app/nutricion/editar">
-                    {t("nutrition.manualCreate")}
-                  </ButtonLink>
-                </div>
+                {isAiLocked ? (
+                  <div className="empty-state-actions">
+                    <AiModuleUpgradeCTA
+                      title={t("aiLockedTitle")}
+                      description={aiLockDescription}
+                      buttonLabel={t("billing.upgradePro")}
+                    />
+                    <ButtonLink variant="ghost" href="/app/settings/billing">
+                      {t("billing.manageBilling")}
+                    </ButtonLink>
+                  </div>
+                ) : (
+                  <div className="empty-state-actions">
+                    <Button
+                      data-testid="nutrition-generate-ai"
+                      disabled={isAiDisabled}
+                      loading={aiLoading}
+                      onClick={handleGenerateClick}
+                    >
+                      {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                    </Button>
+                    <ButtonLink variant="secondary" href="/app/nutrition/editar">
+                      {t("nutrition.assignedPlanCta")}
+                    </ButtonLink>
+                    {isOutOfTokens ? (
+                      <ButtonLink variant="ghost" href="/app/settings/billing">
+                        {t("billing.manageBilling")}
+                      </ButtonLink>
+                    ) : null}
+                  </div>
+                )}
+                {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
               </div>
             </section>
           ) : hasPlan ? (
             <>
-              <section className="card">
+              <section className="card nutrition-mobile-hide-card nutrition-mobile-compact-card">
             <div className="section-head section-head-actions">
               <div>
-                <h2 className="section-title section-title-sm">{t("nutrition.formTitle")}</h2>
-                <p className="section-subtitle">{t("nutrition.tips")}</p>
+                <h2 className="section-title section-title-sm">Hoy</h2>
+                {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
+                <p className="section-subtitle">Registra primero lo de hoy. El plan semanal queda como referencia.</p>
               </div>
 
               <div className="section-actions plan-page-actions">
@@ -1945,7 +2331,7 @@ const nutritionPlanDetails = profile ? (
                 {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
                   {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
                 </button> */}
-                <Link href="/app/nutricion/editar" className="btn secondary">
+                <Link href="/app/nutrition/editar" className="btn secondary">
                   {t("nutrition.editPlan")}
                 </Link>
               </div>
@@ -1957,6 +2343,17 @@ const nutritionPlanDetails = profile ? (
                 description={aiLockDescription}
                 buttonLabel={t("billing.upgradePro")}
               />
+            ) : null}
+
+            {!isAiLocked && isOutOfTokens ? (
+              <div className="status-card status-card--warning" role="alert" aria-live="polite">
+                <p className="muted m-0">{t("ai.insufficientTokens")}</p>
+                <div className="inline-actions-sm mt-12">
+                  <Link href="/app/settings/billing" className="btn secondary fit-content">
+                    {t("billing.manageBilling")}
+                  </Link>
+                </div>
+              </div>
             ) : null}
 
             {loading ? (
@@ -1980,6 +2377,14 @@ const nutritionPlanDetails = profile ? (
                   </button>
                 </div>
               </div>
+            ) : assignedError ? (
+              <div className="status-card status-card--warning">
+                <div className="inline-actions-sm">
+                  <Icon name="warning" />
+                  <strong>{t("nutrition.errorTitle")}</strong>
+                </div>
+                <p className="muted">{assignedError}</p>
+              </div>
             ) : aiError ? (
               <div className="status-card status-card--warning" role="alert" aria-live="polite">
                 <div className="inline-actions-sm">
@@ -1998,12 +2403,21 @@ const nutritionPlanDetails = profile ? (
                   <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
                     {t("ui.retry")}
                   </button>
-                  <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
-                    {t("nutrition.aiErrorState.generateSimple")}
-                  </button>
-                  <Link href="/app/nutricion/editar" className="btn secondary fit-content">
-                    {t("nutrition.aiErrorState.adjustGoals")}
-                  </Link>
+                  {aiError.ctaHref && aiError.ctaLabel ? (
+                    <Link href={aiError.ctaHref} className="btn secondary fit-content">
+                      {aiError.ctaLabel}
+                    </Link>
+                  ) : null}
+                  {!aiQuotaExceededError ? (
+                    <>
+                      <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
+                        {t("nutrition.aiErrorState.generateSimple")}
+                      </button>
+                      <Link href="/app/nutrition/editar" className="btn secondary fit-content">
+                        {t("nutrition.aiErrorState.adjustGoals")}
+                      </Link>
+                    </>
+                  ) : null}
                 </div>
                 {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
               </div>
@@ -2013,20 +2427,32 @@ const nutritionPlanDetails = profile ? (
           </section>
 
               {!loading && !error ? (
-                <section className="card nutrition-v2-layout" ref={generatedPlanSectionRef}>
-                  <HeaderCompact
-                    title={t("nutrition.dailyTargetTitle")}
-                    subtitle={highlightedDay?.dayLabel ?? t("nutrition.viewToday")}
-                    trailing={(
-                      <Button className="nutrition-dominant-cta" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
-                        {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                      </Button>
-                    )}
-                  />
+                <>
+                <section id="nutrition-today-log" className="card nutrition-v2-layout premium-surface-card premium-fade-up" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+                  <div className="feature-card stack-sm nutrition-today-summary-card premium-subcard premium-success-surface">
+                    <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+                      <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
+                        <h2 className="section-title section-title-sm m-0">Tu log de hoy</h2>
+                        <p className="section-subtitle m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</p>
+                        {assignedPlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{assignedPlanTitle}</p> : null}
+                      </div>
+                      <div className="badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
+                    </div>
+                    <div className="stack-xs">
+                      <div className="inline-actions-space">
+                        <span className="muted">{t("nutrition.dailyTargetTitle")}</span>
+                        <strong>{highlightedMealsProgress}%</strong>
+                      </div>
+                      <ProgressBar value={highlightedMealsProgress} max={100} aria-label={t("nutrition.dailyTargetTitle")} />
+                      <p className="muted m-0 text-xs">Tus comidas registradas se reflejan en tu progreso diario real.</p>
+                    </div>
+                  </div>
 
-                  <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
-
-                  <ObjectiveGrid items={objectiveItems} className="nutrition-v2-objective-grid" />
+                  <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+                    <div className="stack-sm">
+                      <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
+                    </div>
+                  </div>
 
                   <div className="nutrition-v2-calendar-head">
                     <h3 className="section-title section-title-sm m-0">{t("nutrition.calendarTitle")}</h3>
@@ -2065,6 +2491,7 @@ const nutritionPlanDetails = profile ? (
                   ) : null}
 
                   {calendarView === "week" ? (
+                    <div data-testid="nutrition-day-nav">
                     <WeeklyCalendar
                       previousWeekLabel={t("calendar.previousWeek")}
                       nextWeekLabel={t("calendar.nextWeek")}
@@ -2077,6 +2504,16 @@ const nutritionPlanDetails = profile ? (
                       hasWeeklyMeals={hasWeeklyMeals}
                       emptyTitle={t("nutrition.weeklyEmptyTitle")}
                       emptySubtitle={t("nutrition.weeklyEmptySubtitle")}
+                      emptyActions={(<>
+                        <Link href="/app/nutrition/editar" className="btn secondary fit-content">{t("nutrition.editPlan")}</Link>
+                        {!isAiLocked ? (
+                          <button type="button" className="btn fit-content" onClick={handleGenerateClick} disabled={aiLoading}>
+                            {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                          </button>
+                        ) : (
+                          <Link href="/app/settings/billing" className="btn fit-content">{t("billing.upgradePro")}</Link>
+                        )}
+                      </>)}
                       days={weekGridDays}
                       kcalLabel={t("units.kcal")}
                       onPreviousWeek={() => setSelectedDate((prev) => addWeeks(prev, -1))}
@@ -2093,74 +2530,127 @@ const nutritionPlanDetails = profile ? (
                         })
                       }
                     />
+                    </div>
                   ) : null}
 
-                  <div className="nutrition-v2-meals">
-                    <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
-                    <div className="nutrition-meal-list nutrition-meal-list-v2">
-                      {highlightedMeals.length > 0 ? (
-                        highlightedMeals.map((meal, mealIndex) => {
-                          const mealKey = getMealKey(meal, highlightedDay?.dayLabel ?? "meal", mealIndex);
-                          return (
-                            <MealCard
-                              key={mealKey}
-                              title={getMealTitle(meal, t)}
-                              description={getMealDescription(meal)}
-                              meta={`${meal.macros.calories} ${t("units.kcal")}`}
-                              imageUrl={getMealMediaUrl(meal)}
-                              onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
-                              className="meal-card--horizontal"
-                            />
-                          );
-                        })
-                      ) : (
-                        <p className="muted">{t("nutrition.emptySubtitle")}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {calendarView === "list" ? (
-                    <div className="nutrition-meal-list mt-12">
-                      {visiblePlanEntries.length > 0 ? (
-                        visiblePlanEntries.map((entry) => (
-                          <div key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`} className="feature-card stack-sm">
+                  <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+                    <div className="stack-sm">
+                      {hasHighlightedMeals ? (
+                        <>
+                          <div className="nutrition-v2-meals stack-sm">
                             <div className="inline-actions-space">
-                              <strong>{entry.date.toLocaleDateString(localeCode, { weekday: "short", day: "numeric", month: "short" })}</strong>
-                              <span className="badge">{entry.day.dayLabel}</span>
+                              <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
+                              <ButtonLink variant="secondary" href="/app/nutrition/editar">
+                                {t("ui.edit")}
+                              </ButtonLink>
                             </div>
-                            {entry.day.meals.length > 0 ? (
-                              <div className="nutrition-meal-list">
-                                {entry.day.meals.map((meal, mealIndex) => {
-                                  const dayKey = toDateKey(entry.date);
-                                  const mealKey = getMealKey(meal, dayKey, mealIndex);
-                                  return (
-                                    <MealCard
-                                      key={mealKey}
-                                      title={getMealTitle(meal, t)}
-                                      description={getMealDescription(meal)}
-                                      meta={`${meal.macros.calories} ${t("units.kcal")}`}
-                                      imageUrl={getMealMediaUrl(meal)}
-                                      onClick={() => {
-                                        setSelectedDate(entry.date);
-                                        openMealDetail(meal, dayKey, mealKey, entry.day.dayLabel);
-                                      }}
-                                      className="meal-card--horizontal"
-                                    />
-                                  );
-                                })}
-                              </div>
+                            {highlightedMealsByType.map((mealSection, mealIndex) => {
+                              const meal = mealSection.meal;
+                              if (!meal) {
+                                return (
+                                  <div key={mealSection.mealType} className="feature-card stack-sm">
+                                    <div className="inline-actions-space">
+                                      <strong>{mealSection.label}</strong>
+                                      <span className="badge">{t("nutrition.viewToday")}</span>
+                                    </div>
+                                    <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                                    <ButtonLink href="/app/nutrition/editar">{t("ui.edit")}</ButtonLink>
+                                  </div>
+                                );
+                              }
+
+                              const mealKey = getNutritionMealKey(meal, highlightedDayKey, mealIndex);
+                              return (
+                                <div key={mealKey} className="feature-card stack-sm nutrition-meal-slot-card">
+                                  <div className="inline-actions-space">
+                                    <strong>{mealSection.label}</strong>
+                                    <div className="inline-actions-sm">
+                                      <span className="badge">{meal.macros.calories} {t("units.kcal")}</span>
+                                      <button
+                                        type="button"
+                                        className={`btn ${isConsumed(mealKey, highlightedDayKey) ? "secondary" : ""} fit-content`}
+                                        onClick={() => void handleQuickLogMeal(mealKey, meal, highlightedDayKey)}
+                                      >
+                                        {isConsumed(mealKey, highlightedDayKey) ? t("nutrition.quickLogButtonConsumed") : `Registrar ${mealSection.label.toLowerCase()}`}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <MealCard
+                                    title={getMealTitle(meal, t)}
+                                    description={getMealDescription(meal)}
+                                    meta={getMealMeta(meal, t)}
+                                    imageUrl={getMealMediaUrl(meal)}
+                                    onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
+                                    className="meal-card--horizontal"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {calendarView === "list" ? (
+                            <div className="nutrition-meal-list mt-12">
+                              {visiblePlanEntries.length > 0 ? (
+                                visiblePlanEntries.map((entry) => (
+                                  <div key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`} className="feature-card stack-sm">
+                                    <div className="inline-actions-space">
+                                      <strong>{entry.date.toLocaleDateString(localeCode, { weekday: "short", day: "numeric", month: "short" })}</strong>
+                                      <span className="badge">{entry.day.dayLabel}</span>
+                                    </div>
+                                    {entry.day.meals.length > 0 ? (
+                                      <div className="nutrition-meal-list">
+                                        {entry.day.meals.map((meal, mealIndex) => {
+                                          const dayKey = toDateKey(entry.date);
+                                          const mealKey = getNutritionMealKey(meal, dayKey, mealIndex);
+                                          return (
+                                            <MealCard
+                                              key={mealKey}
+                                              title={getMealTitle(meal, t)}
+                                              description={getMealDescription(meal)}
+                                              meta={getMealMeta(meal, t)}
+                                              imageUrl={getMealMediaUrl(meal)}
+                                              onClick={() => {
+                                                setSelectedDate(entry.date);
+                                                openMealDetail(meal, dayKey, mealKey, entry.day.dayLabel);
+                                              }}
+                                              className="meal-card--horizontal"
+                                            />
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                              )}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <div className="feature-card stack-sm nutrition-empty-day-card">
+                          <div className="inline-actions-space">
+                            <strong>{t("nutrition.weeklyEmptyTitle")}</strong>
+                            <span className="badge">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</span>
+                          </div>
+                          <p className="muted m-0">No hay comidas asignadas para este día.</p>
+                          <div className="inline-actions-sm mt-12">
+                            <Link href="/app/nutrition/editar" className="btn secondary fit-content">{t("nutrition.editPlan")}</Link>
+                            {!isAiLocked ? (
+                              <button type="button" className="btn fit-content" onClick={handleGenerateClick} disabled={aiLoading}>
+                                {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                              </button>
                             ) : (
-                              <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                              <Link href="/app/settings/billing" className="btn fit-content">{t("billing.upgradePro")}</Link>
                             )}
                           </div>
-                        ))
-                      ) : (
-                        <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                        </div>
                       )}
                     </div>
-                  ) : null}
 
-                  <div className="nutrition-v2-shopping">
+                    <div className="nutrition-v2-shopping">
                     <div className="inline-actions-space">
                       <h3 className="section-title section-title-sm m-0">{t("nutrition.shoppingTitle")}</h3>
                       <button
@@ -2192,8 +2682,31 @@ const nutritionPlanDetails = profile ? (
                         ]}
                       />
                     ) : null}
+                    </div>
                   </div>
                 </section>
+
+                <section className="card premium-surface-card nutrition-plan-access-card">
+                  <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+                    <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
+                      <p className="m-0 text-xs uppercase tracking-wider text-muted">Tus planes</p>
+                      <h3 className="section-title section-title-sm m-0">Biblioteca de nutrición</h3>
+                      <p className="section-subtitle m-0">Revisa todos tus planes y elige el que quieras consultar en mobile.</p>
+                      {assignedPlanTitle ? <p className="muted m-0">Actual: {assignedPlanTitle}</p> : null}
+                    </div>
+                    <div className="inline-actions-sm nutrition-plan-access-actions">
+                      <Link className="btn" href={selectedPlanId ? `/app/dietas?planId=${encodeURIComponent(selectedPlanId)}` : "/app/dietas"}>
+                        Ver todos los planes
+                      </Link>
+                      {selectedPlanId ? (
+                        <Link className="btn secondary" href={`/app/dietas/${encodeURIComponent(selectedPlanId)}`}>
+                          Ver plan actual
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </section>
+                </>
               ) : null}
 
               {!loading && !error ? nutritionPlanDetails : null}
@@ -2435,31 +2948,41 @@ const nutritionPlanDetails = profile ? (
               </div>
             ) : null}
 
-            {(lastGeneratedMode === "FALLBACK" || typeof lastGeneratedUsage?.total_tokens === "number" || typeof lastGeneratedUsage?.prompt_tokens === "number" || typeof lastGeneratedUsage?.completion_tokens === "number") ? (
+            {(lastGeneratedMode === "FALLBACK" || typeof lastGeneratedUsage?.totalTokens === "number" || typeof lastGeneratedUsage?.promptTokens === "number" || typeof lastGeneratedUsage?.completionTokens === "number" || typeof lastGeneratedUsage?.balanceAfter === "number") ? (
               <div className="feature-card">
                 <p className="m-0"><strong>{t("nutrition.aiSuccessModal.aiBlockTitle")}</strong></p>
                 <ul className="list-muted-sm mt-8">
                   <li>
                     {t("nutrition.aiSuccessModal.tokensUsed")}: {lastGeneratedMode === "FALLBACK"
                       ? t("nutrition.aiSuccessModal.fallbackTokens")
-                      : (lastGeneratedUsage?.total_tokens ?? t("nutrition.aiSuccessModal.notAvailable"))}
+                      : (lastGeneratedUsage?.totalTokens ?? t("nutrition.aiSuccessModal.notAvailable"))}
                   </li>
-                  {typeof lastGeneratedUsage?.prompt_tokens === "number" ? (
-                    <li>{t("nutrition.aiSuccessModal.promptTokens")}: {lastGeneratedUsage.prompt_tokens}</li>
+                  {typeof lastGeneratedUsage?.promptTokens === "number" ? (
+                    <li>{t("nutrition.aiSuccessModal.promptTokens")}: {lastGeneratedUsage.promptTokens}</li>
                   ) : null}
-                  {typeof lastGeneratedUsage?.completion_tokens === "number" ? (
-                    <li>{t("nutrition.aiSuccessModal.completionTokens")}: {lastGeneratedUsage.completion_tokens}</li>
+                  {typeof lastGeneratedUsage?.completionTokens === "number" ? (
+                    <li>{t("nutrition.aiSuccessModal.completionTokens")}: {lastGeneratedUsage.completionTokens}</li>
                   ) : null}
                   {lastGeneratedAiRequestId ? (
                     <li>{t("nutrition.aiSuccessModal.aiRequestId")}: {lastGeneratedAiRequestId}</li>
                   ) : null}
-                  <li>{t("nutrition.aiSuccessModal.currentBalance")}: {lastGeneratedTokensBalance ?? aiTokenBalance ?? "-"}</li>
+                  <li>{t("nutrition.aiSuccessModal.currentBalance")}: {lastGeneratedUsage?.balanceAfter ?? lastGeneratedTokensBalance ?? aiTokenBalance ?? "-"}</li>
                 </ul>
               </div>
             ) : null}
           </div>
         ) : null}
       </Modal>
+
+      <AiTokensExhaustedModal
+        open={tokensExhaustedModalOpen}
+        onClose={() => setTokensExhaustedModalOpen(false)}
+        title={t("ai.tokensExhaustedTitle")}
+        description={t("ai.tokensExhaustedDescription")}
+        body={t("ai.insufficientTokens")}
+        closeLabel={t("ui.close")}
+        ctaLabel={t("billing.manageBilling")}
+      />
 
       <Modal
         open={Boolean(selectedMeal)}
@@ -2471,7 +2994,7 @@ const nutritionPlanDetails = profile ? (
             <Button variant="secondary" onClick={closeMealDetail}>{t("ui.close")}</Button>
             {selectedMeal ? (
               <Button
-                onClick={() => handleQuickLogMeal(selectedMeal.mealKey, selectedMeal.dayKey)}
+                onClick={() => void handleQuickLogMeal(selectedMeal.mealKey, selectedMeal.meal, selectedMeal.dayKey)}
                 disabled={adherenceError}
               >
                 {isConsumed(selectedMeal.mealKey, selectedMeal.dayKey)
@@ -2497,17 +3020,15 @@ const nutritionPlanDetails = profile ? (
                 >
                   {isSelectedMealFavorite ? t("nutrition.quickRemoveFavorite") : t("nutrition.quickAddFavorite")}
                 </Button>
-                <Badge variant="muted">{t("nutrition.localOnlyBadge")}</Badge>
               </div>
             </div>
-            {getMealMediaUrl(selectedMealDetails) ? (
-              <img
-                src={getMealMediaUrl(selectedMealDetails) ?? ""}
-                alt={selectedMealTitle}
-                className="meal-card-thumb"
-                loading="lazy"
-              />
-            ) : null}
+            <RecipeImage
+              src={getMealMediaUrl(selectedMealDetails)}
+              alt={selectedMealTitle}
+              className="meal-card-thumb"
+              fallbackClassName="meal-card-thumb meal-card-thumb--placeholder"
+              testId="nutrition-meal-detail-image"
+            />
             {selectedMealDescription ? (
               <p className="muted mt-4">{selectedMealDescription}</p>
             ) : null}

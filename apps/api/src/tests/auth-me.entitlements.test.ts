@@ -19,7 +19,7 @@ function run() {
     aiTokenBalance: 7,
     aiTokenRenewalAt: new Date("2026-03-01T00:00:00.000Z"),
     entitlements,
-    activeMembership: {
+    membership: {
       gym: {
         id: "gym_123",
         name: "Demo Gym",
@@ -41,9 +41,13 @@ function run() {
   assert.equal(parsed.modules.ai, true);
   const modulesFromEntitlements = buildSessionModules(entitlements);
   assert.deepEqual(parsed.modules, modulesFromEntitlements);
-  assert.equal(parsed.subscriptionPlan, "PRO");
-  assert.equal(parsed.plan, "PRO");
-  assert.equal(parsed.gymMembershipState, "active");
+  assert.equal(parsed.subscriptionPlan, "STRENGTH_AI");
+  assert.equal(parsed.plan, "STRENGTH_AI");
+  assert.equal(parsed.aiEntitlements.strength, true);
+  assert.equal(parsed.aiEntitlements.nutrition, false);
+  assert.equal(parsed.tokenBalance, 7);
+  assert.equal(parsed.gymMembershipState, "ACTIVE");
+  assert.equal(parsed.gymRole, "TRAINER");
   assert.equal(parsed.gymId, "gym_123");
   assert.equal(parsed.gymName, "Demo Gym");
   assert.equal(parsed.isTrainer, true);
@@ -63,7 +67,7 @@ function run() {
     aiTokenBalance: null,
     aiTokenRenewalAt: null,
     entitlements,
-    activeMembership: null,
+    membership: null,
   });
 
   const nullableParsed = authMeResponseSchema.parse(nullableStatusResponse);
@@ -71,7 +75,8 @@ function run() {
   assert.equal(typeof nullableParsed.modules.strength, "boolean");
   assert.equal(typeof nullableParsed.modules.nutrition, "boolean");
   assert.equal(typeof nullableParsed.modules.ai, "boolean");
-  assert.equal(nullableParsed.gymMembershipState, "none");
+  assert.equal(nullableParsed.gymMembershipState, "NONE");
+  assert.equal(nullableParsed.gymRole, "USER");
   assert.equal(nullableParsed.isTrainer, false);
 
   // Contract guard: if critical field names drift this must fail.

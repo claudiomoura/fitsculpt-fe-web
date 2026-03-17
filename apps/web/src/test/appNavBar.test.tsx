@@ -5,7 +5,7 @@ import { LanguageProvider } from "@/context/LanguageProvider";
 import { ThemeProvider } from "@/context/ThemeProvider";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/app/entrenamiento",
+  usePathname: () => "/app/training",
 }));
 
 vi.mock("@/app/(app)/app/LogoutButton", () => ({
@@ -51,11 +51,99 @@ describe("AppNavBar", () => {
       </ThemeProvider>
     );
 
-    fireEvent.click(getByRole("button", { name: /menú/i }));
+    fireEvent.click(getByRole("button", { name: /abrir menú/i }));
 
     const activeLink = container.querySelector('a[aria-current="page"]');
     expect(activeLink).not.toBeNull();
-    expect(activeLink).toHaveAttribute("href", "/app/entrenamiento");
+    expect(activeLink).toHaveAttribute("href", "/app/training");
+  });
+
+
+  it("links the plan pill to billing settings", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+        })
+      ) as unknown as typeof fetch
+    );
+
+    render(
+      <ThemeProvider>
+        <LanguageProvider>
+          <AccessProvider>
+            <AppNavBar />
+          </AccessProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    );
+
+    const billingLink = document.querySelector('a.account-pill');
+    expect(billingLink).not.toBeNull();
+    expect(billingLink).toHaveAttribute("href", "/app/settings/billing");
+  });
+
+  it("hides hamburger menu for USER role", () => {
+    useAccessMock.mockReturnValue({
+      role: "USER",
+      isAdmin: false,
+      isCoach: false,
+      isDev: false,
+      gymMembershipState: "in_gym",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+        })
+      ) as unknown as typeof fetch
+    );
+
+    render(
+      <ThemeProvider>
+        <LanguageProvider>
+          <AccessProvider>
+            <AppNavBar />
+          </AccessProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    );
+
+    expect(screen.queryByRole("button", { name: /abrir menú/i })).not.toBeInTheDocument();
+  });
+
+  it("keeps hamburger menu for ADMIN role", () => {
+    useAccessMock.mockReturnValue({
+      role: "ADMIN",
+      isAdmin: true,
+      isCoach: true,
+      isDev: true,
+      gymMembershipState: "in_gym",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+        })
+      ) as unknown as typeof fetch
+    );
+
+    render(
+      <ThemeProvider>
+        <LanguageProvider>
+          <AccessProvider>
+            <AppNavBar />
+          </AccessProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    );
+
+    expect(screen.getByRole("button", { name: /abrir menú/i })).toBeInTheDocument();
   });
 
   it("renders disabled nav notes translated instead of i18n key literals", () => {
@@ -78,7 +166,7 @@ describe("AppNavBar", () => {
       </ThemeProvider>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /menú/i }));
+    fireEvent.click(screen.getByRole("button", { name: /abrir menú/i }));
 
     expect(screen.getAllByText(/Próximamente/i).length).toBeGreaterThan(0);
     expect(screen.queryByText("common.comingSoon")).not.toBeInTheDocument();

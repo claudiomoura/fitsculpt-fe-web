@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/design-system/components/Button";
+import { Modal } from "@/design-system/components/Modal";
 
 type PlanOption = {
   id: string;

@@ -17,22 +17,32 @@ import {
 import { getEnv } from "./config.js";
 import { sendEmail } from "./email.js";
 import { hashToken, isPromoCodeValid } from "./authUtils.js";
-import { AiParseError, parseJsonFromText, parseLargestJsonFromText, parseTopLevelJsonFromText } from "./aiParsing.js";
+import {
+  AiParseError,
+  parseJsonFromText,
+  parseLargestJsonFromText,
+  parseTopLevelJsonFromText,
+} from "./aiParsing.js";
 import {
   buildUsageTotals,
   chargeAiUsage,
   chargeAiUsageForResult,
+  extractExactProviderUsage,
   persistAiUsageLog,
 } from "./ai/chargeAiUsage.js";
-import { createOpenAiClient, type OpenAiResponse } from "./ai/provider/openaiClient.js";
 import {
-  resolveTrainingProviderFailureCause,
-  resolveTrainingProviderFailureDebug,
-} from "./ai/training-plan/errorHandling.js";
-import { buildEffectiveEntitlements, type EffectiveEntitlements } from "./entitlements.js";
+  createOpenAiClient,
+  type OpenAiResponse,
+} from "./ai/provider/openaiClient.js";
+import { classifyAiGenerateError } from "./ai/errorClassification.js";
+import { type EffectiveEntitlements } from "./entitlements.js";
 import { buildAuthMeResponse } from "./auth/schemas.js";
 import { loadAiPricing } from "./ai/pricing.js";
-import { NUTRITION_MATH_TOLERANCES, validateNutritionMath } from "./ai/nutritionMathValidation.js";
+import {
+  NUTRITION_MATH_TOLERANCES,
+  validateNutritionMath,
+} from "./ai/nutritionMathValidation.js";
+import { getSafeValidationIssues } from "./ai/validationIssues.js";
 import {
   buildMealKcalGuidance,
   buildRetryFeedbackFromContext,
@@ -44,40 +54,71 @@ import {
   resolveTrainingPlanExerciseIds as resolveTrainingPlanExerciseIdsWithCatalog,
 } from "./ai/trainingPlanExerciseResolution.js";
 import { buildDeterministicTrainingFallbackPlan } from "./ai/training-plan/fallbackBuilder.js";
+import { mapExperienceLevelToTrainingPlanLevel } from "./ai/training-plan/experienceLevelMapping.js";
 import {
   applyNutritionPlanVarietyGuard,
   resolveNutritionPlanRecipeIds,
   type NutritionRecipeCatalogItem,
 } from "./ai/nutrition-plan/recipeCatalogResolution.js";
-import { normalizeExercisePayload, type ExerciseApiDto, type ExerciseRow } from "./exercises/normalizeExercisePayload.js";
+import {
+  normalizeExercisePayload,
+  type ExerciseApiDto,
+  type ExerciseRow,
+} from "./exercises/normalizeExercisePayload.js";
 import { fetchExerciseCatalog } from "./exercises/fetchExerciseCatalog.js";
 import { normalizeExerciseName } from "./utils/normalizeExerciseName.js";
 import { nutritionPlanJsonSchema } from "./lib/ai/schemas/nutritionPlanJsonSchema.js";
 import { resolveNutritionPlanRecipeReferences } from "./ai/nutrition-plan/recipeCatalog.js";
 import { trainingPlanJsonSchema } from "./lib/ai/schemas/trainingPlanJsonSchema.js";
-import { createPrismaClientWithRetry } from "./prismaClient.js";
+import {
+  createPrismaClientWithRetry,
+  resolveDatabaseUrl,
+} from "./prismaClient.js";
+import { runDatabasePreflight } from "./dbPreflight.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
+import { tokenGrantForPlan } from "./billing/tokenPolicy.js";
+import { resolveAiTokens, resolveBillingStatusReason } from "./billing/resolveAiTokens.js";
 import {
   defaultTracking,
   trackingDeleteSchema,
   trackingEntryCreateSchema,
   trackingSchema,
 } from "./tracking/schemas.js";
-import { normalizeTrackingSnapshot, upsertTrackingEntry } from "./tracking/service.js";
+import {
+  normalizeTrackingSnapshot,
+  upsertTrackingEntry,
+} from "./tracking/service.js";
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
+import { registerAiRoutes } from "./domains/ai/registerAiRoutes.js";
+import { registerBillingRoutes } from "./domains/billing/registerBillingRoutes.js";
+import { registerGymRoutes } from "./domains/gym/registerGymRoutes.js";
+import { registerTrainingRoutes } from "./domains/training/registerTrainingRoutes.js";
+import { registerNutritionRoutes } from "./domains/nutrition/registerNutritionRoutes.js";
+import {
+  buildEntitlementGuard,
+  resolveUserEntitlements,
+  type AuthenticatedEntitlementsRequest,
+} from "./middleware/entitlements.js";
 import {
   normalizeNutritionPlanDays as normalizeNutritionPlanDaysWithLabels,
   toIsoDateString,
 } from "./ai/nutrition-plan/normalizeNutritionPlanDays.js";
 
-
 const env = getEnv();
-const prisma = await createPrismaClientWithRetry();
-const aiPricing = loadAiPricing(env);
-
 const app = Fastify({ logger: true });
+const prisma = await createPrismaClientWithRetry(app.log);
+
+const shouldRunDbPreflight =
+  process.env.NODE_ENV !== "production" ||
+  process.env.DB_PREFLIGHT_ON_BOOT === "true";
+if (shouldRunDbPreflight) {
+  const { source, host, database } = resolveDatabaseUrl();
+  await runDatabasePreflight(prisma, app.log, { source, host, database });
+}
+
+const aiPricing = loadAiPricing(env);
 
 type StripeCheckoutSession = {
   id: string;
@@ -160,30 +201,141 @@ await app.register(jwt, {
   },
 });
 
-app.addContentTypeParser("application/json", { parseAs: "buffer" }, (request, body, done) => {
-  if (request.url?.startsWith("/billing/stripe/webhook")) {
-    done(null, body);
-    return;
-  }
-  if (body.length === 0) {
-    done(null, null);
-    return;
-  }
-  try {
-    const parsed = JSON.parse(body.toString("utf8"));
-    done(null, parsed);
-  } catch (error) {
-    done(error as Error, undefined);
-  }
-});
+app.addContentTypeParser(
+  "application/json",
+  { parseAs: "buffer" },
+  (request, body, done) => {
+    if (request.url?.startsWith("/billing/stripe/webhook")) {
+      done(null, body);
+      return;
+    }
+    if (body.length === 0) {
+      done(null, null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(body.toString("utf8"));
+      done(null, parsed);
+    } catch (error) {
+      done(error as Error, undefined);
+    }
+  },
+);
 
 const VERIFICATION_TTL_MS = env.VERIFICATION_TOKEN_TTL_HOURS * 60 * 60 * 1000;
 const RESEND_COOLDOWN_MS = env.VERIFICATION_RESEND_COOLDOWN_MINUTES * 60 * 1000;
 
 app.get("/health", async () => ({ status: "ok" }));
 
-function createHttpError(statusCode: number, code: string, debug?: Record<string, unknown>) {
-  const error = new Error(code) as Error & { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+function resolveCorrelationId(request: FastifyRequest) {
+  const headerValue = request.headers["x-correlation-id"];
+  if (Array.isArray(headerValue)) {
+    return headerValue[0] ?? request.id;
+  }
+  if (typeof headerValue === "string" && headerValue.trim().length > 0) {
+    return headerValue.trim();
+  }
+  return request.id;
+}
+
+function getPayloadSize(value: unknown) {
+  if (value == null) return 0;
+  try {
+    return Buffer.byteLength(JSON.stringify(value), "utf8");
+  } catch {
+    return 0;
+  }
+}
+
+function mapTrainingPlanCreateError(error: unknown): {
+  statusCode: number;
+  payload: Record<string, unknown>;
+} | null {
+  if (error instanceof z.ZodError) {
+    return {
+      statusCode: 400,
+      payload: {
+        error: "VALIDATION_ERROR",
+        details: error.flatten(),
+      },
+    };
+  }
+
+  const prismaError = error as {
+    code?: string;
+    message?: string;
+    statusCode?: number;
+    debug?: Record<string, unknown>;
+  };
+
+  if (prismaError.code === "P2002") {
+    return {
+      statusCode: 409,
+      payload: {
+        error: "CONFLICT",
+        code: "TRAINING_PLAN_CONFLICT",
+      },
+    };
+  }
+
+  if (prismaError.statusCode === 401) {
+    return {
+      statusCode: 401,
+      payload: { error: "UNAUTHORIZED", code: prismaError.code ?? "UNAUTHORIZED" },
+    };
+  }
+
+  if (prismaError.statusCode === 403) {
+    return {
+      statusCode: 403,
+      payload: { error: "FORBIDDEN", code: prismaError.code ?? "FORBIDDEN" },
+    };
+  }
+
+  if (prismaError.statusCode === 409) {
+    return {
+      statusCode: 409,
+      payload: {
+        error: "CONFLICT",
+        code: prismaError.code ?? "CONFLICT",
+      },
+    };
+  }
+
+  return null;
+}
+
+app.addHook("onRequest", async (request, reply) => {
+  const correlationId = resolveCorrelationId(request);
+  (request as FastifyRequest & { startTimeMs?: number }).startTimeMs = Date.now();
+  reply.header("x-correlation-id", correlationId);
+});
+
+app.addHook("onResponse", async (request, reply) => {
+  const typedRequest = request as FastifyRequest & { startTimeMs?: number };
+  const durationMs = typedRequest.startTimeMs ? Date.now() - typedRequest.startTimeMs : undefined;
+  app.log.info(
+    {
+      route: request.routeOptions?.url ?? request.url,
+      method: request.method,
+      status: reply.statusCode,
+      durationMs,
+      correlationId: resolveCorrelationId(request),
+    },
+    "request completed",
+  );
+});
+
+function createHttpError(
+  statusCode: number,
+  code: string,
+  debug?: Record<string, unknown>,
+) {
+  const error = new Error(code) as Error & {
+    statusCode?: number;
+    code?: string;
+    debug?: Record<string, unknown>;
+  };
   error.statusCode = statusCode;
   error.code = code;
   error.debug = debug;
@@ -192,17 +344,27 @@ function createHttpError(statusCode: number, code: string, debug?: Record<string
 
 function handleRequestError(reply: FastifyReply, error: unknown) {
   if (error instanceof z.ZodError) {
-    return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
+    return reply
+      .status(400)
+      .send({ error: "INVALID_INPUT", details: error.flatten() });
   }
-  const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
+  const typed = error as {
+    statusCode?: number;
+    code?: string;
+    debug?: Record<string, unknown>;
+  };
   if (typed.statusCode === 429 && typed.code === "AI_LIMIT_REACHED") {
-    const retryAfterSec = typeof typed.debug?.retryAfterSec === "number" ? typed.debug.retryAfterSec : undefined;
+    const retryAfterSec =
+      typeof typed.debug?.retryAfterSec === "number"
+        ? typed.debug.retryAfterSec
+        : undefined;
     if (retryAfterSec) {
       reply.header("Retry-After", retryAfterSec.toString());
     }
     return reply.status(429).send({
       error: "AI_LIMIT_REACHED",
-      message: "Has alcanzado el límite diario de IA. Suscríbete a PRO para más usos o intenta mañana.",
+      message:
+        "Has alcanzado el límite diario de IA. Suscríbete a PRO para más usos o intenta mañana.",
       ...(retryAfterSec ? { retryAfterSec } : {}),
     });
   }
@@ -254,12 +416,19 @@ function requireStripeSecret() {
 function getStripePricePlanMap(): Map<string, SubscriptionPlan> {
   const prices = [
     { priceId: env.STRIPE_PRO_PRICE_ID, plan: "PRO" as const },
-    { priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY, plan: "STRENGTH_AI" as const },
+    {
+      priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY,
+      plan: "STRENGTH_AI" as const,
+    },
     { priceId: env.STRIPE_PRICE_NUTRI_AI_MONTHLY, plan: "NUTRI_AI" as const },
   ];
-  const missing = prices.filter((entry) => !entry.priceId).map((entry) => entry.plan);
+  const missing = prices
+    .filter((entry) => !entry.priceId)
+    .map((entry) => entry.plan);
   if (missing.length > 0) {
-    throw createHttpError(500, "STRIPE_PRICE_NOT_CONFIGURED", { missingPlans: missing });
+    throw createHttpError(500, "STRIPE_PRICE_NOT_CONFIGURED", {
+      missingPlans: missing,
+    });
   }
   return new Map(prices.map((entry) => [entry.priceId!, entry.plan]));
 }
@@ -279,19 +448,25 @@ function resolvePriceIdByPlanKey(planKey: string): string | null {
   ]);
   const plan = normalizedToPlan.get(normalizedPlanKey);
   if (!plan) return null;
-  const planEntry = getAvailableBillingPlans().find((entry) => entry.plan === plan);
+  const planEntry = getAvailableBillingPlans().find(
+    (entry) => entry.plan === plan,
+  );
   return planEntry?.priceId ?? null;
 }
 
 function getAvailableBillingPlans() {
   const plans = [
     { plan: "PRO" as const, priceId: env.STRIPE_PRO_PRICE_ID },
-    { plan: "STRENGTH_AI" as const, priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY },
+    {
+      plan: "STRENGTH_AI" as const,
+      priceId: env.STRIPE_PRICE_STRENGTH_AI_MONTHLY,
+    },
     { plan: "NUTRI_AI" as const, priceId: env.STRIPE_PRICE_NUTRI_AI_MONTHLY },
   ];
 
   return plans.filter(
-    (entry): entry is (typeof plans)[number] & { priceId: string } => typeof entry.priceId === "string"
+    (entry): entry is (typeof plans)[number] & { priceId: string } =>
+      typeof entry.priceId === "string",
   );
 }
 
@@ -300,14 +475,26 @@ function parseStripeAmount(price: StripePrice): number | null {
   return price.unit_amount / 100;
 }
 
-async function resolveStripePlanTitle(price: StripePrice, fallbackPlan: SubscriptionPlan): Promise<string> {
-  if (price.product && typeof price.product === "object" && typeof price.product.name === "string" && price.product.name.trim()) {
+async function resolveStripePlanTitle(
+  price: StripePrice,
+  fallbackPlan: SubscriptionPlan,
+): Promise<string> {
+  if (
+    price.product &&
+    typeof price.product === "object" &&
+    typeof price.product.name === "string" &&
+    price.product.name.trim()
+  ) {
     return price.product.name;
   }
 
   if (typeof price.product === "string") {
     try {
-      const stripeProduct = await stripeRequest<StripeProduct>(`products/${price.product}`, {}, { method: "GET" });
+      const stripeProduct = await stripeRequest<StripeProduct>(
+        `products/${price.product}`,
+        {},
+        { method: "GET" },
+      );
       if (typeof stripeProduct.name === "string" && stripeProduct.name.trim()) {
         return stripeProduct.name;
       }
@@ -321,7 +508,12 @@ async function resolveStripePlanTitle(price: StripePrice, fallbackPlan: Subscrip
 
 function normalizeStripeInterval(price: StripePrice): StripeInterval {
   const interval = price.recurring?.interval;
-  if (interval === "day" || interval === "week" || interval === "month" || interval === "year") {
+  if (
+    interval === "day" ||
+    interval === "week" ||
+    interval === "month" ||
+    interval === "year"
+  ) {
     return interval;
   }
   return "unknown";
@@ -329,8 +521,14 @@ function normalizeStripeInterval(price: StripePrice): StripeInterval {
 
 function isStripeCredentialError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
-  const anyError = error as Error & { code?: string; debug?: { status?: number } };
-  return anyError.code === "STRIPE_REQUEST_FAILED" && (anyError.debug?.status === 401 || anyError.debug?.status === 403);
+  const anyError = error as Error & {
+    code?: string;
+    debug?: { status?: number };
+  };
+  return (
+    anyError.code === "STRIPE_REQUEST_FAILED" &&
+    (anyError.debug?.status === 401 || anyError.debug?.status === 403)
+  );
 }
 
 function requireStripeWebhookSecret() {
@@ -343,29 +541,37 @@ function requireStripeWebhookSecret() {
 async function stripeRequest<T>(
   path: string,
   params: Record<string, string | number | null | undefined>,
-  options?: { method?: "POST" | "GET"; idempotencyKey?: string }
+  options?: { method?: "POST" | "GET"; idempotencyKey?: string },
 ): Promise<T> {
   const secret = requireStripeSecret();
   const method = options?.method ?? "POST";
   const query = new URLSearchParams(
     Object.entries(params)
       .filter(([, value]) => value !== undefined && value !== null)
-      .map(([key, value]) => [key, String(value)])
+      .map(([key, value]) => [key, String(value)]),
   );
   const url = `https://api.stripe.com/v1/${path}`;
   const queryString = query.toString();
-  const response = await fetch(method === "GET" && queryString ? `${url}?${queryString}` : url, {
-    method,
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      ...(options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
+  const response = await fetch(
+    method === "GET" && queryString ? `${url}?${queryString}` : url,
+    {
+      method,
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        ...(options?.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey }
+          : {}),
+      },
+      body: method === "GET" ? undefined : queryString,
     },
-    body: method === "GET" ? undefined : queryString,
-  });
+  );
   if (!response.ok) {
     const errorBody = await response.text();
-    throw createHttpError(502, "STRIPE_REQUEST_FAILED", { status: response.status, body: errorBody });
+    throw createHttpError(502, "STRIPE_REQUEST_FAILED", {
+      status: response.status,
+      body: errorBody,
+    });
   }
   return (await response.json()) as T;
 }
@@ -374,17 +580,22 @@ function verifyStripeSignature(
   rawBody: Buffer,
   signatureHeader: string,
   webhookSecret: string,
-  toleranceSec = 300
+  toleranceSec = 300,
 ) {
   const parts = signatureHeader.split(",").map((p) => p.trim());
 
   const tPart = parts.find((p) => p.startsWith("t="));
   const tValue = tPart?.slice(2);
-  if (!tValue) throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", { reason: "missing_t" });
+  if (!tValue)
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", {
+      reason: "missing_t",
+    });
 
   const timestamp = Number(tValue);
   if (!Number.isFinite(timestamp)) {
-    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", { reason: "invalid_t" });
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", {
+      reason: "invalid_t",
+    });
   }
 
   // Stripe puede mandar VARIOS v1=...
@@ -394,7 +605,9 @@ function verifyStripeSignature(
     .filter(Boolean);
 
   if (v1Signatures.length === 0) {
-    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", { reason: "missing_v1" });
+    throw createHttpError(400, "INVALID_STRIPE_SIGNATURE", {
+      reason: "missing_v1",
+    });
   }
 
   // (Opcional pero recomendado) tolerancia de tiempo
@@ -409,14 +622,20 @@ function verifyStripeSignature(
   }
 
   const signedPayload = `${tValue}.${rawBody.toString("utf8")}`;
-  const expectedHex = crypto.createHmac("sha256", webhookSecret).update(signedPayload, "utf8").digest("hex");
+  const expectedHex = crypto
+    .createHmac("sha256", webhookSecret)
+    .update(signedPayload, "utf8")
+    .digest("hex");
   const expectedBuf = Buffer.from(expectedHex, "hex");
 
   const matchesAny = v1Signatures.some((sig) => {
     // si viene algo raro, evita crash
     if (!/^[0-9a-f]+$/i.test(sig)) return false;
     const sigBuf = Buffer.from(sig, "hex");
-    return sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf);
+    return (
+      sigBuf.length === expectedBuf.length &&
+      crypto.timingSafeEqual(sigBuf, expectedBuf)
+    );
   });
 
   if (!matchesAny) {
@@ -424,6 +643,21 @@ function verifyStripeSignature(
   }
 }
 
+function getPlanTokenAllowance(plan: SubscriptionPlan): number {
+  return tokenGrantForPlan(plan);
+}
+
+const AI_FEATURE_ESTIMATED_TOKENS: Record<string, number> = {
+  training: 800,
+  nutrition: 800,
+  "training-generate": 1200,
+  "nutrition-generate": 1200,
+  tip: 300,
+};
+
+function getEstimatedAiFeatureTokens(feature: string): number {
+  return AI_FEATURE_ESTIMATED_TOKENS[feature] ?? 1;
+}
 
 function getTokenExpiry(days = 30) {
   const next = new Date();
@@ -445,52 +679,50 @@ function getUserTokenBalance(user: { aiTokenBalance?: number | null }) {
 async function applyBillingStateForCustomer(
   stripeCustomerId: string,
   data: {
-    plan: SubscriptionPlan;
-    aiTokenBalance: number;
-    aiTokenResetAt: Date | null;
-    aiTokenRenewalAt: Date | null;
+    plan?: SubscriptionPlan;
+    aiTokenBalance?: number;
+    aiTokenResetAt?: Date | null;
+    aiTokenRenewalAt?: Date | null;
+    aiTokenMonthlyAllowance?: number;
     subscriptionStatus?: string | null;
     stripeSubscriptionId?: string | null;
     currentPeriodEnd?: Date | null;
-  }
+  },
 ) {
-  const result = await prisma.user.updateMany({
-    where: { stripeCustomerId },
-    data: {
-      plan: data.plan,
-      subscriptionStatus: data.subscriptionStatus === undefined ? undefined : data.subscriptionStatus,
-      stripeSubscriptionId: data.stripeSubscriptionId === undefined ? undefined : data.stripeSubscriptionId,
-      currentPeriodEnd: data.currentPeriodEnd === undefined ? undefined : data.currentPeriodEnd,
-      aiTokenBalance: data.aiTokenBalance,
-      aiTokenResetAt: data.aiTokenResetAt,
-      aiTokenRenewalAt: data.aiTokenRenewalAt,
-    },
-  });
+  const result = await prisma.$transaction(async (tx) =>
+    tx.user.updateMany({
+      where: { stripeCustomerId },
+      data: {
+        plan: data.plan,
+        subscriptionStatus:
+          data.subscriptionStatus === undefined
+            ? undefined
+            : data.subscriptionStatus,
+        stripeSubscriptionId:
+          data.stripeSubscriptionId === undefined
+            ? undefined
+            : data.stripeSubscriptionId,
+        currentPeriodEnd:
+          data.currentPeriodEnd === undefined
+            ? undefined
+            : data.currentPeriodEnd,
+        aiTokenBalance:
+          data.aiTokenBalance === undefined ? undefined : data.aiTokenBalance,
+        aiTokenMonthlyAllowance:
+          data.aiTokenMonthlyAllowance === undefined
+            ? undefined
+            : data.aiTokenMonthlyAllowance,
+        aiTokenResetAt:
+          data.aiTokenResetAt === undefined ? undefined : data.aiTokenResetAt,
+        aiTokenRenewalAt:
+          data.aiTokenRenewalAt === undefined
+            ? undefined
+            : data.aiTokenRenewalAt,
+      },
+    }),
+  );
   if (result.count === 0) {
     app.log.warn({ stripeCustomerId }, "user not found for billing update");
-  }
-}
-
-async function updateUserSubscriptionForCustomer(
-  stripeCustomerId: string,
-  data: {
-    plan: SubscriptionPlan;
-    subscriptionStatus?: string | null;
-    stripeSubscriptionId?: string | null;
-    currentPeriodEnd?: Date | null;
-  }
-) {
-  const result = await prisma.user.updateMany({
-    where: { stripeCustomerId },
-    data: {
-      plan: data.plan,
-      subscriptionStatus: data.subscriptionStatus === undefined ? undefined : data.subscriptionStatus,
-      stripeSubscriptionId: data.stripeSubscriptionId === undefined ? undefined : data.stripeSubscriptionId,
-      currentPeriodEnd: data.currentPeriodEnd === undefined ? undefined : data.currentPeriodEnd,
-    },
-  });
-  if (result.count === 0) {
-    app.log.warn({ stripeCustomerId }, "user not found for subscription update");
   }
 }
 
@@ -498,7 +730,9 @@ function isActiveSubscriptionStatus(status?: string | null) {
   return status === "active" || status === "trialing";
 }
 
-function getPlanFromSubscription(subscription?: StripeSubscription | null): SubscriptionPlan | null {
+function getPlanFromSubscription(
+  subscription?: StripeSubscription | null,
+): SubscriptionPlan | null {
   if (!subscription) return null;
   const items = subscription.items?.data ?? [];
   for (const item of items) {
@@ -511,26 +745,34 @@ function getPlanFromSubscription(subscription?: StripeSubscription | null): Subs
 }
 
 async function getLatestActiveSubscription(customerId: string) {
-  const subscriptions = await stripeRequest<StripeSubscriptionList>(
-    "subscriptions",
-    { customer: customerId, status: "all", limit: 100, "expand[0]": "data.items.data.price" },
-    { method: "GET" }
-  );
-  const activeSubscriptions = subscriptions.data.filter((subscription) => {
-    if (!isActiveSubscriptionStatus(subscription.status)) return false;
-    return getPlanFromSubscription(subscription) !== null;
-  });
+  const activeSubscriptions = await getActivePlanSubscriptions(customerId);
   if (activeSubscriptions.length === 0) {
     return null;
   }
-  return activeSubscriptions.sort((a, b) => (b.current_period_end ?? 0) - (a.current_period_end ?? 0))[0] ?? null;
+  const activeProSubscriptions = activeSubscriptions.filter(
+    (subscription) => getPlanFromSubscription(subscription) === "PRO",
+  );
+  const prioritizedSubscriptions =
+    activeProSubscriptions.length > 0
+      ? activeProSubscriptions
+      : activeSubscriptions;
+  return (
+    prioritizedSubscriptions.sort(
+      (a, b) => (b.current_period_end ?? 0) - (a.current_period_end ?? 0),
+    )[0] ?? null
+  );
 }
 
 async function getActivePlanSubscriptions(customerId: string) {
   const subscriptions = await stripeRequest<StripeSubscriptionList>(
     "subscriptions",
-    { customer: customerId, status: "all", limit: 100, "expand[0]": "data.items.data.price" },
-    { method: "GET" }
+    {
+      customer: customerId,
+      status: "all",
+      limit: 100,
+      "expand[0]": "data.items.data.price",
+    },
+    { method: "GET" },
   );
 
   return subscriptions.data.filter((subscription) => {
@@ -549,7 +791,10 @@ async function getOrCreateCustomerId(user: User) {
       "metadata[userId]": user.id,
     });
     customerId = customer.id;
-    await prisma.user.update({ where: { id: user.id }, data: { stripeCustomerId: customerId } });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { stripeCustomerId: customerId },
+    });
   }
 
   return customerId;
@@ -560,7 +805,9 @@ function getSubscriptionPeriodEnd(subscription?: StripeSubscription | null) {
   return new Date(subscription.current_period_end * 1000);
 }
 
-function getPlanFromInvoice(invoice?: StripeInvoice | null): SubscriptionPlan | null {
+function getPlanFromInvoice(
+  invoice?: StripeInvoice | null,
+): SubscriptionPlan | null {
   if (!invoice) return null;
   const lines = invoice.lines?.data ?? [];
   for (const line of lines) {
@@ -592,12 +839,33 @@ async function getOrCreateStripeCustomer(user: User) {
   return customer.id;
 }
 
-async function syncUserBillingFromStripe(user: User) {
-  const stripeCustomerId = await getOrCreateStripeCustomer(user);
+async function getExistingStripeCustomerId(userId: string) {
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { stripeCustomerId: true },
+  });
+  return existing?.stripeCustomerId ?? null;
+}
 
-  const activeSubscription = await getLatestActiveSubscription(stripeCustomerId);
+async function syncUserBillingFromStripe(
+  user: User,
+  options?: {
+    createCustomerIfMissing?: boolean;
+  },
+) {
+  const shouldCreateCustomer = options?.createCustomerIfMissing ?? true;
+  const stripeCustomerId = shouldCreateCustomer
+    ? await getOrCreateStripeCustomer(user)
+    : (user.stripeCustomerId ?? (await getExistingStripeCustomerId(user.id)));
+
+  if (!stripeCustomerId) {
+    return await prisma.user.findUnique({ where: { id: user.id } });
+  }
+
+  const activeSubscription =
+    await getLatestActiveSubscription(stripeCustomerId);
   if (!activeSubscription) {
-    await prisma.user.update({
+    return await prisma.user.update({
       where: { id: user.id },
       data: {
         plan: "FREE",
@@ -609,29 +877,20 @@ async function syncUserBillingFromStripe(user: User) {
         aiTokenRenewalAt: null,
       },
     });
-    return;
   }
 
   const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
-  const currentTokenExpiryAt = getUserTokenExpiryAt(user);
-  const tokensExpired = currentTokenExpiryAt ? currentTokenExpiryAt.getTime() < Date.now() : true;
-  const currentTokenBalance = getUserTokenBalance(user);
-  const shouldTopUpTokens = tokensExpired || currentTokenBalance <= 0;
-  const nextResetAt = currentPeriodEnd ?? getTokenExpiry(30);
-  const nextRenewalAt = nextResetAt;
-  const nextBalance = shouldTopUpTokens ? 5000 : currentTokenBalance;
+  const plan = getPlanFromSubscription(activeSubscription) ?? "FREE";
+  const planAllowance = getPlanTokenAllowance(plan);
 
-  await prisma.user.update({
+  return await prisma.user.update({
     where: { id: user.id },
     data: {
-      plan: getPlanFromSubscription(activeSubscription) ?? "FREE",
+      plan,
       subscriptionStatus: activeSubscription.status,
       stripeSubscriptionId: activeSubscription.id,
       currentPeriodEnd: currentPeriodEnd ?? null,
-      aiTokenBalance: nextBalance,
-      aiTokenResetAt: nextResetAt,
-      aiTokenRenewalAt: nextRenewalAt,
-      aiTokenMonthlyAllowance: 5000,
+      aiTokenMonthlyAllowance: planAllowance,
     },
   });
 }
@@ -642,7 +901,10 @@ function logAuthCookieDebug(request: FastifyRequest, route: string) {
   const hasCookie = typeof cookieHeader === "string" && cookieHeader.length > 0;
   const hasToken = hasCookie && cookieHeader.includes("fs_token=");
   const hasSignature = hasCookie && cookieHeader.includes("fs_token.sig=");
-  app.log.info({ route, hasCookie, hasToken, hasSignature }, "auth cookie debug");
+  app.log.info(
+    { route, hasCookie, hasToken, hasSignature },
+    "auth cookie debug",
+  );
 }
 
 function getRequestIp(request: FastifyRequest) {
@@ -671,7 +933,10 @@ function parseBearerToken(header?: string) {
 
 function normalizeToken(rawToken: string) {
   let token = rawToken.trim();
-  if ((token.startsWith("\"") && token.endsWith("\"")) || (token.startsWith("'") && token.endsWith("'"))) {
+  if (
+    (token.startsWith('"') && token.endsWith('"')) ||
+    (token.startsWith("'") && token.endsWith("'"))
+  ) {
     token = token.slice(1, -1).trim();
   }
   if (token.startsWith("fs_token=")) {
@@ -714,26 +979,42 @@ function parseCookieHeader(cookieHeader?: string) {
 function getJwtTokenFromRequest(request: FastifyRequest) {
   const authHeader = request.headers.authorization;
   const bearerToken = parseBearerToken(authHeader);
-  const hasBearerPrefix = authHeader?.trim().toLowerCase().startsWith("bearer ") ?? false;
+  const hasBearerPrefix =
+    authHeader?.trim().toLowerCase().startsWith("bearer ") ?? false;
   if (authHeader) {
     const rawToken = bearerToken ?? authHeader;
     const normalized = normalizeToken(rawToken);
-    return { token: normalized.token, source: "authorization" as const, hasBearerPrefix, normalized };
+    return {
+      token: normalized.token,
+      source: "authorization" as const,
+      hasBearerPrefix,
+      normalized,
+    };
   }
   const cookieHeader = request.headers.cookie;
   const cookieToken = parseCookieHeader(cookieHeader).get("fs_token") ?? null;
   if (cookieToken) {
     const normalized = normalizeToken(cookieToken);
-    return { token: normalized.token, source: "cookie" as const, hasBearerPrefix, normalized };
+    return {
+      token: normalized.token,
+      source: "cookie" as const,
+      hasBearerPrefix,
+      normalized,
+    };
   }
-  return { token: null, source: "none" as const, hasBearerPrefix, normalized: null };
+  return {
+    token: null,
+    source: "none" as const,
+    hasBearerPrefix,
+    normalized: null,
+  };
 }
 
 async function requireUser(
   request: FastifyRequest,
   options?: {
     logContext?: string;
-  }
+  },
 ) {
   const route = options?.logContext ?? request.routeOptions?.url ?? "unknown";
   const hasAuthHeader = typeof request.headers.authorization === "string";
@@ -742,10 +1023,14 @@ async function requireUser(
     app.log.info({ route, hasAuthHeader, hasCookieHeader }, "ai auth precheck");
   }
 
-  const { token, source, hasBearerPrefix, normalized } = getJwtTokenFromRequest(request);
+  const { token, source, hasBearerPrefix, normalized } =
+    getJwtTokenFromRequest(request);
   if (!token) {
     if (options?.logContext && process.env.NODE_ENV !== "production") {
-      app.log.warn({ route, reason: "MISSING_TOKEN", source, hasBearerPrefix }, "ai auth failed");
+      app.log.warn(
+        { route, reason: "MISSING_TOKEN", source, hasBearerPrefix },
+        "ai auth failed",
+      );
     }
     throw createHttpError(401, "UNAUTHORIZED");
   }
@@ -753,9 +1038,15 @@ async function requireUser(
   const hasPercent = normalized?.hadPercent ?? false;
   if (segments !== 3) {
     if (options?.logContext && process.env.NODE_ENV !== "production") {
-      app.log.warn({ route, source, hasBearerPrefix, segments, hasPercent }, "ai auth invalid token format");
+      app.log.warn(
+        { route, source, hasBearerPrefix, segments, hasPercent },
+        "ai auth invalid token format",
+      );
     }
-    throw createHttpError(401, "INVALID_TOKEN_FORMAT", { segments, hasPercent });
+    throw createHttpError(401, "INVALID_TOKEN_FORMAT", {
+      segments,
+      hasPercent,
+    });
   }
 
   if (options?.logContext && process.env.NODE_ENV !== "production") {
@@ -770,7 +1061,7 @@ async function requireUser(
         tokenHasSpace: token.includes(" "),
         tokenHasCookieLabel: token.includes("fs_token="),
       },
-      "ai auth token debug"
+      "ai auth token debug",
     );
   }
   if (process.env.NODE_ENV !== "production") {
@@ -780,7 +1071,7 @@ async function requireUser(
         source,
         tokenSegmentsCount: token.split(".").length,
       },
-      "auth token segments count"
+      "auth token segments count",
     );
   }
 
@@ -793,7 +1084,8 @@ async function requireUser(
       app.log.warn(
         {
           route,
-          reason: typed.message ?? typed.code ?? typed.name ?? "JWT_VERIFY_FAILED",
+          reason:
+            typed.message ?? typed.code ?? typed.name ?? "JWT_VERIFY_FAILED",
           source,
           hasBearerPrefix,
           segments,
@@ -802,7 +1094,7 @@ async function requireUser(
           tokenHasSpace: token.includes(" "),
           tokenHasCookieLabel: token.includes("fs_token="),
         },
-        "ai auth failed"
+        "ai auth failed",
       );
     }
     throw createHttpError(401, "UNAUTHORIZED");
@@ -822,10 +1114,14 @@ async function requireUser(
 
 async function requireAdmin(request: FastifyRequest) {
   const user = await requireUser(request);
-  if (user.role !== "ADMIN" && !isBootstrapAdmin(user.email)) {
+  if (!isGlobalAdminUser(user)) {
     throw createHttpError(403, "FORBIDDEN");
   }
   return user;
+}
+
+function isGlobalAdminUser(user: { role: string; email: string }) {
+  return user.role === "ADMIN" || isBootstrapAdmin(user.email);
 }
 
 function getBootstrapAdminEmails() {
@@ -833,7 +1129,7 @@ function getBootstrapAdminEmails() {
   return new Set(
     env.BOOTSTRAP_ADMIN_EMAILS.split(",")
       .map((email) => email.trim().toLowerCase())
-      .filter(Boolean)
+      .filter(Boolean),
   );
 }
 
@@ -843,9 +1139,16 @@ function isBootstrapAdmin(email: string): boolean {
   return bootstrapAdminEmails.has(email.trim().toLowerCase());
 }
 
-async function requireGymManagerForGym(userId: string, gymId: string) {
+async function requireGymManagerForGym(
+  user: { id: string; role: string; email: string },
+  gymId: string,
+) {
+  if (isGlobalAdminUser(user)) {
+    return true;
+  }
+
   const managerMembership = await prisma.gymMembership.findUnique({
-    where: { gymId_userId: { gymId, userId } },
+    where: { gymId_userId: { gymId, userId: user.id } },
     select: {
       id: true,
       gymId: true,
@@ -862,6 +1165,17 @@ async function requireGymManagerForGym(userId: string, gymId: string) {
     throw createHttpError(403, "FORBIDDEN");
   }
   return managerMembership;
+}
+
+async function requireGymManagerAccess(
+  user: { id: string; role: string; email: string },
+  gymId: string,
+) {
+  if (isGlobalAdminUser(user)) {
+    return;
+  }
+
+  await requireGymManagerForGym(user, gymId);
 }
 
 async function requireActiveGymManagerMembership(userId: string) {
@@ -900,7 +1214,11 @@ async function requireGymAdminForGym(userId: string, gymId: string) {
     },
   });
 
-  if (!adminMembership || adminMembership.status !== "ACTIVE" || adminMembership.role !== "ADMIN") {
+  if (
+    !adminMembership ||
+    adminMembership.status !== "ACTIVE" ||
+    adminMembership.role !== "ADMIN"
+  ) {
     throw createHttpError(403, "FORBIDDEN");
   }
 
@@ -919,8 +1237,13 @@ async function getOrCreateProfile(userId: string) {
       },
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const existing = await prisma.userProfile.findUnique({ where: { userId } });
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const existing = await prisma.userProfile.findUnique({
+        where: { userId },
+      });
       if (existing) return existing;
     }
     throw error;
@@ -956,12 +1279,24 @@ const trainingPreferencesSchema = z.object({
   timerSound: z.enum(["ding", "repsToDo"]),
 });
 
-const goalTagSchema = z.enum(["buildStrength", "loseFat", "betterHealth", "moreEnergy", "tonedMuscles"]);
+const goalTagSchema = z.enum([
+  "buildStrength",
+  "loseFat",
+  "betterHealth",
+  "moreEnergy",
+  "tonedMuscles",
+]);
 
 const mealDistributionSchema = z.union([
   z.enum(["balanced", "lightDinner", "bigBreakfast", "bigLunch"]),
   z.object({
-    preset: z.enum(["balanced", "lightDinner", "bigBreakfast", "bigLunch", "custom"]),
+    preset: z.enum([
+      "balanced",
+      "lightDinner",
+      "bigBreakfast",
+      "bigLunch",
+      "custom",
+    ]),
     percentages: z.array(z.number()).optional(),
   }),
 ]);
@@ -1040,26 +1375,19 @@ function isProfileComplete(profile: Record<string, unknown> | null) {
 async function requireCompleteProfile(userId: string) {
   const profile = await getOrCreateProfile(userId);
   const data =
-    typeof profile.profile === "object" && profile.profile ? (profile.profile as Record<string, unknown>) : null;
+    typeof profile.profile === "object" && profile.profile
+      ? (profile.profile as Record<string, unknown>)
+      : null;
   if (!isProfileComplete(data)) {
     throw createHttpError(409, "PROFILE_INCOMPLETE");
   }
 }
 
-type AuthenticatedRequest = FastifyRequest & { currentUser?: User; currentEntitlements?: EffectiveEntitlements };
-
 function getUserEntitlements(user: User) {
-  return buildEffectiveEntitlements({
-    plan: user.plan,
-    isAdmin: user.role === "ADMIN" || isBootstrapAdmin(user.email),
-  });
+  return resolveUserEntitlements(user, isBootstrapAdmin);
 }
 
 function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
-  if (!entitlements.modules.ai.enabled) {
-    return { aiTokenBalance: null, aiTokenRenewalAt: null };
-  }
-
   if (entitlements.role.adminOverride) {
     return { aiTokenBalance: null, aiTokenRenewalAt: null };
   }
@@ -1070,23 +1398,31 @@ function getAiTokenPayload(user: User, entitlements: EffectiveEntitlements) {
   };
 }
 
-async function aiAccessGuard(request: FastifyRequest, reply: FastifyReply) {
-  const user = await requireUser(request, { logContext: request.routeOptions?.url ?? "ai" });
-  const entitlements = getUserEntitlements(user);
-  if (!entitlements.modules.ai.enabled) {
-    return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
-  }
+const aiAccessGuard = buildEntitlementGuard({
+  requireAi: true,
+  forbiddenStatus: 402,
+  forbiddenBody: { code: "UPGRADE_REQUIRED" },
+  requireUser,
+  isBootstrapAdmin,
+});
 
-  if (!entitlements.role.adminOverride) {
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    if (effectiveTokens <= 0) {
-      return reply.status(402).send({ code: "UPGRADE_REQUIRED" });
-    }
-  }
+const aiNutritionDomainGuard = buildEntitlementGuard({
+  requireAi: true,
+  requireDomain: "nutrition",
+  forbiddenStatus: 403,
+  forbiddenBody: { error: "AI_ACCESS_FORBIDDEN" },
+  requireUser,
+  isBootstrapAdmin,
+});
 
-  (request as AuthenticatedRequest).currentUser = user;
-  (request as AuthenticatedRequest).currentEntitlements = entitlements;
-}
+const aiStrengthDomainGuard = buildEntitlementGuard({
+  requireAi: true,
+  requireDomain: "strength",
+  forbiddenStatus: 403,
+  forbiddenBody: { error: "AI_ACCESS_FORBIDDEN" },
+  requireUser,
+  isBootstrapAdmin,
+});
 
 const userFoodSchema = z.object({
   name: z.string().min(1),
@@ -1137,7 +1473,9 @@ function normalizeMealDistribution(value: unknown) {
         ? payload.preset
         : "balanced";
     const percentages = Array.isArray(payload.percentages)
-      ? payload.percentages.map((item) => Number(item)).filter((item) => Number.isFinite(item))
+      ? payload.percentages
+          .map((item) => Number(item))
+          .filter((item) => Number.isFinite(item))
       : undefined;
     return { preset, percentages };
   }
@@ -1177,7 +1515,16 @@ const aiNutritionSchema = z.object({
   daysCount: z.number().int().min(1).max(14).optional(),
   dietaryRestrictions: z.string().optional(),
   dietType: z
-    .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
+    .enum([
+      "balanced",
+      "mediterranean",
+      "keto",
+      "vegetarian",
+      "vegan",
+      "pescatarian",
+      "paleo",
+      "flexible",
+    ])
     .optional(),
   allergies: z.array(z.string()).optional(),
   preferredFoods: z.string().optional(),
@@ -1205,10 +1552,28 @@ const aiGenerateNutritionSchema = z.object({
     fatsG: z.number().min(0),
   }),
   dietType: z
-    .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
+    .enum([
+      "balanced",
+      "mediterranean",
+      "keto",
+      "vegetarian",
+      "vegan",
+      "pescatarian",
+      "paleo",
+      "flexible",
+    ])
     .optional(),
   dietaryPrefs: z
-    .enum(["balanced", "mediterranean", "keto", "vegetarian", "vegan", "pescatarian", "paleo", "flexible"])
+    .enum([
+      "balanced",
+      "mediterranean",
+      "keto",
+      "vegetarian",
+      "vegan",
+      "pescatarian",
+      "paleo",
+      "flexible",
+    ])
     .optional(),
 });
 
@@ -1244,10 +1609,18 @@ const aiTrainingExerciseSchema = z
     name: z.string().min(1),
     sets: aiTrainingSeriesSchema,
     reps: aiTrainingRepsSchema.nullable(),
-tempo: z.string().nullable().transform(v => v ?? ""),
-notes: z.string().nullable().transform(v => v ?? ""),
-rest: z.number().nullable().transform(v => v ?? 60),
-
+    tempo: z
+      .string()
+      .nullable()
+      .transform((v) => v ?? ""),
+    notes: z
+      .string()
+      .nullable()
+      .transform((v) => v ?? ""),
+    rest: z
+      .number()
+      .nullable()
+      .transform((v) => v ?? 60),
   })
   .passthrough();
 
@@ -1287,7 +1660,7 @@ const aiNutritionMealSchema = z
         z.object({
           name: z.string().min(1),
           grams: z.coerce.number().min(5).max(1000),
-        })
+        }),
       )
       .min(0)
       .max(6)
@@ -1317,7 +1690,7 @@ const aiNutritionPlanResponseSchema = z
         z.object({
           name: z.string().min(1),
           grams: z.coerce.number().min(0).max(5000),
-        })
+        }),
       )
       .nullable(),
   })
@@ -1348,7 +1721,9 @@ function buildDateRange(startDate: Date, daysCount: number) {
 }
 
 function getSecondsUntilNextUtcDay(date = new Date()) {
-  const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1));
+  const next = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1),
+  );
   const diffMs = next.getTime() - date.getTime();
   return Math.max(1, Math.ceil(diffMs / 1000));
 }
@@ -1368,6 +1743,30 @@ function getEffectiveTokenBalance(user: {
   return Math.max(0, getUserTokenBalance(user));
 }
 
+function assertSufficientAiTokenBalance(
+  user: {
+    aiTokenBalance?: number | null;
+    aiTokenResetAt?: Date | null;
+    aiTokenRenewalAt?: Date | null;
+  },
+  minimumRequiredTokens = 1,
+) {
+  const effectiveTokens = getEffectiveTokenBalance(user);
+  if (effectiveTokens < 1) {
+    throw createHttpError(403, "AI_TOKENS_EXHAUSTED", {
+      message: "No tienes tokens IA",
+    });
+  }
+  if (effectiveTokens < minimumRequiredTokens) {
+    throw createHttpError(403, "AI_TOKENS_INSUFFICIENT", {
+      message: "No tienes tokens IA",
+      requiredTokens: minimumRequiredTokens,
+      availableTokens: effectiveTokens,
+    });
+  }
+  return effectiveTokens;
+}
+
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value);
@@ -1379,8 +1778,8 @@ function stableStringify(value: unknown): string {
       .join(",")}]`;
   }
 
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
-    a.localeCompare(b),
+  const entries = Object.entries(value as Record<string, unknown>).sort(
+    ([a], [b]) => a.localeCompare(b),
   );
 
   return `{${entries
@@ -1388,19 +1787,24 @@ function stableStringify(value: unknown): string {
     .join(",")}}`;
 }
 
-
 function buildCacheKey(type: string, params: Record<string, unknown>) {
   return `${type}:${stableStringify(params)}`;
 }
 
-function replaceTemplateVars(text: string, vars: Record<string, string | undefined>) {
+function replaceTemplateVars(
+  text: string,
+  vars: Record<string, string | undefined>,
+) {
   return Object.entries(vars).reduce(
     (acc, [key, value]) => (value ? acc.replaceAll(`{${key}}`, value) : acc),
-    text
+    text,
   );
 }
 
-function applyPersonalization<T>(payload: T, vars: Record<string, string | undefined>) {
+function applyPersonalization<T>(
+  payload: T,
+  vars: Record<string, string | undefined>,
+) {
   const clone = JSON.parse(JSON.stringify(payload)) as T;
   if (!clone || typeof clone !== "object") return clone;
   const walk = (node: unknown): void => {
@@ -1409,13 +1813,18 @@ function applyPersonalization<T>(payload: T, vars: Record<string, string | undef
       return;
     }
     if (node && typeof node === "object") {
-      Object.entries(node as Record<string, unknown>).forEach(([key, value]) => {
-        if (typeof value === "string") {
-          (node as Record<string, unknown>)[key] = replaceTemplateVars(value, vars);
-        } else if (value && typeof value === "object") {
-          walk(value);
-        }
-      });
+      Object.entries(node as Record<string, unknown>).forEach(
+        ([key, value]) => {
+          if (typeof value === "string") {
+            (node as Record<string, unknown>)[key] = replaceTemplateVars(
+              value,
+              vars,
+            );
+          } else if (value && typeof value === "object") {
+            walk(value);
+          }
+        },
+      );
     }
   };
   walk(clone);
@@ -1424,7 +1833,8 @@ function applyPersonalization<T>(payload: T, vars: Record<string, string | undef
 
 async function enforceAiQuota(user: { id: string; plan: string }) {
   const dateKey = toDateKey();
-  const limit = user.plan !== "FREE" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
+  const limit =
+    user.plan !== "FREE" ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
   const usage = await prisma.aiUsage.findUnique({
     where: { userId_date: { userId: user.id, date: dateKey } },
   });
@@ -1443,24 +1853,26 @@ async function storeAiContent(
   userId: string,
   type: AiRequestType,
   source: "template" | "cache" | "ai",
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
 ) {
-await prisma.aiContent.create({
-  data: { userId, type, source, payload: payload as Prisma.InputJsonValue },
-});
-
+  await prisma.aiContent.create({
+    data: { userId, type, source, payload: payload as Prisma.InputJsonValue },
+  });
 }
 
 async function safeStoreAiContent(
   userId: string,
   type: AiRequestType,
   source: "template" | "cache" | "ai",
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
 ) {
   try {
     await storeAiContent(userId, type, source, payload);
   } catch (error) {
-    app.log.warn({ err: error, userId, type, source }, "ai content store failed");
+    app.log.warn(
+      { err: error, userId, type, source },
+      "ai content store failed",
+    );
   }
 }
 
@@ -1474,31 +1886,47 @@ async function getCachedAiPayload(key: string) {
   return cached.payload as Record<string, unknown>;
 }
 
-async function saveCachedAiPayload(key: string, type: AiRequestType, payload: Record<string, unknown>) {
-await prisma.aiPromptCache.upsert({
-  where: { key },
-  create: { key, type, payload: payload as Prisma.InputJsonValue },
-  update: { payload: payload as Prisma.InputJsonValue, lastUsedAt: new Date() },
-});
-
+async function saveCachedAiPayload(
+  key: string,
+  type: AiRequestType,
+  payload: Record<string, unknown>,
+) {
+  await prisma.aiPromptCache.upsert({
+    where: { key },
+    create: { key, type, payload: payload as Prisma.InputJsonValue },
+    update: {
+      payload: payload as Prisma.InputJsonValue,
+      lastUsedAt: new Date(),
+    },
+  });
 }
 
-function resolveTemplateExerciseId(name: string, catalogByName: Map<string, string>) {
+function resolveTemplateExerciseId(
+  name: string,
+  catalogByName: Map<string, string>,
+) {
   const normalized = normalizeExerciseName(name);
   return catalogByName.get(normalized) ?? null;
 }
 
 function buildTrainingTemplate(
   params: z.infer<typeof aiTrainingSchema>,
-  exerciseCatalog: ExerciseCatalogItem[]
+  exerciseCatalog: ExerciseCatalogItem[],
 ): z.infer<typeof aiTrainingPlanResponseSchema> | null {
-  if (params.focus !== "ppl" || params.level !== "intermediate" || params.daysPerWeek < 3) {
+  if (
+    params.focus !== "ppl" ||
+    params.level !== "intermediate" ||
+    params.daysPerWeek < 3
+  ) {
     return null;
   }
-  
+
   const daysPerWeek = Math.min(params.daysPerWeek, 7);
   const catalogByName = new Map(
-    exerciseCatalog.map((exercise) => [normalizeExerciseName(exercise.name), exercise.id])
+    exerciseCatalog.map((exercise) => [
+      normalizeExerciseName(exercise.name),
+      exercise.id,
+    ]),
   );
   const missingTemplateExercises = new Set<string>();
   const ex = (
@@ -1507,13 +1935,21 @@ function buildTrainingTemplate(
     reps: string,
     tempo = "2-0-1",
     rest = 90,
-    notes = "Técnica limpia, controla la bajada."
+    notes = "Técnica limpia, controla la bajada.",
   ) => {
     const exerciseId = resolveTemplateExerciseId(name, catalogByName);
     if (!exerciseId) {
       missingTemplateExercises.add(name);
     }
-    return { exerciseId: exerciseId ?? "", name, sets, reps, tempo, rest, notes };
+    return {
+      exerciseId: exerciseId ?? "",
+      name,
+      sets,
+      reps,
+      tempo,
+      rest,
+      notes,
+    };
   };
 
   const pushDay = {
@@ -1521,96 +1957,305 @@ function buildTrainingTemplate(
     label: "Día 1",
     focus: "Push",
     duration: params.timeAvailableMinutes,
-exercises: [
-  ex("Press banca", 4, "6-10", "2-0-1", 120, "Escápulas atrás, pausa suave abajo."),
-  ex("Press militar", 3, "8-10", "2-0-1", 90, "Glúteos y core firmes, no hiperextender."),
-  ex("Fondos", 3, "8-12", "2-0-1", 90, "Rango controlado, sin balanceo."),
-  ex("Elevaciones laterales", 3, "12-15", "2-0-2", 60, "Codos suaves, sin impulso."),
-  ex("Extensión tríceps", 3, "10-12", "2-0-2", 60, "Bloquea sin dolor de codo."),
-],
-
+    exercises: [
+      ex(
+        "Press banca",
+        4,
+        "6-10",
+        "2-0-1",
+        120,
+        "Escápulas atrás, pausa suave abajo.",
+      ),
+      ex(
+        "Press militar",
+        3,
+        "8-10",
+        "2-0-1",
+        90,
+        "Glúteos y core firmes, no hiperextender.",
+      ),
+      ex("Fondos", 3, "8-12", "2-0-1", 90, "Rango controlado, sin balanceo."),
+      ex(
+        "Elevaciones laterales",
+        3,
+        "12-15",
+        "2-0-2",
+        60,
+        "Codos suaves, sin impulso.",
+      ),
+      ex(
+        "Extensión tríceps",
+        3,
+        "10-12",
+        "2-0-2",
+        60,
+        "Bloquea sin dolor de codo.",
+      ),
+    ],
   };
   const pullDay = {
-  date: null,
-  label: "Día 2",
-  focus: "Pull",
-  duration: params.timeAvailableMinutes,
-  exercises: [
-    ex("Remo con barra", 4, "6-10", "2-0-1", 120, "Espalda neutra, tira con codos."),
-    ex("Dominadas", 3, "6-10", "2-1-1", 120, "Controla la bajada, no balancees."),
-    ex("Remo en polea", 3, "10-12", "2-1-1", 90, "Pecho arriba, pausa al final."),
-    ex("Curl bíceps", 3, "10-12", "2-0-2", 75, "Sin balanceo, codos fijos."),
-    ex("Face pull", 3, "12-15", "2-1-2", 60, "Tira a la cara, hombros atrás."),
-  ],
-};
+    date: null,
+    label: "Día 2",
+    focus: "Pull",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      ex(
+        "Remo con barra",
+        4,
+        "6-10",
+        "2-0-1",
+        120,
+        "Espalda neutra, tira con codos.",
+      ),
+      ex(
+        "Dominadas",
+        3,
+        "6-10",
+        "2-1-1",
+        120,
+        "Controla la bajada, no balancees.",
+      ),
+      ex(
+        "Remo en polea",
+        3,
+        "10-12",
+        "2-1-1",
+        90,
+        "Pecho arriba, pausa al final.",
+      ),
+      ex("Curl bíceps", 3, "10-12", "2-0-2", 75, "Sin balanceo, codos fijos."),
+      ex(
+        "Face pull",
+        3,
+        "12-15",
+        "2-1-2",
+        60,
+        "Tira a la cara, hombros atrás.",
+      ),
+    ],
+  };
 
-const legsDay = {
-  date: null,
-  label: "Día 3",
-  focus: "Legs",
-  duration: params.timeAvailableMinutes,
-  exercises: [
-    ex("Sentadilla", 4, "6-10", "3-0-1", 150, "Profundidad segura, core firme."),
-    ex("Peso muerto rumano", 3, "8-10", "3-1-1", 120, "Cadera atrás, barra pegada."),
-    ex("Hip thrust", 3, "10-12", "2-1-1", 120, "Pausa arriba, evita hiperextender."),
-    ex("Prensa", 3, "10-12", "2-0-2", 120, "Controla recorrido, no bloquees rodillas."),
-    ex("Elevaciones de gemelo", 3, "12-15", "2-1-2", 60, "Pausa arriba y estira abajo."),
-  ],
-};
+  const legsDay = {
+    date: null,
+    label: "Día 3",
+    focus: "Legs",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      ex(
+        "Sentadilla",
+        4,
+        "6-10",
+        "3-0-1",
+        150,
+        "Profundidad segura, core firme.",
+      ),
+      ex(
+        "Peso muerto rumano",
+        3,
+        "8-10",
+        "3-1-1",
+        120,
+        "Cadera atrás, barra pegada.",
+      ),
+      ex(
+        "Hip thrust",
+        3,
+        "10-12",
+        "2-1-1",
+        120,
+        "Pausa arriba, evita hiperextender.",
+      ),
+      ex(
+        "Prensa",
+        3,
+        "10-12",
+        "2-0-2",
+        120,
+        "Controla recorrido, no bloquees rodillas.",
+      ),
+      ex(
+        "Elevaciones de gemelo",
+        3,
+        "12-15",
+        "2-1-2",
+        60,
+        "Pausa arriba y estira abajo.",
+      ),
+    ],
+  };
 
-const pushDayVariation = {
-  date: null,
-  label: "Día 4",
-  focus: "Push (variación)",
-  duration: params.timeAvailableMinutes,
-  exercises: [
-    ex("Press inclinado con mancuernas", 4, "8-10", "2-0-1", 120, "Recorrido completo, control."),
-    ex("Press Arnold", 3, "8-10", "2-0-1", 90, "No arquees la espalda, core firme."),
-    ex("Aperturas con mancuernas", 3, "12-15", "2-1-2", 75, "Estira sin dolor, codos suaves."),
-    ex("Elevaciones frontales", 3, "12-15", "2-0-2", 60, "Sin impulso, sube hasta ojos."),
-    ex("Jalón de tríceps con cuerda", 3, "10-12", "2-0-2", 60, "Separa cuerda al final, control."),
-  ],
-};
+  const pushDayVariation = {
+    date: null,
+    label: "Día 4",
+    focus: "Push (variación)",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      ex(
+        "Press inclinado con mancuernas",
+        4,
+        "8-10",
+        "2-0-1",
+        120,
+        "Recorrido completo, control.",
+      ),
+      ex(
+        "Press Arnold",
+        3,
+        "8-10",
+        "2-0-1",
+        90,
+        "No arquees la espalda, core firme.",
+      ),
+      ex(
+        "Aperturas con mancuernas",
+        3,
+        "12-15",
+        "2-1-2",
+        75,
+        "Estira sin dolor, codos suaves.",
+      ),
+      ex(
+        "Elevaciones frontales",
+        3,
+        "12-15",
+        "2-0-2",
+        60,
+        "Sin impulso, sube hasta ojos.",
+      ),
+      ex(
+        "Jalón de tríceps con cuerda",
+        3,
+        "10-12",
+        "2-0-2",
+        60,
+        "Separa cuerda al final, control.",
+      ),
+    ],
+  };
 
-const pullDayVariation = {
-  date: null,
-  label: "Día 5",
-  focus: "Pull (variación)",
-  duration: params.timeAvailableMinutes,
-  exercises: [
-    ex("Remo con mancuerna a una mano", 4, "8-10", "2-1-1", 120, "Cadera estable, tira con codo."),
-    ex("Jalón al pecho en polea", 3, "8-12", "2-1-1", 90, "Pecho arriba, baja al pecho."),
-    ex("Remo en máquina", 3, "10-12", "2-1-1", 90, "Pausa al final, sin encoger hombros."),
-    ex("Curl martillo", 3, "10-12", "2-0-2", 75, "Control, muñeca neutra."),
-    ex("Encogimientos de trapecio", 3, "12-15", "2-1-2", 60, "Sube recto, pausa arriba."),
-  ],
-};
+  const pullDayVariation = {
+    date: null,
+    label: "Día 5",
+    focus: "Pull (variación)",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      ex(
+        "Remo con mancuerna a una mano",
+        4,
+        "8-10",
+        "2-1-1",
+        120,
+        "Cadera estable, tira con codo.",
+      ),
+      ex(
+        "Jalón al pecho en polea",
+        3,
+        "8-12",
+        "2-1-1",
+        90,
+        "Pecho arriba, baja al pecho.",
+      ),
+      ex(
+        "Remo en máquina",
+        3,
+        "10-12",
+        "2-1-1",
+        90,
+        "Pausa al final, sin encoger hombros.",
+      ),
+      ex("Curl martillo", 3, "10-12", "2-0-2", 75, "Control, muñeca neutra."),
+      ex(
+        "Encogimientos de trapecio",
+        3,
+        "12-15",
+        "2-1-2",
+        60,
+        "Sube recto, pausa arriba.",
+      ),
+    ],
+  };
 
-const legsDayVariation = {
-  date: null,
-  label: "Día 6",
-  focus: "Legs (variación)",
-  duration: params.timeAvailableMinutes,
-  exercises: [
-    ex("Sentadilla frontal", 4, "6-10", "3-0-1", 150, "Codos altos, torso erguido."),
-    ex("Peso muerto sumo", 3, "6-10", "2-0-1", 150, "Rodillas afuera, espalda neutra."),
-    ex("Zancada búlgara", 3, "10-12", "2-0-2", 120, "Rodilla estable, baja controlado."),
-    ex("Curl femoral", 3, "10-12", "2-1-2", 90, "Pausa contracción, controla bajada."),
-    ex("Elevaciones de gemelo sentado", 3, "12-15", "2-1-2", 60, "Rango completo, pausa arriba."),
-  ],
-};
+  const legsDayVariation = {
+    date: null,
+    label: "Día 6",
+    focus: "Legs (variación)",
+    duration: params.timeAvailableMinutes,
+    exercises: [
+      ex(
+        "Sentadilla frontal",
+        4,
+        "6-10",
+        "3-0-1",
+        150,
+        "Codos altos, torso erguido.",
+      ),
+      ex(
+        "Peso muerto sumo",
+        3,
+        "6-10",
+        "2-0-1",
+        150,
+        "Rodillas afuera, espalda neutra.",
+      ),
+      ex(
+        "Zancada búlgara",
+        3,
+        "10-12",
+        "2-0-2",
+        120,
+        "Rodilla estable, baja controlado.",
+      ),
+      ex(
+        "Curl femoral",
+        3,
+        "10-12",
+        "2-1-2",
+        90,
+        "Pausa contracción, controla bajada.",
+      ),
+      ex(
+        "Elevaciones de gemelo sentado",
+        3,
+        "12-15",
+        "2-1-2",
+        60,
+        "Rango completo, pausa arriba.",
+      ),
+    ],
+  };
 
-const recoveryDay = {
-  date: null,
-  label: "Día 7",
-  focus: "Cardio + movilidad",
-  duration: Math.min(params.timeAvailableMinutes, 40),
-  exercises: [
-    ex("Caminata inclinada en cinta", 1, "20 min", "1-0-1", 0, "Ritmo moderado, respiración controlada."),
-    ex("Plancha frontal", 3, "30-45s", "1-0-1", 45, "Cuerpo alineado, abdomen activo."),
-    ex("Movilidad de cadera y hombro", 1, "10 min", "1-0-1", 0, "Movimientos suaves, sin dolor."),
-  ],
-};
+  const recoveryDay = {
+    date: null,
+    label: "Día 7",
+    focus: "Cardio + movilidad",
+    duration: Math.min(params.timeAvailableMinutes, 40),
+    exercises: [
+      ex(
+        "Caminata inclinada en cinta",
+        1,
+        "20 min",
+        "1-0-1",
+        0,
+        "Ritmo moderado, respiración controlada.",
+      ),
+      ex(
+        "Plancha frontal",
+        3,
+        "30-45s",
+        "1-0-1",
+        45,
+        "Cuerpo alineado, abdomen activo.",
+      ),
+      ex(
+        "Movilidad de cadera y hombro",
+        1,
+        "10 min",
+        "1-0-1",
+        0,
+        "Movimientos suaves, sin dolor.",
+      ),
+    ],
+  };
 
   if (missingTemplateExercises.size > 0) {
     throw createHttpError(503, "EXERCISE_CATALOG_UNAVAILABLE", {
@@ -1654,41 +2299,48 @@ const recoveryDay = {
   }
   return {
     title: "Rutina Push/Pull/Legs intermedio",
-    days: [...baseDays, pushDayVariation, pullDayVariation, legsDayVariation, recoveryDay],
+    days: [
+      ...baseDays,
+      pushDayVariation,
+      pullDayVariation,
+      legsDayVariation,
+      recoveryDay,
+    ],
     notes: "Plan PPL completo con día extra de recuperación activa.",
     startDate: null,
   };
 }
 
 function buildNutritionTemplate(
-  params: z.infer<typeof aiNutritionSchema>
+  params: z.infer<typeof aiNutritionSchema>,
 ): z.infer<typeof aiNutritionPlanResponseSchema> | null {
   if (params.mealsPerDay !== 3 || params.goal !== "cut") {
     return null;
   }
-const template = {
-  title: "Plan semanal de nutrición",
-  startDate: null,
-  dailyCalories: params.calories,
-  proteinG: Math.round((params.calories * 0.3) / 4),
-  fatG: Math.round((params.calories * 0.25) / 9),
-  carbsG: Math.round((params.calories * 0.45) / 4),
-  days: [
-    {
-      dayLabel: "Lunes",
-      meals: [
-        {
-          type: "breakfast",
-          title: "Yogur griego con avena y fruta",
-          description: "Desayuno mediterráneo sencillo con proteína moderada.",
-          macros: { calories: 420, protein: 25, carbs: 45, fats: 12 },
-          ingredients: [
-            { name: "Yogur griego", grams: 200 },
-            { name: "Avena", grams: 50 },
-            { name: "Fruta fresca", grams: 150 },
-            { name: "Nueces", grams: 20 },
-          ],
-        },
+  const template = {
+    title: "Plan semanal de nutrición",
+    startDate: null,
+    dailyCalories: params.calories,
+    proteinG: Math.round((params.calories * 0.3) / 4),
+    fatG: Math.round((params.calories * 0.25) / 9),
+    carbsG: Math.round((params.calories * 0.45) / 4),
+    days: [
+      {
+        dayLabel: "Lunes",
+        meals: [
+          {
+            type: "breakfast",
+            title: "Yogur griego con avena y fruta",
+            description:
+              "Desayuno mediterráneo sencillo con proteína moderada.",
+            macros: { calories: 420, protein: 25, carbs: 45, fats: 12 },
+            ingredients: [
+              { name: "Yogur griego", grams: 200 },
+              { name: "Avena", grams: 50 },
+              { name: "Fruta fresca", grams: 150 },
+              { name: "Nueces", grams: 20 },
+            ],
+          },
           {
             type: "lunch",
             title: "Pollo a la plancha con arroz y ensalada",
@@ -1726,23 +2378,39 @@ const template = {
         ],
       },
     ],
-  shoppingList: null,
-} satisfies z.infer<typeof aiNutritionPlanResponseSchema>;
+    shoppingList: null,
+  } satisfies z.infer<typeof aiNutritionPlanResponseSchema>;
   return template;
 }
 
 function buildTipTemplate() {
   return {
     title: "Consejo diario",
-    message: "Hola {name}, recuerda que la constancia gana a la intensidad. ¡Haz algo hoy!",
+    message:
+      "Hola {name}, recuerda que la constancia gana a la intensidad. ¡Haz algo hoy!",
   };
 }
 
-function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = false, exerciseCatalogPrompt = "") {
-  const secondaryGoals = data.goals?.length ? data.goals.join(", ") : "no especificados";
-  const cardio = typeof data.includeCardio === "boolean" ? (data.includeCardio ? "sí" : "no") : "no especificado";
+function buildTrainingPrompt(
+  data: z.infer<typeof aiTrainingSchema>,
+  strict = false,
+  exerciseCatalogPrompt = "",
+) {
+  const secondaryGoals = data.goals?.length
+    ? data.goals.join(", ")
+    : "no especificados";
+  const cardio =
+    typeof data.includeCardio === "boolean"
+      ? data.includeCardio
+        ? "sí"
+        : "no"
+      : "no especificado";
   const mobility =
-    typeof data.includeMobilityWarmups === "boolean" ? (data.includeMobilityWarmups ? "sí" : "no") : "no especificado";
+    typeof data.includeMobilityWarmups === "boolean"
+      ? data.includeMobilityWarmups
+        ? "sí"
+        : "no"
+      : "no especificado";
   const workoutLength = data.workoutLength ?? "flexible";
   const timerSound = data.timerSound ?? "no especificado";
   const injuries = data.injuries?.trim() || "ninguna";
@@ -1757,7 +2425,9 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = fa
       : "",
     "OBLIGATORIO: days.length debe ser EXACTAMENTE el número solicitado (si >7 usa 7).",
     "Máximo 7 días, máximo 5 ejercicios por día, mínimo 3 ejercicios por día.",
-    strict ? "REINTENTO: si devuelves menos o más días, la respuesta será rechazada." : "",
+    strict
+      ? "REINTENTO: si devuelves menos o más días, la respuesta será rechazada."
+      : "",
     "Respeta el nivel del usuario:",
     "- principiante: ejercicios básicos y seguros, 3-4 ejercicios por sesión, 30-50 minutos.",
     "- intermedio/avanzado: 4-5 ejercicios por sesión, básicos multiarticulares, 40-60 minutos.",
@@ -1773,7 +2443,7 @@ function buildTrainingPrompt(data: z.infer<typeof aiTrainingSchema>, strict = fa
     "- full: cuerpo completo cada día.",
     "- upperLower: alterna upper/lower empezando por upper.",
     "- ppl: rota push, pull, legs en orden.",
-    "Usa days.length = días por semana (límite 7). label en español consistente (ej: \"Día 1\", \"Día 2\").",
+    'Usa days.length = días por semana (límite 7). label en español consistente (ej: "Día 1", "Día 2").',
     `Asigna date (YYYY-MM-DD) iniciando en ${data.startDate ?? "la fecha indicada"} y distribuye ${data.daysPerWeek} sesiones dentro de ${daysCount} días.`,
     "En cada día incluye duration en minutos (number).",
     "En cada ejercicio incluye exerciseId (string obligatorio y existente en biblioteca), name (español), sets (number) y reps (string). tempo/rest/notes solo si son cortos.",
@@ -1800,7 +2470,7 @@ function formatRecipeLibrary(recipes: RecipePromptItem[]) {
   if (!recipes.length) return "";
   const lines = recipes.map((recipe) => {
     return `- [${recipe.id}] ${recipe.name}: ${recipe.description ?? "Sin descripción"}. Macros base ${Math.round(
-      recipe.calories
+      recipe.calories,
     )} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(recipe.fat)}.`;
   });
   return lines.join(" ");
@@ -1824,7 +2494,9 @@ type RecipeDbItem = {
 
 type RecipeSeedItem = Omit<RecipeDbItem, "id">;
 
-function toNutritionRecipeCatalog(recipes: RecipeDbItem[]): NutritionRecipeCatalogItem[] {
+function toNutritionRecipeCatalog(
+  recipes: RecipeDbItem[],
+): NutritionRecipeCatalogItem[] {
   return recipes.map((recipe) => ({
     id: recipe.id,
     name: recipe.name,
@@ -1833,27 +2505,36 @@ function toNutritionRecipeCatalog(recipes: RecipeDbItem[]): NutritionRecipeCatal
     protein: recipe.protein,
     carbs: recipe.carbs,
     fat: recipe.fat,
-    ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-      name: ingredient.name,
-      grams: ingredient.grams,
-    })),
+    ingredients: recipe.ingredients.map(
+      (ingredient: { name: string; grams: number }) => ({
+        name: ingredient.name,
+        grams: ingredient.grams,
+      }),
+    ),
   }));
 }
 
 function applyNutritionCatalogResolution(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
-  recipes: RecipeDbItem[]
+  recipes: RecipeDbItem[],
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
   const recipeCatalog = toNutritionRecipeCatalog(recipes);
   const resolved = resolveNutritionPlanRecipeIds(plan, recipeCatalog);
   if (!resolved.catalogAvailable) return plan;
   if (resolved.invalidMeals.length > 0) {
     app.log.warn(
-      { invalidMeals: resolved.invalidMeals.slice(0, 10), invalidCount: resolved.invalidMeals.length },
-      "nutrition plan contains invalid recipe IDs; fallback applied"
+      {
+        invalidMeals: resolved.invalidMeals.slice(0, 10),
+        invalidCount: resolved.invalidMeals.length,
+      },
+      "nutrition plan contains invalid recipe IDs; fallback applied",
     );
   }
-  const varietyGuard = applyNutritionPlanVarietyGuard(resolved.plan, recipeCatalog, ["lunch", "dinner"]);
+  const varietyGuard = applyNutritionPlanVarietyGuard(
+    resolved.plan,
+    recipeCatalog,
+    ["lunch", "dinner"],
+  );
   app.log.info(
     {
       uniqueRecipeIdsWeek: varietyGuard.uniqueRecipeIdsWeek,
@@ -1861,30 +2542,37 @@ function applyNutritionCatalogResolution(
       hadEnoughUniqueRecipes: varietyGuard.hadEnoughUniqueRecipes,
       catalogSize: recipeCatalog.length,
     },
-    "variety_guard_summary"
+    "variety_guard_summary",
   );
   return varietyGuard.plan as z.infer<typeof aiNutritionPlanResponseSchema>;
 }
 
 function applyRecipeScalingToPlan(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
-  recipes: RecipeDbItem[]
+  recipes: RecipeDbItem[],
 ) {
   if (!recipes.length) return plan;
-  const recipeMap = new Map(recipes.map((recipe) => [recipe.name.toLowerCase(), recipe]));
+  const recipeMap = new Map(
+    recipes.map((recipe) => [recipe.name.toLowerCase(), recipe]),
+  );
   const recipeMapById = new Map(recipes.map((recipe) => [recipe.id, recipe]));
   plan.days.forEach((day) => {
     day.meals.forEach((meal) => {
-      const recipe = (meal.recipeId ? recipeMapById.get(meal.recipeId) : undefined) ?? recipeMap.get(meal.title.toLowerCase());
+      const recipe =
+        (meal.recipeId ? recipeMapById.get(meal.recipeId) : undefined) ??
+        recipeMap.get(meal.title.toLowerCase());
       if (!recipe) return;
       const baseCalories = recipe.calories;
       const targetCalories = meal.macros?.calories ?? baseCalories;
-      if (!baseCalories || !targetCalories || !Number.isFinite(targetCalories)) return;
+      if (!baseCalories || !targetCalories || !Number.isFinite(targetCalories))
+        return;
       const scale = targetCalories / baseCalories;
-      const scaledIngredients = recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-        name: ingredient.name,
-        grams: roundToNearest5(ingredient.grams * scale),
-      }));
+      const scaledIngredients = recipe.ingredients.map(
+        (ingredient: { name: string; grams: number }) => ({
+          name: ingredient.name,
+          grams: roundToNearest5(ingredient.grams * scale),
+        }),
+      );
       meal.ingredients = scaledIngredients;
       meal.macros = {
         calories: Math.round(recipe.calories * scale),
@@ -1897,18 +2585,18 @@ function applyRecipeScalingToPlan(
   return plan;
 }
 
-
 async function saveNutritionPlan(
+  db: PrismaClient | Prisma.TransactionClient,
   userId: string,
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   startDate: Date,
-  daysCount: number
+  daysCount: number,
 ) {
-  return prisma.$transaction(
-    async (tx) => {
-      const planRecord = await tx.nutritionPlan.upsert({
-        where: { userId_startDate_daysCount: { userId, startDate, daysCount } },
-        create: {
+  const persistNutritionPlan = async (
+    tx: Prisma.TransactionClient,
+    preferUpdate: boolean,
+  ) => {
+        const planData = {
           userId,
           title: plan.title,
           dailyCalories: plan.dailyCalories,
@@ -1917,178 +2605,376 @@ async function saveNutritionPlan(
           carbsG: plan.carbsG,
           startDate,
           daysCount,
-        },
-        update: {
-          title: plan.title,
-          dailyCalories: plan.dailyCalories,
-          proteinG: plan.proteinG,
-          fatG: plan.fatG,
-          carbsG: plan.carbsG,
-        },
-      });
+        };
+        let planRecord: { id: string } | null = null;
+        let persistenceMode: "create" | "update" = "create";
 
-      await tx.nutritionDay.deleteMany({ where: { planId: planRecord.id } });
+        const existingPlan = await tx.nutritionPlan.findFirst({
+          where: {
+            userId,
+            startDate,
+            daysCount,
+          },
+          orderBy: { updatedAt: "desc" },
+          select: { id: true },
+        });
 
-      const dayPayloads = plan.days.map((day, index) => {
-        const dayId = crypto.randomUUID();
-        const meals = day.meals.map((meal) => {
-          const mealId = crypto.randomUUID();
+        if (existingPlan) {
+          planRecord = await tx.nutritionPlan.update({
+            where: { id: existingPlan.id },
+            data: {
+              title: plan.title,
+              dailyCalories: plan.dailyCalories,
+              proteinG: plan.proteinG,
+              fatG: plan.fatG,
+              carbsG: plan.carbsG,
+            },
+            select: { id: true },
+          });
+          persistenceMode = "update";
+        } else {
+          if (preferUpdate) {
+            app.log.info(
+              {
+                userId,
+                startDate: toIsoDateString(startDate),
+                daysCount,
+              },
+              "nutrition plan persistence retry without existing record, attempting create",
+            );
+          }
+          planRecord = await tx.nutritionPlan.create({
+            data: planData,
+            select: { id: true },
+          });
+        }
+
+        if (!planRecord) {
+          throw createHttpError(500, "NUTRITION_PLAN_PERSIST_FAILED");
+        }
+
+        app.log.info(
+          {
+            userId,
+            planId: planRecord.id,
+            startDate: toIsoDateString(startDate),
+            daysCount,
+            persistenceMode,
+          },
+          "nutrition plan persistence mode",
+        );
+
+        await tx.nutritionDay.deleteMany({ where: { planId: planRecord.id } });
+
+        const dayPayloads = plan.days.map((day, index) => {
+          const dayId = crypto.randomUUID();
+          const meals = day.meals.map((meal) => {
+            const mealId = crypto.randomUUID();
+            return {
+              id: mealId,
+              dayId,
+              type: meal.type,
+              title: meal.title,
+              description: meal.description ?? null,
+              calories: meal.macros.calories,
+              protein: meal.macros.protein,
+              carbs: meal.macros.carbs,
+              fats: meal.macros.fats,
+              ingredients: (meal.ingredients ?? []).map((ingredient) => ({
+                id: crypto.randomUUID(),
+                mealId,
+                name: ingredient.name,
+                grams: ingredient.grams,
+              })),
+            };
+          });
+
           return {
-            id: mealId,
-            dayId,
-            type: meal.type,
-            title: meal.title,
-            description: meal.description ?? null,
-            calories: meal.macros.calories,
-            protein: meal.macros.protein,
-            carbs: meal.macros.carbs,
-            fats: meal.macros.fats,
-            ingredients: (meal.ingredients ?? []).map((ingredient) => ({
-              id: crypto.randomUUID(),
-              mealId,
-              name: ingredient.name,
-              grams: ingredient.grams,
-            })),
+            id: dayId,
+            planId: planRecord.id,
+            date: parseDateInput(day.date) ?? startDate,
+            dayLabel: day.dayLabel,
+            order: index,
+            meals,
           };
         });
 
-        return {
-          id: dayId,
-          planId: planRecord.id,
-          date: parseDateInput(day.date) ?? startDate,
-          dayLabel: day.dayLabel,
-          order: index,
-          meals,
-        };
-      });
+        if (dayPayloads.length > 0) {
+          await tx.nutritionDay.createMany({
+            data: dayPayloads.map(({ id, planId, date, dayLabel, order }) => ({
+              id,
+              planId,
+              date,
+              dayLabel,
+              order,
+            })),
+          });
+        }
 
-      if (dayPayloads.length > 0) {
-        await tx.nutritionDay.createMany({
-          data: dayPayloads.map(({ id, planId, date, dayLabel, order }) => ({
-            id,
-            planId,
-            date,
-            dayLabel,
-            order,
-          })),
-        });
-      }
+        const mealPayloads = dayPayloads.flatMap((day) =>
+          day.meals.map(({ ingredients, ...meal }) => meal),
+        );
+        if (mealPayloads.length > 0) {
+          await tx.nutritionMeal.createMany({
+            data: mealPayloads.map((meal) => ({
+              id: meal.id,
+              dayId: meal.dayId,
+              type: meal.type,
+              title: meal.title,
+              description: meal.description,
+              calories: meal.calories,
+              protein: meal.protein,
+              carbs: meal.carbs,
+              fats: meal.fats,
+            })),
+          });
+        }
 
-      const mealPayloads = dayPayloads.flatMap((day) =>
-        day.meals.map(({ ingredients, ...meal }) => meal)
+        const ingredientPayloads = dayPayloads.flatMap((day) =>
+          day.meals.flatMap((meal) => meal.ingredients),
+        );
+        if (ingredientPayloads.length > 0) {
+          await tx.nutritionIngredient.createMany({
+            data: ingredientPayloads.map((ingredient) => ({
+              id: ingredient.id,
+              mealId: ingredient.mealId,
+              name: ingredient.name,
+              grams: ingredient.grams,
+            })),
+          });
+        }
+        return planRecord;
+      };
+
+  const runPersist = async (preferUpdate: boolean) => {
+    if ("$transaction" in db && typeof db.$transaction === "function") {
+      return db.$transaction(
+        (tx) => persistNutritionPlan(tx, preferUpdate),
+        { maxWait: 30000, timeout: 30000 },
       );
-      if (mealPayloads.length > 0) {
-        await tx.nutritionMeal.createMany({
-          data: mealPayloads.map((meal) => ({
-            id: meal.id,
-            dayId: meal.dayId,
-            type: meal.type,
-            title: meal.title,
-            description: meal.description,
-            calories: meal.calories,
-            protein: meal.protein,
-            carbs: meal.carbs,
-            fats: meal.fats,
-          })),
-        });
-      }
+    }
+    return persistNutritionPlan(db as Prisma.TransactionClient, preferUpdate);
+  };
 
-      const ingredientPayloads = dayPayloads.flatMap((day) =>
-        day.meals.flatMap((meal) => meal.ingredients)
-      );
-      if (ingredientPayloads.length > 0) {
-        await tx.nutritionIngredient.createMany({
-          data: ingredientPayloads.map((ingredient) => ({
-            id: ingredient.id,
-            mealId: ingredient.mealId,
-            name: ingredient.name,
-            grams: ingredient.grams,
-          })),
-        });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await runPersist(attempt > 0);
+    } catch (error) {
+      const typed = error as Prisma.PrismaClientKnownRequestError;
+      if (typed.code === "P2002" && attempt === 0) {
+        app.log.info(
+          {
+            userId,
+            prismaCode: typed.code,
+            target: Array.isArray(
+              (typed.meta as { target?: unknown } | undefined)?.target,
+            )
+              ? (typed.meta as { target?: string[] }).target
+              : (typed.meta as { target?: unknown } | undefined)?.target,
+            startDate: toIsoDateString(startDate),
+            daysCount,
+            attempt,
+          },
+          "nutrition plan unique conflict detected, retrying persistence with a fresh transaction",
+        );
+        continue;
       }
+      if (typed.code === "P2002") {
+        throw createHttpError(409, "NUTRITION_PLAN_CONFLICT");
+      }
+      throw error;
+    }
+  }
 
-      return planRecord;
-    },
-    { maxWait: 30000, timeout: 30000 }
-  );
+  throw createHttpError(500, "NUTRITION_PLAN_PERSIST_FAILED");
 }
 
-async function saveTrainingPlan(
+async function persistTrainingPlanWithClient(
+  tx: Prisma.TransactionClient,
   userId: string,
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   startDate: Date,
   daysCount: number,
-  request: z.infer<typeof aiTrainingSchema>
+  request: {
+    goal: z.infer<typeof aiTrainingSchema>["goal"];
+    daysPerWeek: number;
+    level?: z.infer<typeof aiTrainingSchema>["level"];
+    experienceLevel?: z.infer<typeof aiGenerateTrainingSchema>["experienceLevel"];
+    focus?: z.infer<typeof aiTrainingSchema>["focus"];
+    equipment?: z.infer<typeof aiTrainingSchema>["equipment"];
+  },
 ) {
-  return prisma.$transaction(async (tx) => {
-    const planRecord = await tx.trainingPlan.upsert({
-      where: { userId_startDate_daysCount: { userId, startDate, daysCount } },
-      create: {
-        userId,
-        title: plan.title,
-        notes: plan.notes,
-        goal: request.goal,
-        level: request.level,
-        daysPerWeek: request.daysPerWeek,
-        focus: request.focus,
-        equipment: request.equipment,
-        startDate,
-        daysCount,
-      },
-      update: {
-        title: plan.title,
-        notes: plan.notes,
-        goal: request.goal,
-        level: request.level,
-        daysPerWeek: request.daysPerWeek,
-        focus: request.focus,
-        equipment: request.equipment,
+  const resolvedLevel =
+    request.level ??
+    (request.experienceLevel
+      ? mapExperienceLevelToTrainingPlanLevel(request.experienceLevel)
+      : undefined) ??
+    "beginner";
+
+  const basePlanData = {
+    userId,
+    title: plan.title,
+    goal: request.goal,
+    level: resolvedLevel,
+    daysPerWeek: request.daysPerWeek,
+    focus: request.focus ?? "full",
+    equipment: request.equipment ?? "gym",
+    startDate,
+    daysCount,
+  };
+
+  const planData = {
+    ...basePlanData,
+    ...(typeof plan.notes === "string" ? { notes: plan.notes } : {}),
+  };
+
+  const existingPlan = await tx.trainingPlan.findFirst({
+    where: {
+      userId,
+      startDate,
+      daysCount,
+    },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true },
+  });
+
+  const persistenceMode: "create" | "update" = existingPlan
+    ? "update"
+    : "create";
+  const planRecord = existingPlan
+    ? await tx.trainingPlan.update({
+        where: { id: existingPlan.id },
+        data: planData,
+        select: { id: true },
+      })
+    : await tx.trainingPlan.create({ data: planData, select: { id: true } });
+
+  app.log.info(
+    {
+      userId,
+      planId: planRecord.id,
+      startDate: toIsoDateString(startDate),
+      daysCount,
+      persistenceMode,
+    },
+    "training plan persistence mode",
+  );
+
+  await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
+
+  for (const [index, day] of plan.days.entries()) {
+    await tx.trainingDay.create({
+      data: {
+        planId: planRecord.id,
+        date: parseDateInput(day.date) ?? startDate,
+        label: day.label,
+        focus: day.focus,
+        duration: day.duration,
+        order: index,
+        exercises: {
+          create: day.exercises.map((exercise) => ({
+            exerciseId: exercise.exerciseId ?? null,
+            imageUrl:
+              typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
+            name: exercise.name,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            tempo: exercise.tempo,
+            rest: exercise.rest,
+            notes: exercise.notes,
+          })),
+        },
       },
     });
+  }
 
-    await tx.trainingDay.deleteMany({ where: { planId: planRecord.id } });
+  return planRecord;
+}
 
-    for (const [index, day] of plan.days.entries()) {
-      await tx.trainingDay.create({
-        data: {
-          planId: planRecord.id,
-          date: parseDateInput(day.date) ?? startDate,
-          label: day.label,
-          focus: day.focus,
-          duration: day.duration,
-          order: index,
-          exercises: {
-            create: day.exercises.map((exercise) => ({
-              exerciseId: exercise.exerciseId ?? null,
-              imageUrl: typeof exercise.imageUrl === "string" ? exercise.imageUrl : null,
-              name: exercise.name,
-              sets: exercise.sets,
-              reps: exercise.reps,
-              tempo: exercise.tempo,
-              rest: exercise.rest,
-              notes: exercise.notes,
-            })),
-          },
-        },
-      });
+async function saveTrainingPlan(
+  db: PrismaClient | Prisma.TransactionClient,
+  userId: string,
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  startDate: Date,
+  daysCount: number,
+  request: {
+    goal: z.infer<typeof aiTrainingSchema>["goal"];
+    daysPerWeek: number;
+    level?: z.infer<typeof aiTrainingSchema>["level"];
+    experienceLevel?: z.infer<typeof aiGenerateTrainingSchema>["experienceLevel"];
+    focus?: z.infer<typeof aiTrainingSchema>["focus"];
+    equipment?: z.infer<typeof aiTrainingSchema>["equipment"];
+  },
+) {
+  const persistPlan = async () => {
+    if ("$transaction" in db && typeof db.$transaction === "function") {
+      return db.$transaction((tx) =>
+        persistTrainingPlanWithClient(
+          tx,
+          userId,
+          plan,
+          startDate,
+          daysCount,
+          request,
+        ),
+      );
     }
+    return persistTrainingPlanWithClient(
+      db as Prisma.TransactionClient,
+      userId,
+      plan,
+      startDate,
+      daysCount,
+      request,
+    );
+  };
 
-    return planRecord;
-  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await persistPlan();
+    } catch (error) {
+      const typed = error as Prisma.PrismaClientKnownRequestError;
+      if (typed.code === "P2002" && attempt === 0) {
+        app.log.info(
+          {
+            userId,
+            prismaCode: typed.code,
+            target: Array.isArray(
+              (typed.meta as { target?: unknown } | undefined)?.target,
+            )
+              ? (typed.meta as { target?: string[] }).target
+              : (typed.meta as { target?: unknown } | undefined)?.target,
+            startDate: toIsoDateString(startDate),
+            daysCount,
+            attempt,
+          },
+          "training plan unique conflict detected, retrying persistence with a fresh transaction",
+        );
+        continue;
+      }
+      if (typed.code === "P2002") {
+        throw createHttpError(409, "TRAINING_PLAN_CONFLICT");
+      }
+      throw error;
+    }
+  }
+
+  throw createHttpError(500, "TRAINING_PLAN_PERSIST_FAILED");
 }
 
 function buildNutritionPrompt(
   data: z.infer<typeof aiNutritionSchema>,
   recipes: RecipePromptItem[] = [],
   strict = false,
-  retryFeedback?: string
+  retryFeedback?: string,
 ) {
   const distribution =
     typeof data.mealDistribution === "string"
       ? data.mealDistribution
-      : data.mealDistribution?.preset ?? "balanced";
+      : (data.mealDistribution?.preset ?? "balanced");
   const distributionPercentages =
-    typeof data.mealDistribution === "object" && data.mealDistribution?.percentages?.length
+    typeof data.mealDistribution === "object" &&
+    data.mealDistribution?.percentages?.length
       ? `(${data.mealDistribution.percentages.join("%, ")}%)`
       : "";
   const recipeLibrary = formatRecipeLibrary(recipes);
@@ -2108,7 +2994,7 @@ function buildNutritionPrompt(
     "Eres un nutricionista deportivo senior. Genera un plan semanal compacto en JSON válido.",
     "Devuelve únicamente un objeto JSON válido. Sin texto adicional, sin markdown, sin comentarios.",
     "El JSON debe respetar exactamente este esquema:",
-'{"title":string,"startDate":string|null,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"date":string,"dayLabel":string,"meals":[{"type":string,"recipeId":string|null,"title":string,"description":string|null,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients":array|null}]}],"shoppingList":array|null}',
+    '{"title":string,"startDate":string|null,"dailyCalories":number,"proteinG":number,"fatG":number,"carbsG":number,"days":[{"date":string,"dayLabel":string,"meals":[{"type":string,"recipeId":string|null,"title":string,"description":string|null,"macros":{"calories":number,"protein":number,"carbs":number,"fats":number},"ingredients":array|null}]}],"shoppingList":array|null}',
     "OBLIGATORIO: cada día debe tener EXACTAMENTE el número de meals solicitado (si >6 usa 6).",
     `Estructura de meals: ${mealStructure}`,
     `Genera EXACTAMENTE ${daysCount} días con date (YYYY-MM-DD) desde ${data.startDate ?? "la fecha indicada"}.`,
@@ -2119,13 +3005,19 @@ function buildNutritionPrompt(
     "Base mediterránea: verduras, frutas, legumbres, cereales integrales, aceite de oliva, pescado, carne magra y frutos secos.",
     "Evita cantidades absurdas. Porciones realistas y fáciles de cocinar.",
     "Distribuye proteína, carbohidratos y grasas a lo largo del día.",
-    strict ? "REINTENTO: si los meals por día no coinciden exactamente, la respuesta será rechazada." : "",
+    strict
+      ? "REINTENTO: si los meals por día no coinciden exactamente, la respuesta será rechazada."
+      : "",
     recipeLibrary
       ? `OBLIGATORIO: usa solo recipes del catálogo con recipeId válido. No inventes recetas. Usa recipeId y title exactamente como en la biblioteca. Lista: ${recipeLibrary}`
       : "CATÁLOGO NO DISPONIBLE: responde con comidas simples sin recipeId inventados; se aplicará fallback controlado.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
-    buildMealKcalGuidance(data.calories, data.mealsPerDay, NUTRITION_MATH_TOLERANCES.twoMealSplitKcalAbsolute),
+    buildMealKcalGuidance(
+      data.calories,
+      data.mealsPerDay,
+      NUTRITION_MATH_TOLERANCES.twoMealSplitKcalAbsolute,
+    ),
     `Restricciones o preferencias: ${data.dietaryRestrictions ?? "ninguna"}.`,
     `Tipo de dieta: ${data.dietType ?? "equilibrada"}.`,
     `Alergias: ${data.allergies?.join(", ") ?? "ninguna"}.`,
@@ -2139,8 +3031,12 @@ function buildNutritionPrompt(
     `REGLA MATEMÁTICA OBLIGATORIA GLOBAL: dailyCalories debe ser exactamente ${data.calories}.`,
     "REGLA DE CONSISTENCIA: no dejes comidas con calories incompatibles con sus macros; si ajustas macros, recalcula calories de esa comida.",
     "REGLA DE CIERRE DIARIO: valida proteína, carbohidratos y grasas por día y corrige expected vs actual antes de responder.",
-    strict ? "REINTENTO OBLIGATORIO: corrige explícitamente incoherencias por comida y por día." : "",
-    strict && retryFeedback ? `ERRORES DETECTADOS EN INTENTO PREVIO: ${retryFeedback}` : "",
+    strict
+      ? "REINTENTO OBLIGATORIO: corrige explícitamente incoherencias por comida y por día."
+      : "",
+    strict && retryFeedback
+      ? `ERRORES DETECTADOS EN INTENTO PREVIO: ${retryFeedback}`
+      : "",
     "Antes de responder, revalida internamente todas las sumas y corrige cualquier desvío numérico.",
     "Los macros diarios (proteinG, fatG, carbsG) deben ser coherentes con dailyCalories.",
     "Incluye title, dailyCalories, proteinG, fatG y carbsG siempre.",
@@ -2164,7 +3060,10 @@ function extractJson(text: string) {
     return parseJsonFromText(text) as Record<string, unknown>;
   } catch (error) {
     if (error instanceof AiParseError) {
-      app.log.warn({ raw: error.raw, reason: error.message }, "ai response parse failed");
+      app.log.warn(
+        { raw: error.raw, reason: error.message },
+        "ai response parse failed",
+      );
     } else {
       app.log.warn({ err: error }, "ai response parse failed");
     }
@@ -2180,7 +3079,10 @@ function extractLargestJson(text: string) {
   } catch (error) {
     if (error instanceof AiParseError) {
       const rawPreview = error.raw.slice(0, 500);
-      app.log.warn({ rawPreview, reason: error.message }, "ai response parse failed (largest json)");
+      app.log.warn(
+        { rawPreview, reason: error.message },
+        "ai response parse failed (largest json)",
+      );
     } else {
       app.log.warn({ err: error }, "ai response parse failed (largest json)");
     }
@@ -2196,7 +3098,10 @@ function extractTopLevelJson(text: string) {
   } catch (error) {
     if (error instanceof AiParseError) {
       const rawPreview = error.raw.slice(0, 500);
-      app.log.warn({ rawPreview, reason: error.message }, "ai response parse failed (top-level json)");
+      app.log.warn(
+        { rawPreview, reason: error.message },
+        "ai response parse failed (top-level json)",
+      );
     } else {
       app.log.warn({ err: error }, "ai response parse failed (top-level json)");
     }
@@ -2211,7 +3116,9 @@ function buildTrainingDayIndices(totalDays: number, workoutDays: number) {
   const normalizedTotal = Math.max(totalDays, workoutDays);
   const lastIndex = normalizedTotal - 1;
   const step = lastIndex / (workoutDays - 1);
-  const indices = Array.from({ length: workoutDays }, (_, index) => Math.round(index * step));
+  const indices = Array.from({ length: workoutDays }, (_, index) =>
+    Math.round(index * step),
+  );
   for (let i = 1; i < indices.length; i += 1) {
     if (indices[i] <= indices[i - 1]) {
       indices[i] = indices[i - 1] + 1;
@@ -2224,9 +3131,12 @@ function normalizeTrainingPlanDays(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   startDate: Date,
   daysCount: number,
-  daysPerWeek: number
+  daysPerWeek: number,
 ) {
-  const indices = buildTrainingDayIndices(daysCount, plan.days.length || daysPerWeek);
+  const indices = buildTrainingDayIndices(
+    daysCount,
+    plan.days.length || daysPerWeek,
+  );
   const neededDays = Math.max(daysCount, indices[indices.length - 1] + 1);
   const dates = buildDateRange(startDate, neededDays);
   const daysWithDates = plan.days.map((day, index) => ({
@@ -2244,7 +3154,7 @@ function parseTrainingPlanPayload(
   payload: Record<string, unknown>,
   startDate: Date,
   daysCount: number,
-  daysPerWeek: number
+  daysPerWeek: number,
 ) {
   try {
     const maybeSchema = payload["schema"];
@@ -2262,25 +3172,34 @@ function parseTrainingPlanPayload(
   }
 }
 
-
-function assertTrainingMatchesRequest(plan: z.infer<typeof aiTrainingPlanResponseSchema>, expectedDays: number) {
+function assertTrainingMatchesRequest(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+  expectedDays: number,
+) {
   if (plan.days.length !== expectedDays) {
     if (process.env.NODE_ENV !== "production") {
       app.log.warn(
         { expectedDays, actualDays: plan.days.length, title: plan.title },
-        "training plan days mismatch"
+        "training plan days mismatch",
       );
     }
-    throw createHttpError(502, "AI_PARSE_ERROR", { expectedDays, actualDays: plan.days.length });
+    throw createHttpError(502, "AI_PARSE_ERROR", {
+      expectedDays,
+      actualDays: plan.days.length,
+    });
   }
 }
 
 function normalizeNutritionPlanDays(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   startDate: Date,
-  daysCount: number
+  daysCount: number,
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
-  const normalized = normalizeNutritionPlanDaysWithLabels(plan, startDate, daysCount);
+  const normalized = normalizeNutritionPlanDaysWithLabels(
+    plan,
+    startDate,
+    daysCount,
+  );
 
   if (normalized.alignmentIssues.length > 0) {
     app.log.info(
@@ -2288,7 +3207,7 @@ function normalizeNutritionPlanDays(
         mismatchedOrMissingDates: normalized.alignmentIssues.slice(0, 7),
         totalIssues: normalized.alignmentIssues.length,
       },
-      "nutrition day/date alignment normalized"
+      "nutrition day/date alignment normalized",
     );
   }
 
@@ -2297,15 +3216,16 @@ function normalizeNutritionPlanDays(
 
 function normalizeNutritionMealsPerDay(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
-  expectedMealsPerDay: number
+  expectedMealsPerDay: number,
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
   if (expectedMealsPerDay <= 0) return plan;
   const days = plan.days.map((day) => {
     const baseMeals = day.meals.map((meal) => ({
       ...meal,
       macros: { ...meal.macros },
-    ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
-
+      ingredients: meal.ingredients
+        ? meal.ingredients.map((ingredient) => ({ ...ingredient }))
+        : null,
     }));
     if (baseMeals.length === expectedMealsPerDay) {
       return { ...day, meals: baseMeals };
@@ -2320,8 +3240,9 @@ function normalizeNutritionMealsPerDay(
       meals.push({
         ...source,
         macros: { ...source.macros },
-  ingredients: source.ingredients ? source.ingredients.map((ingredient) => ({ ...ingredient })) : null,
-
+        ingredients: source.ingredients
+          ? source.ingredients.map((ingredient) => ({ ...ingredient }))
+          : null,
       });
       index += 1;
     }
@@ -2333,7 +3254,7 @@ function normalizeNutritionMealsPerDay(
 function logNutritionMealsPerDay(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   expectedMealsPerDay: number,
-  stage: "before_normalize" | "after_normalize"
+  stage: "before_normalize" | "after_normalize",
 ) {
   app.log.info(
     {
@@ -2342,7 +3263,7 @@ function logNutritionMealsPerDay(
       title: plan.title,
       stage,
     },
-    "nutrition plan meals per day"
+    "nutrition plan meals per day",
   );
 }
 
@@ -2352,20 +3273,25 @@ function roundNutritionGrams(value: number) {
 
 function normalizeNutritionCaloriesPerDay(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
-  targetKcal: number
+  targetKcal: number,
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
   const days = plan.days.map((day) => {
     const meals = day.meals.map((meal) => ({
       ...meal,
       macros: { ...meal.macros },
-      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+      ingredients: meal.ingredients
+        ? meal.ingredients.map((ingredient) => ({ ...ingredient }))
+        : null,
     }));
 
     if (meals.length === 0) {
       return { ...day, meals };
     }
 
-    const totalCalories = meals.reduce((acc, meal) => acc + Math.max(0, meal.macros.calories), 0);
+    const totalCalories = meals.reduce(
+      (acc, meal) => acc + Math.max(0, meal.macros.calories),
+      0,
+    );
     const fallbackShare = 1 / meals.length;
     let assignedCalories = 0;
 
@@ -2381,7 +3307,10 @@ function normalizeNutritionCaloriesPerDay(
         };
       }
 
-      const share = totalCalories > 0 ? Math.max(0, meal.macros.calories) / totalCalories : fallbackShare;
+      const share =
+        totalCalories > 0
+          ? Math.max(0, meal.macros.calories) / totalCalories
+          : fallbackShare;
       const calories = Math.round(targetKcal * share);
       assignedCalories += calories;
       return {
@@ -2405,7 +3334,9 @@ function normalizeNutritionCaloriesPerDay(
 
 function normalizeNutritionMacrosPerDay(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
-  macroTargets?: z.infer<typeof aiGenerateNutritionSchema>["macroTargets"] | null
+  macroTargets?:
+    | z.infer<typeof aiGenerateNutritionSchema>["macroTargets"]
+    | null,
 ): z.infer<typeof aiNutritionPlanResponseSchema> {
   if (!macroTargets) return plan;
 
@@ -2413,14 +3344,19 @@ function normalizeNutritionMacrosPerDay(
     const meals = day.meals.map((meal) => ({
       ...meal,
       macros: { ...meal.macros },
-      ingredients: meal.ingredients ? meal.ingredients.map((ingredient) => ({ ...ingredient })) : null,
+      ingredients: meal.ingredients
+        ? meal.ingredients.map((ingredient) => ({ ...ingredient }))
+        : null,
     }));
 
     if (meals.length === 0) {
       return { ...day, meals };
     }
 
-    const totalCalories = meals.reduce((acc, meal) => acc + Math.max(0, meal.macros.calories), 0);
+    const totalCalories = meals.reduce(
+      (acc, meal) => acc + Math.max(0, meal.macros.calories),
+      0,
+    );
     const fallbackShare = 1 / meals.length;
     let assignedProtein = 0;
     let assignedCarbs = 0;
@@ -2428,7 +3364,9 @@ function normalizeNutritionMacrosPerDay(
 
     const normalizedMeals = meals.map((meal, index) => {
       if (index === meals.length - 1) {
-        const protein = roundNutritionGrams(macroTargets.proteinG - assignedProtein);
+        const protein = roundNutritionGrams(
+          macroTargets.proteinG - assignedProtein,
+        );
         const carbs = roundNutritionGrams(macroTargets.carbsG - assignedCarbs);
         const fats = roundNutritionGrams(macroTargets.fatsG - assignedFats);
 
@@ -2443,7 +3381,10 @@ function normalizeNutritionMacrosPerDay(
         };
       }
 
-      const share = totalCalories > 0 ? Math.max(0, meal.macros.calories) / totalCalories : fallbackShare;
+      const share =
+        totalCalories > 0
+          ? Math.max(0, meal.macros.calories) / totalCalories
+          : fallbackShare;
       const protein = roundNutritionGrams(macroTargets.proteinG * share);
       const carbs = roundNutritionGrams(macroTargets.carbsG * share);
       const fats = roundNutritionGrams(macroTargets.fatsG * share);
@@ -2475,15 +3416,24 @@ function normalizeNutritionMacrosPerDay(
   };
 }
 
-function parseNutritionPlanPayload(payload: Record<string, unknown>, startDate: Date, daysCount: number) {
+function parseNutritionPlanPayload(
+  payload: Record<string, unknown>,
+  startDate: Date,
+  daysCount: number,
+) {
   try {
-    return normalizeNutritionPlanDays(aiNutritionPlanResponseSchema.parse(payload), startDate, daysCount);
+    return normalizeNutritionPlanDays(
+      aiNutritionPlanResponseSchema.parse(payload),
+      startDate,
+      daysCount,
+    );
   } catch (error) {
     app.log.warn({ err: error, payload }, "ai nutrition response invalid");
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
       reasonCode: "SCHEMA_PARSE",
       details: {
-        parserError: error instanceof z.ZodError ? error.flatten() : String(error),
+        parserError:
+          error instanceof z.ZodError ? error.flatten() : String(error),
       },
     });
   }
@@ -2492,13 +3442,13 @@ function parseNutritionPlanPayload(payload: Record<string, unknown>, startDate: 
 function assertNutritionMatchesRequest(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
   expectedMealsPerDay: number,
-  expectedDays: number
+  expectedDays: number,
 ) {
   if (plan.days.length !== expectedDays) {
     if (process.env.NODE_ENV !== "production") {
       app.log.warn(
         { expectedDays, actualDays: plan.days.length, title: plan.title },
-        "nutrition plan days mismatch"
+        "nutrition plan days mismatch",
       );
     }
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
@@ -2506,7 +3456,9 @@ function assertNutritionMatchesRequest(
       details: { expectedDays, actualDays: plan.days.length },
     });
   }
-  const invalid = plan.days.find((day) => day.meals.length !== expectedMealsPerDay);
+  const invalid = plan.days.find(
+    (day) => day.meals.length !== expectedMealsPerDay,
+  );
   if (invalid) {
     if (process.env.NODE_ENV !== "production") {
       app.log.warn(
@@ -2515,7 +3467,7 @@ function assertNutritionMatchesRequest(
           actualMealsPerDay: invalid.meals.length,
           dayLabel: invalid.dayLabel,
         },
-        "nutrition plan meals mismatch"
+        "nutrition plan meals mismatch",
       );
     }
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
@@ -2530,7 +3482,11 @@ function assertNutritionMatchesRequest(
 }
 
 function getNutritionInvalidOutputDebug(error: unknown) {
-  const typed = error as { debug?: Record<string, unknown>; code?: string; message?: string };
+  const typed = error as {
+    debug?: Record<string, unknown>;
+    code?: string;
+    message?: string;
+  };
   const reason = typed.debug?.reason;
   if (typed.debug?.reasonCode && typed.debug?.details) {
     return {
@@ -2540,7 +3496,11 @@ function getNutritionInvalidOutputDebug(error: unknown) {
     };
   }
   if (reason === "MEALS_PER_DAY_MISMATCH" || reason === "DAY_COUNT_MISMATCH") {
-    return { cause: "INVALID_AI_OUTPUT", reasonCode: "MISSING_FIELDS", details: typed.debug ?? {} };
+    return {
+      cause: "INVALID_AI_OUTPUT",
+      reasonCode: "MISSING_FIELDS",
+      details: typed.debug ?? {},
+    };
   }
   if (typeof reason === "string" && reason.includes("MISMATCH")) {
     return {
@@ -2562,60 +3522,15 @@ function getNutritionInvalidOutputDebug(error: unknown) {
   return {
     cause: "INVALID_AI_OUTPUT",
     reasonCode: "REQUEST_MISMATCH",
-    details: typed.debug ?? { message: typed.message ?? "Unknown validation error" },
+    details: typed.debug ?? {
+      message: typed.message ?? "Unknown validation error",
+    },
   };
 }
 
-type NutritionErrorKind = "validation_error" | "ai_parse_error" | "upstream_error" | "internal_error";
-
-function getNutritionErrorKind(error: unknown): NutritionErrorKind {
-  if (error instanceof z.ZodError) {
-    return "validation_error";
-  }
-
-  const typed = error as { code?: string; statusCode?: number; debug?: Record<string, unknown> };
-  if (typed.code === "INVALID_INPUT" || typed.statusCode === 400) {
-    return "validation_error";
-  }
-
-  if (typed.code === "AI_PARSE_ERROR" || typed.code === "INVALID_AI_OUTPUT" || typed.code === "AI_EMPTY_RESPONSE") {
-    return "ai_parse_error";
-  }
-
-  const upstreamStatus = typed.debug?.status;
-  if (
-    typed.code === "AI_REQUEST_FAILED" ||
-    typed.code === "AI_AUTH_FAILED" ||
-    (typeof upstreamStatus === "number" && upstreamStatus >= 500)
-  ) {
-    return "upstream_error";
-  }
-
-  return "internal_error";
-}
-
-function getNutritionErrorContext(error: unknown, aiRequestId?: string | null) {
-  const typed = error as { debug?: Record<string, unknown>; statusCode?: number };
-  const debug = typed.debug;
-  const upstreamStatus = typeof debug?.status === "number" ? debug.status : undefined;
-  const errorKind = getNutritionErrorKind(error);
-  const resolvedAiRequestId =
-    aiRequestId ??
-    (typeof debug?.aiRequestId === "string" && debug.aiRequestId.length > 0
-      ? debug.aiRequestId
-      : typeof debug?.requestId === "string" && debug.requestId.length > 0
-        ? debug.requestId
-        : undefined);
-
-  return {
-    error_kind: errorKind,
-    ...(typeof typed.statusCode === "number" ? { statusCode: typed.statusCode } : {}),
-    ...(typeof upstreamStatus === "number" ? { upstream_status: upstreamStatus } : {}),
-    ...(resolvedAiRequestId ? { aiRequestId: resolvedAiRequestId } : {}),
-  };
-}
-
-function summarizeNutritionMath(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
+function summarizeNutritionMath(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+) {
   return {
     dailyCalories: plan.dailyCalories,
     totalDays: plan.days.length,
@@ -2628,7 +3543,7 @@ function summarizeNutritionMath(plan: z.infer<typeof aiNutritionPlanResponseSche
           acc.fats += meal.macros.fats;
           return acc;
         },
-        { calories: 0, protein: 0, carbs: 0, fats: 0 }
+        { calories: 0, protein: 0, carbs: 0, fats: 0 },
       );
       return {
         dayLabel: day.dayLabel,
@@ -2646,23 +3561,34 @@ function buildRetryFeedback(error: unknown) {
 
   const targetedInstruction = buildTwoMealSplitRetryInstruction(debug);
   const genericFeedback = buildRetryFeedbackFromContext(debug);
-  return [targetedInstruction, genericFeedback].filter((item) => item.length > 0).join(" ");
+  return [targetedInstruction, genericFeedback]
+    .filter((item) => item.length > 0)
+    .join(" ");
 }
 
 function assertNutritionRequestMapping(
   payload: z.infer<typeof aiGenerateNutritionSchema>,
   nutritionInput: z.infer<typeof aiNutritionSchema>,
-  expectedDaysCount: number
+  expectedDaysCount: number,
 ) {
   const mismatches: Record<string, unknown> = {};
   if (payload.startDate && nutritionInput.startDate !== payload.startDate) {
-    mismatches.startDate = { expected: payload.startDate, actual: nutritionInput.startDate };
+    mismatches.startDate = {
+      expected: payload.startDate,
+      actual: nutritionInput.startDate,
+    };
   }
   if (nutritionInput.daysCount !== expectedDaysCount) {
-    mismatches.daysCount = { expected: expectedDaysCount, actual: nutritionInput.daysCount };
+    mismatches.daysCount = {
+      expected: expectedDaysCount,
+      actual: nutritionInput.daysCount,
+    };
   }
   if (payload.dietType && nutritionInput.dietType !== payload.dietType) {
-    mismatches.dietType = { expected: payload.dietType, actual: nutritionInput.dietType };
+    mismatches.dietType = {
+      expected: payload.dietType,
+      actual: nutritionInput.dietType,
+    };
   }
   if (Object.keys(mismatches).length > 0) {
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
@@ -2672,15 +3598,17 @@ function assertNutritionRequestMapping(
   }
 }
 
-
 function assertTrainingLevelConsistency(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
-  experienceLevel: z.infer<typeof aiGenerateTrainingSchema>["experienceLevel"]
+  experienceLevel: z.infer<typeof aiGenerateTrainingSchema>["experienceLevel"],
 ) {
   const minExercises = experienceLevel === "advanced" ? 4 : 3;
   const maxExercises = experienceLevel === "beginner" ? 4 : 5;
   for (const day of plan.days) {
-    if (day.exercises.length < minExercises || day.exercises.length > maxExercises) {
+    if (
+      day.exercises.length < minExercises ||
+      day.exercises.length > maxExercises
+    ) {
       throw createHttpError(400, "INVALID_AI_OUTPUT", {
         reason: "TRAINING_LEVEL_VOLUME_MISMATCH",
         experienceLevel,
@@ -2695,22 +3623,41 @@ function assertTrainingLevelConsistency(
 
 const animalKeywords = {
   meat: ["pollo", "res", "ternera", "cerdo", "pavo", "jamon", "jamón", "carne"],
-  seafood: ["atun", "atún", "salmón", "salmon", "merluza", "bacalao", "camar", "gamba", "langost"],
+  seafood: [
+    "atun",
+    "atún",
+    "salmón",
+    "salmon",
+    "merluza",
+    "bacalao",
+    "camar",
+    "gamba",
+    "langost",
+  ],
   dairyOrEgg: ["huevo", "huevos", "queso", "leche", "yogur", "yogurt"],
 };
 
 function assertDietaryPreferenceCompliance(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
-  dietaryPref: z.infer<typeof aiGenerateNutritionSchema>["dietaryPrefs"]
+  dietaryPref: z.infer<typeof aiGenerateNutritionSchema>["dietaryPrefs"],
 ) {
   if (!dietaryPref) return;
   for (const day of plan.days) {
     for (const meal of day.meals) {
-      const ingredientsText = (meal.ingredients ?? []).map((ingredient) => ingredient.name).join(" ");
-      const haystack = `${meal.title} ${meal.description ?? ""} ${ingredientsText}`.toLowerCase();
-      const hasMeat = animalKeywords.meat.some((keyword) => haystack.includes(keyword));
-      const hasSeafood = animalKeywords.seafood.some((keyword) => haystack.includes(keyword));
-      const hasDairyOrEgg = animalKeywords.dairyOrEgg.some((keyword) => haystack.includes(keyword));
+      const ingredientsText = (meal.ingredients ?? [])
+        .map((ingredient) => ingredient.name)
+        .join(" ");
+      const haystack =
+        `${meal.title} ${meal.description ?? ""} ${ingredientsText}`.toLowerCase();
+      const hasMeat = animalKeywords.meat.some((keyword) =>
+        haystack.includes(keyword),
+      );
+      const hasSeafood = animalKeywords.seafood.some((keyword) =>
+        haystack.includes(keyword),
+      );
+      const hasDairyOrEgg = animalKeywords.dairyOrEgg.some((keyword) =>
+        haystack.includes(keyword),
+      );
 
       if (dietaryPref === "vegetarian" && (hasMeat || hasSeafood)) {
         throw createHttpError(400, "INVALID_AI_OUTPUT", {
@@ -2742,7 +3689,7 @@ function assertDietaryPreferenceCompliance(
 
 function assertNutritionMath(
   plan: z.infer<typeof aiNutritionPlanResponseSchema>,
-  constraints: z.infer<typeof aiGenerateNutritionSchema>
+  constraints: z.infer<typeof aiGenerateNutritionSchema>,
 ) {
   const mathIssue = validateNutritionMath(plan, constraints);
   if (mathIssue) {
@@ -2760,17 +3707,27 @@ function assertNutritionMath(
   assertDietaryPreferenceCompliance(plan, constraints.dietaryPrefs);
 }
 
-
-function summarizeTrainingPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
+function summarizeTrainingPlan(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+) {
   return {
     title: plan.title,
     totalDays: plan.days.length,
-    totalExercises: plan.days.reduce((acc, day) => acc + day.exercises.length, 0),
-    dailyFocus: plan.days.map((day) => ({ label: day.label, focus: day.focus, exercises: day.exercises.length })),
+    totalExercises: plan.days.reduce(
+      (acc, day) => acc + day.exercises.length,
+      0,
+    ),
+    dailyFocus: plan.days.map((day) => ({
+      label: day.label,
+      focus: day.focus,
+      exercises: day.exercises.length,
+    })),
   };
 }
 
-function summarizeNutritionPlan(plan: z.infer<typeof aiNutritionPlanResponseSchema>) {
+function summarizeNutritionPlan(
+  plan: z.infer<typeof aiNutritionPlanResponseSchema>,
+) {
   return {
     title: plan.title,
     totalDays: plan.days.length,
@@ -2779,7 +3736,6 @@ function summarizeNutritionPlan(plan: z.infer<typeof aiNutritionPlanResponseSche
     macros: { proteinG: plan.proteinG, carbsG: plan.carbsG, fatsG: plan.fatG },
   };
 }
-
 
 const exerciseMetadataByName: Record<
   string,
@@ -2840,8 +3796,10 @@ const exerciseMetadataByName: Record<
   },
 };
 
-
-function formatExerciseCatalogForPrompt(catalog: ExerciseCatalogItem[], limit = 120) {
+function formatExerciseCatalogForPrompt(
+  catalog: ExerciseCatalogItem[],
+  limit = 120,
+) {
   if (!catalog.length) return "";
   return catalog
     .slice(0, limit)
@@ -2851,7 +3809,7 @@ function formatExerciseCatalogForPrompt(catalog: ExerciseCatalogItem[], limit = 
 
 function ensureTrainingPlanUsesCatalogExerciseIds(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
-  catalog: ExerciseCatalogItem[]
+  catalog: ExerciseCatalogItem[],
 ) {
   const invalidExerciseIds = findInvalidTrainingPlanExerciseIds(plan, catalog);
 
@@ -2865,14 +3823,16 @@ function ensureTrainingPlanUsesCatalogExerciseIds(
 
 function resolveTrainingPlanExerciseIds(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
-  catalog: ExerciseCatalogItem[]
+  catalog: ExerciseCatalogItem[],
 ) {
   ensureTrainingPlanUsesCatalogExerciseIds(plan, catalog);
-  const { plan: resolvedPlan, unresolved } = resolveTrainingPlanExerciseIdsWithCatalog(plan, catalog);
+  const { plan: resolvedPlan, unresolved } =
+    resolveTrainingPlanExerciseIdsWithCatalog(plan, catalog);
 
   if (unresolved.length > 0) {
     throw createHttpError(400, "INVALID_AI_OUTPUT", {
-      message: "Generated plan includes exercises that do not exist in the library.",
+      message:
+        "Generated plan includes exercises that do not exist in the library.",
       unresolvedExercises: unresolved,
     });
   }
@@ -2883,9 +3843,12 @@ function resolveTrainingPlanExerciseIds(
 function resolveTrainingPlanWithDeterministicFallback(
   plan: z.infer<typeof aiTrainingPlanResponseSchema>,
   catalog: ExerciseCatalogItem[],
-  input: Pick<z.infer<typeof aiTrainingSchema>, "daysPerWeek" | "level" | "goal" | "equipment">,
+  input: Pick<
+    z.infer<typeof aiTrainingSchema>,
+    "daysPerWeek" | "level" | "goal" | "equipment"
+  >,
   startDate: Date,
-  logContext: { userId: string; route: string }
+  logContext: { userId: string; route: string },
 ) {
   try {
     return resolveTrainingPlanExerciseIds(plan, catalog);
@@ -2896,8 +3859,12 @@ function resolveTrainingPlanWithDeterministicFallback(
     }
 
     app.log.warn(
-      { userId: logContext.userId, route: logContext.route, cause: "invalid_catalog_exercise_id" },
-      "training plan has invalid exercise ids, using deterministic fallback"
+      {
+        userId: logContext.userId,
+        route: logContext.route,
+        cause: "invalid_catalog_exercise_id",
+      },
+      "training plan has invalid exercise ids, using deterministic fallback",
     );
 
     const fallbackPlan = buildDeterministicTrainingFallbackPlan(
@@ -2908,7 +3875,7 @@ function resolveTrainingPlanWithDeterministicFallback(
         startDate,
         equipment: input.equipment,
       },
-      catalog
+      catalog,
     );
 
     return resolveTrainingPlanExerciseIds(fallbackPlan, catalog);
@@ -2916,7 +3883,9 @@ function resolveTrainingPlanWithDeterministicFallback(
 }
 
 function normalizePlanForExerciseResolution(plan: Record<string, unknown>) {
-  const rawDays = Array.isArray((plan as { days?: unknown }).days) ? ((plan as { days: unknown[] }).days ?? []) : [];
+  const rawDays = Array.isArray((plan as { days?: unknown }).days)
+    ? ((plan as { days: unknown[] }).days ?? [])
+    : [];
 
   return {
     ...plan,
@@ -2925,11 +3894,16 @@ function normalizePlanForExerciseResolution(plan: Record<string, unknown>) {
         label?: unknown;
         exercises?: unknown;
       };
-      const rawExercises = Array.isArray(typedDay.exercises) ? typedDay.exercises : [];
+      const rawExercises = Array.isArray(typedDay.exercises)
+        ? typedDay.exercises
+        : [];
 
       return {
         ...(typedDay as Record<string, unknown>),
-        label: typeof typedDay.label === "string" ? typedDay.label : `Day ${dayIndex + 1}`,
+        label:
+          typeof typedDay.label === "string"
+            ? typedDay.label
+            : `Day ${dayIndex + 1}`,
         exercises: rawExercises.map((exercise) => {
           const typedExercise = (exercise ?? {}) as {
             name?: unknown;
@@ -2947,7 +3921,10 @@ function normalizePlanForExerciseResolution(plan: Record<string, unknown>) {
           return {
             ...(typedExercise as Record<string, unknown>),
             name: fallbackName,
-            exerciseId: typeof typedExercise.exerciseId === "string" ? typedExercise.exerciseId : null,
+            exerciseId:
+              typeof typedExercise.exerciseId === "string"
+                ? typedExercise.exerciseId
+                : null,
             imageUrl:
               typeof typedExercise.imageUrl === "string"
                 ? typedExercise.imageUrl
@@ -2961,8 +3938,12 @@ function normalizePlanForExerciseResolution(plan: Record<string, unknown>) {
   };
 }
 
-function serializeTrainingPlanDaysWithNullableExerciseId(plan: Record<string, unknown>) {
-  const rawDays = Array.isArray((plan as { days?: unknown }).days) ? ((plan as { days: unknown[] }).days ?? []) : null;
+function serializeTrainingPlanDaysWithNullableExerciseId(
+  plan: Record<string, unknown>,
+) {
+  const rawDays = Array.isArray((plan as { days?: unknown }).days)
+    ? ((plan as { days: unknown[] }).days ?? [])
+    : null;
 
   if (!rawDays) {
     return plan;
@@ -2974,7 +3955,9 @@ function serializeTrainingPlanDaysWithNullableExerciseId(plan: Record<string, un
       const typedDay = (day ?? {}) as {
         exercises?: unknown;
       };
-      const rawExercises = Array.isArray(typedDay.exercises) ? typedDay.exercises : [];
+      const rawExercises = Array.isArray(typedDay.exercises)
+        ? typedDay.exercises
+        : [];
 
       return {
         ...(typedDay as Record<string, unknown>),
@@ -2985,7 +3968,10 @@ function serializeTrainingPlanDaysWithNullableExerciseId(plan: Record<string, un
 
           return {
             ...(typedExercise as Record<string, unknown>),
-            exerciseId: typeof typedExercise.exerciseId === "string" ? typedExercise.exerciseId : null,
+            exerciseId:
+              typeof typedExercise.exerciseId === "string"
+                ? typedExercise.exerciseId
+                : null,
           };
         }),
       };
@@ -2993,25 +3979,34 @@ function serializeTrainingPlanDaysWithNullableExerciseId(plan: Record<string, un
   };
 }
 
-async function enrichTrainingPlanWithExerciseLibraryData(plan: Record<string, unknown>) {
+async function enrichTrainingPlanWithExerciseLibraryData(
+  plan: Record<string, unknown>,
+) {
   if (!plan || !Array.isArray((plan as { days?: unknown }).days)) {
     return plan;
   }
 
   const catalog = await fetchExerciseCatalog(prisma);
   const normalizedPlan = normalizePlanForExerciseResolution(plan);
-  const { plan: resolvedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(normalizedPlan, catalog);
+  const { plan: resolvedPlan } = resolveTrainingPlanExerciseIdsWithCatalog(
+    normalizedPlan,
+    catalog,
+  );
 
   return serializeTrainingPlanDaysWithNullableExerciseId(resolvedPlan);
 }
 
-function logTrainingPlanUnexpectedError(request: FastifyRequest, error: unknown, context: string) {
+function logTrainingPlanUnexpectedError(
+  request: FastifyRequest,
+  error: unknown,
+  context: string,
+) {
   request.log.error(
     {
       reqId: request.id,
       err: error,
     },
-    context
+    context,
   );
 }
 
@@ -3029,7 +4024,10 @@ function getExerciseMetadata(name: string) {
 }
 
 function hasExerciseClient() {
-  return typeof (prisma as PrismaClient & { exercise?: unknown }).exercise !== "undefined";
+  return (
+    typeof (prisma as PrismaClient & { exercise?: unknown }).exercise !==
+    "undefined"
+  );
 }
 
 function slugifyName(name: string) {
@@ -3041,15 +4039,22 @@ function slugifyName(name: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata, options?: { source?: string; sourceId?: string; imageUrls?: string[] }) {
+async function upsertExerciseRecord(
+  name: string,
+  metadata?: ExerciseMetadata,
+  options?: { source?: string; sourceId?: string; imageUrls?: string[] },
+) {
   const now = new Date();
   const slug = slugifyName(name);
 
   const mainMuscleGroup =
     metadata?.mainMuscleGroup?.trim() ||
-    (metadata?.primaryMuscles && metadata.primaryMuscles.length > 0 ? metadata.primaryMuscles[0] : "General");
+    (metadata?.primaryMuscles && metadata.primaryMuscles.length > 0
+      ? metadata.primaryMuscles[0]
+      : "General");
 
-  const secondaryMuscleGroups = metadata?.secondaryMuscleGroups ?? metadata?.secondaryMuscles ?? [];
+  const secondaryMuscleGroups =
+    metadata?.secondaryMuscleGroups ?? metadata?.secondaryMuscles ?? [];
 
   if (hasExerciseClient()) {
     await prisma.exercise.upsert({
@@ -3131,7 +4136,6 @@ async function upsertExerciseRecord(name: string, metadata?: ExerciseMetadata, o
   `);
 }
 
-
 function buildExerciseFilters(params: {
   q?: string;
   primaryMuscle?: string;
@@ -3149,14 +4153,13 @@ function buildExerciseFilters(params: {
 
   if (params.primaryMuscle && params.primaryMuscle !== "all") {
     filters.push(
-      Prisma.sql`("mainMuscleGroup" = ${params.primaryMuscle} OR "secondaryMuscleGroups" @> ARRAY[${params.primaryMuscle}]::text[])`
+      Prisma.sql`("mainMuscleGroup" = ${params.primaryMuscle} OR "secondaryMuscleGroups" @> ARRAY[${params.primaryMuscle}]::text[])`,
     );
   }
 
   const whereClause =
     filters.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(filters, " AND ")
-}`
+      ? Prisma.sql`WHERE ${Prisma.join(filters, " AND ")}`
       : Prisma.sql``;
 
   return whereClause;
@@ -3248,7 +4251,7 @@ async function listExercises(params: {
           ...item,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt,
-        })
+        }),
       ),
       total,
     };
@@ -3256,17 +4259,23 @@ async function listExercises(params: {
 
   const whereSql = buildExerciseFilters(params);
   const take = params.take ?? params.limit;
-  const hasFilters = Boolean(params.q || (params.equipment && params.equipment !== "all") || (params.primaryMuscle && params.primaryMuscle !== "all"));
+  const hasFilters = Boolean(
+    params.q ||
+    (params.equipment && params.equipment !== "all") ||
+    (params.primaryMuscle && params.primaryMuscle !== "all"),
+  );
 
   const items = await prisma.$queryRaw<ExerciseRow[]>(Prisma.sql`
     SELECT "id", "sourceId", "slug", "name", "equipment", "mainMuscleGroup", "secondaryMuscleGroups", "description", "imageUrls", "imageUrl", "mediaUrl", "technique", "tips", "createdAt", "updatedAt"
     FROM "Exercise"
     ${whereSql}
-    ${params.cursor
-      ? hasFilters
-        ? Prisma.sql`AND "id" > ${params.cursor}`
-        : Prisma.sql`WHERE "id" > ${params.cursor}`
-      : Prisma.sql``}
+    ${
+      params.cursor
+        ? hasFilters
+          ? Prisma.sql`AND "id" > ${params.cursor}`
+          : Prisma.sql`WHERE "id" > ${params.cursor}`
+        : Prisma.sql``
+    }
     ORDER BY "id" ASC
     LIMIT ${take}
     OFFSET ${params.cursor ? 0 : params.offset}
@@ -3277,7 +4286,8 @@ async function listExercises(params: {
     ${whereSql}
   `);
   const rawCount = totalRows[0]?.count ?? 0n;
-  const total = typeof rawCount === "bigint" ? Number(rawCount) : Number(rawCount);
+  const total =
+    typeof rawCount === "bigint" ? Number(rawCount) : Number(rawCount);
   return { items: items.map(normalizeExercisePayload), total };
 }
 
@@ -3322,7 +4332,6 @@ async function getExerciseById(id: string) {
   return rows[0] ? normalizeExercisePayload(rows[0]) : null;
 }
 
-
 async function createExercise(input: z.infer<typeof createExerciseSchema>) {
   const normalizedName = normalizeExerciseName(input.name);
   const slugBase = slugifyName(normalizedName) || `exercise-${Date.now()}`;
@@ -3331,8 +4340,8 @@ async function createExercise(input: z.infer<typeof createExerciseSchema>) {
     new Set(
       (input.secondaryMuscleGroups ?? [])
         .map((muscle) => muscle.trim())
-        .filter((muscle) => muscle.length > 0)
-    )
+        .filter((muscle) => muscle.length > 0),
+    ),
   );
 
   if (!hasExerciseClient()) {
@@ -3377,7 +4386,9 @@ async function createExercise(input: z.infer<typeof createExerciseSchema>) {
   });
 }
 
-async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanResponseSchema>) {
+async function upsertExercisesFromPlan(
+  plan: z.infer<typeof aiTrainingPlanResponseSchema>,
+) {
   if (!hasExerciseClient()) {
     app.log.warn("prisma.exercise is unavailable, using raw upsert fallback");
   }
@@ -3386,19 +4397,28 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
     day.exercises.forEach((exercise) => {
       try {
         if (!exercise?.name) {
-          app.log.warn({ day: day.label, exercise }, "skipping exercise upsert because name is missing");
+          app.log.warn(
+            { day: day.label, exercise },
+            "skipping exercise upsert because name is missing",
+          );
           return;
         }
         const normalized = normalizeExerciseName(exercise.name);
         if (!normalized) {
-          app.log.warn({ day: day.label, name: exercise.name }, "skipping exercise upsert because normalized name is empty");
+          app.log.warn(
+            { day: day.label, name: exercise.name },
+            "skipping exercise upsert because normalized name is empty",
+          );
           return;
         }
         if (!names.has(normalized)) {
           names.set(normalized, normalized);
         }
       } catch (error) {
-        app.log.warn({ err: error, day: day.label, exercise }, "failed to normalize exercise for upsert");
+        app.log.warn(
+          { err: error, day: day.label, exercise },
+          "failed to normalize exercise for upsert",
+        );
       }
     });
   });
@@ -3412,7 +4432,7 @@ async function upsertExercisesFromPlan(plan: z.infer<typeof aiTrainingPlanRespon
       } catch (error) {
         app.log.warn({ err: error, name }, "exercise upsert failed");
       }
-    })
+    }),
   );
 }
 
@@ -3525,17 +4545,21 @@ function inferExerciseMetadataFromName(name: string): ExerciseMetadata {
     if (lower.includes("barra ez")) return pick("Barra EZ");
     if (lower.includes("barra")) return pick("Barra");
     if (lower.includes("mancuerna")) return pick("Mancuernas");
-    if (lower.includes("máquina") || lower.includes("maquina")) return pick("Máquina");
+    if (lower.includes("máquina") || lower.includes("maquina"))
+      return pick("Máquina");
     if (lower.includes("polea")) return pick("Polea");
     if (lower.includes("kettlebell")) return pick("Kettlebell");
     if (lower.includes("cinta")) return pick("Cinta");
     if (lower.includes("bicicleta")) return pick("Bicicleta");
-    if (lower.includes("ergómetro") || lower.includes("ergometro")) return pick("Remo ergómetro");
-    if (lower.includes("elíptica") || lower.includes("eliptica")) return pick("Elíptica");
+    if (lower.includes("ergómetro") || lower.includes("ergometro"))
+      return pick("Remo ergómetro");
+    if (lower.includes("elíptica") || lower.includes("eliptica"))
+      return pick("Elíptica");
     if (lower.includes("fitball")) return pick("Fitball");
     if (lower.includes("banco")) return pick("Banco");
     if (lower.includes("paralelas")) return pick("Paralelas");
-    if (lower.includes("cajón") || lower.includes("cajon")) return pick("Cajón");
+    if (lower.includes("cajón") || lower.includes("cajon"))
+      return pick("Cajón");
     return pick("Peso corporal");
   })();
 
@@ -3553,19 +4577,49 @@ function inferExerciseMetadataFromName(name: string): ExerciseMetadata {
     ) {
       return "Piernas";
     }
-    if (lower.includes("press banca") || lower.includes("peck deck") || lower.includes("pecho") || lower.includes("fondos") || lower.includes("flexiones")) {
+    if (
+      lower.includes("press banca") ||
+      lower.includes("peck deck") ||
+      lower.includes("pecho") ||
+      lower.includes("fondos") ||
+      lower.includes("flexiones")
+    ) {
       return "Pecho";
     }
-    if (lower.includes("press militar") || lower.includes("hombro") || lower.includes("arnold") || lower.includes("elevaciones") || lower.includes("rear delt") || lower.includes("pájaros") || lower.includes("face pull")) {
+    if (
+      lower.includes("press militar") ||
+      lower.includes("hombro") ||
+      lower.includes("arnold") ||
+      lower.includes("elevaciones") ||
+      lower.includes("rear delt") ||
+      lower.includes("pájaros") ||
+      lower.includes("face pull")
+    ) {
       return "Hombros";
     }
-    if (lower.includes("remo") || lower.includes("jalón") || lower.includes("dominadas") || lower.includes("pull-over") || lower.includes("rack pull")) {
+    if (
+      lower.includes("remo") ||
+      lower.includes("jalón") ||
+      lower.includes("dominadas") ||
+      lower.includes("pull-over") ||
+      lower.includes("rack pull")
+    ) {
       return "Espalda";
     }
-    if (lower.includes("bíceps") || lower.includes("biceps") || lower.includes("curl")) {
+    if (
+      lower.includes("bíceps") ||
+      lower.includes("biceps") ||
+      lower.includes("curl")
+    ) {
       return "Bíceps";
     }
-    if (lower.includes("tríceps") || lower.includes("triceps") || lower.includes("press francés") || lower.includes("jalón de tríceps") || lower.includes("patada")) {
+    if (
+      lower.includes("tríceps") ||
+      lower.includes("triceps") ||
+      lower.includes("press francés") ||
+      lower.includes("jalón de tríceps") ||
+      lower.includes("patada")
+    ) {
       return "Tríceps";
     }
     if (
@@ -3735,7 +4789,10 @@ const RECIPES_100 = [
   "Bowl de pollo, verduras y salsa de cacahuete light",
 ];
 
-const recipeMacroTemplates: Record<string, { calories: number; protein: number; carbs: number; fat: number }> = {
+const recipeMacroTemplates: Record<
+  string,
+  { calories: number; protein: number; carbs: number; fat: number }
+> = {
   breakfast: { calories: 420, protein: 25, carbs: 48, fat: 12 },
   snack: { calories: 260, protein: 16, carbs: 28, fat: 8 },
   fish: { calories: 560, protein: 40, carbs: 45, fat: 18 },
@@ -3752,7 +4809,10 @@ const recipeMacroTemplates: Record<string, { calories: number; protein: number; 
   other: { calories: 500, protein: 30, carbs: 55, fat: 15 },
 };
 
-const recipeIngredientTemplates: Record<string, Array<{ name: string; grams: number }>> = {
+const recipeIngredientTemplates: Record<
+  string,
+  Array<{ name: string; grams: number }>
+> = {
   breakfast: [
     { name: "Avena", grams: 60 },
     { name: "Yogur griego", grams: 180 },
@@ -3886,10 +4946,19 @@ function categorizeRecipe(name: string) {
   ) {
     return "fish";
   }
-  if (lower.includes("gambas") || lower.includes("marisco") || lower.includes("paella")) {
+  if (
+    lower.includes("gambas") ||
+    lower.includes("marisco") ||
+    lower.includes("paella")
+  ) {
     return "seafood";
   }
-  if (lower.includes("pollo") || lower.includes("pavo") || lower.includes("shawarma") || lower.includes("kebab")) {
+  if (
+    lower.includes("pollo") ||
+    lower.includes("pavo") ||
+    lower.includes("shawarma") ||
+    lower.includes("kebab")
+  ) {
     return "poultry";
   }
   if (lower.includes("ternera") || lower.includes("conejo")) {
@@ -3908,16 +4977,35 @@ function categorizeRecipe(name: string) {
   if (lower.includes("ensalada")) {
     return "salad";
   }
-  if (lower.includes("sopa") || lower.includes("crema") || lower.includes("gazpacho") || lower.includes("salmorejo")) {
+  if (
+    lower.includes("sopa") ||
+    lower.includes("crema") ||
+    lower.includes("gazpacho") ||
+    lower.includes("salmorejo")
+  ) {
     return "soup";
   }
-  if (lower.includes("pasta") || lower.includes("noodles") || lower.includes("espagueti")) {
+  if (
+    lower.includes("pasta") ||
+    lower.includes("noodles") ||
+    lower.includes("espagueti")
+  ) {
     return "pasta";
   }
-  if (lower.includes("arroz") || lower.includes("poke") || lower.includes("bowl")) {
+  if (
+    lower.includes("arroz") ||
+    lower.includes("poke") ||
+    lower.includes("bowl")
+  ) {
     return "rice";
   }
-  if (lower.includes("wrap") || lower.includes("tacos") || lower.includes("fajitas") || lower.includes("sandwich") || lower.includes("sándwich")) {
+  if (
+    lower.includes("wrap") ||
+    lower.includes("tacos") ||
+    lower.includes("fajitas") ||
+    lower.includes("sandwich") ||
+    lower.includes("sándwich")
+  ) {
     return "wrap";
   }
   return "other";
@@ -3931,7 +5019,8 @@ function buildRecipeSeedItem(name: string, index: number): RecipeSeedItem {
   const protein = base.protein + variant * 2;
   const carbs = base.carbs + variant * 3;
   const fat = base.fat + variant;
-  const ingredientsBase = recipeIngredientTemplates[category] ?? recipeIngredientTemplates.other;
+  const ingredientsBase =
+    recipeIngredientTemplates[category] ?? recipeIngredientTemplates.other;
   const ingredientCount = 3 + (index % 3);
   const ingredients = ingredientsBase.slice(0, ingredientCount);
   const steps = [
@@ -3977,7 +5066,10 @@ function toDate(value?: string) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getRecentEntries<T extends { date?: string }>(entries: T[], days: number) {
+function getRecentEntries<T extends { date?: string }>(
+  entries: T[],
+  days: number,
+) {
   const now = new Date();
   const cutoff = new Date(now);
   cutoff.setDate(now.getDate() - days);
@@ -3987,12 +5079,21 @@ function getRecentEntries<T extends { date?: string }>(entries: T[], days: numbe
   });
 }
 
-function buildFeedSummary(profile: Record<string, unknown> | null, tracking: FeedTrackingSnapshot | null) {
+function buildFeedSummary(
+  profile: Record<string, unknown> | null,
+  tracking: FeedTrackingSnapshot | null,
+) {
   const name = typeof profile?.name === "string" ? profile.name : "tu";
   const normalizedTracking: FeedTrackingSnapshot = tracking ?? {};
-  const checkins = Array.isArray(normalizedTracking.checkins) ? normalizedTracking.checkins : [];
-  const foodLog = Array.isArray(normalizedTracking.foodLog) ? normalizedTracking.foodLog : [];
-  const workoutLog = Array.isArray(normalizedTracking.workoutLog) ? normalizedTracking.workoutLog : [];
+  const checkins = Array.isArray(normalizedTracking.checkins)
+    ? normalizedTracking.checkins
+    : [];
+  const foodLog = Array.isArray(normalizedTracking.foodLog)
+    ? normalizedTracking.foodLog
+    : [];
+  const workoutLog = Array.isArray(normalizedTracking.workoutLog)
+    ? normalizedTracking.workoutLog
+    : [];
 
   const recentCheckins = getRecentEntries(checkins, 7);
   const recentWorkouts = getRecentEntries(workoutLog, 7);
@@ -4143,7 +5244,11 @@ function buildVerifyEmail(params: { name?: string | null; verifyUrl: string }) {
   return { subject, text, html };
 }
 
-async function sendVerificationEmail(email: string, token: string, name?: string | null) {
+async function sendVerificationEmail(
+  email: string,
+  token: string,
+  name?: string | null,
+) {
   const verifyUrl = new URL("/verify-email", env.APP_BASE_URL);
   verifyUrl.searchParams.set("token", token);
 
@@ -4155,9 +5260,11 @@ async function sendVerificationEmail(email: string, token: string, name?: string
   await sendEmail({ to: email, subject, text, html });
 }
 
-
-
-async function logSignupAttempt(data: { email?: string; ipAddress?: string; success: boolean }) {
+async function logSignupAttempt(data: {
+  email?: string;
+  ipAddress?: string;
+  success: boolean;
+}) {
   await prisma.signupAttempt.create({
     data: {
       email: data.email,
@@ -4169,7 +5276,9 @@ async function logSignupAttempt(data: { email?: string; ipAddress?: string; succ
 
 async function seedAdmin() {
   if (!env.ADMIN_EMAIL_SEED) return;
-  const user = await prisma.user.findUnique({ where: { email: env.ADMIN_EMAIL_SEED } });
+  const user = await prisma.user.findUnique({
+    where: { email: env.ADMIN_EMAIL_SEED },
+  });
   if (!user) return;
   if (user.role === "ADMIN") return;
   await prisma.user.update({
@@ -4188,7 +5297,9 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(403).send({ error: "INVALID_PROMO_CODE" });
   }
 
-  const existing = await prisma.user.findUnique({ where: { email: data.email } });
+  const existing = await prisma.user.findUnique({
+    where: { email: data.email },
+  });
   if (existing) {
     return reply.status(409).send({ error: "EMAIL_IN_USE" });
   }
@@ -4208,7 +5319,9 @@ async function handleSignup(request: FastifyRequest, reply: FastifyReply) {
   const token = await createVerificationToken(user.id);
   await sendVerificationEmail(user.email, token);
 
-  return reply.status(201).send({ id: user.id, email: user.email, name: user.name });
+  return reply
+    .status(201)
+    .send({ id: user.id, email: user.email, name: user.name });
 }
 
 app.post("/auth/signup", handleSignup);
@@ -4236,7 +5349,11 @@ app.post("/auth/login", async (request, reply) => {
       return reply.status(401).send({ error: "INVALID_CREDENTIALS" });
     }
 
-    const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
+    const token = await reply.jwtSign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
     reply.setCookie("fs_token", token, buildCookieOptions());
 
     await prisma.user.update({
@@ -4272,7 +5389,10 @@ app.post("/auth/resend-verification", async (request, reply) => {
       orderBy: { createdAt: "desc" },
     });
 
-    if (latestToken && Date.now() - latestToken.createdAt.getTime() < RESEND_COOLDOWN_MS) {
+    if (
+      latestToken &&
+      Date.now() - latestToken.createdAt.getTime() < RESEND_COOLDOWN_MS
+    ) {
       return reply.status(429).send({ error: "RESEND_TOO_SOON" });
     }
 
@@ -4290,7 +5410,9 @@ app.get("/auth/verify-email", async (request, reply) => {
   try {
     const { token } = schema.parse(request.query);
     const tokenHash = hashToken(token);
-    const record = await prisma.emailVerificationToken.findUnique({ where: { tokenHash } });
+    const record = await prisma.emailVerificationToken.findUnique({
+      where: { tokenHash },
+    });
     if (!record) {
       return reply.status(400).send({ error: "INVALID_TOKEN" });
     }
@@ -4312,7 +5434,7 @@ app.get("/auth/verify-email", async (request, reply) => {
   }
 });
 
-app.post("/billing/checkout", async (request, reply) => {
+const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   /**
    * Billing checkout contract:
    * - Auth required.
@@ -4326,6 +5448,7 @@ app.post("/billing/checkout", async (request, reply) => {
       .object({
         priceId: z.string().min(1).optional(),
         planKey: z.string().min(1).optional(),
+        returnTo: z.string().trim().optional().nullable(),
       })
       .superRefine((payload, context) => {
         const hasPriceId = Boolean(payload.priceId);
@@ -4344,7 +5467,9 @@ app.post("/billing/checkout", async (request, reply) => {
         }
       });
     const payload = checkoutSchema.parse(request.body);
-    const resolvedPriceId = payload.priceId ?? resolvePriceIdByPlanKey(payload.planKey ?? "");
+    const resolvedPriceId =
+      payload.priceId ?? resolvePriceIdByPlanKey(payload.planKey ?? "");
+    const normalizedReturnTo = typeof payload.returnTo === "string" && payload.returnTo.startsWith("/app/") ? payload.returnTo : "/app/settings/billing";
     if (!resolvedPriceId) {
       return reply.status(400).send({ error: "INVALID_INPUT" });
     }
@@ -4355,28 +5480,50 @@ app.post("/billing/checkout", async (request, reply) => {
 
     const idempotencyKey = `checkout-${user.id}-${Date.now()}`;
     const customerId = await getOrCreateStripeCustomer(user);
-    const hasSamePlanLocally = isActiveSubscriptionStatus(user.subscriptionStatus) && user.plan === targetPlan;
+    const hasSamePlanLocally =
+      isActiveSubscriptionStatus(user.subscriptionStatus) &&
+      user.plan === targetPlan;
 
     const activeSubscriptions = await getActivePlanSubscriptions(customerId);
-    const hasSamePlanInStripe = activeSubscriptions.some((subscription) => getPlanFromSubscription(subscription) === targetPlan);
+    const hasSamePlanInStripe = activeSubscriptions.some(
+      (subscription) => getPlanFromSubscription(subscription) === targetPlan,
+    );
     if (hasSamePlanInStripe) {
       let portalUrl: string | null = null;
       try {
-        const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
-          customer: customerId,
-          return_url: `${env.APP_BASE_URL}/app/settings/billing`,
-        });
+        const session = await stripeRequest<StripePortalSession>(
+          "billing_portal/sessions",
+          {
+            customer: customerId,
+            return_url: `${env.APP_BASE_URL}/app/settings/billing`,
+          },
+        );
         portalUrl = session.url ?? null;
       } catch (error) {
-        request.log.warn({ err: error, userId: user.id }, "billing portal session failed");
+        request.log.warn(
+          { err: error, userId: user.id },
+          "billing portal session failed",
+        );
       }
-      return reply.status(200).send({ alreadySubscribed: true, url: portalUrl });
+      return reply
+        .status(200)
+        .send({ alreadySubscribed: true, url: portalUrl });
     }
 
     if (hasSamePlanLocally) {
-      request.log.info({ userId: user.id, targetPlan }, "billing checkout blocked due to active local plan");
+      request.log.info(
+        { userId: user.id, targetPlan },
+        "billing checkout blocked due to active local plan",
+      );
       return reply.status(200).send({ alreadySubscribed: true });
     }
+
+    const successUrl = new URL(`${env.APP_BASE_URL}/app/settings/billing`);
+    successUrl.searchParams.set("checkout", "success");
+    successUrl.searchParams.set("returnTo", normalizedReturnTo);
+    const cancelUrl = new URL(`${env.APP_BASE_URL}/app/settings/billing`);
+    cancelUrl.searchParams.set("checkout", "cancel");
+    cancelUrl.searchParams.set("returnTo", normalizedReturnTo);
 
     const session = await stripeRequest<StripeCheckoutSession>(
       "checkout/sessions",
@@ -4389,23 +5536,26 @@ app.post("/billing/checkout", async (request, reply) => {
         "line_items[0][quantity]": 1,
         "subscription_data[metadata][userId]": user.id,
         "subscription_data[metadata][plan]": targetPlan,
-        success_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=success`,
-        cancel_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=cancel`,
+        success_url: successUrl.toString(),
+        cancel_url: cancelUrl.toString(),
       },
-      { idempotencyKey }
+      { idempotencyKey },
     );
 
     if (!session.url) {
       throw createHttpError(502, "STRIPE_CHECKOUT_URL_MISSING");
     }
     return reply.status(200).send({ url: session.url });
-
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       return reply.status(400).send({ error: "INVALID_INPUT" });
     }
 
-    const typed = err as { statusCode?: number; code?: string; message?: string };
+    const typed = err as {
+      statusCode?: number;
+      code?: string;
+      message?: string;
+    };
     if (typed.statusCode === 401) {
       return reply.status(401).send({ error: typed.code ?? "UNAUTHORIZED" });
     }
@@ -4420,13 +5570,13 @@ app.post("/billing/checkout", async (request, reply) => {
         code: typed.code,
         statusCode: typed.statusCode,
       },
-      "billing checkout failed"
+      "billing checkout failed",
     );
     return reply.status(500).send({ error: "CHECKOUT_SESSION_FAILED" });
   }
-});
+};
 
-app.get("/billing/plans", async (request, reply) => {
+const billingPlansHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     await requireUser(request);
     const availablePlans = getAvailableBillingPlans();
@@ -4441,12 +5591,19 @@ app.get("/billing/plans", async (request, reply) => {
 
     for (const { plan, priceId } of availablePlans) {
       try {
-        const stripePrice = await stripeRequest<StripePrice>(`prices/${priceId}`, {}, { method: "GET" });
+        const stripePrice = await stripeRequest<StripePrice>(
+          `prices/${priceId}`,
+          {},
+          { method: "GET" },
+        );
 
         const amount = parseStripeAmount(stripePrice);
         if (amount === null) {
           warnings.push({ key: plan, reason: "invalid_unit_amount" });
-          request.log.warn({ plan, priceId }, "billing plan skipped (invalid unit amount)");
+          request.log.warn(
+            { plan, priceId },
+            "billing plan skipped (invalid unit amount)",
+          );
           continue;
         }
 
@@ -4467,51 +5624,76 @@ app.get("/billing/plans", async (request, reply) => {
         }
         if (isStripePriceNotFoundError(error)) {
           warnings.push({ key: plan, reason: "price_not_found" });
-          request.log.warn({ plan, priceId }, "billing plan skipped (price not found)");
+          request.log.warn(
+            { plan, priceId },
+            "billing plan skipped (price not found)",
+          );
           continue;
         }
         warnings.push({ key: plan, reason: "price_lookup_failed" });
-        request.log.warn({ plan, priceId }, "billing plan skipped due to Stripe price lookup failure");
+        request.log.warn(
+          { plan, priceId },
+          "billing plan skipped due to Stripe price lookup failure",
+        );
       }
     }
 
     if (plans.length > 0) {
-      return reply.status(200).send({ plans, ...(warnings.length > 0 ? { warnings } : {}) });
+      return reply
+        .status(200)
+        .send({ plans, ...(warnings.length > 0 ? { warnings } : {}) });
     }
-    return reply.status(500).send({ error: "NO_VALID_PRICES", ...(warnings.length > 0 ? { warnings } : {}) });
+    return reply.status(500).send({
+      error: "NO_VALID_PRICES",
+      ...(warnings.length > 0 ? { warnings } : {}),
+    });
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
 
-app.post("/billing/portal", async (request, reply) => {
+const billingPortalHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
     const customerId = await getOrCreateStripeCustomer(user);
-    const session = await stripeRequest<StripePortalSession>("billing_portal/sessions", {
-      customer: customerId,
-      return_url: `${env.APP_BASE_URL}/app/settings/billing`,
-    });
+    const session = await stripeRequest<StripePortalSession>(
+      "billing_portal/sessions",
+      {
+        customer: customerId,
+        return_url: `${env.APP_BASE_URL}/app/settings/billing`,
+      },
+    );
     return { url: session.url };
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
 
-app.post("/billing/admin/reset-customer-link", async (request, reply) => {
-  const schema = z.object({
-    userId: z.string().min(1).optional(),
-    email: z.string().email().optional(),
-  }).refine((value) => value.userId || value.email, {
-    message: "userId_or_email_required",
-  });
+const billingAdminResetCustomerLinkHandler = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
+  const schema = z
+    .object({
+      userId: z.string().min(1).optional(),
+      email: z.string().email().optional(),
+    })
+    .refine((value) => value.userId || value.email, {
+      message: "userId_or_email_required",
+    });
 
   try {
     await requireAdmin(request);
     const { userId, email } = schema.parse(request.body);
     const user = userId
-      ? await prisma.user.findUnique({ where: { id: userId }, select: { id: true } })
-      : await prisma.user.findFirst({ where: { email: email! }, select: { id: true } });
+      ? await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true },
+        })
+      : await prisma.user.findFirst({
+          where: { email: email! },
+          select: { id: true },
+        });
 
     if (!user) {
       return reply.status(404).send({ error: "USER_NOT_FOUND" });
@@ -4526,12 +5708,12 @@ app.post("/billing/admin/reset-customer-link", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
-});
+};
 
-app.post(
-  "/billing/stripe/webhook",
-  { config: { rawBody: true } },
-  async (request, reply) => {
+const billingStripeWebhookHandler = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => {
     try {
       const signature = request.headers["stripe-signature"];
       if (typeof signature !== "string") {
@@ -4553,17 +5735,33 @@ app.post(
       const payload = event.data?.object;
       let resolvedUserId: string | null = null;
 
+      const eventInserted = await prisma.$executeRaw`
+        INSERT INTO "StripeWebhookEvent" ("id", "type")
+        VALUES (${eventId}, ${eventType})
+        ON CONFLICT ("id") DO NOTHING
+      `;
+      if (Number(eventInserted) === 0) {
+        app.log.info(
+          { eventType, eventId },
+          "stripe webhook already processed",
+        );
+        return reply.status(200).send({ received: true, duplicate: true });
+      }
+
       if (eventType === "checkout.session.completed") {
         const session = payload as {
           metadata?: Record<string, string> | null;
           client_reference_id?: string | null;
         };
-        resolvedUserId = session?.metadata?.userId ?? session?.client_reference_id ?? null;
+        resolvedUserId =
+          session?.metadata?.userId ?? session?.client_reference_id ?? null;
       }
 
       app.log.info(
-        resolvedUserId ? { eventType, eventId, userId: resolvedUserId } : { eventType, eventId },
-        "stripe webhook received"
+        resolvedUserId
+          ? { eventType, eventId, userId: resolvedUserId }
+          : { eventType, eventId },
+        "stripe webhook received",
       );
 
       if (eventType === "checkout.session.completed") {
@@ -4573,7 +5771,8 @@ app.post(
           metadata?: Record<string, string> | null;
           client_reference_id?: string | null;
         };
-        const userId = session?.metadata?.userId ?? session?.client_reference_id ?? null;
+        const userId =
+          session?.metadata?.userId ?? session?.client_reference_id ?? null;
         const customerId = session?.customer ?? null;
         const subscriptionId = session?.subscription ?? null;
         if (!userId) {
@@ -4585,7 +5784,14 @@ app.post(
         if (subscriptionId) updateData.stripeSubscriptionId = subscriptionId;
         if (Object.keys(updateData).length > 0) {
           await prisma.user.update({ where: { id: userId }, data: updateData });
-          app.log.info({ userId, stripeCustomerId: customerId, stripeSubscriptionId: subscriptionId }, "checkout linked");
+          app.log.info(
+            {
+              userId,
+              stripeCustomerId: customerId,
+              stripeSubscriptionId: subscriptionId,
+            },
+            "checkout linked",
+          );
         }
       }
 
@@ -4597,13 +5803,21 @@ app.post(
         const subscription = payload as StripeSubscription;
         const customerId = subscription?.customer ?? null;
         if (customerId) {
-          const activeSubscription = await getLatestActiveSubscription(customerId);
-          const cancellationStatuses = new Set(["canceled", "unpaid", "incomplete_expired"]);
+          const activeSubscription =
+            await getLatestActiveSubscription(customerId);
+          const cancellationStatuses = new Set([
+            "canceled",
+            "unpaid",
+            "incomplete_expired",
+          ]);
           if (activeSubscription) {
-            const activePlan = getPlanFromSubscription(activeSubscription) ?? "FREE";
-            const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
-            await updateUserSubscriptionForCustomer(customerId, {
+            const activePlan =
+              getPlanFromSubscription(activeSubscription) ?? "FREE";
+            const currentPeriodEnd =
+              getSubscriptionPeriodEnd(activeSubscription);
+            await applyBillingStateForCustomer(customerId, {
               plan: activePlan,
+              aiTokenMonthlyAllowance: getPlanTokenAllowance(activePlan),
               subscriptionStatus: activeSubscription.status,
               stripeSubscriptionId: activeSubscription.id,
               currentPeriodEnd,
@@ -4613,20 +5827,24 @@ app.post(
                 stripeCustomerId: customerId,
                 plan: activePlan,
                 subscriptionStatus: activeSubscription.status,
+                aiTokenBalance: "unchanged_until_invoice_paid",
                 currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
               },
-              "subscription updated"
+              "subscription updated",
             );
-          } else if (eventType === "customer.subscription.deleted" || cancellationStatuses.has(subscription.status)) {
-            const currentPeriodEnd = getSubscriptionPeriodEnd(subscription);
+          } else if (
+            eventType === "customer.subscription.deleted" ||
+            cancellationStatuses.has(subscription.status) ||
+            !isActiveSubscriptionStatus(subscription.status)
+          ) {
             await applyBillingStateForCustomer(customerId, {
               plan: "FREE",
               aiTokenBalance: 0,
               aiTokenResetAt: null,
               aiTokenRenewalAt: null,
               subscriptionStatus: subscription.status,
-              stripeSubscriptionId: subscription.id,
-              currentPeriodEnd,
+              stripeSubscriptionId: null,
+              currentPeriodEnd: null,
             });
             app.log.info(
               {
@@ -4634,8 +5852,10 @@ app.post(
                 plan: "FREE",
                 aiTokenBalance: 0,
                 aiTokenResetAt: null,
+                stripeSubscriptionId: null,
+                currentPeriodEnd: null,
               },
-              "subscription canceled"
+              "subscription canceled",
             );
           }
         }
@@ -4651,37 +5871,47 @@ app.post(
               "expand[0]": "lines.data.price",
               "expand[1]": "subscription",
             },
-            { method: "GET" }
+            { method: "GET" },
           );
         }
         const invoicePlan = getPlanFromInvoice(fullInvoice);
         if (invoicePlan) {
           const customerId = fullInvoice.customer ?? null;
-          const subscriptionId = fullInvoice.subscription ?? null;
-          let subscription: StripeSubscription | null = null;
-          if (subscriptionId) {
-            subscription = await stripeRequest<StripeSubscription>(`subscriptions/${subscriptionId}`, {}, { method: "GET" });
-          }
-          const nextResetAt = getSubscriptionPeriodEnd(subscription) ?? getTokenExpiry(30);
-          const nextRenewalAt = nextResetAt;
           if (customerId) {
+            const effectiveSubscription =
+              await getLatestActiveSubscription(customerId);
+            const effectivePlan =
+              getPlanFromSubscription(effectiveSubscription) ?? invoicePlan;
+            const resolvedSubscriptionStatus = effectiveSubscription?.status ?? null;
+            const planAllowance = getPlanTokenAllowance(effectivePlan);
+            const resolvedTokens = resolveAiTokens({
+              subscriptionStatus: resolvedSubscriptionStatus,
+              planMonthlyAllowance: planAllowance,
+            });
+            const effectivePeriodEnd =
+              resolvedTokens > 0
+                ? (getSubscriptionPeriodEnd(effectiveSubscription) ?? getTokenExpiry(30))
+                : null;
             await applyBillingStateForCustomer(customerId, {
-              plan: invoicePlan,
-              aiTokenBalance: 5000,
-              aiTokenResetAt: nextResetAt,
-              aiTokenRenewalAt: nextRenewalAt,
-              subscriptionStatus: subscription?.status ?? null,
-              stripeSubscriptionId: subscriptionId,
-              currentPeriodEnd: getSubscriptionPeriodEnd(subscription),
+              plan: resolvedTokens > 0 ? effectivePlan : "FREE",
+              aiTokenBalance: resolvedTokens,
+              aiTokenMonthlyAllowance: planAllowance,
+              aiTokenResetAt: effectivePeriodEnd,
+              aiTokenRenewalAt: effectivePeriodEnd,
+              subscriptionStatus: resolvedSubscriptionStatus,
+              stripeSubscriptionId: effectiveSubscription?.id ?? null,
+              currentPeriodEnd: getSubscriptionPeriodEnd(effectiveSubscription),
             });
             app.log.info(
               {
                 stripeCustomerId: customerId,
-                plan: invoicePlan,
-                aiTokenBalance: 5000,
-                aiTokenResetAt: nextResetAt?.toISOString() ?? null,
+                invoicePlan,
+                effectivePlan,
+                aiTokenBalance: resolvedTokens,
+                aiTokenResetAt: effectivePeriodEnd?.toISOString() ?? null,
+                billingStatus: resolveBillingStatusReason(resolvedSubscriptionStatus),
               },
-              "invoice paid"
+              "invoice paid",
             );
           }
         }
@@ -4697,29 +5927,30 @@ app.post(
               "expand[0]": "lines.data.price",
               "expand[1]": "subscription",
             },
-            { method: "GET" }
+            { method: "GET" },
           );
         }
-        const invoicePlan = getPlanFromInvoice(fullInvoice);
-        if (invoicePlan) {
-          const customerId = fullInvoice.customer ?? null;
-          if (customerId) {
-            await applyBillingStateForCustomer(customerId, {
+        const customerId = fullInvoice.customer ?? null;
+        if (customerId) {
+          await applyBillingStateForCustomer(customerId, {
+            plan: "FREE",
+            aiTokenBalance: 0,
+            aiTokenResetAt: null,
+            aiTokenRenewalAt: null,
+            subscriptionStatus: "payment_failed",
+            stripeSubscriptionId: null,
+            currentPeriodEnd: null,
+          });
+          app.log.info(
+            {
+              stripeCustomerId: customerId,
               plan: "FREE",
               aiTokenBalance: 0,
               aiTokenResetAt: null,
-              aiTokenRenewalAt: null,
-            });
-            app.log.info(
-              {
-                stripeCustomerId: customerId,
-                plan: "FREE",
-                aiTokenBalance: 0,
-                aiTokenResetAt: null,
-              },
-              "invoice payment failed"
-            );
-          }
+              subscriptionStatus: "payment_failed",
+            },
+            "invoice payment failed",
+          );
         }
       }
 
@@ -4727,17 +5958,32 @@ app.post(
     } catch (error) {
       return handleRequestError(reply, error);
     }
-  }
-);
+};
 
 app.get("/auth/me", async (request, reply) => {
   try {
+    reply.header("Cache-Control", "no-store");
     const user = await requireUser(request);
-    const effectiveIsAdmin = user.role === "ADMIN" || isBootstrapAdmin(user.email);
-    const activeMembershipRecord = await prisma.gymMembership.findFirst({
+    let effectiveUser = user;
+    try {
+      const syncedUser = await syncUserBillingFromStripe(user, {
+        createCustomerIfMissing: false,
+      });
+      if (syncedUser) {
+        effectiveUser = syncedUser;
+      }
+    } catch (error) {
+      app.log.warn(
+        { err: error, userId: user.id },
+        "auth/me billing sync failed",
+      );
+    }
+    const effectiveIsAdmin =
+      effectiveUser.role === "ADMIN" || isBootstrapAdmin(effectiveUser.email);
+    const membershipRecord = await prisma.gymMembership.findFirst({
       where: {
         userId: user.id,
-        status: "ACTIVE",
+        status: { in: ["PENDING", "ACTIVE"] },
       },
       select: {
         status: true,
@@ -4751,6 +5997,7 @@ app.get("/auth/me", async (request, reply) => {
       },
       orderBy: { updatedAt: "desc" },
     });
+<<<<<<< HEAD
     // /auth/me only exposes an *active* membership. We normalize the status
     // to the literal "ACTIVE" so it matches the response contract type.
     const activeMembership = activeMembershipRecord
@@ -4770,6 +6017,19 @@ return buildAuthMeResponse({
   activeMembership: activeMembership as any,
 });
 
+=======
+    const membership = membershipRecord ?? null;
+    const entitlements = getUserEntitlements(effectiveUser);
+    const aiTokenPayload = getAiTokenPayload(effectiveUser, entitlements);
+    return buildAuthMeResponse({
+      user: effectiveUser,
+      role: effectiveIsAdmin ? "ADMIN" : effectiveUser.role,
+      aiTokenBalance: aiTokenPayload.aiTokenBalance,
+      aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
+      entitlements,
+      membership,
+    });
+>>>>>>> dev
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -4820,24 +6080,31 @@ app.get("/auth/google/start", async (_request, reply) => {
     state,
   });
 
-  return reply.status(200).send({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
+  return reply
+    .status(200)
+    .send({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
 });
 
 app.get("/auth/google/callback", async (request, reply) => {
-  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI) {
+  if (
+    !env.GOOGLE_CLIENT_ID ||
+    !env.GOOGLE_CLIENT_SECRET ||
+    !env.GOOGLE_REDIRECT_URI
+  ) {
     return reply.status(501).send({ error: "GOOGLE_OAUTH_NOT_CONFIGURED" });
   }
 
-const querySchema = z.object({
-  code: z.string().min(1),
-  state: z.string().min(1),
-  mode: z.enum(["bff"]).optional(),
-});
-const { code, state, mode } = querySchema.parse(request.query);
-
+  const querySchema = z.object({
+    code: z.string().min(1),
+    state: z.string().min(1),
+    mode: z.enum(["bff"]).optional(),
+  });
+  const { code, state, mode } = querySchema.parse(request.query);
 
   const stateHash = hashToken(state);
-  const storedState = await prisma.oAuthState.findUnique({ where: { stateHash } });
+  const storedState = await prisma.oAuthState.findUnique({
+    where: { stateHash },
+  });
   if (!storedState || storedState.expiresAt.getTime() < Date.now()) {
     if (storedState) {
       await prisma.oAuthState.delete({ where: { id: storedState.id } });
@@ -4862,13 +6129,18 @@ const { code, state, mode } = querySchema.parse(request.query);
     return reply.status(400).send({ error: "GOOGLE_TOKEN_EXCHANGE_FAILED" });
   }
 
-  const tokenJson = (await tokenResponse.json()) as { id_token?: string; access_token?: string };
+  const tokenJson = (await tokenResponse.json()) as {
+    id_token?: string;
+    access_token?: string;
+  };
   const idToken = tokenJson.id_token;
   if (!idToken) {
     return reply.status(400).send({ error: "GOOGLE_ID_TOKEN_MISSING" });
   }
 
-  const infoResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+  const infoResponse = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
+  );
   if (!infoResponse.ok) {
     return reply.status(400).send({ error: "GOOGLE_PROFILE_FETCH_FAILED" });
   }
@@ -4931,17 +6203,19 @@ const { code, state, mode } = querySchema.parse(request.query);
     data: { lastLoginAt: new Date() },
   });
 
-const token = await reply.jwtSign({ sub: user.id, email: user.email, role: user.role });
+  const token = await reply.jwtSign({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+  });
 
-if (mode === "bff") {
-  return reply.status(200).send({ token });
-}
+  if (mode === "bff") {
+    return reply.status(200).send({ token });
+  }
 
-reply.setCookie("fs_token", token, buildCookieOptions());
-return reply.redirect(`${env.APP_BASE_URL}/app`, 302);
-
+  reply.setCookie("fs_token", token, buildCookieOptions());
+  return reply.redirect(`${env.APP_BASE_URL}/app`, 302);
 });
-
 
 app.get("/profile", async (request, reply) => {
   try {
@@ -4964,21 +6238,26 @@ app.put("/profile", async (request, reply) => {
       });
     }
     const current = await getOrCreateProfile(user.id);
-    const existingProfile = (current.profile as Record<string, unknown> | null) ?? {};
+    const existingProfile =
+      (current.profile as Record<string, unknown> | null) ?? {};
     const existingMeasurements =
-      typeof existingProfile.measurements === "object" && existingProfile.measurements
+      typeof existingProfile.measurements === "object" &&
+      existingProfile.measurements
         ? (existingProfile.measurements as Record<string, unknown>)
         : {};
     const existingTraining =
-      typeof existingProfile.trainingPreferences === "object" && existingProfile.trainingPreferences
+      typeof existingProfile.trainingPreferences === "object" &&
+      existingProfile.trainingPreferences
         ? (existingProfile.trainingPreferences as Record<string, unknown>)
         : {};
     const existingNutrition =
-      typeof existingProfile.nutritionPreferences === "object" && existingProfile.nutritionPreferences
+      typeof existingProfile.nutritionPreferences === "object" &&
+      existingProfile.nutritionPreferences
         ? (existingProfile.nutritionPreferences as Record<string, unknown>)
         : {};
     const existingMacros =
-      typeof existingProfile.macroPreferences === "object" && existingProfile.macroPreferences
+      typeof existingProfile.macroPreferences === "object" &&
+      existingProfile.macroPreferences
         ? (existingProfile.macroPreferences as Record<string, unknown>)
         : {};
     const fallbackGoal =
@@ -5027,7 +6306,8 @@ app.put("/profile", async (request, reply) => {
                 ? existingNutrition.dislikes
                 : "",
         mealDistribution: normalizeMealDistribution(
-          data.nutritionPreferences?.mealDistribution ?? existingNutrition.mealDistribution
+          data.nutritionPreferences?.mealDistribution ??
+            existingNutrition.mealDistribution,
         ),
       },
       macroPreferences: {
@@ -5035,12 +6315,19 @@ app.put("/profile", async (request, reply) => {
         ...data.macroPreferences,
       },
     };
-    if (nextProfile.trainingPreferences && typeof nextProfile.trainingPreferences === "object") {
+    if (
+      nextProfile.trainingPreferences &&
+      typeof nextProfile.trainingPreferences === "object"
+    ) {
       delete (nextProfile.trainingPreferences as Record<string, unknown>).goal;
     }
-    if (nextProfile.nutritionPreferences && typeof nextProfile.nutritionPreferences === "object") {
+    if (
+      nextProfile.nutritionPreferences &&
+      typeof nextProfile.nutritionPreferences === "object"
+    ) {
       delete (nextProfile.nutritionPreferences as Record<string, unknown>).goal;
-      delete (nextProfile.nutritionPreferences as Record<string, unknown>).dislikes;
+      delete (nextProfile.nutritionPreferences as Record<string, unknown>)
+        .dislikes;
     }
     const updated = await prisma.userProfile.update({
       where: { userId: user.id },
@@ -5052,7 +6339,7 @@ app.put("/profile", async (request, reply) => {
   }
 });
 
-app.get("/billing/status", async (request, reply) => {
+const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     const user = await requireUser(request);
     const query = request.query as { sync?: string };
@@ -5065,16 +6352,29 @@ app.get("/billing/status", async (request, reply) => {
         app.log.warn({ err: error, userId: user.id }, "billing sync failed");
       }
     }
-    const refreshedUser = query?.sync === "1" ? await prisma.user.findUnique({ where: { id: user.id } }) : user;
+    const refreshedUser =
+      query?.sync === "1"
+        ? await prisma.user.findUnique({ where: { id: user.id } })
+        : user;
     if (!refreshedUser) {
       return reply.status(404).send({ error: "USER_NOT_FOUND" });
     }
     const rawPlan = refreshedUser.plan ?? "FREE";
-    const subscriptionStatus = syncError ? null : refreshedUser.subscriptionStatus ?? null;
-    const isActive = syncError ? false : isActiveSubscriptionStatus(subscriptionStatus);
+    const subscriptionStatus = syncError
+      ? null
+      : (refreshedUser.subscriptionStatus ?? null);
+    const billingStatus = resolveBillingStatusReason(subscriptionStatus);
+    const isActive = !syncError && billingStatus === "active";
     const tokenExpiryAt = getUserTokenExpiryAt(refreshedUser);
-    const tokensExpired = tokenExpiryAt ? tokenExpiryAt.getTime() < Date.now() : false;
-    const tokens = tokensExpired ? 0 : getEffectiveTokenBalance(refreshedUser);
+    const tokensExpired = tokenExpiryAt
+      ? tokenExpiryAt.getTime() < Date.now()
+      : false;
+    const effectiveTokenBalance = tokensExpired ? 0 : getEffectiveTokenBalance(refreshedUser);
+    const planAllowance = typeof refreshedUser.aiTokenMonthlyAllowance === "number" ? refreshedUser.aiTokenMonthlyAllowance : 0;
+    const tokens = resolveAiTokens({
+      subscriptionStatus,
+      planMonthlyAllowance: Math.min(planAllowance, effectiveTokenBalance),
+    });
     const plan: SubscriptionPlan = syncError || !isActive ? "FREE" : rawPlan;
     const isPaid = plan !== "FREE";
     const isPro = plan === "PRO";
@@ -5086,13 +6386,31 @@ app.get("/billing/status", async (request, reply) => {
       tokens,
       tokensExpiresAt: tokenExpiryAt ? tokenExpiryAt.toISOString() : null,
       subscriptionStatus,
+      billingStatus,
       availablePlans,
     };
-    app.log.info({ userId: refreshedUser.id, plan: response.plan, tokens: response.tokens }, "billing status");
+    app.log.info(
+      {
+        userId: refreshedUser.id,
+        plan: response.plan,
+        tokens: response.tokens,
+      },
+      "billing status",
+    );
     return reply.status(200).send(response);
   } catch (error) {
     return handleRequestError(reply, error);
   }
+};
+
+// Route orchestration (modular domains first, preserving current registration order).
+registerBillingRoutes(app, {
+  billingCheckoutHandler,
+  billingPlansHandler,
+  billingPortalHandler,
+  billingAdminResetCustomerLinkHandler,
+  billingStripeWebhookHandler,
+  billingStatusHandler,
 });
 
 app.get("/tracking", async (request, reply) => {
@@ -5121,8 +6439,13 @@ app.put("/tracking", async (request, reply) => {
       },
     });
     app.log.info(
-      { userId: user.id, checkins: data.checkins.length, foodLog: data.foodLog.length, workoutLog: data.workoutLog.length },
-      "tracking updated"
+      {
+        userId: user.id,
+        checkins: data.checkins.length,
+        foodLog: data.foodLog.length,
+        workoutLog: data.workoutLog.length,
+      },
+      "tracking updated",
     );
 
     return updated.tracking ?? defaultTracking;
@@ -5153,7 +6476,9 @@ app.post("/tracking", async (request, reply) => {
           },
         });
 
-        return reply.status(201).send(normalizeTrackingSnapshot(updated.tracking));
+        return reply
+          .status(201)
+          .send(normalizeTrackingSnapshot(updated.tracking));
       } catch (error) {
         lastError = error;
       }
@@ -5186,6 +6511,10 @@ app.delete("/tracking/:collection/:id", async (request, reply) => {
   }
 });
 
+// TODO(BETA-13, follow-up): keep migrating remaining inline routes into
+// register*Routes modules without changing behavior in this PR.
+// Remaining inline domains include: auth/profile, tracking, feed/recipes,
+// admin user management and dev-only endpoints.
 registerWeeklyReviewRoute(app, {
   requireUser,
   getOrCreateProfile,
@@ -5198,1194 +6527,103 @@ registerAdminAssignGymRoleRoutes(app, {
   handleRequestError,
 });
 
-app.get("/user-foods", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const foods = await prisma.userFood.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-    });
-    return foods;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
+registerNutritionRoutes(app, {
+  prisma,
+  requireUser,
+  handleRequestError,
+  userFoodSchema,
 });
 
-app.post("/user-foods", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const data = userFoodSchema.parse(request.body);
-    const food = await prisma.userFood.create({
-      data: {
-        ...data,
-        userId: user.id,
-      },
-    });
-    return reply.status(201).send(food);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
+registerAiRoutes(app, {
+  aiAccessGuard,
+  aiStrengthDomainGuard,
+  aiNutritionDomainGuard,
+  requireUser,
+  getUserEntitlements,
+  toDateKey,
+  env,
+  prisma,
+  getAiTokenPayload,
+  getSecondsUntilNextUtcDay,
+  handleRequestError,
+  logAuthCookieDebug,
+  requireCompleteProfile,
+  aiTrainingSchema,
+  loadExerciseCatalogForAi,
+  parseDateInput,
+  buildCacheKey,
+  buildTrainingTemplate,
+  getEffectiveTokenBalance,
+  assertSufficientAiTokenBalance,
+  getEstimatedAiFeatureTokens,
+  normalizeTrainingPlanDays,
+  applyPersonalization,
+  assertTrainingMatchesRequest,
+  resolveTrainingPlanExerciseIds,
+  saveTrainingPlan,
+  storeAiContent,
+  getCachedAiPayload,
+  parseTrainingPlanPayload,
+  saveCachedAiPayload,
+  enforceAiQuota,
+  buildTrainingPrompt,
+  formatExerciseCatalogForPrompt,
+  extractTopLevelJson,
+  chargeAiUsage,
+  aiPricing,
+  callOpenAi,
+  getUserTokenExpiryAt,
+  extractExactProviderUsage,
+  aiNutritionSchema,
+  getSafeValidationIssues,
+  normalizeNutritionPlanDays,
+  logNutritionMealsPerDay,
+  normalizeNutritionMealsPerDay,
+  applyNutritionCatalogResolution,
+  assertNutritionMatchesRequest,
+  saveNutritionPlan,
+  parseNutritionPlanPayload,
+  applyRecipeScalingToPlan,
+  buildNutritionTemplate,
+  buildNutritionPrompt,
+  chargeAiUsageForResult,
+  createHttpError,
+  aiGenerateTrainingSchema,
+  buildDeterministicTrainingFallbackPlan,
+  createOpenAiClient,
+  trainingPlanJsonSchema,
+  mapExperienceLevelToTrainingPlanLevel,
+  buildRetryFeedbackFromContext,
+  buildTwoMealSplitRetryInstruction,
+  nutritionPlanJsonSchema,
+  buildMealKcalGuidance,
+  NUTRITION_MATH_TOLERANCES,
+  validateNutritionMath,
+  parseJsonFromText,
+  parseLargestJsonFromText,
+  parseTopLevelJsonFromText,
+  AiParseError,
+  aiTrainingPlanResponseSchema,
+  aiNutritionPlanResponseSchema,
+  resolveTrainingPlanWithDeterministicFallback,
+  assertTrainingLevelConsistency,
+  upsertExercisesFromPlan,
+  classifyAiGenerateError,
+  findInvalidTrainingPlanExerciseIds,
+  resolveTrainingPlanExerciseIdsWithCatalog,
+  summarizeTrainingPlan,
+  persistAiUsageLog,
+  buildUsageTotals,
+  aiTipSchema,
+  buildTipTemplate,
+  safeStoreAiContent,
+  buildTipPrompt,
+  resolveNutritionPlanRecipeReferences,
+  normalizeNutritionPlanDaysWithLabels,
+  applyNutritionPlanVarietyGuard,
+  resolveNutritionPlanRecipeIds,
 });
 
-app.put("/user-foods/:id", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const params = z.object({ id: z.string().min(1) }).parse(request.params);
-    const data = userFoodSchema.parse(request.body);
-    const updated = await prisma.userFood.updateMany({
-      where: { id: params.id, userId: user.id },
-      data,
-    });
-    if (updated.count === 0) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    const food = await prisma.userFood.findUnique({ where: { id: params.id } });
-    return food;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.delete("/user-foods/:id", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const params = z.object({ id: z.string().min(1) }).parse(request.params);
-    const deleted = await prisma.userFood.deleteMany({
-      where: { id: params.id, userId: user.id },
-    });
-    if (deleted.count === 0) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return reply.status(204).send();
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
-  try {
-    const authRequest = request as AuthenticatedRequest;
-    const user = authRequest.currentUser ?? (await requireUser(request));
-    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
-    const dateKey = toDateKey();
-    const limit = entitlements.modules.ai.enabled ? env.AI_DAILY_LIMIT_PRO : env.AI_DAILY_LIMIT_FREE;
-    const usage = await prisma.aiUsage.findUnique({
-      where: { userId_date: { userId: user.id, date: dateKey } },
-    });
-    const usedToday = usage?.count ?? 0;
-    const remainingToday = limit > 0 ? Math.max(0, limit - usedToday) : 0;
-    const aiTokenPayload = getAiTokenPayload(user, entitlements);
-    return reply.status(200).send({
-      subscriptionPlan: entitlements.legacy.tier,
-      plan: entitlements.legacy.tier,
-      dailyLimit: limit,
-      usedToday,
-      remainingToday,
-      retryAfterSec: getSecondsUntilNextUtcDay(),
-      aiTokenBalance: aiTokenPayload.aiTokenBalance,
-      aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
-      entitlements,
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/ai/training-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/ai/training-plan");
-    const authRequest = request as AuthenticatedRequest;
-    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan" }));
-    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
-    await requireCompleteProfile(user.id);
-    const data = aiTrainingSchema.parse(request.body);
-    const exerciseCatalog = await loadExerciseCatalogForAi();
-    const expectedDays = Math.min(data.daysPerWeek, 7);
-    const daysCount = Math.min(data.daysCount ?? 7, 14);
-    const startDate = parseDateInput(data.startDate) ?? new Date();
-    const cacheKey = buildCacheKey("training", data);
-    const template = buildTrainingTemplate(data, exerciseCatalog);
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta = getAiTokenPayload(user, entitlements);
-    const shouldChargeAi = !entitlements.role.adminOverride;
-
-    if (template) {
-      const normalized = normalizeTrainingPlanDays(template, startDate, daysCount, expectedDays);
-      const personalized = applyPersonalization(normalized, { name: data.name });
-      assertTrainingMatchesRequest(personalized, expectedDays);
-      const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
-      await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
-      await storeAiContent(user.id, "training", "template", resolvedPlan);
-      return reply.status(200).send({
-        plan: resolvedPlan,
-        ...aiMeta,
-      });
-    }
-
-    const cached = await getCachedAiPayload(cacheKey);
-    if (cached) {
-      try {
-        const validated = parseTrainingPlanPayload(cached, startDate, daysCount, expectedDays);
-        assertTrainingMatchesRequest(validated, expectedDays);
-        const personalized = applyPersonalization(validated, { name: data.name });
-        const resolvedPlan = resolveTrainingPlanExerciseIds(personalized, exerciseCatalog);
-        await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
-        await storeAiContent(user.id, "training", "cache", resolvedPlan);
-        return reply.status(200).send({
-          plan: resolvedPlan,
-          ...aiMeta,
-        });
-      } catch (error) {
-        app.log.warn({ err: error, cacheKey }, "cached training plan invalid, regenerating");
-      }
-    }
-
-    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
-    let payload: Record<string, unknown>;
-    let aiTokenBalance: number | null = null;
-    let aiResult: OpenAiResponse | null = null;
-    let aiAttemptUsed: number | null = null;
-    let debit:
-      | {
-          costCents: number;
-          balanceBefore: number;
-          balanceAfter: number;
-          totalTokens: number;
-          model: string;
-          usage: { promptTokens: number; completionTokens: number; totalTokens: number };
-        }
-      | undefined;
-
-    const fetchTrainingPayload = async (attempt: number) => {
-      const prompt = buildTrainingPrompt(data, attempt > 0, formatExerciseCatalogForPrompt(exerciseCatalog));
-      const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-        responseFormat: {
-          type: "json_schema",
-          json_schema: {
-            name: "training_plan",
-            schema: trainingPlanJsonSchema as any,
-            strict: true,
-          },
-        },
-        model: "gpt-4o-mini",
-        maxTokens: 9000,
-        retryOnParseError: false,
-      });
-      payload = result.payload;
-      if (shouldChargeAi) {
-        aiResult = result;
-        aiAttemptUsed = attempt;
-      }
-      return parseTrainingPlanPayload(payload, startDate, daysCount, expectedDays);
-    };
-
-    let parsedPayload: z.infer<typeof aiTrainingPlanResponseSchema>;
-    try {
-      parsedPayload = await fetchTrainingPayload(0);
-      assertTrainingMatchesRequest(parsedPayload, expectedDays);
-    } catch (error) {
-      const typed = error as { code?: string };
-      if (typed.code === "AI_PARSE_ERROR") {
-        app.log.warn({ err: error }, "training plan invalid, retrying with strict prompt");
-        app.log.info(
-          { userId: user.id, feature: "training", charged: false, failureReason: "parse_error", attempt: 0 },
-          "ai charge skipped"
-        );
-        parsedPayload = await fetchTrainingPayload(1);
-        assertTrainingMatchesRequest(parsedPayload, expectedDays);
-      } else {
-        throw error;
-      }
-    }
-    const personalized = applyPersonalization(parsedPayload, { name: data.name });
-    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
-      personalized,
-      exerciseCatalog,
-      {
-        daysPerWeek: data.daysPerWeek,
-        level: data.level,
-        goal: data.goal,
-        equipment: data.equipment,
-      },
-      startDate,
-      { userId: user.id, route: "/ai/training-plan" }
-    );
-    await saveCachedAiPayload(cacheKey, "training", resolvedPlan);
-    await saveTrainingPlan(user.id, resolvedPlan, startDate, daysCount, data);
-    await storeAiContent(user.id, "training", "ai", resolvedPlan);
-    if (shouldChargeAi && aiResult) {
-      const balanceBefore = effectiveTokens;
-      const charged = await chargeAiUsageForResult({
-        prisma,
-        pricing: aiPricing,
-        user: {
-          id: user.id,
-          plan: user.plan,
-          aiTokenBalance: user.aiTokenBalance ?? 0,
-          aiTokenResetAt: user.aiTokenResetAt,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        },
-        feature: "training",
-        result: aiResult,
-        meta: { attempt: aiAttemptUsed ?? 0 },
-        createHttpError,
-      });
-      aiTokenBalance = charged.balance;
-      debit =
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : {
-              costCents: charged.costCents,
-              balanceBefore,
-              balanceAfter: charged.balance,
-              totalTokens: charged.totalTokens,
-              model: charged.model,
-              usage: charged.usage,
-            };
-      app.log.info(
-        {
-          userId: user.id,
-          feature: "training",
-          balanceBefore,
-          balanceAfter: charged.balance,
-          charged: true,
-          attempt: aiAttemptUsed ?? 0,
-        },
-        "ai charge complete"
-      );
-    } else if (shouldChargeAi) {
-      app.log.info(
-        { userId: user.id, feature: "training", charged: false, failureReason: "missing_ai_result" },
-        "ai charge skipped"
-      );
-    }
-    return reply.status(200).send({
-      plan: resolvedPlan,
-      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
-      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
-      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
-      ...(debit ? { debit } : {}),
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/ai/nutrition-plan", { preHandler: aiAccessGuard }, async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/ai/nutrition-plan");
-    const authRequest = request as AuthenticatedRequest;
-    const user = authRequest.currentUser ??
-      (await requireUser(request, { logContext: "/ai/nutrition-plan" }));
-    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
-    await requireCompleteProfile(user.id);
-    const data = aiNutritionSchema.parse(request.body);
-    const expectedMealsPerDay = Math.min(data.mealsPerDay, 6);
-    const daysCount = Math.min(data.daysCount ?? 7, 14);
-    const startDate = parseDateInput(data.startDate) ?? new Date();
-    app.log.info(
-      { userId: user.id, mealsPerDay: expectedMealsPerDay, daysCount },
-      "nutrition plan request mealsPerDay"
-    );
-    await prisma.aiPromptCache.deleteMany({
-      where: {
-        type: "nutrition",
-        key: { startsWith: "nutrition:" },
-        NOT: { key: { startsWith: "nutrition:v2:" } },
-      },
-    });
-    const cacheKey = buildCacheKey("nutrition:v2", data);
-    const recipeQuery = data.preferredFoods?.split(",")[0]?.trim();
-    const recipeWhere = recipeQuery
-      ? {
-          name: { contains: recipeQuery, mode: Prisma.QueryMode.insensitive },
-        }
-      : undefined;
-    const recipes = await prisma.recipe.findMany({
-      ...(recipeWhere ? { where: recipeWhere } : {}),
-      take: 100,
-      orderBy: { name: "asc" },
-      include: { ingredients: true },
-    });
-    const template = buildNutritionTemplate(data);
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta = getAiTokenPayload(user, entitlements);
-    const shouldChargeAi = !entitlements.role.adminOverride;
-
-    if (template) {
-      const normalized = normalizeNutritionPlanDays(template, startDate, daysCount);
-      logNutritionMealsPerDay(normalized, expectedMealsPerDay, "before_normalize");
-      const normalizedMeals = normalizeNutritionMealsPerDay(normalized, expectedMealsPerDay);
-      const resolvedCatalogMeals = applyNutritionCatalogResolution(
-        normalizedMeals,
-        recipes.map((recipe) => ({
-          id: recipe.id,
-          name: recipe.name,
-          description: recipe.description,
-          calories: recipe.calories,
-          protein: recipe.protein,
-          carbs: recipe.carbs,
-          fat: recipe.fat,
-          steps: recipe.steps,
-          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-            name: ingredient.name,
-            grams: ingredient.grams,
-          })),
-        }))
-      );
-      logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
-      const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
-      assertNutritionMatchesRequest(personalized, expectedMealsPerDay, daysCount);
-      await saveNutritionPlan(user.id, personalized, startDate, daysCount);
-      await storeAiContent(user.id, "nutrition", "template", personalized);
-      return reply.status(200).send({
-        plan: personalized,
-        ...aiMeta,
-      });
-    }
-
-    const cached = await getCachedAiPayload(cacheKey);
-    if (cached) {
-      try {
-        const validated = parseNutritionPlanPayload(cached, startDate, daysCount);
-        assertNutritionMatchesRequest(validated, expectedMealsPerDay, daysCount);
-        const scaled = applyRecipeScalingToPlan(
-          validated,
-          recipes.map((recipe) => ({
-            id: recipe.id,
-            name: recipe.name,
-            description: recipe.description,
-            calories: recipe.calories,
-            protein: recipe.protein,
-            carbs: recipe.carbs,
-            fat: recipe.fat,
-            steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-              name: ingredient.name,
-              grams: ingredient.grams,
-            })),
-          }))
-        );
-        logNutritionMealsPerDay(scaled, expectedMealsPerDay, "before_normalize");
-        const normalizedMeals = normalizeNutritionMealsPerDay(scaled, expectedMealsPerDay);
-        const resolvedCatalogMeals = applyNutritionCatalogResolution(
-          normalizedMeals,
-          recipes.map((recipe) => ({
-            id: recipe.id,
-            name: recipe.name,
-            description: recipe.description,
-            calories: recipe.calories,
-            protein: recipe.protein,
-            carbs: recipe.carbs,
-            fat: recipe.fat,
-            steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-              name: ingredient.name,
-              grams: ingredient.grams,
-            })),
-          }))
-        );
-        logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
-        assertNutritionMatchesRequest(resolvedCatalogMeals, expectedMealsPerDay, daysCount);
-        const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
-        await saveNutritionPlan(user.id, personalized, startDate, daysCount);
-        await storeAiContent(user.id, "nutrition", "cache", personalized);
-        return reply.status(200).send({
-          plan: personalized,
-          ...aiMeta,
-        });
-      } catch (error) {
-        app.log.warn({ err: error, cacheKey }, "cached nutrition plan invalid, regenerating");
-      }
-    }
-
-    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
-    let payload: Record<string, unknown>;
-    let aiTokenBalance: number | null = null;
-    let aiResult: OpenAiResponse | null = null;
-    let aiAttemptUsed: number | null = null;
-    let debit:
-      | {
-          costCents: number;
-          balanceBefore: number;
-          balanceAfter: number;
-          totalTokens: number;
-          model: string;
-          usage: { promptTokens: number; completionTokens: number; totalTokens: number };
-        }
-      | undefined;
-    const fetchNutritionPayload = async (attempt: number) => {
-      const promptAttempt = buildNutritionPrompt(
-        data,
-        recipes.map((recipe) => ({
-          id: recipe.id,
-          name: recipe.name,
-          description: recipe.description,
-          calories: recipe.calories,
-          protein: recipe.protein,
-          carbs: recipe.carbs,
-          fat: recipe.fat,
-          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-            name: ingredient.name,
-            grams: ingredient.grams,
-          })),
-          steps: recipe.steps,
-        })),
-        attempt > 0
-      );
-      if (shouldChargeAi) {
-        const result = await callOpenAi(promptAttempt, attempt, extractTopLevelJson, {
-       
-          responseFormat: {
-  type: "json_schema",
-  json_schema: {
-    name: "nutrition_plan",
-    schema: nutritionPlanJsonSchema as any,
-    strict: true,
-  },
-},
-   model: "gpt-4o-mini",
-          maxTokens: 1200,
-          retryOnParseError: false,
-        });
-        payload = result.payload;
-        aiResult = result;
-        aiAttemptUsed = attempt;
-      } else {
-        const result = await callOpenAi(promptAttempt, attempt, extractTopLevelJson, {
-      
-          responseFormat: {
-  type: "json_schema",
-  json_schema: {
-    name: "nutrition_plan",
-    schema: nutritionPlanJsonSchema as any,
-    strict: true,
-  },
-},
-   model: "gpt-4o-mini",
-          maxTokens: 1200,
-          retryOnParseError: false,
-        });
-        payload = result.payload;
-      }
-      return parseNutritionPlanPayload(payload, startDate, daysCount);
-    };
-
-    let parsedPayload: z.infer<typeof aiNutritionPlanResponseSchema>;
-    try {
-      parsedPayload = await fetchNutritionPayload(0);
-      assertNutritionMatchesRequest(parsedPayload, expectedMealsPerDay, daysCount);
-    } catch (error) {
-      const typed = error as { code?: string };
-      if (typed.code === "AI_PARSE_ERROR") {
-        app.log.warn({ err: error }, "nutrition plan invalid, retrying with strict prompt");
-        app.log.info(
-          { userId: user.id, feature: "nutrition", charged: false, failureReason: "parse_error", attempt: 0 },
-          "ai charge skipped"
-        );
-        parsedPayload = await fetchNutritionPayload(1);
-        assertNutritionMatchesRequest(parsedPayload, expectedMealsPerDay, daysCount);
-      } else {
-        throw error;
-      }
-    }
-    const scaledPayload = applyRecipeScalingToPlan(
-      parsedPayload,
-      recipes.map((recipe) => ({
-        id: recipe.id,
-        name: recipe.name,
-        description: recipe.description,
-        calories: recipe.calories,
-        protein: recipe.protein,
-        carbs: recipe.carbs,
-        fat: recipe.fat,
-        steps: recipe.steps,
-        ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-          name: ingredient.name,
-          grams: ingredient.grams,
-        })),
-      }))
-    );
-    logNutritionMealsPerDay(scaledPayload, expectedMealsPerDay, "before_normalize");
-    const normalizedMeals = normalizeNutritionMealsPerDay(scaledPayload, expectedMealsPerDay);
-    const resolvedCatalogMeals = applyNutritionCatalogResolution(
-      normalizedMeals,
-      recipes.map((recipe) => ({
-        id: recipe.id,
-        name: recipe.name,
-        description: recipe.description,
-        calories: recipe.calories,
-        protein: recipe.protein,
-        carbs: recipe.carbs,
-        fat: recipe.fat,
-        steps: recipe.steps,
-        ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-          name: ingredient.name,
-          grams: ingredient.grams,
-        })),
-      }))
-    );
-    logNutritionMealsPerDay(resolvedCatalogMeals, expectedMealsPerDay, "after_normalize");
-    assertNutritionMatchesRequest(resolvedCatalogMeals, expectedMealsPerDay, daysCount);
-    await saveNutritionPlan(user.id, resolvedCatalogMeals, startDate, daysCount);
-    await saveCachedAiPayload(cacheKey, "nutrition", resolvedCatalogMeals);
-    const personalized = applyPersonalization(resolvedCatalogMeals, { name: data.name });
-    await storeAiContent(user.id, "nutrition", "ai", personalized);
-    if (shouldChargeAi && aiResult) {
-      const balanceBefore = effectiveTokens;
-      const charged = await chargeAiUsageForResult({
-        prisma,
-        pricing: aiPricing,
-        user: {
-          id: user.id,
-          plan: user.plan,
-          aiTokenBalance: user.aiTokenBalance ?? 0,
-          aiTokenResetAt: user.aiTokenResetAt,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        },
-        feature: "nutrition",
-        result: aiResult,
-        meta: { attempt: aiAttemptUsed ?? 0 },
-        createHttpError,
-      });
-      aiTokenBalance = charged.balance;
-      debit =
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : {
-              costCents: charged.costCents,
-              balanceBefore,
-              balanceAfter: charged.balance,
-              totalTokens: charged.totalTokens,
-              model: charged.model,
-              usage: charged.usage,
-            };
-      app.log.info(
-        {
-          userId: user.id,
-          feature: "nutrition",
-          balanceBefore,
-          balanceAfter: charged.balance,
-          charged: true,
-          attempt: aiAttemptUsed ?? 0,
-        },
-        "ai charge complete"
-      );
-    } else if (shouldChargeAi) {
-      app.log.info(
-        { userId: user.id, feature: "nutrition", charged: false, failureReason: "missing_ai_result" },
-        "ai charge skipped"
-      );
-    }
-    return reply.status(200).send({
-      plan: personalized,
-      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
-      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
-      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
-      ...(debit ? { debit } : {}),
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/ai/training-plan/generate", { preHandler: aiAccessGuard }, async (request, reply) => {
-  try {
-    const authRequest = request as AuthenticatedRequest;
-    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan/generate" }));
-    const payload = aiGenerateTrainingSchema.parse(request.body);
-    if (payload.userId && payload.userId !== user.id) {
-      throw createHttpError(400, "INVALID_INPUT", { message: "userId must match authenticated user" });
-    }
-
-    const profileRecord = await getOrCreateProfile(user.id);
-    const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
-    const trainingPreferences = (profile.trainingPreferences ?? {}) as Record<string, unknown>;
-    const levelFromProfile =
-      trainingPreferences.level === "beginner" ||
-      trainingPreferences.level === "intermediate" ||
-      trainingPreferences.level === "advanced"
-        ? trainingPreferences.level
-        : payload.experienceLevel;
-
-    const trainingInput: z.infer<typeof aiTrainingSchema> = {
-      age: typeof profile.age === "number" ? profile.age : 30,
-      sex: profile.sex === "female" ? "female" : "male",
-      level: payload.experienceLevel ?? levelFromProfile,
-      goal: payload.goal,
-      equipment: trainingPreferences.equipment === "home" ? "home" : "gym",
-      daysPerWeek: payload.daysPerWeek,
-      sessionTime:
-        trainingPreferences.sessionTime === "short" ||
-        trainingPreferences.sessionTime === "medium" ||
-        trainingPreferences.sessionTime === "long"
-          ? trainingPreferences.sessionTime
-          : "medium",
-      focus:
-        trainingPreferences.focus === "upperLower" || trainingPreferences.focus === "ppl"
-          ? trainingPreferences.focus
-          : "full",
-      timeAvailableMinutes:
-        trainingPreferences.workoutLength === "30m"
-          ? 30
-          : trainingPreferences.workoutLength === "60m"
-            ? 60
-            : 45,
-      includeCardio: typeof trainingPreferences.includeCardio === "boolean" ? trainingPreferences.includeCardio : true,
-      includeMobilityWarmups:
-        typeof trainingPreferences.includeMobilityWarmups === "boolean"
-          ? trainingPreferences.includeMobilityWarmups
-          : true,
-      startDate: toIsoDateString(new Date()),
-      daysCount: payload.daysPerWeek,
-      restrictions: payload.constraints,
-      injuries: typeof profile.injuries === "string" ? profile.injuries : undefined,
-      goals: Array.isArray(profile.goals) ? (profile.goals.filter((goal) => typeof goal === "string") as any) : undefined,
-    };
-
-    const expectedDays = trainingInput.daysPerWeek;
-    const startDate = parseDateInput(trainingInput.startDate) ?? new Date();
-    const exerciseCatalog = await loadExerciseCatalogForAi();
-
-    let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null = null;
-    let aiResult: OpenAiResponse | null = null;
-    let lastError: unknown = null;
-
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const prompt = `${buildTrainingPrompt(trainingInput, attempt > 0, formatExerciseCatalogForPrompt(exerciseCatalog))} ${
-          attempt > 0
-            ? "REINTENTO OBLIGATORIO: corrige la salida para que cumpla exactamente los días solicitados y volumen por nivel."
-            : ""
-        }`;
-        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-          responseFormat: {
-            type: "json_schema",
-            json_schema: {
-              name: "training_plan",
-              schema: trainingPlanJsonSchema as any,
-              strict: true,
-            },
-          },
-          model: "gpt-4o-mini",
-          maxTokens: 4000,
-          retryOnParseError: false,
-        });
-        const candidate = parseTrainingPlanPayload(result.payload, startDate, trainingInput.daysCount ?? expectedDays, expectedDays);
-        assertTrainingMatchesRequest(candidate, expectedDays);
-        assertTrainingLevelConsistency(candidate, payload.experienceLevel);
-        parsedPlan = candidate;
-        aiResult = result;
-        break;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    if (!parsedPlan) {
-      app.log.warn(
-        {
-          userId: user.id,
-          cause: (lastError as { code?: string; message?: string })?.code ?? "UNKNOWN",
-        },
-        "training plan AI failed, returning deterministic fallback"
-      );
-      parsedPlan = buildDeterministicTrainingFallbackPlan(
-        {
-          daysPerWeek: trainingInput.daysPerWeek,
-          level: trainingInput.level,
-          goal: trainingInput.goal,
-          startDate,
-          equipment: trainingInput.equipment,
-        },
-        exerciseCatalog
-      );
-    }
-
-    const resolvedPlan = resolveTrainingPlanWithDeterministicFallback(
-      parsedPlan,
-      exerciseCatalog,
-      {
-        daysPerWeek: trainingInput.daysPerWeek,
-        level: trainingInput.level,
-        goal: trainingInput.goal,
-        equipment: trainingInput.equipment,
-      },
-      startDate,
-      { userId: user.id, route: "/ai/training-plan/generate" }
-    );
-    await upsertExercisesFromPlan(resolvedPlan);
-    const savedPlan = await saveTrainingPlan(user.id, resolvedPlan, startDate, trainingInput.daysCount ?? expectedDays, trainingInput);
-    await safeStoreAiContent(user.id, "training", "ai", resolvedPlan);
-
-    if (aiResult) {
-      await persistAiUsageLog({
-        prisma,
-        userId: user.id,
-        feature: "training-generate",
-        provider: "openai",
-        model: aiResult.model ?? "unknown",
-        requestId: aiResult.requestId,
-        usage: aiResult.usage,
-        totals: buildUsageTotals(aiResult.usage),
-        mode: "AI",
-      });
-    } else {
-      const fallbackCause =
-        (lastError as { code?: string; message?: string } | null)?.code ??
-        (lastError as { message?: string } | null)?.message ??
-        "AI_UNAVAILABLE";
-      await persistAiUsageLog({
-        prisma,
-        userId: user.id,
-        feature: "training-generate",
-        provider: "openai",
-        model: "fallback",
-        totals: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        mode: "FALLBACK",
-        fallbackReason: fallbackCause,
-      });
-    }
-
-    return reply.status(200).send({
-      planId: savedPlan.id,
-      summary: summarizeTrainingPlan(resolvedPlan),
-      plan: resolvedPlan,
-      aiRequestId: aiResult?.requestId ?? null,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
-    }
-
-    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
-    if (typed.code === "EXERCISE_CATALOG_EMPTY") {
-      return reply.status(422).send({
-        error: "EXERCISE_CATALOG_EMPTY",
-        debug: {
-          cause: typeof typed.debug?.cause === "string" ? typed.debug.cause : "CATALOG_EMPTY",
-          ...(typeof typed.debug?.hint === "string" ? { hint: typed.debug.hint } : {}),
-        },
-      });
-    }
-
-    if (typed.code === "EXERCISE_CATALOG_UNAVAILABLE") {
-      return reply.status(503).send({
-        error: "EXERCISE_CATALOG_UNAVAILABLE",
-        debug: {
-          cause: typeof typed.debug?.cause === "string" ? typed.debug.cause : "CATALOG_INACCESSIBLE",
-          ...(typeof typed.debug?.hint === "string" ? { hint: typed.debug.hint } : {}),
-        },
-      });
-    }
-
-    if (typed.code === "AI_NOT_CONFIGURED") {
-      return reply.status(503).send({
-        error: "AI_NOT_CONFIGURED",
-        ...(typed.debug ? { debug: typed.debug } : {}),
-      });
-    }
-
-    if (typed.code === "AI_PARSE_ERROR" || typed.code === "AI_EMPTY_RESPONSE" || typed.code === "INVALID_AI_OUTPUT") {
-      return reply.status(422).send({ error: "INVALID_AI_OUTPUT" });
-    }
-
-    if (typed.code === "AI_REQUEST_FAILED" || typed.code === "AI_AUTH_FAILED") {
-      const debug = resolveTrainingProviderFailureDebug(error);
-      const cause = resolveTrainingProviderFailureCause(error);
-      return reply.status(503).send({
-        error: "AI_REQUEST_FAILED",
-        ...(debug ? { debug: { ...debug, cause } } : { debug: { cause } }),
-      });
-    }
-
-    if (typed.statusCode && typed.statusCode < 500) {
-      return reply.status(typed.statusCode).send({
-        error: typed.code ?? "REQUEST_ERROR",
-        ...(typed.debug ? { debug: typed.debug } : {}),
-      });
-    }
-
-    app.log.error({ err: error, route: "/ai/training-plan/generate" }, "training plan generation failed");
-    return reply.status(503).send({
-      error: "TRAINING_PLAN_GENERATION_FAILED",
-      debug: {
-        cause: "UNEXPECTED_ERROR",
-        reqId: request.id,
-        message: "Unexpected error while generating training plan",
-      },
-    });
-  }
-});
-
-app.post("/ai/nutrition-plan/generate", { preHandler: aiAccessGuard }, async (request, reply) => {
-  try {
-    const authRequest = request as AuthenticatedRequest;
-    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/nutrition-plan/generate" }));
-    const payload = aiGenerateNutritionSchema.parse(request.body);
-    if (payload.userId && payload.userId !== user.id) {
-      throw createHttpError(400, "INVALID_INPUT", { message: "userId must match authenticated user" });
-    }
-
-    const profileRecord = await getOrCreateProfile(user.id);
-    const profile = (profileRecord.profile ?? {}) as Record<string, unknown>;
-    const nutritionPreferences = (profile.nutritionPreferences ?? {}) as Record<string, unknown>;
-
-    const nutritionInput: z.infer<typeof aiNutritionSchema> = {
-      age: typeof profile.age === "number" ? profile.age : 30,
-      sex: profile.sex === "female" ? "female" : "male",
-      goal:
-        profile.goal === "cut" || profile.goal === "maintain" || profile.goal === "bulk"
-          ? profile.goal
-          : "maintain",
-      mealsPerDay: payload.mealsPerDay,
-      calories: payload.targetKcal,
-      startDate: payload.startDate || toIsoDateString(new Date()),
-      daysCount: payload.daysCount ?? 7,
-      dietaryRestrictions: [payload.dietType, nutritionPreferences.dietaryPrefs]
-        .filter((item): item is string => typeof item === "string" && item.length > 0)
-        .join(", "),
-      dietType:
-        payload.dietType ??
-        (nutritionPreferences.dietType === "balanced" ||
-        nutritionPreferences.dietType === "mediterranean" ||
-        nutritionPreferences.dietType === "keto" ||
-        nutritionPreferences.dietType === "vegetarian" ||
-        nutritionPreferences.dietType === "vegan" ||
-        nutritionPreferences.dietType === "pescatarian" ||
-        nutritionPreferences.dietType === "paleo" ||
-        nutritionPreferences.dietType === "flexible"
-          ? nutritionPreferences.dietType
-          : undefined),
-      allergies: Array.isArray(nutritionPreferences.allergies)
-        ? nutritionPreferences.allergies.filter((item): item is string => typeof item === "string")
-        : [],
-      preferredFoods: typeof nutritionPreferences.preferredFoods === "string" ? nutritionPreferences.preferredFoods : "",
-      dislikedFoods: typeof nutritionPreferences.dislikedFoods === "string" ? nutritionPreferences.dislikedFoods : "",
-      mealDistribution: nutritionPreferences.mealDistribution as z.infer<typeof mealDistributionSchema> | undefined,
-    };
-
-    const startDate = payload.startDate ? parseDateInput(payload.startDate) ?? new Date() : new Date();
-    const daysCount = payload.daysCount ?? 7;
-    assertNutritionRequestMapping(payload, nutritionInput, daysCount);
-    let parsedPlan: z.infer<typeof aiNutritionPlanResponseSchema> | null = null;
-    let aiResult: OpenAiResponse | null = null;
-    let lastError: unknown = null;
-    let lastRawOutput = "";
-    let retryFeedback = "";
-    const resolvedDietType = payload.dietType ?? nutritionInput.dietType ?? "balanced";
-    const recipes = await prisma.recipe.findMany({
-      take: 100,
-      orderBy: { name: "asc" },
-      include: { ingredients: true },
-    });
-
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const prompt = `${buildNutritionPrompt(nutritionInput, recipes.map((recipe) => ({
-          id: recipe.id,
-          name: recipe.name,
-          description: recipe.description,
-          calories: recipe.calories,
-          protein: recipe.protein,
-          carbs: recipe.carbs,
-          fat: recipe.fat,
-          ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-            name: ingredient.name,
-            grams: ingredient.grams,
-          })),
-          steps: recipe.steps,
-        })), attempt > 0, retryFeedback)} ` +
-          `Macros objetivo por día (con tolerancia): proteína ${payload.macroTargets.proteinG}g, carbohidratos ${payload.macroTargets.carbsG}g, grasas ${payload.macroTargets.fatsG}g. ` +
-          `Calorías objetivo por día: ${payload.targetKcal}. ` +
-          "REGLA DURA: cada día debe cumplir proteína total >= objetivo de proteína (no menos). " +
-          "REGLA DURA: cada comida debe incluir una fuente proteica clara y suficiente para aportar proteína real. " +
-          (resolvedDietType === "vegetarian"
-            ? "REGLA DURA VEGETARIANO: prioriza tofu, tempeh, seitán, legumbres, huevos, lácteos altos en proteína (si aplica) y proteína vegetal en polvo cuando haga falta. No uses carnes ni pescado. "
-            : "") +
-          "VERIFICACIÓN FINAL OBLIGATORIA: antes de responder, revisa expected vs actual por día y ajusta para que proteína/carbohidratos/grasas queden dentro de ±5g del objetivo diario sin cambiar calorías objetivo. " +
-          `${attempt > 0 ? "REINTENTO OBLIGATORIO: corrige expected vs actual reportado y cierra consistencia por comida y por día sin cambiar targetKcal total." : ""}`;
-        const result = await callOpenAi(prompt, attempt, extractTopLevelJson, {
-          responseFormat: {
-            type: "json_schema",
-            json_schema: {
-              name: "nutrition_plan",
-              schema: nutritionPlanJsonSchema as any,
-              strict: true,
-            },
-          },
-          model: "gpt-4o-mini",
-          maxTokens: 4000,
-          retryOnParseError: false,
-        });
-
-        lastRawOutput = JSON.stringify(result.payload);
-        const candidate = parseNutritionPlanPayload(result.payload, startDate, daysCount);
-        assertNutritionMatchesRequest(candidate, payload.mealsPerDay, daysCount);
-        const beforeNormalize = summarizeNutritionMath(candidate);
-        const calNormalized = normalizeNutritionCaloriesPerDay(candidate, payload.targetKcal);
-        const macroNormalized = normalizeNutritionMacrosPerDay(calNormalized, payload.macroTargets);
-        const finalNormalized = normalizeNutritionCaloriesPerDay(macroNormalized, payload.targetKcal);
-        const scaled = applyRecipeScalingToPlan(
-          finalNormalized,
-          recipes.map((recipe) => ({
-            id: recipe.id,
-            name: recipe.name,
-            description: recipe.description,
-            calories: recipe.calories,
-            protein: recipe.protein,
-            carbs: recipe.carbs,
-            fat: recipe.fat,
-            steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-              name: ingredient.name,
-              grams: ingredient.grams,
-            })),
-          }))
-        );
-        const finalWithCatalog = applyNutritionCatalogResolution(
-          scaled,
-          recipes.map((recipe) => ({
-            id: recipe.id,
-            name: recipe.name,
-            description: recipe.description,
-            calories: recipe.calories,
-            protein: recipe.protein,
-            carbs: recipe.carbs,
-            fat: recipe.fat,
-            steps: recipe.steps,
-            ingredients: recipe.ingredients.map((ingredient: { name: string; grams: number }) => ({
-              name: ingredient.name,
-              grams: ingredient.grams,
-            })),
-          }))
-        );
-        const afterNormalize = summarizeNutritionMath(finalWithCatalog);
-        app.log.info(
-          {
-            attempt,
-            beforeNormalize,
-            afterNormalize,
-          },
-          "nutrition normalization summary"
-        );
-        assertNutritionMath(finalWithCatalog, payload);
-        parsedPlan = finalWithCatalog;
-        aiResult = result;
-        break;
-      } catch (error) {
-        lastError = error;
-        retryFeedback = buildRetryFeedback(error);
-      }
-    }
-
-    if (!parsedPlan) {
-      const debug = getNutritionInvalidOutputDebug(lastError);
-      app.log.info(
-        {
-          userId: user.id,
-          startDate: payload.startDate ?? toIsoDateString(startDate),
-          daysCount,
-          persisted: false,
-          planId: null,
-          reasonCode: debug.reasonCode,
-        },
-        "nutrition plan generation result"
-      );
-      app.log.warn(
-        {
-          aiRequestId: aiResult?.requestId ?? null,
-          upstream_status:
-            typeof (lastError as { debug?: Record<string, unknown> })?.debug?.status === "number"
-              ? ((lastError as { debug?: Record<string, unknown> }).debug?.status as number)
-              : undefined,
-          error_kind: getNutritionErrorKind(lastError),
-          outputPreviewLength: lastRawOutput.length,
-          reasonCode: debug.reasonCode,
-          details: debug.details,
-        },
-        "nutrition generation invalid ai output"
-      );
-      throw createHttpError(502, "AI_PARSE_ERROR", {
-        message: "No se pudo generar un plan nutricional válido tras reintento.",
-        aiRequestId: aiResult?.requestId ?? undefined,
-        ...debug,
-      });
-    }
-
-    const savedPlan = await saveNutritionPlan(user.id, parsedPlan, startDate, daysCount);
-    await safeStoreAiContent(user.id, "nutrition", "ai", parsedPlan);
-
-    if (aiResult) {
-      await persistAiUsageLog({
-        prisma,
-        userId: user.id,
-        feature: "nutrition-generate",
-        provider: "openai",
-        model: aiResult.model ?? "unknown",
-        requestId: aiResult.requestId,
-        usage: aiResult.usage,
-        totals: buildUsageTotals(aiResult.usage),
-        mode: "AI",
-      });
-    } else {
-      await persistAiUsageLog({
-        prisma,
-        userId: user.id,
-        feature: "nutrition-generate",
-        provider: "openai",
-        model: "fallback",
-        totals: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        mode: "FALLBACK",
-        fallbackReason: "NO_AI_RESULT",
-      });
-    }
-
-    app.log.info(
-      {
-        userId: user.id,
-        startDate: payload.startDate ?? toIsoDateString(startDate),
-        daysCount,
-        persisted: true,
-        planId: savedPlan.id,
-        aiRequestId: aiResult?.requestId ?? null,
-      },
-      "nutrition plan generation result"
-    );
-
-    return reply.status(200).send({
-      planId: savedPlan.id,
-      summary: summarizeNutritionPlan(parsedPlan),
-      plan: parsedPlan,
-      aiRequestId: aiResult?.requestId ?? null,
-    });
-  } catch (error) {
-    const errorContext = getNutritionErrorContext(error);
-    const logger = errorContext.error_kind === "internal_error" ? app.log.error.bind(app.log) : app.log.warn.bind(app.log);
-    logger({ err: error, route: "/ai/nutrition-plan/generate", ...errorContext }, "nutrition plan generate failed");
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/ai/daily-tip", { preHandler: aiAccessGuard }, async (request, reply) => {
-  try {
-    logAuthCookieDebug(request, "/ai/daily-tip");
-    const authRequest = request as AuthenticatedRequest;
-    const user = authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/daily-tip" }));
-    const entitlements = authRequest.currentEntitlements ?? getUserEntitlements(user);
-    const data = aiTipSchema.parse(request.body);
-    const cacheKey = buildCacheKey("tip", data);
-    const template = buildTipTemplate();
-    const effectiveTokens = getEffectiveTokenBalance(user);
-    const aiMeta = getAiTokenPayload(user, entitlements);
-    const shouldChargeAi = !entitlements.role.adminOverride;
-
-    if (template) {
-      const personalized = applyPersonalization(template, { name: data.name ?? "amigo" });
-      await safeStoreAiContent(user.id, "tip", "template", personalized);
-      return reply.status(200).send({
-        tip: personalized,
-        ...aiMeta,
-      });
-    }
-
-    const cached = await getCachedAiPayload(cacheKey);
-    if (cached) {
-      const personalized = applyPersonalization(cached, { name: data.name ?? "amigo" });
-      await safeStoreAiContent(user.id, "tip", "cache", personalized);
-      return reply.status(200).send({
-        tip: personalized,
-        ...aiMeta,
-      });
-    }
-
-    await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
-    const prompt = buildTipPrompt(data);
-    let payload: Record<string, unknown>;
-    let aiTokenBalance: number | null = null;
-    let debit:
-      | {
-          costCents: number;
-          balanceBefore: number;
-          balanceAfter: number;
-          totalTokens: number;
-          model: string;
-          usage: { promptTokens: number; completionTokens: number; totalTokens: number };
-        }
-      | undefined;
-    if (shouldChargeAi) {
-      const balanceBefore = effectiveTokens;
-      app.log.info(
-        { userId: user.id, feature: "tip", plan: user.plan, balanceBefore },
-        "ai charge start"
-      );
-      const charged = await chargeAiUsage({
-        prisma,
-        pricing: aiPricing,
-        user: {
-          id: user.id,
-          plan: user.plan,
-          aiTokenBalance: user.aiTokenBalance ?? 0,
-          aiTokenResetAt: user.aiTokenResetAt,
-          aiTokenRenewalAt: user.aiTokenRenewalAt,
-        },
-        feature: "tip",
-        execute: () => callOpenAi(prompt),
-        createHttpError,
-      });
-      app.log.info(
-        {
-          userId: user.id,
-          feature: "tip",
-          costCents: charged.costCents,
-          totalTokens: charged.totalTokens,
-          balanceAfter: charged.balance,
-        },
-        "ai charge complete"
-      );
-      app.log.debug(
-        {
-          userId: user.id,
-          feature: "tip",
-          costCents: charged.costCents,
-          balanceBefore,
-          balanceAfter: charged.balance,
-          model: charged.model,
-          totalTokens: charged.totalTokens,
-        },
-        "ai charge details"
-      );
-      payload = charged.payload;
-      aiTokenBalance = charged.balance;
-      debit =
-        process.env.NODE_ENV === "production"
-          ? undefined
-          : {
-              costCents: charged.costCents,
-              balanceBefore,
-              balanceAfter: charged.balance,
-              totalTokens: charged.totalTokens,
-              model: charged.model,
-              usage: charged.usage,
-            };
-    } else {
-      const result = await callOpenAi(prompt);
-      payload = result.payload;
-    }
-    await saveCachedAiPayload(cacheKey, "tip", payload);
-    const personalized = applyPersonalization(payload, { name: data.name ?? "amigo" });
-    await safeStoreAiContent(user.id, "tip", "ai", personalized);
-    return reply.status(200).send({
-      tip: personalized,
-      aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
-      aiTokenRenewalAt: shouldChargeAi ? getUserTokenExpiryAt(user) : aiMeta.aiTokenRenewalAt,
-      ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
-      ...(debit ? { debit } : {}),
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
 
 app.get("/feed", async (request, reply) => {
   try {
@@ -6409,9 +6647,13 @@ app.post("/feed/generate", async (request, reply) => {
     const user = await requireUser(request);
     const profile = await getOrCreateProfile(user.id);
     const profileData =
-      typeof profile.profile === "object" && profile.profile ? (profile.profile as Record<string, unknown>) : null;
+      typeof profile.profile === "object" && profile.profile
+        ? (profile.profile as Record<string, unknown>)
+        : null;
     const trackingData =
-      typeof profile.tracking === "object" && profile.tracking ? (profile.tracking as FeedTrackingSnapshot) : null;
+      typeof profile.tracking === "object" && profile.tracking
+        ? (profile.tracking as FeedTrackingSnapshot)
+        : null;
     const summary = buildFeedSummary(profileData, trackingData);
     const post = await prisma.feedPost.create({
       data: {
@@ -6495,7 +6737,10 @@ const createExerciseSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   equipment: z.string().trim().max(80).optional(),
   mainMuscleGroup: z.string().trim().max(80).optional(),
-  secondaryMuscleGroups: z.array(z.string().trim().min(1).max(80)).max(8).optional(),
+  secondaryMuscleGroups: z
+    .array(z.string().trim().min(1).max(80))
+    .max(8)
+    .optional(),
   technique: z.string().trim().max(3000).optional(),
   tips: z.string().trim().max(3000).optional(),
   mediaUrl: z.string().trim().url().optional(),
@@ -6591,37 +6836,55 @@ const assignTrainingPlanBodySchema = z
 const trainerMemberParamsSchema = z.object({
   userId: z.string().min(1),
 });
+const assignedTrainingPlanSummarySelect = {
+  id: true,
+  title: true,
+  goal: true,
+  level: true,
+  daysPerWeek: true,
+  focus: true,
+  equipment: true,
+  startDate: true,
+  daysCount: true,
+} as const;
 const trainerMemberIdParamsSchema = z.object({
   id: z.string().min(1),
 });
-const trainerPlanCreateSchema = z.object({
-  title: z.string().trim().min(1).max(120),
-  daysCount: z.coerce.number().int().min(1).max(14).optional(),
-  description: z.string().trim().min(1).max(600).optional(),
-  notes: z.string().trim().min(1).max(600).optional(),
-  goal: z.string().trim().min(1).max(80).default("general_fitness"),
-  level: z.string().trim().min(1).max(80).default("beginner"),
-  focus: z.string().trim().min(1).max(120).default("full_body"),
-  equipment: z.string().trim().min(1).max(120).default("bodyweight"),
-  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
-  startDate: z.string().trim().min(1).optional(),
-}).refine((value) => value.daysCount !== undefined || value.daysPerWeek !== undefined, {
-  message: "daysCount or daysPerWeek is required",
-  path: ["daysCount"],
-});
-const trainerPlanUpdateSchema = z.object({
-  title: z.string().trim().min(1).max(120).optional(),
-  daysCount: z.coerce.number().int().min(1).max(14).optional(),
-  notes: z.string().trim().min(1).max(600).nullable().optional(),
-  goal: z.string().trim().min(1).max(80).optional(),
-  level: z.string().trim().min(1).max(80).optional(),
-  focus: z.string().trim().min(1).max(120).optional(),
-  equipment: z.string().trim().min(1).max(120).optional(),
-  daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
-  startDate: z.string().trim().min(1).optional(),
-}).refine((value) => Object.keys(value).length > 0, {
-  message: "At least one field is required",
-});
+const trainerPlanCreateSchema = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    daysCount: z.coerce.number().int().min(1).max(14).optional(),
+    description: z.string().trim().min(1).max(600).optional(),
+    notes: z.string().trim().min(1).max(600).optional(),
+    goal: z.string().trim().min(1).max(80).default("general_fitness"),
+    level: z.string().trim().min(1).max(80).default("beginner"),
+    focus: z.string().trim().min(1).max(120).default("full_body"),
+    equipment: z.string().trim().min(1).max(120).default("bodyweight"),
+    daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+    startDate: z.string().trim().min(1).optional(),
+  })
+  .refine(
+    (value) => value.daysCount !== undefined || value.daysPerWeek !== undefined,
+    {
+      message: "daysCount or daysPerWeek is required",
+      path: ["daysCount"],
+    },
+  );
+const trainerPlanUpdateSchema = z
+  .object({
+    title: z.string().trim().min(1).max(120).optional(),
+    daysCount: z.coerce.number().int().min(1).max(14).optional(),
+    notes: z.string().trim().min(1).max(600).nullable().optional(),
+    goal: z.string().trim().min(1).max(80).optional(),
+    level: z.string().trim().min(1).max(80).optional(),
+    focus: z.string().trim().min(1).max(120).optional(),
+    equipment: z.string().trim().min(1).max(120).optional(),
+    daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
+    startDate: z.string().trim().min(1).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  });
 const trainerPlanParamsSchema = z.object({
   planId: z.string().min(1),
 });
@@ -6646,6 +6909,9 @@ const trainerPlanExerciseUpdateSchema = z
 const trainerAssignPlanBodySchema = z.object({
   trainingPlanId: z.string().min(1),
 });
+const trainerAssignNutritionPlanBodySchema = z.object({
+  nutritionPlanId: z.string().min(1),
+});
 const trainerAssignPlanResultSchema = {
   id: true,
   title: true,
@@ -6656,6 +6922,36 @@ const trainerAssignPlanResultSchema = {
   equipment: true,
   startDate: true,
   daysCount: true,
+} as const;
+const assignedNutritionPlanSummarySelect = {
+  id: true,
+  title: true,
+  startDate: true,
+  daysCount: true,
+  createdAt: true,
+  days: {
+    orderBy: { order: "asc" as const },
+    select: {
+      id: true,
+      dayLabel: true,
+      order: true,
+    },
+  },
+} as const;
+const trainerAssignNutritionPlanResultSchema = {
+  id: true,
+  title: true,
+  startDate: true,
+  daysCount: true,
+  createdAt: true,
+  days: {
+    orderBy: { order: "asc" as const },
+    select: {
+      id: true,
+      dayLabel: true,
+      order: true,
+    },
+  },
 } as const;
 
 const trainingExerciseLegacySafeSelect = {
@@ -6695,6 +6991,19 @@ const nutritionPlanListSchema = z.object({
 
 const nutritionPlanParamsSchema = z.object({ id: z.string().min(1) });
 
+const trainerNutritionPlanCreateSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  daysCount: z.coerce.number().int().min(1).max(14).optional(),
+  startDate: z.string().trim().min(1).optional(),
+  dailyCalories: z.coerce.number().positive().max(20000).optional(),
+  proteinG: z.coerce.number().min(0).max(2000).optional(),
+  fatG: z.coerce.number().min(0).max(1000).optional(),
+  carbsG: z.coerce.number().min(0).max(3000).optional(),
+});
+const trainerNutritionPlanParamsSchema = z.object({
+  id: z.string().min(1),
+});
+
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -6705,10 +7014,15 @@ function parseClientMetrics(profile: unknown, tracking: unknown) {
   const profileRecord = isRecord(profile) ? profile : null;
   const trackingRecord = isRecord(tracking) ? tracking : null;
 
-  const numberOrNull = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
-  const stringOrNull = (value: unknown) => (typeof value === "string" && value.trim().length > 0 ? value : null);
+  const numberOrNull = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+  const stringOrNull = (value: unknown) =>
+    typeof value === "string" && value.trim().length > 0 ? value : null;
 
-  const measurementsRaw = profileRecord && isRecord(profileRecord.measurements) ? profileRecord.measurements : null;
+  const measurementsRaw =
+    profileRecord && isRecord(profileRecord.measurements)
+      ? profileRecord.measurements
+      : null;
   const measurements = measurementsRaw
     ? {
         chestCm: numberOrNull(measurementsRaw.chestCm),
@@ -6722,23 +7036,29 @@ function parseClientMetrics(profile: unknown, tracking: unknown) {
       }
     : null;
 
-  const checkins = trackingRecord && Array.isArray(trackingRecord.checkins) ? trackingRecord.checkins : [];
+  const checkins =
+    trackingRecord && Array.isArray(trackingRecord.checkins)
+      ? trackingRecord.checkins
+      : [];
   const latestCheckin = [...checkins]
     .filter((entry) => isRecord(entry) && typeof entry.date === "string")
     .sort((left, right) => {
       const leftDate = Date.parse(String(left.date));
       const rightDate = Date.parse(String(right.date));
-      return Number.isFinite(rightDate) && Number.isFinite(leftDate) ? rightDate - leftDate : 0;
+      return Number.isFinite(rightDate) && Number.isFinite(leftDate)
+        ? rightDate - leftDate
+        : 0;
     })[0];
 
-  const progress = latestCheckin && isRecord(latestCheckin)
-    ? {
-        date: stringOrNull(latestCheckin.date),
-        weightKg: numberOrNull(latestCheckin.weightKg),
-        bodyFatPercent: numberOrNull(latestCheckin.bodyFatPercent),
-        notes: stringOrNull(latestCheckin.notes),
-      }
-    : null;
+  const progress =
+    latestCheckin && isRecord(latestCheckin)
+      ? {
+          date: stringOrNull(latestCheckin.date),
+          weightKg: numberOrNull(latestCheckin.weightKg),
+          bodyFatPercent: numberOrNull(latestCheckin.bodyFatPercent),
+          notes: stringOrNull(latestCheckin.notes),
+        }
+      : null;
 
   return {
     heightCm: numberOrNull(profileRecord?.heightCm),
@@ -6749,79 +7069,6 @@ function parseClientMetrics(profile: unknown, tracking: unknown) {
     progress,
   };
 }
-
-
-
-
-app.get("/exercises", async (request, reply) => {
-  try {
-    await requireUser(request);
-    const parsed = exerciseListSchema.parse(request.query);
-    const q = parsed.q ?? parsed.query;
-    const primaryMuscle = parsed.primaryMuscle ?? parsed.muscle;
-    const page = parsed.page ?? 1;
-    const limit = parsed.take ?? parsed.limit;
-    const offset = parsed.cursor ? 0 : parsed.offset ?? (page - 1) * limit;
-
-    const { items, total } = await listExercises({
-      q,
-      primaryMuscle,
-      equipment: parsed.equipment,
-      cursor: parsed.cursor,
-      take: parsed.take,
-      limit,
-      offset,
-    });
-
-    const nextCursor = parsed.cursor || parsed.take
-      ? items.length === limit
-        ? items[items.length - 1]?.id ?? null
-        : null
-      : null;
-
-    return {
-      items,
-      total,
-      limit,
-      offset,
-      page,
-      nextCursor,
-      hasMore: offset + items.length < total,
-    };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/exercises/:id", async (request, reply) => {
-  try {
-    await requireUser(request);
-    const { id } = exerciseParamsSchema.parse(request.params);
-    const exercise = await getExerciseById(id);
-    if (!exercise) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return exercise;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/exercises", async (request, reply) => {
-  try {
-    await requireUser(request);
-    const payload = createExerciseSchema.parse(request.body);
-
-    if (payload.mediaUrl || payload.imageUrl || payload.videoUrl) {
-      return reply.status(400).send({ error: "MEDIA_UPLOAD_NOT_SUPPORTED" });
-    }
-
-    const exercise = await createExercise(payload);
-    return reply.status(201).send(exercise);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
 
 app.get("/recipes", async (request, reply) => {
   try {
@@ -6863,723 +7110,82 @@ app.get("/recipes/:id", async (request, reply) => {
   }
 });
 
-app.get("/training-plans", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const { query, limit, offset } = trainingPlanListSchema.parse(request.query);
-    const where: Prisma.TrainingPlanWhereInput = {
-      userId: user.id,
-      ...(query ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } } : {}),
-    };
-    const [items, total] = await prisma.$transaction([
-      prisma.trainingPlan.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: offset,
-        take: limit,
-        select: {
-          id: true,
-          title: true,
-          notes: true,
-          goal: true,
-          level: true,
-          daysPerWeek: true,
-          focus: true,
-          equipment: true,
-          startDate: true,
-          daysCount: true,
-          createdAt: true,
-        },
-      }),
-      prisma.trainingPlan.count({ where }),
-    ]);
-    return { items, total, limit, offset };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
+registerTrainingRoutes(app, {
+  requireUser,
+  exerciseListSchema,
+  listExercises,
+  handleRequestError,
+  exerciseParamsSchema,
+  getExerciseById,
+  createExerciseSchema,
+  createExercise,
+  trainingPlanListSchema,
+  prisma,
+  resolveCorrelationId,
+  getPayloadSize,
+  trainingPlanCreateSchema,
+  parseDateInput,
+  buildDateRange,
+  mapTrainingPlanCreateError,
+  trainingPlanParamsSchema,
+  trainingDayIncludeWithLegacySafeExercises,
+  enrichTrainingPlanWithExerciseLibraryData,
+  trainingPlanActiveQuerySchema,
+  trainingDayParamsSchema,
+  addTrainingExerciseBodySchema,
 });
 
-app.post("/training-plans", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const data = trainingPlanCreateSchema.parse(request.body);
-    const startDate = parseDateInput(data.startDate);
-
-    if (!startDate) {
-      return reply.status(400).send({ error: "INVALID_START_DATE" });
-    }
-
-    const dates = buildDateRange(startDate, data.daysCount);
-    const plan = await prisma.trainingPlan.create({
-      data: {
-        userId: user.id,
-        title: data.title,
-        notes: data.notes ?? null,
-        goal: data.goal,
-        level: data.level,
-        daysPerWeek: data.daysPerWeek,
-        focus: data.focus,
-        equipment: data.equipment,
-        startDate,
-        daysCount: data.daysCount,
-        days: {
-          create: dates.map((date, index) => ({
-            date: new Date(`${date}T00:00:00.000Z`),
-            label: `Día ${index + 1}`,
-            focus: data.focus,
-            duration: 45,
-            order: index + 1,
-          })),
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-        notes: true,
-        goal: true,
-        level: true,
-        daysPerWeek: true,
-        focus: true,
-        equipment: true,
-        startDate: true,
-        daysCount: true,
-        createdAt: true,
-      },
-    });
-
-    return reply.status(201).send(plan);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
+registerGymRoutes(app, {
+  prisma,
+  requireUser,
+  requireAdmin,
+  handleRequestError,
+  assignTrainingPlanParamsSchema,
+  assignTrainingPlanBodySchema,
+  requireGymManagerAccess,
+  trainerMemberParamsSchema,
+  assignedTrainingPlanSummarySelect,
+  assignedNutritionPlanSummarySelect,
+  trainingPlanListSchema,
+  nutritionPlanListSchema,
+  trainerPlanCreateSchema,
+  trainerPlanParamsSchema,
+  nutritionPlanParamsSchema,
+  workoutCreateSchema,
+  workoutUpdateSchema,
+  workoutSessionUpdateSchema,
+  requireActiveGymManagerMembership,
+  trainerMemberIdParamsSchema,
+  parseClientMetrics,
+  trainerNutritionPlanCreateSchema,
+  trainerNutritionPlanParamsSchema,
+  trainerPlanUpdateSchema,
+  trainerPlanDayParamsSchema,
+  trainerPlanExerciseParamsSchema,
+  trainerPlanExerciseUpdateSchema,
+  addTrainingExerciseBodySchema,
+  trainerAssignPlanResultSchema,
+  trainerAssignNutritionPlanResultSchema,
+  trainerAssignPlanBodySchema,
+  trainerAssignNutritionPlanBodySchema,
+  isGlobalAdminUser,
+  GymMembershipStatus,
+  GymRole,
+  parseDateInput,
+  buildDateRange,
+  trainingDayIncludeWithLegacySafeExercises,
+  createHttpError,
+  requireGymManagerForGym,
 });
 
-app.get("/training-plans/:id", async (request, reply) => {
-  const reqId = request.id;
-  try {
-    const user = await requireUser(request);
-    const { id } = trainingPlanParamsSchema.parse(request.params);
-    const plan = await prisma.trainingPlan.findFirst({
-      where: {
-        id,
-        OR: [
-          { userId: user.id },
-          {
-            gymAssignments: {
-              some: {
-                userId: user.id,
-                status: "ACTIVE",
-                role: "MEMBER",
-              },
-            },
-          },
-        ],
-      },
-      include: {
-        days: trainingDayIncludeWithLegacySafeExercises,
-      },
-    });
-    if (!plan) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    const enrichedPlan = await enrichTrainingPlanWithExerciseLibraryData(plan);
-    return enrichedPlan;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
-    }
-    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
-    if (typed.statusCode) {
-      return handleRequestError(reply, error);
-    }
-    request.log.error({ reqId, err: error }, "training-plan by id failed");
-    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId });
-  }
-});
-
-app.get("/training-plans/active", async (request, reply) => {
-  const reqId = request.id;
-  try {
-    const user = await requireUser(request);
-    const { includeDays } = trainingPlanActiveQuerySchema.parse(request.query);
-
-    const assignedMembership = await prisma.gymMembership.findFirst({
-      where: {
-        userId: user.id,
-        status: "ACTIVE",
-        role: "MEMBER",
-        assignedTrainingPlanId: { not: null },
-      },
-      select: { assignedTrainingPlanId: true },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    const activePlanId = assignedMembership?.assignedTrainingPlanId;
-
-    if (activePlanId) {
-      const assignedPlan = await prisma.trainingPlan.findUnique({
-        where: { id: activePlanId },
-        include: includeDays
-          ? {
-              days: trainingDayIncludeWithLegacySafeExercises,
-            }
-          : undefined,
-      });
-
-      if (assignedPlan) {
-        const enrichedPlan = includeDays
-          ? await enrichTrainingPlanWithExerciseLibraryData(assignedPlan)
-          : assignedPlan;
-
-        return reply.status(200).send({
-          source: "assigned",
-          plan: enrichedPlan,
-        });
-      }
-    }
-
-    const ownPlan = includeDays
-      ? await prisma.trainingPlan.findFirst({
-          where: { userId: user.id },
-          orderBy: { createdAt: "desc" },
-          include: {
-            days: trainingDayIncludeWithLegacySafeExercises,
-          },
-        })
-      : await prisma.trainingPlan.findFirst({
-          where: { userId: user.id },
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            title: true,
-            notes: true,
-            goal: true,
-            level: true,
-            daysPerWeek: true,
-            focus: true,
-            equipment: true,
-            startDate: true,
-            daysCount: true,
-            createdAt: true,
-          },
-        });
-
-    if (!ownPlan) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-
-    const enrichedOwnPlan = includeDays ? await enrichTrainingPlanWithExerciseLibraryData(ownPlan) : ownPlan;
-
-    return reply.status(200).send({
-      source: "own",
-      plan: enrichedOwnPlan,
-    });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return reply.status(400).send({ error: "INVALID_INPUT", details: error.flatten() });
-    }
-    const typed = error as { statusCode?: number; code?: string; debug?: Record<string, unknown> };
-    if (typed.statusCode) {
-      return handleRequestError(reply, error);
-    }
-    request.log.error({ reqId, err: error }, "training-plan active failed");
-    return reply.status(500).send({ error: "INTERNAL_ERROR", reqId });
-  }
-});
-
-app.post("/training-plans/:planId/days/:dayId/exercises", async (request, reply) => {
-  try {
-    const requester = await requireUser(request);
-    const { planId, dayId } = trainingDayParamsSchema.parse(request.params);
-    const { exerciseId, athleteUserId } = addTrainingExerciseBodySchema.parse(request.body);
-
-    const exercise = await prisma.exercise.findUnique({
-      where: { id: exerciseId },
-      select: { id: true, name: true, imageUrl: true },
-    });
-
-    if (!exercise) {
-      return reply.status(404).send({ error: "EXERCISE_NOT_FOUND" });
-    }
-
-    const plan = await prisma.trainingPlan.findUnique({
-      where: { id: planId },
-      select: { id: true, userId: true },
-    });
-
-    if (!plan) {
-      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
-    }
-
-    const isOwnPlan = plan.userId === requester.id;
-
-    if (athleteUserId) {
-      if (isOwnPlan === false) {
-        return reply.status(403).send({ error: "FORBIDDEN" });
-      }
-
-      const membership = await prisma.gymMembership.findFirst({
-        where: {
-          userId: athleteUserId,
-          status: "ACTIVE",
-          role: "MEMBER",
-          assignedTrainingPlanId: planId,
-          gym: {
-            memberships: {
-              some: {
-                userId: requester.id,
-                status: "ACTIVE",
-                role: { in: ["ADMIN", "TRAINER"] },
-              },
-            },
-          },
-        },
-        select: { id: true },
-      });
-
-      if (!membership) {
-        return reply.status(404).send({ error: "MEMBER_PLAN_NOT_FOUND" });
-      }
-    } else if (!isOwnPlan) {
-      return reply.status(403).send({ error: "FORBIDDEN" });
-    }
-
-    const day = await prisma.trainingDay.findFirst({
-      where: { id: dayId, planId },
-      select: { id: true },
-    });
-
-    if (!day) {
-      return reply.status(404).send({ error: "TRAINING_DAY_NOT_FOUND" });
-    }
-
-    const created = await prisma.trainingExercise.create({
-      data: {
-        dayId,
-        exerciseId: exercise.id,
-        imageUrl: exercise.imageUrl,
-        name: exercise.name,
-        sets: 3,
-        reps: "10-12",
-      },
-    });
-
-    return reply.status(201).send({
-      exercise: created,
-      sourceExercise: exercise,
-      planId,
-      dayId,
-      athleteUserId: athleteUserId ?? null,
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/admin/gyms/:gymId/members/:userId/assign-training-plan", async (request, reply) => {
-  try {
-    const requester = await requireUser(request);
-    const { gymId, userId } = assignTrainingPlanParamsSchema.parse(request.params);
-    const { trainingPlanId, templatePlanId } = assignTrainingPlanBodySchema.parse(request.body);
-    const selectedPlanId = trainingPlanId ?? templatePlanId;
-
-    await requireGymManagerForGym(requester.id, gymId);
-
-    const [targetMembership, selectedPlan] = await Promise.all([
-      prisma.gymMembership.findUnique({
-        where: { gymId_userId: { gymId, userId } },
-        select: {
-          id: true,
-          gymId: true,
-          userId: true,
-          status: true,
-          role: true,
-        },
-      }),
-      prisma.trainingPlan.findFirst({
-        where: {
-          id: selectedPlanId,
-          OR: [
-            { userId: requester.id },
-            {
-              gymAssignments: {
-                some: {
-                  gymId,
-                  status: "ACTIVE",
-                  role: "MEMBER",
-                },
-              },
-            },
-          ],
-        },
-        select: {
-          id: true,
-          title: true,
-          goal: true,
-          level: true,
-          daysPerWeek: true,
-          focus: true,
-          equipment: true,
-          startDate: true,
-          daysCount: true,
-        },
-      }),
-    ]);
-
-    if (!targetMembership || targetMembership.status !== "ACTIVE") {
-      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
-    }
-
-    if (targetMembership.role !== "MEMBER") {
-      return reply.status(400).send({ error: "INVALID_MEMBER_ROLE" });
-    }
-
-    if (!selectedPlan) {
-      return reply.status(404).send({ error: "TRAINING_PLAN_NOT_FOUND" });
-    }
-
-    await prisma.gymMembership.update({
-      where: { id: targetMembership.id },
-      data: { assignedTrainingPlanId: selectedPlan.id },
-    });
-
-    return reply.status(200).send({
-      planId: selectedPlan.id,
-      assignedPlan: selectedPlan,
-      memberId: userId,
-      gymId,
-    });
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/trainer/members/:userId/training-plan-assignment", async (request, reply) => {
-  try {
-    const requester = await requireUser(request);
-    const { userId } = trainerMemberParamsSchema.parse(request.params);
-
-    const targetMembership = await prisma.gymMembership.findFirst({
-      where: {
-        userId,
-        status: "ACTIVE",
-        role: "MEMBER",
-        gym: {
-          memberships: {
-            some: {
-              userId: requester.id,
-              status: "ACTIVE",
-              role: { in: ["ADMIN", "TRAINER"] },
-            },
-          },
-        },
-      },
-      select: {
-        id: true,
-        gymId: true,
-        userId: true,
-        status: true,
-        role: true,
-        gym: { select: { id: true, name: true } },
-        assignedTrainingPlan: {
-          select: {
-            id: true,
-            title: true,
-            goal: true,
-            level: true,
-            daysPerWeek: true,
-            focus: true,
-            equipment: true,
-            startDate: true,
-            daysCount: true,
-          },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    if (!targetMembership) {
-      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
-    }
-
-    return {
-      memberId: userId,
-      gym: targetMembership.gym,
-      assignedPlan: targetMembership.assignedTrainingPlan,
-    };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/nutrition-plans", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const { query, limit, offset } = nutritionPlanListSchema.parse(request.query);
-    const where: Prisma.NutritionPlanWhereInput = {
-      userId: user.id,
-      ...(query ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } } : {}),
-    };
-    const [items, total] = await prisma.$transaction([
-      prisma.nutritionPlan.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: offset,
-        take: limit,
-        select: {
-          id: true,
-          title: true,
-          dailyCalories: true,
-          proteinG: true,
-          fatG: true,
-          carbsG: true,
-          startDate: true,
-          daysCount: true,
-          createdAt: true,
-        },
-      }),
-      prisma.nutritionPlan.count({ where }),
-    ]);
-    return { items, total, limit, offset };
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/nutrition-plans/:id", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const { id } = nutritionPlanParamsSchema.parse(request.params);
-    const plan = await prisma.nutritionPlan.findFirst({
-      where: { id, userId: user.id },
-      include: {
-        days: {
-          orderBy: { order: "asc" },
-          include: {
-            meals: {
-              include: { ingredients: true },
-            },
-          },
-        },
-      },
-    });
-    if (!plan) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return plan;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/workouts", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const workouts = await prisma.workout.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-    });
-    return workouts;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/workouts", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const data = workoutCreateSchema.parse(request.body);
-    const workout = await prisma.workout.create({
-      data: {
-        name: data.name,
-        notes: data.notes,
-        scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
-        durationMin: data.durationMin ?? null,
-        userId: user.id,
-        exercises: data.exercises
-          ? {
-              create: data.exercises.map((exercise, index) => ({
-                exerciseId: exercise.exerciseId,
-                name: exercise.name,
-                sets: exercise.sets ?? null,
-                reps: exercise.reps ?? null,
-                restSeconds: exercise.restSeconds ?? null,
-                notes: exercise.notes,
-                order: exercise.order ?? index,
-              })),
-            }
-          : undefined,
-      },
-      include: { exercises: true },
-    });
-    return reply.status(201).send(workout);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.get("/workouts/:id", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const { id } = paramsSchema.parse(request.params);
-    const workout = await prisma.workout.findFirst({
-      where: { id, userId: user.id },
-      include: { exercises: { orderBy: { order: "asc" } } },
-    });
-    if (!workout) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return workout;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.patch("/workouts/:id", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const { id } = paramsSchema.parse(request.params);
-    const data = workoutUpdateSchema.parse(request.body);
-    const updated = await prisma.$transaction(async (tx) => {
-      const workout = await tx.workout.updateMany({
-        where: { id, userId: user.id },
-        data: {
-          name: data.name,
-          notes: data.notes,
-          scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : undefined,
-          durationMin: data.durationMin,
-        },
-      });
-      if (workout.count === 0) {
-        return null;
-      }
-      if (data.exercises) {
-        await tx.workoutExercise.deleteMany({ where: { workoutId: id } });
-        await tx.workoutExercise.createMany({
-          data: data.exercises.map((exercise, index) => ({
-            workoutId: id,
-            exerciseId: exercise.exerciseId ?? null,
-            name: exercise.name,
-            sets: exercise.sets ?? null,
-            reps: exercise.reps ?? null,
-            restSeconds: exercise.restSeconds ?? null,
-            notes: exercise.notes ?? null,
-            order: exercise.order ?? index,
-          })),
-        });
-      }
-      return tx.workout.findUnique({
-        where: { id },
-        include: { exercises: { orderBy: { order: "asc" } } },
-      });
-    });
-    if (!updated) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return updated;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.delete("/workouts/:id", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const { id } = paramsSchema.parse(request.params);
-    const workout = await prisma.workout.deleteMany({
-      where: { id, userId: user.id },
-    });
-    if (workout.count === 0) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return reply.status(204).send();
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/workouts/:id/start", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const { id } = paramsSchema.parse(request.params);
-    const workout = await prisma.workout.findFirst({ where: { id, userId: user.id } });
-    if (!workout) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    const session = await prisma.workoutSession.create({
-      data: {
-        workoutId: workout.id,
-        userId: user.id,
-        startedAt: new Date(),
-      },
-    });
-    return reply.status(201).send(session);
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.patch("/workout-sessions/:id", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const { id } = paramsSchema.parse(request.params);
-    const data = workoutSessionUpdateSchema.parse(request.body);
-    const session = await prisma.workoutSession.findFirst({
-      where: { id, userId: user.id },
-    });
-    if (!session) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    await prisma.workoutSessionEntry.createMany({
-      data: data.entries.map((entry) => ({
-        sessionId: session.id,
-        exercise: entry.exercise,
-        sets: entry.sets,
-        reps: entry.reps,
-        loadKg: entry.loadKg ?? null,
-        rpe: entry.rpe ?? null,
-      })),
-    });
-    const updated = await prisma.workoutSession.findUnique({
-      where: { id: session.id },
-      include: { entries: true },
-    });
-    return updated;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
-
-app.post("/workout-sessions/:id/finish", async (request, reply) => {
-  try {
-    const user = await requireUser(request);
-    const paramsSchema = z.object({ id: z.string().min(1) });
-    const { id } = paramsSchema.parse(request.params);
-    const session = await prisma.workoutSession.findFirst({
-      where: { id, userId: user.id },
-    });
-    if (!session) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    const updated = await prisma.workoutSession.update({
-      where: { id: session.id },
-      data: { finishedAt: new Date() },
-    });
-    return updated;
-  } catch (error) {
-    return handleRequestError(reply, error);
-  }
-});
 
 const adminCreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(["USER", "ADMIN"]).optional(),
-  subscriptionPlan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]).optional(),
+  subscriptionPlan: z
+    .enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"])
+    .optional(),
   aiTokenBalance: z.number().int().min(0).optional(),
   aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
 });
@@ -7592,12 +7198,19 @@ const adminUserPlanUpdateSchema = z.object({
   subscriptionPlan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]),
 });
 
-const adminUserTokensUpdateSchema = z.object({
-  aiTokenBalance: z.number().int().min(0).optional(),
-  aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
-}).refine((payload) => payload.aiTokenBalance !== undefined || payload.aiTokenMonthlyAllowance !== undefined, {
-  message: "At least one token field must be provided.",
-});
+const adminUserTokensUpdateSchema = z
+  .object({
+    aiTokenBalance: z.number().int().min(0).optional(),
+    aiTokenMonthlyAllowance: z.number().int().min(0).optional(),
+  })
+  .refine(
+    (payload) =>
+      payload.aiTokenBalance !== undefined ||
+      payload.aiTokenMonthlyAllowance !== undefined,
+    {
+      message: "At least one token field must be provided.",
+    },
+  );
 
 const adminUserTokenAllowanceUpdateSchema = z.object({
   aiTokenMonthlyAllowance: z.number().int().min(0),
@@ -7611,6 +7224,7 @@ const adminUserTokenBalanceUpdateSchema = z.object({
   aiTokenBalance: z.number().int().min(0),
 });
 
+<<<<<<< HEAD
 const gymsListQuerySchema = z.object({
   q: z.string().trim().min(1).optional(),
 });
@@ -9315,6 +8929,8 @@ app.patch("/gym/admin/members/:userId/role", async (request, reply) => {
   }
 });
 
+=======
+>>>>>>> dev
 app.get("/admin/users", async (request, reply) => {
   try {
     await requireAdmin(request);
@@ -9325,7 +8941,7 @@ app.get("/admin/users", async (request, reply) => {
     });
 
     const { query, page } = querySchema.parse(request.query);
-    
+
     const pageSize = 20;
 
     const where: Prisma.UserWhereInput = {
@@ -9364,9 +8980,12 @@ app.get("/admin/users", async (request, reply) => {
     const payload = users.map((user) => {
       const method = user.passwordHash
         ? "local"
-        : user.authProviders && user.authProviders.some((provider) => provider.provider === "google")
-        ? "google"
-        : user.provider;
+        : user.authProviders &&
+            user.authProviders.some(
+              (provider) => provider.provider === "google",
+            )
+          ? "google"
+          : user.provider;
 
       return {
         id: user.id,
@@ -9391,7 +9010,9 @@ app.post("/admin/users", async (request, reply) => {
   try {
     await requireAdmin(request);
     const data = adminCreateUserSchema.parse(request.body);
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    const existing = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
     if (existing) {
       return reply.status(409).send({ error: "EMAIL_IN_USE" });
     }
@@ -9404,9 +9025,13 @@ app.post("/admin/users", async (request, reply) => {
         plan: data.subscriptionPlan ?? "FREE",
         aiTokenBalance: data.aiTokenBalance ?? 0,
         aiTokenResetAt:
-          data.subscriptionPlan !== "FREE" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
+          data.subscriptionPlan !== "FREE" && (data.aiTokenBalance ?? 0) > 0
+            ? getTokenExpiry(30)
+            : null,
         aiTokenRenewalAt:
-          data.subscriptionPlan !== "FREE" && (data.aiTokenBalance ?? 0) > 0 ? getTokenExpiry(30) : null,
+          data.subscriptionPlan !== "FREE" && (data.aiTokenBalance ?? 0) > 0
+            ? getTokenExpiry(30)
+            : null,
         aiTokenMonthlyAllowance: data.aiTokenMonthlyAllowance ?? 0,
         provider: "email",
       },
@@ -9421,7 +9046,6 @@ app.post("/admin/users", async (request, reply) => {
     return handleRequestError(reply, error);
   }
 });
-
 
 app.post("/admin/users/:id/verify-email", async (request, reply) => {
   try {
@@ -9520,13 +9144,16 @@ app.patch("/admin/users/:id/tokens", async (request, reply) => {
   try {
     await requireAdmin(request);
     const { id } = adminUserIdParamsSchema.parse(request.params);
-    const { aiTokenBalance, aiTokenMonthlyAllowance } = adminUserTokensUpdateSchema.parse(request.body);
+    const { aiTokenBalance, aiTokenMonthlyAllowance } =
+      adminUserTokensUpdateSchema.parse(request.body);
 
     const user = await prisma.user.update({
       where: { id },
       data: {
         ...(aiTokenBalance !== undefined ? { aiTokenBalance } : {}),
-        ...(aiTokenMonthlyAllowance !== undefined ? { aiTokenMonthlyAllowance } : {}),
+        ...(aiTokenMonthlyAllowance !== undefined
+          ? { aiTokenMonthlyAllowance }
+          : {}),
       },
       select: {
         id: true,
@@ -9549,7 +9176,8 @@ app.patch("/admin/users/:id/tokens-allowance", async (request, reply) => {
   try {
     await requireAdmin(request);
     const { id } = adminUserIdParamsSchema.parse(request.params);
-    const { aiTokenMonthlyAllowance } = adminUserTokenAllowanceUpdateSchema.parse(request.body);
+    const { aiTokenMonthlyAllowance } =
+      adminUserTokenAllowanceUpdateSchema.parse(request.body);
 
     const user = await prisma.user.update({
       where: { id },
@@ -9602,7 +9230,9 @@ app.patch("/admin/users/:id/tokens/balance", async (request, reply) => {
   try {
     await requireAdmin(request);
     const { id } = adminUserIdParamsSchema.parse(request.params);
-    const { aiTokenBalance } = adminUserTokenBalanceUpdateSchema.parse(request.body);
+    const { aiTokenBalance } = adminUserTokenBalanceUpdateSchema.parse(
+      request.body,
+    );
 
     const user = await prisma.user.update({
       where: { id },
@@ -9648,7 +9278,6 @@ app.delete("/admin/users/:id", async (request, reply) => {
     return handleRequestError(reply, error);
   }
 });
-
 
 // Ruta solo para desarrollo, mete algunos ejercicios en la tabla Exercise
 app.post("/dev/seed-exercises", async (_request, reply) => {
@@ -9724,13 +9353,24 @@ app.post("/dev/seed-recipes", async (_request, reply) => {
   }
 });
 
-app.post("/dev/reset-demo", async (_request, reply) => {
+app.post("/dev/reset-demo", async (request, reply) => {
   try {
     if (process.env.NODE_ENV === "production") {
       return reply.status(403).send({ error: "FORBIDDEN" });
     }
 
-    const result = await resetDemoState(prisma);
+    const tokenState =
+      request.query &&
+      typeof (request.query as { tokenState?: unknown }).tokenState ===
+        "string" &&
+      ["empty", "paid"].includes(
+        (request.query as { tokenState?: string }).tokenState ?? "",
+      )
+        ? ((request.query as { tokenState?: "empty" | "paid" }).tokenState ??
+          "empty")
+        : "empty";
+
+    const result = await resetDemoState(prisma, { tokenState });
     return reply.status(200).send({ ok: true, ...result });
   } catch (err) {
     app.log.error({ err }, "reset demo failed");
@@ -9741,6 +9381,10 @@ app.post("/dev/reset-demo", async (_request, reply) => {
 await seedAdmin();
 
 if (process.env.NODE_ENV !== "production") {
+  app.log.info(
+    { routes: ["/ai/nutrition-plan/generate", "/ai/nutrition-plan"] },
+    "Registered nutrition AI routes",
+  );
   app.log.info("Registered routes\n%s", app.printRoutes());
 }
 

@@ -1,28 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { hasAiEntitlement, hasNutritionAiEntitlement, hasStrengthAiEntitlement } from "@/components/access/aiEntitlements";
 
-describe("ai entitlements by module", () => {
-  it("allows StrengthAI surface with strength module", () => {
-    expect(
-      hasStrengthAiEntitlement({
-        entitlements: { modules: { strength: { enabled: true } } },
-      }),
-    ).toBe(true);
+describe("ai entitlements by real subscription plans", () => {
+  it("does not allow StrengthAI surface without backend module", () => {
+    expect(hasStrengthAiEntitlement({ subscriptionPlan: "FREE" })).toBe(false);
   });
 
-  it("allows NutriAI surface with nutrition module", () => {
-    expect(
-      hasNutritionAiEntitlement({
-        entitlements: { modules: { nutrition: { enabled: true } } },
-      }),
-    ).toBe(true);
+  it("allows StrengthAI surface from backend module", () => {
+    expect(hasStrengthAiEntitlement({ effectiveEntitlements: { modules: { strength: { enabled: true } } } })).toBe(true);
   });
 
-  it("allows both surfaces with ai/pro module", () => {
-    const profile = { entitlements: { modules: { ai: { enabled: true } } } };
+  it("does not allow NutriAI surface without backend module", () => {
+    expect(hasNutritionAiEntitlement({ subscriptionPlan: "FREE" })).toBe(false);
+  });
 
-    expect(hasStrengthAiEntitlement(profile)).toBe(true);
-    expect(hasNutritionAiEntitlement(profile)).toBe(true);
-    expect(hasAiEntitlement(profile)).toBe(true);
+  it("allows NutriAI surface from backend module", () => {
+    expect(hasNutritionAiEntitlement({ effectiveEntitlements: { modules: { nutrition: { enabled: true } } } })).toBe(true);
+  });
+
+  it("allows generic AI only from backend module", () => {
+    expect(hasAiEntitlement({ subscriptionPlan: "FREE" })).toBe(false);
+    expect(hasAiEntitlement({ effectiveEntitlements: { modules: { ai: { enabled: true } } } })).toBe(true);
   });
 });

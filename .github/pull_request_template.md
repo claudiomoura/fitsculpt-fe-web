@@ -3,28 +3,45 @@
 - Why?
 
 ## Dependency statement (mandatory)
-This PR can run now on origin/dev.
+Depends on PR-01 to reference the real CI gates.
 
-## Release Candidate DoD checklist (mandatory)
-- [ ] FE PASS (`build` + `lint` + `typecheck`) **si aplica**
-- [ ] BE PASS (`build` + `test`) **si aplica**
-- [ ] 0 console errors en flujos afectados
-- [ ] No rompe `fs_token`
-- [ ] No rompe `/api/*`
-- [ ] No rompe rutas existentes
+## BETA-11 operational guardrail (mandatory)
+- [ ] No toqué endpoints BFF (`/apps/web/src/app/api/**`)
+- [ ] Si toqué endpoints BFF: corrí `pnpm --filter web endpoints:inventory` y commiteé cambios
+- [ ] Si toqué endpoints críticos: actualicé/validé contract tests y dejé evidencia
+- [ ] Corrí `pnpm --filter web smoke`
 
-## Gates & smoke evidence links (mandatory)
-- [ ] Gates Sprint 13 (PR-01) ejecutados y enlazados
-  - Link evidencia PR-01:
-- [ ] Smoke manual (PR-03) ejecutado y enlazado
-  - Link evidencia PR-03:
-- [ ] Evidencia de consola limpia adjunta
-  - Link captura/log:
+Referencias obligatorias:
+- Contratos BFF: [`docs/contracts/`](../docs/contracts/) · [`docs/contracts/BETA11_CRITICAL_ENDPOINTS.md`](../docs/contracts/BETA11_CRITICAL_ENDPOINTS.md) · [`docs/contracts/bff-error-shape.md`](../docs/contracts/bff-error-shape.md)
+- Smoke pack / demo: [`docs/beta/beta-readiness.md`](../docs/beta/beta-readiness.md)
+
+## Gates + smoke + evidence (mandatory)
+- [ ] Gates de CI (PR-01) ejecutados y enlazados
+  - Link gates:
+- [ ] Smoke test oficial (`docs/SMOKE_TEST.md`) ejecutado y reportado PASS/FAIL
+  - Link evidencia smoke:
+- [ ] Evidencia adjunta (capturas/logs) para validar resultado
+  - Link evidencia adicional:
 
 ## Required links in PR description
-- [ ] Link al documento RC DoD: `docs/release/RELEASE_CANDIDATE_DOD.md`
-- [ ] Screenshot del PR template activo (si aplica)
+- [ ] Link RC DoD: `docs/RELEASE_CANDIDATE_DOD.md`
+- [ ] Link RC Status actualizado: `docs/RC_STATUS.md`
+- [ ] Link Smoke oficial: `docs/SMOKE_TEST.md`
+- [ ] Screenshot de la plantilla de PR funcionando
 
-## Verification reminders (manual)
-- [ ] Verificar en GitHub que este PR template aparece
-- [ ] Verificar que el checklist referencia gates PR-01 y smoke PR-03
+## Smoke result (paste)
+```md
+Smoke Test RC
+- Fecha:
+- Entorno:
+- Resultado final: PASS | FAIL
+- Flujos:
+  - Login: PASS | FAIL
+  - Navegación /app: PASS | FAIL
+  - IA entrenamiento (200 + persistencia): PASS | FAIL
+  - IA nutrición (200 + persistencia): PASS | FAIL
+  - Biblioteca detalle: PASS | FAIL
+  - Header Free/Pro: PASS | FAIL
+  - Tracking opcional: PASS | FAIL | N/A
+- Evidencia: <links>
+```

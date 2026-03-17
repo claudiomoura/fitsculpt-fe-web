@@ -9,14 +9,22 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:contracts": "vitest run src/test/bffContractsRcV1.contract.test.ts",
+    "smoke": "pnpm lint && pnpm lint:ds:imports && pnpm typecheck && pnpm test && pnpm e2e -- e2e/gym-nutrition-flow.spec.ts --reporter=line && pnpm build",
+    "test:contracts": "vitest run src/test/aiGenerateGuardrail.contract.test.ts src/test/betaCriticalBff.contract.test.ts src/test/bffContractsRcV1.contract.test.ts",
     "e2e": "playwright test",
+    "e2e:smoke:core": "playwright test e2e/core-loop.spec.ts",
+    "e2e:smoke:token": "playwright test e2e/token-lifecycle.spec.ts",
+    "e2e:smoke:beta": "node scripts/run-beta-smoke.mjs",
     "e2e:headed": "playwright test --headed",
     "e2e:ui": "playwright test --ui",
-    "lint:ds": "node scripts/lint-design-system-guardrails.mjs"
+    "lint:ds": "node scripts/lint-design-system-guardrails.mjs",
+    "lint:ds:imports": "node scripts/lint-design-system-imports.mjs",
+    "endpoints:inventory": "node scripts/endpoints-inventory.mjs",
+    "endpoints:inventory:check": "node scripts/endpoints-inventory.mjs --check"
   },
   "dependencies": {
     "next": "16.1.1",
+    "posthog-js": "^1.360.2",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },

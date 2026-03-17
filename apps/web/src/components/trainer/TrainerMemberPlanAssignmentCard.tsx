@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Modal } from "@/components/ui/Modal";
-import { useToast } from "@/components/ui/Toast";
+import { Modal } from "@/design-system/components/Modal";
+import { useToast } from "@/design-system/components/Toast";
 
 type TrainingPlanListItem = {
   id: string;

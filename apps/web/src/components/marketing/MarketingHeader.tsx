@@ -10,7 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/DropdownMenu";
+} from "@/design-system/components/DropdownMenu";
 
 type NavItem = {
   key: "plans" | "features" | "testimonials";

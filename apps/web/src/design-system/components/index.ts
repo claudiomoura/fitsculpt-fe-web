@@ -29,3 +29,9 @@ export * from './NavItem';
 export * from './ProgressBar';
 export * from './ExerciseCard';
 export * from './MealCard';
+
+export * from './PageHero';
+export * from './Section';
+export * from './Modal';
+export * from './Skeleton';
+export * from './Toast';

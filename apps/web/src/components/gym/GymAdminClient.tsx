@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
-import { Button } from "@/components/ui/Button";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Button } from "@/design-system/components/Button";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import {
   fetchMyGymMembership,
   fetchPendingGymJoinRequests,

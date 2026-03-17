@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/design-system/components/Badge";
 
 type ClientBadgeTone = "default" | "success" | "warning" | "error" | "danger" | "info" | "muted";
 

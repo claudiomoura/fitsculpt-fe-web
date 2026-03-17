@@ -3,9 +3,10 @@
 import type { ReactNode } from "react";
 import { LanguageProvider } from "@/context/LanguageProvider";
 import { ThemeProvider } from "@/context/ThemeProvider";
-import { ToastProvider } from "@/components/ui/Toast";
+import { ToastProvider } from "@/design-system/components/Toast";
 import { AccessProvider } from "@/context/AccessProvider";
 import VisualViewportVars from "@/components/layout/VisualViewportVars";
+import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
 
 type ClientProvidersProps = {
   children: ReactNode;
@@ -17,6 +18,7 @@ export default function ClientProviders({ children, initialLocale, initialTheme 
   return (
     <ThemeProvider initialTheme={initialTheme}>
       <VisualViewportVars />
+      <AnalyticsProvider />
       <LanguageProvider initialLocale={initialLocale}>
         <AccessProvider>
           <ToastProvider>{children}</ToastProvider>

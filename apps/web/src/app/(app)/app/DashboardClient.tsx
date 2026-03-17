@@ -6,12 +6,11 @@ import { addDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { ProfileData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
-import { NUTRITION_ADHERENCE_STORAGE_KEY } from "@/lib/nutritionAdherence";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
-import type { CheckinEntry, FoodEntry, TrackingSnapshot, WorkoutEntry } from "@/services/tracking";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
-import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import type { CheckinEntry, FoodEntry, MealLogEntry, TrackingSnapshot, WorkoutEntry } from "@/services/tracking";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
+import { Skeleton, SkeletonCard } from "@/design-system/components/Skeleton";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 
 type UserFood = {
@@ -69,7 +68,11 @@ const normalizeTrackingPayload = (payload: TrackingPayload) => {
     ? payload.workoutLog.filter((entry) => entry && isDateKey(entry.date))
     : [];
 
-  return { checkins, foodLog, workoutLog };
+  const mealLog = Array.isArray(payload.mealLog)
+    ? payload.mealLog.filter((entry) => entry && isDateKey(entry.date) && typeof entry.mealKey === "string")
+    : [];
+
+  return { checkins, foodLog, workoutLog, mealLog };
 };
 
 function ProgressRing({
@@ -118,6 +121,7 @@ export default function DashboardClient() {
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
+  const [mealLog, setMealLog] = useState<MealLogEntry[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutItem[]>([]);
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,6 +143,7 @@ export default function DashboardClient() {
           setCheckins(data.checkins);
           setFoodLog(data.foodLog);
           setWorkoutLog(data.workoutLog);
+          setMealLog(data.mealLog);
         }
       } catch (_err) {
         if (active) setError(t("dashboard.chartError"));
@@ -224,40 +229,20 @@ export default function DashboardClient() {
   const userFoodMap = useMemo(() => new Map(userFoods.map((food) => [food.id, food])), [userFoods]);
 
   const todayKey = toDateKey(new Date());
-  const todayEntries = useMemo(() => foodLog.filter((entry) => entry.date === todayKey), [foodLog, todayKey]);
-  const todayTotals = useMemo(() => {
-    const resolveFoodProfile = (key: string) => {
-      if (key.startsWith("user:")) {
-        const id = key.replace("user:", "");
-        const food = userFoodMap.get(id);
-        if (!food) return null;
-        return {
-          label: food.name,
-          protein: food.protein,
-          carbs: food.carbs,
-          fat: food.fat,
-          calories: food.calories,
-        };
-      }
-      const profile = defaultFoodProfiles[key];
-      if (!profile) return null;
-      const calories = profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
-      return { label: t(profile.labelKey), ...profile, calories };
-    };
-    return todayEntries.reduce(
-      (totals, entry) => {
-        const profile = resolveFoodProfile(entry.foodKey);
-        if (!profile) return totals;
-        const factor = entry.grams / 100;
-        totals.protein += profile.protein * factor;
-        totals.carbs += profile.carbs * factor;
-        totals.fat += profile.fat * factor;
-        totals.calories += profile.calories * factor;
-        return totals;
-      },
-      { protein: 0, carbs: 0, fat: 0, calories: 0 }
-    );
-  }, [todayEntries, userFoodMap, t]);
+  const todayEntries = useMemo(() => mealLog.filter((entry) => entry.date === todayKey), [mealLog, todayKey]);
+  const todayTotals = useMemo(
+    () =>
+      todayEntries.reduce(
+        (totals, entry) => ({
+          protein: totals.protein + Number(entry.protein ?? 0),
+          carbs: totals.carbs + Number(entry.carbs ?? 0),
+          fat: totals.fat + Number(entry.fats ?? 0),
+          calories: totals.calories + Number(entry.calories ?? 0),
+        }),
+        { protein: 0, carbs: 0, fat: 0, calories: 0 },
+      ),
+    [todayEntries],
+  );
 
   const getStatusClass = (value: number, target?: number | null) => {
     if (!target) return "status-under";
@@ -375,14 +360,10 @@ export default function DashboardClient() {
       });
     });
 
-    let adherenceStore: Record<string, string[]> = {};
-    if (typeof window !== "undefined") {
-      try {
-        adherenceStore = JSON.parse(window.localStorage.getItem(NUTRITION_ADHERENCE_STORAGE_KEY) ?? "{}") as Record<string, string[]>;
-      } catch (_err) {
-        adherenceStore = {};
-      }
-    }
+    const adherenceStore = mealLog.reduce<Record<string, string[]>>((acc, entry) => {
+      acc[entry.date] = acc[entry.date] ? [...acc[entry.date], entry.mealKey] : [entry.mealKey];
+      return acc;
+    }, {});
     const adherenceByDay = currentWeekDays.map((day) => (Array.isArray(adherenceStore[day]) ? adherenceStore[day].length : 0));
     const adherenceDaysCurrent = adherenceByDay.filter((count) => count > 0).length;
     const adherenceDaysPrevious = previousWeekDays.filter(
@@ -391,15 +372,11 @@ export default function DashboardClient() {
 
     const caloriesByDay = Array.from({ length: WEEK_DAYS }, () => 0);
     const calorieDays = new Set<string>();
-    foodLog.forEach((entry) => {
+    mealLog.forEach((entry) => {
       const currentDayIndex = dayIndexMap.get(entry.date);
       if (typeof currentDayIndex !== "number") return;
-      const profile = entry.foodKey.startsWith("user:")
-        ? userFoodMap.get(entry.foodKey.replace("user:", ""))
-        : defaultFoodProfiles[entry.foodKey];
-      if (!profile) return;
-      const baseCalories = profile.calories ?? profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
-      const calories = baseCalories * (entry.grams / 100);
+      const calories = Number(entry.calories ?? 0);
+      if (!Number.isFinite(calories)) return;
       caloriesByDay[currentDayIndex] += calories;
       calorieDays.add(entry.date);
     });
@@ -424,7 +401,7 @@ export default function DashboardClient() {
       if (previousWeekSet.has(dateKey)) activityDaysPrevious.add(dateKey);
     };
     [...workoutSessionDates, ...trackedWorkoutDates].forEach((dateKey) => ingest(dateKey));
-    foodLog.forEach((entry) => ingest(entry.date));
+    mealLog.forEach((entry) => ingest(entry.date));
     checkins.forEach((entry) => ingest(entry.date));
     currentWeekDays.forEach((day) => {
       if (adherenceByDay[dayIndexMap.get(day) ?? -1] > 0) ingest(day);
@@ -466,7 +443,7 @@ export default function DashboardClient() {
         helperLabel: t("dashboard.kpiSessionsHelper"),
         deltaLabel: formatDelta(currentSessions, previousSessions),
         bars: sessionsByDay,
-        ctaHref: "/app/entrenamiento",
+        ctaHref: "/app/training",
         ctaLabel: t("dashboard.kpiGoCalendar"),
       },
       {
@@ -476,7 +453,7 @@ export default function DashboardClient() {
         helperLabel: t("dashboard.kpiVolumeHelper"),
         deltaLabel: formatDelta(Math.round(currentVolume), Math.round(previousVolume)),
         bars: volumeByDay,
-        ctaHref: "/app/entrenamiento",
+        ctaHref: "/app/training",
         ctaLabel: t("dashboard.kpiGoToday"),
       },
       {
@@ -486,7 +463,7 @@ export default function DashboardClient() {
         helperLabel: `${adherenceDaysCurrent}/${WEEK_DAYS} ${t("dashboard.kpiDays")}`,
         deltaLabel: formatDelta(adherenceDaysCurrent, adherenceDaysPrevious, ` ${t("dashboard.kpiDaysShort")}`),
         bars: adherenceByDay,
-        ctaHref: "/app/nutricion",
+        ctaHref: "/app/nutrition",
         ctaLabel: t("dashboard.kpiGoToday"),
       },
       {
@@ -496,7 +473,7 @@ export default function DashboardClient() {
         helperLabel: t("dashboard.kpiStreakHelper"),
         deltaLabel: formatDelta(activityDaysCurrent.size, activityDaysPrevious.size, ` ${t("dashboard.kpiDaysShort")}`),
         bars: currentWeekDays.map((day) => (activityDaysCurrent.has(day) ? 1 : 0)),
-        ctaHref: "/app/hoy",
+        ctaHref: "/app/today",
         ctaLabel: t("dashboard.kpiGoToday"),
       },
     ];
@@ -509,7 +486,7 @@ export default function DashboardClient() {
         helperLabel: `${t("dashboard.kpiCaloriesGoal")} ${nutritionTargets.calories} ${t("units.kcal")}`,
         deltaLabel: `${Math.round(averageCalories - nutritionTargets.calories)} ${t("units.kcal")}`,
         bars: caloriesByDay,
-        ctaHref: "/app/hoy",
+        ctaHref: "/app/today",
         ctaLabel: t("dashboard.kpiGoToday"),
       });
     }
@@ -526,7 +503,7 @@ export default function DashboardClient() {
           valueLabel: `${lastWeight.weightKg.toFixed(1)} ${t("units.kilograms")}`,
           helperLabel: t("dashboard.kpiWeightHelper"),
           bars: weightByDay,
-          ctaHref: "/app/seguimiento",
+          ctaHref: "/app/progress",
           ctaLabel: t("dashboard.progressCta"),
         });
       }
@@ -537,7 +514,7 @@ export default function DashboardClient() {
     checkins,
     currentWeekDays,
     currentWeekSet,
-    foodLog,
+    mealLog,
     nutritionTargets?.calories,
     previousWeekDays,
     previousWeekSet,
@@ -576,7 +553,7 @@ export default function DashboardClient() {
             <Button variant="secondary" onClick={handleRetry}>
               {t("ui.retry")}
             </Button>
-            <ButtonLink variant="ghost" href="/app/seguimiento">
+            <ButtonLink variant="ghost" href="/app/progress">
               {t("dashboard.weightProgressBackCta")}
             </ButtonLink>
           </div>
@@ -594,7 +571,7 @@ export default function DashboardClient() {
             <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
             <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
           </div>
-          <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+          <ButtonLink href="/app/progress#weight-entry" className="fit-content">
             {t("dashboard.weightProgressEmptyCta")}
           </ButtonLink>
         </div>
@@ -611,7 +588,7 @@ export default function DashboardClient() {
             <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
             <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
           </div>
-          <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+          <ButtonLink href="/app/progress#weight-entry" className="fit-content">
             {t("dashboard.weightProgressEmptyCta")}
           </ButtonLink>
         </div>
@@ -725,7 +702,7 @@ export default function DashboardClient() {
                       <Button variant="secondary" onClick={handleRetry}>
                         {t("ui.retry")}
                       </Button>
-                      <ButtonLink variant="ghost" href="/app/seguimiento">
+                      <ButtonLink variant="ghost" href="/app/progress">
                         {t("dashboard.progressCta")}
                       </ButtonLink>
                     </div>
@@ -818,7 +795,7 @@ export default function DashboardClient() {
                     <strong>{t("dashboard.aiTrainingTitle")}</strong>
                     <p className="muted mt-6">{t("dashboard.aiTrainingSubtitle")}</p>
                   </div>
-                  <ButtonLink href="/app/entrenamiento?ai=1">
+                  <ButtonLink href="/app/training?ai=1">
                     {t("dashboard.aiTrainingCta")}
                   </ButtonLink>
                 </div>
@@ -829,7 +806,7 @@ export default function DashboardClient() {
                     <strong>{t("dashboard.aiNutritionTitle")}</strong>
                     <p className="muted mt-6">{t("dashboard.aiNutritionSubtitle")}</p>
                   </div>
-                  <ButtonLink href="/app/nutricion?ai=1">
+                  <ButtonLink href="/app/nutrition?ai=1">
                     {t("dashboard.aiNutritionCta")}
                   </ButtonLink>
                 </div>
@@ -865,7 +842,7 @@ export default function DashboardClient() {
             <h2 className="section-title section-title-sm">{t("dashboard.weightProgressTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.weightProgressSubtitle")}</p>
           </div>
-          <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry">
+          <ButtonLink variant="secondary" href="/app/progress#weight-entry">
             {t("dashboard.weightProgressCta")}
           </ButtonLink>
         </div>
@@ -879,7 +856,7 @@ export default function DashboardClient() {
             <h2 className="section-title section-title-sm">{t("dashboard.progressTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.kpiSubtitle")}</p>
           </div>
-          <ButtonLink variant="secondary" href="/app/seguimiento">
+          <ButtonLink variant="secondary" href="/app/progress">
             {t("dashboard.progressCta")}
           </ButtonLink>
         </div>
@@ -905,7 +882,7 @@ export default function DashboardClient() {
               <Button variant="secondary" onClick={handleRetry}>
                 {t("ui.retry")}
               </Button>
-              <ButtonLink variant="ghost" href="/app/seguimiento">
+              <ButtonLink variant="ghost" href="/app/progress">
                 {t("dashboard.progressCta")}
               </ButtonLink>
             </div>
@@ -919,10 +896,10 @@ export default function DashboardClient() {
               <p className="muted m-0">{t("dashboard.kpiEmptyTitle")}</p>
             </div>
             <div className="dashboard-summary-actions">
-              <ButtonLink href="/app/hoy" className="fit-content">
+              <ButtonLink href="/app/today" className="fit-content">
                 {t("dashboard.kpiGoToday")}
               </ButtonLink>
-              <ButtonLink variant="secondary" href="/app/entrenamiento" className="fit-content">
+              <ButtonLink variant="secondary" href="/app/training" className="fit-content">
                 {t("dashboard.kpiGoCalendar")}
               </ButtonLink>
             </div>

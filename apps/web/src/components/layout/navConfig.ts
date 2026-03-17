@@ -20,10 +20,28 @@ export type NavSectionGroup = {
   items: NavItem[];
 };
 
+const TOP_LEVEL_ROUTE_ALIASES = [
+  { canonical: "/app/today", legacy: "/app/today" },
+  { canonical: "/app/training", legacy: "/app/training" },
+  { canonical: "/app/nutrition", legacy: "/app/nutrition" },
+  { canonical: "/app/progress", legacy: "/app/progress" },
+] as const;
+
+function canonicalizePath(path: string): string {
+  for (const alias of TOP_LEVEL_ROUTE_ALIASES) {
+    if (path === alias.legacy || path.startsWith(`${alias.legacy}/`)) {
+      return `${alias.canonical}${path.slice(alias.legacy.length)}`;
+    }
+  }
+  return path;
+}
+
 export function isPathActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
-  if (href === "/app") return pathname === "/app";
-  return pathname === href || pathname.startsWith(`${href}/`);
+  const normalizedPathname = canonicalizePath(pathname);
+  const normalizedHref = canonicalizePath(href);
+  if (normalizedHref === "/app") return normalizedPathname === "/app";
+  return normalizedPathname === normalizedHref || normalizedPathname.startsWith(`${normalizedHref}/`);
 }
 
 export function getMostSpecificActiveHref(pathname: string | null, sections: NavSectionGroup[]): string | null {
@@ -41,8 +59,9 @@ export function getMostSpecificActiveHref(pathname: string | null, sections: Nav
 export type MobileTab = {
   id: string;
   href?: string;
-  labelKey: string;
-  icon: "sparkles" | "dumbbell" | "book" | "info" | "check";
+  label?: string;
+  labelKey?: string;
+  icon: "tab-home" | "tab-workout" | "tab-nutrition" | "tab-progress" | "tab-profile" | "sparkles" | "dumbbell" | "book" | "info" | "check";
   badgeCount?: number;
   feature?: EntitlementFeature;
   upgradeHref?: string;
@@ -51,31 +70,24 @@ export type MobileTab = {
 export const mainTabsMobile: MobileTab[] = [
   {
     id: "today",
-    href: "/app/hoy",
-    labelKey: "nav.today",
-    icon: "sparkles",
+    href: "/app/today",
+    label: "Hoy",
+    icon: "tab-home",
   },
   {
     id: "training",
-    href: "/app/entrenamiento",
-    labelKey: "nav.trainingCalendar",
-    icon: "dumbbell",
-  },
-  {
-    id: "library",
-    href: "/app/biblioteca",
-    labelKey: "nav.exerciseLibrary",
-    icon: "book",
+    href: "/app/training",
+    label: "Entreno",
+    icon: "tab-workout",
   },
   {
     id: "nutrition",
-    href: "/app/nutricion",
-    labelKey: "nav.nutritionCalendar",
-    icon: "sparkles",
-    feature: "nutrition",
-    upgradeHref: "/app/settings/billing",
+    href: "/app/nutrition",
+    label: "Nutrición",
+    icon: "tab-nutrition",
   },
-  { id: "settings", href: "/app/settings", labelKey: "nav.settings", icon: "info" },
+  { id: "tracking", href: "/app/progress", label: "Progreso", icon: "tab-progress" },
+  { id: "profile", href: "/app/profile", label: "Perfil", icon: "tab-profile" },
 ];
 
 
@@ -99,6 +111,12 @@ export const trainerTabsMobile: MobileTab[] = [
     icon: "dumbbell",
   },
   {
+    id: "trainer-nutrition-plans",
+    href: "/app/trainer/nutrition-plans",
+    labelKey: "nav.trainerNutritionPlans",
+    icon: "sparkles",
+  },
+  {
     id: "trainer-exercises",
     href: "/app/trainer/exercises",
     labelKey: "nav.trainerExercises",
@@ -111,8 +129,8 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "fitness",
     labelKey: "navSections.fitness",
     items: [
-      { id: "today", href: "/app/hoy", labelKey: "nav.today" },
-      { id: "training", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
+      { id: "today", href: "/app/today", labelKey: "nav.today" },
+      { id: "training", href: "/app/training", labelKey: "nav.trainingCalendar" },
       { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
       { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
     ],
@@ -121,7 +139,7 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "nutrition-calendar", href: "/app/nutrition", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
@@ -132,12 +150,12 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.account",
     items: [
       { id: "dashboard", href: "/app", labelKey: "nav.progress" },
-      { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
+      { id: "tracking", href: "/app/progress", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
       { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
       { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
-      { id: "gym", href: "/app/gym", labelKey: "nav.gym", feature: "strength", upgradeHref: "/pricing" },
+      { id: "gym", href: "/app/gym", labelKey: "nav.gym" },
     ],
   },
 ];
@@ -171,6 +189,7 @@ export const sidebarTrainer: NavSectionGroup[] = [
       { id: "trainer-home", href: "/app/trainer", labelKey: "nav.trainer" },
       { id: "trainer-clients", href: "/app/trainer/clients", labelKey: "nav.trainerClients" },
       { id: "trainer-plans", href: "/app/trainer/plans", labelKey: "nav.trainerPlans" },
+      { id: "trainer-nutrition-plans", href: "/app/trainer/nutrition-plans", labelKey: "nav.trainerNutritionPlans" },
       {
         id: "trainer-exercises",
         href: "/app/trainer/exercises",
@@ -205,6 +224,12 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         meta: "/app/trainer/plans",
       },
       {
+        id: "dev-trainer-nutrition-plans",
+        href: "/app/trainer/nutrition-plans",
+        labelKey: "nav.trainerNutritionPlans",
+        meta: "/app/trainer/nutrition-plans",
+      },
+      {
         id: "dev-trainer-exercises",
         href: "/app/trainer/exercises",
         labelKey: "nav.trainerExercises",
@@ -217,26 +242,26 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         meta: "/app/trainer/exercises/new",
       },
       { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
-      { id: "dev-dashboard", href: "/app/dashboard", labelKey: "nav.dashboard", meta: "/app/dashboard" },
+      { id: "dev-dashboard", href: "/app/today", labelKey: "nav.dashboard", meta: "/app/dashboard" },
       { id: "dev-weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview", meta: "/app/weekly-review" },
-      { id: "dev-workouts", href: "/app/entrenamiento", labelKey: "nav.workouts", meta: "/app/workouts" },
+      { id: "dev-workouts", href: "/app/training", labelKey: "nav.workouts", meta: "/app/training" },
       {
         id: "dev-training-edit",
-        href: "/app/entrenamiento/editar",
+        href: "/app/training/editar",
         labelKey: "nav.trainingEditor",
-        meta: "/app/entrenamiento/editar",
+        meta: "/app/training/editar",
       },
       {
         id: "dev-nutrition-edit",
-        href: "/app/nutricion/editar",
+        href: "/app/nutrition/editar",
         labelKey: "nav.nutritionEditor",
-        meta: "/app/nutricion/editar",
+        meta: "/app/nutrition/editar",
       },
       {
         id: "dev-profile-legacy",
-        href: "/app/profile/legacy",
+        href: "/app/profile/edit",
         labelKey: "nav.legacyProfile",
-        meta: "/app/profile/legacy",
+        meta: "/app/profile/edit",
       },
       {
         id: "dev-settings-billing",

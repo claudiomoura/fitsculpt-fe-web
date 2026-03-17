@@ -27,5 +27,5 @@ function toQueryString(params?: Record<string, string | string[] | undefined>) {
 
 export default async function EntrenamientosPage({ searchParams }: Props) {
   const params = searchParams ? await searchParams : undefined;
-  redirect(`/app/entrenamiento${toQueryString(params)}`);
+  redirect(`/app/training${toQueryString(params)}`);
 }

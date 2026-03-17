@@ -5,12 +5,21 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { getRoleFlags } from "@/lib/roles";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { SkeletonCard } from "@/components/ui/Skeleton";
+import { Input } from "@/design-system/components/Input";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
+import { ActivePlanSection, PlanCard, PlanHistoryList } from "@/components/plans/PlanSections";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
+
+function getPlanId(plan: TrainingPlanListItem): string {
+  const candidate = (plan as TrainingPlanListItem & { planId?: string }).planId;
+  return (typeof candidate === "string" && candidate.trim().length > 0) ? candidate : plan.id;
+}
+
+function getPlanDate(plan: TrainingPlanListItem): string {
+  return plan.createdAt || plan.startDate;
+}
 
 type TrainingPlanResponse = {
   items?: TrainingPlanListItem[];
@@ -28,14 +37,17 @@ type AiGateState = "loading" | "eligible" | "locked" | "unavailable";
 
 const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
 const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
+const TRAINING_PLANS_UPDATED_AT_KEY = "fs_training_plans_updated_at";
 
 export default function TrainingLibraryClient() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [query, setQuery] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [planSection, setPlanSection] = useState<"assigned" | "library" | "create">("assigned");
   const [fitSculptPlans, setFitSculptPlans] = useState<TrainingPlanListItem[]>([]);
   const [fitSculptState, setFitSculptState] = useState<SectionState>("loading");
   const [gymPlans, setGymPlans] = useState<TrainingPlanListItem[]>([]);
@@ -180,11 +192,56 @@ export default function TrainingLibraryClient() {
 
     void Promise.all([loadPlans(), loadAssignedPlan()]);
     return () => controller.abort();
-  }, [canLoadGymPlans, query]);
+  }, [canLoadGymPlans, query, reloadKey]);
 
-  const noPlansAvailable = useMemo(
-    () => fitSculptState === "ready" && assignedPlanState === "ready" && fitSculptPlans.length === 0 && !assignedPlan,
-    [assignedPlan, assignedPlanState, fitSculptPlans.length, fitSculptState]
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== TRAINING_PLANS_UPDATED_AT_KEY) return;
+      setReloadKey((value) => value + 1);
+    };
+
+    const handleFocus = () => {
+      setReloadKey((value) => value + 1);
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, []);
+
+
+  const formatter = useMemo(() => new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }), [locale]);
+
+  const formatPlanDate = (plan: TrainingPlanListItem): string => {
+    const dateValue = getPlanDate(plan);
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime()) ? t("library.training.planDateFallback") : formatter.format(parsed);
+  };
+  const allPlans = useMemo(() => {
+    const map = new Map<string, TrainingPlanListItem>();
+    fitSculptPlans.forEach((plan) => map.set(getPlanId(plan), plan));
+    gymPlans.forEach((plan) => map.set(getPlanId(plan), plan));
+    if (assignedPlan) map.set(getPlanId(assignedPlan), assignedPlan);
+    return Array.from(map.values());
+  }, [assignedPlan, fitSculptPlans, gymPlans]);
+
+  const resolvedActivePlanId = activePlanId ?? (assignedPlan ? getPlanId(assignedPlan) : null);
+  const activePlan = useMemo(() => {
+    if (!resolvedActivePlanId) return null;
+    return allPlans.find((plan) => getPlanId(plan) === resolvedActivePlanId) ?? null;
+  }, [allPlans, resolvedActivePlanId]);
+
+  const historyPlans = useMemo(
+    () => allPlans.filter((plan) => getPlanId(plan) !== resolvedActivePlanId),
+    [allPlans, resolvedActivePlanId]
   );
 
   const selectPlan = (planId: string) => {
@@ -199,57 +256,31 @@ export default function TrainingLibraryClient() {
     router.replace(`${pathname}?${nextParams.toString()}`);
   };
 
-  const renderSection = (titleKey: string, plans: TrainingPlanListItem[], state: SectionState) => (
-    <section className="card">
-      <h2 className="section-title section-title-sm">{t(titleKey)}</h2>
-
-      {state === "loading" ? (
-        <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-          {Array.from({ length: 2 }).map((_, index) => <SkeletonCard key={`${titleKey}-${index}`} />)}
-        </div>
-      ) : null}
-
-      {state === "error" ? <p className="muted mt-12">{t("library.training.sectionError")}</p> : null}
-      {state === "unavailable" ? <p className="muted mt-12">{t("library.training.sectionUnavailable")}</p> : null}
-      {state === "ready" && plans.length === 0 ? <p className="muted mt-12">{t("library.training.sectionEmpty")}</p> : null}
-
-      {state === "ready" && plans.length > 0 ? (
-        <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-          {plans.map((plan) => {
-            const isSelected = activePlanId === plan.id;
-            return (
-              <article key={plan.id} className="feature-card">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-                  <div>
-                    <h3 className="m-0">{plan.title}</h3>
-                    <p className="muted mt-6">
-                      {t("library.training.planMeta", { days: plan.daysCount, level: plan.level })}
-                    </p>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    {isSelected ? <Badge variant="success">{t("library.training.selected")}</Badge> : null}
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                  <Button variant={isSelected ? "secondary" : "primary"} onClick={() => selectPlan(plan.id)}>
-                    {isSelected ? t("library.training.selected") : t("library.training.choose")}
-                  </Button>
-                  <Link href={`/app/biblioteca/entrenamientos/${plan.id}`} className="btn secondary">
-                    {t("trainingPlans.viewDetail")}
-                  </Link>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      ) : null}
-    </section>
-  );
-
   return (
     <>
-      <section className="card">
+      <section className="card premium-surface-card plans-hub-shell">
+        <div className="stack-sm">
+          <div>
+            <p className="m-0 text-xs uppercase tracking-wider text-muted">Planes</p>
+            <h1 className="section-title m-0">Biblioteca de entrenamiento</h1>
+            <p className="section-subtitle m-0">Consulta planes asignados, revisa tu biblioteca y crea uno nuevo desde aquí.</p>
+          </div>
+          <SegmentedControl
+            className="plans-hub-segmented"
+            ariaLabel="Secciones de planes de entrenamiento"
+            value={planSection}
+            onChange={(id) => setPlanSection(id as "assigned" | "library" | "create")}
+            options={[
+              { id: "assigned", label: "Asignados" },
+              { id: "library", label: "Mis planes" },
+              { id: "create", label: "Crear" },
+            ]}
+          />
+        </div>
+      </section>
+
+      {planSection === "library" ? (
+      <section className="card premium-surface-card">
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -258,51 +289,64 @@ export default function TrainingLibraryClient() {
           helperText={t("trainingPlans.searchHelper")}
         />
       </section>
+      ) : null}
 
-      {renderSection("library.training.sections.fitsculpt", fitSculptPlans, fitSculptState)}
-      {renderSection("library.training.sections.gym", gymPlans, gymState)}
+      {planSection === "assigned" ? (
+      <ActivePlanSection title={t("plans.activeTitle")} emptyTitle={t("plans.activeEmpty")}>
+        {(fitSculptState === "loading" || assignedPlanState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
+        {(fitSculptState === "error" || assignedPlanState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
+        {assignedPlan ? (
+          <PlanCard
+            title={assignedPlan.title}
+            metadata={t("library.training.planMeta", { days: assignedPlan.daysCount, level: assignedPlan.level, date: formatPlanDate(assignedPlan) })}
+            statusLabel={t("plans.activeBadge")}
+            actions={[
+              { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${getPlanId(assignedPlan)}`, variant: "secondary" },
+              { label: t("library.training.choose"), onClick: () => selectPlan(getPlanId(assignedPlan)) },
+            ]}
+          />
+        ) : assignedPlanState === "ready" ? (
+          <EmptyState className="mt-12" title={t("plans.activeEmpty")} description={t("plans.historyEmptyDescription")} icon="info" />
+        ) : null}
+      </ActivePlanSection>
+      ) : null}
 
-      <section className="card">
-        <h2 className="section-title section-title-sm">{t("library.training.sections.assigned")}</h2>
+      {planSection === "library" ? (
+      <PlanHistoryList title={t("plans.historyTitle")} emptyTitle={t("plans.historyEmpty")}>
+        {(fitSculptState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
+        {(fitSculptState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
+        {fitSculptState === "unavailable" && gymState === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.sectionUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
+        {fitSculptState === "ready" && (!canLoadGymPlans || gymState === "ready" || gymState === "unavailable") && historyPlans.length === 0 ? (
+          <EmptyState className="mt-12" title={t("plans.historyEmpty")} description={t("plans.historyEmptyDescription")} icon="info" />
+        ) : null}
 
-        {assignedPlanState === "loading" ? (
+        {historyPlans.length > 0 ? (
           <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            <SkeletonCard />
+            {historyPlans.map((plan) => {
+              const planId = getPlanId(plan);
+              const isSelected = resolvedActivePlanId === planId;
+              return (
+                <PlanCard
+                  key={planId}
+                  title={plan.title}
+                  metadata={t("library.training.planMeta", { days: plan.daysCount, level: plan.level, date: formatPlanDate(plan) })}
+                  actions={[
+                    { label: isSelected ? t("library.training.selected") : t("library.training.choose"), onClick: () => selectPlan(planId), variant: isSelected ? "secondary" : "primary" },
+                    { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${planId}`, variant: "secondary" },
+                  ]}
+                />
+              );
+            })}
           </div>
         ) : null}
+      </PlanHistoryList>
+      ) : null}
 
-        {assignedPlanState === "error" ? <p className="muted mt-12">{t("library.training.sectionError")}</p> : null}
-        {assignedPlanState === "unavailable" ? <p className="muted mt-12">{t("library.training.assignedUnavailable")}</p> : null}
-        {assignedPlanState === "ready" && !assignedPlan ? <p className="muted mt-12">{t("library.training.assignedEmpty")}</p> : null}
-
-        {assignedPlanState === "ready" && assignedPlan ? (
-          <article className="feature-card mt-12">
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-              <div>
-                <h3 className="m-0">{assignedPlan.title}</h3>
-                <p className="muted mt-6">{t("library.training.planMeta", { days: assignedPlan.daysCount, level: assignedPlan.level })}</p>
-              </div>
-              <Badge variant="muted">{t("library.training.assignedByTrainer")}</Badge>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-              <Button variant={activePlanId === assignedPlan.id ? "secondary" : "primary"} onClick={() => selectPlan(assignedPlan.id)}>
-                {activePlanId === assignedPlan.id ? t("library.training.selected") : t("library.training.choose")}
-              </Button>
-              <Link href={`/app/biblioteca/entrenamientos/${assignedPlan.id}`} className="btn secondary">
-                {t("trainingPlans.viewDetail")}
-              </Link>
-            </div>
-          </article>
-        ) : null}
-
-      </section>
-
-      <section className="card">
-        <h2 className="section-title section-title-sm">{t("library.training.sections.ai")}</h2>
+      {planSection === "create" ? (
+      <section className="card premium-surface-card">
+        <h2 className="section-title section-title-sm">Crear un nuevo plan</h2>
         {aiGateState === "loading" ? (
-          <div className="mt-12" style={{ display: "grid", gap: 12 }}>
-            <SkeletonCard />
-          </div>
+          <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
         ) : null}
         {aiGateState === "unavailable" ? (
           <div className="feature-card mt-12" role="status">
@@ -314,30 +358,32 @@ export default function TrainingLibraryClient() {
           <div className="feature-card mt-12" role="status">
             <strong>{t("library.training.aiLockedTitle")}</strong>
             <p className="muted mt-6">{t("library.training.aiLockedDescription")}</p>
+            <div className="mt-12">
+              <Link href="/app/settings/billing" className="btn secondary">{t("billing.manageBilling")}</Link>
+            </div>
           </div>
         ) : null}
         {aiGateState === "eligible" ? (
           <div className="feature-card mt-12">
             <strong>{t("library.training.aiPlaceholderTitle")}</strong>
             <p className="muted mt-6">{t("library.training.aiPlaceholderDescription")}</p>
-            <div className="mt-12">
-              <Link href="/app/entrenamiento?ai=1" className="btn">{t("trainingPlans.aiCta")}</Link>
+            <div className="inline-actions-sm mt-12">
+              <Link href="/app/training?ai=1" className="btn">{t("trainingPlans.aiCta")}</Link>
+              <Link href="/app/training/editar" className="btn secondary">{t("training.manualCreate")}</Link>
             </div>
           </div>
-        ) : null}
-      </section>
-
-      {noPlansAvailable ? (
-        <section className="card">
-          <strong>{t("library.training.emptyVisiblePlansTitle")}</strong>
-          <p className="muted mt-6">{t("library.training.noAssignedOrAvailable")}</p>
-          <div className="mt-12">
-            <Link href="/app/entrenamiento" className="btn">
-              {t("library.training.emptyVisiblePlansCta")}
-            </Link>
+        ) : (
+          <div className="feature-card mt-12">
+            <strong>{t("training.manualCreate")}</strong>
+            <p className="muted mt-6">Crea un plan manual y selecciónalo después desde tu biblioteca.</p>
+            <div className="mt-12">
+              <Link href="/app/training/editar" className="btn secondary">{t("training.manualCreate")}</Link>
+            </div>
           </div>
-        </section>
+        )}
+      </section>
       ) : null}
+
     </>
   );
 }

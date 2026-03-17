@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DAY_LABELS, normalizeNutritionPlan } from "@/app/(app)/app/nutricion/NutritionPlanClient";
+import { DAY_LABELS, normalizeNutritionPlan } from "@/app/(app)/app/nutrition/NutritionPlanClient";
 
 describe("normalizeNutritionPlan", () => {
   it("expands short plans to 7 days using day labels", () => {

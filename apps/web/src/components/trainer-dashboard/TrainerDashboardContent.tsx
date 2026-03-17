@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/design-system/components/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/design-system/components/Card";
+import { Badge } from "@/design-system/components/Badge";
 
 type TrainerDashboardContentProps = {
   t: (key: string) => string;

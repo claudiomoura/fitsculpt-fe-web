@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Button } from "@/design-system/components/Button";
+import { Input } from "@/design-system/components/Input";
 
 type RegisterFormProps = {
   action: (formData: FormData) => void;

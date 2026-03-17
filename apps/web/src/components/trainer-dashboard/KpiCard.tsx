@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/design-system/components/Card";
+import { Skeleton } from "@/design-system/components/Skeleton";
 
 type KpiCardProps = {
   title: ReactNode;

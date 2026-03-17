@@ -1,7 +1,7 @@
 "use client";
 
-import { ButtonLink } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { ButtonLink } from "@/design-system/components/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/design-system/components/Card";
 import { useLanguage } from "@/context/LanguageProvider";
 
 export default function TrainerHubLockedCard() {

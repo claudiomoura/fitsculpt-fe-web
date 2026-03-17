@@ -37,15 +37,20 @@ export async function loginAction(formData: FormData) {
   const email = String(formData.get("email") || "");
   const password = String(formData.get("password") || "");
 
-  const response = await fetch(`${getBackendUrl()}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${getBackendUrl()}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    redirect("/login?error=backend");
+  }
 
   if (!response.ok) {
-    const data = (await response.json()) as { error?: string };
-    const error = data.error === "EMAIL_NOT_VERIFIED" ? "unverified" : data.error === "USER_BLOCKED" ? "blocked" : "1";
+    const data = (await response.json().catch(() => null)) as { error?: string } | null;
+    const error = data?.error === "EMAIL_NOT_VERIFIED" ? "unverified" : data?.error === "USER_BLOCKED" ? "blocked" : "1";
     redirect(`/login?error=${error}`);
   }
 
@@ -61,20 +66,25 @@ export async function registerAction(formData: FormData) {
   const name = String(formData.get("name") || "");
   const promoCode = String(formData.get("promoCode") || "");
 
-  const response = await fetch(`${getBackendUrl()}/auth/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email,
-      password,
-      name: name.trim() ? name : undefined,
-      promoCode,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${getBackendUrl()}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+        name: name.trim() ? name : undefined,
+        promoCode,
+      }),
+    });
+  } catch {
+    redirect("/register?error=backend");
+  }
 
   if (!response.ok) {
-    const data = (await response.json()) as { error?: string };
-    const error = data.error === "INVALID_PROMO_CODE" ? "promo" : "1";
+    const data = (await response.json().catch(() => null)) as { error?: string } | null;
+    const error = data?.error === "INVALID_PROMO_CODE" ? "promo" : "1";
     redirect(`/register?error=${error}`);
   }
 
@@ -87,10 +97,14 @@ export async function logoutAction() {
   if (token) {
     headers.cookie = `fs_token=${token}`;
   }
-  await fetch(`${getBackendUrl()}/auth/logout`, {
-    method: "POST",
-    headers,
-  });
+  try {
+    await fetch(`${getBackendUrl()}/auth/logout`, {
+      method: "POST",
+      headers,
+    });
+  } catch {
+    // Ignore backend availability errors on logout and clear local cookies regardless.
+  }
   const cookieStore = await cookies();
   cookieStore.delete("fs_token");
   cookieStore.delete("fs_token.sig");

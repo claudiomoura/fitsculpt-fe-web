@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import { cn } from "@/lib/classNames";
 
 type SkeletonExerciseListProps = {

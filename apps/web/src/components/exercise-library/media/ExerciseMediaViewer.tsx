@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Modal } from "@/components/ui/Modal";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
+import { Modal } from "@/design-system/components/Modal";
+import { Button } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
 
 export type ExerciseMedia = {
   kind: "image" | "video";

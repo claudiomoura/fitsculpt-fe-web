@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 import { EmptyState } from "@/components/exercise-library/states/EmptyState";
 import { ErrorState } from "@/components/exercise-library/states/ErrorState";
 import { SkeletonExerciseList } from "@/components/exercise-library/states/SkeletonExerciseList";
@@ -18,7 +19,7 @@ import { TodayNotesSummary, type TodayNotesSummaryData } from "@/components/toda
 import { TodaySection } from "@/components/today/TodaySection";
 import { TodayTrainingSummary, type TodayTrainingSummaryData } from "@/components/today/TodayTrainingSummary";
 import { TodayWeightSummary, type TodayWeightSummaryData } from "@/components/today/TodayWeightSummary";
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/design-system/components/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
@@ -67,6 +68,10 @@ type ErrorAction = NonNullable<ComponentProps<typeof ErrorState>["actions"]>[num
 type EmptyAction = NonNullable<ComponentProps<typeof EmptyState>["actions"]>[number];
 
 const SHORTCUT_LIMIT = 4;
+
+function isUnsupportedStatus(status: number): boolean {
+  return status === 404 || status === 405 || status === 501;
+}
 
 const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
   const todayKey = toDateKey(new Date());
@@ -206,6 +211,7 @@ export default function TodaySummaryClient() {
   const [notesState, setNotesState] = useState<SectionState<TodayNotesSummaryData>>({ status: "loading" });
   const [energySupported, setEnergySupported] = useState(false);
   const [notesSupported, setNotesSupported] = useState(false);
+  const [trainingUnsupported, setTrainingUnsupported] = useState(false);
   const [assignedPlanId, setAssignedPlanId] = useState<string | null>(null);
   const [assignedNutritionPlanId, setAssignedNutritionPlanId] = useState<string | null>(null);
   const {
@@ -256,10 +262,19 @@ export default function TodaySummaryClient() {
   const loadAssignedTrainingPlan = useCallback(async () => {
     setTrainingState({ status: "loading" });
     setAssignedPlanId(null);
+    setTrainingUnsupported(false);
 
     try {
       const activeResponse = await fetch("/api/training-plans/active?includeDays=1", { cache: "no-store" });
-      if (!activeResponse.ok) throw new Error("TRAINING_PLAN_ACTIVE_ERROR");
+      if (!activeResponse.ok) {
+        if (!mountedRef.current) return;
+        if (isUnsupportedStatus(activeResponse.status)) {
+          setTrainingUnsupported(true);
+          setTrainingState({ status: "empty" });
+          return;
+        }
+        throw new Error("TRAINING_PLAN_ACTIVE_ERROR");
+      }
 
       const activePayload = (await activeResponse.json()) as ActiveTrainingPlanPayload;
       const planDetail = activePayload.plan;
@@ -320,7 +335,7 @@ export default function TodaySummaryClient() {
   }, [loadAssignedNutritionPlan, loadAssignedTrainingPlan, loadTracking]);
 
   const trainingAction = useMemo(
-    () => (
+    () => (trainingUnsupported ? null : (
       <ButtonLink
         variant="secondary"
         href={assignedPlanId ? `/app/biblioteca/entrenamientos/${assignedPlanId}?from=hoy` : "/app/biblioteca/entrenamientos"}
@@ -328,8 +343,8 @@ export default function TodaySummaryClient() {
       >
         {t("today.trainingCta")}
       </ButtonLink>
-    ),
-    [assignedPlanId, t]
+    )),
+    [assignedPlanId, t, trainingUnsupported]
   );
 
   const nutritionAction = useMemo(
@@ -347,7 +362,7 @@ export default function TodaySummaryClient() {
 
   const weightAction = useMemo(
     () => (
-      <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry" size="lg">
+      <ButtonLink variant="secondary" href="/app/progress#weight-entry" size="lg">
         {t("today.weightCta")}
       </ButtonLink>
     ),
@@ -357,7 +372,7 @@ export default function TodaySummaryClient() {
   const energyAction = useMemo(() => {
     if (!energySupported) return null;
     return (
-      <ButtonLink variant="secondary" href="/app/seguimiento#checkin-entry" size="lg">
+      <ButtonLink variant="secondary" href="/app/progress/check-in" size="lg">
         {t("today.energyCta")}
       </ButtonLink>
     );
@@ -366,7 +381,7 @@ export default function TodaySummaryClient() {
   const notesAction = useMemo(() => {
     if (!notesSupported) return null;
     return (
-      <ButtonLink variant="secondary" href="/app/seguimiento#checkin-entry" size="lg">
+      <ButtonLink variant="secondary" href="/app/progress/check-in" size="lg">
         {t("today.notesCta")}
       </ButtonLink>
     );
@@ -389,19 +404,19 @@ const nutritionErrorActions: ErrorAction[] = [
 ];
 
 const energyEmptyActions: EmptyAction[] | undefined = energySupported
-  ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
+  ? [{ label: t("today.energyCta"), href: "/app/progress/check-in", variant: "secondary" }]
   : undefined;
 
 const notesEmptyActions: EmptyAction[] | undefined = notesSupported
-  ? [{ label: t("today.notesCta"), href: "/app/seguimiento#checkin-entry", variant: "secondary" }]
+  ? [{ label: t("today.notesCta"), href: "/app/progress/check-in", variant: "secondary" }]
   : undefined;
 const energyErrorActions: ErrorAction[] = [
-  ...(energySupported ? [{ label: t("today.energyCta"), href: "/app/seguimiento#checkin-entry" }] : []),
+  ...(energySupported ? [{ label: t("today.energyCta"), href: "/app/progress/check-in" }] : []),
   { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
 ];
 
 const notesErrorActions: ErrorAction[] = [
-  ...(notesSupported ? [{ label: t("today.notesCta"), href: "/app/seguimiento#checkin-entry" }] : []),
+  ...(notesSupported ? [{ label: t("today.notesCta"), href: "/app/progress/check-in" }] : []),
   { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
 ];
 
@@ -451,13 +466,12 @@ const notesErrorActions: ErrorAction[] = [
     return (
       <div key={item.id} className="feature-card library-card">
         <Link href={`/app/biblioteca/${item.id}`} className="library-card-link">
-          <img
+          <ExerciseThumbnail
             src={item.coverUrl}
             alt={`${t("library.mediaAlt")} ${item.name}`}
+            width={320}
+            height={160}
             className="exercise-card-media"
-            onError={(event) => {
-              event.currentTarget.src = "/placeholders/exercise-cover.jpg";
-            }}
           />
           <h3>{item.name}</h3>
           <p className="muted">
@@ -497,9 +511,11 @@ const notesErrorActions: ErrorAction[] = [
         }
         empty={
           <EmptyState
-            title={t("today.trainingEmptyTitle")}
-            description={t("today.trainingAssignedEmptyDescription")}
-            actions={[{ label: t("today.trainingCta"), href: "/app/biblioteca/entrenamientos", variant: "secondary" }]}
+            title={trainingUnsupported ? t("common.notAvailable") : t("today.trainingEmptyTitle")}
+            description={trainingUnsupported ? t("library.training.assignedUnavailable") : t("today.trainingAssignedEmptyDescription")}
+            actions={trainingUnsupported
+              ? [{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]
+              : [{ label: t("today.trainingCta"), href: "/app/biblioteca/entrenamientos", variant: "secondary" }]}
           />
         }
       >
@@ -541,7 +557,7 @@ const notesErrorActions: ErrorAction[] = [
             title={t("today.weightErrorTitle")}
             description={t("today.weightErrorDescription")}
             actions={[
-              { label: t("today.weightCta"), href: "/app/seguimiento#weight-entry" },
+              { label: t("today.weightCta"), href: "/app/progress#weight-entry" },
               { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
             ]}
           />
@@ -550,7 +566,7 @@ const notesErrorActions: ErrorAction[] = [
           <EmptyState
             title={t("today.weightEmptyTitle")}
             description={t("today.weightEmptyDescription")}
-            actions={[{ label: t("today.weightCta"), href: "/app/seguimiento#weight-entry", variant: "secondary" }]}
+            actions={[{ label: t("today.weightCta"), href: "/app/progress#weight-entry", variant: "secondary" }]}
           />
         }
       >

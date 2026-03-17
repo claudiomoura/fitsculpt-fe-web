@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/design-system/components/Toast";
 import { getUserRoleFlags } from "@/lib/userCapabilities";
 import { auditTrainerExerciseCapabilities } from "@/lib/trainer-exercises/capabilityAudit";
 

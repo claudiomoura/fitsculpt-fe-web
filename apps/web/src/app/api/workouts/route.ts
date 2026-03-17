@@ -13,13 +13,17 @@ export async function GET() {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const response = await fetch(`${getBackendUrl()}/workouts`, {
-    headers: { cookie: authCookie },
-    cache: "no-store",
-  });
+  try {
+    const response = await fetch(`${getBackendUrl()}/workouts`, {
+      headers: { cookie: authCookie },
+      cache: "no-store",
+    });
 
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+    const data = await response.json().catch(() => null);
+    return NextResponse.json(data, { status: response.status });
+  } catch {
+    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -29,15 +33,19 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const response = await fetch(`${getBackendUrl()}/workouts`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      cookie: authCookie,
-    },
-    body: JSON.stringify(body),
-  });
+  try {
+    const response = await fetch(`${getBackendUrl()}/workouts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: authCookie,
+      },
+      body: JSON.stringify(body),
+    });
 
-  const data = await response.json();
-  return NextResponse.json(data, { status: response.status });
+    const data = await response.json().catch(() => null);
+    return NextResponse.json(data, { status: response.status });
+  } catch {
+    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
+  }
 }

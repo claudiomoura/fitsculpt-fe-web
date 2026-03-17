@@ -1,7 +1,6 @@
-name: E2E Smoke (Demo Safety)
+name: E2E Smoke (Manual Soak)
 
 on:
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -24,6 +23,7 @@ jobs:
           --health-retries 12
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,19 +58,20 @@ jobs:
           echo "Postgres did not become ready in time"
           exit 1
 
-      - name: Bootstrap API database
+      - name: Bootstrap API database (E2E schema push)
         working-directory: apps/api
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fitsculpt?schema=public
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
-          CORS_ORIGIN: http://127.0.0.1:3000
-          APP_BASE_URL: http://127.0.0.1:3000
-          ALLOW_SEED: "true"
+          CORS_ORIGIN: http://localhost:3000
+          APP_BASE_URL: http://localhost:3000
+          ALLOW_SEED: "1"
+          SKIP_DB_PREFLIGHT: "1"
         run: |
           set -euo pipefail
-          echo "Running db:bootstrap with DATABASE_URL=${DATABASE_URL}"
-          npm run db:doctor
+          echo "Running E2E DB bootstrap (CI mode) using DATABASE_URL=${DATABASE_URL}"
           npm run db:bootstrap
 
       - name: Start API server
@@ -80,9 +81,10 @@ jobs:
           HOST: 127.0.0.1
           JWT_SECRET: e2e-smoke-jwt-secret-32-chars-minimum
           COOKIE_SECRET: e2e-smoke-cookie-secret-32chars
-          CORS_ORIGIN: http://127.0.0.1:3000
-          APP_BASE_URL: http://127.0.0.1:3000
-          ALLOW_SEED: "true"
+          CORS_ORIGIN: http://localhost:3000
+          APP_BASE_URL: http://localhost:3000
+          ALLOW_SEED: "1"
+          SKIP_DB_PREFLIGHT: "1"
         run: |
           set -euo pipefail
           mkdir -p ../artifacts/e2e
@@ -93,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..60}; do
-            if curl --silent --fail http://127.0.0.1:4000/health > /dev/null; then
+            if curl --silent --fail http://localhost:4000/health > /dev/null; then
               echo "API is healthy"
               exit 0
             fi
@@ -119,6 +121,38 @@ jobs:
           echo "Postgres lost readiness before Playwright"
           exit 1
 
+      - name: BFF upstream preflight (web -> api)
+        working-directory: apps/web
+        env:
+          BACKEND_URL: http://localhost:4000
+          NEXT_PUBLIC_BACKEND_URL: http://localhost:4000
+        run: |
+          set -euo pipefail
+          npm run dev > /tmp/web-dev.log 2>&1 &
+          WEB_PID=$!
+          trap "kill ${WEB_PID} >/dev/null 2>&1 || true" EXIT
+
+          for i in {1..60}; do
+            if curl --silent --output /tmp/bff-check-body.txt --write-out "%{http_code}" "http://localhost:3000/api/auth/verify-email?token=bff-ci-smoke" > /tmp/bff-check-status.txt; then
+              STATUS="$(cat /tmp/bff-check-status.txt)"
+              if [ "${STATUS}" = "502" ]; then
+                echo "BFF upstream preflight failed with 502"
+                echo "BFF route: /api/auth/verify-email?token=bff-ci-smoke"
+                echo "Configured upstream: BACKEND_URL=${BACKEND_URL}"
+                cat /tmp/bff-check-body.txt || true
+                exit 1
+              fi
+              echo "BFF upstream preflight passed with status ${STATUS}"
+              cat /tmp/bff-check-body.txt || true
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "BFF preflight could not reach web server in time"
+          tail -n 200 /tmp/web-dev.log || true
+          exit 1
+
       - name: Install Playwright browser
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
@@ -126,13 +160,19 @@ jobs:
       - name: Run E2E smoke tests
         working-directory: apps/web
         env:
-          E2E_BASE_URL: http://127.0.0.1:3000
-          E2E_BACKEND_URL: http://127.0.0.1:4000
+          E2E_BASE_URL: http://localhost:3000
+          E2E_BACKEND_URL: http://localhost:4000
+          BACKEND_URL: http://localhost:4000
+          NEXT_PUBLIC_BACKEND_URL: http://localhost:4000
           E2E_DEMO_USER_EMAIL: demo.user@fitsculpt.local
           E2E_DEMO_USER_PASSWORD: DemoUser123!
         run: |
           set -euo pipefail
-          npm run e2e
+          rm -f ../artifacts/e2e/e2e-gym-flow-5x-results.log
+          for run in {1..5}; do
+            echo "=== gym-flow run ${run}/5 ===" | tee -a ../artifacts/e2e/e2e-gym-flow-5x-results.log
+            npm run e2e -- e2e/gym-flow.spec.ts --reporter=line 2>&1 | tee -a ../artifacts/e2e/e2e-gym-flow-5x-results.log
+          done
 
       - name: Upload E2E artifacts
         if: always()

@@ -6,8 +6,8 @@ import Link from "next/link";
 import ResendVerificationButton from "./ResendVerificationButton";
 import LoginForm from "./LoginForm";
 import GoogleLoginButton from "./GoogleLoginButton";
-import { Badge } from "@/components/ui/Badge";
-import { Icon } from "@/components/ui/Icon";
+import { Badge } from "@/design-system/components/Badge";
+import { Icon } from "@/design-system/components/Icon";
 
 type SearchParams =
   | { next?: string; error?: string; registered?: string }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
-import { fetchPendingGymJoinRequests, reviewGymJoinRequest, type JoinRequestListItem } from "@/services/gym";
+import { fetchPendingGymJoinRequests, reviewGymJoinRequest, type JoinRequestListItem } from "@/domains/gym";
 import TrainerAdminNoGymPanel from "./TrainerAdminNoGymPanel";
 import TrainerGymRequiredState from "./TrainerGymRequiredState";
 import { useTrainerAreaAccess } from "./useTrainerAreaAccess";

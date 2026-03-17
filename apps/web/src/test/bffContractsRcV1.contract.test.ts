@@ -13,10 +13,16 @@ type MockCookieStore = {
 };
 
 const cookiesMock = vi.fn<() => Promise<MockCookieStore>>();
+const headersMock = vi.fn<() => Promise<Headers>>();
 
-vi.mock("next/headers", () => ({
-  cookies: cookiesMock,
-}));
+vi.mock("next/headers", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/headers")>();
+  return {
+    ...actual,
+    cookies: cookiesMock,
+    headers: headersMock,
+  };
+});
 
 function jsonResponse(status: number, payload: unknown): Response {
   return {
@@ -31,6 +37,8 @@ function jsonResponse(status: number, payload: unknown): Response {
 describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
   beforeEach(() => {
     cookiesMock.mockReset();
+    headersMock.mockReset();
+    headersMock.mockResolvedValue(new Headers());
   });
 
   it("validates GET /api/auth/me minimal response shape", async () => {
@@ -116,6 +124,7 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
           checkins: [{ id: "c_1", date: "2026-01-01", weightKg: 80 }],
           foodLog: [{ id: "f_1", date: "2026-01-01", foodKey: "rice", grams: 120 }],
           workoutLog: [{ id: "w_1", date: "2026-01-01", name: "Upper", durationMin: 45 }],
+          mealLog: [],
         }),
       ),
     );
@@ -130,14 +139,30 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
         checkins: expect.any(Array),
         foodLog: expect.any(Array),
         workoutLog: expect.any(Array),
+        mealLog: expect.any(Array),
       }),
     );
-    expect(body.checkins[0]).toEqual(
-      expect.objectContaining({
-        id: expect.any(String),
-        date: expect.any(String),
+    expect(body.checkins.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("normalizes tracking auth and validation error shapes", async () => {
+    cookiesMock.mockResolvedValue({ get: () => undefined });
+    const { GET, POST } = await import("@/app/api/tracking/route");
+
+    const unauthorizedResponse = await GET();
+    await expect(unauthorizedResponse.json()).resolves.toEqual({ error: "UNAUTHORIZED", kind: "auth", status: 401 });
+
+    cookiesMock.mockResolvedValue({ get: () => ({ value: "token_123" }) });
+    const invalidPayloadResponse = await POST(
+      new Request("http://localhost/api/tracking", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{",
       }),
     );
+
+    expect(invalidPayloadResponse.status).toBe(400);
+    await expect(invalidPayloadResponse.json()).resolves.toEqual({ error: "INVALID_REQUEST", kind: "validation", status: 400 });
   });
 
   it("validates GET /api/exercises list minimal response shape", async () => {

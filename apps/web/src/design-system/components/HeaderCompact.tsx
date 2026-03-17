@@ -9,11 +9,19 @@ export type HeaderCompactProps = HTMLAttributes<HTMLElement> & {
   subtitle?: ReactNode;
   leading?: ReactNode;
   trailing?: ReactNode;
+  hero?: boolean;
 };
 
-export function HeaderCompact({ title, subtitle, leading, trailing, className, ...props }: HeaderCompactProps) {
+export function HeaderCompact({ title, subtitle, leading, trailing, hero = false, className, ...props }: HeaderCompactProps) {
   return (
-    <header className={cn('flex items-start justify-between gap-3', className)} {...props}>
+    <header
+      className={cn(
+        'flex items-start justify-between gap-3',
+        hero ? 'gradient-bg rounded-xl border-b border-border/70 px-4 py-4 md:px-5 md:py-5' : undefined,
+        className,
+      )}
+      {...props}
+    >
       <div className="flex min-w-0 items-start gap-3">
         {leading ? (
           <div

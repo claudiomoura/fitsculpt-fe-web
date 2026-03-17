@@ -16,6 +16,7 @@ type TrackingPayload = {
   checkins: Array<Record<string, unknown>>;
   foodLog: Array<Record<string, unknown>>;
   workoutLog: Array<Record<string, unknown>>;
+  mealLog: Array<Record<string, unknown>>;
 };
 
 function normalizeMealDistribution(input?: MealDistribution | string | null): MealDistribution {

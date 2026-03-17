@@ -1,7 +1,7 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { cn } from "@/lib/classNames";
 import { SurfaceCard } from "@/components/surfaces/SurfaceCard";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/design-system/components/Skeleton";
 
 type MetricCardProps = ComponentPropsWithoutRef<"section"> & {
   value: ReactNode;

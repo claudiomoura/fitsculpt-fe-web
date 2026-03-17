@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/design-system/components/Button";
+import { Modal } from "@/design-system/components/Modal";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type ConfirmPlanActionModalProps = {

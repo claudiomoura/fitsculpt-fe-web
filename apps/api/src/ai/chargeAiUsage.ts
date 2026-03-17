@@ -30,7 +30,7 @@ type AiExecutionResult = {
 };
 
 type ChargeAiUsageParams = {
-  prisma: PrismaClient;
+  prisma: PrismaClient | Prisma.TransactionClient;
   pricing: AiPricingMap;
   user: AiUsageUser;
   feature: string;
@@ -39,7 +39,7 @@ type ChargeAiUsageParams = {
 };
 
 type ChargeAiUsageForResultParams = {
-  prisma: PrismaClient;
+  prisma: PrismaClient | Prisma.TransactionClient;
   pricing: AiPricingMap;
   user: AiUsageUser;
   feature: string;
@@ -54,7 +54,42 @@ type UsageTotals = {
   totalTokens: number;
 };
 
+type PrismaLikeError = {
+  code?: string;
+  message?: string;
+  meta?: { modelName?: string; column?: string; target?: unknown };
+};
+
 export type AiUsageTotals = UsageTotals;
+
+const FEATURE_ESTIMATED_TOKEN_COST: Record<string, number> = {
+  "training-generate": 1200,
+  "nutrition-generate": 1200,
+  training: 800,
+  nutrition: 800,
+  tip: 300,
+};
+
+function getFeatureEstimatedTokenCost(feature: string): number {
+  return FEATURE_ESTIMATED_TOKEN_COST[feature] ?? 1;
+}
+
+
+export function extractExactProviderUsage(usage?: OpenAiUsage | null): UsageTotals | undefined {
+  if (!usage) return undefined;
+  const promptRaw = usage.prompt_tokens ?? usage.input_tokens;
+  const completionRaw = usage.completion_tokens ?? usage.output_tokens;
+  const totalRaw = usage.total_tokens;
+  if (typeof promptRaw !== "number" || typeof completionRaw !== "number" || typeof totalRaw !== "number") {
+    return undefined;
+  }
+
+  return {
+    promptTokens: Math.max(0, promptRaw),
+    completionTokens: Math.max(0, completionRaw),
+    totalTokens: Math.max(0, totalRaw),
+  };
+}
 
 export function buildUsageTotals(usage?: OpenAiUsage | null): UsageTotals {
   const promptTokens = Math.max(0, usage?.prompt_tokens ?? usage?.input_tokens ?? 0);
@@ -81,6 +116,7 @@ type PersistAiUsageLogParams = {
   meta?: Record<string, unknown>;
   mode?: AiUsageMode;
   fallbackReason?: string | null;
+  throwOnError?: boolean;
 };
 
 export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
@@ -105,20 +141,52 @@ export async function persistAiUsageLog(params: PersistAiUsageLogParams) {
         meta: logMeta,
       },
     });
-  } catch (error) {
-    const typedError = error as { name?: string; message?: string; code?: string };
-    console.warn("AI usage log persistence failed; continuing without blocking response", {
+    console.info("AI usage persisted", {
       feature: params.feature,
       userId: params.userId,
       mode: params.mode ?? "AI",
       model: params.model ?? "unknown",
       provider: params.provider ?? "unknown",
       requestId: params.requestId ?? null,
+      promptTokens: totals.promptTokens,
+      completionTokens: totals.completionTokens,
+      totalTokens: totals.totalTokens,
+    });
+  } catch (error) {
+    const typedError = error as PrismaLikeError & { name?: string };
+    console.warn("AI usage persist failed but continued", {
+      feature: params.feature,
+      step: "usage_log_create",
+      userId: params.userId,
+      mode: params.mode ?? "AI",
+      model: params.model ?? "unknown",
+      provider: params.provider ?? "unknown",
+      aiRequestId: params.requestId ?? null,
       errorName: typedError.name ?? "UnknownError",
-      errorCode: typedError.code,
+      prisma_code: typedError.code,
+      prisma_model: typedError.meta?.modelName,
+      prisma_column: typedError.meta?.column,
       errorMessage: typedError.message ?? "unknown",
     });
+    if (params.throwOnError) {
+      throw error;
+    }
   }
+}
+
+function isMigrationRequiredPrismaError(error: unknown): boolean {
+  const typed = error as PrismaLikeError;
+  return typed?.code === "P2022";
+}
+
+function logMigrationRequiredError(error: unknown, payload: { step: string; userId: string; feature: string; requestId?: string | null }) {
+  const typedError = error as PrismaLikeError;
+  console.error("AI usage charge failed: required DB migrations missing", {
+    ...payload,
+    prisma_code: typedError?.code,
+    prisma_model: typedError?.meta?.modelName,
+    prisma_column: typedError?.meta?.column,
+  });
 }
 
 function getEffectiveTokens(user: { aiTokenBalance: number; aiTokenResetAt: Date | null; aiTokenRenewalAt: Date | null }) {
@@ -193,7 +261,7 @@ function buildChargeDetails({
 }
 
 async function debitAiTokensTx(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   userId: string,
   args: {
     feature: string;
@@ -206,7 +274,13 @@ async function debitAiTokensTx(
   createHttpError: (statusCode: number, code: string, debug?: Record<string, unknown>) => Error
 ) {
   const { feature, model, usage, costCents, meta, requestId } = args;
-  return prisma.$transaction(async (tx) => {
+  const runDebit = async (tx: Prisma.TransactionClient) => {
+    console.info("AI token debit transaction started", {
+      userId,
+      feature,
+      requestId: requestId ?? null,
+      requestedTokens: usage.totalTokens,
+    });
     const user = await tx.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw createHttpError(404, "USER_NOT_FOUND");
@@ -217,21 +291,78 @@ async function debitAiTokensTx(
       aiTokenRenewalAt: user.aiTokenRenewalAt,
     });
     if (effectiveTokens <= 0) {
-      throw createHttpError(402, "INSUFFICIENT_TOKENS", { message: "No tienes tokens IA" });
+      throw createHttpError(403, "AI_TOKENS_EXHAUSTED", { message: "No tienes tokens IA" });
     }
 
-    const nextBalance = Math.max(0, effectiveTokens - costCents);
+    if (requestId) {
+      const existing = await tx.aiUsageLog.findFirst({
+        where: {
+          userId,
+          feature,
+          requestId,
+          mode: "AI",
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (existing) {
+        const existingMeta =
+          existing.meta && typeof existing.meta === "object" && !Array.isArray(existing.meta)
+            ? (existing.meta as Record<string, unknown>)
+            : undefined;
+        const existingBalanceAfter =
+          typeof existingMeta?.balanceAfter === "number" ? Math.max(0, existingMeta.balanceAfter) : null;
+
+        return {
+          balance: existingBalanceAfter ?? effectiveTokens,
+          debitedTokens: 0,
+          idempotentReplay: true,
+        };
+      }
+    }
+
+    const tokensToDebit = Math.max(0, usage.totalTokens);
+    const nextBalance = Math.max(0, effectiveTokens - tokensToDebit);
     const mergedMeta = { ...(meta ?? {}) };
-    if (costCents > effectiveTokens) {
+    if (tokensToDebit > effectiveTokens) {
       mergedMeta.overdraw = true;
     }
+    mergedMeta.balanceBefore = effectiveTokens;
+    mergedMeta.balanceAfter = nextBalance;
+    mergedMeta.debitedTokens = tokensToDebit;
 
-    const [updatedUser] = await Promise.all([
-      tx.user.update({
-        where: { id: userId },
-        data: { aiTokenBalance: nextBalance },
-      }),
-      persistAiUsageLog({
+    const updateResult = await tx.user.updateMany({
+      where: {
+        id: userId,
+        updatedAt: user.updatedAt,
+        aiTokenBalance: {
+          gte: tokensToDebit,
+        },
+      },
+      data: { aiTokenBalance: nextBalance },
+    });
+
+    if (updateResult.count !== 1) {
+      const latestUser = await tx.user.findUnique({ where: { id: userId } });
+      const latestEffectiveTokens = latestUser
+        ? getEffectiveTokens({
+            aiTokenBalance: latestUser.aiTokenBalance ?? 0,
+            aiTokenResetAt: latestUser.aiTokenResetAt,
+            aiTokenRenewalAt: latestUser.aiTokenRenewalAt,
+          })
+        : 0;
+      console.warn("AI token debit transaction conflict", {
+        userId,
+        feature,
+        requestId: requestId ?? null,
+        latestEffectiveTokens,
+        requestedTokens: tokensToDebit,
+      });
+      throw createHttpError(403, "AI_TOKENS_INSUFFICIENT", { message: "No tienes tokens IA" });
+    }
+
+    try {
+      await persistAiUsageLog({
         prisma: tx,
         userId,
         feature,
@@ -244,13 +375,84 @@ async function debitAiTokensTx(
         requestId: requestId ?? undefined,
         meta: mergedMeta,
         mode: "AI",
-      }),
-    ]);
+        throwOnError: true,
+      });
+    } catch (error) {
+      const typedError = error as { code?: string };
+      if (typedError.code === "P2002" && requestId) {
+        const existing = await tx.aiUsageLog.findFirst({
+          where: {
+            userId,
+            feature,
+            requestId,
+            mode: "AI",
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        if (existing) {
+          const existingMeta =
+            existing.meta && typeof existing.meta === "object" && !Array.isArray(existing.meta)
+              ? (existing.meta as Record<string, unknown>)
+              : undefined;
+          const existingBalanceAfter =
+            typeof existingMeta?.balanceAfter === "number" ? Math.max(0, existingMeta.balanceAfter) : null;
+          console.info("AI token debit transaction idempotent replay", {
+            userId,
+            feature,
+            requestId,
+          });
+          return {
+            balance: existingBalanceAfter ?? nextBalance,
+            debitedTokens: 0,
+            idempotentReplay: true,
+          };
+        }
+      }
+      throw error;
+    }
+
+    const updatedUser = await tx.user.findUnique({ where: { id: userId } });
+    if (!updatedUser) {
+      throw createHttpError(404, "USER_NOT_FOUND");
+    }
+
+    console.info("AI token debit transaction committed", {
+      userId,
+      feature,
+      requestId: requestId ?? null,
+      balanceBefore: effectiveTokens,
+      balanceAfter: updatedUser.aiTokenBalance,
+      debitedTokens: tokensToDebit,
+    });
 
     return {
       balance: updatedUser.aiTokenBalance,
+      debitedTokens: tokensToDebit,
+      idempotentReplay: false,
     };
-  });
+  };
+
+  if ("$transaction" in prisma && typeof prisma.$transaction === "function") {
+    try {
+      return await prisma.$transaction(async (tx) => runDebit(tx));
+    } catch (error) {
+      if (isMigrationRequiredPrismaError(error)) {
+        logMigrationRequiredError(error, { step: "debit_ai_tokens", userId, feature, requestId: requestId ?? null });
+        throw createHttpError(503, "DATABASE_MIGRATIONS_REQUIRED");
+      }
+      throw error;
+    }
+  }
+
+  try {
+    return await runDebit(prisma);
+  } catch (error) {
+    if (isMigrationRequiredPrismaError(error)) {
+      logMigrationRequiredError(error, { step: "debit_ai_tokens", userId, feature, requestId: requestId ?? null });
+      throw createHttpError(503, "DATABASE_MIGRATIONS_REQUIRED");
+    }
+    throw error;
+  }
 }
 
 export async function chargeAiUsage(params: ChargeAiUsageParams) {
@@ -261,7 +463,11 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
   }
 
   if (!user.isAdminOverride && getEffectiveTokens(user) <= 0) {
-    throw createHttpError(402, "INSUFFICIENT_TOKENS");
+    throw createHttpError(403, "AI_TOKENS_EXHAUSTED");
+  }
+
+  if (!user.isAdminOverride && getEffectiveTokens(user) < getFeatureEstimatedTokenCost(feature)) {
+    throw createHttpError(403, "AI_TOKENS_INSUFFICIENT");
   }
 
   const result = await execute();
@@ -290,9 +496,11 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
 
   return {
     payload: result.payload,
-    tokensSpent: costCents,
+    tokensSpent: charging.debitedTokens,
     costCents,
     balance: charging.balance,
+    balanceAfter: charging.balance,
+    idempotentReplay: charging.idempotentReplay,
     totalTokens: totals.totalTokens,
     model: normalizedModel,
     usage: totals,
@@ -308,7 +516,11 @@ export async function chargeAiUsageForResult(params: ChargeAiUsageForResultParam
   }
 
   if (!user.isAdminOverride && getEffectiveTokens(user) <= 0) {
-    throw createHttpError(402, "INSUFFICIENT_TOKENS");
+    throw createHttpError(403, "AI_TOKENS_EXHAUSTED");
+  }
+
+  if (!user.isAdminOverride && getEffectiveTokens(user) < getFeatureEstimatedTokenCost(feature)) {
+    throw createHttpError(403, "AI_TOKENS_INSUFFICIENT");
   }
 
   const { costCents, totals, normalizedModel, meta: mergedMeta } = buildChargeDetails({
@@ -336,9 +548,11 @@ export async function chargeAiUsageForResult(params: ChargeAiUsageForResultParam
 
   return {
     payload: result.payload,
-    tokensSpent: costCents,
+    tokensSpent: charging.debitedTokens,
     costCents,
     balance: charging.balance,
+    balanceAfter: charging.balance,
+    idempotentReplay: charging.idempotentReplay,
     totalTokens: totals.totalTokens,
     model: normalizedModel,
     usage: totals,

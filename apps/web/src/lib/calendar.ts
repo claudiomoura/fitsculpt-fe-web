@@ -1,7 +1,7 @@
 export function parseDate(value?: string | null): Date | null {
   if (!value) return null;
   const normalized = value.trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalized);
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(normalized);
   if (match) {
     const year = Number(match[1]);
     const month = Number(match[2]) - 1;

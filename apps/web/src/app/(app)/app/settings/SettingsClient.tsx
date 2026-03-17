@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
-import { ButtonLink } from "@/components/ui/Button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/design-system/components/Card";
+import { ButtonLink } from "@/design-system/components/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { extractGymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 
-type SettingsSection = "account" | "profile" | "billing" | "notifications" | "support";
+type SettingsSection = "account" | "language" | "profile" | "billing" | "notifications" | "support";
 type MembershipState = "none" | "pending" | "active" | "rejected" | "unknown";
 
-const sectionOrder: SettingsSection[] = ["account", "profile", "billing", "notifications", "support"];
+const sectionOrder: SettingsSection[] = ["account", "language", "profile", "billing", "notifications", "support"];
 
 export default function SettingsClient() {
   const { t } = useLanguage();
@@ -87,6 +88,10 @@ export default function SettingsClient() {
         description: t("settings.sections.account.description"),
         content: profileName ? profileName : t("settings.sections.account.empty"),
       },
+      language: {
+        title: t("settings.sections.language.title"),
+        description: t("settings.sections.language.description"),
+      },
       profile: {
         title: t("settings.sections.profile.title"),
         description: t("settings.sections.profile.description"),
@@ -150,6 +155,11 @@ export default function SettingsClient() {
           {t("app.settingsTitle")}
         </h1>
         <p className="section-subtitle">{t("settings.subtitle")}</p>
+        <div className="inline-actions-sm">
+          <a className="btn" href="/app/profile/edit">Editar perfil</a>
+          <a className="btn secondary" href="/app/settings/password">Contraseña</a>
+          <a className="btn secondary" href="/app/settings/billing">Facturación</a>
+        </div>
       </header>
 
       <div className="list-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
@@ -166,6 +176,23 @@ export default function SettingsClient() {
                 </CardHeader>
                 <CardContent>
                   <EmptyState title={section.emptyTitle} icon="info" />
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (sectionKey === "language") {
+            const section = sections.language;
+            return (
+              <Card key={sectionKey}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>{section.title}</CardTitle>
+                    <CardDescription>{section.description}</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <LanguageSwitcher showLabel />
                 </CardContent>
               </Card>
             );

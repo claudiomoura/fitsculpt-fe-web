@@ -57,6 +57,12 @@ const memberTrainingPlanAssignmentSchema = z.object({
   assignedPlan: assignedTrainingPlanSchema.nullable(),
 });
 
+const selfAssignedTrainingPlanSchema = z.object({
+  memberId: z.string().min(1),
+  gym: z.object({ id: z.string().min(1), name: z.string().min(1) }),
+  assignedPlan: assignedTrainingPlanSchema.nullable(),
+});
+
 const gymsListPayload = {
   gyms: [{ id: "gym_1", name: "Downtown Gym" }],
   items: [{ id: "gym_1", name: "Downtown Gym" }],
@@ -65,6 +71,15 @@ const gymsListPayload = {
 const joinRequestCreatePayload = {
   status: "PENDING",
   state: "pending",
+  gymId: "gym_1",
+  gymName: "Downtown Gym",
+  gym: { id: "gym_1", name: "Downtown Gym" },
+  role: "MEMBER",
+};
+
+const joinByActivationCodePayload = {
+  status: "ACTIVE",
+  state: "active",
   gymId: "gym_1",
   gymName: "Downtown Gym",
   gym: { id: "gym_1", name: "Downtown Gym" },
@@ -115,12 +130,32 @@ const memberAssignedPlanPayload = {
   },
 };
 
+const selfAssignedPlanPayload = {
+  memberId: "user_1",
+  gym: { id: "gym_1", name: "Downtown Gym" },
+  assignedPlan: {
+    id: "plan_1",
+    title: "Strength Base",
+    goal: "MUSCLE_GAIN",
+    level: "INTERMEDIATE",
+    daysPerWeek: 4,
+    focus: "UPPER_LOWER",
+    equipment: "GYM",
+    startDate: "2026-02-24T00:00:00.000Z",
+    daysCount: 28,
+  },
+};
+
 const parsedGyms = gymsListResponseSchema.parse(gymsListPayload);
 assert.deepEqual(parsedGyms.gyms, parsedGyms.items, "GET /gyms must keep gyms and items arrays aligned");
 
 const parsedJoinCreate = gymMembershipResponseSchema.parse(joinRequestCreatePayload);
 assert.equal(parsedJoinCreate.status, "PENDING", "POST /gyms/join must return stable uppercase status");
 assert.equal(parsedJoinCreate.state, "pending", "POST /gyms/join must return legacy lowercase state");
+
+const parsedActivationJoin = gymMembershipResponseSchema.parse(joinByActivationCodePayload);
+assert.equal(parsedActivationJoin.status, "ACTIVE", "POST /gyms/join-by-code may return ACTIVE for activation codes");
+assert.equal(parsedActivationJoin.state, "active", "POST /gyms/join-by-code must keep legacy lowercase state for ACTIVE");
 
 const parsedJoinList = gymJoinRequestsListSchema.parse(joinRequestsListPayload);
 assert.ok(parsedJoinList.items.length > 0, "GET /admin/gym-join-requests must include items");
@@ -131,5 +166,9 @@ assert.equal(parsedAction.membershipId, "membership_1");
 
 const parsedAssignment = memberTrainingPlanAssignmentSchema.parse(memberAssignedPlanPayload);
 assert.equal(parsedAssignment.assignedPlan?.id, "plan_1");
+
+const parsedSelfAssignment = selfAssignedTrainingPlanSchema.parse(selfAssignedPlanPayload);
+assert.equal(parsedSelfAssignment.memberId, "user_1");
+assert.equal(parsedSelfAssignment.assignedPlan?.id, "plan_1");
 
 console.log("gym pilot contract tests passed");

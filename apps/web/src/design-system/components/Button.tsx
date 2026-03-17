@@ -1,57 +1,90 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import Link from "next/link";
+import type { ComponentPropsWithoutRef, ElementType } from "react";
+import { cn } from "@/lib/classNames";
 
-import { cn } from '@/lib/classNames';
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "primaryGlow" | "accentGlow";
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+export type ButtonSize = "sm" | "md" | "lg";
 
-export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: ButtonVariant;
-  loading?: boolean;
-  iconLeft?: ReactNode;
-  iconRight?: ReactNode;
+const VARIANT_CLASS: Record<ButtonVariant, string> = {
+  primary: "ui-button--primary",
+  secondary: "ui-button--secondary",
+  ghost: "ui-button--ghost",
+  danger: "ui-button--danger",
+  primaryGlow: "ui-button--primary glow-primary",
+  accentGlow: "ui-button--secondary glow-accent",
 };
 
-const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    'bg-primary text-white shadow-sm hover:bg-primary/90 focus-visible:ring-primary/35',
-  secondary:
-    'border border-border bg-surface text-text shadow-sm hover:bg-surface-muted focus-visible:ring-primary/25',
-  ghost:
-    'bg-transparent text-text hover:bg-surface-muted focus-visible:ring-primary/20',
+const SIZE_CLASS: Record<ButtonSize, string> = {
+  sm: "ui-button--sm",
+  md: "",
+  lg: "ui-button--lg",
+};
+
+export type ButtonProps = ComponentPropsWithoutRef<"button"> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
 };
 
 export function Button({
-  variant = 'primary',
+  variant = "primary",
+  size = "md",
+  loading = false,
+  className,
+  disabled,
+  type = "button",
+  style,
+  children,
+  ...props
+}: ButtonProps) {
+  return (
+    <button
+      type={type}
+      className={cn("ui-button", VARIANT_CLASS[variant], SIZE_CLASS[size], loading && "is-loading", className)}
+      disabled={disabled || loading}
+      aria-busy={loading}
+      style={style}
+      {...props}
+    >
+      {loading ? <span className="ui-spinner" aria-hidden="true" /> : null}
+      {children}
+    </button>
+  );
+}
+
+type ButtonLinkProps<T extends ElementType> = {
+  as?: T;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+  disabled?: boolean;
+} & ComponentPropsWithoutRef<T>;
+
+export function ButtonLink<T extends ElementType = typeof Link>({
+  as,
+  variant = "primary",
+  size = "md",
   loading = false,
   disabled,
   className,
+  style,
   children,
-  iconLeft,
-  iconRight,
   ...props
-}: ButtonProps) {
+}: ButtonLinkProps<T>) {
+  const Component = (as ?? Link) as ElementType;
   const isDisabled = disabled || loading;
 
   return (
-    <button
-      type="button"
-      disabled={isDisabled}
-      className={cn(
-        'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
-        variantClasses[variant],
-        isDisabled && 'cursor-not-allowed opacity-55',
-        className,
-      )}
+    <Component
+      className={cn("ui-button", VARIANT_CLASS[variant], SIZE_CLASS[size], loading && "is-loading", className)}
+      aria-disabled={isDisabled}
+      tabIndex={isDisabled ? -1 : undefined}
+      style={style}
       {...props}
     >
-      {loading ? (
-        <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-      ) : (
-        iconLeft
-      )}
-      <span>{children}</span>
-      {!loading ? iconRight : null}
-    </button>
+      {loading ? <span className="ui-spinner" aria-hidden="true" /> : null}
+      {children}
+    </Component>
   );
 }

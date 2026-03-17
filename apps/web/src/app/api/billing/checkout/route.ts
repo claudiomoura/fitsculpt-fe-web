@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return jsonNoStore({ error: "BACKEND_URL_NOT_CONFIGURED" }, 500);
   }
 
-  const payload = (await request.json().catch(() => ({}))) as unknown;
+  const payload = (await request.json().catch(() => ({}))) as { planKey?: string; returnTo?: string | null } | unknown;
 
   let response: Response;
   try {

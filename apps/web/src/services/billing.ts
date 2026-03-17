@@ -122,11 +122,11 @@ export async function getBillingPlans(): Promise<BillingPlansResult> {
   };
 }
 
-export async function postBillingCheckout(planKey: string): Promise<Response> {
+export async function postBillingCheckout(planKey: string, returnTo?: string | null): Promise<Response> {
   return fetch("/api/billing/checkout", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ planKey }),
+    body: JSON.stringify({ planKey, returnTo }),
   });
 }
 

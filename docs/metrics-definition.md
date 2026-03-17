@@ -2,7 +2,7 @@
 
 ## Estado actual del repositorio
 
-**Conclusión:** hoy no existe una capa de analytics integrada en frontend para emitir eventos de producto (p. ej. `trackEvent`, `analytics.capture`, `gtag`, Segment, Mixpanel, PostHog).
+**Conclusión:** hoy ya existe una capa mínima de analytics real en frontend con PostHog opcional por env y cola local de fallback para debug.
 
 Verificación realizada:
 - Búsqueda de términos de tracking/eventos en `apps/web/src` sin resultados implementables de analytics.
@@ -96,15 +96,12 @@ Usuario activo semanal si realiza ≥1 `core_action_completed` en la semana cale
 
 ## Requiere implementación (siguiente PR)
 
-Como en esta base no hay provider de analytics ya integrado, quedan pendientes:
+Provider real ya disponible vía PostHog opcional por env. Pendiente siguiente capa:
 
-1. Crear una utilidad mínima de tracking (`trackEvent`) o adaptar provider existente cuando se apruebe (Segment/GA/PostHog/etc.).
-2. Instrumentar los 3 puntos mínimos:
-   - éxito de persistencia en “Hoy” → `core_action_completed`
-   - intento de acceso bloqueado → `gated_intent`
-   - click en CTA upgrade → `upgrade_cta_click`
-3. Validar disparos por debug console/network/provider dashboard.
-4. Añadir pruebas unitarias o de integración para evitar regressions de doble-disparo.
+1. Conectar dashboards y funnels reales en el provider.
+2. Ampliar taxonomía hacia eventos de activación/retención (`core_action_completed`, `gated_intent`, `upgrade_cta_click`).
+3. Validar disparos en dashboard real del provider.
+4. Añadir pruebas automáticas para evitar regressions de doble-disparo.
 
 ---
 

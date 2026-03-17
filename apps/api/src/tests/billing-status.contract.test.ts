@@ -8,6 +8,7 @@ const billingStatusSchema = z.object({
   tokens: z.number(),
   tokensExpiresAt: z.string().nullable(),
   subscriptionStatus: z.string().nullable(),
+  billingStatus: z.enum(["active", "past_due", "canceled", "expired"]),
   availablePlans: z.array(z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"])),
 });
 
@@ -17,7 +18,8 @@ const activeProPayload = {
   isPro: true,
   tokens: 420,
   tokensExpiresAt: "2026-03-01T00:00:00.000Z",
-  subscriptionStatus: "ACTIVE",
+  subscriptionStatus: "active",
+    billingStatus: "active",
   availablePlans: ["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"],
 };
 
@@ -28,6 +30,7 @@ const fallbackFreePayload = {
   tokens: 0,
   tokensExpiresAt: null,
   subscriptionStatus: null,
+  billingStatus: "expired",
   availablePlans: ["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"],
 };
 
@@ -46,7 +49,8 @@ assert.throws(() =>
     isPro: true,
     tokensBalance: 420,
     tokensExpiresAt: "2026-03-01T00:00:00.000Z",
-    subscriptionStatus: "ACTIVE",
+    subscriptionStatus: "active",
+    billingStatus: "active",
     availablePlans: ["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"],
   })
 );

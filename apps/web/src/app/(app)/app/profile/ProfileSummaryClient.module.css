@@ -1,0 +1,182 @@
+.stack {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.userCard {
+  background: linear-gradient(160deg, #121212, #1f1b2e);
+  color: #fff;
+}
+
+.userName {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.userEmail {
+  margin: 0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.planCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.planLabel {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.planName {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.groupTitle {
+  margin: 0 0 0.8rem;
+  font-size: 0.95rem;
+}
+
+.rows {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  color: inherit;
+  background: var(--surface-2);
+}
+
+.rowLabel {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.rowValue {
+  margin: 0.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.chevron {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+
+.logoutButton {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 35%, transparent);
+  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 10%, transparent);
+}
+
+.logoutButton:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 16%, transparent);
+}
+
+
+.accountCard {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 48%);
+}
+
+.accountHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 0.8rem;
+}
+
+.accountEyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.accountBadge {
+  border-radius: 999px;
+  padding: 0.38rem 0.6rem;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.logoutCard {
+  display: grid;
+  gap: 0.85rem;
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 28%, var(--line));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--danger, #ef4444) 8%, transparent), transparent 52%);
+}
+
+.logoutIntro {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.logoutTitle {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--danger, #ef4444);
+}
+
+.logoutDescription {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.logoutButton {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 38%, transparent);
+  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 10%, transparent);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--danger, #ef4444) 14%, transparent);
+}
+
+.logoutButton:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 16%, transparent);
+}
+
+
+@media (max-width: 640px) {
+  .row {
+    padding: 0.9rem 0.9rem;
+    border-radius: 16px;
+  }
+
+  .planCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .planCard :global(.btn) {
+    width: 100%;
+  }
+
+  .accountHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

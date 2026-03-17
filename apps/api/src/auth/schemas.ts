@@ -1,5 +1,15 @@
 import { z } from "zod";
-import { effectiveEntitlementsSchema, type EffectiveEntitlements } from "../entitlements.js";
+import {
+  effectiveEntitlementsSchema,
+  type EffectiveEntitlements,
+} from "../entitlements.js";
+
+const subscriptionPlanSchema = z.enum([
+  "FREE",
+  "STRENGTH_AI",
+  "NUTRI_AI",
+  "PRO",
+]);
 
 export const authMeResponseSchema = z.object({
   id: z.string(),
@@ -8,11 +18,16 @@ export const authMeResponseSchema = z.object({
   role: z.enum(["USER", "ADMIN"]),
   emailVerifiedAt: z.date().nullable(),
   lastLoginAt: z.date().nullable(),
-  subscriptionPlan: z.enum(["FREE", "PRO"]),
-  plan: z.enum(["FREE", "PRO"]),
+  subscriptionPlan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]),
+  plan: z.enum(["FREE", "STRENGTH_AI", "NUTRI_AI", "PRO"]),
   subscriptionStatus: z.string().nullable(),
   currentPeriodEnd: z.date().nullable(),
   aiTokenBalance: z.number().int().nonnegative().nullable(),
+  tokenBalance: z.number().int().nonnegative(),
+  aiEntitlements: z.object({
+    nutrition: z.boolean(),
+    strength: z.boolean(),
+  }),
   aiTokenRenewalAt: z.date().nullable(),
   modules: z.object({
     strength: z.boolean(),
@@ -21,7 +36,8 @@ export const authMeResponseSchema = z.object({
   }),
   entitlements: effectiveEntitlementsSchema,
   effectiveEntitlements: effectiveEntitlementsSchema,
-  gymMembershipState: z.enum(["active", "none"]),
+  gymMembershipState: z.enum(["NONE", "PENDING", "ACTIVE"]),
+  gymRole: z.enum(["USER", "TRAINER", "ADMIN"]),
   gymId: z.string().nullable().optional(),
   gymName: z.string().nullable().optional(),
   isTrainer: z.boolean(),
@@ -41,7 +57,9 @@ type AuthMeUser = {
   currentPeriodEnd: Date | null;
 };
 
-export function buildSessionModules(entitlements: EffectiveEntitlements): SessionModules {
+export function buildSessionModules(
+  entitlements: EffectiveEntitlements,
+): SessionModules {
   return {
     strength: entitlements.modules.strength.enabled,
     nutrition: entitlements.modules.nutrition.enabled,
@@ -55,16 +73,14 @@ export function buildAuthMeResponse(params: {
   aiTokenBalance: number | null;
   aiTokenRenewalAt: Date | null;
   entitlements: EffectiveEntitlements;
-  activeMembership:
-    | {
-        gym: {
-          id: string;
-          name: string;
-        };
-        status: "ACTIVE";
-        role: "MEMBER" | "TRAINER" | "ADMIN";
-      }
-    | null;
+  membership: {
+    gym: {
+      id: string;
+      name: string;
+    };
+    status: "PENDING" | "ACTIVE" | "REJECTED";
+    role: "MEMBER" | "TRAINER" | "ADMIN";
+  } | null;
 }): AuthMeResponse {
   return authMeResponseSchema.parse({
     id: params.user.id,
@@ -73,20 +89,38 @@ export function buildAuthMeResponse(params: {
     role: params.role,
     emailVerifiedAt: params.user.emailVerifiedAt,
     lastLoginAt: params.user.lastLoginAt,
-    subscriptionPlan: params.entitlements.legacy.tier,
-    plan: params.entitlements.legacy.tier,
+    subscriptionPlan: params.entitlements.plan.effective,
+    plan: params.entitlements.plan.effective,
     subscriptionStatus: params.user.subscriptionStatus,
     currentPeriodEnd: params.user.currentPeriodEnd,
     aiTokenBalance: params.aiTokenBalance,
+    tokenBalance: params.aiTokenBalance ?? 0,
+    aiEntitlements: {
+      nutrition: params.entitlements.modules.nutrition.enabled,
+      strength: params.entitlements.modules.strength.enabled,
+    },
     aiTokenRenewalAt: params.aiTokenRenewalAt,
     modules: buildSessionModules(params.entitlements),
     entitlements: params.entitlements,
     effectiveEntitlements: params.entitlements,
-    gymMembershipState: params.activeMembership ? "active" : "none",
-    gymId: params.activeMembership?.gym.id,
-    gymName: params.activeMembership?.gym.name,
+    gymMembershipState:
+      params.membership?.status === "ACTIVE"
+        ? "ACTIVE"
+        : params.membership?.status === "PENDING"
+          ? "PENDING"
+          : "NONE",
+    gymRole:
+      params.membership?.status === "ACTIVE" ||
+      params.membership?.status === "PENDING"
+        ? params.membership.role === "MEMBER"
+          ? "USER"
+          : params.membership.role
+        : "USER",
+    gymId: params.membership?.gym.id,
+    gymName: params.membership?.gym.name,
     isTrainer:
-      params.activeMembership?.status === "ACTIVE" &&
-      (params.activeMembership?.role === "TRAINER" || params.activeMembership?.role === "ADMIN"),
+      params.membership?.status === "ACTIVE" &&
+      (params.membership?.role === "TRAINER" ||
+        params.membership?.role === "ADMIN"),
   });
 }

@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import type { IconName } from "@/components/ui/Icon";
+import type { IconName } from "@/design-system/components/Icon";
 import { EmptyState } from "./EmptyState";
 
 type EmptyStateAction = NonNullable<ComponentProps<typeof EmptyState>["actions"]>[number];

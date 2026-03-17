@@ -6,6 +6,7 @@ import process from 'node:process';
 
 const rootDir = process.cwd();
 const targetDir = path.join(rootDir, 'src', 'design-system');
+const sourceDir = path.join(rootDir, 'src');
 const allowedExt = new Set(['.ts', '.tsx', '.js', '.jsx', '.css']);
 
 const checks = [
@@ -25,6 +26,21 @@ const checks = [
     message: 'Use spacing scale/token values instead of random inline spacing.',
   },
 ];
+
+const uiImportCheck = {
+  name: 'legacy ui import',
+  regex: /(?:from\s+['"]@\/components\/ui\/[^'"\n]+['"]|import\(\s*['"]@\/components\/ui\/[^'"\n]+['"]\s*\))/g,
+  message: "Import from '@/design-system/components/*' instead of '@/components/ui/*'.",
+};
+
+function normalizePath(p) {
+  return path.relative(rootDir, p).split(path.sep).join('/');
+}
+
+function isAllowedLegacyUiImport(filePath) {
+  const normalized = normalizePath(filePath);
+  return normalized.startsWith('src/components/ui/') || normalized.startsWith('src/design-system/components/');
+}
 
 function walk(dir) {
   const entries = readdirSync(dir);
@@ -60,6 +76,11 @@ if (!statSync(path.dirname(targetDir), { throwIfNoEntry: false })) {
   process.exit(1);
 }
 
+if (!statSync(sourceDir, { throwIfNoEntry: false })) {
+  console.error('Cannot find src directory from current working directory. Run this script in apps/web.');
+  process.exit(1);
+}
+
 if (!statSync(targetDir, { throwIfNoEntry: false })) {
   console.log('No src/design-system directory found. Nothing to lint.');
   process.exit(0);
@@ -70,6 +91,8 @@ if (files.length === 0) {
   console.log('No design-system source files found (.ts/.tsx/.js/.jsx/.css).');
   process.exit(0);
 }
+
+const sourceFiles = walk(sourceDir);
 
 const violations = [];
 
@@ -92,6 +115,23 @@ for (const file of files) {
   }
 }
 
+for (const file of sourceFiles) {
+  if (isAllowedLegacyUiImport(file)) continue;
+  const content = readFileSync(file, 'utf8');
+  for (const match of content.matchAll(uiImportCheck.regex)) {
+    const idx = match.index ?? 0;
+    const loc = lineColFromIndex(content, idx);
+    violations.push({
+      file: normalizePath(file),
+      line: loc.line,
+      col: loc.col,
+      matched: match[0],
+      check: uiImportCheck.name,
+      message: uiImportCheck.message,
+    });
+  }
+}
+
 if (violations.length > 0) {
   console.error(`Design system guardrails failed with ${violations.length} violation(s):`);
   for (const v of violations) {
@@ -100,4 +140,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log(`Design system guardrails passed (${files.length} file(s) checked in src/design-system).`);
+console.log(
+  `Design system guardrails passed (${files.length} file(s) checked in src/design-system, ${sourceFiles.length} source file(s) checked for legacy ui imports).`
+);

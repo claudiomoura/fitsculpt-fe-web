@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -46,6 +47,12 @@ model User {
 
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
+}
+
+model StripeWebhookEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now())
 }
 
 model Workout {
@@ -154,9 +161,9 @@ model NutritionPlan {
   updatedAt     DateTime       @updatedAt
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   days          NutritionDay[]
+  gymAssignments GymMembership[] @relation("GymMemberAssignedNutritionPlan")
 
   @@index([userId])
-  @@unique([userId, startDate, daysCount])
 }
 
 model NutritionDay {
@@ -390,6 +397,7 @@ model AiUsageLog {
 
   @@index([userId])
   @@index([createdAt])
+  @@unique([userId, feature, requestId, mode])
 }
 
 model AiContent {
@@ -423,16 +431,19 @@ model GymMembership {
   status    GymMembershipStatus
   role      GymRole
   assignedTrainingPlanId String?
+  assignedNutritionPlanId String?
   createdAt DateTime            @default(now())
   updatedAt DateTime            @updatedAt
   gym       Gym                 @relation(fields: [gymId], references: [id], onDelete: Cascade)
   user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignedTrainingPlan TrainingPlan? @relation("GymMemberAssignedTrainingPlan", fields: [assignedTrainingPlanId], references: [id], onDelete: SetNull)
+  assignedNutritionPlan NutritionPlan? @relation("GymMemberAssignedNutritionPlan", fields: [assignedNutritionPlanId], references: [id], onDelete: SetNull)
 
   @@unique([gymId, userId])
   @@index([gymId, status])
   @@index([userId, status])
   @@index([assignedTrainingPlanId])
+  @@index([assignedNutritionPlanId])
 }
 
 enum Role {

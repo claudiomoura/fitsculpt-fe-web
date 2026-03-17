@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import GymPageClient from "@/components/gym/GymPageClient";
-import { ToastProvider } from "@/components/ui/Toast";
+import { ToastProvider } from "@/design-system/components/Toast";
 
 vi.mock("@/context/LanguageProvider", () => ({
   useLanguage: () => ({
@@ -32,11 +32,7 @@ describe("GymPageClient", () => {
         return mockResponse({ ok: true, status: 200, payload: { data: [{ id: "gym-1", name: "Fit Gym" }, { id: "gym-2", name: "Power Gym" }] } });
       }
 
-      if (url === "/api/gym/join-request") {
-        return mockResponse({ ok: false, status: 405 });
-      }
-
-      if (url === "/api/gyms/join") {
+      if (url === "/api/gym-flow/join") {
         if (init?.method === "POST") {
           const body = JSON.parse(String(init.body));
           expect(body).toEqual({ gymId: "gym-2" });
@@ -64,7 +60,7 @@ describe("GymPageClient", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/gyms/join",
+        "/api/gym-flow/join",
         expect.objectContaining({ method: "POST" }),
       );
     });

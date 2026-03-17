@@ -1,29 +1,28 @@
-import type { HTMLAttributes, ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from "react";
+import { cn } from "@/lib/classNames";
 
-import { cn } from '@/lib/classNames';
-
-export type BadgeVariant = 'pro' | 'muscleTag';
+export type BadgeVariant = "default" | "success" | "warning" | "error" | "danger" | "info" | "muted" | "pro" | "muscleTag";
 
 export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
   variant?: BadgeVariant;
   icon?: ReactNode;
 };
 
-const variantClasses: Record<BadgeVariant, string> = {
-  pro: 'border border-primary/25 bg-primary/10 text-primary',
-  muscleTag: 'border border-warning/35 bg-warning/15 text-text',
+const VARIANT_CLASS: Record<BadgeVariant, string> = {
+  default: "",
+  success: "ui-badge--success",
+  warning: "ui-badge--warning",
+  error: "ui-badge--error",
+  danger: "ui-badge--error",
+  info: "ui-badge--info",
+  muted: "ui-badge--muted",
+  pro: "ui-badge--info text-primary",
+  muscleTag: "ui-badge--warning text-text",
 };
 
-export function Badge({ variant = 'pro', icon, className, children, ...props }: BadgeProps) {
+export function Badge({ variant = "default", icon, className, children, ...props }: BadgeProps) {
   return (
-    <span
-      className={cn(
-        'inline-flex min-h-6 items-center gap-1 rounded-full px-2.5 text-xs font-semibold tracking-wide',
-        variantClasses[variant],
-        className,
-      )}
-      {...props}
-    >
+    <span className={cn("ui-badge inline-flex min-h-6 items-center gap-1", VARIANT_CLASS[variant], className)} {...props}>
       {icon}
       {children}
     </span>

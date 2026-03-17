@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import GymJoinRequestsManager from "@/components/admin/GymJoinRequestsManager";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
-import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { useToast } from "@/components/ui/Toast";
+import { Button } from "@/design-system/components/Button";
+import { Modal } from "@/design-system/components/Modal";
+import { Skeleton } from "@/design-system/components/Skeleton";
+import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { normalizeMembersPayload } from "@/lib/gym-contracts";
 import { useAccess } from "@/lib/useAccess";

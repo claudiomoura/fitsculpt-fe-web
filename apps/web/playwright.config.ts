@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { authStorageStatePath } from './e2e/support';
 
-const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
+const baseURL = 'http://localhost:3000';
 
 export default defineConfig({
   testDir: './e2e',
@@ -14,15 +15,16 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run dev -- --hostname localhost --port 3000',
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 120_000,
   },
+  globalSetup: './e2e/global-setup.ts',
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], storageState: authStorageStatePath },
     },
   ],
 });

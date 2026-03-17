@@ -202,6 +202,7 @@ export type AuthMeEntitlements = {
     ai?: { enabled?: boolean };
     strength?: { enabled?: boolean };
     nutrition?: { enabled?: boolean };
+    billing?: { enabled?: boolean };
   };
   legacy?: {
     tier?: string;
@@ -209,7 +210,21 @@ export type AuthMeEntitlements = {
 };
 
 export type AuthMeResponse = {
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+  imageUrl?: string | null;
+  avatarUrl?: string | null;
+  profilePhotoUrl?: string | null;
+  avatarDataUrl?: string | null;
+  aiTokenBalance?: number;
+  tokenBalance?: number;
   subscriptionPlan?: string | null;
   plan?: string | null;
+  aiEntitlements?: {
+    nutrition?: boolean;
+    strength?: boolean;
+  } | null;
   entitlements?: AuthMeEntitlements | null;
+  effectiveEntitlements?: AuthMeEntitlements | null;
 };

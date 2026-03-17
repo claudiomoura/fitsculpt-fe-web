@@ -3,8 +3,15 @@ import { spawn } from 'node:child_process';
 async function main() {
   assertValidDatabaseUrl();
 
-  await runStep('db:doctor', ['node', ['scripts/db-doctor.mjs']]);
-  await runStep('prisma migrate deploy', ['node', ['scripts/prisma-runner.mjs', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma']]);
+  const isCi = process.env.CI === 'true';
+
+  if (isCi) {
+    console.log('CI=true detected: skipping db:doctor migrate-status gate for ephemeral bootstrap.');
+    await runStep('prisma ci bootstrap (db push + generate)', ['node', ['scripts/prisma-runner.mjs', 'ci-bootstrap']]);
+  } else {
+    await runStep('db:doctor', ['node', ['scripts/db-doctor.mjs']]);
+    await runStep('prisma migrate deploy', ['node', ['scripts/prisma-runner.mjs', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma']]);
+  }
 
   const nodeEnv = process.env.NODE_ENV ?? 'development';
   const allowSeed = process.env.ALLOW_SEED === '1';

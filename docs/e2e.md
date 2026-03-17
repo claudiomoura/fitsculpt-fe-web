@@ -12,15 +12,14 @@ Dependency statement: **This PR depends on PR-01 being merged (and is recommende
 
 ## Pre-requisitos
 
-1. Backend corriendo en `http://127.0.0.1:4000`.
+1. Backend corriendo en `http://localhost:4000`.
 2. Frontend (Next.js) se levanta automáticamente desde Playwright con `npm run dev`.
 3. Endpoint de reset demo habilitado (`POST /dev/reset-demo`) para evitar flakiness.
 
 ## Variables opcionales
 
 ```bash
-export E2E_BASE_URL=http://127.0.0.1:3000
-export E2E_BACKEND_URL=http://127.0.0.1:4000
+export E2E_BACKEND_URL=http://localhost:4000
 export E2E_DEMO_USER_EMAIL=demo.user@fitsculpt.local
 export E2E_DEMO_USER_PASSWORD=DemoUser123!
 ```

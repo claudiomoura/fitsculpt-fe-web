@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { AssignTrainingPlanModal } from "@/components/gym/AssignTrainingPlanModal";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Badge } from "@/design-system/components/Badge";
+import { Button } from "@/design-system/components/Button";
 import {
   fetchGymJoinRequests,
   fetchGymMembers,
@@ -293,11 +293,15 @@ export function GymAdminMembersClient() {
       {gymId && selectedUser ? (
         <AssignTrainingPlanModal
           open
-          gymId={gymId}
           userId={selectedUser.id}
           userLabel={selectedUser.name || selectedUser.email || "-"}
           onClose={() => setSelectedUser(null)}
-          onAssigned={() => setSuccessMessage(t("gym.admin.members.assignSuccess"))}
+          onAssigned={(assignedPlanTitle) => {
+            const template = t("gym.admin.members.assignSuccess");
+            const message = assignedPlanTitle ? `${template}: ${assignedPlanTitle}` : template;
+            setSuccessMessage(message);
+            void loadData();
+          }}
         />
       ) : null}
     </div>

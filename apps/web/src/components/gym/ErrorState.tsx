@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/design-system/components/Button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/design-system/components/Card";
 
 type ErrorStateProps = {
   title: string;

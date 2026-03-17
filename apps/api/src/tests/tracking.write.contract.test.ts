@@ -44,8 +44,28 @@ assert.equal(snapshotAfterUpdate.checkins[0]?.weightKg, 79.5, "updated checkin s
 
 const responseBody = normalizeTrackingSnapshot(snapshotAfterUpdate);
 trackingSchema.parse(responseBody);
+
+const mealPayload = trackingEntryCreateSchema.parse({
+  collection: "mealLog",
+  item: {
+    id: "meal-1",
+    date: "2026-02-22",
+    mealKey: "2026-02-22:breakfast:oats",
+    mealType: "breakfast",
+    title: "Avena",
+    calories: 420,
+    protein: 28,
+    carbs: 52,
+    fats: 12,
+    completedAt: "2026-02-22T10:00:00.000Z",
+  },
+});
+const snapshotAfterMeal = upsertTrackingEntry(snapshotAfterUpdate, mealPayload);
+assert.equal(snapshotAfterMeal.mealLog.length, 1, "meal log entry should persist in tracking");
+trackingSchema.parse(snapshotAfterMeal);
 assert.equal(responseBody.foodLog.length, 0, "response should include non-written collections");
 assert.equal(responseBody.workoutLog.length, 0, "response should include non-written collections");
+assert.equal(responseBody.mealLog.length, 0, "response should include meal log collection");
 
 // Contract guard: drift in critical response field must break schema parse.
 assert.throws(() =>

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Modal } from "@/components/ui/Modal";
-import { Badge } from "@/components/ui/Badge";
+import { Modal } from "@/design-system/components/Modal";
+import { Badge } from "@/design-system/components/Badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import {
   ClientHeaderCardSkeleton,
@@ -13,9 +13,10 @@ import {
   NotesPanelSkeleton,
 } from "@/components/trainer-client/TrainerClientSkeletons";
 import { useLanguage } from "@/context/LanguageProvider";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/design-system/components/Toast";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
+import TrainerMemberNutritionPlanAssignmentCard from "@/components/trainer/TrainerMemberNutritionPlanAssignmentCard";
 import { fetchMyGymMembership } from "@/services/gym";
 import {
   getTrainerClientDetail,
@@ -36,6 +37,10 @@ type TrainerNote = {
 
 type NotesCapability = "checking" | "supported" | "unsupported" | "forbidden" | "error";
 type TrainerClientTab = "summary" | "progress" | "plan" | "notes";
+
+function isUnsupportedStatus(status: number): boolean {
+  return status === 404 || status === 405 || status === 501;
+}
 
 function asString(value: unknown): string | null {
   if (typeof value === "string" && value.trim().length > 0) return value;
@@ -110,7 +115,7 @@ export default function TrainerClientContextClient() {
     try {
       const response = await fetch(`/api/trainer/clients/${clientId}/notes`, { cache: "no-store", credentials: "include" });
 
-      if (response.status === 404 || response.status === 405) {
+      if (isUnsupportedStatus(response.status)) {
         setNotesNotSupported(true);
         setNotesCapability("unsupported");
         setNotes([]);
@@ -339,9 +344,10 @@ export default function TrainerClientContextClient() {
 
       setNotesSubmitting(false);
 
-      if (response.status === 404 || response.status === 405) {
+      if (isUnsupportedStatus(response.status)) {
         setNotesNotSupported(true);
         setNotesCapability("unsupported");
+        setNoteFeedback(t("common.notAvailable"));
         return;
       }
 
@@ -418,7 +424,9 @@ export default function TrainerClientContextClient() {
     { id: "summary", label: t("trainer.clientContext.tabs.summary") },
     { id: "progress", label: t("trainer.clientContext.tabs.progress") },
     { id: "plan", label: t("trainer.clientContext.tabs.plan") },
-    { id: "notes", label: t("trainer.clientContext.tabs.notes") },
+    ...(trainerClientServiceCapabilities.canManageNotes
+      ? [{ id: "notes" as const, label: t("trainer.clientContext.tabs.notes") }]
+      : []),
   ];
 
   return (
@@ -522,6 +530,7 @@ export default function TrainerClientContextClient() {
             </p>
             {!hasPlanData ? <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.training.empty")}</p> : null}
             <TrainerMemberPlanAssignmentCard memberId={client.id} memberName={clientName} />
+            <TrainerMemberNutritionPlanAssignmentCard memberId={client.id} />
           </section>
 
           <section className="card form-stack" aria-label={t("trainer.clientContext.removeClient.title")}>
@@ -549,7 +558,13 @@ export default function TrainerClientContextClient() {
           <h3 style={{ margin: 0 }}>{t("trainer.clientContext.notes.title")}</h3>
 
           {notesLoading || notesCapability === "checking" ? <p className="muted">{t("trainer.clientContext.notes.loading")}</p> : null}
-          {!notesLoading && notesCapability === "unsupported" ? <p className="muted">{t("trainer.client.notesNotAvailable")}</p> : null}
+          {!notesLoading && notesCapability === "unsupported" ? (
+            <EmptyState
+              title={t("common.notAvailable")}
+              description={t("trainer.client.notesNotAvailable")}
+              icon="info"
+            />
+          ) : null}
           {!notesLoading && notesCapability === "forbidden" ? <p className="muted">{t("trainer.clientContext.notes.forbidden")}</p> : null}
           {!notesLoading && notesCapability === "error" ? <p className="muted">{t("trainer.clientContext.notes.loadError")}</p> : null}
 

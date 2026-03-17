@@ -1,32 +1,41 @@
 import { expect, test } from '@playwright/test';
-import { attachConsoleErrorCollector, fetchTrackingCount, loginAsDemoUser, resetDemoState } from './support';
+import { attachConsoleErrorCollector } from './support';
 
 test.describe('Core loop (demo anti-regression)', () => {
-  test('login → Hoy → acción rápida → persistencia tras recarga', async ({ page }) => {
-    await resetDemoState();
-    const assertNoConsoleErrors = attachConsoleErrorCollector(page);
+  test('login → Hoy → check-in CTA opens real flow without fake writes', async ({ page }, testInfo) => {
+    const assertNoConsoleErrors = attachConsoleErrorCollector(page, testInfo);
+    const trackingWrites: string[] = [];
+    const trackWrite = (request: { method: () => string; url: () => string }) => {
+      if (request.method() === 'POST' && request.url().includes('/api/tracking')) {
+        trackingWrites.push(`${request.method()} ${request.url()}`);
+      }
+    };
+
+    page.on('request', trackWrite);
 
     try {
-      await loginAsDemoUser(page);
+      await page.goto('/app/today');
+      const todayPage = page.getByTestId('today-page');
+      await expect(todayPage).toBeVisible({ timeout: 10000 });
 
-      await page.goto('/app/hoy');
-      await expect(page.locator('.today-actions-grid')).toBeVisible();
+      const todayActionsGrid = page.getByTestId('today-actions-grid');
+      await expect(todayActionsGrid).toBeVisible({ timeout: 10000 });
 
-      const beforeCount = await fetchTrackingCount(page.request);
+      const quickActionTracking = page.getByTestId('quick-action-tracking');
+      await expect(quickActionTracking).toBeVisible({ timeout: 10000 });
 
-      await Promise.all([
-        page.waitForResponse(
-          (response) => response.url().includes('/api/tracking') && response.request().method() === 'POST' && response.ok(),
-        ),
-        page.locator('.today-action-card').first().locator('.today-action-button').click(),
-      ]);
+      await quickActionTracking.click();
 
-      await expect.poll(async () => fetchTrackingCount(page.request)).toBeGreaterThan(beforeCount);
+      await page.waitForURL(/\/app\/progress\/check-in$/, { timeout: 10000 });
+      await expect(page.getByRole('heading', { name: /check-in/i })).toBeVisible({ timeout: 10000 });
 
       await page.reload();
+      await page.waitForURL(/\/app\/progress\/check-in$/, { timeout: 10000 });
+      await expect(page.getByRole('heading', { name: /check-in/i })).toBeVisible({ timeout: 10000 });
 
-      await expect.poll(async () => fetchTrackingCount(page.request)).toBeGreaterThan(beforeCount);
+      expect(trackingWrites).toEqual([]);
     } finally {
+      page.off('request', trackWrite);
       assertNoConsoleErrors();
     }
   });

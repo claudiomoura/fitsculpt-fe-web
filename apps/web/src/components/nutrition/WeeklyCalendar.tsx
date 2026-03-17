@@ -1,4 +1,5 @@
-import { WeekGridCompact } from "@/design-system/components";
+"use client";
+
 
 type WeeklyCalendarDay = {
   id: string;
@@ -7,7 +8,11 @@ type WeeklyCalendarDay = {
   selected: boolean;
   mealCount: number;
   dayCalories: number;
+  complete?: boolean;
+  completedMeals?: number;
 };
+
+import type { ReactNode } from "react";
 
 type WeeklyCalendarProps = {
   previousWeekLabel: string;
@@ -21,6 +26,7 @@ type WeeklyCalendarProps = {
   hasWeeklyMeals: boolean;
   emptyTitle: string;
   emptySubtitle: string;
+  emptyActions?: ReactNode;
   selectWeekDayAria: (day: WeeklyCalendarDay) => string;
   kcalLabel: string;
   days: WeeklyCalendarDay[];
@@ -41,6 +47,7 @@ export function WeeklyCalendar({
   hasWeeklyMeals,
   emptyTitle,
   emptySubtitle,
+  emptyActions,
   selectWeekDayAria,
   kcalLabel,
   days,
@@ -50,53 +57,47 @@ export function WeeklyCalendar({
 }: WeeklyCalendarProps) {
   return (
     <div className="calendar-week stack-sm">
-      <div className="calendar-range">
-        <button type="button" className="btn secondary fit-content" aria-label={previousWeekAriaLabel} onClick={onPreviousWeek}>
-          {previousWeekLabel}
+      <div className="calendar-range calendar-range--compact">
+        <button type="button" className="btn-sm" aria-label={previousWeekAriaLabel} onClick={onPreviousWeek}>
+          ←
         </button>
-        <div>
+        <div className="calendar-range-info">
           <strong>
             {weekLabel} {weekNumber}
           </strong>
           <span className="muted">{weekRangeLabel}</span>
         </div>
-        <button type="button" className="btn secondary fit-content" aria-label={nextWeekAriaLabel} onClick={onNextWeek} disabled={nextWeekDisabled}>
-          {nextWeekLabel}
+        <button type="button" className="btn-sm" aria-label={nextWeekAriaLabel} onClick={onNextWeek} disabled={nextWeekDisabled}>
+          →
         </button>
       </div>
 
-      {hasWeeklyMeals ? (
-        <WeekGridCompact
-          days={days.map((day) => ({
-            id: day.id,
-            label: day.label,
-            date: day.date,
-            selected: day.selected,
-            complete: false,
-          }))}
-          onSelect={(dayId) => {
-            if (typeof dayId !== "string") return;
-            onSelectDay(dayId);
-          }}
-          className="nutrition-week-grid-v2"
-        />
-      ) : (
+      <div className="training-week-strip nutrition-week-strip" data-testid="nutrition-week-kpis">
+        {days.map((day) => {
+          const state = day.complete ? "done" : day.mealCount > 0 ? "planned" : "rest";
+          return (
+            <button
+              key={day.id}
+              type="button"
+              className={`training-week-pill state-${state} ${day.selected ? "is-selected" : ""}`}
+              aria-label={selectWeekDayAria(day)}
+              onClick={() => onSelectDay(day.id)}
+            >
+              <span className="training-week-pill-label">{day.label}</span>
+              <div className="training-week-pill-icon" aria-hidden="true">
+                {state === "done" ? "✓" : state === "planned" ? "○" : "-"}
+              </div>
+              <span className="training-week-pill-date">{day.date}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {!hasWeeklyMeals ? (
         <div className="empty-state">
           <h3 className="m-0">{emptyTitle}</h3>
           <p className="muted">{emptySubtitle}</p>
-        </div>
-      )}
-
-      {hasWeeklyMeals ? (
-        <div className="nutrition-week-grid-kpis">
-          {days.map((day) => (
-            <button key={`${day.id}-meta`} type="button" className={`nutrition-week-kpi ${day.selected ? "is-selected" : ""}`} aria-label={selectWeekDayAria(day)} onClick={() => onSelectDay(day.id)}>
-              <span className="nutrition-week-kpi-dots">{"• ".repeat(Math.min(day.mealCount, 4)).trim() || "—"}</span>
-              <span className="nutrition-week-kpi-kcal">
-                {Math.round(day.dayCalories)} {kcalLabel}
-              </span>
-            </button>
-          ))}
+          {emptyActions ? <div className="inline-actions-sm mt-12">{emptyActions}</div> : null}
         </div>
       ) : null}
     </div>
