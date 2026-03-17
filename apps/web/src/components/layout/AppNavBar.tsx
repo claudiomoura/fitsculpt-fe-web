@@ -118,7 +118,9 @@ export default function AppNavBar() {
         </Link>
 
         <div className="nav-actions">
-          <AppUserBadge user={authMe} />
+          <div className="nav-user-desktop-only">
+            <AppUserBadge user={authMe} />
+          </div>
 
           <Link
             href="/app/settings/billing"

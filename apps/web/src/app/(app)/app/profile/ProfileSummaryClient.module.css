@@ -8,6 +8,36 @@
   color: #fff;
 }
 
+.userCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.userAvatar,
+.userAvatarFallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.userAvatar {
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+.userAvatarFallback {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 24%, rgba(255, 255, 255, 0.08));
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
 .userName {
   margin: 0;
   font-size: 1.05rem;
@@ -161,6 +191,10 @@
 
 
 @media (max-width: 640px) {
+  .userCardHeader {
+    align-items: flex-start;
+  }
+
   .row {
     padding: 0.9rem 0.9rem;
     border-radius: 16px;

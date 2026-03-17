@@ -1988,6 +1988,10 @@ label {
   cursor: pointer;
 }
 
+.nav-user-desktop-only {
+  display: inline-flex;
+}
+
 .nav-user:hover {
   background: var(--bg-muted);
   box-shadow: none;
@@ -2131,6 +2135,15 @@ label {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--color-primary) 22%, transparent),
     0 0 28px color-mix(in srgb, var(--color-primary) 34%, transparent);
+}
+
+.mobile-tab-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .mobile-tab-icon--action {
@@ -4345,6 +4358,10 @@ textarea:disabled {
 }
 
 @media (max-width: 900px) {
+  .nav-user-desktop-only {
+    display: none;
+  }
+
   .page-with-tabbar-safe-area {
     padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 12px);
   }

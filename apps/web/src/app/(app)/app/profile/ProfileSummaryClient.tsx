@@ -124,12 +124,31 @@ export default function ProfileSummaryClient() {
 
   const displayName = auth.name ?? profile.name ?? t("profile.noData");
   const displayEmail = auth.email ?? t("profile.noData");
+  const profileAvatarUrl = profile.profilePhotoUrl ?? profile.avatarDataUrl ?? null;
+  const avatarInitials = (displayName || t("profile.noData"))
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "FS";
 
   return (
     <div className={styles.stack}>
       <section className={`card ${styles.userCard} premium-hero-card`}>
-        <p className={styles.userName}>{displayName}</p>
-        <p className={styles.userEmail}>{displayEmail}</p>
+        <div className={styles.userCardHeader}>
+          {profileAvatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className={styles.userAvatar} src={profileAvatarUrl} alt={t("profile.avatarTitle")} />
+          ) : (
+            <div className={styles.userAvatarFallback} aria-hidden="true">
+              {avatarInitials}
+            </div>
+          )}
+          <div>
+            <p className={styles.userName}>{displayName}</p>
+            <p className={styles.userEmail}>{displayEmail}</p>
+          </div>
+        </div>
         <div className="inline-actions-sm mt-8">
           <a className="btn" href="/app/profile/edit">{t("profile.editProfile")}</a>
           <a className="btn secondary" href="/app/settings">{t("nav.settings")}</a>

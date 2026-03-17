@@ -371,10 +371,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       setTrackingStatus("loading");
     }
     try {
-      const [trackingResponse, workoutsResponse] = await Promise.all([
-        fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
-        fetch("/api/workouts", { cache: "no-store", credentials: "include" }),
-      ]);
+      const trackingResponse = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
 
       if (!trackingResponse.ok) {
         console.warn("Tracking load failed", trackingResponse.status);
@@ -384,16 +381,29 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         return false;
       }
       const data = (await trackingResponse.json()) as TrackingPayload;
-      const workoutsPayload = workoutsResponse.ok ? ((await workoutsResponse.json()) as WorkoutDbItem[]) : [];
-      const persistedWorkoutEntries = normalizeWorkoutEntriesFromDb(workoutsPayload);
       if (!isMountedRef.current) return false;
       setCheckins(data.checkins ?? []);
       setFoodLog(data.foodLog ?? []);
-      setWorkoutLog(persistedWorkoutEntries.length > 0 ? persistedWorkoutEntries : (data.workoutLog ?? []));
+      setWorkoutLog(data.workoutLog ?? []);
       setMealLog(data.mealLog ?? []);
       setTrackingSupports(detectTrackingSupport(data.checkins as Array<Record<string, unknown>>));
       setTrackingLoaded(true);
       setTrackingStatus("ready");
+
+      void (async () => {
+        try {
+          const workoutsResponse = await fetch("/api/workouts", { cache: "no-store", credentials: "include" });
+          if (!workoutsResponse.ok || !isMountedRef.current) return;
+          const workoutsPayload = (await workoutsResponse.json()) as WorkoutDbItem[];
+          const persistedWorkoutEntries = normalizeWorkoutEntriesFromDb(workoutsPayload);
+          if (persistedWorkoutEntries.length > 0 && isMountedRef.current) {
+            setWorkoutLog(persistedWorkoutEntries);
+          }
+        } catch {
+          // Tracking page should remain usable even if workout enrichment is slow.
+        }
+      })();
+
       return true;
     } catch (_err) {
       console.warn("Tracking load failed");
