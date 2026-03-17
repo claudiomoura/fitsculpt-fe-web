@@ -5997,27 +5997,6 @@ app.get("/auth/me", async (request, reply) => {
       },
       orderBy: { updatedAt: "desc" },
     });
-<<<<<<< HEAD
-    // /auth/me only exposes an *active* membership. We normalize the status
-    // to the literal "ACTIVE" so it matches the response contract type.
-    const activeMembership = activeMembershipRecord
-      ? {
-          ...activeMembershipRecord,
-          status: "ACTIVE" as const,
-        }
-      : null;
-    const entitlements = getUserEntitlements(user);
-    const aiTokenPayload = getAiTokenPayload(user, entitlements);
-return buildAuthMeResponse({
-  user,
-  role: effectiveIsAdmin ? "ADMIN" : user.role,
-  aiTokenBalance: aiTokenPayload.aiTokenBalance,
-  aiTokenRenewalAt: aiTokenPayload.aiTokenRenewalAt,
-  entitlements,
-  activeMembership: activeMembership as any,
-});
-
-=======
     const membership = membershipRecord ?? null;
     const entitlements = getUserEntitlements(effectiveUser);
     const aiTokenPayload = getAiTokenPayload(effectiveUser, entitlements);
@@ -6029,7 +6008,6 @@ return buildAuthMeResponse({
       entitlements,
       membership,
     });
->>>>>>> dev
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6403,16 +6381,6 @@ const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply
   }
 };
 
-// Route orchestration (modular domains first, preserving current registration order).
-registerBillingRoutes(app, {
-  billingCheckoutHandler,
-  billingPlansHandler,
-  billingPortalHandler,
-  billingAdminResetCustomerLinkHandler,
-  billingStripeWebhookHandler,
-  billingStatusHandler,
-});
-
 app.get("/tracking", async (request, reply) => {
   try {
     const user = await requireUser(request);
@@ -6520,110 +6488,6 @@ registerWeeklyReviewRoute(app, {
   getOrCreateProfile,
   handleRequestError,
 });
-
-registerAdminAssignGymRoleRoutes(app, {
-  prisma,
-  requireAdmin,
-  handleRequestError,
-});
-
-registerNutritionRoutes(app, {
-  prisma,
-  requireUser,
-  handleRequestError,
-  userFoodSchema,
-});
-
-registerAiRoutes(app, {
-  aiAccessGuard,
-  aiStrengthDomainGuard,
-  aiNutritionDomainGuard,
-  requireUser,
-  getUserEntitlements,
-  toDateKey,
-  env,
-  prisma,
-  getAiTokenPayload,
-  getSecondsUntilNextUtcDay,
-  handleRequestError,
-  logAuthCookieDebug,
-  requireCompleteProfile,
-  aiTrainingSchema,
-  loadExerciseCatalogForAi,
-  parseDateInput,
-  buildCacheKey,
-  buildTrainingTemplate,
-  getEffectiveTokenBalance,
-  assertSufficientAiTokenBalance,
-  getEstimatedAiFeatureTokens,
-  normalizeTrainingPlanDays,
-  applyPersonalization,
-  assertTrainingMatchesRequest,
-  resolveTrainingPlanExerciseIds,
-  saveTrainingPlan,
-  storeAiContent,
-  getCachedAiPayload,
-  parseTrainingPlanPayload,
-  saveCachedAiPayload,
-  enforceAiQuota,
-  buildTrainingPrompt,
-  formatExerciseCatalogForPrompt,
-  extractTopLevelJson,
-  chargeAiUsage,
-  aiPricing,
-  callOpenAi,
-  getUserTokenExpiryAt,
-  extractExactProviderUsage,
-  aiNutritionSchema,
-  getSafeValidationIssues,
-  normalizeNutritionPlanDays,
-  logNutritionMealsPerDay,
-  normalizeNutritionMealsPerDay,
-  applyNutritionCatalogResolution,
-  assertNutritionMatchesRequest,
-  saveNutritionPlan,
-  parseNutritionPlanPayload,
-  applyRecipeScalingToPlan,
-  buildNutritionTemplate,
-  buildNutritionPrompt,
-  chargeAiUsageForResult,
-  createHttpError,
-  aiGenerateTrainingSchema,
-  buildDeterministicTrainingFallbackPlan,
-  createOpenAiClient,
-  trainingPlanJsonSchema,
-  mapExperienceLevelToTrainingPlanLevel,
-  buildRetryFeedbackFromContext,
-  buildTwoMealSplitRetryInstruction,
-  nutritionPlanJsonSchema,
-  buildMealKcalGuidance,
-  NUTRITION_MATH_TOLERANCES,
-  validateNutritionMath,
-  parseJsonFromText,
-  parseLargestJsonFromText,
-  parseTopLevelJsonFromText,
-  AiParseError,
-  aiTrainingPlanResponseSchema,
-  aiNutritionPlanResponseSchema,
-  resolveTrainingPlanWithDeterministicFallback,
-  assertTrainingLevelConsistency,
-  upsertExercisesFromPlan,
-  classifyAiGenerateError,
-  findInvalidTrainingPlanExerciseIds,
-  resolveTrainingPlanExerciseIdsWithCatalog,
-  summarizeTrainingPlan,
-  persistAiUsageLog,
-  buildUsageTotals,
-  aiTipSchema,
-  buildTipTemplate,
-  safeStoreAiContent,
-  buildTipPrompt,
-  resolveNutritionPlanRecipeReferences,
-  normalizeNutritionPlanDaysWithLabels,
-  applyNutritionPlanVarietyGuard,
-  resolveNutritionPlanRecipeIds,
-});
-
 
 app.get("/feed", async (request, reply) => {
   try {
@@ -7110,75 +6974,6 @@ app.get("/recipes/:id", async (request, reply) => {
   }
 });
 
-registerTrainingRoutes(app, {
-  requireUser,
-  exerciseListSchema,
-  listExercises,
-  handleRequestError,
-  exerciseParamsSchema,
-  getExerciseById,
-  createExerciseSchema,
-  createExercise,
-  trainingPlanListSchema,
-  prisma,
-  resolveCorrelationId,
-  getPayloadSize,
-  trainingPlanCreateSchema,
-  parseDateInput,
-  buildDateRange,
-  mapTrainingPlanCreateError,
-  trainingPlanParamsSchema,
-  trainingDayIncludeWithLegacySafeExercises,
-  enrichTrainingPlanWithExerciseLibraryData,
-  trainingPlanActiveQuerySchema,
-  trainingDayParamsSchema,
-  addTrainingExerciseBodySchema,
-});
-
-registerGymRoutes(app, {
-  prisma,
-  requireUser,
-  requireAdmin,
-  handleRequestError,
-  assignTrainingPlanParamsSchema,
-  assignTrainingPlanBodySchema,
-  requireGymManagerAccess,
-  trainerMemberParamsSchema,
-  assignedTrainingPlanSummarySelect,
-  assignedNutritionPlanSummarySelect,
-  trainingPlanListSchema,
-  nutritionPlanListSchema,
-  trainerPlanCreateSchema,
-  trainerPlanParamsSchema,
-  nutritionPlanParamsSchema,
-  workoutCreateSchema,
-  workoutUpdateSchema,
-  workoutSessionUpdateSchema,
-  requireActiveGymManagerMembership,
-  trainerMemberIdParamsSchema,
-  parseClientMetrics,
-  trainerNutritionPlanCreateSchema,
-  trainerNutritionPlanParamsSchema,
-  trainerPlanUpdateSchema,
-  trainerPlanDayParamsSchema,
-  trainerPlanExerciseParamsSchema,
-  trainerPlanExerciseUpdateSchema,
-  addTrainingExerciseBodySchema,
-  trainerAssignPlanResultSchema,
-  trainerAssignNutritionPlanResultSchema,
-  trainerAssignPlanBodySchema,
-  trainerAssignNutritionPlanBodySchema,
-  isGlobalAdminUser,
-  GymMembershipStatus,
-  GymRole,
-  parseDateInput,
-  buildDateRange,
-  trainingDayIncludeWithLegacySafeExercises,
-  createHttpError,
-  requireGymManagerForGym,
-});
-
-
 const adminCreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -7224,7 +7019,6 @@ const adminUserTokenBalanceUpdateSchema = z.object({
   aiTokenBalance: z.number().int().min(0),
 });
 
-<<<<<<< HEAD
 const gymsListQuerySchema = z.object({
   q: z.string().trim().min(1).optional(),
 });
@@ -7767,7 +7561,7 @@ app.post("/admin/gym-join-requests/:membershipId/accept", async (request, reply)
       return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be accepted." });
     }
     if (!isGlobalAdmin) {
-      await requireGymManagerForGym(user.id, membership.gymId);
+      await requireGymManagerForGym(user, membership.gymId);
     }
 
     const activeMembershipElsewhere = await prisma.gymMembership.findFirst({
@@ -7837,7 +7631,7 @@ app.post("/admin/gym-join-requests/:membershipId/reject", async (request, reply)
       return reply.status(400).send({ error: "INVALID_MEMBERSHIP_STATUS", message: "Only pending requests can be rejected." });
     }
     if (!isGlobalAdmin) {
-      await requireGymManagerForGym(user.id, membership.gymId);
+      await requireGymManagerForGym(user, membership.gymId);
     }
     const updateResult = await prisma.gymMembership.updateMany({
       where: { id: membership.id, status: "PENDING" },
@@ -7860,7 +7654,7 @@ app.get("/admin/gyms/:gymId/members", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const { gymId } = gymMembersParamsSchema.parse(request.params);
-    await requireGymManagerForGym(user.id, gymId);
+    await requireGymManagerForGym(user, gymId);
 
     const members = await prisma.gymMembership.findMany({
       where: {
@@ -8929,8 +8723,6 @@ app.patch("/gym/admin/members/:userId/role", async (request, reply) => {
   }
 });
 
-=======
->>>>>>> dev
 app.get("/admin/users", async (request, reply) => {
   try {
     await requireAdmin(request);
