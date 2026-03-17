@@ -7,6 +7,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
+import { trackEvent } from "@/lib/analytics";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
@@ -210,6 +211,7 @@ setPlans([]);
       }
 
       if (shouldSync) {
+        trackEvent("billing_checkout_returned", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });
         await refetchProfile();
         router.replace(safeReturnTo ?? "/app/settings/billing");
       }
@@ -247,6 +249,7 @@ setPlans([]);
     setError(null);
 
     try {
+      trackEvent("billing_checkout_started", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });
       const response = await postBillingCheckout(selectedPlanId, safeReturnTo ?? "/app/settings/billing");
       const data = (await response.json()) as BillingRedirectResponse;
 
