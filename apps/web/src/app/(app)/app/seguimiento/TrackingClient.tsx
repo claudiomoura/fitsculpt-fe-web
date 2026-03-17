@@ -1133,7 +1133,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           <div className={styles.heroHeader}>
             <div>
               <h2 className="section-title" style={{ fontSize: 24 }}>{t("app.trackingTitle")}</h2>
-              <p className="section-subtitle">{t("app.trackingSubtitle")}</p>
             </div>
             <div className="inline-actions-sm">
               <button type="button" className="btn" onClick={() => router.push("/app/progress/check-in")}>
@@ -1168,7 +1167,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       {!isCheckinOnly ? (
         <section className="card">
           <div className={styles.insightTabs} role="tablist" aria-label={t("tracking.insightsLabel")}>
-            <p className="muted m-0 w-full text-sm">Analiza progreso por área. La captura principal vive en check-in.</p>
             {([
               { id: "checkin", label: t("tracking.progressTabCheckin") },
               { id: "nutrition", label: t("tracking.progressTabNutrition") },
