@@ -22,9 +22,11 @@ describe("useTrainingCalendar", () => {
     expect(clampDayKeyToPlanStart("2026-03-20", minDate)).toBe("2026-03-20");
   });
 
-  it("hides week dates before the plan start", () => {
+  it("keeps the full monday-sunday strip for the first visible week", () => {
     const { result } = renderHook(() => useTrainingCalendar(new Date(2026, 2, 18), new Date(2026, 2, 16)));
-    expect(result.current.weekDates.every((date) => date.getTime() >= new Date(2026, 2, 16).getTime())).toBe(true);
+    expect(result.current.weekDates).toHaveLength(7);
+    expect(result.current.weekDates[0]?.getTime()).toBe(new Date(2026, 2, 16).getTime());
+    expect(result.current.weekDates[6]?.getTime()).toBe(new Date(2026, 2, 22).getTime());
   });
 
   it("returns hidden month cells before the plan start", () => {

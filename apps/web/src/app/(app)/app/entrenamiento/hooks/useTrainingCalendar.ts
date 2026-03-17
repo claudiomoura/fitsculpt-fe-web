@@ -28,15 +28,15 @@ export function clampDayKeyToPlanStart(dayKey: string | null, planStartDate?: Da
 
 export function useTrainingCalendar(selectedDate: Date, planStartDate?: Date | null) {
   const normalizedPlanStartDate = useMemo(() => getPlanStartDate(planStartDate), [planStartDate]);
-  const clampedSelectedDate = useMemo(
-    () => clampDateNotBefore(selectedDate, normalizedPlanStartDate),
-    [selectedDate, normalizedPlanStartDate]
-  );
-  const weekStart = useMemo(() => startOfWeek(clampedSelectedDate), [clampedSelectedDate]);
   const minWeekStart = useMemo(
     () => (normalizedPlanStartDate ? startOfWeek(normalizedPlanStartDate) : null),
     [normalizedPlanStartDate]
   );
+  const clampedSelectedDate = useMemo(
+    () => clampDateNotBefore(selectedDate, minWeekStart),
+    [selectedDate, minWeekStart]
+  );
+  const weekStart = useMemo(() => startOfWeek(clampedSelectedDate), [clampedSelectedDate]);
   const canGoPrevWeek = useMemo(() => {
     if (!minWeekStart) return true;
     return weekStart.getTime() > minWeekStart.getTime();
@@ -47,8 +47,8 @@ export function useTrainingCalendar(selectedDate: Date, planStartDate?: Date | n
       const date = new Date(weekStart);
       date.setDate(weekStart.getDate() + index);
       return date;
-    }).filter((date) => !normalizedPlanStartDate || date.getTime() >= normalizedPlanStartDate.getTime()),
-    [normalizedPlanStartDate, weekStart]
+    }),
+    [weekStart]
   );
 
   const monthDates = useMemo(

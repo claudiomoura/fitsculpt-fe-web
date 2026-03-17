@@ -2434,8 +2434,8 @@ const nutritionPlanDetails = profile ? (
 
               {!loading && !error ? (
                 <>
-                <section id="nutrition-today-log" className="card nutrition-v2-layout premium-surface-card premium-fade-up" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
-                  <div className="feature-card stack-sm nutrition-today-summary-card premium-subcard premium-success-surface">
+                <section id="nutrition-today-log" className="card nutrition-v2-layout training-main-section premium-fade-up" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+                  <div className="status-card stack-sm nutrition-today-summary-card">
                     <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
                       <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
                         <h2 className="section-title section-title-sm m-0">Tu log de hoy</h2>

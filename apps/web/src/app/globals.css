@@ -6930,6 +6930,10 @@ html.theme-dark :focus-visible {
   box-shadow: 0 14px 40px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
+.nutrition-today-summary-card {
+  margin-bottom: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .premium-fade-up {
     animation: none;
