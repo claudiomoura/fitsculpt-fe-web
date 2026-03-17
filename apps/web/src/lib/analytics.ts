@@ -5,10 +5,14 @@ export type AnalyticsEventName =
   | "billing_checkout_returned"
   | "training_start_clicked"
   | "nutrition_log_opened"
-  | "checkin_opened";
+  | "checkin_opened"
+  | "checkin_saved"
+  | "nutrition_meal_logged";
 
 export type AnalyticsEventProps = {
   target?: "training" | "nutrition" | "checkin" | "billing";
+  mode?: "quick" | "full";
+  mealType?: string;
   origin?: string;
   returnTo?: string;
 };

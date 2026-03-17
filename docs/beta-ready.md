@@ -173,5 +173,5 @@ Información mínima para escalar:
 - Today debe mostrar 3 acciones primarias máximas: entrenamiento, nutrición, check-in.
 - Workout focus debe abrir bajo `/app/entrenamiento/[workoutId]/start` y ocultar chrome global.
 - Billing premium debe volver al origen cuando llega desde bloqueo con `returnTo`.
-- Nutrición: el quick log sigue siendo local al dispositivo; no tratarlo como persistencia backend.
+- Nutrición: la comida completada ya persiste en tracking y debe reflejarse igual en Today, Nutrition y Tracking.
 - Si alguno de estos puntos falla: NO-GO para beta.

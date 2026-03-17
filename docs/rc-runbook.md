@@ -70,3 +70,5 @@ Este documento se considera la guía **final de ejecución RC** para cierre de d
 - Billing return path: validar bloqueo premium -> billing -> checkout success -> retorno al origen.
 - Training focus: validar que `/app/entrenamiento/[workoutId]/start` no muestre nav global.
 - Profile canonical: validar `/app/profile` como home de cuenta y `/app/profile/legacy` como redirect.
+
+- Nutrition truth path: validar que registrar una comida se refleje igual en `/app/nutricion`, `/app/hoy` y `/app/seguimiento`.

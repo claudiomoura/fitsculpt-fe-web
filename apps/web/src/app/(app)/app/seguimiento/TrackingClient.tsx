@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
+import { trackEvent } from "@/lib/analytics";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
 import {
@@ -550,6 +551,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         return false;
       }
       showMessage(successMessage);
+      trackEvent("checkin_saved", { target: "checkin", origin: isCheckinOnly ? "checkin_page" : "tracking", mode: checkinMode });
       if (isCheckinOnly) {
         router.push("/app/hoy?checkin=success");
       }

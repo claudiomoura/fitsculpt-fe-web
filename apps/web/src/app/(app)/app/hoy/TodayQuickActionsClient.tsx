@@ -463,9 +463,11 @@ export default function TodayQuickActionsClient() {
               ) : (
                 <Button className="flex h-12 w-full rounded-xl font-semibold" onClick={() => {
                   if (!signals.hasTrainingAccess) {
+                    trackEvent("today_cta_click", { target: "billing", origin: "today_training", returnTo: currentRoute });
                     router.push(billingHref);
                     return;
                   }
+                  trackEvent("training_start_clicked", { target: "training", origin: "today" });
                   router.push(signals.trainingState === "workout" ? todayTrainingHref : trainingRoute);
                 }}>
                   {signals.trainingState === "rest" ? "Ver semana" : "Empezar entrenamiento"}
@@ -498,7 +500,7 @@ export default function TodayQuickActionsClient() {
                 </div>
               </div>
 
-              <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="flex h-12 w-full rounded-xl font-medium">
+              <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="flex h-12 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
                 Registrar comida
               </ButtonLink>
             </section>
@@ -523,7 +525,7 @@ export default function TodayQuickActionsClient() {
 
               <ProgressMetric label="Meta: -5 kg" percent={checkinProgressPercent} color="var(--color-info)" />
 
-              <ButtonLink as={Link} href={checkinRoute} className="flex h-12 w-full rounded-xl font-medium" data-testid="quick-action-tracking">
+              <ButtonLink as={Link} href={checkinRoute} className="flex h-12 w-full rounded-xl font-medium" data-testid="quick-action-tracking" onClick={() => trackEvent("checkin_opened", { target: "checkin", origin: "today" })}>
                 {signals.checkinDoneThisWeek ? "Actualizar check-in" : t("profile.checkinTitle")}
               </ButtonLink>
             </section>

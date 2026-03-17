@@ -37,3 +37,5 @@ Si cualquiera falla (lint/typecheck/build/test), el PR **no** cumple los release
 - Verificación manual de `returnTo` en billing
 - Verificación manual de Today 3 acciones
 - Verificación manual de focus mode en workout logger
+
+- Verificación manual de meal completion truth entre Today / Nutrition / Tracking

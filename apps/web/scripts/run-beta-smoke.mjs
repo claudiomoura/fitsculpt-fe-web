@@ -14,6 +14,7 @@ const run = (specPath) => {
 };
 
 run('e2e/core-loop.spec.ts');
+run('e2e/nutrition-checkin-core.spec.ts');
 
 if (shouldIncludeTokenLifecycle) {
   run('e2e/token-lifecycle.spec.ts');

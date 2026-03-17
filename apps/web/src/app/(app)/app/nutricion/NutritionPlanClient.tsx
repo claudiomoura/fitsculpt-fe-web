@@ -37,6 +37,7 @@ import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
 import { Accordion, MealCardCompact, ProgressBar, SegmentedControl } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
+import { trackEvent } from "@/lib/analytics";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
 import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
@@ -1537,6 +1538,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         type: "success",
         message: nextConsumed ? t("nutrition.quickLogSuccess") : t("nutrition.quickLogUndo"),
       });
+      trackEvent("nutrition_meal_logged", { target: "nutrition", origin: "nutrition_page", mealType: String(meal.type ?? "meal") });
     } catch (_err) {
       setQuickLogMessage({ type: "error", message: t("nutrition.quickLogError") });
     }
