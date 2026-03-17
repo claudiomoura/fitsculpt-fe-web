@@ -109,7 +109,7 @@ export default function ProfileSummaryClient() {
 
   return (
     <div className={styles.stack}>
-      <section className={`card ${styles.userCard}`}>
+      <section className={`card ${styles.userCard} premium-hero-card`}>
         <p className={styles.userName}>{displayName}</p>
         <p className={styles.userEmail}>{displayEmail}</p>
         <div className="inline-actions-sm mt-8">
@@ -118,7 +118,7 @@ export default function ProfileSummaryClient() {
         </div>
       </section>
 
-      <section className={`card ${styles.planCard}`}>
+      <section className={`card ${styles.planCard} premium-surface-card`}>
         <div>
           <p className={styles.planLabel}>{t("nav.billing")}</p>
           <p className={styles.planName}>{normalizePlanLabel(auth.plan)}</p>
@@ -148,8 +148,14 @@ export default function ProfileSummaryClient() {
         </div>
       </section>
 
-      <section className="card">
-        <h3 className={styles.groupTitle}>{t("navSections.account")}</h3>
+      <section className={`card ${styles.accountCard}`}>
+        <div className={styles.accountHeader}>
+          <div>
+            <p className={styles.accountEyebrow}>Cuenta</p>
+            <h3 className={styles.groupTitle}>{t("navSections.account")}</h3>
+          </div>
+          <span className={styles.accountBadge}>Seguro</span>
+        </div>
         <div className={styles.rows}>
           <HubRow label={t("nav.settings")} href="/app/settings" />
           <HubRow label={t("nav.billing")} href="/app/settings/billing" />
@@ -174,7 +180,11 @@ export default function ProfileSummaryClient() {
         </div>
       </section>
 
-      <section className="card">
+      <section className={`card ${styles.logoutCard}`}>
+        <div className={styles.logoutIntro}>
+          <p className={styles.logoutTitle}>Cerrar sesión</p>
+          <p className={styles.logoutDescription}>Sal de tu cuenta de forma segura en este dispositivo.</p>
+        </div>
         <LogoutButton className={styles.logoutButton} />
       </section>
     </div>
