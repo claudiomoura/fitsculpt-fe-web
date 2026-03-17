@@ -1483,6 +1483,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
             <button
               type="submit"
+              data-testid={checkinMode === "quick" ? "checkin-quick-submit" : "checkin-full-submit"}
               className={`btn ${isSubmitting ? "is-loading" : ""}`}
               style={{ width: "fit-content" }}
               disabled={checkinMode === "quick" ? isWeightEntrySubmitDisabled : isCheckinSubmitDisabled}
