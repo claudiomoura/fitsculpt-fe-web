@@ -5,7 +5,7 @@ describe("/auth/me entitlements contract (minimal)", () => {
   it("accepts payloads that expose entitlements modules from backend", () => {
     const payload: AuthMePayload = {
       subscriptionPlan: "PRO",
-      entitlements: {
+      effectiveEntitlements: {
         modules: {
           ai: { enabled: true },
           nutrition: { enabled: true },
@@ -15,8 +15,8 @@ describe("/auth/me entitlements contract (minimal)", () => {
       tokenBalance: 500,
     };
 
-    expect(payload).toHaveProperty("entitlements");
-    expect(payload.entitlements).toBeTypeOf("object");
+    expect(payload).toHaveProperty("effectiveEntitlements");
+    expect(payload.effectiveEntitlements).toBeTypeOf("object");
 
     const result = getUiEntitlements(payload);
     expect(result.status).toBe("known");
@@ -24,11 +24,12 @@ describe("/auth/me entitlements contract (minimal)", () => {
       expect(result.features.canUseAI).toBe(true);
       expect(result.features.canUseNutrition).toBe(true);
       expect(result.features.canUseStrength).toBe(true);
+      expect(result.features.canUseBilling).toBe(true);
       expect(canAccessFeature(result, "nutrition")).toBe(true);
     }
   });
 
-  it("derives AI access from supported subscription plans", () => {
+  it("does not grant module access from plan name alone", () => {
     const payload: AuthMePayload = {
       subscriptionPlan: "PRO",
     };
@@ -36,9 +37,10 @@ describe("/auth/me entitlements contract (minimal)", () => {
     expect(getUiEntitlements(payload)).toEqual({
       status: "known",
       features: {
-        canUseAI: true,
-        canUseNutrition: true,
-        canUseStrength: true,
+        canUseAI: false,
+        canUseNutrition: false,
+        canUseStrength: false,
+        canUseBilling: true,
       },
     });
   });

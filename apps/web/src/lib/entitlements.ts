@@ -10,13 +10,14 @@ export type UiEntitlements =
         canUseAI: boolean;
         canUseNutrition: boolean;
         canUseStrength: boolean;
+        canUseBilling: boolean;
       };
     }
   | {
       status: "unknown";
     };
 
-export type EntitlementFeature = "ai" | "nutrition" | "strength";
+export type EntitlementFeature = "ai" | "nutrition" | "strength" | "billing";
 
 export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
   if (!payload) {
@@ -27,15 +28,17 @@ export function getUiEntitlements(payload: AuthMePayload): UiEntitlements {
   const canUseAI = snapshot.aiEntitlements.ai;
   const canUseNutrition = snapshot.aiEntitlements.nutrition;
   const canUseStrength = snapshot.aiEntitlements.strength;
+  const canUseBilling = snapshot.modules.billing;
 
   return {
     status: "known",
-    features: {
-      canUseAI,
-      canUseNutrition,
-      canUseStrength,
-    },
-  };
+      features: {
+        canUseAI,
+        canUseNutrition,
+        canUseStrength,
+        canUseBilling,
+      },
+    };
 }
 
 export function canAccessFeature(entitlements: UiEntitlements, feature: EntitlementFeature): boolean {
@@ -49,6 +52,10 @@ export function canAccessFeature(entitlements: UiEntitlements, feature: Entitlem
 
   if (feature === "nutrition") {
     return entitlements.features.canUseNutrition;
+  }
+
+  if (feature === "billing") {
+    return entitlements.features.canUseBilling;
   }
 
   return entitlements.features.canUseStrength;

@@ -273,9 +273,11 @@ async function runPrismaWithRetryDetailed(args, envVars, maxAttempts = 4) {
 
 function runPrisma(args, envVars) {
   return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['prisma', ...args], {
+    const command = `pnpm exec prisma ${args.join(' ')}`;
+    const child = spawn(command, [], {
       cwd: API_ROOT,
       env: envVars,
+      shell: true,
       stdio: ['inherit', 'pipe', 'pipe'],
     });
 
@@ -302,7 +304,7 @@ function runPrisma(args, envVars) {
 }
 
 function isTransientPrismaError(output) {
-  return /(P1017|ECONNRESET|ETIMEDOUT|Can't reach database server|server closed the connection|Connection terminated unexpectedly)/i.test(output);
+  return /(P1017|ECONNRESET|ETIMEDOUT|EPERM|operation not permitted, rename|Can't reach database server|server closed the connection|Connection terminated unexpectedly)/i.test(output);
 }
 
 function containsP3009(output) {

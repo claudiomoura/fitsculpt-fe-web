@@ -46,6 +46,11 @@ async function main() {
       data: { emailVerifiedAt: new Date() },
     });
 
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: { role: "ADMIN" },
+    });
+
     const loginResponse = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },

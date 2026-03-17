@@ -18,7 +18,6 @@ import {
   hasTrainingPlanAdjustmentCapability,
 } from "@/domains/training";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { readAuthEntitlementSnapshot, type SubscriptionPlan } from "@/context/auth/entitlements";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import TrainingAdjustmentDiffSummary, {
   buildTrainingAdjustmentDiff,
@@ -169,7 +168,6 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [adjustmentEntitlementChecked, setAdjustmentEntitlementChecked] = useState(false);
   const [hasAdjustmentEntitlement, setHasAdjustmentEntitlement] = useState(false);
   const [adjustmentTokenBalance, setAdjustmentTokenBalance] = useState<number | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan | null>(null);
   const [trackingSupports, setTrackingSupports] = useState<{
     energy: boolean | null;
     notes: boolean | null;
@@ -203,7 +201,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const isCheckinSubmitDisabled =
     !isTrackingReady || !isWeightValid || !isDateValid || !isBodyFatValid || !isWaistValid || isSubmitting;
   const adjustmentInput = canApplyTrainingAdjustment(profile) ? getTrainingAdjustmentInput(profile) : null;
-  const hasAdjustmentTokens = subscriptionPlan !== "FREE" || (adjustmentTokenBalance ?? 0) > 0;
+  const hasAdjustmentTokens = hasAdjustmentEntitlement || (adjustmentTokenBalance ?? 0) > 0;
   const canApplyAdjustment =
     adjustmentCapabilityChecked &&
     adjustmentEntitlementChecked &&
@@ -241,12 +239,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         };
         if (!active) return;
         setHasAdjustmentEntitlement(hasAiEntitlement(data));
-        setSubscriptionPlan(readAuthEntitlementSnapshot(data).subscriptionPlan);
         setAdjustmentTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
       } catch (_err) {
         if (!active) return;
         setHasAdjustmentEntitlement(false);
-        setSubscriptionPlan(null);
         setAdjustmentTokenBalance(null);
       } finally {
         if (active) setAdjustmentEntitlementChecked(true);

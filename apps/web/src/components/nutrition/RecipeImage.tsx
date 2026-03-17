@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/classNames";
 
 type RecipeImageProps = {
@@ -27,11 +27,8 @@ export function RecipeImage({
   testId,
 }: RecipeImageProps) {
   const normalizedSrc = useMemo(() => normalizeImageUrl(src), [src]);
-  const [hasLoadError, setHasLoadError] = useState(false);
-
-  useEffect(() => {
-    setHasLoadError(false);
-  }, [normalizedSrc]);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const hasLoadError = failedSrc === normalizedSrc;
 
   if (!normalizedSrc || hasLoadError) {
     return (
@@ -52,7 +49,7 @@ export function RecipeImage({
       alt={alt}
       className={className}
       loading="lazy"
-      onError={() => setHasLoadError(true)}
+      onError={() => setFailedSrc(normalizedSrc)}
       data-testid={testId}
     />
   );

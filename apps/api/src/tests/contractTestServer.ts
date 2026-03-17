@@ -205,9 +205,10 @@ export function startContractServer(options: StartContractServerOptions): Starte
     activeTimers.clear();
   };
 
-  const server = spawn("npx", ["tsx", "src/index.ts"], {
+  const server = spawn("pnpm exec tsx src/index.ts", [], {
     cwd: apiRoot,
     env: getServerEnv(options.port, options.bootstrapAdminEmails),
+    shell: true,
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
   });

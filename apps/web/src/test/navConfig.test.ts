@@ -20,6 +20,7 @@ describe("navConfig", () => {
         canUseAI: false,
         canUseNutrition: false,
         canUseStrength: false,
+        canUseBilling: true,
       },
     });
 

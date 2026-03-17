@@ -15,9 +15,9 @@ describe('design-system base components', () => {
       </>,
     );
 
-    expect(getByRole('button', { name: 'Primary' })).toHaveClass('bg-primary');
-    expect(getByRole('button', { name: 'Secondary' })).toHaveClass('border-border');
-    expect(getByRole('button', { name: 'Ghost' })).toHaveClass('bg-transparent');
+    expect(getByRole('button', { name: 'Primary' })).toHaveClass('ui-button--primary');
+    expect(getByRole('button', { name: 'Secondary' })).toHaveClass('ui-button--secondary');
+    expect(getByRole('button', { name: 'Ghost' })).toHaveClass('ui-button--ghost');
     expect(getByRole('button', { name: 'Disabled' })).toBeDisabled();
     expect(getByRole('button', { name: 'Loading' })).toBeDisabled();
   });
@@ -38,8 +38,8 @@ describe('design-system base components', () => {
 
     expect(getByTestId('default-card')).toHaveClass('border-border');
     expect(getByTestId('elevated-card')).toHaveClass('shadow-md');
-    expect(getByText('Pro')).toHaveClass('text-primary');
-    expect(getByText('Muscle')).toHaveClass('text-text');
+    expect(getByText('Pro')).toHaveClass('ui-badge');
+    expect(getByText('Muscle')).toHaveClass('ui-badge');
     expect(getByRole('link', { name: 'Default' })).toHaveClass('text-text-muted');
     expect(getByRole('link', { name: 'Active' })).toHaveClass('text-primary');
   });

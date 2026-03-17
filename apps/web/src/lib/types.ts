@@ -202,6 +202,7 @@ export type AuthMeEntitlements = {
     ai?: { enabled?: boolean };
     strength?: { enabled?: boolean };
     nutrition?: { enabled?: boolean };
+    billing?: { enabled?: boolean };
   };
   legacy?: {
     tier?: string;
@@ -225,4 +226,5 @@ export type AuthMeResponse = {
     strength?: boolean;
   } | null;
   entitlements?: AuthMeEntitlements | null;
+  effectiveEntitlements?: AuthMeEntitlements | null;
 };

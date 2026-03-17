@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { normalizeExerciseMediaUrl } from "@/lib/exerciseMedia";
 
 type ExerciseThumbnailProps = {
@@ -25,14 +25,12 @@ export function ExerciseThumbnail({
     () => (src ? normalizeExerciseMediaUrl(src) : null),
     [src],
   );
-  const [hasLoadError, setHasLoadError] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const effectiveSrc = normalized ?? PLACEHOLDER_SRC;
+  const hasLoadError = failedSrc === effectiveSrc;
   const displaySrc = hasLoadError
     ? PLACEHOLDER_SRC
-    : (normalized ?? PLACEHOLDER_SRC);
-
-  useEffect(() => {
-    setHasLoadError(false);
-  }, [normalized]);
+    : effectiveSrc;
 
   return (
     <Image
@@ -45,7 +43,7 @@ export function ExerciseThumbnail({
       loading="lazy"
       onError={() => {
         if (!hasLoadError) {
-          setHasLoadError(true);
+          setFailedSrc(effectiveSrc);
         }
       }}
     />

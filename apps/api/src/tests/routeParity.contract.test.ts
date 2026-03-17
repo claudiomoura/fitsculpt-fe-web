@@ -39,11 +39,21 @@ function assertRequiredRoutesPresent(
 }
 
 async function main() {
-  const srcIndexPath = path.join(apiRoot, "src/index.ts");
-  const srcIndex = await readFile(srcIndexPath, "utf8");
+  const routeFiles = [
+    path.join(apiRoot, "src/index.ts"),
+    path.join(apiRoot, "src/domains/ai/registerAiRoutes.ts"),
+  ];
 
-  const registeredRoutes = extractPostRouteLiterals(srcIndex);
-  assertRequiredRoutesPresent("src/index.ts", registeredRoutes);
+  const contents = await Promise.all(routeFiles.map((filePath) => readFile(filePath, "utf8")));
+  const registeredRoutes = new Set<string>();
+
+  for (const content of contents) {
+    for (const routePath of extractPostRouteLiterals(content)) {
+      registeredRoutes.add(routePath);
+    }
+  }
+
+  assertRequiredRoutesPresent(routeFiles.join(", "), registeredRoutes);
 
   console.log("route parity contract test passed (critical backend route literals)");
 }

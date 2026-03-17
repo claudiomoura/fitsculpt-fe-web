@@ -3,19 +3,23 @@ import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 import { getUiEntitlements } from "@/lib/entitlements";
 
 describe("auth entitlement snapshot", () => {
-  it("derives capabilities from supported subscription plan", () => {
+  it("reads module capabilities from effective entitlements", () => {
     const snapshot = readAuthEntitlementSnapshot({
       subscriptionPlan: "PRO",
-      aiEntitlements: {
-        nutrition: true,
-        strength: false,
+      effectiveEntitlements: {
+        modules: {
+          ai: { enabled: true },
+          nutrition: { enabled: true },
+          strength: { enabled: false },
+        },
       },
       tokenBalance: 19,
     });
 
     expect(snapshot.subscriptionPlan).toBe("PRO");
-    expect(snapshot.aiEntitlements).toMatchObject({ nutrition: true, strength: true });
+    expect(snapshot.aiEntitlements).toMatchObject({ nutrition: true, strength: false });
     expect(snapshot.aiEntitlements.ai).toBe(true);
+    expect(snapshot.modules.billing).toBe(true);
     expect(snapshot.tokenBalance).toBe(19);
   });
 
@@ -40,7 +44,13 @@ describe("auth entitlement snapshot", () => {
   it("maps snapshot to UI gating state", () => {
     const ui = getUiEntitlements({
       subscriptionPlan: "STRENGTH_AI",
-      aiEntitlements: { nutrition: false, strength: true },
+      effectiveEntitlements: {
+        modules: {
+          ai: { enabled: true },
+          nutrition: { enabled: false },
+          strength: { enabled: true },
+        },
+      },
       tokenBalance: 4,
     });
 
@@ -50,6 +60,7 @@ describe("auth entitlement snapshot", () => {
         canUseAI: true,
         canUseNutrition: false,
         canUseStrength: true,
+        canUseBilling: true,
       },
     });
   });

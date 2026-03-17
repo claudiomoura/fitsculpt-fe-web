@@ -57,6 +57,11 @@ async function main() {
       data: { emailVerifiedAt: new Date() },
     });
 
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: { role: "ADMIN" },
+    });
+
     const adminCookie = await login(adminEmail, password);
     const memberCookie = await login(memberEmail, password);
 

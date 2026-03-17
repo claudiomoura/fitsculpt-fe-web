@@ -21,20 +21,17 @@ export function useSidebar() {
 }
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const isLargeScreen = useMediaQuery("(min-width: 1024px)");
-
-  useEffect(() => {
-    setIsMobile(!isLargeScreen);
-  }, [isLargeScreen]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebar-collapsed");
-    if (saved !== null) {
-      setIsCollapsed(JSON.parse(saved));
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === "undefined") {
+      return false;
     }
-  }, []);
+
+    const saved = window.localStorage.getItem("sidebar-collapsed");
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+  const isLargeScreen = useMediaQuery("(min-width: 1024px)");
+  const isMobile = !isLargeScreen;
+  const effectiveCollapsed = isMobile ? true : isCollapsed;
 
   useEffect(() => {
     if (!isMobile) {
@@ -42,22 +39,18 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isCollapsed, isMobile]);
 
-  useEffect(() => {
-    if (isMobile) {
-      setIsCollapsed(true);
-    }
+  const toggle = useCallback(() => {
+    if (isMobile) return;
+    setIsCollapsed((prev) => !prev);
   }, [isMobile]);
 
-  const toggle = useCallback(() => {
-    setIsCollapsed((prev) => !prev);
-  }, []);
-
   const setCollapsed = useCallback((collapsed: boolean) => {
+    if (isMobile) return;
     setIsCollapsed(collapsed);
-  }, []);
+  }, [isMobile]);
 
   return (
-    <SidebarContext.Provider value={{ isCollapsed, isMobile, toggle, setCollapsed }}>
+    <SidebarContext.Provider value={{ isCollapsed: effectiveCollapsed, isMobile, toggle, setCollapsed }}>
       {children}
     </SidebarContext.Provider>
   );

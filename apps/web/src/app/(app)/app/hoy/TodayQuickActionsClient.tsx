@@ -8,7 +8,6 @@ import {
   PremiumProgressIcon,
   PremiumWorkoutIcon,
 } from "@/components/icons/PremiumIcons";
-import { useToast } from "@/components/ui/Toast";
 import { MacroRing } from "@/components/ui/MacroRing";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
@@ -18,7 +17,6 @@ import { trackEvent } from "@/lib/analytics";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { canAccessFeature } from "@/lib/entitlements";
 import type { AuthMeResponse, NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail } from "@/lib/types";
-import { createTrackingEntry } from "@/services/tracking";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
@@ -27,9 +25,9 @@ const trainingRoute = "/app/entrenamiento";
 const billingRoute = "/app/settings/billing";
 const manualPlanRoute = "/app/entrenamiento/editar";
 const aiPlanRoute = "/app/entrenamiento?ai=1";
+const checkinRoute = "/app/seguimiento/check-in";
 
 type ViewStatus = "loading" | "success" | "error";
-type CheckinActionStatus = "idle" | "loading";
 type TrainingState = "workout" | "rest" | "no-plan";
 
 type TodaySignals = {
@@ -195,12 +193,10 @@ const hasWeeklyCheckin = (payload?: TrackingPayload | null) => {
 export default function TodayQuickActionsClient() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { notify } = useToast();
   const { entitlements } = useAuthEntitlements();
   const hasAiAccess = canAccessFeature(entitlements, "ai");
 
   const [status, setStatus] = useState<ViewStatus>("loading");
-  const [checkinActionStatus, setCheckinActionStatus] = useState<CheckinActionStatus>("idle");
   const [signals, setSignals] = useState<TodaySignals>({
     checkinDoneThisWeek: false,
     userName: "",
@@ -264,9 +260,9 @@ export default function TodayQuickActionsClient() {
         nextSignals.userName = authMe.name?.trim() ?? "";
         nextSignals.subscriptionPlan = entitlementSnapshot.subscriptionPlan;
         nextSignals.aiTokenBalance = entitlementSnapshot.tokenBalance;
-        nextSignals.canGenerateTrainingAi = entitlementSnapshot.aiEntitlements.strength && entitlementSnapshot.tokenBalance > 0;
-        nextSignals.canGenerateNutritionAi = entitlementSnapshot.aiEntitlements.nutrition && entitlementSnapshot.tokenBalance > 0;
-        nextSignals.hasTrainingAccess = authMe.entitlements?.modules?.strength?.enabled !== false;
+        nextSignals.canGenerateTrainingAi = entitlementSnapshot.modules.strength && entitlementSnapshot.tokenBalance > 0;
+        nextSignals.canGenerateNutritionAi = entitlementSnapshot.modules.nutrition && entitlementSnapshot.tokenBalance > 0;
+        nextSignals.hasTrainingAccess = entitlementSnapshot.modules.strength;
       }
 
       if (trackingResponse.ok) {
@@ -323,6 +319,7 @@ export default function TodayQuickActionsClient() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- trigger async load on page mount
     void loadTodaySignals();
   }, [loadTodaySignals]);
 
@@ -331,40 +328,6 @@ export default function TodayQuickActionsClient() {
     hasTrackedViewRef.current = true;
     trackEvent("today_view");
   }, []);
-
-  const handleLogTodayCheckin = useCallback(async () => {
-    if (checkinActionStatus === "loading") return;
-    setCheckinActionStatus("loading");
-
-    const now = new Date();
-    const todayDate = toDateKey(now);
-
-    try {
-      await createTrackingEntry("checkins", {
-        id: `today-checkin-${now.getTime()}`,
-        date: todayDate,
-        weightKg: 0,
-        chestCm: 0,
-        waistCm: 0,
-        hipsCm: 0,
-        bicepsCm: 0,
-        thighCm: 0,
-        calfCm: 0,
-        neckCm: 0,
-        bodyFatPercent: 0,
-        energy: 0,
-        hunger: 0,
-        notes: t("quickActions.todayActionDefaultNotes"),
-        recommendation: t("quickActions.todayActionDefaultRecommendation"),
-        frontPhotoUrl: null,
-        sidePhotoUrl: null,
-      });
-      setSignals((prev) => ({ ...prev, checkinDoneThisWeek: true, streakDays: Math.max(1, prev.streakDays) }));
-      notify({ title: t("today.hubSuccessToast"), variant: "success" });
-    } finally {
-      setCheckinActionStatus("idle");
-    }
-  }, [checkinActionStatus, notify, t]);
 
   const userName = signals.userName || t("ui.userFallback");
 
@@ -375,7 +338,7 @@ export default function TodayQuickActionsClient() {
   const dailyProgressPercent = Math.round((completedGoals / 3) * 100);
   const nutritionProgressPercent = Math.round(Math.min((signals.nutritionConsumedCalories / (signals.nutritionTargetCalories || 1)) * 100, 100));
   const checkinProgressPercent = signals.checkinDoneThisWeek ? 100 : 35;
-  const aiLockReason = signals.aiTokenBalance <= 0 ? "Sin tokens" : signals.subscriptionPlan === "FREE" ? "Plan Free" : null;
+  const aiLockReason = signals.aiTokenBalance <= 0 ? "Sin tokens" : !hasAiAccess ? "Plan bloqueado" : null;
 
   const trainingDescription =
     signals.trainingState === "workout"
@@ -418,9 +381,9 @@ export default function TodayQuickActionsClient() {
         <>
           {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamiento" /> : null}
 
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4" data-testid="today-actions-grid">
             {/* Card 1: Entrenamiento */}
-            <section className="card xl:col-span-2">
+            <section className="card xl:col-span-2" data-testid="today-action-card">
               <div className="flex items-center gap-4 mb-5">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
                   <PremiumWorkoutIcon width={28} height={28} className="text-primary" />
@@ -468,7 +431,7 @@ export default function TodayQuickActionsClient() {
             </section>
 
             {/* Card 2: Nutrición */}
-            <section className="card">
+            <section className="card" data-testid="today-action-card">
               <div className="flex items-center gap-4 mb-5">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/20">
                   <PremiumNutritionIcon width={28} height={28} className="text-success" />
@@ -499,7 +462,7 @@ export default function TodayQuickActionsClient() {
             </section>
 
             {/* Card 3: Check-in */}
-            <section className="card">
+            <section className="card" data-testid="today-action-card">
               <div className="flex items-center gap-4 mb-5">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-info/20">
                   <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-info">
@@ -519,13 +482,13 @@ export default function TodayQuickActionsClient() {
 
               <ProgressMetric label="Meta: -5 kg" percent={checkinProgressPercent} color="var(--color-info)" />
 
-              <Button className="flex w-full h-12 rounded-xl font-medium" onClick={() => void handleLogTodayCheckin()} loading={checkinActionStatus === "loading"}>
-                {signals.checkinDoneThisWeek ? "Actualizar" : "Registrar"}
-              </Button>
+              <ButtonLink as={Link} href={checkinRoute} className="flex h-12 w-full rounded-xl font-medium" data-testid="quick-action-tracking">
+                {signals.checkinDoneThisWeek ? "Actualizar check-in" : t("profile.checkinTitle")}
+              </ButtonLink>
             </section>
 
             {/* Card 4: Progreso - solo desktop */}
-            <section className="hidden xl:block card">
+            <section className="hidden xl:block card" data-testid="today-action-card">
               <div className="flex items-center gap-4 mb-5">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-warning/20">
                   <PremiumProgressIcon width={28} height={28} className="text-warning" />
@@ -545,7 +508,7 @@ export default function TodayQuickActionsClient() {
               </ButtonLink>
             </section>
 
-            <section className="card">
+            <section className="card" data-testid="today-action-card">
               <div className="flex items-center gap-4 mb-5">
                 <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${signals.canGenerateTrainingAi ? "bg-primary/20" : "bg-muted"}`}>
                   <PremiumWorkoutIcon width={28} height={28} className={signals.canGenerateTrainingAi ? "text-primary" : "text-muted"} />
@@ -562,7 +525,7 @@ export default function TodayQuickActionsClient() {
               </Button>
             </section>
 
-            <section className="card">
+            <section className="card" data-testid="today-action-card">
               <div className="flex items-center gap-4 mb-5">
                 <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${signals.canGenerateNutritionAi ? "bg-success/20" : "bg-muted"}`}>
                   <PremiumNutritionIcon width={28} height={28} className={signals.canGenerateNutritionAi ? "text-success" : "text-muted"} />
