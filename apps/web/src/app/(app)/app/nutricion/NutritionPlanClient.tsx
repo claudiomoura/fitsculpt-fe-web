@@ -2419,8 +2419,8 @@ const nutritionPlanDetails = profile ? (
           </section>
 
               {!loading && !error ? (
-                <section id="nutrition-today-log" className="card nutrition-v2-layout premium-surface-card" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
-                  <div className="feature-card stack-sm nutrition-today-summary-card premium-subcard">
+                <section id="nutrition-today-log" className="card nutrition-v2-layout premium-surface-card premium-fade-up" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+                  <div className="feature-card stack-sm nutrition-today-summary-card premium-subcard premium-success-surface">
                     <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
                       <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
                         <h2 className="section-title section-title-sm m-0">Tu log de hoy</h2>
@@ -2435,7 +2435,7 @@ const nutritionPlanDetails = profile ? (
                         <strong>{highlightedMealsProgress}%</strong>
                       </div>
                       <ProgressBar value={highlightedMealsProgress} max={100} aria-label={t("nutrition.dailyTargetTitle")} />
-                      <p className="muted m-0 text-xs">El quick log se guarda solo en este dispositivo hasta tener soporte backend duradero.</p>
+                      <p className="muted m-0 text-xs">Tus comidas registradas se reflejan en tu progreso diario real.</p>
                     </div>
                   </div>
 
@@ -2989,7 +2989,6 @@ const nutritionPlanDetails = profile ? (
                 >
                   {isSelectedMealFavorite ? t("nutrition.quickRemoveFavorite") : t("nutrition.quickAddFavorite")}
                 </Button>
-                <Badge variant="muted">{t("nutrition.localOnlyBadge")}</Badge>
               </div>
             </div>
             <RecipeImage

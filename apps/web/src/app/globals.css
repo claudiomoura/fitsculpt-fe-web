@@ -6909,3 +6909,29 @@ html.theme-dark :focus-visible {
     border-radius: 18px;
   }
 }
+
+
+@keyframes premiumFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.premium-fade-up {
+  animation: premiumFadeUp 280ms ease-out;
+}
+
+.premium-success-surface {
+  box-shadow: 0 14px 40px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-fade-up {
+    animation: none;
+  }
+}
