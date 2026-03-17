@@ -7,7 +7,7 @@ import { EmptyBlock, ErrorBlock, ExerciseCardCompact, LoadingBlock } from "@/des
 import { useLanguage } from "@/context/LanguageProvider";
 import { dayKey, todayLocalDayKey } from "@/lib/date/dayKey";
 import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
-import type { TrainingPlanDay } from "@/lib/types";
+import type { TrainingPlanDay, Workout } from "@/lib/types";
 import { getActiveWorkoutPlanDays } from "@/services/workout.service";
 
 type LoadState = "loading" | "error" | "success";
@@ -44,12 +44,16 @@ export default function WorkoutTodayMobileClient() {
   const [state, setState] = useState<LoadState>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planDays, setPlanDays] = useState<TrainingPlanDay[]>([]);
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [manualSelectedDay, setManualSelectedDay] = useState<string | null>(null);
 
   const loadWorkouts = useCallback(async () => {
     setState("loading");
     setError(null);
-    const result = await getActiveWorkoutPlanDays();
+    const [result, workoutsResponse] = await Promise.all([
+      getActiveWorkoutPlanDays(),
+      fetch("/api/workouts", { cache: "no-store", credentials: "include" }),
+    ]);
     if (!result.ok) {
       setError(t("workouts.loadError"));
       setState("error");
@@ -57,6 +61,12 @@ export default function WorkoutTodayMobileClient() {
     }
 
     setPlanDays(result.data.plan?.days ?? []);
+    if (workoutsResponse.ok) {
+      const workoutsPayload = await workoutsResponse.json();
+      setWorkouts(Array.isArray(workoutsPayload) ? workoutsPayload : []);
+    } else {
+      setWorkouts([]);
+    }
     setState("success");
   }, [t]);
 
@@ -95,6 +105,19 @@ export default function WorkoutTodayMobileClient() {
   }, [parsedDays]);
 
   const todayIso = todayLocalDayKey();
+
+  const completedDayKeys = useMemo(() => {
+    const keys = new Set<string>();
+    workouts.forEach((workout) => {
+      (workout.sessions ?? []).forEach((session) => {
+        if (!session.finishedAt) return;
+        const parsed = parseDate(session.finishedAt);
+        const key = parsed ? dayKey(parsed) : null;
+        if (key) keys.add(key);
+      });
+    });
+    return keys;
+  }, [workouts]);
   const queryDay = searchParams.get("day");
   const dayKeyCandidate = manualSelectedDay ?? queryDay ?? todayIso;
 
@@ -116,8 +139,9 @@ export default function WorkoutTodayMobileClient() {
     : dayKeyCandidate;
   const selectedDay = daysByIso.get(activeDayKey) ?? null;
 
-  const completed = 0;
   const total = Math.max(selectedDay?.exercises?.length ?? 0, 1);
+  const selectedDayCompleted = Boolean(activeDayKey && completedDayKeys.has(activeDayKey));
+  const completed = selectedDayCompleted ? total : 0;
   const estimatedMinutes = selectedDay?.duration ?? 45;
 
   const weekDays = useMemo(() => {
@@ -129,10 +153,10 @@ export default function WorkoutTodayMobileClient() {
         label: day.label,
         date: day.dateNumber,
         selected: day.iso === activeDayKey,
-        complete: hasExercises,
+        complete: hasExercises && completedDayKeys.has(day.iso),
       };
     });
-  }, [activeDayKey, workoutDays, daysByIso]);
+  }, [activeDayKey, completedDayKeys, workoutDays, daysByIso]);
 
   const buildExerciseDetailHref = (exerciseId: string) => {
     const params = new URLSearchParams();

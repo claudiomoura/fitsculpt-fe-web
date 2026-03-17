@@ -15,8 +15,9 @@ export function HeroNutrition({ title, calories, segments }: HeroNutritionProps)
         centerLabel={title}
         className="nutrition-macro-ring--hero"
         centerClassName="nutrition-macro-ring-center--hero"
+        showLegend={false}
       />
-      <ul className="list-reset nutrition-ring-legend nutrition-ring-legend--compact">
+      <ul className="list-reset nutrition-ring-legend nutrition-ring-legend--compact" data-testid="nutrition-ring-legend">
         {segments.map((segment) => (
           <li key={segment.key}>
             <span className="nutrition-ring-dot" style={{ backgroundColor: segment.color }} />

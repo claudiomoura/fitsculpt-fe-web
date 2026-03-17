@@ -91,3 +91,60 @@
     top: 88px;
   }
 }
+
+
+.checkinShell {
+  display: grid;
+  gap: 16px;
+}
+
+.checkinHero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.checkinLatestPill {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.04);
+}
+
+.checkinModeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checkinModeCard {
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  padding: 16px;
+  text-align: left;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.checkinModeCardActive {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 55%, transparent), var(--shadow-sm);
+  background: color-mix(in srgb, var(--brand) 12%, var(--bg-card));
+}
+
+.checkinFormGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .checkinModeGrid {
+    grid-template-columns: 1fr;
+  }
+}

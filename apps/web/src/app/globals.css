@@ -6603,3 +6603,81 @@ html.theme-dark :focus-visible {
     font-size: 0.875rem;
   }
 }
+
+
+.nutrition-meal-slot-card {
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .nutrition-mobile-compact-card {
+    padding: 14px;
+  }
+
+  .nutrition-mobile-compact-card .section-subtitle {
+    font-size: 0.9rem;
+    margin-top: 4px;
+  }
+
+  .nutrition-mobile-compact-card .section-actions {
+    width: 100%;
+  }
+
+  .nutrition-mobile-compact-card .section-actions .btn {
+    width: 100%;
+  }
+
+  .nutrition-today-summary-card {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .nutrition-v2-layout {
+    gap: 10px;
+  }
+
+  .nutrition-v2-hero {
+    gap: 10px;
+  }
+
+  .nutrition-ring-legend--compact {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+
+  .nutrition-ring-legend--compact li {
+    justify-content: center;
+    text-align: center;
+    flex-wrap: wrap;
+  }
+
+  .nutrition-macro-ring--hero {
+    width: min(168px, 100%);
+    height: min(168px, 100%);
+  }
+
+  .nutrition-week-grid-kpis {
+    margin-top: 6px;
+  }
+
+  .nutrition-week-kpi {
+    min-height: 48px;
+  }
+}
+
+
+@media (max-width: 640px) {
+  .nutrition-mobile-hide-card {
+    display: none;
+  }
+
+  .nutrition-today-summary-card {
+    border-radius: 16px;
+  }
+
+  .nutrition-empty-day-card {
+    padding: 14px;
+  }
+}

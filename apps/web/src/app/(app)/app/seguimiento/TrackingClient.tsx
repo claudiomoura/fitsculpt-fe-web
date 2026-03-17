@@ -1116,8 +1116,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               <aside className={styles.rightColumn}>
                 {latestCheckin ? (
                   <section className="feature-card">
-                    <h3 className="section-title section-title-sm">{t("profile.checkinRecommendation")}</h3>
-                    <p className="muted">{latestCheckin.recommendation}</p>
+                    <h3 className="section-title section-title-sm">{t("tracking.latestWeightTitle")}</h3>
+                    <p className="muted">{t("tracking.latestMetricsHint")}</p>
+                    <strong>{`${latestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}`}</strong>
+                    <span className="muted">{latestCheckin.date}</span>
                   </section>
                 ) : null}
                 {supportsBodyFat && latestCheckin ? (
@@ -1126,10 +1128,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     <strong>{latestCheckin.bodyFatPercent.toFixed(1)}{t("units.percent")}</strong>
                   </section>
                 ) : null}
-                {profile.goal ? (
+                {latestNotesCheckin ? (
                   <section className="feature-card">
-                    <h3 className="section-title section-title-sm">{t("profile.goal")}</h3>
-                    <p className="muted">{profile.goal}</p>
+                    <h3 className="section-title section-title-sm">{t("tracking.latestNotesTitle")}</h3>
+                    <p className="muted">{latestNotesCheckin.notes}</p>
                   </section>
                 ) : null}
               </aside>
@@ -1272,452 +1274,52 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {!isCheckinOnly ? (
-      <section className="card" id="weight-entry">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.weightEntryTitle")}</h2>
-            <p className="section-subtitle">{t("tracking.weightEntrySubtitle")}</p>
-          </div>
-        </div>
-        <form onSubmit={addQuickWeightEntry} className="form-stack">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("profile.checkinDate")}
-              <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
-            </label>
-            <label className="form-stack">
-              {t("profile.checkinWeight")}
-              <input
-                type="number"
-                min={30}
-                max={250}
-                step="0.1"
-                value={checkinWeight}
-                onChange={(e) => setCheckinWeight(Number(e.target.value))}
-                aria-invalid={!isWeightValid && isTrackingReady}
-              />
-            </label>
-          </div>
-          {!isWeightValid && isTrackingReady ? <p className="muted">{t("tracking.weightEntryInvalid")}</p> : null}
-          {submitError ? <p className="muted">{submitError}</p> : null}
-          {trackingStatus === "error" ? (
-            <div className="form-stack" style={{ gap: 8 }}>
-              <p className="muted">{t("tracking.weightEntryUnavailable")}</p>
-              <button
-                type="button"
-                className="btn secondary"
-                onClick={() => {
-                  void refreshTrackingData({ showLoading: true, showError: true });
-                }}
-              >
-                {t("ui.retry")}
-              </button>
+        <section className="card">
+          <div className="section-head">
+            <div>
+              <h2 className="section-title" style={{ fontSize: 20 }}>{t("latestMetricsTitle")}</h2>
+              <p className="section-subtitle">Solo mostramos datos reales ya guardados en tracking.</p>
             </div>
-          ) : null}
-          <button
-            type="submit"
-            className={`btn ${isSubmitting ? "is-loading" : ""}`}
-            disabled={isWeightEntrySubmitDisabled}
-          >
-            {isSubmitting ? (
-              <>
-                <span className="spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
-              </>
-            ) : (
-              t("tracking.weightEntryCta")
-            )}
-          </button>
-        </form>
-
-        <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
-          <div className="feature-card">
-            <p className="muted" style={{ marginBottom: 8 }}>
-              {t("tracking.latestWeightTitle")}
-            </p>
-            {isTrackingLoading ? (
-              <div className="tracking-metric-skeleton" aria-hidden="true">
-                <Skeleton variant="line" className="tracking-metric-skeleton-value" />
-                <Skeleton variant="line" className="tracking-metric-skeleton-date" />
-              </div>
-            ) : isTrackingError ? (
-              <div className="form-stack">
-                <p className="muted">{t("tracking.weightHistoryError")}</p>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => refreshTrackingData({ showLoading: true, showError: true })}
-                >
-                  {t("ui.retry")}
-                </button>
-              </div>
-            ) : latestCheckin ? (
-              <div style={{ display: "grid", gap: 4 }}>
-                <strong>
-                  {latestCheckin.weightKg} {t("units.kilograms")}
-                </strong>
-                <span className="muted">{latestCheckin.date}</span>
-              </div>
-            ) : (
-              <p className="muted">{t("tracking.latestWeightEmpty")}</p>
-            )}
           </div>
 
-          <div className="feature-card">
-            <p className="muted" style={{ marginBottom: 8 }}>
-              {t("tracking.weightHistoryTitle")}
-            </p>
-            {isTrackingLoading ? (
-              <div className="tracking-history-skeleton" aria-hidden="true">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={`history-skeleton-${index}`} className="tracking-history-skeleton-row">
-                    <Skeleton variant="line" className="tracking-history-skeleton-date" />
-                    <Skeleton variant="line" className="tracking-history-skeleton-value" />
-                  </div>
-                ))}
-              </div>
-            ) : isTrackingError ? (
-              <div className="form-stack">
-                <p className="muted">{t("tracking.weightHistoryError")}</p>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => refreshTrackingData({ showLoading: true, showError: true })}
-                >
-                  {t("ui.retry")}
-                </button>
-              </div>
-            ) : sortedCheckins.length === 0 ? (
-              <p className="muted">{t("tracking.weightHistoryEmpty")}</p>
-            ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                {sortedCheckins.map((entry) => (
-                  <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <span>{entry.date}</span>
-                    <span className="muted">
-                      {entry.weightKg} {t("units.kilograms")}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className={styles.metricCards}>
+            <article className="feature-card">
+              <p className="muted">{t("tracking.latestWeightTitle")}</p>
+              <strong>{latestCheckin ? `${latestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}` : t("tracking.latestWeightEmpty")}</strong>
+              {latestCheckin ? <span className="muted">{latestCheckin.date}</span> : null}
+            </article>
+            <article className="feature-card">
+              <p className="muted">{t("tracking.latestEnergyTitle")}</p>
+              <strong>{latestEnergyCheckin ? String(latestEnergyCheckin.energy) : t("tracking.latestEnergyEmpty")}</strong>
+            </article>
+            <article className="feature-card">
+              <p className="muted">{t("tracking.latestNotesTitle")}</p>
+              <strong>{latestNotesCheckin ? latestNotesCheckin.notes : t("tracking.latestNotesEmpty")}</strong>
+            </article>
           </div>
-        </div>
-      </section>
-      ) : null}
 
-      <section className="card" id="checkin-entry">
-        <div className="section-head">
-          <div>
-            <h2 className="section-title" style={{ fontSize: 20 }}>{t("profile.checkinTitle")}</h2>
-            <p className="section-subtitle">{t("profile.checkinSubtitle")}</p>
-          </div>
-        </div>
-        <form onSubmit={addCheckin} className="form-stack">
-          <div className="segmented-control">
-            <button
-              type="button"
-              className={`btn secondary ${checkinMode === "quick" ? "is-active" : ""}`}
-              onClick={() => setCheckinMode("quick")}
-              aria-pressed={checkinMode === "quick"}
-            >
-              {t("tracking.checkinModeQuick")}
+          <div className="inline-actions-sm mt-16">
+            <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
+              {t("profile.checkinAdd")}
             </button>
-            <button
-              type="button"
-              className={`btn secondary ${checkinMode === "full" ? "is-active" : ""}`}
-              onClick={() => setCheckinMode("full")}
-              aria-pressed={checkinMode === "full"}
-            >
-              {t("tracking.checkinModeFull")}
-            </button>
-          </div>
-          <p className="muted" style={{ marginTop: 4 }}>
-            {checkinMode === "quick" ? t("tracking.checkinModeQuickHint") : t("tracking.checkinModeFullHint")}
-          </p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("profile.checkinDate")}
-              <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
-            </label>
-            <label className="form-stack">
-              {t("profile.checkinWeight")}
-              <input
-                type="number"
-                min={30}
-                max={250}
-                step="0.1"
-                value={checkinWeight}
-                onChange={(e) => setCheckinWeight(Number(e.target.value))}
-                aria-invalid={!isWeightValid && isTrackingReady}
-              />
-            </label>
-            {supportsBodyFat ? (
-              <label className="form-stack">
-                {t("profile.bodyFat")}
-                <input
-                  type="number"
-                  min={0}
-                  max={60}
-                  step="0.1"
-                  value={checkinBodyFat}
-                  onChange={(e) => setCheckinBodyFat(Number(e.target.value))}
-                  aria-invalid={!isBodyFatValid && isTrackingReady}
-                />
-              </label>
-            ) : null}
-            {supportsWaist ? (
-              <label className="form-stack">
-                {t("tracking.checkinWaistOptional")}
-                <input
-                  type="number"
-                  min={0}
-                  value={checkinWaist}
-                  onChange={(e) => setCheckinWaist(Number(e.target.value))}
-                  aria-invalid={!isWaistValid && isTrackingReady}
-                />
-              </label>
-            ) : null}
+            <a className="btn secondary" href="/app/nutricion">
+              {t("tracking.progressTabNutrition")}
+            </a>
+            <a className="btn secondary" href="/app/entrenamiento">
+              {t("tracking.progressTabTraining")}
+            </a>
           </div>
 
-          {checkinMode === "full" ? (
-            <details className="accordion-card">
-              <summary>{t("tracking.checkinAdvancedTitle")}</summary>
-              <p className="muted" style={{ marginTop: 8 }}>
-                {t("tracking.checkinAdvancedHint")}
-              </p>
-              {supportsMeasurements ? (
-                <div
-                  style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}
-                >
-                  <label className="form-stack">
-                    {t("profile.chest")}
-                    <input
-                      type="number"
-                      min={0}
-                      value={checkinChest}
-                      onChange={(e) => setCheckinChest(Number(e.target.value))}
-                    />
-                  </label>
-                  <label className="form-stack">
-                    {t("profile.hips")}
-                    <input
-                      type="number"
-                      min={0}
-                      value={checkinHips}
-                      onChange={(e) => setCheckinHips(Number(e.target.value))}
-                    />
-                  </label>
-                  <label className="form-stack">
-                    {t("profile.biceps")}
-                    <input
-                      type="number"
-                      min={0}
-                      value={checkinBiceps}
-                      onChange={(e) => setCheckinBiceps(Number(e.target.value))}
-                    />
-                  </label>
-                  <label className="form-stack">
-                    {t("profile.thigh")}
-                    <input
-                      type="number"
-                      min={0}
-                      value={checkinThigh}
-                      onChange={(e) => setCheckinThigh(Number(e.target.value))}
-                    />
-                  </label>
-                  <label className="form-stack">
-                    {t("profile.calf")}
-                    <input
-                      type="number"
-                      min={0}
-                      value={checkinCalf}
-                      onChange={(e) => setCheckinCalf(Number(e.target.value))}
-                    />
-                  </label>
-                  <label className="form-stack">
-                    {t("profile.neck")}
-                    <input
-                      type="number"
-                      min={0}
-                      value={checkinNeck}
-                      onChange={(e) => setCheckinNeck(Number(e.target.value))}
-                    />
-                  </label>
-                </div>
-              ) : null}
-
-              {supportsEnergy ? (
-                <div
-                  style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}
-                >
-                  <label className="form-stack">
-                    {t("profile.checkinEnergy")}
-                    <input
-                      type="number"
-                      min={1}
-                      max={5}
-                      value={checkinEnergy}
-                      onChange={(e) => setCheckinEnergy(Number(e.target.value))}
-                    />
-                  </label>
-                  <label className="form-stack">
-                    {t("profile.checkinHunger")}
-                    <input
-                      type="number"
-                      min={1}
-                      max={5}
-                      value={checkinHunger}
-                      onChange={(e) => setCheckinHunger(Number(e.target.value))}
-                    />
-                  </label>
-                </div>
-              ) : null}
-
-              {supportsNotes ? (
-                <label className="form-stack">
-                  {t("profile.checkinNotes")}
-                  <textarea value={checkinNotes} onChange={(e) => setCheckinNotes(e.target.value)} rows={3} />
-                </label>
-              ) : null}
-
-              {!supportsCheckinPhotos ? (
-                <div className="feature-card" style={{ marginTop: 12 }} role="status" aria-live="polite">
-                  <strong>{t("tracking.checkinPhotosUnavailableTitle")}</strong>
-                  <p className="muted" style={{ marginTop: 6 }}>
-                    {t("tracking.checkinPhotosUnavailableSubtitle")}
-                  </p>
-                </div>
-              ) : null}
-            </details>
-          ) : null}
-
-          {!isBodyFatValid && isTrackingReady ? <p className="muted">{t("tracking.bodyFatInvalid")}</p> : null}
-          {submitError ? <p className="muted">{submitError}</p> : null}
-          {trackingStatus === "error" ? (
-            <div className="form-stack" style={{ gap: 8 }}>
-              <p className="muted">{t("tracking.checkinUnavailable")}</p>
-              <button
-                type="button"
-                className="btn secondary"
-                onClick={() => {
-                  void refreshTrackingData({ showLoading: true, showError: true });
-                }}
-              >
-                {t("ui.retry")}
-              </button>
-            </div>
-          ) : null}
-          <button
-            type="submit"
-            className={`btn ${isSubmitting ? "is-loading" : ""}`}
-            style={{ width: "fit-content" }}
-            disabled={isCheckinSubmitDisabled}
-          >
-            {isSubmitting ? (
-              <>
-                <span className="spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
-              </>
-            ) : (
-              t("profile.checkinAdd")
-            )}
-          </button>
-        </form>
-
-        <div className="feature-card" style={{ marginTop: 16 }}>
-          <p className="muted" style={{ marginBottom: 8 }}>
-            {t("profile.checkinRecommendation")}
-          </p>
-          <p style={{ marginBottom: 12 }}>
-            {latestCheckin?.recommendation || t("profile.checkinKeep")}
-          </p>
-
-          {canApplyAdjustment ? (
-            <button
-              type="button"
-              className={`btn ${adjustmentStatus === "loading" ? "is-loading" : ""}`}
-              onClick={handleApplyAdjustment}
-              disabled={isApplyAdjustmentDisabled}
-              aria-label={t("tracking.adjustmentApplyAria")}
-            >
-              {adjustmentStatus === "loading" ? (
-                <>
-                  <span className="spinner" aria-hidden="true" /> {t("tracking.adjustmentApplying")}
-                </>
-              ) : (
-                t("tracking.adjustmentApply")
-              )}
-            </button>
-          ) : !adjustmentCapabilityChecked || !adjustmentEntitlementChecked ? (
-            <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentChecking")}</p>
-          ) : !hasAdjustmentCapability ? (
-            <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentUnavailable")}</p>
-          ) : !hasAdjustmentEntitlement || !hasAdjustmentTokens ? (
-            <div className="feature-card" role="status" aria-live="polite" style={{ marginTop: 8 }}>
-              <strong>{t("tracking.adjustmentProFeatureTitle")}</strong>
-              <p className="muted" style={{ marginTop: 6 }}>{t("tracking.adjustmentProFeatureBody")}</p>
-            </div>
-          ) : !adjustmentInput ? (
-            <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentNeedsProfile")}</p>
-          ) : (
-            <p className="muted" role="status" aria-live="polite">{t("tracking.adjustmentUnavailable")}</p>
-          )}
-
-          {adjustmentStatus === "success" && adjustmentSuccess ? (
-            <div className="info-item" role="status" aria-live="polite" style={{ marginTop: 12 }}>
-              <strong>{t("tracking.adjustmentSuccessTitle")}</strong>
-              <p className="muted" style={{ marginTop: 4 }}>
-                {translateWithDate("tracking.adjustmentSuccessBody", adjustmentSuccess.at)}
-              </p>
-              {adjustmentSuccess.period ? (
-                <p className="muted" style={{ marginTop: 4 }}>
-                  {adjustmentSuccess.period}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {adjustmentStatus === "success" && adjustmentSuccess && adjustmentDiff ? (
-            <TrainingAdjustmentDiffSummary diff={adjustmentDiff} />
-          ) : null}
-
-          {adjustmentStatus === "error" && adjustmentError ? (
-            <div className="feature-card" role="status" aria-live="polite" style={{ marginTop: 10 }}>
-              <p className="muted" style={{ marginBottom: 10 }}>
-                {adjustmentError}
-              </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={handleApplyAdjustment}
-                  disabled={!canApplyAdjustment}
-                  aria-label={t("tracking.adjustmentRetryAria")}
-                >
-                  {t("tracking.adjustmentRetry")}
-                </button>
-                <a className="btn ghost" href="#weight-entry" aria-label={t("tracking.adjustmentBackAria")}>
-                  {t("tracking.adjustmentBack")}
-                </a>
+          <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+            {checkins.length === 0 ? (
+              <div className="empty-state">
+                <p className="muted">{t("profile.checkinEmpty")}</p>
               </div>
-            </div>
-          ) : null}
-        </div>
-
-        <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-          {checkins.length === 0 ? (
-            <div className="empty-state">
-              <p className="muted">{t("profile.checkinEmpty")}</p>
-              <a className="btn secondary fit-content" href="#weight-entry">
-                {t("tracking.weightEntryCta")}
-              </a>
-            </div>
-          ) : (
-            checkins.map((entry) => (
-              <div key={entry.id} className="feature-card">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                  <strong>{entry.date}</strong>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            ) : (
+              sortedCheckins.slice(0, 5).map((entry) => (
+                <div key={entry.id} className="feature-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <strong>{entry.date}</strong>
                     <span>
                       {[
                         `${entry.weightKg} ${t("units.kilograms")}`,
@@ -1727,322 +1329,181 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
-                    <button
-                      type="button"
-                      className="btn secondary"
-                      onClick={() => handleDeleteEntry("checkins", entry.id)}
-                      aria-label={`${t("tracking.delete")} ${entry.date}`}
-                    >
-                      {t("tracking.delete")}
-                    </button>
                   </div>
+                  {entry.notes ? <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p> : null}
                 </div>
-                <div style={{ marginTop: 6 }}>
-                  {t("profile.checkinRecommendation")}: <strong>{entry.recommendation}</strong>
-                </div>
-                <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
-                  {entry.frontPhotoUrl && (
-                    <img
-                      src={entry.frontPhotoUrl}
-                      alt={t("profile.checkinFrontPhoto")}
-                      style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8 }}
-                    />
-                  )}
-                  {entry.sidePhotoUrl && (
-                    <img
-                      src={entry.sidePhotoUrl}
-                      alt={t("profile.checkinSidePhoto")}
-                      style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 8 }}
-                    />
-                  )}
-                </div>
-                {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      {!isCheckinOnly ? (
-      <>
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.sectionMeals")}</h2>
-        <form onSubmit={addFoodEntry} className="form-stack">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("tracking.mealDate")}
-              <input type="date" value={foodDate} onChange={(e) => setFoodDate(e.target.value)} />
-            </label>
-            <label className="form-stack">
-              {t("tracking.mealFood")}
-              <select value={foodKey} onChange={(e) => setFoodKey(e.target.value)}>
-                {Object.entries(defaultFoodProfiles).map(([key, profile]) => (
-                  <option key={key} value={key}>
-                    {t(profile.labelKey)}
-                  </option>
-                ))}
-                {userFoods.length > 0 && (
-                  <optgroup label={t("tracking.customFoodsLabel")}>
-                    {userFoods.map((food) => (
-                      <option key={food.id} value={`user:${food.id}`}>
-                        {food.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </label>
-            <label className="form-stack">
-              {t("tracking.mealGrams")}
-              <input type="number" min={0} value={foodGrams} onChange={(e) => setFoodGrams(Number(e.target.value))} />
-            </label>
+              ))
+            )}
           </div>
-          <button type="submit" className="btn" style={{ width: "fit-content" }}>
-            {t("tracking.mealAdd")}
-          </button>
-          <button type="button" className="btn secondary" style={{ width: "fit-content" }} onClick={() => openFoodModal()}>
-            {t("tracking.foodCreate")}
-          </button>
-        </form>
-
-        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-          {Object.keys(mealsByDate).length === 0 ? (
-            <p className="muted">{t("tracking.mealEmpty")}</p>
-          ) : (
-            Object.entries(mealsByDate).map(([date, entries]) => {
-              const totals = macroTotals(entries);
-              return (
-                <div key={date} className="feature-card">
-                  <strong>{date}</strong>
-                  <div className="meal-totals">
-                    <div className="meal-totals-header">
-                      <span className="muted">{t("tracking.mealTotals")}</span>
-                      <div className="meal-totals-calories">
-                        <strong>
-                          {totals.calories.toFixed(0)} {t("units.kcal")}
-                        </strong>
-                        {nutritionTargets ? (
-                          <span
-                            className={`status-pill ${getStatusClass(totals.calories, nutritionTargets.calories)}`}
-                          >
-                            {getStatusLabel(totals.calories, nutritionTargets.calories)}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="meal-totals-macros">
-                      <span>
-                        {totals.protein.toFixed(1)}
-                        {t("units.grams")} {macroLabels.protein}
-                      </span>
-                      <span>
-                        {totals.carbs.toFixed(1)}
-                        {t("units.grams")} {macroLabels.carbs}
-                      </span>
-                      <span>
-                        {totals.fat.toFixed(1)}
-                        {t("units.grams")} {macroLabels.fat}
-                      </span>
-                    </div>
-                    {nutritionTargets ? (
-                      <div className="meal-targets">
-                        {getMacroBadge(macroLabels.protein, totals.protein, nutritionTargets.protein)}
-                        {getMacroBadge(macroLabels.carbs, totals.carbs, nutritionTargets.carbs)}
-                        {getMacroBadge(macroLabels.fat, totals.fat, nutritionTargets.fat)}
-                        <span className="muted">
-                          {t("tracking.targetLabel")}: {nutritionTargets.calories} {t("units.kcal")}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="muted">{t("tracking.targetsMissing")}</span>
-                    )}
-                  </div>
-                  <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                    {entries.map((entry) => {
-                      const profile = resolveFoodProfile(entry.foodKey);
-                      if (!profile) return null;
-                      const factor = entry.grams / 100;
-                      return (
-                        <li key={entry.id}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <span>
-                              {profile.label} {entry.grams}
-                              {t("units.grams")} → {(profile.protein * factor).toFixed(1)}
-                              {macroLabels.protein} / {(profile.carbs * factor).toFixed(1)}
-                              {macroLabels.carbs} / {(profile.fat * factor).toFixed(1)}
-                              {macroLabels.fat}
-                            </span>
-                            <button
-                              type="button"
-                              className="btn secondary"
-                              onClick={() => handleDeleteEntry("foodLog", entry.id)}
-                            >
-                              {t("tracking.delete")}
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("tracking.sectionWorkouts")}</h2>
-        <form onSubmit={addWorkoutEntry} className="form-stack">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("tracking.workoutDate")}
-              <input type="date" value={workoutDate} onChange={(e) => setWorkoutDate(e.target.value)} />
-            </label>
-            <label className="form-stack">
-              {t("tracking.workoutName")}
-              <input value={workoutName} onChange={(e) => setWorkoutName(e.target.value)} />
-            </label>
-            <label className="form-stack">
-              {t("tracking.workoutDuration")}
-              <input
-                type="number"
-                min={0}
-                value={workoutDuration}
-                onChange={(e) => setWorkoutDuration(Number(e.target.value))}
-              />
-            </label>
-          </div>
-          <label className="form-stack">
-            {t("tracking.workoutNotes")}
-            <textarea value={workoutNotes} onChange={(e) => setWorkoutNotes(e.target.value)} rows={2} />
-          </label>
-          <button type="submit" className="btn" style={{ width: "fit-content" }}>
-            {t("tracking.workoutAdd")}
-          </button>
-        </form>
-
-        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-          {workoutLog.length === 0 ? (
-            <p className="muted">{t("tracking.workoutEmpty")}</p>
-          ) : (
-            workoutLog.map((entry) => (
-              <div key={entry.id} className="feature-card">
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                  <span>
-                    <strong>{entry.date}</strong> — {entry.name} ({entry.durationMin} min)
-                  </span>
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    onClick={() => handleDeleteEntry("workoutLog", entry.id)}
-                  >
-                    {t("tracking.delete")}
-                  </button>
-                </div>
-                {entry.notes && <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p>}
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      </>
+        </section>
       ) : null}
 
-      {foodModalOpen && (
-        <div className="modal-backdrop" role="presentation" onClick={() => setFoodModalOpen(false)}>
-          <div
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={foodForm.id ? t("tracking.foodEditTitle") : t("tracking.foodCreateTitle")}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <form className="form-stack" onSubmit={handleSaveFood}>
-              <h3 style={{ margin: 0 }}>
-                {foodForm.id ? t("tracking.foodEditTitle") : t("tracking.foodCreateTitle")}
-              </h3>
-              <label className="form-stack">
-                {t("tracking.foodName")}
-                <input
-                  value={foodForm.name}
-                  onChange={(e) => setFoodForm((prev) => ({ ...prev, name: e.target.value }))}
-                  required
-                />
-              </label>
-              <label className="form-stack">
-                {t("tracking.foodBrand")}
-                <input
-                  value={foodForm.brand}
-                  onChange={(e) => setFoodForm((prev) => ({ ...prev, brand: e.target.value }))}
-                />
-              </label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
-                <label className="form-stack">
-                  {t("tracking.foodCalories")}
-                  <input
-                    type="number"
-                    min={0}
-                    value={foodForm.calories}
-                    onChange={(e) => setFoodForm((prev) => ({ ...prev, calories: Number(e.target.value) }))}
-                  />
-                </label>
-                <label className="form-stack">
-                  {t("tracking.foodProtein")}
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.1"
-                    value={foodForm.protein}
-                    onChange={(e) => setFoodForm((prev) => ({ ...prev, protein: Number(e.target.value) }))}
-                  />
-                </label>
-                <label className="form-stack">
-                  {t("tracking.foodCarbs")}
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.1"
-                    value={foodForm.carbs}
-                    onChange={(e) => setFoodForm((prev) => ({ ...prev, carbs: Number(e.target.value) }))}
-                  />
-                </label>
-                <label className="form-stack">
-                  {t("tracking.foodFat")}
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.1"
-                    value={foodForm.fat}
-                    onChange={(e) => setFoodForm((prev) => ({ ...prev, fat: Number(e.target.value) }))}
-                  />
-                </label>
+      {isCheckinOnly ? (
+        <section className={`card ${styles.checkinShell}`} id="checkin-entry">
+          <div className={styles.checkinHero}>
+            <div>
+              <h2 className="section-title" style={{ fontSize: 22 }}>{t("profile.checkinTitle")}</h2>
+              <p className="section-subtitle">{t("profile.checkinSubtitle")}</p>
+            </div>
+            {latestCheckin ? (
+              <div className={styles.checkinLatestPill}>
+                <span className="muted">{t("tracking.latestWeightTitle")}</span>
+                <strong>{latestCheckin.weightKg.toFixed(1)} {t("units.kilograms")}</strong>
               </div>
-              <label className="form-stack">
-                {t("tracking.foodUnit")}
-                <select
-                  value={foodForm.unit}
-                  onChange={(e) => setFoodForm((prev) => ({ ...prev, unit: e.target.value as UserFood["unit"] }))}
-                >
-                  <option value="100g">{t("tracking.unit100g")}</option>
-                  <option value="serving">{t("tracking.unitServing")}</option>
-                  <option value="unit">{t("tracking.unitUnit")}</option>
-                </select>
-              </label>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="submit" className="btn">
-                  {t("tracking.save")}
-                </button>
-                <button type="button" className="btn secondary" onClick={() => setFoodModalOpen(false)}>
-                  {t("tracking.cancel")}
-                </button>
-              </div>
-            </form>
+            ) : null}
           </div>
-        </div>
-      )}
 
+          <div className={styles.checkinModeGrid}>
+            <button
+              type="button"
+              className={`${styles.checkinModeCard} ${checkinMode === "quick" ? styles.checkinModeCardActive : ""}`}
+              onClick={() => setCheckinMode("quick")}
+              aria-pressed={checkinMode === "quick"}
+            >
+              <strong>Registrar peso rapido</strong>
+              <span className="muted">Solo fecha y peso del dia.</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.checkinModeCard} ${checkinMode === "full" ? styles.checkinModeCardActive : ""}`}
+              onClick={() => setCheckinMode("full")}
+              aria-pressed={checkinMode === "full"}
+            >
+              <strong>Registrar metricas completas</strong>
+              <span className="muted">Todas las metricas reales del check-in.</span>
+            </button>
+          </div>
+
+          <form onSubmit={checkinMode === "quick" ? addQuickWeightEntry : addCheckin} className="form-stack">
+            <div className={styles.checkinFormGrid}>
+              <label className="form-stack">
+                {t("profile.checkinDate")}
+                <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
+              </label>
+              <label className="form-stack">
+                {t("profile.checkinWeight")}
+                <input
+                  type="number"
+                  min={30}
+                  max={250}
+                  step="0.1"
+                  value={checkinWeight}
+                  onChange={(e) => setCheckinWeight(Number(e.target.value))}
+                  aria-invalid={!isWeightValid && isTrackingReady}
+                />
+              </label>
+              {checkinMode === "full" ? (
+                <>
+                  <label className="form-stack">
+                    {t("profile.bodyFat")}
+                    <input
+                      type="number"
+                      min={0}
+                      max={60}
+                      step="0.1"
+                      value={checkinBodyFat}
+                      onChange={(e) => setCheckinBodyFat(Number(e.target.value))}
+                      aria-invalid={!isBodyFatValid && isTrackingReady}
+                    />
+                  </label>
+                  <label className="form-stack">
+                    {t("tracking.checkinWaistOptional")}
+                    <input
+                      type="number"
+                      min={0}
+                      value={checkinWaist}
+                      onChange={(e) => setCheckinWaist(Number(e.target.value))}
+                      aria-invalid={!isWaistValid && isTrackingReady}
+                    />
+                  </label>
+                  <label className="form-stack">
+                    {t("tracking.chestCm")}
+                    <input type="number" min={0} value={checkinChest} onChange={(e) => setCheckinChest(Number(e.target.value))} />
+                  </label>
+                  <label className="form-stack">
+                    {t("tracking.hipsCm")}
+                    <input type="number" min={0} value={checkinHips} onChange={(e) => setCheckinHips(Number(e.target.value))} />
+                  </label>
+                  <label className="form-stack">
+                    {t("tracking.bicepsCm")}
+                    <input type="number" min={0} value={checkinBiceps} onChange={(e) => setCheckinBiceps(Number(e.target.value))} />
+                  </label>
+                  <label className="form-stack">
+                    {t("tracking.thighCm")}
+                    <input type="number" min={0} value={checkinThigh} onChange={(e) => setCheckinThigh(Number(e.target.value))} />
+                  </label>
+                  <label className="form-stack">
+                    {t("tracking.calfCm")}
+                    <input type="number" min={0} value={checkinCalf} onChange={(e) => setCheckinCalf(Number(e.target.value))} />
+                  </label>
+                  <label className="form-stack">
+                    {t("tracking.neckCm")}
+                    <input type="number" min={0} value={checkinNeck} onChange={(e) => setCheckinNeck(Number(e.target.value))} />
+                  </label>
+                  <label className="form-stack">
+                    {t("profile.checkinEnergy")}
+                    <input type="number" min={1} max={5} value={checkinEnergy} onChange={(e) => setCheckinEnergy(Number(e.target.value))} />
+                  </label>
+                  <label className="form-stack">
+                    {t("profile.checkinHunger")}
+                    <input type="number" min={1} max={5} value={checkinHunger} onChange={(e) => setCheckinHunger(Number(e.target.value))} />
+                  </label>
+                </>
+              ) : null}
+            </div>
+
+            {!isBodyFatValid && isTrackingReady ? <p className="muted">{t("tracking.bodyFatInvalid")}</p> : null}
+            {checkinMode === "full" ? (
+              <label className="form-stack">
+                {t("profile.checkinNotes")}
+                <textarea value={checkinNotes} onChange={(e) => setCheckinNotes(e.target.value)} rows={3} />
+              </label>
+            ) : null}
+            {submitError ? <p className="muted">{submitError}</p> : null}
+
+            <button
+              type="submit"
+              className={`btn ${isSubmitting ? "is-loading" : ""}`}
+              style={{ width: "fit-content" }}
+              disabled={checkinMode === "quick" ? isWeightEntrySubmitDisabled : isCheckinSubmitDisabled}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
+                </>
+              ) : (
+                checkinMode === "quick" ? "Guardar peso de hoy" : "Guardar check-in completo"
+              )}
+            </button>
+          </form>
+
+          <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+            {sortedCheckins.length === 0 ? (
+              <div className="empty-state">
+                <p className="muted">{t("profile.checkinEmpty")}</p>
+              </div>
+            ) : (
+              sortedCheckins.slice(0, 8).map((entry) => (
+                <div key={entry.id} className="feature-card">
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <strong>{entry.date}</strong>
+                    <span>
+                      {[
+                        `${entry.weightKg} ${t("units.kilograms")}`,
+                        supportsWaist ? `${entry.waistCm} ${t("units.centimeters")}` : null,
+                        supportsBodyFat ? `${entry.bodyFatPercent}${t("units.percent")}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </div>
+                  {entry.notes ? <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p> : null}
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

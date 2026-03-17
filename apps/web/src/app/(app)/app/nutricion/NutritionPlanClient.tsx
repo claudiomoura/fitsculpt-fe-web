@@ -34,8 +34,9 @@ import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
 import AppLayout from "@/components/layout/AppLayout";
 import NutritionStats from "@/components/nutrition/NutritionStats";
 import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
-import { Accordion, MealCardCompact, ObjectiveGrid, ProgressBar, SegmentedControl } from "@/design-system/components";
+import { Accordion, MealCardCompact, ProgressBar, SegmentedControl } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
+import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/components/ui/Toast";
 import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
@@ -400,19 +401,6 @@ const getMealInstructions = (meal: NutritionMeal) => {
 
 const getMealMeta = (meal: NutritionMeal, t: (key: string) => string) => {
   return `${meal.macros.calories} ${t("units.kcal")} · ${t("nutrition.protein")}: ${meal.macros.protein}g · ${t("nutrition.carbs")}: ${meal.macros.carbs}g · ${t("nutrition.fat")}: ${meal.macros.fats}g`;
-};
-
-const getMealKey = (meal: NutritionMeal, dayKey: string, index: number) => {
-  const maybeMeal = meal as unknown as { id?: unknown };
-  if (typeof maybeMeal.id === "string" && maybeMeal.id.trim().length > 0) {
-    return maybeMeal.id;
-  }
-  const title = meal.title?.trim();
-  const description = meal.description?.trim();
-  const safeTitle = title ? slugifyExerciseName(title) : "";
-  const safeDescription = description ? slugifyExerciseName(description) : "";
-  const parts = [dayKey, meal.type, safeTitle, safeDescription].filter((value) => typeof value === "string" && value.length > 0);
-  return parts.length > 0 ? parts.join(":") : `meal:${dayKey}:${index}`;
 };
 
 const DAY_LABEL_KEYS = [
@@ -1100,6 +1088,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const highlightedDay = selectedVisiblePlanDay?.day ?? visiblePlan?.days[0] ?? null;
   const highlightedDayKey = selectedVisiblePlanDay?.date ? toDateKey(selectedVisiblePlanDay.date) : toDateKey(selectedDate);
   const highlightedMeals = highlightedDay?.meals ?? [];
+  const hasHighlightedMeals = highlightedMeals.length > 0;
   const highlightedMealsByType = useMemo(() => {
     const mealsPerDay = profile?.nutritionPreferences.mealsPerDay ?? 3;
     const mealOrder: NutritionMeal["type"][] = mealsPerDay === 1
@@ -1245,8 +1234,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     if (!planStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
     const dayParam = searchParams.get("day");
-    setSelectedDate(parseDate(dayParam) ?? new Date());
-  }, [planStartDate, searchParams]);
+    setSelectedDate(parseDate(dayParam) ?? planEntries[0]?.date ?? planStartDate);
+  }, [planEntries, planStartDate, searchParams]);
 
   const updateNutritionSearchParams = (nextDayKey: string, dishKey?: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -1555,7 +1544,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     ? quickFavorites.some((favorite) => favorite.id === selectedMealFavorite.id)
     : false;
   const highlightedCompletedMeals = useMemo(
-    () => highlightedMeals.reduce((count, meal, mealIndex) => count + (isConsumed(getMealKey(meal, highlightedDayKey, mealIndex), highlightedDayKey) ? 1 : 0), 0),
+    () => highlightedMeals.reduce((count, meal, mealIndex) => count + (isConsumed(getNutritionMealKey(meal, highlightedDayKey, mealIndex), highlightedDayKey) ? 1 : 0), 0),
     [highlightedDayKey, highlightedMeals, isConsumed]
   );
   const highlightedMealsProgress = highlightedMeals.length > 0
@@ -1612,7 +1601,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       return;
     }
 
-    const mealEntry = dayEntry.meals.find((meal, index) => getMealKey(meal, dayParam, index) === dishParam);
+    const mealEntry = dayEntry.meals.find((meal, index) => getNutritionMealKey(meal, dayParam, index) === dishParam);
     if (mealEntry) {
       setSelectedMeal({
         meal: mealEntry,
@@ -2300,7 +2289,7 @@ const nutritionPlanDetails = profile ? (
             </section>
           ) : hasPlan ? (
             <>
-              <section className="card">
+              <section className="card nutrition-mobile-hide-card nutrition-mobile-compact-card">
             <div className="section-head section-head-actions">
               <div>
                 <h2 className="section-title section-title-sm">Hoy</h2>
@@ -2420,16 +2409,14 @@ const nutritionPlanDetails = profile ? (
 
               {!loading && !error ? (
                 <section id="nutrition-today-log" className="card nutrition-v2-layout" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
-                  <div className="feature-card stack-sm">
+                  <div className="feature-card stack-sm nutrition-today-summary-card">
                     <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
                       <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
                         <h2 className="section-title section-title-sm m-0">Tu log de hoy</h2>
                         <p className="section-subtitle m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</p>
                         {assignedPlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{assignedPlanTitle}</p> : null}
                       </div>
-                      <ButtonLink className="nutrition-dominant-cta" data-testid="nutrition-open-today-log" href="#nutrition-today-log">
-                        Registrar comidas de hoy
-                      </ButtonLink>
+                      <div className="badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
                     </div>
                     <div className="stack-xs">
                       <div className="inline-actions-space">
@@ -2444,7 +2431,6 @@ const nutritionPlanDetails = profile ? (
                   <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
                     <div className="stack-sm">
                       <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
-                      <ObjectiveGrid items={objectiveItems} className="nutrition-v2-objective-grid" />
                     </div>
                   </div>
 
@@ -2498,6 +2484,16 @@ const nutritionPlanDetails = profile ? (
                       hasWeeklyMeals={hasWeeklyMeals}
                       emptyTitle={t("nutrition.weeklyEmptyTitle")}
                       emptySubtitle={t("nutrition.weeklyEmptySubtitle")}
+                      emptyActions={(<>
+                        <Link href="/app/nutricion/editar" className="btn secondary fit-content">{t("nutrition.editPlan")}</Link>
+                        {!isAiLocked ? (
+                          <button type="button" className="btn fit-content" onClick={handleGenerateClick} disabled={aiLoading}>
+                            {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                          </button>
+                        ) : (
+                          <Link href="/app/settings/billing" className="btn fit-content">{t("billing.upgradePro")}</Link>
+                        )}
+                      </>)}
                       days={weekGridDays}
                       kcalLabel={t("units.kcal")}
                       onPreviousWeek={() => setSelectedDate((prev) => addWeeks(prev, -1))}
@@ -2519,89 +2515,119 @@ const nutritionPlanDetails = profile ? (
 
                   <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
                     <div className="stack-sm">
-                      <div className="nutrition-v2-meals stack-sm">
-                    <div className="inline-actions-space">
-                      <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
-                      <ButtonLink variant="secondary" href="/app/nutricion/editar">
-                        {t("ui.edit")}
-                      </ButtonLink>
-                    </div>
-                    {highlightedMealsByType.map((mealSection, mealIndex) => {
-                      const meal = mealSection.meal;
-                      if (!meal) {
-                        return (
-                          <div key={mealSection.mealType} className="feature-card stack-sm">
+                      {hasHighlightedMeals ? (
+                        <>
+                          <div className="nutrition-v2-meals stack-sm">
                             <div className="inline-actions-space">
-                              <strong>{mealSection.label}</strong>
-                              <span className="badge">{t("nutrition.viewToday")}</span>
+                              <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
+                              <ButtonLink variant="secondary" href="/app/nutricion/editar">
+                                {t("ui.edit")}
+                              </ButtonLink>
                             </div>
-                            <p className="muted">{t("nutrition.emptySubtitle")}</p>
-                            <ButtonLink href="/app/nutricion/editar">{t("ui.edit")}</ButtonLink>
-                          </div>
-                        );
-                      }
+                            {highlightedMealsByType.map((mealSection, mealIndex) => {
+                              const meal = mealSection.meal;
+                              if (!meal) {
+                                return (
+                                  <div key={mealSection.mealType} className="feature-card stack-sm">
+                                    <div className="inline-actions-space">
+                                      <strong>{mealSection.label}</strong>
+                                      <span className="badge">{t("nutrition.viewToday")}</span>
+                                    </div>
+                                    <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                                    <ButtonLink href="/app/nutricion/editar">{t("ui.edit")}</ButtonLink>
+                                  </div>
+                                );
+                              }
 
-                      const mealKey = getMealKey(meal, highlightedDay?.dayLabel ?? "meal", mealIndex);
-                      return (
-                        <div key={mealKey} className="feature-card stack-sm">
+                              const mealKey = getNutritionMealKey(meal, highlightedDayKey, mealIndex);
+                              return (
+                                <div key={mealKey} className="feature-card stack-sm nutrition-meal-slot-card">
+                                  <div className="inline-actions-space">
+                                    <strong>{mealSection.label}</strong>
+                                    <div className="inline-actions-sm">
+                                      <span className="badge">{meal.macros.calories} {t("units.kcal")}</span>
+                                      <button
+                                        type="button"
+                                        className={`btn ${isConsumed(mealKey, highlightedDayKey) ? "secondary" : ""} fit-content`}
+                                        onClick={() => handleQuickLogMeal(mealKey, highlightedDayKey)}
+                                      >
+                                        {isConsumed(mealKey, highlightedDayKey) ? t("nutrition.quickLogButtonConsumed") : `Registrar ${mealSection.label.toLowerCase()}`}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <MealCard
+                                    title={getMealTitle(meal, t)}
+                                    description={getMealDescription(meal)}
+                                    meta={getMealMeta(meal, t)}
+                                    imageUrl={getMealMediaUrl(meal)}
+                                    onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
+                                    className="meal-card--horizontal"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {calendarView === "list" ? (
+                            <div className="nutrition-meal-list mt-12">
+                              {visiblePlanEntries.length > 0 ? (
+                                visiblePlanEntries.map((entry) => (
+                                  <div key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`} className="feature-card stack-sm">
+                                    <div className="inline-actions-space">
+                                      <strong>{entry.date.toLocaleDateString(localeCode, { weekday: "short", day: "numeric", month: "short" })}</strong>
+                                      <span className="badge">{entry.day.dayLabel}</span>
+                                    </div>
+                                    {entry.day.meals.length > 0 ? (
+                                      <div className="nutrition-meal-list">
+                                        {entry.day.meals.map((meal, mealIndex) => {
+                                          const dayKey = toDateKey(entry.date);
+                                          const mealKey = getNutritionMealKey(meal, dayKey, mealIndex);
+                                          return (
+                                            <MealCard
+                                              key={mealKey}
+                                              title={getMealTitle(meal, t)}
+                                              description={getMealDescription(meal)}
+                                              meta={getMealMeta(meal, t)}
+                                              imageUrl={getMealMediaUrl(meal)}
+                                              onClick={() => {
+                                                setSelectedDate(entry.date);
+                                                openMealDetail(meal, dayKey, mealKey, entry.day.dayLabel);
+                                              }}
+                                              className="meal-card--horizontal"
+                                            />
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                                    )}
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                              )}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <div className="feature-card stack-sm nutrition-empty-day-card">
                           <div className="inline-actions-space">
-                            <strong>{mealSection.label}</strong>
-                            <span className="badge">{meal.macros.calories} {t("units.kcal")}</span>
+                            <strong>{t("nutrition.weeklyEmptyTitle")}</strong>
+                            <span className="badge">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</span>
                           </div>
-                          <MealCard
-                            title={getMealTitle(meal, t)}
-                            description={getMealDescription(meal)}
-                            meta={getMealMeta(meal, t)}
-                            imageUrl={getMealMediaUrl(meal)}
-                            onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
-                            className="meal-card--horizontal"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {calendarView === "list" ? (
-                    <div className="nutrition-meal-list mt-12">
-                      {visiblePlanEntries.length > 0 ? (
-                        visiblePlanEntries.map((entry) => (
-                          <div key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`} className="feature-card stack-sm">
-                            <div className="inline-actions-space">
-                              <strong>{entry.date.toLocaleDateString(localeCode, { weekday: "short", day: "numeric", month: "short" })}</strong>
-                              <span className="badge">{entry.day.dayLabel}</span>
-                            </div>
-                            {entry.day.meals.length > 0 ? (
-                              <div className="nutrition-meal-list">
-                                {entry.day.meals.map((meal, mealIndex) => {
-                                  const dayKey = toDateKey(entry.date);
-                                  const mealKey = getMealKey(meal, dayKey, mealIndex);
-                                  return (
-                                    <MealCard
-                                      key={mealKey}
-                                      title={getMealTitle(meal, t)}
-                                      description={getMealDescription(meal)}
-                                      meta={getMealMeta(meal, t)}
-                                      imageUrl={getMealMediaUrl(meal)}
-                                      onClick={() => {
-                                        setSelectedDate(entry.date);
-                                        openMealDetail(meal, dayKey, mealKey, entry.day.dayLabel);
-                                      }}
-                                      className="meal-card--horizontal"
-                                    />
-                                  );
-                                })}
-                              </div>
+                          <p className="muted m-0">No hay comidas asignadas para este día.</p>
+                          <div className="inline-actions-sm mt-12">
+                            <Link href="/app/nutricion/editar" className="btn secondary fit-content">{t("nutrition.editPlan")}</Link>
+                            {!isAiLocked ? (
+                              <button type="button" className="btn fit-content" onClick={handleGenerateClick} disabled={aiLoading}>
+                                {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
+                              </button>
                             ) : (
-                              <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                              <Link href="/app/settings/billing" className="btn fit-content">{t("billing.upgradePro")}</Link>
                             )}
                           </div>
-                        ))
-                      ) : (
-                        <p className="muted">{t("nutrition.emptySubtitle")}</p>
+                        </div>
                       )}
-                    </div>
-                  ) : null}
-
                     </div>
 
                     <div className="nutrition-v2-shopping">

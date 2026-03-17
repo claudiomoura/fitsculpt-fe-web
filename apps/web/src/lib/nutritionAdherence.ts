@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 export const NUTRITION_ADHERENCE_STORAGE_KEY = "fs_nutrition_adherence_v1";
+export const NUTRITION_ADHERENCE_EVENT = "fs:nutrition-adherence-changed";
 
 type NutritionAdherenceStore = Record<string, string[]>;
 
@@ -22,7 +23,7 @@ const normalizeStore = (value: unknown): NutritionAdherenceStore => {
   return normalized;
 };
 
-const readStore = (): NutritionAdherenceStore => {
+export const readNutritionAdherenceStore = (): NutritionAdherenceStore => {
   if (!isBrowser()) return {};
   try {
     const stored = window.localStorage.getItem(NUTRITION_ADHERENCE_STORAGE_KEY);
@@ -37,6 +38,7 @@ const writeStore = (store: NutritionAdherenceStore) => {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(NUTRITION_ADHERENCE_STORAGE_KEY, JSON.stringify(store));
+    window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
   } catch (_err) {
     // ignore storage errors
   }
@@ -74,7 +76,7 @@ export const useNutritionAdherence = (dayKey: string) => {
     }
     setIsLoading(true);
     try {
-      setStore(readStore());
+      setStore(readNutritionAdherenceStore());
       setError(false);
     } catch (_err) {
       setStore({});
@@ -92,8 +94,13 @@ export const useNutritionAdherence = (dayKey: string) => {
         loadStore();
       }
     };
+    const handleLocalUpdate = () => loadStore();
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
+    };
   }, [loadStore]);
 
   const isConsumed = useCallback(
@@ -110,7 +117,7 @@ export const useNutritionAdherence = (dayKey: string) => {
     const normalizedItemKey = normalizeKey(itemKey);
     const normalizedDateKey = normalizeKey(dateKey);
     if (!normalizedItemKey || !normalizedDateKey) return;
-    const currentStore = readStore();
+    const currentStore = readNutritionAdherenceStore();
     const nextStore = toggleStoreItem(currentStore, normalizedDateKey, normalizedItemKey);
     writeStore(nextStore);
     setStore(nextStore);
@@ -119,7 +126,7 @@ export const useNutritionAdherence = (dayKey: string) => {
   const clearDay = useCallback((dateKey?: string | null) => {
     const normalizedDateKey = normalizeKey(dateKey);
     if (!normalizedDateKey) return;
-    const currentStore = readStore();
+    const currentStore = readNutritionAdherenceStore();
     if (!currentStore[normalizedDateKey]) return;
     const nextStore = { ...currentStore };
     delete nextStore[normalizedDateKey];

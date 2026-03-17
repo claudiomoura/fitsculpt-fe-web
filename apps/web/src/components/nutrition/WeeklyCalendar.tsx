@@ -1,3 +1,7 @@
+"use client";
+
+import { useMemo } from "react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { WeekGridCompact } from "@/design-system/components";
 
 type WeeklyCalendarDay = {
@@ -8,6 +12,8 @@ type WeeklyCalendarDay = {
   mealCount: number;
   dayCalories: number;
 };
+
+import type { ReactNode } from "react";
 
 type WeeklyCalendarProps = {
   previousWeekLabel: string;
@@ -21,6 +27,7 @@ type WeeklyCalendarProps = {
   hasWeeklyMeals: boolean;
   emptyTitle: string;
   emptySubtitle: string;
+  emptyActions?: ReactNode;
   selectWeekDayAria: (day: WeeklyCalendarDay) => string;
   kcalLabel: string;
   days: WeeklyCalendarDay[];
@@ -41,6 +48,7 @@ export function WeeklyCalendar({
   hasWeeklyMeals,
   emptyTitle,
   emptySubtitle,
+  emptyActions,
   selectWeekDayAria,
   kcalLabel,
   days,
@@ -48,6 +56,14 @@ export function WeeklyCalendar({
   onNextWeek,
   onSelectDay,
 }: WeeklyCalendarProps) {
+  const isMobile = useMediaQuery("(max-width: 640px)");
+  const selectedIndex = Math.max(0, days.findIndex((day) => day.selected));
+  const visibleDays = useMemo(() => {
+    if (!isMobile || days.length <= 3) return days;
+    const start = Math.max(0, Math.min(selectedIndex - 1, Math.max(0, days.length - 3)));
+    return days.slice(start, start + 3);
+  }, [days, isMobile, selectedIndex]);
+
   return (
     <div className="calendar-week stack-sm">
       <div className="calendar-range calendar-range--compact">
@@ -67,7 +83,7 @@ export function WeeklyCalendar({
 
       {hasWeeklyMeals ? (
         <WeekGridCompact
-          days={days.map((day) => ({
+          days={visibleDays.map((day) => ({
             id: day.id,
             label: day.label,
             date: day.date,
@@ -84,11 +100,12 @@ export function WeeklyCalendar({
         <div className="empty-state">
           <h3 className="m-0">{emptyTitle}</h3>
           <p className="muted">{emptySubtitle}</p>
+          {emptyActions ? <div className="inline-actions-sm mt-12">{emptyActions}</div> : null}
         </div>
       )}
 
       <div className="nutrition-week-grid-kpis" data-testid="nutrition-week-kpis">
-        {days.map((day) => (
+        {visibleDays.map((day) => (
           <button key={`${day.id}-meta`} type="button" className={`nutrition-week-kpi ${day.selected ? "is-selected" : ""}`} aria-label={selectWeekDayAria(day)} onClick={() => onSelectDay(day.id)}>
             <span className="nutrition-week-kpi-dots">{"• ".repeat(Math.min(day.mealCount, 4)).trim() || "—"}</span>
             <span className="nutrition-week-kpi-kcal">

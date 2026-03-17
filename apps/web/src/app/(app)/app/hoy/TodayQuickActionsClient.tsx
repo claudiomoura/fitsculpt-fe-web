@@ -17,6 +17,8 @@ import { trackEvent } from "@/lib/analytics";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { canAccessFeature } from "@/lib/entitlements";
 import type { AuthMeResponse, NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail } from "@/lib/types";
+import { readNutritionAdherenceStore } from "@/lib/nutritionAdherence";
+import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
@@ -45,6 +47,8 @@ type TodaySignals = {
   nutritionReady: boolean;
   nutritionTargetCalories: number | null;
   nutritionConsumedCalories: number;
+  nutritionMealsLogged: number;
+  nutritionMealsTotal: number;
   currentWeightKg: number | null;
   streakDays: number;
   hasTrainingAccess: boolean;
@@ -214,6 +218,8 @@ export default function TodayQuickActionsClient() {
     nutritionReady: false,
     nutritionTargetCalories: null,
     nutritionConsumedCalories: 0,
+    nutritionMealsLogged: 0,
+    nutritionMealsTotal: 0,
     currentWeightKg: null,
     streakDays: 0,
     hasTrainingAccess: true,
@@ -251,6 +257,8 @@ export default function TodayQuickActionsClient() {
         nutritionReady: false,
         nutritionTargetCalories: null,
         nutritionConsumedCalories: 0,
+        nutritionMealsLogged: 0,
+        nutritionMealsTotal: 0,
         currentWeightKg: null,
         streakDays: 0,
         hasTrainingAccess: true,
@@ -302,13 +310,22 @@ export default function TodayQuickActionsClient() {
           if (nutritionDetailResponse.ok) {
             const nutritionDetail = (await nutritionDetailResponse.json()) as NutritionPlanDetail;
             const nutritionDay = findTodayPlanDay(nutritionDetail.days, nutritionDetail.startDate);
-            nextSignals.nutritionReady = Boolean(nutritionDay);
             nextSignals.nutritionTargetCalories = Number.isFinite(nutritionDetail.dailyCalories)
               ? nutritionDetail.dailyCalories
               : null;
-            nextSignals.nutritionConsumedCalories = Math.round(
-              nutritionDay?.meals?.reduce((sum, meal) => sum + (Number.isFinite(meal.calories) ? meal.calories : 0), 0) ?? 0,
-            );
+            if (nutritionDay?.meals?.length) {
+              const nutritionDayKey = nutritionDay.date ? toDateKey(parseDate(nutritionDay.date) ?? new Date()) : toDateKey(new Date());
+              const adherenceStore = readNutritionAdherenceStore();
+              const consumedMealKeys = new Set(adherenceStore[nutritionDayKey] ?? []);
+              nextSignals.nutritionMealsTotal = nutritionDay.meals.length;
+              nextSignals.nutritionMealsLogged = nutritionDay.meals.reduce((count, meal, index) => count + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? 1 : 0), 0);
+              nextSignals.nutritionConsumedCalories = Math.round(
+                nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.calories) ? meal.calories : 0) : 0), 0),
+              );
+              nextSignals.nutritionReady = nextSignals.nutritionMealsLogged > 0;
+            } else {
+              nextSignals.nutritionReady = false;
+            }
           }
         }
       }
@@ -340,7 +357,7 @@ export default function TodayQuickActionsClient() {
     [signals.checkinDoneThisWeek, signals.nutritionReady, signals.trainingState],
   );
   const dailyProgressPercent = Math.round((completedGoals / 3) * 100);
-  const nutritionProgressPercent = Math.round(Math.min((signals.nutritionConsumedCalories / (signals.nutritionTargetCalories || 1)) * 100, 100));
+  const nutritionProgressPercent = signals.nutritionMealsTotal > 0 ? Math.round((signals.nutritionMealsLogged / signals.nutritionMealsTotal) * 100) : 0;
   const checkinProgressPercent = signals.checkinDoneThisWeek ? 100 : 35;
   const aiLockReason = signals.aiTokenBalance <= 0 ? "Sin tokens" : !hasAiAccess ? "Plan bloqueado" : null;
 
@@ -452,12 +469,12 @@ export default function TodayQuickActionsClient() {
                 <div className="flex-1">
                   <div className="mb-3">
                     <div className="mb-1 flex justify-between text-sm">
-                      <span className="text-muted">Consumidas</span>
-                      <span className="font-semibold text-primary">{signals.nutritionConsumedCalories} kcal</span>
+                      <span className="text-muted">Registradas</span>
+                      <span className="font-semibold text-primary">{signals.nutritionMealsLogged}/{signals.nutritionMealsTotal || 0} comidas</span>
                     </div>
                   </div>
-                  <p className="text-sm text-muted">{Math.max(0, (signals.nutritionTargetCalories || 0) - signals.nutritionConsumedCalories)} kcal restantes</p>
-                  <ProgressMetric label="Objetivo diario" percent={nutritionProgressPercent} color="var(--color-success)" />
+                  <p className="text-sm text-muted">{signals.nutritionConsumedCalories} kcal registradas hoy</p>
+                  <ProgressMetric label="Comidas del dia" percent={nutritionProgressPercent} color="var(--color-success)" />
                 </div>
               </div>
 
