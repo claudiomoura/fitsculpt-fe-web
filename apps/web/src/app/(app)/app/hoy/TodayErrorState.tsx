@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/design-system/components/Button";
 
 type TodayErrorStateProps = {
   message: string;

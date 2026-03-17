@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import AppNavBar from "@/components/layout/AppNavBar";
 import Sidebar from "@/components/layout/Sidebar";
 import MobileTabBar from "@/components/layout/MobileTabBar";
+import { isFocusRoute } from "@/components/layout/focusRoutes";
 
 type AppShellLayoutProps = {
   children: React.ReactNode;
@@ -12,7 +13,7 @@ type AppShellLayoutProps = {
 
 export default function AppShellLayout({ children, shell }: AppShellLayoutProps) {
   const pathname = usePathname();
-  const isFocusSessionRoute = Boolean(pathname && /^\/app\/(entrenamiento|entrenamientos)\/[^/]+\/start$/.test(pathname));
+  const isFocusSessionRoute = isFocusRoute(pathname);
 
   if (isFocusSessionRoute) {
     return (

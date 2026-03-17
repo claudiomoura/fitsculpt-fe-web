@@ -201,7 +201,7 @@ export default function WorkoutTodayMobileClient() {
         title="No hay entrenamientos disponibles"
         description="Todavía no tienes días programados en tu plan activo."
         action={
-          <Link className="btn" href="/app/entrenamiento">
+          <Link className="btn" href="/app/training">
             Crear entrenamiento
           </Link>
         }
@@ -231,10 +231,10 @@ export default function WorkoutTodayMobileClient() {
         </div>
         <p className="mt-2 text-sm text-text-muted">{selectedDay?.focus ?? "Mantén constancia y completa tu sesión de hoy."}</p>
         <div className="mt-4 flex gap-2">
-          <Link className="btn" href="/app/entrenamiento">
+          <Link className="btn" href="/app/training">
             ✨ Generar con IA
           </Link>
-          <Link className="btn secondary" href="/app/entrenamiento">
+          <Link className="btn secondary" href="/app/training">
             📅 Ver calendario
           </Link>
         </div>
@@ -324,11 +324,11 @@ export default function WorkoutTodayMobileClient() {
             <span>{exercises.length ? `${exercises.length} ejercicios` : "Día de descanso"}</span>
           </div>
           {exercises.length ? (
-            <Link className="btn flex w-full items-center justify-center" href={selectedDay?.id ? `/app/entrenamiento?day=${encodeURIComponent(selectedDay.id)}` : "/app/entrenamiento"}>
+            <Link className="btn flex w-full items-center justify-center" href={selectedDay?.id ? `/app/training?day=${encodeURIComponent(selectedDay.id)}` : "/app/training"}>
               Empezar entrenamiento
             </Link>
           ) : (
-            <Link className="btn secondary flex w-full items-center justify-center" href="/app/entrenamiento">
+            <Link className="btn secondary flex w-full items-center justify-center" href="/app/training">
               Ver semana completa
             </Link>
           )}

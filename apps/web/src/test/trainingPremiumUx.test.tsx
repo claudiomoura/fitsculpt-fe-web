@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultProfile } from "@/lib/profile";
 import { renderWithProviders, resetMockNavigation, setMockPathname } from "@/test/utils/renderWithProviders";
 
-import TrainingPlanClient from "@/app/(app)/app/entrenamiento/TrainingPlanClient";
+import TrainingPlanClient from "@/app/(app)/app/training/TrainingPlanClient";
 
 const today = new Date();
 const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -111,7 +111,7 @@ function setupFetchMock(
 describe("Training premium UX from plan", () => {
   beforeEach(() => {
     resetMockNavigation();
-    setMockPathname("/app/entrenamiento");
+    setMockPathname("/app/training");
   });
 
   it("renders distinct thumbnails when exercise media differs by exerciseId", async () => {

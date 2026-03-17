@@ -18,11 +18,11 @@ import {
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
-import { Badge } from "@/components/ui/Badge";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
+import { Badge } from "@/design-system/components/Badge";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
 import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import {
   AiPlanRequestError,
   hasStrengthAiEntitlement,
@@ -33,7 +33,7 @@ import {
 import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 import { EmptyState } from "@/components/states";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/design-system/components/Toast";
 import { ErrorBlock } from "@/design-system";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 import { classifyAiError } from "@/lib/aiErrorMapping";
@@ -361,6 +361,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [manualPlan, setManualPlan] = useState<TrainingPlan | null>(null);
   const [canManageManualDays] = useState<boolean>(false);
   const [calendarView, setCalendarView] = useState<"week" | "month" | "list">("week");
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isPlanDetailsOpen, setIsPlanDetailsOpen] = useState(false);
   const [exerciseDetail, setExerciseDetail] = useState<ExerciseDetailState | null>(null);
   const [exerciseCatalogById, setExerciseCatalogById] = useState<Record<string, ExerciseCatalogItem>>({});
@@ -806,10 +807,27 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const monthLabel = clampedSelectedDate.toLocaleDateString(localeCode, { month: "long", year: "numeric" });
   const today = useMemo(() => clampDateNotBefore(new Date(), normalizedPlanStartDate), [normalizedPlanStartDate]);
   const calendarOptions = useMemo(() => [
-    { value: "month", label: t("calendar.viewMonth") },
     { value: "week", label: t("calendar.viewWeek") },
     { value: "list", label: t("calendar.viewList") },
-  ], [t]);
+    ...(isMobileViewport ? [] : [{ value: "month", label: t("calendar.viewMonth") }]),
+  ], [isMobileViewport, t]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const sync = () => {
+      setIsMobileViewport(media.matches);
+    };
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileViewport) return;
+    if (calendarView !== "month") return;
+    setCalendarView("week");
+  }, [calendarView, isMobileViewport]);
 
   useEffect(() => {
     if (manualPlan) return;
@@ -978,7 +996,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       return;
     }
     if (!isProfileComplete(profile)) {
-      router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
+      router.push("/app/onboarding?ai=training&next=/app/training");
       return;
     }
     aiGenerationInFlight.current = true;
@@ -1152,7 +1170,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       return;
     }
     if (!isProfileComplete(profile)) {
-      router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
+      router.push("/app/onboarding?ai=training&next=/app/training");
       return;
     }
     setAiActionableError(null);
@@ -1208,7 +1226,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const dayEditorPlanId = selectedPlanId.trim();
   const dayEditorDay = toDateKey(selectedEntryDate);
   const canOpenDayEditor = Boolean(dayEditorPlanId && dayEditorDay);
-  const dayEditorHref = `/app/entrenamiento/editar?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
+  const dayEditorHref = `/app/training/edit?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
   const selectedDayHasWorkout = selectedExercises.length > 0;
   const nextEntryHasWorkout = (nextPlannedEntry?.day.exercises?.length ?? 0) > 0;
   const normalizeName = (value?: string | null) => (value ?? "").trim().toLowerCase();
@@ -1298,13 +1316,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
       if (!workoutId) {
         notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
-        router.push("/app/entrenamiento");
+        router.push("/app/training");
         return;
       }
-      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}/start`);
+      router.push(`/app/training/${encodeURIComponent(workoutId)}/start`);
     } catch (_err) {
       notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
-      router.push("/app/entrenamiento");
+      router.push("/app/training");
     } finally {
       setStartCtaLoading(false);
     }
@@ -1318,13 +1336,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
       if (!workoutId) {
         notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-        router.push("/app/entrenamiento");
+        router.push("/app/training");
         return;
       }
-      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}`);
+      router.push(`/app/training/${encodeURIComponent(workoutId)}`);
     } catch (_err) {
       notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-      router.push("/app/entrenamiento");
+      router.push("/app/training");
     } finally {
       setDetailsCtaLoading(false);
     }
@@ -1337,13 +1355,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const workoutId = nextPlannedWorkoutId ?? (await ensureWorkoutIdForEntry(nextPlannedEntry));
       if (!workoutId) {
         notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-        router.push("/app/entrenamiento");
+        router.push("/app/training");
         return;
       }
-      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}`);
+      router.push(`/app/training/${encodeURIComponent(workoutId)}`);
     } catch (_err) {
       notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-      router.push("/app/entrenamiento");
+      router.push("/app/training");
     } finally {
       setDetailsCtaLoading(false);
     }
@@ -1508,7 +1526,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <h3 className="m-0">{t("training.profileIncompleteTitle")}</h3>
                   <p className="muted">{t("training.profileIncompleteSubtitle")}</p>
                 </div>
-                <ButtonLink href="/app/onboarding?next=/app/entrenamiento">
+                <ButtonLink href="/app/onboarding?next=/app/training">
                   {t("profile.openOnboarding")}
                 </ButtonLink>
               </div>
@@ -1526,12 +1544,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   ? [
                     { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
                     { label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" },
-                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
+                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/training/edit", variant: "secondary" },
                   ]
                   : [
                     { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
-                    { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
-                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
+                    { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/training?ai=1", variant: "secondary" },
+                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/training/edit", variant: "secondary" },
                   ]}
               />
               {isAiLocked ? (

@@ -5,6 +5,7 @@ describe("navConfig", () => {
   it("marks only exact and nested matches as active", () => {
     expect(isPathActive("/app/biblioteca/entrenamientos", "/app/biblioteca")).toBe(true);
     expect(isPathActive("/app/bibliotecario", "/app/biblioteca")).toBe(false);
+    expect(isPathActive("/app/training/workout-1", "/app/training")).toBe(true);
   });
 
   it("prefers the most specific href as active", () => {
@@ -37,14 +38,14 @@ describe("navConfig", () => {
     const nutritionSection = sidebarUser.find((section) => section.id === "nutrition");
 
     expect(fitnessSection?.items.map((item) => item.href)).toEqual([
-      "/app/hoy",
-      "/app/entrenamiento",
+      "/app/today",
+      "/app/training",
       "/app/biblioteca",
       "/app/biblioteca/entrenamientos",
     ]);
 
     expect(nutritionSection?.items.map((item) => item.href)).toEqual([
-      "/app/nutricion",
+      "/app/nutrition",
       "/app/biblioteca/recetas",
       "/app/dietas",
       "/app/macros",
@@ -53,10 +54,10 @@ describe("navConfig", () => {
 
   it("defines USER mobile tabs as the v0 five core routes", () => {
     expect(mainTabsMobile.map((tab) => tab.href)).toEqual([
-      "/app/hoy",
-      "/app/entrenamiento",
-      "/app/nutricion",
-      "/app/seguimiento",
+      "/app/today",
+      "/app/training",
+      "/app/nutrition",
+      "/app/progress",
       "/app/profile",
     ]);
   });

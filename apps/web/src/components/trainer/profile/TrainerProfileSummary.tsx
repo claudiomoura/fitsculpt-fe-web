@@ -1,6 +1,6 @@
 import type { ProfileData } from "@/lib/profile";
 import type { GymMembership } from "@/lib/gymMembership";
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/design-system/components/Button";
 
 type Translator = (key: string, values?: Record<string, string | number>) => string;
 

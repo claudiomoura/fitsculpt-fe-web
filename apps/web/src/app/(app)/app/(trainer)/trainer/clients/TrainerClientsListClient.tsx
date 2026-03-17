@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/design-system/components/Badge";
 import {
   DenseTable,
   DenseTableBody,

@@ -25,19 +25,17 @@ const sizeConfig = {
   lg: { ring: 180, font: "text-3xl", label: "text-base" },
 };
 
-export function MacroRing({ 
-  segments, 
-  centerValue, 
-  centerLabel, 
+export function MacroRing({
+  segments,
+  centerValue,
+  centerLabel,
   size = "md",
   showLegend = true,
-  className, 
-  centerClassName 
+  className,
+  centerClassName
 }: MacroRingProps) {
   const config = sizeConfig[size];
-  const radius = config.ring / 2 - 8;
-  const circumference = 2 * Math.PI * radius;
-  
+
   const totalPercent = segments.reduce((sum, s) => sum + s.percent, 0);
   const gradient = `conic-gradient(from 0deg, ${segments
     .map((segment, index, all) => {
@@ -49,12 +47,12 @@ export function MacroRing({
 
   return (
     <div className={cn("macro-ring-container", className)}>
-      <div 
+      <div
         className="macro-ring"
-        style={{ 
-          width: config.ring, 
+        style={{
+          width: config.ring,
           height: config.ring,
-          background: gradient 
+          background: gradient
         }}
       >
         <div className={cn("macro-ring-center", centerClassName)}>
@@ -62,14 +60,14 @@ export function MacroRing({
           <span className={config.label}>{centerLabel}</span>
         </div>
       </div>
-      
+
       {showLegend && (
         <div className="macro-ring-legend">
           {segments.map((segment) => (
             <div key={segment.key} className="macro-ring-legend-item">
               <span className="macro-ring-legend-dot" style={{ background: segment.color }} />
               <span className="macro-ring-legend-label">{segment.label}</span>
-              <span className="macro-ring-legend-value">{segment.grams}g{segment.target ? ` / ${segment.target}g` : ''}</span>
+              <span className="macro-ring-legend-value">{segment.grams}g{segment.target ? ` / ${segment.target}g` : ""}</span>
             </div>
           ))}
         </div>

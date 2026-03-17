@@ -1,4 +1,4 @@
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/design-system/components/Button";
 import { readSessionRole } from "@/lib/auth/sessionRole";
 import { getServerT } from "@/lib/serverI18n";
 import { cookies } from "next/headers";
@@ -10,7 +10,7 @@ export default async function AppHomePage() {
   const sessionRole = token ? readSessionRole(token) : "UNKNOWN";
 
   if (sessionRole === "USER") {
-    redirect("/app/hoy");
+    redirect("/app/today");
   }
 
   const { t } = await getServerT();

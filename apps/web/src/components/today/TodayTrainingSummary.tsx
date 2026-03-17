@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/design-system/components/Badge";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type TodayTrainingSummaryData = {

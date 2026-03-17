@@ -347,11 +347,11 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   const continueAfterSuccess = () => {
     if (ai === "training") {
-      router.push("/app/entrenamiento?ai=1");
+      router.push("/app/training?ai=1");
       return;
     }
     if (ai === "nutrition") {
-      router.push("/app/nutricion?ai=1");
+      router.push("/app/nutrition?ai=1");
       return;
     }
     if (nextUrl) {

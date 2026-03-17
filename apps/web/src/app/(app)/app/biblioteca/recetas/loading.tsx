@@ -1,4 +1,4 @@
-import { SkeletonCard } from "@/components/ui/Skeleton";
+import { SkeletonCard } from "@/design-system/components/Skeleton";
 
 export default function RecipeLibraryLoading() {
   return (

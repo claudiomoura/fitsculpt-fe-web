@@ -1,4 +1,4 @@
-import { MacroRing, type MacroRingSegment } from "@/components/ui/MacroRing";
+import { MacroRing, type MacroRingSegment } from "@/design-system/components/MacroRing";
 
 type HeroNutritionProps = {
   title: string;

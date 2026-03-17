@@ -1,8 +1,8 @@
 "use client";
 
 import type { ComponentPropsWithoutRef } from "react";
-import { Button } from "@/components/ui/Button";
-import { useToast } from "@/components/ui/Toast";
+import { Button } from "@/design-system/components/Button";
+import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { toDateKey } from "@/lib/calendar";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";

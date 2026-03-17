@@ -20,13 +20,13 @@ import {
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile } from "@/lib/profileService";
 import { isProfileComplete } from "@/lib/profileCompletion";
-import { Badge } from "@/components/ui/Badge";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Badge } from "@/design-system/components/Badge";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import { hasNutritionAiEntitlement, type AiEntitlementProfile } from "@/domains/ai";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
-import { Modal } from "@/components/ui/Modal";
+import { Modal } from "@/design-system/components/Modal";
 import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
@@ -39,7 +39,7 @@ import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import { trackEvent } from "@/lib/analytics";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/design-system/components/Toast";
 import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError, classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState } from "@/lib/aiErrorUi";
@@ -1234,7 +1234,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       params.delete("dish");
     }
     const query = params.toString();
-    router.replace(`/app/nutricion${query.length > 0 ? `?${query}` : ""}`, { scroll: false });
+    router.replace(`/app/nutrition${query.length > 0 ? `?${query}` : ""}`, { scroll: false });
   };
 
   const openMealDetail = (
@@ -1660,7 +1660,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       return;
     }
     if (!isProfileComplete(profile)) {
-      router.push("/app/onboarding?ai=nutrition&next=/app/nutricion");
+      router.push("/app/onboarding?ai=nutrition&next=/app/nutrition");
       return;
     }
     aiGenerationInFlight.current = true;
@@ -1917,7 +1917,7 @@ useEffect(() => {
       return;
     }
     if (!isProfileComplete(profile)) {
-      router.push("/app/onboarding?ai=nutrition&next=/app/nutricion");
+      router.push("/app/onboarding?ai=nutrition&next=/app/nutrition");
       return;
     }
     void handleAiPlan();
@@ -2110,7 +2110,7 @@ const nutritionPlanDetails = profile ? (
       className="mt-16"
     >
       <div className="inline-actions-sm mb-12">
-        <Link href="/app/nutricion/editar" className="btn secondary">
+        <Link href="/app/nutrition/editar" className="btn secondary">
           {t("nutrition.editPlan")}
         </Link>
       </div>
@@ -2247,7 +2247,7 @@ const nutritionPlanDetails = profile ? (
                   <h3 className="m-0">{t("nutrition.profileIncompleteTitle")}</h3>
                   <p className="muted">{t("nutrition.profileIncompleteSubtitle")}</p>
                 </div>
-                <ButtonLink href="/app/onboarding?next=/app/nutricion">
+                <ButtonLink href="/app/onboarding?next=/app/nutrition">
                   {t("profile.openOnboarding")}
                 </ButtonLink>
               </div>
@@ -2293,7 +2293,7 @@ const nutritionPlanDetails = profile ? (
                     >
                       {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
                     </Button>
-                    <ButtonLink variant="secondary" href="/app/nutricion/editar">
+                    <ButtonLink variant="secondary" href="/app/nutrition/editar">
                       {t("nutrition.assignedPlanCta")}
                     </ButtonLink>
                     {isOutOfTokens ? (
@@ -2331,7 +2331,7 @@ const nutritionPlanDetails = profile ? (
                 {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
                   {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
                 </button> */}
-                <Link href="/app/nutricion/editar" className="btn secondary">
+                <Link href="/app/nutrition/editar" className="btn secondary">
                   {t("nutrition.editPlan")}
                 </Link>
               </div>
@@ -2413,7 +2413,7 @@ const nutritionPlanDetails = profile ? (
                       <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
                         {t("nutrition.aiErrorState.generateSimple")}
                       </button>
-                      <Link href="/app/nutricion/editar" className="btn secondary fit-content">
+                      <Link href="/app/nutrition/editar" className="btn secondary fit-content">
                         {t("nutrition.aiErrorState.adjustGoals")}
                       </Link>
                     </>
@@ -2505,7 +2505,7 @@ const nutritionPlanDetails = profile ? (
                       emptyTitle={t("nutrition.weeklyEmptyTitle")}
                       emptySubtitle={t("nutrition.weeklyEmptySubtitle")}
                       emptyActions={(<>
-                        <Link href="/app/nutricion/editar" className="btn secondary fit-content">{t("nutrition.editPlan")}</Link>
+                        <Link href="/app/nutrition/editar" className="btn secondary fit-content">{t("nutrition.editPlan")}</Link>
                         {!isAiLocked ? (
                           <button type="button" className="btn fit-content" onClick={handleGenerateClick} disabled={aiLoading}>
                             {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
@@ -2540,7 +2540,7 @@ const nutritionPlanDetails = profile ? (
                           <div className="nutrition-v2-meals stack-sm">
                             <div className="inline-actions-space">
                               <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
-                              <ButtonLink variant="secondary" href="/app/nutricion/editar">
+                              <ButtonLink variant="secondary" href="/app/nutrition/editar">
                                 {t("ui.edit")}
                               </ButtonLink>
                             </div>
@@ -2554,7 +2554,7 @@ const nutritionPlanDetails = profile ? (
                                       <span className="badge">{t("nutrition.viewToday")}</span>
                                     </div>
                                     <p className="muted">{t("nutrition.emptySubtitle")}</p>
-                                    <ButtonLink href="/app/nutricion/editar">{t("ui.edit")}</ButtonLink>
+                                    <ButtonLink href="/app/nutrition/editar">{t("ui.edit")}</ButtonLink>
                                   </div>
                                 );
                               }
@@ -2637,7 +2637,7 @@ const nutritionPlanDetails = profile ? (
                           </div>
                           <p className="muted m-0">No hay comidas asignadas para este día.</p>
                           <div className="inline-actions-sm mt-12">
-                            <Link href="/app/nutricion/editar" className="btn secondary fit-content">{t("nutrition.editPlan")}</Link>
+                            <Link href="/app/nutrition/editar" className="btn secondary fit-content">{t("nutrition.editPlan")}</Link>
                             {!isAiLocked ? (
                               <button type="button" className="btn fit-content" onClick={handleGenerateClick} disabled={aiLoading}>
                                 {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
-import { Modal } from "@/components/ui/Modal";
+import { Modal } from "@/design-system/components/Modal";
 import CheckinRouteContent from "../../check-in/CheckinRouteContent";
 
 export default function SeguimientoCheckinModalPage() {
@@ -13,7 +13,7 @@ export default function SeguimientoCheckinModalPage() {
       router.back();
       return;
     }
-    router.push("/app/seguimiento");
+    router.push("/app/progress");
   }, [router]);
 
   return (

@@ -19,7 +19,7 @@ import { TodayNotesSummary, type TodayNotesSummaryData } from "@/components/toda
 import { TodaySection } from "@/components/today/TodaySection";
 import { TodayTrainingSummary, type TodayTrainingSummaryData } from "@/components/today/TodayTrainingSummary";
 import { TodayWeightSummary, type TodayWeightSummaryData } from "@/components/today/TodayWeightSummary";
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/design-system/components/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { useExerciseFavorites } from "@/lib/exerciseFavorites";
@@ -362,7 +362,7 @@ export default function TodaySummaryClient() {
 
   const weightAction = useMemo(
     () => (
-      <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry" size="lg">
+      <ButtonLink variant="secondary" href="/app/progress#weight-entry" size="lg">
         {t("today.weightCta")}
       </ButtonLink>
     ),
@@ -372,7 +372,7 @@ export default function TodaySummaryClient() {
   const energyAction = useMemo(() => {
     if (!energySupported) return null;
     return (
-      <ButtonLink variant="secondary" href="/app/seguimiento/check-in" size="lg">
+      <ButtonLink variant="secondary" href="/app/progress/check-in" size="lg">
         {t("today.energyCta")}
       </ButtonLink>
     );
@@ -381,7 +381,7 @@ export default function TodaySummaryClient() {
   const notesAction = useMemo(() => {
     if (!notesSupported) return null;
     return (
-      <ButtonLink variant="secondary" href="/app/seguimiento/check-in" size="lg">
+      <ButtonLink variant="secondary" href="/app/progress/check-in" size="lg">
         {t("today.notesCta")}
       </ButtonLink>
     );
@@ -404,19 +404,19 @@ const nutritionErrorActions: ErrorAction[] = [
 ];
 
 const energyEmptyActions: EmptyAction[] | undefined = energySupported
-  ? [{ label: t("today.energyCta"), href: "/app/seguimiento/check-in", variant: "secondary" }]
+  ? [{ label: t("today.energyCta"), href: "/app/progress/check-in", variant: "secondary" }]
   : undefined;
 
 const notesEmptyActions: EmptyAction[] | undefined = notesSupported
-  ? [{ label: t("today.notesCta"), href: "/app/seguimiento/check-in", variant: "secondary" }]
+  ? [{ label: t("today.notesCta"), href: "/app/progress/check-in", variant: "secondary" }]
   : undefined;
 const energyErrorActions: ErrorAction[] = [
-  ...(energySupported ? [{ label: t("today.energyCta"), href: "/app/seguimiento/check-in" }] : []),
+  ...(energySupported ? [{ label: t("today.energyCta"), href: "/app/progress/check-in" }] : []),
   { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
 ];
 
 const notesErrorActions: ErrorAction[] = [
-  ...(notesSupported ? [{ label: t("today.notesCta"), href: "/app/seguimiento/check-in" }] : []),
+  ...(notesSupported ? [{ label: t("today.notesCta"), href: "/app/progress/check-in" }] : []),
   { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
 ];
 
@@ -557,7 +557,7 @@ const notesErrorActions: ErrorAction[] = [
             title={t("today.weightErrorTitle")}
             description={t("today.weightErrorDescription")}
             actions={[
-              { label: t("today.weightCta"), href: "/app/seguimiento#weight-entry" },
+              { label: t("today.weightCta"), href: "/app/progress#weight-entry" },
               { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
             ]}
           />
@@ -566,7 +566,7 @@ const notesErrorActions: ErrorAction[] = [
           <EmptyState
             title={t("today.weightEmptyTitle")}
             description={t("today.weightEmptyDescription")}
-            actions={[{ label: t("today.weightCta"), href: "/app/seguimiento#weight-entry", variant: "secondary" }]}
+            actions={[{ label: t("today.weightCta"), href: "/app/progress#weight-entry", variant: "secondary" }]}
           />
         }
       >

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Modal } from "@/components/ui/Modal";
+import { Modal } from "@/design-system/components/Modal";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 
 type PlanExerciseLike = {

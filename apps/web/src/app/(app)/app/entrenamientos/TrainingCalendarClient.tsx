@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ButtonLink } from "@/components/ui/Button";
-import { SkeletonCard } from "@/components/ui/Skeleton";
+import { ButtonLink } from "@/design-system/components/Button";
+import { SkeletonCard } from "@/design-system/components/Skeleton";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanDetail } from "@/lib/types";
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
@@ -18,7 +19,7 @@ import {
   getTrainingAdjustmentInput,
   hasTrainingPlanAdjustmentCapability,
 } from "@/domains/training";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import TrainingAdjustmentDiffSummary, {
   buildTrainingAdjustmentDiff,
@@ -553,7 +554,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       showMessage(successMessage);
       trackEvent("checkin_saved", { target: "checkin", origin: isCheckinOnly ? "checkin_page" : "tracking", mode: checkinMode });
       if (isCheckinOnly) {
-        router.push("/app/hoy?checkin=success");
+        router.push("/app/today?checkin=success");
       }
       return true;
     } catch (_err) {
@@ -1041,7 +1042,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               <p className="section-subtitle">{t("app.trackingSubtitle")}</p>
             </div>
             <div className="inline-actions-sm">
-              <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
+              <button type="button" className="btn" onClick={() => router.push("/app/progress/check-in")}>
                 Nuevo check-in
               </button>
               <a className="btn secondary" href="/app/weekly-review">
@@ -1316,15 +1317,15 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           </div>
 
           <div className="inline-actions-sm mt-16">
-            <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
+            <button type="button" className="btn" onClick={() => router.push("/app/progress/check-in")}>
               {t("profile.checkinAdd")}
             </button>
-            <a className="btn secondary" href="/app/nutricion">
+            <Link className="btn secondary" href="/app/nutrition">
               {t("tracking.progressTabNutrition")}
-            </a>
-            <a className="btn secondary" href="/app/entrenamiento">
+            </Link>
+            <Link className="btn secondary" href="/app/training">
               {t("tracking.progressTabTraining")}
-            </a>
+            </Link>
           </div>
 
           <div style={{ marginTop: 16, display: "grid", gap: 10 }}>

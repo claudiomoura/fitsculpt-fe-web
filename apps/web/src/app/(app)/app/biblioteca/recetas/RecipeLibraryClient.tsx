@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Recipe } from "@/lib/types";
-import { Badge } from "@/components/ui/Badge";
-import { Input } from "@/components/ui/Input";
-import { SkeletonCard } from "@/components/ui/Skeleton";
+import { Badge } from "@/design-system/components/Badge";
+import { Input } from "@/design-system/components/Input";
+import { SkeletonCard } from "@/design-system/components/Skeleton";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
 import { EmptyState, ErrorState } from "@/components/states";
 
@@ -110,7 +110,7 @@ export default function RecipeLibraryClient() {
           description={t("recipes.empty")}
           ariaLabel={t("recipes.emptyTitle")}
           actions={[
-            ...(isAdmin ? [{ label: t("recipes.emptyAdminCta"), href: "/app/nutricion", variant: "secondary" as const }] : []),
+            ...(isAdmin ? [{ label: t("recipes.emptyAdminCta"), href: "/app/nutrition", variant: "secondary" as const }] : []),
             { label: t("recipes.retrySearch"), onClick: () => setRetryKey((prev) => prev + 1) },
           ]}
         />

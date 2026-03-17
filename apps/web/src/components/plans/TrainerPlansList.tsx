@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Button } from "@/components/ui/Button";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Button } from "@/design-system/components/Button";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import { PlanCard } from "./PlanCard";
 import type { PlanListItem, PlanListState } from "./types";
 

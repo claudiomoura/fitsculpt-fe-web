@@ -257,7 +257,7 @@ test.describe('Gym flow smoke (manager approval + assignment)', () => {
         });
 
       await loginAsDemoUser(page);
-      await page.goto('/app/entrenamiento');
+      await page.goto('/app/training');
 
       await expect(page.locator('.status-card strong')).toContainText(createdPlan.title ?? '');
     } finally {

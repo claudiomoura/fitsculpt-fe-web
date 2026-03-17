@@ -8,9 +8,9 @@ import { useExerciseFavorites } from "@/lib/exerciseFavorites";
 import type { Exercise, TrainingPlanDetail, TrainingPlanListItem } from "@/lib/types";
 import { extractGymMembership } from "@/lib/gymMembership";
 import { isTrainingPlanVisibleForGym } from "@/lib/trainingPlanVisibility";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { useToast } from "@/components/ui/Toast";
+import { Button } from "@/design-system/components/Button";
+import { Badge } from "@/design-system/components/Badge";
+import { useToast } from "@/design-system/components/Toast";
 import AddExerciseDayPickerModal from "@/components/training-plan/AddExerciseDayPickerModal";
 import {
   ExerciseDetailErrorState,
@@ -77,7 +77,7 @@ export default function ExerciseDetailClient({
   const fromPlan = searchParams.get("from") === "plan";
   const returnToParam = searchParams.get("returnTo");
   const safeReturnTo = returnToParam && returnToParam.startsWith("/app/") ? returnToParam : null;
-  const backHref = fromPlan ? safeReturnTo ?? "/app/entrenamiento" : "/app/biblioteca";
+  const backHref = fromPlan ? safeReturnTo ?? "/app/training" : "/app/biblioteca";
   const backLabel = fromPlan ? t("ui.backToPlan") : t("ui.backToLibrary");
   const muscleGroups = useMemo(
     () => (exercise ? getMuscleGroups(exercise) : { primary: [], secondary: [] }),
@@ -504,7 +504,7 @@ export default function ExerciseDetailClient({
         allowMultiSelect
         onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
-        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"} submitUnavailable={false}      />
+        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/training"} submitUnavailable={false}      />
     </section>
   );
 }

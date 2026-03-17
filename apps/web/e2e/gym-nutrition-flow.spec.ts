@@ -238,7 +238,7 @@ test.describe('Gym nutrition flow (manager assignment + member consumption)', ()
       await expect(page.locator('[data-testid="nutrition-active-plan-card"], [data-testid="nutrition-assigned-plan-card"]')).toBeVisible();
 
       await page.getByTestId('nutrition-go-calendar-cta').click();
-      await page.waitForURL('**/app/nutricion**', { timeout: 15_000 });
+      await page.waitForURL('**/app/nutrition**', { timeout: 15_000 });
 
       await expect(page.getByTestId('member-assigned-nutrition-plan')).toBeVisible();
       await expect(page.getByTestId('member-assigned-nutrition-plan-title')).toContainText(nutritionPlanTitle);

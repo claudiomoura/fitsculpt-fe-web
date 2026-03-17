@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/design-system/components/Badge";
 
 type MembershipStatus = "PENDING" | "ACTIVE" | "NONE" | "REJECTED" | "UNKNOWN";
 

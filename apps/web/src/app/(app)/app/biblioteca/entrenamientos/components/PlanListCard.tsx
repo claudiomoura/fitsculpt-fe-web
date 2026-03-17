@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/Badge";
+import { Badge } from "@/design-system/components/Badge";
 
 type PlanListCardProps = {
   title: string;

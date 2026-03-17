@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import GymPageClient from "@/components/gym/GymPageClient";
-import { ToastProvider } from "@/components/ui/Toast";
+import { ToastProvider } from "@/design-system/components/Toast";
 
 vi.mock("@/context/LanguageProvider", () => ({
   useLanguage: () => ({

@@ -2,7 +2,7 @@
 
 import { useLanguage } from "@/context/LanguageProvider";
 import { cn } from "@/lib/classNames";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
 
 type MealCardProps = {

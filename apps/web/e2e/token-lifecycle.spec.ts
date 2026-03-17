@@ -12,7 +12,7 @@ test.describe('AI token lifecycle smoke', () => {
     await resetDemoState('empty');
     await loginAsDemoUser(page);
 
-    await page.goto('/app/entrenamiento');
+    await page.goto('/app/training');
 
     const aiGenerateRequests: string[] = [];
     page.on('request', (request) => {
@@ -44,7 +44,7 @@ test.describe('AI token lifecycle smoke', () => {
     const beforeBalance = await getBalance();
     expect(beforeBalance).toBeGreaterThan(0);
 
-    await page.goto('/app/entrenamiento');
+    await page.goto('/app/training');
 
     const generateResponsePromise = page.waitForResponse(
       (response) =>

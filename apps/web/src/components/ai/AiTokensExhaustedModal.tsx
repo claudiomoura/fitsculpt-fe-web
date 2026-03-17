@@ -1,5 +1,5 @@
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Modal } from "@/design-system/components/Modal";
 
 type AiTokensExhaustedModalProps = {
   open: boolean;

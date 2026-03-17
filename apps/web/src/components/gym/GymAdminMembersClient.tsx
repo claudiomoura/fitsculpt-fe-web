@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { AssignTrainingPlanModal } from "@/components/gym/AssignTrainingPlanModal";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Badge } from "@/design-system/components/Badge";
+import { Button } from "@/design-system/components/Button";
 import {
   fetchGymJoinRequests,
   fetchGymMembers,

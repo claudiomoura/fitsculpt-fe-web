@@ -1,5 +1,5 @@
-import { ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
+import { ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
 
 type PremiumFeatureCardProps = {
   title: string;

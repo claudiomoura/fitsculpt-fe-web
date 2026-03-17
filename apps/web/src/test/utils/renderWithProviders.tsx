@@ -1,7 +1,7 @@
 import { render, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { vi } from "vitest";
-import { ToastProvider } from "@/components/ui/Toast";
+import { ToastProvider } from "@/design-system/components/Toast";
 import { AccessProvider } from "@/context/AccessProvider";
 import { LanguageProvider } from "@/context/LanguageProvider";
 import { ThemeProvider } from "@/context/ThemeProvider";

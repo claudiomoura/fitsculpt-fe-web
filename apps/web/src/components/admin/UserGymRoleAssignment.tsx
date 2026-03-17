@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/design-system/components/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type GymOption = { id: string; name: string };

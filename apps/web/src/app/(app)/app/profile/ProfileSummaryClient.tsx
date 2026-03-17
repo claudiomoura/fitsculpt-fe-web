@@ -8,7 +8,7 @@ import { getUserProfile } from "@/lib/profileService";
 import { isTrainer as isTrainerRole } from "@/lib/roles";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import TrainerProfileSummary from "@/components/trainer/profile/TrainerProfileSummary";
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/design-system/components/Button";
 import LogoutButton from "../LogoutButton";
 import styles from "./ProfileSummaryClient.module.css";
 
@@ -167,9 +167,9 @@ export default function ProfileSummaryClient() {
       <section className="card">
         <h3 className={styles.groupTitle}>{t("navSections.more")}</h3>
         <div className={styles.rows}>
-          <HubRow label={t("nav.tracking")} href="/app/seguimiento" />
-          <HubRow label={t("profile.checkinTitle")} href="/app/seguimiento/check-in" />
-          <HubRow label={t("nav.today")} href="/app/hoy" value={t("nav.weeklyReview")} />
+          <HubRow label={t("nav.tracking")} href="/app/progress" />
+          <HubRow label={t("profile.checkinTitle")} href="/app/progress/check-in" />
+          <HubRow label={t("nav.today")} href="/app/today" value={t("nav.weeklyReview")} />
           <HubRow label={t("nav.weeklyReview")} href="/app/weekly-review" />
           <HubRow label={t("nav.library")} href="/app/biblioteca" />
           <HubRow label={t("nav.trainingPlans")} href="/app/biblioteca/entrenamientos" />

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Modal } from "@/components/ui/Modal";
+import { Modal } from "@/design-system/components/Modal";
 
 type WeeklyReviewModalProps = {
   children: ReactNode;
@@ -16,7 +16,7 @@ export default function WeeklyReviewModal({ children }: WeeklyReviewModalProps) 
       router.back();
       return;
     }
-    router.push("/app/hoy");
+    router.push("/app/today");
   };
 
   return (

@@ -1,9 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Badge } from "@/design-system/components/Badge";
+import { Button } from "@/design-system/components/Button";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import { useLanguage } from "@/context/LanguageProvider";
 import { PlanCard } from "./PlanCard";
 import type { PlanListItem, PlanListState } from "./types";

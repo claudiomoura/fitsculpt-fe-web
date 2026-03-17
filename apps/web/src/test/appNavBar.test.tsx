@@ -5,7 +5,7 @@ import { LanguageProvider } from "@/context/LanguageProvider";
 import { ThemeProvider } from "@/context/ThemeProvider";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/app/entrenamiento",
+  usePathname: () => "/app/training",
 }));
 
 vi.mock("@/app/(app)/app/LogoutButton", () => ({
@@ -55,7 +55,7 @@ describe("AppNavBar", () => {
 
     const activeLink = container.querySelector('a[aria-current="page"]');
     expect(activeLink).not.toBeNull();
-    expect(activeLink).toHaveAttribute("href", "/app/entrenamiento");
+    expect(activeLink).toHaveAttribute("href", "/app/training");
   });
 
 

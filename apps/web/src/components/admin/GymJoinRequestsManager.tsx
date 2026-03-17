@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/design-system/components/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import {
   fetchPendingGymJoinRequests,

@@ -10,7 +10,7 @@ import {
   DropdownMenuLink,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/DropdownMenu";
+} from "@/design-system/components/DropdownMenu";
 
 type AppUserBadgeProps = {
   user: AuthMePayload | null;

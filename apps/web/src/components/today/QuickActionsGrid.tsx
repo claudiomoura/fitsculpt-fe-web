@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/design-system/components/Button";
 
 export type TodayQuickAction = {
   id: string;

@@ -1,5 +1,5 @@
-import { Card } from "@/components/ui/Card";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Card } from "@/design-system/components/Card";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import { cn } from "@/lib/classNames";
 
 type LoadingStateVariant = "default" | "premium" | "inline";

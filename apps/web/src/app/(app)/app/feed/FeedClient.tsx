@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Modal } from "@/components/ui/Modal";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Modal } from "@/design-system/components/Modal";
+import { Button, ButtonLink } from "@/design-system/components/Button";
 import { useLanguage } from "@/context/LanguageProvider";
 import { getLocaleCode } from "@/lib/i18n";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";

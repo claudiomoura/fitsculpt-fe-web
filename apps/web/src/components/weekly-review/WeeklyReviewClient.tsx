@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/design-system/components/Button";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import FeatureUnavailableState from "@/components/access/FeatureUnavailableState";
 import { canAccessFeature } from "@/lib/entitlements";
@@ -61,7 +61,7 @@ export default function WeeklyReviewClient() {
       <EmptyState
         title={t("weeklyReview.emptyTitle")}
         description={t("weeklyReview.emptyDescription")}
-        actions={[{ label: t("weeklyReview.emptyCta"), href: "/app/hoy", variant: "primary" }]}
+        actions={[{ label: t("weeklyReview.emptyCta"), href: "/app/today", variant: "primary" }]}
         wrapInCard
       />
     );

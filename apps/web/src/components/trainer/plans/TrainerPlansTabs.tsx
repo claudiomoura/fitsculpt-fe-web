@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/design-system/components/Button";
 import { cn } from "@/lib/classNames";
 import { useLanguage } from "@/context/LanguageProvider";
 

@@ -1,14 +1,26 @@
-import { ErrorBlock } from "@/design-system";
-import { getServerT } from "@/lib/serverI18n";
-import WorkoutSessionClient from "@/app/(app)/app/entrenamientos/[workoutId]/start/workoutSessionClient";
+import { redirect } from "next/navigation";
 
-export default async function WorkoutSessionPage(props: { params: Promise<{ workoutId: string }> }) {
-  const { t } = await getServerT();
-  const { workoutId } = await props.params;
+type Props = {
+  params: Promise<{ workoutId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
 
-  if (!workoutId) {
-    return <ErrorBlock title={t("workoutDetail.notFound")} description={t("workoutDetail.notFound")} />;
+function toQueryString(params?: Record<string, string | string[] | undefined>) {
+  if (!params) return "";
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.filter(Boolean).forEach((item) => query.append(key, item));
+      continue;
+    }
+    if (value) query.set(key, value);
   }
+  const built = query.toString();
+  return built ? `?${built}` : "";
+}
 
-  return <WorkoutSessionClient workoutId={workoutId} />;
+export default async function LegacyWorkoutStartPage({ params, searchParams }: Props) {
+  const { workoutId } = await params;
+  const query = toQueryString(searchParams ? await searchParams : undefined);
+  redirect(`/app/training/${encodeURIComponent(workoutId)}/start${query}`);
 }

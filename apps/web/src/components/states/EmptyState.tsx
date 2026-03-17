@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Icon } from "@/components/ui/Icon";
-import type { IconName } from "@/components/ui/Icon";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Card } from "@/design-system/components/Card";
+import { Icon } from "@/design-system/components/Icon";
+import type { IconName } from "@/design-system/components/Icon";
 import { cn } from "@/lib/classNames";
 
 type StateAction = {

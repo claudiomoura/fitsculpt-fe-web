@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { clampDayKeyToPlanStart, clampDateNotBefore, normalizeToLocalStartOfDay, useTrainingCalendar } from "@/app/(app)/app/entrenamiento/hooks/useTrainingCalendar";
+import { clampDayKeyToPlanStart, clampDateNotBefore, normalizeToLocalStartOfDay, useTrainingCalendar } from "@/app/(app)/app/training/hooks/useTrainingCalendar";
 
 describe("useTrainingCalendar", () => {
   it("normalizes dates to local start of day", () => {

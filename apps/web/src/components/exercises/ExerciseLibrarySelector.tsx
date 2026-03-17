@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Input } from "@/components/ui/Input";
+import { Input } from "@/design-system/components/Input";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Exercise } from "@/lib/types";
 import { searchExercises } from "@/services/exercises/search";

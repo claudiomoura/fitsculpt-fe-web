@@ -1,8 +1,8 @@
 "use client";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanDetail } from "@/lib/types";
-import { ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
+import { ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
 
 type TrainingPlanDetailClientProps = {
   plan: TrainingPlanDetail | null;

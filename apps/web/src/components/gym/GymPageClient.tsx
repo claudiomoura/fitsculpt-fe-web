@@ -7,16 +7,16 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { GymCard } from "@/components/gym/GymCard";
 import { GymListSkeleton } from "@/components/gym/GymListSkeleton";
 import { MembershipStatusBadge } from "@/components/gym/MembershipStatusBadge";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
-import { useToast } from "@/components/ui/Toast";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Modal } from "@/design-system/components/Modal";
+import { useToast } from "@/design-system/components/Toast";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/Card";
+} from "@/design-system/components/Card";
 import {
   fetchGymsList,
   fetchMyGymMembership,
@@ -441,7 +441,7 @@ export default function GymPageClient() {
           </CardHeader>
           <CardContent>
             <div className="gym-actions-row">
-              {isMembershipActive ? <ButtonLink href="/app/entrenamiento">{t("gym.membership.active.planButton")}</ButtonLink> : null}
+              {isMembershipActive ? <ButtonLink href="/app/training">{t("gym.membership.active.planButton")}</ButtonLink> : null}
               {canOpenAdmin ? (
                 <Link href="/app/gym/admin" className="btn secondary fit-content">
                   {t("gym.admin.goToPanel")}

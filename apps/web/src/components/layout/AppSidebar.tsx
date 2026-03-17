@@ -10,7 +10,7 @@ import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { EmptyState, LoadingState, ErrorState } from "@/components/states";
 import { applyEntitlementGating } from "./navConfig";
 import { useSidebar, SidebarProvider } from "./SidebarContext";
-import { Icon } from "@/components/ui/Icon";
+import { Icon } from "@/design-system/components/Icon";
 
 function SidebarToggle() {
   const { isCollapsed, toggle } = useSidebar();

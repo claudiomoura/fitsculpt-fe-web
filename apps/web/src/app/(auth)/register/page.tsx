@@ -3,8 +3,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerT } from "@/lib/serverI18n";
 import RegisterForm from "./RegisterForm";
-import { Badge } from "@/components/ui/Badge";
-import { Icon } from "@/components/ui/Icon";
+import { Badge } from "@/design-system/components/Badge";
+import { Icon } from "@/design-system/components/Icon";
 
 type SearchParams =
   | { error?: string }

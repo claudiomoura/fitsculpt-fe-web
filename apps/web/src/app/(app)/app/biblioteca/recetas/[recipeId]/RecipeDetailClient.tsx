@@ -2,8 +2,8 @@
 
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Recipe } from "@/lib/types";
-import { ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
+import { ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
 
 type RecipeDetailClientProps = {

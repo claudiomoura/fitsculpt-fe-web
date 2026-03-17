@@ -1,6 +1,6 @@
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { useToast } from "@/components/ui/Toast";
+import { Badge } from "@/design-system/components/Badge";
+import { Button } from "@/design-system/components/Button";
+import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { slugifyExerciseName } from "@/lib/slugify";

@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Button } from "@/design-system/components/Button";
+import { Skeleton } from "@/design-system/components/Skeleton";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { PlanDayItem } from "./types";
 

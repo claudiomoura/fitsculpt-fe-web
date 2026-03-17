@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageProvider";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Modal } from "@/design-system/components/Modal";
 
 const ACTIONS = [
   {
@@ -20,7 +20,7 @@ const ACTIONS = [
     id: "weight",
     titleKey: "quickActions.recordWeight",
     descriptionKey: "quickActions.recordWeightDescription",
-    href: "/app/seguimiento",
+    href: "/app/progress",
   },
 ];
 

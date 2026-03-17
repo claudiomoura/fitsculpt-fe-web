@@ -1,8 +1,8 @@
 "use client";
 
-import { Badge } from "@/components/ui/Badge";
-import { ButtonLink } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Badge } from "@/design-system/components/Badge";
+import { ButtonLink } from "@/design-system/components/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/design-system/components/Card";
 
 type TrainerHubLayoutProps = {
   t: (key: string) => string;

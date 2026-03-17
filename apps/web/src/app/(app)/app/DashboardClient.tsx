@@ -8,9 +8,9 @@ import { isProfileComplete } from "@/lib/profileCompletion";
 import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import type { CheckinEntry, FoodEntry, MealLogEntry, TrackingSnapshot, WorkoutEntry } from "@/services/tracking";
-import { Button, ButtonLink } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
-import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Icon } from "@/design-system/components/Icon";
+import { Skeleton, SkeletonCard } from "@/design-system/components/Skeleton";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 
 type UserFood = {
@@ -443,7 +443,7 @@ export default function DashboardClient() {
         helperLabel: t("dashboard.kpiSessionsHelper"),
         deltaLabel: formatDelta(currentSessions, previousSessions),
         bars: sessionsByDay,
-        ctaHref: "/app/entrenamiento",
+        ctaHref: "/app/training",
         ctaLabel: t("dashboard.kpiGoCalendar"),
       },
       {
@@ -453,7 +453,7 @@ export default function DashboardClient() {
         helperLabel: t("dashboard.kpiVolumeHelper"),
         deltaLabel: formatDelta(Math.round(currentVolume), Math.round(previousVolume)),
         bars: volumeByDay,
-        ctaHref: "/app/entrenamiento",
+        ctaHref: "/app/training",
         ctaLabel: t("dashboard.kpiGoToday"),
       },
       {
@@ -463,7 +463,7 @@ export default function DashboardClient() {
         helperLabel: `${adherenceDaysCurrent}/${WEEK_DAYS} ${t("dashboard.kpiDays")}`,
         deltaLabel: formatDelta(adherenceDaysCurrent, adherenceDaysPrevious, ` ${t("dashboard.kpiDaysShort")}`),
         bars: adherenceByDay,
-        ctaHref: "/app/nutricion",
+        ctaHref: "/app/nutrition",
         ctaLabel: t("dashboard.kpiGoToday"),
       },
       {
@@ -473,7 +473,7 @@ export default function DashboardClient() {
         helperLabel: t("dashboard.kpiStreakHelper"),
         deltaLabel: formatDelta(activityDaysCurrent.size, activityDaysPrevious.size, ` ${t("dashboard.kpiDaysShort")}`),
         bars: currentWeekDays.map((day) => (activityDaysCurrent.has(day) ? 1 : 0)),
-        ctaHref: "/app/hoy",
+        ctaHref: "/app/today",
         ctaLabel: t("dashboard.kpiGoToday"),
       },
     ];
@@ -486,7 +486,7 @@ export default function DashboardClient() {
         helperLabel: `${t("dashboard.kpiCaloriesGoal")} ${nutritionTargets.calories} ${t("units.kcal")}`,
         deltaLabel: `${Math.round(averageCalories - nutritionTargets.calories)} ${t("units.kcal")}`,
         bars: caloriesByDay,
-        ctaHref: "/app/hoy",
+        ctaHref: "/app/today",
         ctaLabel: t("dashboard.kpiGoToday"),
       });
     }
@@ -503,7 +503,7 @@ export default function DashboardClient() {
           valueLabel: `${lastWeight.weightKg.toFixed(1)} ${t("units.kilograms")}`,
           helperLabel: t("dashboard.kpiWeightHelper"),
           bars: weightByDay,
-          ctaHref: "/app/seguimiento",
+          ctaHref: "/app/progress",
           ctaLabel: t("dashboard.progressCta"),
         });
       }
@@ -553,7 +553,7 @@ export default function DashboardClient() {
             <Button variant="secondary" onClick={handleRetry}>
               {t("ui.retry")}
             </Button>
-            <ButtonLink variant="ghost" href="/app/seguimiento">
+            <ButtonLink variant="ghost" href="/app/progress">
               {t("dashboard.weightProgressBackCta")}
             </ButtonLink>
           </div>
@@ -571,7 +571,7 @@ export default function DashboardClient() {
             <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
             <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
           </div>
-          <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+          <ButtonLink href="/app/progress#weight-entry" className="fit-content">
             {t("dashboard.weightProgressEmptyCta")}
           </ButtonLink>
         </div>
@@ -588,7 +588,7 @@ export default function DashboardClient() {
             <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
             <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
           </div>
-          <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
+          <ButtonLink href="/app/progress#weight-entry" className="fit-content">
             {t("dashboard.weightProgressEmptyCta")}
           </ButtonLink>
         </div>
@@ -702,7 +702,7 @@ export default function DashboardClient() {
                       <Button variant="secondary" onClick={handleRetry}>
                         {t("ui.retry")}
                       </Button>
-                      <ButtonLink variant="ghost" href="/app/seguimiento">
+                      <ButtonLink variant="ghost" href="/app/progress">
                         {t("dashboard.progressCta")}
                       </ButtonLink>
                     </div>
@@ -795,7 +795,7 @@ export default function DashboardClient() {
                     <strong>{t("dashboard.aiTrainingTitle")}</strong>
                     <p className="muted mt-6">{t("dashboard.aiTrainingSubtitle")}</p>
                   </div>
-                  <ButtonLink href="/app/entrenamiento?ai=1">
+                  <ButtonLink href="/app/training?ai=1">
                     {t("dashboard.aiTrainingCta")}
                   </ButtonLink>
                 </div>
@@ -806,7 +806,7 @@ export default function DashboardClient() {
                     <strong>{t("dashboard.aiNutritionTitle")}</strong>
                     <p className="muted mt-6">{t("dashboard.aiNutritionSubtitle")}</p>
                   </div>
-                  <ButtonLink href="/app/nutricion?ai=1">
+                  <ButtonLink href="/app/nutrition?ai=1">
                     {t("dashboard.aiNutritionCta")}
                   </ButtonLink>
                 </div>
@@ -842,7 +842,7 @@ export default function DashboardClient() {
             <h2 className="section-title section-title-sm">{t("dashboard.weightProgressTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.weightProgressSubtitle")}</p>
           </div>
-          <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry">
+          <ButtonLink variant="secondary" href="/app/progress#weight-entry">
             {t("dashboard.weightProgressCta")}
           </ButtonLink>
         </div>
@@ -856,7 +856,7 @@ export default function DashboardClient() {
             <h2 className="section-title section-title-sm">{t("dashboard.progressTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.kpiSubtitle")}</p>
           </div>
-          <ButtonLink variant="secondary" href="/app/seguimiento">
+          <ButtonLink variant="secondary" href="/app/progress">
             {t("dashboard.progressCta")}
           </ButtonLink>
         </div>
@@ -882,7 +882,7 @@ export default function DashboardClient() {
               <Button variant="secondary" onClick={handleRetry}>
                 {t("ui.retry")}
               </Button>
-              <ButtonLink variant="ghost" href="/app/seguimiento">
+              <ButtonLink variant="ghost" href="/app/progress">
                 {t("dashboard.progressCta")}
               </ButtonLink>
             </div>
@@ -896,10 +896,10 @@ export default function DashboardClient() {
               <p className="muted m-0">{t("dashboard.kpiEmptyTitle")}</p>
             </div>
             <div className="dashboard-summary-actions">
-              <ButtonLink href="/app/hoy" className="fit-content">
+              <ButtonLink href="/app/today" className="fit-content">
                 {t("dashboard.kpiGoToday")}
               </ButtonLink>
-              <ButtonLink variant="secondary" href="/app/entrenamiento" className="fit-content">
+              <ButtonLink variant="secondary" href="/app/training" className="fit-content">
                 {t("dashboard.kpiGoCalendar")}
               </ButtonLink>
             </div>

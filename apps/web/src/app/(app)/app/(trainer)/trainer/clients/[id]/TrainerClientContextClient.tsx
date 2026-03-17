@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Modal } from "@/components/ui/Modal";
-import { Badge } from "@/components/ui/Badge";
+import { Modal } from "@/design-system/components/Modal";
+import { Badge } from "@/design-system/components/Badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import {
   ClientHeaderCardSkeleton,
@@ -13,7 +13,7 @@ import {
   NotesPanelSkeleton,
 } from "@/components/trainer-client/TrainerClientSkeletons";
 import { useLanguage } from "@/context/LanguageProvider";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/design-system/components/Toast";
 import { getRoleFlags } from "@/lib/roles";
 import TrainerMemberPlanAssignmentCard from "@/components/trainer/TrainerMemberPlanAssignmentCard";
 import TrainerMemberNutritionPlanAssignmentCard from "@/components/trainer/TrainerMemberNutritionPlanAssignmentCard";

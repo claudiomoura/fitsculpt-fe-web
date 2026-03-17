@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Nutrition + checkin premium core', () => {
   test('nutrition state is actionable and checkin returns to Today', async ({ page }) => {
-    await page.goto('/app/nutricion');
+    await page.goto('/app/nutrition');
 
     const assignedPlan = page.getByTestId('member-assigned-nutrition-plan');
     const emptyState = page.getByTestId('member-nutrition-empty-state');
@@ -19,7 +19,7 @@ test.describe('Nutrition + checkin premium core', () => {
       await expect(page.getByRole('link', { name: /generar con ia o crear manual|create manually|crear manual/i })).toBeVisible({ timeout: 10000 });
     }
 
-    await page.goto('/app/seguimiento/check-in');
+    await page.goto('/app/progress/check-in');
     await expect(page.getByRole('heading', { name: /check-in/i })).toBeVisible({ timeout: 10000 });
     await page.getByTestId('checkin-quick-submit').click();
     await page.waitForURL(/\/app\/hoy\?checkin=success$/, { timeout: 15000 });

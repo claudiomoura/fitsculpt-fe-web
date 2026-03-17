@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/design-system/components/Card";
 import { ClientRow, type ClientRowProps } from "@/components/trainer-dashboard/ClientRow";
 
 type ClientTableLabels = {

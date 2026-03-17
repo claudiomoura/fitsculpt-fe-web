@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useToast } from "@/components/ui/Toast";
+import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Workout, WorkoutExercise, WorkoutSession } from "@/lib/types";
 
@@ -491,7 +491,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
             <button type="button" className="btn secondary" onClick={() => void retryAll()}>
               Reintentar
             </button>
-            <Link className="btn" href={`/app/entrenamiento/${workoutId}`}>
+            <Link className="btn" href={`/app/training/${workoutId}`}>
               Volver
             </Link>
           </div>
@@ -554,7 +554,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
             </div>
           </div>
 
-          <Link href="/app/entrenamiento" className="btn mt-6 flex w-full justify-center">
+          <Link href="/app/training" className="btn mt-6 flex w-full justify-center">
             Volver a entrenamientos
           </Link>
         </div>
@@ -566,7 +566,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
     <section className="focus-session-page mx-auto max-w-3xl px-4 pt-3 md:px-6">
       <header className="card mb-4 p-4">
         <div className="flex items-start gap-3">
-          <Link className="btn secondary h-11 px-4" href={`/app/entrenamiento/${workout.id}`}>
+          <Link className="btn secondary h-11 px-4" href={`/app/training/${workout.id}`}>
             ←
           </Link>
           <div className="min-w-0 flex-1">

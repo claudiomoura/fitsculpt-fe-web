@@ -47,6 +47,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Design system import guardrails
+        run: npm run lint:ds:imports
+
       - name: Typecheck
         run: npm run typecheck
 

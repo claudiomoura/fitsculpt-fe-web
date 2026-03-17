@@ -32,8 +32,8 @@ vi.mock("@/lib/profileService", () => ({
   getUserProfile: () => Promise.resolve(completeProfile),
 }));
 
-import TrainingPlanClient from "@/app/(app)/app/entrenamiento/TrainingPlanClient";
-import NutritionPlanClient from "@/app/(app)/app/nutricion/NutritionPlanClient";
+import TrainingPlanClient from "@/app/(app)/app/training/TrainingPlanClient";
+import NutritionPlanClient from "@/app/(app)/app/nutrition/NutritionPlanClient";
 import MacrosClient from "@/app/(app)/app/macros/MacrosClient";
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ButtonLink } from "@/components/ui/Button";
+import { ButtonLink } from "@/design-system/components/Button";
 
 type TodayEmptyStateProps = {
   description: string;

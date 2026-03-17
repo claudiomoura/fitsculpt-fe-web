@@ -1,15 +1,24 @@
-import { PageContainer } from "@/design-system/components";
-import TodayQuickActionsClient from "./TodayQuickActionsClient";
+import { redirect } from "next/navigation";
 
-export default async function TodayPage() {
-  return (
-    <PageContainer
-      as="main"
-      maxWidth="xl"
-      className="py-6 md:py-10"
-      data-testid="today-page"
-    >
-      <TodayQuickActionsClient />
-    </PageContainer>
-  );
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function toQueryString(params?: Record<string, string | string[] | undefined>) {
+  if (!params) return "";
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.filter(Boolean).forEach((item) => query.append(key, item));
+      continue;
+    }
+    if (value) query.set(key, value);
+  }
+  const built = query.toString();
+  return built ? `?${built}` : "";
+}
+
+export default async function LegacyTodayPage({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : undefined;
+  redirect(`/app/today${toQueryString(params)}`);
 }

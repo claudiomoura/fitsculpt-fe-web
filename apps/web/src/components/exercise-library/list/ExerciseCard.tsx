@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Badge } from "@/design-system/components/Badge";
+import { Button } from "@/design-system/components/Button";
 
 type ExerciseCardProps = {
   id?: string | null;

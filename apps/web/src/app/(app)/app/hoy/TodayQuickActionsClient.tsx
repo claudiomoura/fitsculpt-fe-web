@@ -8,8 +8,8 @@ import {
   PremiumProgressIcon,
   PremiumWorkoutIcon,
 } from "@/components/icons/PremiumIcons";
-import { MacroRing } from "@/components/ui/MacroRing";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { MacroRing } from "@/design-system/components/MacroRing";
+import { Button, ButtonLink } from "@/design-system/components/Button";
 import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
@@ -23,11 +23,11 @@ import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
 
-const trainingRoute = "/app/entrenamiento";
+const trainingRoute = "/app/training";
 const billingRoute = "/app/settings/billing";
-const manualPlanRoute = "/app/entrenamiento/editar";
-const aiPlanRoute = "/app/entrenamiento?ai=1";
-const checkinRoute = "/app/seguimiento/check-in";
+const manualPlanRoute = "/app/training/edit";
+const aiPlanRoute = "/app/training?ai=1";
+const checkinRoute = "/app/progress/check-in";
 
 type ViewStatus = "loading" | "success" | "error";
 type TrainingState = "workout" | "rest" | "no-plan";
@@ -385,6 +385,26 @@ export default function TodayQuickActionsClient() {
         ? "Hoy toca recuperación"
         : t("today.trainingStateNoPlan");
   const todayTrainingHref = signals.trainingDayKey ? `${trainingRoute}?day=${signals.trainingDayKey}` : trainingRoute;
+  const primaryActionLabel =
+    signals.trainingState === "rest"
+      ? "Ver semana"
+      : signals.trainingState === "workout"
+        ? "Empezar entrenamiento"
+        : t("today.trainingManualCta");
+
+  const handlePrimaryTrainingAction = () => {
+    if (signals.trainingState === "no-plan") {
+      router.push(manualPlanRoute);
+      return;
+    }
+    if (!signals.hasTrainingAccess) {
+      trackEvent("today_cta_click", { target: "billing", origin: "today_training", returnTo: currentRoute });
+      router.push(billingHref);
+      return;
+    }
+    trackEvent("training_start_clicked", { target: "training", origin: "today" });
+    router.push(signals.trainingState === "workout" ? todayTrainingHref : trainingRoute);
+  };
 
   return (
     <div className="flex flex-col gap-6 premium-page-shell premium-page-shell--compact">
@@ -414,65 +434,62 @@ export default function TodayQuickActionsClient() {
                   <p className="m-0 text-sm font-semibold text-emerald-300">Check-in guardado</p>
                   <p className="m-0 mt-1 text-sm text-muted">Tu progreso de hoy ya se ha actualizado con tus métricas reales.</p>
                 </div>
-                <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" className="fit-content">
+                <ButtonLink as={Link} href="/app/progress" variant="secondary" className="fit-content">
                   Ver progreso
                 </ButtonLink>
               </div>
             </section>
           ) : null}
-          {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamiento" /> : null}
+          {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href={trainingRoute} /> : null}
 
-          <div className="grid gap-6 md:grid-cols-3" data-testid="today-actions-grid">
-            <section className="card xl:col-span-2 premium-fade-up" data-testid="today-action-card">
+          <section className="card premium-fade-up" data-testid="today-action-card-primary">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="m-0 text-xs uppercase tracking-wider text-muted">Acción principal de hoy</p>
+                <h2 className="m-0 mt-1 text-2xl font-semibold text-primary">{signals.trainingState === "workout" ? signals.trainingName : signals.trainingState === "rest" ? "Día de recuperación" : "Configura tu plan"}</h2>
+                <p className="m-0 mt-2 text-sm text-muted">{trainingMeta}</p>
+              </div>
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
+                <PremiumWorkoutIcon width={28} height={28} className="text-primary" />
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <ProgressMetric label="Progreso diario" percent={dailyProgressPercent} color="var(--color-primary)" />
+            </div>
+
+            {signals.trainingState === "no-plan" ? (
+              <div className="space-y-2">
+                <Button className="flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction}>
+                  {primaryActionLabel}
+                </Button>
+                <Button variant="secondary" className="flex h-12 w-full rounded-xl font-medium" disabled={!hasAiAccess} onClick={() => hasAiAccess && router.push(aiPlanRoute)}>
+                  {t("today.trainingAiCta")}
+                </Button>
+              </div>
+            ) : (
+              <Button className="mt-3 flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction}>
+                {primaryActionLabel}
+              </Button>
+            )}
+          </section>
+
+          <div className="grid gap-4 md:grid-cols-2" data-testid="today-actions-grid">
+            <section className="card premium-fade-up" data-testid="today-action-card">
               <div className="mb-5 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
                   <PremiumWorkoutIcon width={28} height={28} className="text-primary" />
                 </div>
                 <div>
-                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Entrenamiento de hoy</p>
-                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">{signals.trainingState === "workout" ? signals.trainingName : signals.trainingState === "rest" ? "Descanso" : "Sin plan"}</h2>
+                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Entrenamiento</p>
+                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Semana actual</h2>
                 </div>
               </div>
 
-              {signals.trainingState === "workout" && (
-                <div className="mb-4 flex items-center gap-4 text-sm text-muted">
-                  {signals.trainingDuration ? (
-                    <span className="flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                      {signals.trainingDuration} min
-                    </span>
-                  ) : null}
-                  <span className="flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 10v4"/><path d="M21 10v4"/></svg>
-                    {signals.trainingExerciseCount} ejercicios
-                  </span>
-                </div>
-              )}
-
-              <ProgressMetric label="Progreso" percent={dailyProgressPercent} color="var(--color-primary)" />
-
-              {signals.trainingState === "no-plan" ? (
-                <div className="space-y-2">
-                  <ButtonLink as={Link} href={manualPlanRoute} className="flex h-12 w-full rounded-xl font-semibold">
-                    {t("today.trainingManualCta")}
-                  </ButtonLink>
-                  <Button variant="secondary" className="flex h-12 w-full rounded-xl font-medium" disabled={!hasAiAccess} onClick={() => hasAiAccess && router.push(aiPlanRoute)}>
-                    {t("today.trainingAiCta")}
-                  </Button>
-                </div>
-              ) : (
-                <Button className="flex h-12 w-full rounded-xl font-semibold" onClick={() => {
-                  if (!signals.hasTrainingAccess) {
-                    trackEvent("today_cta_click", { target: "billing", origin: "today_training", returnTo: currentRoute });
-                    router.push(billingHref);
-                    return;
-                  }
-                  trackEvent("training_start_clicked", { target: "training", origin: "today" });
-                  router.push(signals.trainingState === "workout" ? todayTrainingHref : trainingRoute);
-                }}>
-                  {signals.trainingState === "rest" ? "Ver semana" : "Empezar entrenamiento"}
-                </Button>
-              )}
+              <p className="mb-4 text-sm text-muted">{trainingDescription}</p>
+              <Button variant="secondary" className="flex h-12 w-full rounded-xl font-medium" onClick={() => router.push(trainingRoute)}>
+                Abrir entrenamiento
+              </Button>
             </section>
 
             <section className="card premium-fade-up" data-testid="today-action-card">
@@ -500,7 +517,7 @@ export default function TodayQuickActionsClient() {
                 </div>
               </div>
 
-              <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="flex h-12 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
+              <ButtonLink as={Link} href="/app/nutrition" variant="secondary" className="flex h-12 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
                 Registrar comida
               </ButtonLink>
             </section>

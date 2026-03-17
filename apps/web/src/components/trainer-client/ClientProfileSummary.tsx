@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/design-system/components/Card";
 import { useLanguage } from "@/context/LanguageProvider";
 
 type ProfileValue = string | number | null | undefined;
