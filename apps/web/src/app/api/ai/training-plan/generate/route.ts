@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackendUrl } from "@/lib/backend";
 import { getBackendAuthCookie } from "@/lib/backendAuthCookie";
+import { isUuid } from "@/lib/aiRequestId";
 import { contractDriftResponse, validateAiTrainingGeneratePayload } from "@/lib/runtimeContracts";
 import { aiRequestFailedResponse, mapAiUpstreamError, parseJsonOrNull } from "@/app/api/_utils/aiErrorMapping";
 
@@ -40,6 +41,29 @@ function getUpstreamErrorMetadata(payload: unknown): { errorCode: string | null;
     (typeof payload.error === "string" && payload.error.trim().length > 0 ? payload.error : null);
 
   return { errorCode, errorReason };
+}
+
+function normalizeAiRequestId(payload: unknown, fallbackAiRequestId: string | null): unknown {
+  if (!isRecord(payload)) return payload;
+
+  const candidate = payload.aiRequestId;
+  if (typeof candidate === "string" && isUuid(candidate)) {
+    return payload;
+  }
+
+  if (fallbackAiRequestId && isUuid(fallbackAiRequestId)) {
+    return {
+      ...payload,
+      aiRequestId: fallbackAiRequestId,
+    };
+  }
+
+  if (candidate !== undefined) {
+    const { aiRequestId: _ignored, ...rest } = payload;
+    return rest;
+  }
+
+  return payload;
 }
 
 function logAiGenerateError(details: {
@@ -90,7 +114,7 @@ export async function POST(request: Request) {
       signal: abortController.signal,
     });
     const responseText = await response.text();
-    const data = parseJsonOrNull(responseText);
+    const data = normalizeAiRequestId(parseJsonOrNull(responseText), aiRequestId);
 
     if (!response.ok) {
       const upstreamErrorMetadata = getUpstreamErrorMetadata(data);

@@ -21,6 +21,7 @@ import { isProfileComplete } from "@/lib/profileCompletion";
 import { Badge } from "@/design-system/components/Badge";
 import { Button, ButtonLink } from "@/design-system/components/Button";
 import { Icon } from "@/design-system/components/Icon";
+import { Modal } from "@/design-system/components/Modal";
 import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { Skeleton } from "@/design-system/components/Skeleton";
 import {
@@ -2155,6 +2156,24 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       ) : null}
 
 
+
+      <Modal
+        open={aiLoading}
+        onClose={() => undefined}
+        title={safeT("training.aiGeneratingTitle", "Estamos generando tu plan")}
+        description={safeT(
+          "training.aiGeneratingDescription",
+          "Esto puede tardar unos segundos. Estamos personalizando tu rutina para mejorar adherencia y resultados."
+        )}
+      >
+        <div className="stack-sm" aria-live="polite" aria-busy="true">
+          <div className="inline-actions-sm">
+            <span className="ui-spinner" aria-hidden="true" />
+            <strong>{safeT("training.aiGeneratingStatus", "Generando plan con IA...")}</strong>
+          </div>
+          <p className="muted m-0">{safeT("training.aiGeneratingHint", "No cierres esta pantalla. Te mostraremos una vista previa antes de guardar.")}</p>
+        </div>
+      </Modal>
 
       <AiTokensExhaustedModal
         open={tokensExhaustedModalOpen}
