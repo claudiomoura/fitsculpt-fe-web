@@ -6489,6 +6489,13 @@ registerWeeklyReviewRoute(app, {
   handleRequestError,
 });
 
+registerNutritionRoutes(app, {
+  prisma,
+  requireUser,
+  handleRequestError,
+  userFoodSchema,
+});
+
 app.get("/feed", async (request, reply) => {
   try {
     logAuthCookieDebug(request, "/feed");
@@ -6855,6 +6862,103 @@ const nutritionPlanListSchema = z.object({
 
 const nutritionPlanParamsSchema = z.object({ id: z.string().min(1) });
 
+app.get("/nutrition-plans", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { query, limit, offset } = nutritionPlanListSchema.parse(
+      request.query,
+    );
+    const where: Prisma.NutritionPlanWhereInput = {
+      userId: user.id,
+      ...(query
+        ? { title: { contains: query, mode: Prisma.QueryMode.insensitive } }
+        : {}),
+    };
+    const [items, total] = await prisma.$transaction([
+      prisma.nutritionPlan.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }],
+        skip: offset,
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          dailyCalories: true,
+          proteinG: true,
+          fatG: true,
+          carbsG: true,
+          startDate: true,
+          daysCount: true,
+          createdAt: true,
+        },
+      }),
+      prisma.nutritionPlan.count({ where }),
+    ]);
+    return { items, total, limit, offset };
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/nutrition-plans/:id", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+    const { id } = nutritionPlanParamsSchema.parse(request.params);
+    const plan = await prisma.nutritionPlan.findFirst({
+      where: { id, userId: user.id },
+      include: {
+        days: {
+          orderBy: { order: "asc" },
+          include: {
+            meals: {
+              include: { ingredients: true },
+            },
+          },
+        },
+      },
+    });
+    if (!plan) {
+      return reply.status(404).send({ error: "NOT_FOUND" });
+    }
+    return plan;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/members/me/assigned-nutrition-plan", async (request, reply) => {
+  try {
+    const user = await requireUser(request);
+
+    const membership = await prisma.gymMembership.findFirst({
+      where: {
+        userId: user.id,
+        status: "ACTIVE",
+        role: "MEMBER",
+      },
+      select: {
+        gym: { select: { id: true, name: true } },
+        assignedNutritionPlan: {
+          select: assignedNutritionPlanSummarySelect,
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (!membership) {
+      return reply.status(404).send({ error: "MEMBER_NOT_FOUND" });
+    }
+
+    return reply.status(200).send({
+      memberId: user.id,
+      gym: membership.gym,
+      assignedPlan: membership.assignedNutritionPlan,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 const trainerNutritionPlanCreateSchema = z.object({
   title: z.string().trim().min(1).max(120),
   daysCount: z.coerce.number().int().min(1).max(14).optional(),
@@ -6972,6 +7076,31 @@ app.get("/recipes/:id", async (request, reply) => {
   } catch (error) {
     return handleRequestError(reply, error);
   }
+});
+
+registerTrainingRoutes(app, {
+  requireUser,
+  exerciseListSchema,
+  listExercises,
+  handleRequestError,
+  exerciseParamsSchema,
+  getExerciseById,
+  createExerciseSchema,
+  createExercise,
+  trainingPlanListSchema,
+  prisma,
+  resolveCorrelationId,
+  getPayloadSize,
+  trainingPlanCreateSchema,
+  parseDateInput,
+  buildDateRange,
+  mapTrainingPlanCreateError,
+  trainingPlanParamsSchema,
+  trainingDayIncludeWithLegacySafeExercises,
+  enrichTrainingPlanWithExerciseLibraryData,
+  trainingPlanActiveQuerySchema,
+  trainingDayParamsSchema,
+  addTrainingExerciseBodySchema,
 });
 
 const adminCreateUserSchema = z.object({
