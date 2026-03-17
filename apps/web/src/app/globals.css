@@ -7008,3 +7008,68 @@ html.theme-dark :focus-visible {
     flex: 1 1 100%;
   }
 }
+
+
+.training-plan-access-card,
+.nutrition-plan-access-card {
+  margin-top: 16px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-card) 86%, white 14%);
+  box-shadow: var(--shadow-sm);
+}
+
+.training-plan-access-actions,
+.nutrition-plan-access-actions {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .training-plan-access-actions,
+  .nutrition-plan-access-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .training-plan-access-actions .btn,
+  .nutrition-plan-access-actions .btn {
+    width: 100%;
+  }
+}
+
+
+.plans-hub-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.plans-hub-segmented {
+  width: 100%;
+  max-width: 420px;
+}
+
+@media (max-width: 640px) {
+  .plans-hub-segmented {
+    max-width: none;
+  }
+}
+
+
+.training-plan-access-card .section-title,
+.nutrition-plan-access-card .section-title {
+  font-size: 1rem;
+}
+
+.training-plan-access-card .section-subtitle,
+.nutrition-plan-access-card .section-subtitle {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .training-plan-access-card,
+  .nutrition-plan-access-card {
+    margin-top: 12px;
+    padding: 14px;
+    border-radius: 16px;
+  }
+}

@@ -2421,6 +2421,7 @@ const nutritionPlanDetails = profile ? (
           </section>
 
               {!loading && !error ? (
+                <>
                 <section id="nutrition-today-log" className="card nutrition-v2-layout premium-surface-card premium-fade-up" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
                   <div className="feature-card stack-sm nutrition-today-summary-card premium-subcard premium-success-surface">
                     <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
@@ -2678,6 +2679,28 @@ const nutritionPlanDetails = profile ? (
                     </div>
                   </div>
                 </section>
+
+                <section className="card premium-surface-card nutrition-plan-access-card">
+                  <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+                    <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
+                      <p className="m-0 text-xs uppercase tracking-wider text-muted">Tus planes</p>
+                      <h3 className="section-title section-title-sm m-0">Biblioteca de nutrición</h3>
+                      <p className="section-subtitle m-0">Revisa todos tus planes y elige el que quieras consultar en mobile.</p>
+                      {assignedPlanTitle ? <p className="muted m-0">Actual: {assignedPlanTitle}</p> : null}
+                    </div>
+                    <div className="inline-actions-sm nutrition-plan-access-actions">
+                      <Link className="btn" href={selectedPlanId ? `/app/dietas?planId=${encodeURIComponent(selectedPlanId)}` : "/app/dietas"}>
+                        Ver todos los planes
+                      </Link>
+                      {selectedPlanId ? (
+                        <Link className="btn secondary" href={`/app/dietas/${encodeURIComponent(selectedPlanId)}`}>
+                          Ver plan actual
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                </section>
+                </>
               ) : null}
 
               {!loading && !error ? nutritionPlanDetails : null}

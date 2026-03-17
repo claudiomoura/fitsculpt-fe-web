@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access/aiEntitlements";
 import { getRoleFlags } from "@/lib/roles";
 import { Input } from "@/components/ui/Input";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { ActivePlanSection, PlanCard, PlanHistoryList } from "@/components/plans/PlanSections";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -46,6 +47,7 @@ export default function TrainingLibraryClient() {
 
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [planSection, setPlanSection] = useState<"assigned" | "library" | "create">("assigned");
   const [fitSculptPlans, setFitSculptPlans] = useState<TrainingPlanListItem[]>([]);
   const [fitSculptState, setFitSculptState] = useState<SectionState>("loading");
   const [gymPlans, setGymPlans] = useState<TrainingPlanListItem[]>([]);
@@ -256,7 +258,29 @@ export default function TrainingLibraryClient() {
 
   return (
     <>
-      <section className="card">
+      <section className="card premium-surface-card plans-hub-shell">
+        <div className="stack-sm">
+          <div>
+            <p className="m-0 text-xs uppercase tracking-wider text-muted">Planes</p>
+            <h1 className="section-title m-0">Biblioteca de entrenamiento</h1>
+            <p className="section-subtitle m-0">Consulta planes asignados, revisa tu biblioteca y crea uno nuevo desde aquí.</p>
+          </div>
+          <SegmentedControl
+            className="plans-hub-segmented"
+            ariaLabel="Secciones de planes de entrenamiento"
+            value={planSection}
+            onChange={(id) => setPlanSection(id as "assigned" | "library" | "create")}
+            options={[
+              { id: "assigned", label: "Asignados" },
+              { id: "library", label: "Mis planes" },
+              { id: "create", label: "Crear" },
+            ]}
+          />
+        </div>
+      </section>
+
+      {planSection === "library" ? (
+      <section className="card premium-surface-card">
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -265,25 +289,29 @@ export default function TrainingLibraryClient() {
           helperText={t("trainingPlans.searchHelper")}
         />
       </section>
+      ) : null}
 
+      {planSection === "assigned" ? (
       <ActivePlanSection title={t("plans.activeTitle")} emptyTitle={t("plans.activeEmpty")}>
         {(fitSculptState === "loading" || assignedPlanState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
         {(fitSculptState === "error" || assignedPlanState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
-        {activePlan ? (
+        {assignedPlan ? (
           <PlanCard
-            title={activePlan.title}
-            metadata={t("library.training.planMeta", { days: activePlan.daysCount, level: activePlan.level, date: formatPlanDate(activePlan) })}
+            title={assignedPlan.title}
+            metadata={t("library.training.planMeta", { days: assignedPlan.daysCount, level: assignedPlan.level, date: formatPlanDate(assignedPlan) })}
             statusLabel={t("plans.activeBadge")}
             actions={[
-              { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${getPlanId(activePlan)}`, variant: "secondary" },
-              { label: t("library.training.choose"), onClick: () => selectPlan(getPlanId(activePlan)), variant: "secondary" },
-              // Requiere implementación: deep link directo a semana específica cuando el backend exponga ese contexto.
-              { label: t("library.training.goToWeek"), href: `/app/entrenamiento?planId=${encodeURIComponent(getPlanId(activePlan))}` },
+              { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${getPlanId(assignedPlan)}`, variant: "secondary" },
+              { label: t("library.training.choose"), onClick: () => selectPlan(getPlanId(assignedPlan)) },
             ]}
           />
+        ) : assignedPlanState === "ready" ? (
+          <EmptyState className="mt-12" title={t("plans.activeEmpty")} description={t("plans.historyEmptyDescription")} icon="info" />
         ) : null}
       </ActivePlanSection>
+      ) : null}
 
+      {planSection === "library" ? (
       <PlanHistoryList title={t("plans.historyTitle")} emptyTitle={t("plans.historyEmpty")}>
         {(fitSculptState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
         {(fitSculptState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
@@ -312,9 +340,11 @@ export default function TrainingLibraryClient() {
           </div>
         ) : null}
       </PlanHistoryList>
+      ) : null}
 
-      <section className="card">
-        <h2 className="section-title section-title-sm">{t("library.training.sections.ai")}</h2>
+      {planSection === "create" ? (
+      <section className="card premium-surface-card">
+        <h2 className="section-title section-title-sm">Crear un nuevo plan</h2>
         {aiGateState === "loading" ? (
           <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} />
         ) : null}
@@ -337,12 +367,22 @@ export default function TrainingLibraryClient() {
           <div className="feature-card mt-12">
             <strong>{t("library.training.aiPlaceholderTitle")}</strong>
             <p className="muted mt-6">{t("library.training.aiPlaceholderDescription")}</p>
-            <div className="mt-12">
+            <div className="inline-actions-sm mt-12">
               <Link href="/app/entrenamiento?ai=1" className="btn">{t("trainingPlans.aiCta")}</Link>
+              <Link href="/app/entrenamiento/editar" className="btn secondary">{t("training.manualCreate")}</Link>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="feature-card mt-12">
+            <strong>{t("training.manualCreate")}</strong>
+            <p className="muted mt-6">Crea un plan manual y selecciónalo después desde tu biblioteca.</p>
+            <div className="mt-12">
+              <Link href="/app/entrenamiento/editar" className="btn secondary">{t("training.manualCreate")}</Link>
+            </div>
+          </div>
+        )}
       </section>
+      ) : null}
 
     </>
   );

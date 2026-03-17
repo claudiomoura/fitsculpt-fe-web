@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/Input";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { ActivePlanSection, PlanCard, PlanHistoryList } from "@/components/plans/PlanSections";
@@ -33,6 +34,7 @@ export default function DietPlansClient() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [planSection, setPlanSection] = useState<"assigned" | "library" | "create">("assigned");
   const [plans, setPlans] = useState<NutritionPlanListItem[]>([]);
   const [state, setState] = useState<SectionState>("loading");
   const [assignedPlan, setAssignedPlan] = useState<NutritionPlanListItem | null>(null);
@@ -187,7 +189,29 @@ export default function DietPlansClient() {
 
   return (
     <>
-      <section className="card">
+      <section className="card premium-surface-card plans-hub-shell">
+        <div className="stack-sm">
+          <div>
+            <p className="m-0 text-xs uppercase tracking-wider text-muted">Planes</p>
+            <h1 className="section-title m-0">Biblioteca de nutrición</h1>
+            <p className="section-subtitle m-0">Consulta planes asignados, revisa tu biblioteca y crea uno nuevo desde aquí.</p>
+          </div>
+          <SegmentedControl
+            className="plans-hub-segmented"
+            ariaLabel="Secciones de planes de nutrición"
+            value={planSection}
+            onChange={(id) => setPlanSection(id as "assigned" | "library" | "create")}
+            options={[
+              { id: "assigned", label: "Asignados" },
+              { id: "library", label: "Mis planes" },
+              { id: "create", label: "Crear" },
+            ]}
+          />
+        </div>
+      </section>
+
+      {planSection === "library" ? (
+      <section className="card premium-surface-card">
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -196,25 +220,31 @@ export default function DietPlansClient() {
           helperText={t("dietPlans.searchHelper")}
         />
       </section>
+      ) : null}
 
+      {planSection === "assigned" ? (
       <ActivePlanSection title={t("plans.activeTitle")} emptyTitle={t("plans.activeEmpty")}>
         {assignedState === "loading" ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
         {assignedState === "error" ? <ErrorState className="mt-12" title={t("dietPlans.assignedLoadError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
         {assignedState === "unavailable" ? <EmptyState className="mt-12" title={t("dietPlans.assignedUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
-        {assignedState === "ready" && activePlan ? (
+        {assignedState === "ready" && assignedPlan ? (
           <PlanCard
-            title={activePlan.title}
-            metadata={t("dietPlans.planMeta", { date: formatPlanDate(activePlan), days: activePlan.daysCount })}
+            title={assignedPlan.title}
+            metadata={t("dietPlans.planMeta", { date: formatPlanDate(assignedPlan), days: assignedPlan.daysCount })}
             statusLabel={t("plans.activeBadge")}
-            testId={getNutritionPlanId(activePlan) === assignedPlanCardId ? "nutrition-assigned-plan-card" : "nutrition-active-plan-card"}
+            testId="nutrition-assigned-plan-card"
             actions={[
-              { label: t("dietPlans.viewDetail"), href: `/app/dietas/${getNutritionPlanId(activePlan)}`, variant: "secondary", testId: "nutrition-view-active-plan" },
-              { label: t("dietPlans.goToCalendar"), href: `/app/nutricion?planId=${encodeURIComponent(getNutritionPlanId(activePlan))}`, testId: "nutrition-go-calendar-cta" },
+              { label: t("dietPlans.viewDetail"), href: `/app/dietas/${getNutritionPlanId(assignedPlan)}`, variant: "secondary", testId: "nutrition-view-active-plan" },
+              { label: t("dietPlans.selectActiveCta"), onClick: () => selectActivePlan(getNutritionPlanId(assignedPlan)), testId: "nutrition-go-calendar-cta" },
             ]}
           />
+        ) : assignedState === "ready" ? (
+          <EmptyState className="mt-12" title={t("plans.activeEmpty")} description={t("plans.historyEmptyDescription")} icon="info" />
         ) : null}
       </ActivePlanSection>
+      ) : null}
 
+      {planSection === "library" ? (
       <PlanHistoryList title={t("plans.historyTitle")} emptyTitle={t("plans.historyEmpty")}>
         {state === "loading" ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
         {state === "error" ? (
@@ -267,6 +297,22 @@ export default function DietPlansClient() {
           </div>
         ) : null}
       </PlanHistoryList>
+      ) : null}
+
+      {planSection === "create" ? (
+      <section className="card premium-surface-card">
+        <div className="empty-state">
+          <div>
+            <h3 className="m-0">Crear un nuevo plan</h3>
+            <p className="muted">Genera uno con IA o crea uno manual y después selecciónalo desde tu biblioteca.</p>
+          </div>
+          <div className="inline-actions-sm mt-12">
+            <a className="btn" href="/app/nutricion?ai=1">{t("dietPlans.emptyCta")}</a>
+            <a className="btn secondary" href="/app/nutricion/editar">{t("dietPlans.emptyManualCta")}</a>
+          </div>
+        </div>
+      </section>
+      ) : null}
     </>
   );
 }

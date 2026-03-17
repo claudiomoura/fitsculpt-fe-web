@@ -1515,6 +1515,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           ) : hasPlan ? (
             <>
               <section className="card training-header-compact training-main-section">
+
+
                 <div className="training-hero">
                   <div className="flex items-center gap-4">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/20">
@@ -1923,6 +1925,27 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 )}
               </div>
             </section>
+
+              <section className="card premium-surface-card training-plan-access-card">
+                <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+                  <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
+                    <p className="m-0 text-xs uppercase tracking-wider text-muted">Tus planes</p>
+                    <h3 className="section-title section-title-sm m-0">Biblioteca de entrenamiento</h3>
+                    <p className="section-subtitle m-0">Consulta todos tus planes y cambia al que quieras ver en mobile.</p>
+                    {activePlan?.title ? <p className="muted m-0">Actual: {activePlan.title}</p> : null}
+                  </div>
+                  <div className="inline-actions-sm training-plan-access-actions">
+                    <Link className="btn" href={selectedPlanId ? `/app/biblioteca/entrenamientos?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/entrenamientos"}>
+                      Ver todos los planes
+                    </Link>
+                    {selectedPlanId ? (
+                      <Link className="btn secondary" href={`/app/biblioteca/entrenamientos/${encodeURIComponent(selectedPlanId)}`}>
+                        Ver plan actual
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
             </>
           ) : null}
 
