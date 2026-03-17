@@ -1013,7 +1013,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   }
 
   return (
-    <div className={isCheckinOnly ? "tracking-checkin-only-body" : "page page-with-tabbar-safe-area"} data-testid="tracking-page">
+    <div className={isCheckinOnly ? "tracking-checkin-only-body premium-page-shell premium-page-shell--compact" : "page page-with-tabbar-safe-area premium-page-shell premium-page-shell--compact"} data-testid="tracking-page">
       {actionMessage && (
         <div className="toast" role="status" aria-live="polite">
           {actionMessage}

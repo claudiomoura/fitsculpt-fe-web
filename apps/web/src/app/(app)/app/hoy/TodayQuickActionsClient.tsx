@@ -381,8 +381,8 @@ export default function TodayQuickActionsClient() {
   const todayTrainingHref = signals.trainingDayKey ? `${trainingRoute}?day=${signals.trainingDayKey}` : trainingRoute;
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex items-center justify-between gap-4">
+    <div className="flex flex-col gap-6 premium-page-shell premium-page-shell--compact">
+      <header className="flex items-center justify-between gap-4 premium-page-header">
         <div className="flex items-center gap-3">
           <h1 className="m-0 text-2xl font-bold text-primary">Buenos días, {userName}</h1>
           {signals.streakDays > 0 && (
@@ -402,7 +402,7 @@ export default function TodayQuickActionsClient() {
       {status === "success" ? (
         <>
           {showCheckinSuccess ? (
-            <section className="card border border-emerald-400/30 bg-emerald-500/10">
+            <section className="card premium-inline-banner border border-emerald-400/30 bg-emerald-500/10">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="m-0 text-sm font-semibold text-emerald-300">Check-in guardado</p>

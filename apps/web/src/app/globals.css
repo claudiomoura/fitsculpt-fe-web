@@ -6840,3 +6840,72 @@ html.theme-dark :focus-visible {
   bottom: 16px;
   z-index: 5;
 }
+
+
+.premium-page-shell {
+  gap: 18px;
+}
+
+.premium-page-shell--compact {
+  max-width: 1080px;
+  margin-inline: auto;
+}
+
+.premium-page-header {
+  padding: 4px 2px;
+}
+
+.premium-hero-card {
+  border-radius: 24px;
+  box-shadow: var(--shadow-md);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 48%);
+}
+
+.premium-stepper-card,
+.premium-step-card,
+.premium-surface-card {
+  border-radius: 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+.premium-step-card,
+.premium-surface-card {
+  background: color-mix(in srgb, var(--bg-card) 92%, white 8%);
+}
+
+.premium-subcard {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-card) 88%, white 12%);
+}
+
+.premium-inline-banner {
+  border-radius: 20px;
+}
+
+.premium-footer-card {
+  border-radius: 22px;
+  box-shadow: var(--shadow-md);
+}
+
+@media (max-width: 640px) {
+  .premium-page-shell {
+    gap: 14px;
+  }
+
+  .premium-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .premium-hero-card,
+  .premium-stepper-card,
+  .premium-step-card,
+  .premium-surface-card,
+  .premium-footer-card {
+    border-radius: 20px;
+  }
+
+  .premium-inline-banner {
+    border-radius: 18px;
+  }
+}
