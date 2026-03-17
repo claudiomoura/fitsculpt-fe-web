@@ -1,9 +1,24 @@
-import TrackingClient from "../seguimiento/TrackingClient";
+import { redirect } from "next/navigation";
 
-export default async function TrackingPage() {
-  return (
-    <div className="page">
-      <TrackingClient />
-    </div>
-  );
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function toQueryString(params?: Record<string, string | string[] | undefined>) {
+  if (!params) return "";
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.filter(Boolean).forEach((item) => query.append(key, item));
+      continue;
+    }
+    if (value) query.set(key, value);
+  }
+  const built = query.toString();
+  return built ? `?${built}` : "";
+}
+
+export default async function LegacyProgressRoute({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : undefined;
+  redirect(`/app/seguimiento${toQueryString(params)}`);
 }

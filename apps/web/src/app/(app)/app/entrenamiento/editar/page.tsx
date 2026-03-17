@@ -1,24 +1,47 @@
-import { redirect } from "next/navigation";
+import TrainingPlanClient from "../TrainingPlanClient";
+import TrainerDayEditorClient from "@/components/trainer/plans/TrainerDayEditorClient";
+import { getServerT } from "@/lib/serverI18n";
 
 type Props = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: Promise<{
+    day?: string | string[];
+    planId?: string | string[];
+  }>;
 };
 
-function toQueryString(params?: Record<string, string | string[] | undefined>) {
-  if (!params) return "";
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (Array.isArray(value)) {
-      value.filter(Boolean).forEach((item) => query.append(key, item));
-      continue;
-    }
-    if (value) query.set(key, value);
+function getSearchParamValue(param?: string | string[]) {
+  if (Array.isArray(param)) {
+    return param[0]?.trim() ?? "";
   }
-  const built = query.toString();
-  return built ? `?${built}` : "";
+
+  return param?.trim() ?? "";
 }
 
-export default async function LegacyTrainingEditPage({ searchParams }: Props) {
+export default async function TrainingPlanEditPage({ searchParams }: Props) {
+  const { t } = await getServerT();
   const params = searchParams ? await searchParams : undefined;
-  redirect(`/app/training/edit${toQueryString(params)}`);
+  const day = getSearchParamValue(params?.day);
+  const planId = getSearchParamValue(params?.planId);
+
+  if (day && planId) {
+    return (
+      <div className="page">
+        <section className="card">
+          <h1 className="section-title">{t("trainer.plans.dayEditorTitle")}</h1>
+          <p className="section-subtitle">{t("trainer.plans.dayEditorSubtitle")}</p>
+        </section>
+        <TrainerDayEditorClient planId={planId} day={day} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="page">
+      <section className="card">
+        <h1 className="section-title">{t("training.manualPlanTitle")}</h1>
+        <p className="section-subtitle">{t("training.manualPlanSubtitle")}</p>
+      </section>
+      <TrainingPlanClient mode="manual" />
+    </div>
+  );
 }

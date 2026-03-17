@@ -14,7 +14,7 @@ test.describe('Core loop (demo anti-regression)', () => {
     page.on('request', trackWrite);
 
     try {
-      await page.goto('/app/today');
+      await page.goto('/app/hoy');
       const todayPage = page.getByTestId('today-page');
       await expect(todayPage).toBeVisible({ timeout: 10000 });
 
@@ -26,11 +26,11 @@ test.describe('Core loop (demo anti-regression)', () => {
 
       await quickActionTracking.click();
 
-      await page.waitForURL(/\/app\/progress\/check-in$/, { timeout: 10000 });
+      await page.waitForURL(/\/app\/seguimiento\/check-in$/, { timeout: 10000 });
       await expect(page.getByRole('heading', { name: /check-in/i })).toBeVisible({ timeout: 10000 });
 
       await page.reload();
-      await page.waitForURL(/\/app\/progress\/check-in$/, { timeout: 10000 });
+      await page.waitForURL(/\/app\/seguimiento\/check-in$/, { timeout: 10000 });
       await expect(page.getByRole('heading', { name: /check-in/i })).toBeVisible({ timeout: 10000 });
 
       expect(trackingWrites).toEqual([]);

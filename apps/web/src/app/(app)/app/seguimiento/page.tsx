@@ -1,24 +1,12 @@
-import { redirect } from "next/navigation";
+import TrackingClient from "./TrackingClient";
+import { redirectToOnboardingIfIncomplete } from "@/lib/server/profileGate";
 
-type Props = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
+export default async function TrackingPage() {
+  await redirectToOnboardingIfIncomplete("/app/seguimiento");
 
-function toQueryString(params?: Record<string, string | string[] | undefined>) {
-  if (!params) return "";
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (Array.isArray(value)) {
-      value.filter(Boolean).forEach((item) => query.append(key, item));
-      continue;
-    }
-    if (value) query.set(key, value);
-  }
-  const built = query.toString();
-  return built ? `?${built}` : "";
-}
-
-export default async function LegacyProgressPage({ searchParams }: Props) {
-  const params = searchParams ? await searchParams : undefined;
-  redirect(`/app/progress${toQueryString(params)}`);
+  return (
+    <div className="page">
+      <TrackingClient />
+    </div>
+  );
 }

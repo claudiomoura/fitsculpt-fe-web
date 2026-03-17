@@ -22,6 +22,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "repair:user-columns": "tsx scripts/repair-user-columns.ts",
+    "repair:profile-metrics": "tsx scripts/repair-corrupt-profile-metrics.ts",
     "test": "node scripts/run-tests.mjs",
     "verify-email": "tsx scripts/verify-email.ts",
     "db:seed": "prisma db seed",

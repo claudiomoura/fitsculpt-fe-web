@@ -20,7 +20,7 @@ const ACTIONS = [
     id: "weight",
     titleKey: "quickActions.recordWeight",
     descriptionKey: "quickActions.recordWeightDescription",
-    href: "/app/progress",
+    href: "/app/seguimiento",
   },
 ];
 

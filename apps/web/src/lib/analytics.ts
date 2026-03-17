@@ -1,15 +1,21 @@
 import posthog from "posthog-js";
 
 export type AnalyticsEventName =
+  | "onboarding_completed"
   | "today_view"
   | "today_cta_click"
   | "billing_checkout_started"
   | "billing_checkout_returned"
+  | "upgrade_started"
+  | "payment_success"
   | "training_start_clicked"
+  | "workout_started"
+  | "workout_completed"
   | "nutrition_log_opened"
   | "checkin_opened"
   | "checkin_saved"
-  | "nutrition_meal_logged";
+  | "nutrition_meal_logged"
+  | "meal_logged";
 
 export type AnalyticsEventProps = {
   target?: "training" | "nutrition" | "checkin" | "billing";

@@ -1,24 +1,16 @@
-import { redirect } from "next/navigation";
+import NutritionPlanClient from "../NutritionPlanClient";
+import { getServerT } from "@/lib/serverI18n";
 
-type Props = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
+export default async function NutritionPlanEditPage() {
+  const { t } = await getServerT();
 
-function toQueryString(params?: Record<string, string | string[] | undefined>) {
-  if (!params) return "";
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (Array.isArray(value)) {
-      value.filter(Boolean).forEach((item) => query.append(key, item));
-      continue;
-    }
-    if (value) query.set(key, value);
-  }
-  const built = query.toString();
-  return built ? `?${built}` : "";
-}
-
-export default async function LegacyNutritionEditPage({ searchParams }: Props) {
-  const params = searchParams ? await searchParams : undefined;
-  redirect(`/app/nutrition/edit${toQueryString(params)}`);
+  return (
+    <div className="page">
+      <section className="card">
+        <h1 className="section-title">{t("nutrition.manualPlanTitle")}</h1>
+        <p className="section-subtitle">{t("nutrition.manualPlanSubtitle")}</p>
+      </section>
+      <NutritionPlanClient mode="manual" />
+    </div>
+  );
 }

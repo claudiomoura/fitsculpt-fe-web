@@ -1,24 +1,7 @@
-import { redirect } from "next/navigation";
+import TrainingPlanClient from "./TrainingPlanClient";
+import { redirectToOnboardingIfIncomplete } from "@/lib/server/profileGate";
 
-type Props = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
-
-function toQueryString(params?: Record<string, string | string[] | undefined>) {
-  if (!params) return "";
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (Array.isArray(value)) {
-      value.filter(Boolean).forEach((item) => query.append(key, item));
-      continue;
-    }
-    if (value) query.set(key, value);
-  }
-  const built = query.toString();
-  return built ? `?${built}` : "";
-}
-
-export default async function LegacyTrainingPage({ searchParams }: Props) {
-  const params = searchParams ? await searchParams : undefined;
-  redirect(`/app/training${toQueryString(params)}`);
+export default async function TrainingPlanPage() {
+  await redirectToOnboardingIfIncomplete("/app/entrenamiento");
+  return <TrainingPlanClient mode="suggested" />;
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
+import { trackEvent } from "@/lib/analytics";
 import type { Workout, WorkoutExercise, WorkoutSession } from "@/lib/types";
 
 type WorkoutSessionClientProps = {
@@ -198,6 +199,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
         const data = (await response.json()) as WorkoutSession;
         setSession(data);
         setEntries(data.entries ?? []);
+        trackEvent("workout_started", { target: "training", origin: "session_start" });
       } catch (_err) {
         setError(t("workoutDetail.sessionStartError"));
       }
@@ -424,6 +426,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
       const updated = (await response.json()) as WorkoutSession;
       setSession(updated);
       notify({ title: "Sesión guardada", variant: "success" });
+      trackEvent("workout_completed", { target: "training", origin: "session_finish" });
     } catch (_err) {
       setError(t("workoutDetail.sessionFinishError"));
     } finally {

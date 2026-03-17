@@ -1,5 +1,6 @@
 const WORKOUT_FOCUS_ROUTE = /^\/app\/(entrenamiento|entrenamientos|training)\/[^/]+\/start$/;
 const MEAL_LOGGER_FOCUS_ROUTES = new Set([
+  "/app/nutricion/editar",
   "/app/nutrition/editar",
   "/app/nutrition/edit",
 ]);

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
+import { trackEvent } from "@/lib/analytics";
 import {
   defaultProfile,
   type Activity,
@@ -34,8 +35,6 @@ const FIRST_STEP = 0;
 const LAST_STEP = 5;
 
 type OnboardingDefaults = {
-  heightCm: number;
-  weightKg: number;
   activity: Activity;
   trainingPreferences: Pick<ProfileData["trainingPreferences"], "daysPerWeek" | "level" | "sessionTime" | "focus" | "workoutLength">;
   nutritionPreferences: Pick<ProfileData["nutritionPreferences"], "mealsPerDay" | "dietType" | "cookingTime" | "mealDistribution">;
@@ -57,13 +56,10 @@ const renderFieldLabel = (label: string, required = false) => (
 
 const getOnboardingDefaults = (sex: Sex | "", age: number | null): OnboardingDefaults => {
   const ageValue = age ?? 30;
-  const isFemale = sex === "female";
   const isYoungAdult = ageValue < 30;
   const isOlderAdult = ageValue >= 45;
 
   return {
-    heightCm: isFemale ? 162 : 175,
-    weightKg: isFemale ? 64 : 78,
     activity: isYoungAdult ? "moderate" : isOlderAdult ? "light" : "moderate",
     trainingPreferences: {
       daysPerWeek: isOlderAdult ? 3 : 4,
@@ -85,8 +81,6 @@ const applyOnboardingDefaults = (profile: ProfileData, sex: Sex | "", age: numbe
   const defaults = getOnboardingDefaults(sex, age);
   return {
     ...profile,
-    heightCm: profile.heightCm ?? defaults.heightCm,
-    weightKg: profile.weightKg ?? defaults.weightKg,
     activity: profile.activity || defaults.activity,
     trainingPreferences: {
       ...profile.trainingPreferences,
@@ -216,9 +210,9 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
     }
   }, []);
 
-  useState(() => {
+  useEffect(() => {
     void loadProfile();
-  });
+  }, [loadProfile]);
 
 
   const objectiveOptions: Array<{ value: Goal; label: string }> = useMemo(
@@ -339,7 +333,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   const goToNext = () => setStep((current) => Math.min(current + 1, LAST_STEP));
   const goToBack = () => {
     if (step === FIRST_STEP) {
-      router.push("/app");
+      router.push("/app/hoy");
       return;
     }
     setStep((current) => Math.max(current - 1, FIRST_STEP));
@@ -347,18 +341,18 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   const continueAfterSuccess = () => {
     if (ai === "training") {
-      router.push("/app/training?ai=1");
+      router.push("/app/entrenamiento?ai=1");
       return;
     }
     if (ai === "nutrition") {
-      router.push("/app/nutrition?ai=1");
+      router.push("/app/nutricion?ai=1");
       return;
     }
     if (nextUrl) {
       router.push(nextUrl);
       return;
     }
-    router.push("/app");
+    router.push("/app/hoy");
   };
 
   const saveProfile = useCallback(async () => {
@@ -378,19 +372,24 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       const data = (await response.json()) as Partial<ProfileData> | null;
       setProfile(mergeProfileData(data ?? profile));
       setSaveState("success");
+      trackEvent("onboarding_completed", { origin: "onboarding" });
     } catch (_err) {
       setSaveState("error");
     }
   }, [profile]);
 
-  const isStepValid = (step === 0 && hasPositiveNumber(profile.age)) || step > 0;
+  const hasValidBasics =
+    hasPositiveNumber(profile.age) &&
+    hasPositiveNumber(profile.heightCm) &&
+    hasPositiveNumber(profile.weightKg);
+  const isStepValid = (step === 0 && hasValidBasics) || step > 0;
 
   if (loadState === "loading") {
     return <div className="page"><section className="card"><h2 className="section-title">{t("onboarding.title")}</h2><p className="section-subtitle">{t("onboarding.loadingState")}</p></section></div>;
   }
 
   if (loadState === "error") {
-    return <div className="page"><section className="card form-stack"><h2 className="section-title">{t("onboarding.errorTitle")}</h2><p className="section-subtitle">{t("onboarding.errorSubtitle")}</p><div style={{ display: "flex", gap: 10 }}><button type="button" className="btn" onClick={() => void loadProfile()}>{t("onboarding.retry")}</button><button type="button" className="btn secondary" onClick={() => router.push("/app")}>{t("onboarding.back")}</button></div></section></div>;
+    return <div className="page"><section className="card form-stack"><h2 className="section-title">{t("onboarding.errorTitle")}</h2><p className="section-subtitle">{t("onboarding.errorSubtitle")}</p><div style={{ display: "flex", gap: 10 }}><button type="button" className="btn" onClick={() => void loadProfile()}>{t("onboarding.retry")}</button><button type="button" className="btn secondary" onClick={() => router.push("/app/hoy")}>{t("onboarding.back")}</button></div></section></div>;
   }
 
   if (loadState === "empty") {

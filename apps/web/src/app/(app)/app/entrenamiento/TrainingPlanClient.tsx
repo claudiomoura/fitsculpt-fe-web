@@ -997,7 +997,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       return;
     }
     if (!isProfileComplete(profile)) {
-      router.push("/app/onboarding?ai=training&next=/app/training");
+      router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
       return;
     }
     aiGenerationInFlight.current = true;
@@ -1171,7 +1171,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       return;
     }
     if (!isProfileComplete(profile)) {
-      router.push("/app/onboarding?ai=training&next=/app/training");
+      router.push("/app/onboarding?ai=training&next=/app/entrenamiento");
       return;
     }
     setAiActionableError(null);
@@ -1317,13 +1317,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
       if (!workoutId) {
         notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
-        router.push("/app/training");
+        router.push("/app/entrenamiento");
         return;
       }
-      router.push(`/app/training/${encodeURIComponent(workoutId)}/start`);
+      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}/start`);
     } catch (_err) {
       notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
-      router.push("/app/training");
+      router.push("/app/entrenamiento");
     } finally {
       setStartCtaLoading(false);
     }
@@ -1337,13 +1337,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
       if (!workoutId) {
         notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-        router.push("/app/training");
+        router.push("/app/entrenamiento");
         return;
       }
-      router.push(`/app/training/${encodeURIComponent(workoutId)}`);
+      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}`);
     } catch (_err) {
       notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-      router.push("/app/training");
+      router.push("/app/entrenamiento");
     } finally {
       setDetailsCtaLoading(false);
     }
@@ -1356,13 +1356,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       const workoutId = nextPlannedWorkoutId ?? (await ensureWorkoutIdForEntry(nextPlannedEntry));
       if (!workoutId) {
         notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-        router.push("/app/training");
+        router.push("/app/entrenamiento");
         return;
       }
-      router.push(`/app/training/${encodeURIComponent(workoutId)}`);
+      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}`);
     } catch (_err) {
       notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
-      router.push("/app/training");
+      router.push("/app/entrenamiento");
     } finally {
       setDetailsCtaLoading(false);
     }
@@ -1545,12 +1545,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   ? [
                     { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
                     { label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" },
-                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/training/edit", variant: "secondary" },
+                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]
                   : [
                     { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
-                    { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/training?ai=1", variant: "secondary" },
-                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/training/edit", variant: "secondary" },
+                    { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
+                    { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]}
               />
               {isAiLocked ? (

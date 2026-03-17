@@ -441,7 +441,7 @@ export default function GymPageClient() {
           </CardHeader>
           <CardContent>
             <div className="gym-actions-row">
-              {isMembershipActive ? <ButtonLink href="/app/training">{t("gym.membership.active.planButton")}</ButtonLink> : null}
+              {isMembershipActive ? <ButtonLink href="/app/entrenamiento">{t("gym.membership.active.planButton")}</ButtonLink> : null}
               {canOpenAdmin ? (
                 <Link href="/app/gym/admin" className="btn secondary fit-content">
                   {t("gym.admin.goToPanel")}

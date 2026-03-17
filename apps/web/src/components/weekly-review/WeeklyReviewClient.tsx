@@ -61,7 +61,7 @@ export default function WeeklyReviewClient() {
       <EmptyState
         title={t("weeklyReview.emptyTitle")}
         description={t("weeklyReview.emptyDescription")}
-        actions={[{ label: t("weeklyReview.emptyCta"), href: "/app/today", variant: "primary" }]}
+        actions={[{ label: t("weeklyReview.emptyCta"), href: "/app/hoy", variant: "primary" }]}
         wrapInCard
       />
     );

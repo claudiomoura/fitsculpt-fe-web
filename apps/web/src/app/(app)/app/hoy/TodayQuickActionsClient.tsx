@@ -23,11 +23,11 @@ import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
 
-const trainingRoute = "/app/training";
+const trainingRoute = "/app/entrenamiento";
 const billingRoute = "/app/settings/billing";
-const manualPlanRoute = "/app/training/edit";
-const aiPlanRoute = "/app/training?ai=1";
-const checkinRoute = "/app/progress/check-in";
+const manualPlanRoute = "/app/entrenamiento/editar";
+const aiPlanRoute = "/app/entrenamiento?ai=1";
+const checkinRoute = "/app/seguimiento/check-in";
 
 type ViewStatus = "loading" | "success" | "error";
 type TrainingState = "workout" | "rest" | "no-plan";
@@ -269,6 +269,7 @@ export default function TodayQuickActionsClient() {
         checkins: [],
         mealLog: [],
       };
+      const todayDateKey = toDateKey(new Date());
 
       if (authMeResponse.ok) {
         const authMe = (await authMeResponse.json()) as AuthMeResponse;
@@ -286,6 +287,12 @@ export default function TodayQuickActionsClient() {
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
         nextSignals.streakDays = getStreakDays(trackingPayload);
+        const todaysMealLog = (trackingPayload.mealLog ?? []).filter((entry) => entry.date === todayDateKey);
+        nextSignals.nutritionMealsLogged = todaysMealLog.length;
+        nextSignals.nutritionConsumedCalories = Math.round(
+          todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.calories) ? Number(entry.calories) : 0), 0),
+        );
+        nextSignals.nutritionReady = todaysMealLog.length > 0;
       }
 
       if (activeTrainingResponse.ok) {
@@ -324,13 +331,15 @@ export default function TodayQuickActionsClient() {
               const adherenceStore = buildNutritionAdherenceStoreFromMealLog(trackingPayload.mealLog ?? []);
               const consumedMealKeys = new Set(adherenceStore[nutritionDayKey] ?? []);
               nextSignals.nutritionMealsTotal = nutritionDay.meals.length;
-              nextSignals.nutritionMealsLogged = nutritionDay.meals.reduce((count, meal, index) => count + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? 1 : 0), 0);
-              nextSignals.nutritionConsumedCalories = Math.round(
-                nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.calories) ? meal.calories : 0) : 0), 0),
-              );
-              nextSignals.nutritionReady = nextSignals.nutritionMealsLogged > 0;
+              if (nextSignals.nutritionMealsLogged === 0) {
+                nextSignals.nutritionMealsLogged = nutritionDay.meals.reduce((count, meal, index) => count + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? 1 : 0), 0);
+                nextSignals.nutritionConsumedCalories = Math.round(
+                  nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.calories) ? meal.calories : 0) : 0), 0),
+                );
+                nextSignals.nutritionReady = nextSignals.nutritionMealsLogged > 0;
+              }
             } else {
-              nextSignals.nutritionReady = false;
+              nextSignals.nutritionReady = nextSignals.nutritionMealsLogged > 0;
             }
           }
         }
@@ -368,13 +377,6 @@ export default function TodayQuickActionsClient() {
   const checkinProgressPercent = signals.checkinDoneThisWeek ? 100 : 35;
   const aiLockReason = signals.aiTokenBalance <= 0 ? "Sin tokens" : !hasAiAccess ? "Plan bloqueado" : null;
 
-  const trainingDescription =
-    signals.trainingState === "workout"
-      ? signals.trainingName
-      : signals.trainingState === "rest"
-        ? t("today.trainingStateRest")
-        : t("today.trainingStateNoPlan");
-
   const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
   const trainingMeta =
     signals.trainingState === "workout"
@@ -403,6 +405,7 @@ export default function TodayQuickActionsClient() {
       return;
     }
     trackEvent("training_start_clicked", { target: "training", origin: "today" });
+    trackEvent("workout_started", { target: "training", origin: "today" });
     router.push(signals.trainingState === "workout" ? todayTrainingHref : trainingRoute);
   };
 
@@ -434,7 +437,7 @@ export default function TodayQuickActionsClient() {
                   <p className="m-0 text-sm font-semibold text-emerald-300">Check-in guardado</p>
                   <p className="m-0 mt-1 text-sm text-muted">Tu progreso de hoy ya se ha actualizado con tus métricas reales.</p>
                 </div>
-                <ButtonLink as={Link} href="/app/progress" variant="secondary" className="fit-content">
+                <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" className="fit-content">
                   Ver progreso
                 </ButtonLink>
               </div>
@@ -477,23 +480,6 @@ export default function TodayQuickActionsClient() {
           <div className="grid gap-4 md:grid-cols-2" data-testid="today-actions-grid">
             <section className="card premium-fade-up" data-testid="today-action-card">
               <div className="mb-5 flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
-                  <PremiumWorkoutIcon width={28} height={28} className="text-primary" />
-                </div>
-                <div>
-                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Entrenamiento</p>
-                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Semana actual</h2>
-                </div>
-              </div>
-
-              <p className="mb-4 text-sm text-muted">{trainingDescription}</p>
-              <Button variant="secondary" className="flex h-12 w-full rounded-xl font-medium" onClick={() => router.push(trainingRoute)}>
-                Abrir entrenamiento
-              </Button>
-            </section>
-
-            <section className="card premium-fade-up" data-testid="today-action-card">
-              <div className="mb-5 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/20">
                   <PremiumNutritionIcon width={28} height={28} className="text-success" />
                 </div>
@@ -517,7 +503,7 @@ export default function TodayQuickActionsClient() {
                 </div>
               </div>
 
-              <ButtonLink as={Link} href="/app/nutrition" variant="secondary" className="flex h-12 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
+              <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="flex h-12 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
                 Registrar comida
               </ButtonLink>
             </section>

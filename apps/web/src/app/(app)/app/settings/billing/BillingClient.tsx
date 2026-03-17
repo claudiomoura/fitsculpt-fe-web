@@ -212,6 +212,7 @@ setPlans([]);
 
       if (shouldSync) {
         trackEvent("billing_checkout_returned", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });
+        trackEvent("payment_success", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });
         await refetchProfile();
         router.replace(safeReturnTo ?? "/app/settings/billing");
       }
@@ -250,6 +251,7 @@ setPlans([]);
 
     try {
       trackEvent("billing_checkout_started", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });
+      trackEvent("upgrade_started", { target: "billing", origin: "billing", returnTo: safeReturnTo ?? "/app/settings/billing" });
       const response = await postBillingCheckout(selectedPlanId, safeReturnTo ?? "/app/settings/billing");
       const data = (await response.json()) as BillingRedirectResponse;
 

@@ -55,7 +55,7 @@ describe("AppNavBar", () => {
 
     const activeLink = container.querySelector('a[aria-current="page"]');
     expect(activeLink).not.toBeNull();
-    expect(activeLink).toHaveAttribute("href", "/app/training");
+    expect(activeLink).toHaveAttribute("href", "/app/entrenamiento");
   });
 
 

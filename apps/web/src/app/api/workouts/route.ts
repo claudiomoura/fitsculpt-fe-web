@@ -1,51 +1,29 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getBackendUrl } from "@/lib/backend";
+import { fetchBackend } from "@/app/api/gyms/_proxy";
+import { jsonBffError } from "@/app/api/_utils/normalizeBffError";
 
-async function getAuthCookie() {
-  const token = (await cookies()).get("fs_token")?.value;
-  return token ? `fs_token=${token}` : null;
-}
-
-export async function GET() {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+export async function GET(request?: Request) {
+  const result = await fetchBackend("/workouts", { request });
+  if (result.status === 401) {
+    return jsonBffError({ status: 401 });
   }
-
-  try {
-    const response = await fetch(`${getBackendUrl()}/workouts`, {
-      headers: { cookie: authCookie },
-      cache: "no-store",
-    });
-
-    const data = await response.json().catch(() => null);
-    return NextResponse.json(data, { status: response.status });
-  } catch {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
-  }
+  return NextResponse.json(result.payload, { status: result.status });
 }
 
 export async function POST(request: Request) {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const payload = await request.json().catch(() => undefined);
+  if (payload === undefined) {
+    return jsonBffError({ status: 400, type: "validation" });
   }
 
-  const body = await request.json();
-  try {
-    const response = await fetch(`${getBackendUrl()}/workouts`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        cookie: authCookie,
-      },
-      body: JSON.stringify(body),
-    });
+  const result = await fetchBackend("/workouts", {
+    method: "POST",
+    body: payload,
+    request,
+  });
 
-    const data = await response.json().catch(() => null);
-    return NextResponse.json(data, { status: response.status });
-  } catch {
-    return NextResponse.json({ error: "BACKEND_UNAVAILABLE" }, { status: 502 });
-  }
+  if (result.status === 401) return jsonBffError({ status: 401 });
+  if (result.status === 400) return jsonBffError({ status: 400, type: "validation" });
+  if (result.status === 404) return NextResponse.json(result.payload, { status: 404 });
+  return NextResponse.json(result.payload, { status: result.status });
 }

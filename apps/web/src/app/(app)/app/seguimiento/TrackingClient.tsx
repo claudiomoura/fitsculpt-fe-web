@@ -109,6 +109,44 @@ type TrackingClientProps = {
   view?: "all" | "checkin";
 };
 
+function buildProfileSnapshotFallback(profile: ProfileData): CheckinEntry | null {
+  const weightKg = Number(profile.weightKg ?? 0);
+  const bodyFatPercent = Number(profile.measurements.bodyFatPercent ?? 0);
+  const waistCm = Number(profile.measurements.waistCm ?? 0);
+  const chestCm = Number(profile.measurements.chestCm ?? 0);
+  const hipsCm = Number(profile.measurements.hipsCm ?? 0);
+  const bicepsCm = Number(profile.measurements.bicepsCm ?? 0);
+  const thighCm = Number(profile.measurements.thighCm ?? 0);
+  const calfCm = Number(profile.measurements.calfCm ?? 0);
+  const neckCm = Number(profile.measurements.neckCm ?? 0);
+
+  const hasAnyMetric = [weightKg, bodyFatPercent, waistCm, chestCm, hipsCm, bicepsCm, thighCm, calfCm, neckCm].some(
+    (value) => Number.isFinite(value) && value > 0,
+  );
+
+  if (!hasAnyMetric) return null;
+
+  return {
+    id: "profile-snapshot",
+    date: new Date().toISOString().slice(0, 10),
+    weightKg: Number.isFinite(weightKg) ? weightKg : 0,
+    chestCm: Number.isFinite(chestCm) ? chestCm : 0,
+    waistCm: Number.isFinite(waistCm) ? waistCm : 0,
+    hipsCm: Number.isFinite(hipsCm) ? hipsCm : 0,
+    bicepsCm: Number.isFinite(bicepsCm) ? bicepsCm : 0,
+    thighCm: Number.isFinite(thighCm) ? thighCm : 0,
+    calfCm: Number.isFinite(calfCm) ? calfCm : 0,
+    neckCm: Number.isFinite(neckCm) ? neckCm : 0,
+    bodyFatPercent: Number.isFinite(bodyFatPercent) ? bodyFatPercent : 0,
+    energy: 0,
+    hunger: 0,
+    notes: "",
+    recommendation: "",
+    frontPhotoUrl: null,
+    sidePhotoUrl: null,
+  };
+}
+
 type ProgressInsightTab = "checkin" | "nutrition" | "training";
 
 export default function TrackingClient({ view = "all" }: TrackingClientProps) {
@@ -735,10 +773,11 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     }));
   }, [checkinsInRange, supportsBodyFat]);
 
-  const sortedCheckins = useMemo(
-    () => [...checkins].sort((a, b) => b.date.localeCompare(a.date)),
-    [checkins]
-  );
+  const fallbackProfileCheckin = useMemo(() => buildProfileSnapshotFallback(profile), [profile]);
+  const sortedCheckins = useMemo(() => {
+    const source = checkins.length > 0 ? checkins : fallbackProfileCheckin ? [fallbackProfileCheckin] : [];
+    return [...source].sort((a, b) => b.date.localeCompare(a.date));
+  }, [checkins, fallbackProfileCheckin]);
   const latestCheckin = sortedCheckins[0];
   const rangeFirstCheckin = checkinChart[0] ?? null;
   const rangeLastCheckin = checkinChart[checkinChart.length - 1] ?? null;

@@ -253,7 +253,7 @@ export default function TrainerPlansPageClient() {
       });
       await loadPlans();
       await loadPlanDetail(result.data.id);
-      router.push(`/app/training/editar?planId=${result.data.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`);
+      router.push(`/app/entrenamiento/editar?planId=${result.data.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`);
     } catch {
       setCreateError(true);
       setCreateErrorMessage(t("trainer.plans.createError"));
@@ -461,7 +461,7 @@ export default function TrainerPlansPageClient() {
                             >
                               {t("trainer.plans.actions.delete")}
                             </Button>
-                            <ButtonLink href={`/app/training/editar?planId=${plan.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`} variant="secondary">
+                            <ButtonLink href={`/app/entrenamiento/editar?planId=${plan.id}&day=${encodeURIComponent(new Date().toISOString().slice(0, 10))}`} variant="secondary">
                               {t("trainer.plans.editDay")}
                             </ButtonLink>
                           </div>
@@ -497,7 +497,7 @@ export default function TrainerPlansPageClient() {
                   <article key={day.id} className="feature-card form-stack">
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       <strong>{day.label}</strong>
-                      <Link className="btn secondary" href={`/app/training/editar?planId=${detail.item?.id ?? ""}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>{t("trainer.plans.editDay")}</Link>
+                      <Link className="btn secondary" href={`/app/entrenamiento/editar?planId=${detail.item?.id ?? ""}&day=${encodeURIComponent(day.date.slice(0, 10))}`}>{t("trainer.plans.editDay")}</Link>
                       <Button
                         variant="ghost"
                         size="sm"

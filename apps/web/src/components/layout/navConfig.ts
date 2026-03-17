@@ -21,10 +21,10 @@ export type NavSectionGroup = {
 };
 
 const TOP_LEVEL_ROUTE_ALIASES = [
-  { canonical: "/app/today", legacy: "/app/today" },
-  { canonical: "/app/training", legacy: "/app/training" },
-  { canonical: "/app/nutrition", legacy: "/app/nutrition" },
-  { canonical: "/app/progress", legacy: "/app/progress" },
+  { canonical: "/app/hoy", legacy: "/app/today" },
+  { canonical: "/app/entrenamiento", legacy: "/app/training" },
+  { canonical: "/app/nutricion", legacy: "/app/nutrition" },
+  { canonical: "/app/seguimiento", legacy: "/app/progress" },
 ] as const;
 
 function canonicalizePath(path: string): string {
@@ -70,23 +70,23 @@ export type MobileTab = {
 export const mainTabsMobile: MobileTab[] = [
   {
     id: "today",
-    href: "/app/today",
+    href: "/app/hoy",
     label: "Hoy",
     icon: "tab-home",
   },
   {
     id: "training",
-    href: "/app/training",
+    href: "/app/entrenamiento",
     label: "Entreno",
     icon: "tab-workout",
   },
   {
     id: "nutrition",
-    href: "/app/nutrition",
+    href: "/app/nutricion",
     label: "Nutrición",
     icon: "tab-nutrition",
   },
-  { id: "tracking", href: "/app/progress", label: "Progreso", icon: "tab-progress" },
+  { id: "tracking", href: "/app/seguimiento", label: "Progreso", icon: "tab-progress" },
   { id: "profile", href: "/app/profile", label: "Perfil", icon: "tab-profile" },
 ];
 
@@ -129,8 +129,8 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "fitness",
     labelKey: "navSections.fitness",
     items: [
-      { id: "today", href: "/app/today", labelKey: "nav.today" },
-      { id: "training", href: "/app/training", labelKey: "nav.trainingCalendar" },
+      { id: "today", href: "/app/hoy", labelKey: "nav.today" },
+      { id: "training", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
       { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
       { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
     ],
@@ -139,7 +139,7 @@ export const sidebarUser: NavSectionGroup[] = [
     id: "nutrition",
     labelKey: "navSections.nutrition",
     items: [
-      { id: "nutrition-calendar", href: "/app/nutrition", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
@@ -150,7 +150,7 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.account",
     items: [
       { id: "dashboard", href: "/app", labelKey: "nav.progress" },
-      { id: "tracking", href: "/app/progress", labelKey: "nav.tracking" },
+      { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
       { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
       { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
@@ -242,20 +242,20 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         meta: "/app/trainer/exercises/new",
       },
       { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
-      { id: "dev-dashboard", href: "/app/today", labelKey: "nav.dashboard", meta: "/app/dashboard" },
+      { id: "dev-dashboard", href: "/app/hoy", labelKey: "nav.dashboard", meta: "/app/dashboard" },
       { id: "dev-weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview", meta: "/app/weekly-review" },
-      { id: "dev-workouts", href: "/app/training", labelKey: "nav.workouts", meta: "/app/training" },
+      { id: "dev-workouts", href: "/app/entrenamiento", labelKey: "nav.workouts", meta: "/app/entrenamiento" },
       {
         id: "dev-training-edit",
-        href: "/app/training/editar",
+        href: "/app/entrenamiento/editar",
         labelKey: "nav.trainingEditor",
-        meta: "/app/training/editar",
+        meta: "/app/entrenamiento/editar",
       },
       {
         id: "dev-nutrition-edit",
-        href: "/app/nutrition/editar",
+        href: "/app/nutricion/editar",
         labelKey: "nav.nutritionEditor",
-        meta: "/app/nutrition/editar",
+        meta: "/app/nutricion/editar",
       },
       {
         id: "dev-profile-legacy",

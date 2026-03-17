@@ -38,14 +38,14 @@ describe("navConfig", () => {
     const nutritionSection = sidebarUser.find((section) => section.id === "nutrition");
 
     expect(fitnessSection?.items.map((item) => item.href)).toEqual([
-      "/app/today",
-      "/app/training",
+      "/app/hoy",
+      "/app/entrenamiento",
       "/app/biblioteca",
       "/app/biblioteca/entrenamientos",
     ]);
 
     expect(nutritionSection?.items.map((item) => item.href)).toEqual([
-      "/app/nutrition",
+      "/app/nutricion",
       "/app/biblioteca/recetas",
       "/app/dietas",
       "/app/macros",
@@ -54,10 +54,10 @@ describe("navConfig", () => {
 
   it("defines USER mobile tabs as the v0 five core routes", () => {
     expect(mainTabsMobile.map((tab) => tab.href)).toEqual([
-      "/app/today",
-      "/app/training",
-      "/app/nutrition",
-      "/app/progress",
+      "/app/hoy",
+      "/app/entrenamiento",
+      "/app/nutricion",
+      "/app/seguimiento",
       "/app/profile",
     ]);
   });

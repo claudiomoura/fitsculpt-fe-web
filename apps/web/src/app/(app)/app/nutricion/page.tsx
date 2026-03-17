@@ -1,24 +1,22 @@
-import { redirect } from "next/navigation";
+import NutritionPlanClient from "./NutritionPlanClient";
+import { getServerT } from "@/lib/serverI18n";
+import { redirectToOnboardingIfIncomplete } from "@/lib/server/profileGate";
 
-type Props = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
+export default async function NutritionPlanPage() {
+  await redirectToOnboardingIfIncomplete("/app/nutricion");
+  const { t } = await getServerT();
 
-function toQueryString(params?: Record<string, string | string[] | undefined>) {
-  if (!params) return "";
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (Array.isArray(value)) {
-      value.filter(Boolean).forEach((item) => query.append(key, item));
-      continue;
-    }
-    if (value) query.set(key, value);
-  }
-  const built = query.toString();
-  return built ? `?${built}` : "";
-}
-
-export default async function LegacyNutritionPage({ searchParams }: Props) {
-  const params = searchParams ? await searchParams : undefined;
-  redirect(`/app/nutrition${toQueryString(params)}`);
+  return (
+    <div className="page">
+      <section className="card">
+        <div className="page-header">
+          <div className="page-header-body">
+            <h1 className="section-title">{t("app.nutritionTitle")}</h1>
+            <p className="section-subtitle">{t("app.nutritionSubtitle")}</p>
+          </div>
+        </div>
+      </section>
+      <NutritionPlanClient />
+    </div>
+  );
 }

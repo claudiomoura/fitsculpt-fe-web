@@ -10,7 +10,7 @@ export default async function AppHomePage() {
   const sessionRole = token ? readSessionRole(token) : "UNKNOWN";
 
   if (sessionRole === "USER") {
-    redirect("/app/today");
+    redirect("/app/hoy");
   }
 
   const { t } = await getServerT();

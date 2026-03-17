@@ -93,7 +93,7 @@ import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 import { registerAiRoutes } from "./domains/ai/registerAiRoutes.js";
 import { registerBillingRoutes } from "./domains/billing/registerBillingRoutes.js";
-import { registerGymRoutes } from "./domains/gym/registerGymRoutes.js";
+import { registerWorkoutRoutes } from "./domains/training/registerWorkoutRoutes.js";
 import { registerTrainingRoutes } from "./domains/training/registerTrainingRoutes.js";
 import { registerNutritionRoutes } from "./domains/nutrition/registerNutritionRoutes.js";
 import {
@@ -1332,10 +1332,10 @@ const macroPreferencesSchema = z.object({
 const profileSchema = z.object({
   name: z.string(),
   sex: z.enum(["male", "female"]),
-  age: z.number(),
-  heightCm: z.number(),
-  weightKg: z.number(),
-  goalWeightKg: z.number(),
+  age: z.number().positive(),
+  heightCm: z.number().positive(),
+  weightKg: z.number().positive(),
+  goalWeightKg: z.number().positive(),
   goal: z.enum(["cut", "maintain", "bulk"]),
   goals: z.array(goalTagSchema),
   activity: z.enum(["sedentary", "light", "moderate", "very", "extra"]),
@@ -1366,6 +1366,14 @@ const profileUpdateSchema = profileSchema.partial().extend({
   macroPreferences: macroPreferencesSchema.partial().optional(),
   measurements: profileSchema.shape.measurements.partial().optional(),
 });
+
+function normalizeInvalidPositiveMetric(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "number") return null;
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return value;
+}
 
 function isProfileComplete(profile: Record<string, unknown> | null) {
   if (!profile) return false;
@@ -6293,6 +6301,12 @@ app.put("/profile", async (request, reply) => {
         ...data.macroPreferences,
       },
     };
+
+    const mutableProfile = nextProfile as Record<string, unknown>;
+    mutableProfile.age = normalizeInvalidPositiveMetric(mutableProfile.age);
+    mutableProfile.heightCm = normalizeInvalidPositiveMetric(mutableProfile.heightCm);
+    mutableProfile.weightKg = normalizeInvalidPositiveMetric(mutableProfile.weightKg);
+    mutableProfile.goalWeightKg = normalizeInvalidPositiveMetric(mutableProfile.goalWeightKg);
     if (
       nextProfile.trainingPreferences &&
       typeof nextProfile.trainingPreferences === "object"
@@ -7206,6 +7220,15 @@ registerTrainingRoutes(app, {
   trainingPlanActiveQuerySchema,
   trainingDayParamsSchema,
   addTrainingExerciseBodySchema,
+});
+
+registerWorkoutRoutes(app, {
+  prisma,
+  requireUser,
+  handleRequestError,
+  workoutCreateSchema,
+  workoutUpdateSchema,
+  workoutSessionUpdateSchema,
 });
 
 const adminCreateUserSchema = z.object({
