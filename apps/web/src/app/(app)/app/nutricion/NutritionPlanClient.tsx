@@ -2303,9 +2303,9 @@ const nutritionPlanDetails = profile ? (
               <section className="card">
             <div className="section-head section-head-actions">
               <div>
-                <h2 className="section-title section-title-sm">{t("nutrition.formTitle")}</h2>
+                <h2 className="section-title section-title-sm">Hoy</h2>
                 {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
-                <p className="section-subtitle">{t("nutrition.tips")}</p>
+                <p className="section-subtitle">Registra primero lo de hoy. El plan semanal queda como referencia.</p>
               </div>
 
               <div className="section-actions plan-page-actions">
@@ -2419,17 +2419,17 @@ const nutritionPlanDetails = profile ? (
           </section>
 
               {!loading && !error ? (
-                <section className="card nutrition-v2-layout" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+                <section id="nutrition-today-log" className="card nutrition-v2-layout" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
                   <div className="feature-card stack-sm">
                     <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
                       <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
-                        <h2 className="section-title section-title-sm m-0">{t("app.nutritionTitle")}</h2>
+                        <h2 className="section-title section-title-sm m-0">Tu log de hoy</h2>
                         <p className="section-subtitle m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</p>
                         {assignedPlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{assignedPlanTitle}</p> : null}
                       </div>
-                      <Button className="nutrition-dominant-cta" data-testid="nutrition-generate-ai" loading={aiLoading} onClick={handleGenerateClick} disabled={isAiDisabled}>
-                        {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                      </Button>
+                      <ButtonLink className="nutrition-dominant-cta" data-testid="nutrition-open-today-log" href="#nutrition-today-log">
+                        Registrar comidas de hoy
+                      </ButtonLink>
                     </div>
                     <div className="stack-xs">
                       <div className="inline-actions-space">
@@ -2437,6 +2437,7 @@ const nutritionPlanDetails = profile ? (
                         <strong>{highlightedMealsProgress}%</strong>
                       </div>
                       <ProgressBar value={highlightedMealsProgress} max={100} aria-label={t("nutrition.dailyTargetTitle")} />
+                      <p className="muted m-0 text-xs">El quick log se guarda solo en este dispositivo hasta tener soporte backend duradero.</p>
                     </div>
                   </div>
 

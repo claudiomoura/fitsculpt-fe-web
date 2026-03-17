@@ -62,3 +62,11 @@ Plantilla rápida:
 ## Resultado de esta versión
 
 Este documento se considera la guía **final de ejecución RC** para cierre de demo/release.
+
+
+## Validaciones añadidas por el sprint premium
+
+- Today 3 acciones: validar que `/app/hoy` no exponga más de 3 CTAs primarias.
+- Billing return path: validar bloqueo premium -> billing -> checkout success -> retorno al origen.
+- Training focus: validar que `/app/entrenamiento/[workoutId]/start` no muestre nav global.
+- Profile canonical: validar `/app/profile` como home de cuenta y `/app/profile/legacy` como redirect.

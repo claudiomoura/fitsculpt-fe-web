@@ -161,3 +161,17 @@ Información mínima para escalar:
 - `trace.zip` de Playwright,
 - comando exacto ejecutado y timestamp,
 - endpoint afectado + status code.
+
+## 6) Gates funcionales beta (UX/IA actual)
+
+- Rutas canónicas de usuario:
+  - `/app/hoy`
+  - `/app/entrenamiento`
+  - `/app/nutricion`
+  - `/app/seguimiento`
+  - `/app/profile`
+- Today debe mostrar 3 acciones primarias máximas: entrenamiento, nutrición, check-in.
+- Workout focus debe abrir bajo `/app/entrenamiento/[workoutId]/start` y ocultar chrome global.
+- Billing premium debe volver al origen cuando llega desde bloqueo con `returnTo`.
+- Nutrición: el quick log sigue siendo local al dispositivo; no tratarlo como persistencia backend.
+- Si alguno de estos puntos falla: NO-GO para beta.

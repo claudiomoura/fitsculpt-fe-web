@@ -155,6 +155,10 @@ export default function SettingsClient() {
           {t("app.settingsTitle")}
         </h1>
         <p className="section-subtitle">{t("settings.subtitle")}</p>
+        <div className="inline-actions-sm">
+          <a className="btn" href="/app/profile/edit">Editar perfil</a>
+          <a className="btn secondary" href="/app/settings/billing">Facturación</a>
+        </div>
       </header>
 
       <div className="list-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>

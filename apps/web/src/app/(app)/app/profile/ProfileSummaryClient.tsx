@@ -111,6 +111,10 @@ export default function ProfileSummaryClient() {
       <section className={`card ${styles.userCard}`}>
         <p className={styles.userName}>{displayName}</p>
         <p className={styles.userEmail}>{displayEmail}</p>
+        <div className="inline-actions-sm mt-8">
+          <a className="btn" href="/app/profile/edit">Completar perfil</a>
+          <a className="btn secondary" href="/app/settings">Ajustes</a>
+        </div>
       </section>
 
       <section className={`card ${styles.planCard}`}>

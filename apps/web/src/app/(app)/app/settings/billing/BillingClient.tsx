@@ -348,6 +348,7 @@ setPlans([]);
               <CardDescription>{t("billing.planSelectionDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="stack-md">
+              <p className="muted m-0 text-sm">Elige el siguiente plan y continúa al checkout. Si llegaste desde un bloqueo premium, volverás a esa acción al terminar.</p>
               {billingState === "not_available" ? (
                 <EmptyState
                   title={t("billing.notAvailableTitle")}

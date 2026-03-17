@@ -1010,7 +1010,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   }
 
   return (
-    <div className={isCheckinOnly ? "tracking-checkin-only-body" : "page page-with-tabbar-safe-area"}>
+    <div className={isCheckinOnly ? "tracking-checkin-only-body" : "page page-with-tabbar-safe-area"} data-testid="tracking-page">
       {actionMessage && (
         <div className="toast" role="status" aria-live="polite">
           {actionMessage}
@@ -1023,9 +1023,14 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               <h2 className="section-title" style={{ fontSize: 24 }}>{t("app.trackingTitle")}</h2>
               <p className="section-subtitle">{t("app.trackingSubtitle")}</p>
             </div>
-            <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
-              Nuevo check-in
-            </button>
+            <div className="inline-actions-sm">
+              <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
+                Nuevo check-in
+              </button>
+              <a className="btn secondary" href="/app/weekly-review">
+                Ver review semanal
+              </a>
+            </div>
           </div>
           <div className={styles.segmentedControl} role="tablist" aria-label="Rango">
             {[
@@ -1051,6 +1056,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       {!isCheckinOnly ? (
         <section className="card">
           <div className={styles.insightTabs} role="tablist" aria-label={t("tracking.insightsLabel")}>
+            <p className="muted m-0 w-full text-sm">Analiza progreso por área. La captura principal vive en check-in.</p>
             {([
               { id: "checkin", label: t("tracking.progressTabCheckin") },
               { id: "nutrition", label: t("tracking.progressTabNutrition") },
