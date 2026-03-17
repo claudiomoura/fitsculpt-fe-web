@@ -5448,6 +5448,7 @@ const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyRep
       .object({
         priceId: z.string().min(1).optional(),
         planKey: z.string().min(1).optional(),
+        returnTo: z.string().trim().optional().nullable(),
       })
       .superRefine((payload, context) => {
         const hasPriceId = Boolean(payload.priceId);
@@ -5468,6 +5469,7 @@ const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyRep
     const payload = checkoutSchema.parse(request.body);
     const resolvedPriceId =
       payload.priceId ?? resolvePriceIdByPlanKey(payload.planKey ?? "");
+    const normalizedReturnTo = typeof payload.returnTo === "string" && payload.returnTo.startsWith("/app/") ? payload.returnTo : "/app/settings/billing";
     if (!resolvedPriceId) {
       return reply.status(400).send({ error: "INVALID_INPUT" });
     }
@@ -5516,6 +5518,13 @@ const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyRep
       return reply.status(200).send({ alreadySubscribed: true });
     }
 
+    const successUrl = new URL(`${env.APP_BASE_URL}/app/settings/billing`);
+    successUrl.searchParams.set("checkout", "success");
+    successUrl.searchParams.set("returnTo", normalizedReturnTo);
+    const cancelUrl = new URL(`${env.APP_BASE_URL}/app/settings/billing`);
+    cancelUrl.searchParams.set("checkout", "cancel");
+    cancelUrl.searchParams.set("returnTo", normalizedReturnTo);
+
     const session = await stripeRequest<StripeCheckoutSession>(
       "checkout/sessions",
       {
@@ -5527,8 +5536,8 @@ const billingCheckoutHandler = async (request: FastifyRequest, reply: FastifyRep
         "line_items[0][quantity]": 1,
         "subscription_data[metadata][userId]": user.id,
         "subscription_data[metadata][plan]": targetPlan,
-        success_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=success`,
-        cancel_url: `${env.APP_BASE_URL}/app/settings/billing?checkout=cancel`,
+        success_url: successUrl.toString(),
+        cancel_url: cancelUrl.toString(),
       },
       { idempotencyKey },
     );

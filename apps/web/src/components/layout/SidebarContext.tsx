@@ -41,7 +41,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
   const toggle = useCallback(() => {
     if (isMobile) return;
-    setIsCollapsed((prev) => !prev);
+    setIsCollapsed((prev: boolean) => !prev);
   }, [isMobile]);
 
   const setCollapsed = useCallback((collapsed: boolean) => {

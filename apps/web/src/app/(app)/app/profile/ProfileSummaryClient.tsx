@@ -126,8 +126,8 @@ export default function ProfileSummaryClient() {
       <section className="card">
         <h3 className={styles.groupTitle}>{t("nav.trainingPlan")}</h3>
         <div className={styles.rows}>
-          <HubRow label={t("profile.goal")} value={goalLabel} href="/app/onboarding" />
-          <HubRow label={t("profile.trainingLevel")} value={levelLabel} href="/app/onboarding" />
+          <HubRow label={t("profile.goal")} value={goalLabel} href="/app/profile/edit" />
+          <HubRow label={t("profile.trainingLevel")} value={levelLabel} href="/app/profile/edit" />
         </div>
       </section>
 
@@ -148,7 +148,7 @@ export default function ProfileSummaryClient() {
         <div className={styles.rows}>
           <HubRow label={t("nav.settings")} href="/app/settings" />
           <HubRow label={t("nav.billing")} href="/app/settings/billing" />
-          <HubRow label={t("nav.profile")} href="/app/onboarding" />
+          <HubRow label={t("nav.profile")} href="/app/profile/edit" />
         </div>
       </section>
 

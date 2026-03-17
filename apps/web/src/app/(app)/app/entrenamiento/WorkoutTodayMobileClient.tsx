@@ -177,7 +177,7 @@ export default function WorkoutTodayMobileClient() {
         title="No hay entrenamientos disponibles"
         description="Todavía no tienes días programados en tu plan activo."
         action={
-          <Link className="btn" href="/app/workouts">
+          <Link className="btn" href="/app/entrenamiento">
             Crear entrenamiento
           </Link>
         }
@@ -207,10 +207,10 @@ export default function WorkoutTodayMobileClient() {
         </div>
         <p className="mt-2 text-sm text-text-muted">{selectedDay?.focus ?? "Mantén constancia y completa tu sesión de hoy."}</p>
         <div className="mt-4 flex gap-2">
-          <Link className="btn" href="/app/workouts">
+          <Link className="btn" href="/app/entrenamiento">
             ✨ Generar con IA
           </Link>
-          <Link className="btn secondary" href="/app/entrenamientos">
+          <Link className="btn secondary" href="/app/entrenamiento">
             📅 Ver calendario
           </Link>
         </div>
@@ -243,7 +243,7 @@ export default function WorkoutTodayMobileClient() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-border bg-surface p-4">
+      <section className="rounded-2xl border border-border bg-surface p-4 pb-28">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-base font-semibold text-text">Ejercicios del día</h3>
           <span className="text-xs text-text-muted">{completed}/{total}</span>
@@ -292,6 +292,24 @@ export default function WorkoutTodayMobileClient() {
           />
         )}
       </section>
+
+      <div className="fixed inset-x-0 bottom-[calc(var(--mobile-tab-bar-height)+12px)] z-20 px-4 md:hidden">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-surface/95 p-3 shadow-lg backdrop-blur">
+          <div className="mb-2 flex items-center justify-between text-xs text-text-muted">
+            <span>{selectedDay?.label ?? "Hoy"}</span>
+            <span>{exercises.length ? `${exercises.length} ejercicios` : "Día de descanso"}</span>
+          </div>
+          {exercises.length ? (
+            <Link className="btn flex w-full items-center justify-center" href={selectedDay?.id ? `/app/entrenamiento?day=${encodeURIComponent(selectedDay.id)}` : "/app/entrenamiento"}>
+              Empezar entrenamiento
+            </Link>
+          ) : (
+            <Link className="btn secondary flex w-full items-center justify-center" href="/app/entrenamiento">
+              Ver semana completa
+            </Link>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

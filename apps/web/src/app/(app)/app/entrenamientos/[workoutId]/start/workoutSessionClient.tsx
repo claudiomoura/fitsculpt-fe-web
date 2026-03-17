@@ -554,7 +554,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
             </div>
           </div>
 
-          <Link href="/app/entrenamientos" className="btn mt-6 flex w-full justify-center">
+          <Link href="/app/entrenamiento" className="btn mt-6 flex w-full justify-center">
             Volver a entrenamientos
           </Link>
         </div>

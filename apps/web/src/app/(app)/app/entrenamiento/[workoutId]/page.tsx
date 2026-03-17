@@ -107,7 +107,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
               <h3 className="m-0">{t("workoutDetail.notFoundTitle")}</h3>
               <p className="muted">{t("workoutDetail.notFound")}</p>
             </div>
-            <ButtonLink href="/app/entrenamientos" className="fit-content">
+            <ButtonLink href="/app/entrenamiento" className="fit-content">
               {t("workoutDetail.backToWorkouts")}
             </ButtonLink>
           </div>
@@ -130,7 +130,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
               <h3 className="m-0">{t("workoutDetail.loadErrorTitle")}</h3>
               <p className="muted">{message}</p>
             </div>
-            <ButtonLink href="/app/entrenamientos" className="fit-content">
+            <ButtonLink href="/app/entrenamiento" className="fit-content">
               {t("workoutDetail.backToWorkouts")}
             </ButtonLink>
           </div>
@@ -178,7 +178,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
             </p>
           </div>
           <div className="page-header-actions">
-            <ButtonLink variant="secondary" href="/app/entrenamientos">
+            <ButtonLink variant="secondary" href="/app/entrenamiento">
               {t("workoutDetail.backToWorkouts")}
             </ButtonLink>
           </div>
@@ -314,7 +314,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
       </section>
 
       <div className="centered-card mt-16">
-        <ButtonLink href="/app/entrenamientos">
+        <ButtonLink href="/app/entrenamiento">
           {t("workoutDetail.backToWorkouts")}
         </ButtonLink>
       </div>

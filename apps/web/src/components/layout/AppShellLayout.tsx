@@ -12,7 +12,7 @@ type AppShellLayoutProps = {
 
 export default function AppShellLayout({ children, shell }: AppShellLayoutProps) {
   const pathname = usePathname();
-  const isFocusSessionRoute = Boolean(pathname && /^\/app\/entrenamientos\/[^/]+\/start$/.test(pathname));
+  const isFocusSessionRoute = Boolean(pathname && /^\/app\/(entrenamiento|entrenamientos)\/[^/]+\/start$/.test(pathname));
 
   if (isFocusSessionRoute) {
     return (

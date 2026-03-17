@@ -224,9 +224,9 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         meta: "/app/trainer/exercises/new",
       },
       { id: "dev-onboarding", href: "/app/onboarding", labelKey: "nav.onboarding", meta: "/app/onboarding" },
-      { id: "dev-dashboard", href: "/app/dashboard", labelKey: "nav.dashboard", meta: "/app/dashboard" },
+      { id: "dev-dashboard", href: "/app/hoy", labelKey: "nav.dashboard", meta: "/app/dashboard" },
       { id: "dev-weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview", meta: "/app/weekly-review" },
-      { id: "dev-workouts", href: "/app/entrenamiento", labelKey: "nav.workouts", meta: "/app/workouts" },
+      { id: "dev-workouts", href: "/app/entrenamiento", labelKey: "nav.workouts", meta: "/app/entrenamiento" },
       {
         id: "dev-training-edit",
         href: "/app/entrenamiento/editar",
@@ -241,9 +241,9 @@ export const sidebarDevelopment: NavSectionGroup[] = [
       },
       {
         id: "dev-profile-legacy",
-        href: "/app/profile/legacy",
+        href: "/app/profile/edit",
         labelKey: "nav.legacyProfile",
-        meta: "/app/profile/legacy",
+        meta: "/app/profile/edit",
       },
       {
         id: "dev-settings-billing",

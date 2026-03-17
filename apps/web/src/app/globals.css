@@ -31,6 +31,17 @@
   --status-info: #3b82f6;
 
   /* Backwards-compatible aliases */
+  --fs-bg: var(--color-bg);
+  --fs-surface: var(--color-surface);
+  --fs-elevated: color-mix(in srgb, var(--color-surface) 92%, var(--color-secondary) 8%);
+  --fs-border: var(--color-border);
+  --fs-primary: var(--color-primary);
+  --fs-secondary: var(--color-secondary);
+  --fs-text: var(--color-text);
+  --fs-text-muted: var(--color-text-muted);
+  --fs-radius-card: var(--radius-lg);
+  --fs-radius-btn: var(--radius-md);
+
   --theme-bg: var(--fs-bg);
   --theme-surface: var(--fs-surface);
   --theme-elevated: var(--fs-elevated);

@@ -1140,7 +1140,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const handleGenerateClick = () => {
     if (aiGenerationInFlight.current || aiLoading || !profile) return;
     if (!aiEntitled) {
-      setAiActionableError({ title: t("ai.errorState.title"), description: safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO"), ctaHref: "/app/settings/billing", ctaLabel: t("billing.manageBilling") });
+      const currentRoute = `${pathname}${searchParamsString ? `?${searchParamsString}` : ""}`;
+      const billingHref = `/app/settings/billing?returnTo=${encodeURIComponent(currentRoute)}`;
+      setAiActionableError({ title: t("ai.errorState.title"), description: safeT("training.aiModuleRequired", "Requiere StrengthAI o PRO"), ctaHref: billingHref, ctaLabel: t("billing.manageBilling") });
       return;
     }
     if (aiTokenBalance !== null && aiTokenBalance <= 0) {
@@ -1287,7 +1289,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         router.push("/app/entrenamiento");
         return;
       }
-      router.push(`/app/entrenamientos/${encodeURIComponent(workoutId)}/start`);
+      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}/start`);
     } catch (_err) {
       notify({ title: safeT("training.openSessionError", "No pudimos abrir la sesion."), variant: "error" });
       router.push("/app/entrenamiento");

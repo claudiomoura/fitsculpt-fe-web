@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -31,6 +32,8 @@ function formatDate(value: string, localeCode: string) {
 
 export default function FeedClient() {
   const { t, locale } = useLanguage();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const localeCode = getLocaleCode(locale);
   const [items, setItems] = useState<FeedPost[]>([]);
   const [tip, setTip] = useState<DailyTip | null>(null);
@@ -141,6 +144,8 @@ export default function FeedClient() {
   };
 
   const isAiLocked = !aiEntitled || (aiTokenBalance ?? 0) <= 0;
+  const currentRoute = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  const billingHref = `/app/settings/billing?returnTo=${encodeURIComponent(currentRoute)}`;
 
   return (
     <section className="card">
@@ -184,7 +189,7 @@ export default function FeedClient() {
         footer={(
           <div className="inline-actions-sm">
             <Button variant="secondary" onClick={() => setTokensExhaustedModalOpen(false)}>{t("ui.close")}</Button>
-            <ButtonLink href="/app/settings/billing">{t("billing.manageBilling")}</ButtonLink>
+            <ButtonLink href={billingHref}>{t("billing.manageBilling")}</ButtonLink>
           </div>
         )}
       >

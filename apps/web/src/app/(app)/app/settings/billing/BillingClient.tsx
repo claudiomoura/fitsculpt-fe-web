@@ -111,6 +111,8 @@ export default function BillingClient() {
   const searchParams = useSearchParams();
   const { t, locale } = useLanguage();
   const checkoutStatus = searchParams.get("checkout");
+  const returnToParam = searchParams.get("returnTo");
+  const safeReturnTo = returnToParam && returnToParam.startsWith("/app/") ? returnToParam : null;
 
   const { isAdmin, isDev } = useAccess();
   const { authMe, reload: refetchProfile } = useAuthEntitlements();
@@ -209,7 +211,7 @@ setPlans([]);
 
       if (shouldSync) {
         await refetchProfile();
-        router.replace("/app/settings/billing");
+        router.replace(safeReturnTo ?? "/app/settings/billing");
       }
     } catch {
       setError(t("billing.loadError"));
@@ -222,7 +224,7 @@ setPlans([]);
     } finally {
       setLoading(false);
     }
-  }, [checkoutStatus, refetchProfile, router, t]);
+  }, [checkoutStatus, refetchProfile, router, safeReturnTo, t]);
 
   useEffect(() => {
     void loadProfile();
@@ -245,7 +247,7 @@ setPlans([]);
     setError(null);
 
     try {
-      const response = await postBillingCheckout(selectedPlanId);
+      const response = await postBillingCheckout(selectedPlanId, safeReturnTo ?? "/app/settings/billing");
       const data = (await response.json()) as BillingRedirectResponse;
 
       if (!response.ok || !data.url) {
