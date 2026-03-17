@@ -5658,7 +5658,7 @@ html { scroll-behavior: smooth; }
   padding: 18px;
   border-radius: 18px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  background: color-mix(in srgb, var(--bg-muted) 55%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 86%, white 14%);
 }
 
 .training-next-card-icon {
@@ -5718,7 +5718,7 @@ html { scroll-behavior: smooth; }
   gap: 4px;
   padding: 14px;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--bg-muted) 60%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 86%, white 14%);
   text-align: center;
 }
 
@@ -6870,12 +6870,12 @@ html.theme-dark :focus-visible {
 
 .premium-step-card,
 .premium-surface-card {
-  background: color-mix(in srgb, var(--bg-card) 92%, white 8%);
+  background: color-mix(in srgb, var(--bg-card) 86%, white 14%);
 }
 
 .premium-subcard {
   border-radius: 18px;
-  background: color-mix(in srgb, var(--bg-card) 88%, white 12%);
+  background: color-mix(in srgb, var(--bg-card) 86%, white 14%);
 }
 
 .premium-inline-banner {
@@ -7071,5 +7071,59 @@ html.theme-dark :focus-visible {
     margin-top: 12px;
     padding: 14px;
     border-radius: 16px;
+  }
+}
+
+
+.nutrition-week-strip {
+  padding-inline: 2px;
+}
+
+.training-week-strip {
+  padding-inline: 2px;
+  margin-inline: 0;
+}
+
+.training-main-section,
+.nutrition-v2-layout {
+  overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .training-week-strip,
+  .nutrition-week-strip {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+    padding-right: 0;
+  }
+
+  .training-week-pill {
+    min-width: 0;
+    gap: 6px;
+    padding: 8px 2px;
+    border-radius: 16px;
+  }
+
+  .training-week-pill-label,
+  .training-week-pill-date {
+    font-size: 11px;
+  }
+
+  .training-week-pill-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+  }
+}
+
+
+.nutrition-week-strip .training-week-pill {
+  min-height: 122px;
+  justify-content: center;
+}
+
+@media (max-width: 720px) {
+  .nutrition-week-strip .training-week-pill {
+    min-height: 110px;
   }
 }

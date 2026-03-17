@@ -119,6 +119,7 @@ type WorkoutLookupItem = {
   id: string;
   name?: string | null;
   scheduledAt?: string | null;
+  sessions?: Array<{ finishedAt?: string | null }>;
 };
 
 type PlanEntry = {
@@ -1225,6 +1226,17 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return candidates[0]?.id ?? null;
   };
   const nextPlannedWorkoutId = nextPlannedEntry ? pickWorkoutIdForDate(nextPlannedEntry.date, nextPlannedEntry.day.focus) : null;
+
+  const completedDayKeys = useMemo(() => {
+    const keys = new Set<string>();
+    Object.entries(workoutsByDate).forEach(([dateKey, workouts]) => {
+      if (workouts.some((workout) => Array.isArray(workout.sessions) && workout.sessions.some((session: { finishedAt?: string | null }) => Boolean(session.finishedAt)))) {
+        keys.add(dateKey);
+      }
+    });
+    return keys;
+  }, [workoutsByDate]);
+
   const isSelectedDayToday = isSameDay(selectedEntryDate, today);
   const displayWeekNumber = useMemo(() => {
     const weekOneStart = minWeekStart ?? modelWeekStart;
@@ -1298,6 +1310,26 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
   };
 
+
+  const openSelectedDayDetails = async () => {
+    if (!selectedEntry || !selectedDayHasWorkout || detailsCtaLoading) return;
+    setDetailsCtaLoading(true);
+    try {
+      const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
+      if (!workoutId) {
+        notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
+        router.push("/app/entrenamiento");
+        return;
+      }
+      router.push(`/app/entrenamiento/${encodeURIComponent(workoutId)}`);
+    } catch (_err) {
+      notify({ title: safeT("training.openDetailsError", "No pudimos abrir los detalles."), variant: "error" });
+      router.push("/app/entrenamiento");
+    } finally {
+      setDetailsCtaLoading(false);
+    }
+  };
+
   const openNextDayDetails = async () => {
     if (!nextPlannedEntry || !nextEntryHasWorkout || detailsCtaLoading) return;
     setDetailsCtaLoading(true);
@@ -1317,7 +1349,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
   };
 
-  const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => entry.date.getTime() < today.getTime()).length;
+  const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => completedDayKeys.has(toDateKey(entry.date))).length;
   const totalPlannedSessions = Math.max(visiblePlanEntries.length, 1);
   const progressPercent = Math.min(100, Math.round((estimatedCompletedSessions / totalPlannedSessions) * 100));
   const selectedEntryDateLabel = selectedEntryDate.toLocaleDateString(localeCode, {
@@ -1541,12 +1573,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       <button
                         type="button"
                         className="btn secondary rounded-xl h-11"
-                        data-testid="training-generate-ai"
-                        onClick={handleGenerateClick}
-                        disabled={isAiDisabled}
-                        title={isAiLocked ? aiLockDescription : ""}
+                        onClick={() => void openSelectedDayDetails()}
+                        disabled={detailsCtaLoading}
+                        aria-label={safeT("training.detailsSessionAria", "Ver detalles del dia seleccionado")}
                       >
-                        {aiLoading ? t("training.aiGenerating") : safeT("training.generateAi", "Generar con IA")}
+                        {detailsCtaLoading ? t("ui.loading") : safeT("training.detailsCta", "Detalles")}
                       </button>
                       <button
                         type="button"
@@ -1759,8 +1790,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         {weekDates.map((date) => {
                           const entry = visibleDayMap.get(toDateKey(date));
                           const isSelected = isSameDay(date, selectedDate);
-                          const isPast = date.getTime() < today.getTime();
-                          const state = entry ? (isPast ? "done" : "planned") : "rest";
+                          const state = entry ? (completedDayKeys.has(toDateKey(date)) ? "done" : "planned") : "rest";
                           return (
                             <button
                               key={toDateKey(date)}
@@ -1779,34 +1809,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           );
                         })}
                       </div>
-                      {nextPlannedEntry ? (
-                        <div className="training-next-card">
-                          <div className="training-next-card-icon">
-                            <Icon name="dumbbell" size={24} />
-                          </div>
-                          <div className="training-next-card-body">
-                            <p className="training-next-card-eyebrow">{safeT("training.nextWorkout", "Proximo entrenamiento")}</p>
-                            <strong>{nextEntryHasWorkout ? (nextPlannedEntry.day.focus || nextPlannedEntry.day.label) : safeT("training.restDayTitle", "Descanso")}</strong>
-                            <p className="muted">
-                              {nextEntryHasWorkout
-                                ? `${nextPlannedEntry.day.duration} ${t("training.minutesLabel")} · ${nextPlannedEntry.day.exercises?.length ?? 0} ejercicios`
-                                : safeT("training.restDaySubtitle", "Dia de recuperacion activa.")}
-                            </p>
-                            {nextPlannedEntryDateLabel ? <p className="muted m-0">{nextPlannedEntryDateLabel}</p> : null}
-                          </div>
-                          {nextEntryHasWorkout ? (
-                            <button
-                              type="button"
-                              className="btn rounded-xl h-11"
-                              onClick={() => void openNextDayDetails()}
-                              disabled={detailsCtaLoading}
-                              aria-label={safeT("training.detailsSessionAria", "Ver detalles del proximo entrenamiento")}
-                            >
-                              {detailsCtaLoading ? t("ui.loading") : safeT("training.detailsCta", "Detalles")}
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : null}
                     </div>
                   ) : null}
 

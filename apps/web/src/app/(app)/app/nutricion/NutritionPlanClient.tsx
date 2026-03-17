@@ -1205,26 +1205,6 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     ],
     [t, visiblePlan?.carbsG, visiblePlan?.dailyCalories, visiblePlan?.fatG, visiblePlan?.proteinG]
   );
-  const weekGridDays = useMemo(
-    () =>
-      weekDates.map((date) => {
-        const dayKey = toDateKey(date);
-        const entry = visibleDayMap.get(dayKey);
-        const mealsForDay = entry?.day?.meals ?? [];
-        const dayCalories = mealsForDay.reduce((sum, meal) => sum + Number(meal.macros?.calories ?? 0), 0);
-        return {
-          id: dayKey,
-          label: date.toLocaleDateString(localeCode, { weekday: "short" }),
-          date: String(date.getDate()),
-          selected: isSameDay(date, selectedDate),
-          complete: mealsForDay.length > 0,
-          dayCalories,
-          mealCount: mealsForDay.length,
-        };
-      }),
-    [localeCode, selectedDate, visibleDayMap, weekDates]
-  );
-
   useEffect(() => {
     if (!manualPlan && visiblePlan) {
       setManualPlan(visiblePlan);
@@ -1488,6 +1468,32 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     toggleFavorite: toggleQuickFavorite,
   } = useNutritionQuickFavorites();
   const [quickLogMessage, setQuickLogMessage] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const weekGridDays = useMemo(
+    () =>
+      weekDates.map((date) => {
+        const dayKey = toDateKey(date);
+        const entry = visibleDayMap.get(dayKey);
+        const mealsForDay = entry?.day?.meals ?? [];
+        const dayCalories = mealsForDay.reduce((sum, meal) => sum + Number(meal.macros?.calories ?? 0), 0);
+        const completedMeals = mealsForDay.reduce((count, meal, index) => {
+          const mealKey = getNutritionMealKey(meal, dayKey, index);
+          return count + (isConsumed(mealKey, dayKey) ? 1 : 0);
+        }, 0);
+        return {
+          id: dayKey,
+          label: date.toLocaleDateString(localeCode, { weekday: "short" }),
+          date: String(date.getDate()),
+          selected: isSameDay(date, selectedDate),
+          complete: mealsForDay.length > 0 && completedMeals === mealsForDay.length,
+          dayCalories,
+          mealCount: mealsForDay.length,
+          completedMeals,
+        };
+      }),
+    [isConsumed, localeCode, selectedDate, visibleDayMap, weekDates]
+  );
+
 
   const selectedMealMacros = selectedMealDetails
     ? [

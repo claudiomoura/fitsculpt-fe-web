@@ -284,6 +284,11 @@ app.get("/workouts", async (request, reply) => {
     const workouts = await prisma.workout.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      include: {
+        sessions: {
+          select: { finishedAt: true },
+        },
+      },
     });
     return workouts;
    } catch (error: any) {
