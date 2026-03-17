@@ -6,7 +6,6 @@ import { addDays, parseDate, toDateKey } from "@/lib/calendar";
 import type { ProfileData } from "@/lib/profile";
 import { isProfileComplete } from "@/lib/profileCompletion";
 import { buildWeightProgressSummary, hasSufficientWeightProgress, normalizeWeightLogs } from "@/lib/weightProgress";
-import { NUTRITION_ADHERENCE_STORAGE_KEY } from "@/lib/nutritionAdherence";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import type { CheckinEntry, FoodEntry, TrackingSnapshot, WorkoutEntry } from "@/services/tracking";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -69,7 +68,11 @@ const normalizeTrackingPayload = (payload: TrackingPayload) => {
     ? payload.workoutLog.filter((entry) => entry && isDateKey(entry.date))
     : [];
 
-  return { checkins, foodLog, workoutLog };
+  const mealLog = Array.isArray(payload.mealLog)
+    ? payload.mealLog.filter((entry) => entry && isDateKey(entry.date) && typeof entry.mealKey === "string")
+    : [];
+
+  return { checkins, foodLog, workoutLog, mealLog };
 };
 
 function ProgressRing({
@@ -118,6 +121,7 @@ export default function DashboardClient() {
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
   const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
+  const [mealLog, setMealLog] = useState<Array<{ date: string; mealKey: string }>>([]);
   const [workouts, setWorkouts] = useState<WorkoutItem[]>([]);
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,6 +143,7 @@ export default function DashboardClient() {
           setCheckins(data.checkins);
           setFoodLog(data.foodLog);
           setWorkoutLog(data.workoutLog);
+          setMealLog(data.mealLog);
         }
       } catch (_err) {
         if (active) setError(t("dashboard.chartError"));
@@ -375,14 +380,10 @@ export default function DashboardClient() {
       });
     });
 
-    let adherenceStore: Record<string, string[]> = {};
-    if (typeof window !== "undefined") {
-      try {
-        adherenceStore = JSON.parse(window.localStorage.getItem(NUTRITION_ADHERENCE_STORAGE_KEY) ?? "{}") as Record<string, string[]>;
-      } catch (_err) {
-        adherenceStore = {};
-      }
-    }
+    const adherenceStore = mealLog.reduce<Record<string, string[]>>((acc, entry) => {
+      acc[entry.date] = acc[entry.date] ? [...acc[entry.date], entry.mealKey] : [entry.mealKey];
+      return acc;
+    }, {});
     const adherenceByDay = currentWeekDays.map((day) => (Array.isArray(adherenceStore[day]) ? adherenceStore[day].length : 0));
     const adherenceDaysCurrent = adherenceByDay.filter((count) => count > 0).length;
     const adherenceDaysPrevious = previousWeekDays.filter(

@@ -1,82 +1,53 @@
 import { useCallback, useEffect, useState } from "react";
+import type { MealLogEntry, TrackingSnapshot } from "@/services/tracking";
 
-export const NUTRITION_ADHERENCE_STORAGE_KEY = "fs_nutrition_adherence_v1";
 export const NUTRITION_ADHERENCE_EVENT = "fs:nutrition-adherence-changed";
 
 type NutritionAdherenceStore = Record<string, string[]>;
 
 const isBrowser = () => typeof window !== "undefined";
-
-const normalizeStore = (value: unknown): NutritionAdherenceStore => {
-  if (!value || typeof value !== "object") return {};
-  const record = value as Record<string, unknown>;
-  const normalized: NutritionAdherenceStore = {};
-
-  Object.entries(record).forEach(([dateKey, items]) => {
-    if (!Array.isArray(items)) return;
-    const keys = items.filter((item): item is string => typeof item === "string");
-    if (keys.length > 0) {
-      normalized[dateKey] = Array.from(new Set(keys));
-    }
-  });
-
-  return normalized;
-};
-
-export const readNutritionAdherenceStore = (): NutritionAdherenceStore => {
-  if (!isBrowser()) return {};
-  try {
-    const stored = window.localStorage.getItem(NUTRITION_ADHERENCE_STORAGE_KEY);
-    if (!stored) return {};
-    return normalizeStore(JSON.parse(stored));
-  } catch (_err) {
-    return {};
-  }
-};
-
-const writeStore = (store: NutritionAdherenceStore) => {
-  if (!isBrowser()) return;
-  try {
-    window.localStorage.setItem(NUTRITION_ADHERENCE_STORAGE_KEY, JSON.stringify(store));
-    window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
-  } catch (_err) {
-    // ignore storage errors
-  }
-};
-
 const normalizeKey = (value?: string | null) => value?.trim() ?? "";
 
-const toggleStoreItem = (
-  store: NutritionAdherenceStore,
-  dateKey: string,
-  itemKey: string
-): NutritionAdherenceStore => {
-  const current = store[dateKey] ?? [];
-  const next = current.includes(itemKey)
-    ? current.filter((item) => item !== itemKey)
-    : [...current, itemKey];
-  const nextStore = { ...store };
-  if (next.length > 0) {
-    nextStore[dateKey] = Array.from(new Set(next));
-  } else {
-    delete nextStore[dateKey];
+export function buildNutritionAdherenceStoreFromMealLog(entries?: MealLogEntry[] | null): NutritionAdherenceStore {
+  if (!Array.isArray(entries)) return {};
+  return entries.reduce<NutritionAdherenceStore>((acc, entry) => {
+    if (!entry?.date || !entry?.mealKey) return acc;
+    const current = acc[entry.date] ?? [];
+    if (!current.includes(entry.mealKey)) {
+      acc[entry.date] = [...current, entry.mealKey];
+    }
+    return acc;
+  }, {});
+}
+
+async function fetchTrackingSnapshot(): Promise<TrackingSnapshot> {
+  const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
+  if (!response.ok) {
+    throw new Error(`TRACKING_FETCH_FAILED:${response.status}`);
   }
-  return nextStore;
-};
+  return (await response.json()) as TrackingSnapshot;
+}
+
+function buildMealLogId(dateKey: string, mealKey: string) {
+  return `${dateKey}:${mealKey}`;
+}
+
+export const readNutritionAdherenceStore = (): NutritionAdherenceStore => ({});
 
 export const useNutritionAdherence = (dayKey: string) => {
   const [store, setStore] = useState<NutritionAdherenceStore>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const loadStore = useCallback(() => {
+  const loadStore = useCallback(async () => {
     if (!isBrowser()) {
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     try {
-      setStore(readNutritionAdherenceStore());
+      const tracking = await fetchTrackingSnapshot();
+      setStore(buildNutritionAdherenceStoreFromMealLog(tracking.mealLog));
       setError(false);
     } catch (_err) {
       setStore({});
@@ -88,19 +59,12 @@ export const useNutritionAdherence = (dayKey: string) => {
 
   useEffect(() => {
     if (!isBrowser()) return;
-    loadStore();
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === NUTRITION_ADHERENCE_STORAGE_KEY) {
-        loadStore();
-      }
+    void loadStore();
+    const handleLocalUpdate = () => {
+      void loadStore();
     };
-    const handleLocalUpdate = () => loadStore();
-    window.addEventListener("storage", handleStorage);
     window.addEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
-    };
+    return () => window.removeEventListener(NUTRITION_ADHERENCE_EVENT, handleLocalUpdate);
   }, [loadStore]);
 
   const isConsumed = useCallback(
@@ -110,29 +74,81 @@ export const useNutritionAdherence = (dayKey: string) => {
       if (!normalizedItemKey || !normalizedDateKey) return false;
       return Boolean(store[normalizedDateKey]?.includes(normalizedItemKey));
     },
-    [store]
+    [store],
   );
 
-  const toggle = useCallback((itemKey?: string | null, dateKey?: string | null) => {
+  const toggle = useCallback(async (itemKey?: string | null, dateKey?: string | null, payload?: Partial<MealLogEntry>) => {
     const normalizedItemKey = normalizeKey(itemKey);
     const normalizedDateKey = normalizeKey(dateKey);
     if (!normalizedItemKey || !normalizedDateKey) return;
-    const currentStore = readNutritionAdherenceStore();
-    const nextStore = toggleStoreItem(currentStore, normalizedDateKey, normalizedItemKey);
-    writeStore(nextStore);
-    setStore(nextStore);
-  }, []);
 
-  const clearDay = useCallback((dateKey?: string | null) => {
+    const entryId = buildMealLogId(normalizedDateKey, normalizedItemKey);
+    const currentlyConsumed = Boolean(store[normalizedDateKey]?.includes(normalizedItemKey));
+
+    setStore((prev) => {
+      const current = prev[normalizedDateKey] ?? [];
+      const next = currentlyConsumed ? current.filter((item) => item !== normalizedItemKey) : [...current, normalizedItemKey];
+      const nextStore = { ...prev };
+      if (next.length > 0) nextStore[normalizedDateKey] = Array.from(new Set(next));
+      else delete nextStore[normalizedDateKey];
+      return nextStore;
+    });
+
+    try {
+      if (currentlyConsumed) {
+        const response = await fetch(`/api/tracking/mealLog/${encodeURIComponent(entryId)}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (!response.ok && response.status !== 204) {
+          throw new Error(`TRACKING_DELETE_FAILED:${response.status}`);
+        }
+      } else {
+        const response = await fetch("/api/tracking", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            collection: "mealLog",
+            item: {
+              id: entryId,
+              date: normalizedDateKey,
+              mealKey: normalizedItemKey,
+              mealType: payload?.mealType ?? "meal",
+              title: payload?.title ?? normalizedItemKey,
+              calories: Number(payload?.calories ?? 0),
+              protein: Number(payload?.protein ?? 0),
+              carbs: Number(payload?.carbs ?? 0),
+              fats: Number(payload?.fats ?? 0),
+              completedAt: new Date().toISOString(),
+            },
+          }),
+        });
+        if (!response.ok) {
+          throw new Error(`TRACKING_CREATE_FAILED:${response.status}`);
+        }
+      }
+      window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
+    } catch (_err) {
+      await loadStore();
+      throw _err;
+    }
+  }, [loadStore, store]);
+
+  const clearDay = useCallback(async (dateKey?: string | null) => {
     const normalizedDateKey = normalizeKey(dateKey);
     if (!normalizedDateKey) return;
-    const currentStore = readNutritionAdherenceStore();
-    if (!currentStore[normalizedDateKey]) return;
-    const nextStore = { ...currentStore };
-    delete nextStore[normalizedDateKey];
-    writeStore(nextStore);
-    setStore(nextStore);
-  }, []);
+    const mealKeys = store[normalizedDateKey] ?? [];
+    await Promise.all(
+      mealKeys.map((mealKey) =>
+        fetch(`/api/tracking/mealLog/${encodeURIComponent(buildMealLogId(normalizedDateKey, mealKey))}`, {
+          method: "DELETE",
+          credentials: "include",
+        }),
+      ),
+    );
+    await loadStore();
+  }, [loadStore, store]);
 
   return {
     isLoading,

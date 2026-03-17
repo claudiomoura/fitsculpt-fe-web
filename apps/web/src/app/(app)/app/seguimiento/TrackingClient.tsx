@@ -87,6 +87,7 @@ type TrackingPayload = {
   checkins: CheckinEntry[];
   foodLog: FoodEntry[];
   workoutLog: WorkoutEntry[];
+  mealLog: MealLogEntry[];
 };
 
 type TrackingClientProps = {
@@ -137,6 +138,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [workoutDuration, setWorkoutDuration] = useState(45);
   const [workoutNotes, setWorkoutNotes] = useState("");
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
+  const [mealLog, setMealLog] = useState<MealLogEntry[]>([]);
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [trackingLoaded, setTrackingLoaded] = useState(false);
   const [trackingStatus, setTrackingStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -294,6 +296,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       setCheckins(data.checkins ?? []);
       setFoodLog(data.foodLog ?? []);
       setWorkoutLog(data.workoutLog ?? []);
+      setMealLog(data.mealLog ?? []);
       setTrackingSupports(detectTrackingSupport(data.checkins as Array<Record<string, unknown>>));
       setTrackingLoaded(true);
       setTrackingStatus("ready");
@@ -363,7 +366,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ checkins, foodLog, workoutLog }),
+        body: JSON.stringify({ checkins, foodLog, workoutLog, mealLog }),
       }).then((response) => {
         if (!response.ok) {
           console.warn("Tracking save failed", response.status);
@@ -371,7 +374,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       });
     }, 600);
     return () => window.clearTimeout(timeout);
-  }, [checkins, foodLog, workoutLog, trackingLoaded]);
+  }, [checkins, foodLog, workoutLog, mealLog, trackingLoaded]);
 
   function buildRecommendation(currentWeight: number) {
     if (checkins.length === 0) return t("profile.checkinKeep");
@@ -519,7 +522,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     }
     try {
       const nextProfile = await saveCheckinAndSyncProfileMetrics(
-        { checkins: nextCheckins, foodLog, workoutLog },
+        { checkins: nextCheckins, foodLog, workoutLog, mealLog },
         profile,
         metrics
       );
@@ -627,24 +630,20 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   }
 
   const mealsByDate = useMemo(() => {
-    return foodLog.reduce<Record<string, FoodEntry[]>>((acc, entry) => {
+    return mealLog.reduce<Record<string, MealLogEntry[]>>((acc, entry) => {
       acc[entry.date] = acc[entry.date] ? [...acc[entry.date], entry] : [entry];
       return acc;
     }, {});
-  }, [foodLog]);
+  }, [mealLog]);
 
-  function macroTotals(entries: FoodEntry[]) {
+  function macroTotals(entries: MealLogEntry[]) {
     return entries.reduce(
-      (totals, entry) => {
-        const profile = resolveFoodProfile(entry.foodKey);
-        if (!profile) return totals;
-        const factor = entry.grams / 100;
-        totals.protein += profile.protein * factor;
-        totals.carbs += profile.carbs * factor;
-        totals.fat += profile.fat * factor;
-        totals.calories += profile.calories * factor;
-        return totals;
-      },
+      (totals, entry) => ({
+        protein: totals.protein + Number(entry.protein ?? 0),
+        carbs: totals.carbs + Number(entry.carbs ?? 0),
+        fat: totals.fat + Number(entry.fats ?? 0),
+        calories: totals.calories + Number(entry.calories ?? 0),
+      }),
       { protein: 0, carbs: 0, fat: 0, calories: 0 }
     );
   }

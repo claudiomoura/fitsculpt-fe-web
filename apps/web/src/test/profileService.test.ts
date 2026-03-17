@@ -11,7 +11,7 @@ describe("saveCheckinAndSyncProfileMetrics", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const updated = await saveCheckinAndSyncProfileMetrics(
-      { checkins: [], foodLog: [], workoutLog: [] },
+      { checkins: [], foodLog: [], workoutLog: [], mealLog: [] },
       defaultProfile,
       {
         weightKg: 82,

@@ -35,31 +35,47 @@ export const workoutEntrySchema = z.object({
   notes: z.string(),
 });
 
+export const mealLogEntrySchema = z.object({
+  id: z.string().min(1),
+  date: z.string().min(1),
+  mealKey: z.string().min(1),
+  mealType: z.string().min(1),
+  title: z.string().min(1),
+  calories: z.number(),
+  protein: z.number(),
+  carbs: z.number(),
+  fats: z.number(),
+  completedAt: z.string().min(1),
+});
+
 export const trackingSchema = z.object({
   checkins: z.array(checkinSchema),
   foodLog: z.array(foodEntrySchema),
   workoutLog: z.array(workoutEntrySchema),
+  mealLog: z.array(mealLogEntrySchema),
 });
 
 export const trackingDeleteSchema = z.object({
-  collection: z.enum(["checkins", "foodLog", "workoutLog"]),
+  collection: z.enum(["checkins", "foodLog", "workoutLog", "mealLog"]),
   id: z.string().min(1),
 });
 
 export const trackingCollectionSchema = z.object({
-  collection: z.enum(["checkins", "foodLog", "workoutLog"]),
+  collection: z.enum(["checkins", "foodLog", "workoutLog", "mealLog"]),
 });
 
 export const trackingEntryCreateSchema = z.discriminatedUnion("collection", [
   z.object({ collection: z.literal("checkins"), item: checkinSchema }),
   z.object({ collection: z.literal("foodLog"), item: foodEntrySchema }),
   z.object({ collection: z.literal("workoutLog"), item: workoutEntrySchema }),
+  z.object({ collection: z.literal("mealLog"), item: mealLogEntrySchema }),
 ]);
 
 export type TrackingCollection = z.infer<typeof trackingCollectionSchema>["collection"];
 export type CheckinEntry = z.infer<typeof checkinSchema>;
 export type FoodEntry = z.infer<typeof foodEntrySchema>;
 export type WorkoutEntry = z.infer<typeof workoutEntrySchema>;
+export type MealLogEntry = z.infer<typeof mealLogEntrySchema>;
 export type TrackingSnapshot = z.infer<typeof trackingSchema>;
 export type TrackingEntryCreateInput = z.infer<typeof trackingEntryCreateSchema>;
 
@@ -67,4 +83,5 @@ export const defaultTracking: TrackingSnapshot = {
   checkins: [],
   foodLog: [],
   workoutLog: [],
+  mealLog: [],
 };

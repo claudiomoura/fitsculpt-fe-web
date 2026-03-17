@@ -117,6 +117,10 @@ function isTrackingWorkout(entry: unknown): boolean {
   return isRecord(entry) && isString(entry.id) && isString(entry.date) && isString(entry.name) && isNumber(entry.durationMin);
 }
 
+function isTrackingMealLog(entry: unknown): boolean {
+  return isRecord(entry) && isString(entry.id) && isString(entry.date) && isString(entry.mealKey) && isString(entry.mealType) && isString(entry.title) && isNumber(entry.calories);
+}
+
 export function validateTrackingSnapshot(payload: unknown): ContractValidationResult {
   if (!isRecord(payload)) return { ok: false, reason: "TRACKING_NOT_OBJECT" };
   if (!Array.isArray(payload.checkins) || !payload.checkins.every(isTrackingCheckin)) {
@@ -127,6 +131,9 @@ export function validateTrackingSnapshot(payload: unknown): ContractValidationRe
   }
   if (!Array.isArray(payload.workoutLog) || !payload.workoutLog.every(isTrackingWorkout)) {
     return { ok: false, reason: "TRACKING_INVALID_WORKOUT_LOG" };
+  }
+  if (!Array.isArray(payload.mealLog) || !payload.mealLog.every(isTrackingMealLog)) {
+    return { ok: false, reason: "TRACKING_INVALID_MEAL_LOG" };
   }
   return { ok: true };
 }

@@ -124,6 +124,7 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
           checkins: [{ id: "c_1", date: "2026-01-01", weightKg: 80 }],
           foodLog: [{ id: "f_1", date: "2026-01-01", foodKey: "rice", grams: 120 }],
           workoutLog: [{ id: "w_1", date: "2026-01-01", name: "Upper", durationMin: 45 }],
+          mealLog: [],
         }),
       ),
     );
@@ -138,6 +139,7 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
         checkins: expect.any(Array),
         foodLog: expect.any(Array),
         workoutLog: expect.any(Array),
+        mealLog: expect.any(Array),
       }),
     );
     expect(body.checkins.length).toBeGreaterThanOrEqual(0);

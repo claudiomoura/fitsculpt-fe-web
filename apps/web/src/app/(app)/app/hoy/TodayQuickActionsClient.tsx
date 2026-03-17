@@ -17,7 +17,7 @@ import { trackEvent } from "@/lib/analytics";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { canAccessFeature } from "@/lib/entitlements";
 import type { AuthMeResponse, NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail } from "@/lib/types";
-import { readNutritionAdherenceStore } from "@/lib/nutritionAdherence";
+import { buildNutritionAdherenceStoreFromMealLog } from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
@@ -276,10 +276,10 @@ export default function TodayQuickActionsClient() {
       }
 
       if (trackingResponse.ok) {
-        const tracking = (await trackingResponse.json()) as TrackingPayload;
-        nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(tracking);
-        nextSignals.currentWeightKg = getLatestWeight(tracking);
-        nextSignals.streakDays = getStreakDays(tracking);
+        const trackingPayload = (await trackingResponse.json()) as TrackingPayload & { mealLog?: Array<{ date: string; mealKey: string }> };
+        nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
+        nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
+        nextSignals.streakDays = getStreakDays(trackingPayload);
       }
 
       if (activeTrainingResponse.ok) {
@@ -315,7 +315,7 @@ export default function TodayQuickActionsClient() {
               : null;
             if (nutritionDay?.meals?.length) {
               const nutritionDayKey = nutritionDay.date ? toDateKey(parseDate(nutritionDay.date) ?? new Date()) : toDateKey(new Date());
-              const adherenceStore = readNutritionAdherenceStore();
+              const adherenceStore = buildNutritionAdherenceStoreFromMealLog(trackingPayload.mealLog ?? []);
               const consumedMealKeys = new Set(adherenceStore[nutritionDayKey] ?? []);
               nextSignals.nutritionMealsTotal = nutritionDay.meals.length;
               nextSignals.nutritionMealsLogged = nutritionDay.meals.reduce((count, meal, index) => count + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? 1 : 0), 0);

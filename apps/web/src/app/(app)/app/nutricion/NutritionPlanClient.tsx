@@ -1518,17 +1518,28 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     };
   };
 
-  const handleQuickLogMeal = (mealKey: string, dayKey?: string | null) => {
+  const handleQuickLogMeal = async (mealKey: string, meal: NutritionMeal, dayKey?: string | null) => {
     if (!dayKey || adherenceError) {
       setQuickLogMessage({ type: "error", message: t("nutrition.quickLogError") });
       return;
     }
     const nextConsumed = !isConsumed(mealKey, dayKey);
-    toggle(mealKey, dayKey);
-    setQuickLogMessage({
-      type: "success",
-      message: nextConsumed ? t("nutrition.quickLogSuccess") : t("nutrition.quickLogUndo"),
-    });
+    try {
+      await toggle(mealKey, dayKey, {
+        mealType: meal.type,
+        title: getMealTitle(meal, t),
+        calories: Number(meal.macros?.calories ?? 0),
+        protein: Number(meal.macros?.protein ?? 0),
+        carbs: Number(meal.macros?.carbs ?? 0),
+        fats: Number(meal.macros?.fats ?? 0),
+      });
+      setQuickLogMessage({
+        type: "success",
+        message: nextConsumed ? t("nutrition.quickLogSuccess") : t("nutrition.quickLogUndo"),
+      });
+    } catch (_err) {
+      setQuickLogMessage({ type: "error", message: t("nutrition.quickLogError") });
+    }
   };
 
   const handleFavoriteAction = (meal: NutritionMeal) => {
@@ -1572,7 +1583,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       dayLabel: selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" }),
       mealKey: favoriteMealKey,
     });
-    handleQuickLogMeal(favoriteMealKey, dayKey);
+    void handleQuickLogMeal(favoriteMealKey, favoriteMeal, dayKey);
   };
 
   useEffect(() => {
@@ -2549,7 +2560,7 @@ const nutritionPlanDetails = profile ? (
                                       <button
                                         type="button"
                                         className={`btn ${isConsumed(mealKey, highlightedDayKey) ? "secondary" : ""} fit-content`}
-                                        onClick={() => handleQuickLogMeal(mealKey, highlightedDayKey)}
+                                        onClick={() => void handleQuickLogMeal(mealKey, meal, highlightedDayKey)}
                                       >
                                         {isConsumed(mealKey, highlightedDayKey) ? t("nutrition.quickLogButtonConsumed") : `Registrar ${mealSection.label.toLowerCase()}`}
                                       </button>
@@ -2952,7 +2963,7 @@ const nutritionPlanDetails = profile ? (
             <Button variant="secondary" onClick={closeMealDetail}>{t("ui.close")}</Button>
             {selectedMeal ? (
               <Button
-                onClick={() => handleQuickLogMeal(selectedMeal.mealKey, selectedMeal.dayKey)}
+                onClick={() => void handleQuickLogMeal(selectedMeal.mealKey, selectedMeal.meal, selectedMeal.dayKey)}
                 disabled={adherenceError}
               >
                 {isConsumed(selectedMeal.mealKey, selectedMeal.dayKey)

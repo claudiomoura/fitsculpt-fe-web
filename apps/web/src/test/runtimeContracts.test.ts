@@ -35,6 +35,7 @@ describe("runtimeContracts", () => {
         checkins: [{ id: "c1", date: "2026-02-20" }],
         foodLog: [],
         workoutLog: [],
+        mealLog: [],
       }).ok,
     ).toBe(false);
   });
