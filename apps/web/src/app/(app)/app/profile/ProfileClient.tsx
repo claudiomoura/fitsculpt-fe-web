@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import {
   defaultProfile,
@@ -29,13 +29,10 @@ export default function ProfileClient() {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [latestCheckinDate, setLatestCheckinDate] = useState<string | null>(null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
-  const [passwordLoading, setPasswordLoading] = useState(false);
   const [allergyInput, setAllergyInput] = useState("");
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarMessage, setAvatarMessage] = useState<string | null>(null);
+  const [profileStep, setProfileStep] = useState(0);
 
   const formatMetric = (value: number | null | undefined, suffix: string) => {
     if (value === null || value === undefined) return t("profile.noData");
@@ -58,6 +55,18 @@ export default function ProfileClient() {
     { value: "bigLunch", label: t("profile.mealDistributionBigLunch") },
     { value: "custom", label: t("profile.mealDistributionCustom") },
   ];
+
+  const profileSteps = useMemo(() => [
+    { title: t("profile.basicsTitle"), hint: t("profile.avatarTitle") },
+    { title: t("profile.goalsTitle"), hint: t("profile.goal") },
+    { title: t("profile.trainingPrefsTitle"), hint: t("tracking.progressTabTraining") },
+    { title: t("profile.nutritionPrefsTitle"), hint: t("tracking.progressTabNutrition") },
+    { title: t("profile.macroPrefsTitle"), hint: t("profile.macroTitle") },
+    { title: t("profile.latestMetricsTitle"), hint: t("profile.latestMetricsHint") },
+    { title: t("profile.injuriesTitle"), hint: t("profile.notes") },
+  ], [t]);
+  const isFirstProfileStep = profileStep === 0;
+  const isLastProfileStep = profileStep === profileSteps.length - 1;
 
   useEffect(() => {
     let active = true;
@@ -309,29 +318,31 @@ export default function ProfileClient() {
     }
   }
 
-  async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setPasswordMessage(null);
-    setPasswordLoading(true);
-    const response = await fetch("/api/auth/change-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-    setPasswordLoading(false);
-    if (!response.ok) {
-      setPasswordMessage(t("profile.passwordError"));
-      return;
-    }
-    setPasswordMessage(t("profile.passwordSuccess"));
-    setCurrentPassword("");
-    setNewPassword("");
-  }
-
   return (
-    <div className="page">
+    <div className="page profile-edit-content">
+      <section className="card profile-edit-stepper">
+        <div className="profile-edit-stepper-head">
+          <div>
+            <h2 className="section-title">{profileSteps[profileStep]?.title}</h2>
+            <p className="section-subtitle">{profileSteps[profileStep]?.hint}</p>
+          </div>
+          <div className="profile-edit-step-counter">Paso {profileStep + 1} de {profileSteps.length}</div>
+        </div>
+        <div className="profile-edit-step-progress">
+          {profileSteps.map((stepMeta, index) => (
+            <button
+              key={stepMeta.title}
+              type="button"
+              className={`profile-edit-step-dot ${index <= profileStep ? "is-active" : ""} ${index === profileStep ? "is-current" : ""}`}
+              onClick={() => setProfileStep(index)}
+              aria-label={stepMeta.title}
+            />
+          ))}
+        </div>
+      </section>
       {/* Card 1: Avatar & Basics */}
-      <section className="card" style={{ position: "relative" }}>
+      {profileStep === 0 ? (
+      <section className="card profile-edit-section" style={{ position: "relative" }}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.basicsTitle")}</h2>
         </div>
@@ -469,9 +480,11 @@ export default function ProfileClient() {
           </div>
         </div>
       </section>
+      ) : null}
 
       {/* Card 2: Goals */}
-      <section className="card">
+      {profileStep === 1 ? (
+      <section className="card profile-edit-section">
         <div className="section-head">
           <h2 className="section-title">{t("profile.goalsTitle")}</h2>
         </div>
@@ -508,9 +521,11 @@ export default function ProfileClient() {
           </div>
         </div>
       </section>
+      ) : null}
 
       {/* Card 3: Training */}
-      <section className="card">
+      {profileStep === 2 ? (
+      <section className="card profile-edit-section">
         <div className="section-head">
           <h2 className="section-title">{t("profile.trainingPrefsTitle")}</h2>
         </div>
@@ -597,9 +612,11 @@ export default function ProfileClient() {
           </div>
         </div>
       </section>
+      ) : null}
 
       {/* Card 4: Nutrition */}
-      <section className="card">
+      {profileStep === 3 ? (
+      <section className="card profile-edit-section">
         <div className="section-head">
           <h2 className="section-title">{t("profile.nutritionPrefsTitle")}</h2>
         </div>
@@ -699,9 +716,11 @@ export default function ProfileClient() {
           </label>
         </div>
       </section>
+      ) : null}
 
       {/* Card 5: Macros */}
-      <section className="card">
+      {profileStep === 4 ? (
+      <section className="card profile-edit-section">
         <div className="section-head">
           <h2 className="section-title">{t("profile.macroPrefsTitle")}</h2>
         </div>
@@ -739,9 +758,11 @@ export default function ProfileClient() {
           </div>
         </div>
       </section>
+      ) : null}
 
       {/* Card 6: Body Metrics */}
-      <section className="card">
+      {profileStep === 5 ? (
+      <section className="card profile-edit-section">
         <div className="section-head">
           <h2 className="section-title">{t("profile.latestMetricsTitle")}</h2>
           <p className="section-subtitle">{t("profile.latestMetricsHint")}</p>
@@ -788,9 +809,11 @@ export default function ProfileClient() {
           )}
         </div>
       </section>
+      ) : null}
 
       {/* Card 7: Medical & Notes */}
-      <section className="card">
+      {profileStep === 6 ? (
+      <section className="card profile-edit-section">
         <div className="section-head">
           <h2 className="section-title">{t("profile.injuriesTitle")}</h2>
         </div>
@@ -808,42 +831,29 @@ export default function ProfileClient() {
           </label>
         </div>
       </section>
+      ) : null}
 
-      {/* Save Button */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <button type="button" className="btn" onClick={saveProfile}>
-          {t("profile.save")}
-        </button>
-        <button type="button" className="btn secondary" onClick={resetProfile}>
-          {t("profile.reset")}
-        </button>
-        {saved && <span className="muted">{t("profile.savedToast")}</span>}
-      </div>
-
-      {/* Card 8: Security */}
-      <section className="card">
-        <div className="section-head">
-          <h2 className="section-title">{t("profile.passwordTitle")}</h2>
-          <p className="section-subtitle">{t("profile.passwordSubtitle")}</p>
-        </div>
-
-        <form className="form-stack" onSubmit={handleChangePassword}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-            <label className="form-stack">
-              {t("profile.currentPassword")}
-              <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required minLength={8} />
-            </label>
-            <label className="form-stack">
-              {t("profile.newPassword")}
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} />
-            </label>
-          </div>
-          <button type="submit" className="btn" disabled={passwordLoading}>
-            {passwordLoading ? t("profile.passwordSaving") : t("profile.passwordUpdate")}
+      <section className="card profile-edit-footer-card">
+        <div className="inline-actions-sm">
+          <button type="button" className="btn secondary" onClick={() => setProfileStep((current) => Math.max(0, current - 1))} disabled={isFirstProfileStep}>
+            Atras
           </button>
-          {passwordMessage && <p className="muted">{passwordMessage}</p>}
-        </form>
+          {!isLastProfileStep ? (
+            <button type="button" className="btn" onClick={() => setProfileStep((current) => Math.min(profileSteps.length - 1, current + 1))}>
+              Siguiente
+            </button>
+          ) : (
+            <button type="button" className="btn" onClick={saveProfile}>
+              {t("profile.save")}
+            </button>
+          )}
+          <button type="button" className="btn secondary" onClick={resetProfile}>
+            {t("profile.reset")}
+          </button>
+          {saved ? <span className="muted">{t("profile.savedToast")}</span> : null}
+        </div>
       </section>
+
     </div>
   );
 }

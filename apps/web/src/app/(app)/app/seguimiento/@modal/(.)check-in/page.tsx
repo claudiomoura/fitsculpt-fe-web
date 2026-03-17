@@ -23,6 +23,9 @@ export default function SeguimientoCheckinModalPage() {
       className="tracking-checkin-modal"
       overlayClassName="tracking-checkin-modal-overlay"
     >
+      <div className="flex justify-end px-4 pt-4">
+        <button type="button" className="btn secondary fit-content" onClick={handleClose}>Cerrar</button>
+      </div>
       <CheckinRouteContent />
     </Modal>
   );

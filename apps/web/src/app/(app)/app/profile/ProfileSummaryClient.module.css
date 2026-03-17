@@ -78,3 +78,15 @@
   color: var(--muted);
   font-size: 1rem;
 }
+
+
+.logoutButton {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 35%, transparent);
+  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 10%, transparent);
+}
+
+.logoutButton:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 16%, transparent);
+}

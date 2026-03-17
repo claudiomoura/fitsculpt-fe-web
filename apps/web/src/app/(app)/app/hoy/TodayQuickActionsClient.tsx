@@ -350,6 +350,7 @@ export default function TodayQuickActionsClient() {
 
   const userName = signals.userName || t("ui.userFallback");
   const currentRoute = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+  const showCheckinSuccess = searchParams.get("checkin") === "success";
   const billingHref = `${billingRoute}?returnTo=${encodeURIComponent(currentRoute)}`;
 
   const completedGoals = useMemo(
@@ -400,6 +401,19 @@ export default function TodayQuickActionsClient() {
 
       {status === "success" ? (
         <>
+          {showCheckinSuccess ? (
+            <section className="card border border-emerald-400/30 bg-emerald-500/10">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="m-0 text-sm font-semibold text-emerald-300">Check-in guardado</p>
+                  <p className="m-0 mt-1 text-sm text-muted">Tu progreso de hoy ya se ha actualizado con tus métricas reales.</p>
+                </div>
+                <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" className="fit-content">
+                  Ver progreso
+                </ButtonLink>
+              </div>
+            </section>
+          ) : null}
           {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamiento" /> : null}
 
           <div className="grid gap-6 md:grid-cols-3" data-testid="today-actions-grid">

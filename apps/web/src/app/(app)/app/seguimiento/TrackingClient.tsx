@@ -197,9 +197,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const isBodyFatValid =
     !supportsBodyFat || (Number.isFinite(checkinBodyFat) && checkinBodyFat >= 0 && checkinBodyFat <= 60);
   const isWaistValid = !supportsWaist || (Number.isFinite(checkinWaist) && checkinWaist >= 0);
-  const isWeightEntrySubmitDisabled = !isTrackingReady || !isWeightValid || !isDateValid || isSubmitting;
+  const isWeightEntrySubmitDisabled = !isWeightValid || !isDateValid || isSubmitting;
   const isCheckinSubmitDisabled =
-    !isTrackingReady || !isWeightValid || !isDateValid || !isBodyFatValid || !isWaistValid || isSubmitting;
+    !isWeightValid || !isDateValid || !isBodyFatValid || !isWaistValid || isSubmitting;
   const adjustmentInput = canApplyTrainingAdjustment(profile) ? getTrainingAdjustmentInput(profile) : null;
   const hasAdjustmentTokens = hasAdjustmentEntitlement || (adjustmentTokenBalance ?? 0) > 0;
   const canApplyAdjustment =
@@ -534,6 +534,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         return false;
       }
       showMessage(successMessage);
+      if (isCheckinOnly) {
+        router.push("/app/hoy?checkin=success");
+      }
       return true;
     } catch (_err) {
       if (options?.onError) {
@@ -1341,6 +1344,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       {isCheckinOnly ? (
         <section className={`card ${styles.checkinShell}`} id="checkin-entry">
           <div className={styles.checkinHero}>
+            <div className="inline-actions-sm w-full justify-end">
+              <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>Cerrar</button>
+            </div>
             <div>
               <h2 className="section-title" style={{ fontSize: 22 }}>{t("profile.checkinTitle")}</h2>
               <p className="section-subtitle">{t("profile.checkinSubtitle")}</p>

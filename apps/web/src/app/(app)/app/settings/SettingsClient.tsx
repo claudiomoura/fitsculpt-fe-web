@@ -157,6 +157,7 @@ export default function SettingsClient() {
         <p className="section-subtitle">{t("settings.subtitle")}</p>
         <div className="inline-actions-sm">
           <a className="btn" href="/app/profile/edit">Editar perfil</a>
+          <a className="btn secondary" href="/app/settings/password">Contraseña</a>
           <a className="btn secondary" href="/app/settings/billing">Facturación</a>
         </div>
       </header>

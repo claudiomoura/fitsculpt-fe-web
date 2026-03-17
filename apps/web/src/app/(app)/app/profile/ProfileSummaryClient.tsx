@@ -9,6 +9,7 @@ import { isTrainer as isTrainerRole } from "@/lib/roles";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import TrainerProfileSummary from "@/components/trainer/profile/TrainerProfileSummary";
 import { ButtonLink } from "@/components/ui/Button";
+import LogoutButton from "../LogoutButton";
 import styles from "./ProfileSummaryClient.module.css";
 
 type AuthState = {
@@ -153,6 +154,7 @@ export default function ProfileSummaryClient() {
           <HubRow label={t("nav.settings")} href="/app/settings" />
           <HubRow label={t("nav.billing")} href="/app/settings/billing" />
           <HubRow label={t("nav.profile")} href="/app/profile/edit" />
+          <HubRow label={t("profile.passwordTitle")} href="/app/settings/password" />
         </div>
       </section>
 
@@ -170,6 +172,10 @@ export default function ProfileSummaryClient() {
           <HubRow label={t("nav.gym")} href="/app/gym" />
           {/* Requiere implementación: centro de notificaciones/cuenta dedicado fuera de las rutas existentes. */}
         </div>
+      </section>
+
+      <section className="card">
+        <LogoutButton className={styles.logoutButton} />
       </section>
     </div>
   );

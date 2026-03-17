@@ -148,3 +148,57 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+@media (max-width: 640px) {
+  .heroCard {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .heroHeader {
+    gap: 16px;
+  }
+
+  .segmentedControl,
+  .insightTabs {
+    width: 100%;
+    max-width: none;
+  }
+
+  .segmentedButton,
+  .insightTabButton {
+    padding: 12px 10px;
+    font-size: 0.92rem;
+  }
+
+  .metricCards {
+    grid-template-columns: 1fr;
+  }
+
+  .overviewGrid {
+    gap: 14px;
+  }
+
+  .rightColumn {
+    gap: 12px;
+  }
+
+  .checkinShell {
+    gap: 18px;
+    padding: 16px;
+  }
+
+  .checkinLatestPill {
+    width: 100%;
+  }
+
+  .checkinModeCard {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .checkinFormGrid {
+    grid-template-columns: 1fr;
+  }
+}

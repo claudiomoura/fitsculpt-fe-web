@@ -402,14 +402,24 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   }
 
   return (
-    <div className="page">
-      <section className="card">
-        <h2 className="section-title" style={{ fontSize: 20 }}>{t("onboarding.title")}</h2>
-        <p className="section-subtitle">{t("onboarding.subtitle")}</p>
-        <p className="muted" style={{ marginTop: 8 }}>{t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}</p>
+    <div className="page onboarding-shell">
+      <section className="card onboarding-shell-hero">
+        <div className="onboarding-shell-brand">
+          <div className="onboarding-shell-logo">FS</div>
+          <div>
+            <h2 className="section-title" style={{ fontSize: 24 }}>{t("onboarding.title")}</h2>
+            <p className="section-subtitle">{t("onboarding.subtitle")}</p>
+          </div>
+        </div>
+        <div className="onboarding-shell-progress" aria-label={t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}>
+          {Array.from({ length: LAST_STEP + 1 }).map((_, index) => (
+            <span key={index} className={`onboarding-shell-progress-bar ${index <= step ? "is-active" : ""} ${index === step ? "is-current" : ""}`} />
+          ))}
+        </div>
+        <p className="muted onboarding-shell-counter">{t("onboarding.stepCounter", { current: step + 1, total: LAST_STEP + 1 })}</p>
       </section>
 
-      {step === 0 && <section className="card form-stack"><h3 className="section-title">{t("profile.basicsTitle")}</h3>
+      {step === 0 && <section className="card form-stack onboarding-step-card"><h3 className="section-title">{t("profile.basicsTitle")}</h3>
         <label className="form-stack">{t("profile.name")}<input value={profile.name} onChange={(e) => updateProfile("name", e.target.value)} /></label>
         <label className="form-stack">{t("profile.sex")}<select value={profile.sex} onChange={(e) => {
           const nextSex = e.target.value as Sex | "";
@@ -424,12 +434,12 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
         <p className="muted">{t("onboarding.defaultsHint")}</p>
       </section>}
 
-      {step === 1 && <section className="card form-stack"><h3 className="section-title">{t("onboarding.objectiveTitle")}</h3>
+      {step === 1 && <section className="card form-stack onboarding-step-card"><h3 className="section-title">{t("onboarding.objectiveTitle")}</h3>
       <label className="form-stack">{t("profile.goal")}<select value={profile.goal} onChange={(event) => updateProfile("goal", event.target.value as Goal | "")}><option value="">{t("profile.selectPlaceholder")}</option>{objectiveOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       <label className="form-stack">{t("profile.goalWeight")}<input type="number" value={profile.goalWeightKg ?? ""} onChange={(e) => updateProfile("goalWeightKg", parseNumberInput(e.target.value))} /></label>
       </section>}
 
-      {step === 2 && <section className="card form-stack"><h3 className="section-title">{t("onboarding.levelTitle")}</h3>
+      {step === 2 && <section className="card form-stack onboarding-step-card"><h3 className="section-title">{t("onboarding.levelTitle")}</h3>
       <label className="form-stack">{t("profile.activity")}<select value={profile.activity} onChange={(e) => updateProfile("activity", e.target.value as Activity | "")}><option value="">{t("profile.selectPlaceholder")}</option>{activityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       <label className="form-stack">{t("profile.trainingLevel")}<select value={profile.trainingPreferences.level} onChange={(e) => updateTrainingPreference("level", e.target.value as TrainingLevel | "")}><option value="">{t("profile.selectPlaceholder")}</option>{levelOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       <label className="form-stack">{t("profile.trainingDays")}<input type="number" value={profile.trainingPreferences.daysPerWeek ?? ""} onChange={(e) => updateTrainingPreference("daysPerWeek", parseNumberInput(e.target.value))} /></label>
@@ -440,14 +450,14 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       <label className="form-stack">{t("profile.timerSound")}<select value={profile.trainingPreferences.timerSound} onChange={(e) => updateTrainingPreference("timerSound", e.target.value as TimerSound | "")}><option value="">{t("profile.selectPlaceholder")}</option>{timerSoundOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </section>}
 
-      {step === 3 && <section className="card form-stack"><h3 className="section-title">{t("onboarding.preferencesTitle")}</h3>
+      {step === 3 && <section className="card form-stack onboarding-step-card"><h3 className="section-title">{t("onboarding.preferencesTitle")}</h3>
       <label className="form-stack">{t("profile.mealsPerDay")}<input type="number" value={profile.nutritionPreferences.mealsPerDay ?? ""} onChange={(e) => updateNutritionPreference("mealsPerDay", parseNumberInput(e.target.value))} /></label>
       <label className="form-stack">{t("profile.dietType")}<select value={profile.nutritionPreferences.dietType} onChange={(event) => updateNutritionPreference("dietType", event.target.value as NutritionDietType | "")}><option value="">{t("profile.selectPlaceholder")}</option>{dietOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       <label className="form-stack">{t("profile.cookingTime")}<select value={profile.nutritionPreferences.cookingTime} onChange={(e) => updateNutritionPreference("cookingTime", e.target.value as NutritionCookingTime | "")}><option value="">{t("profile.selectPlaceholder")}</option>{cookingTimeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       <label className="form-stack">{t("profile.mealDistributionLabel")}<select value={profile.nutritionPreferences.mealDistribution.preset} onChange={(event) => updateNutritionPreference("mealDistribution", { preset: event.target.value as MealDistributionPreset | "" })}><option value="">{t("profile.selectPlaceholder")}</option>{mealDistributionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </section>}
 
-      {step === 4 && <section className="card form-stack"><h3 className="section-title">{t("profile.macroTitle")}</h3>
+      {step === 4 && <section className="card form-stack onboarding-step-card"><h3 className="section-title">{t("profile.macroTitle")}</h3>
       <label className="form-stack">{renderFieldLabel(t("profile.macroFormula"), true)}<select value={profile.macroPreferences.formula} onChange={(e) => {
         const nextFormula = e.target.value as MacroFormula | "";
         updateMacroPreference("formula", nextFormula);
@@ -483,7 +493,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       <label className="form-stack">{safeLabel("tracking.bodyFatPercent", "Body fat (%)")}<input type="number" value={profile.measurements.bodyFatPercent ?? ""} onChange={(e) => updateMeasurement("bodyFatPercent", parseNumberInput(e.target.value))} /></label>
       </section>}
 
-      {step === 5 && <section className="card form-stack"><h3 className="section-title">{t("profile.notes")}</h3>
+      {step === 5 && <section className="card form-stack onboarding-step-card"><h3 className="section-title">{t("profile.notes")}</h3>
       <label className="form-stack">{t("profile.injuriesLabel")}<textarea value={profile.injuries} onChange={(e) => updateProfile("injuries", e.target.value)} /></label>
       <label className="form-stack">{t("profile.notes")}<textarea value={profile.notes} onChange={(e) => updateProfile("notes", e.target.value)} /></label>
       <label className="form-stack">{t("profile.preferredFoods")}<textarea value={profile.nutritionPreferences.preferredFoods} onChange={(e) => updateNutritionPreference("preferredFoods", e.target.value)} /></label>
@@ -491,7 +501,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       <label className="form-stack">{t("profile.dietaryPrefs")}<textarea value={profile.nutritionPreferences.dietaryPrefs} onChange={(e) => updateNutritionPreference("dietaryPrefs", e.target.value)} /></label>
       </section>}
 
-      <section className="card form-stack">
+      <section className="card form-stack onboarding-footer-card">
         {saveState === "error" && <div className="form-stack" role="alert"><p className="section-subtitle">{t("onboarding.saveError")}</p><button type="button" className="btn secondary" onClick={() => void saveProfile()}>{t("onboarding.retry")}</button></div>}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" className="btn secondary" onClick={goToBack} disabled={saveState === "saving"}>{t("onboarding.back")}</button>
