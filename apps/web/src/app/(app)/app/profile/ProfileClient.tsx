@@ -326,7 +326,9 @@ export default function ProfileClient() {
             <h2 className="section-title">{profileSteps[profileStep]?.title}</h2>
             <p className="section-subtitle">{profileSteps[profileStep]?.hint}</p>
           </div>
-          <div className="profile-edit-step-counter">Paso {profileStep + 1} de {profileSteps.length}</div>
+          <div className="profile-edit-step-counter">
+            {t("profile.stepCounter", { current: profileStep + 1, total: profileSteps.length })}
+          </div>
         </div>
         <div className="profile-edit-step-progress">
           {profileSteps.map((stepMeta, index) => (
@@ -836,11 +838,11 @@ export default function ProfileClient() {
       <section className="card profile-edit-footer-card premium-footer-card">
         <div className="inline-actions-sm">
           <button type="button" className="btn secondary" onClick={() => setProfileStep((current) => Math.max(0, current - 1))} disabled={isFirstProfileStep}>
-            Atras
+            {t("ui.back")}
           </button>
           {!isLastProfileStep ? (
             <button type="button" className="btn" onClick={() => setProfileStep((current) => Math.min(profileSteps.length - 1, current + 1))}>
-              Siguiente
+              {t("ui.continue")}
             </button>
           ) : (
             <button type="button" className="btn" onClick={saveProfile}>

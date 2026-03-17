@@ -342,7 +342,9 @@
     "kcal": "kcal",
     "grams": "g",
     "kilograms": "kg",
+    "pounds": "lb",
     "centimeters": "cm",
+    "inches": "in",
     "percent": "%"
   },
   "exerciseDetail": {
@@ -1385,6 +1387,10 @@
     "summaryInjuries": "Lesiones y limitaciones",
     "summaryMacros": "Macros",
     "editProfile": "Editar perfil",
+    "stepCounter": "Paso {current} de {total}",
+    "accountSectionEyebrow": "Cuenta",
+    "accountSectionBadge": "Seguro",
+    "logoutDescription": "Sal de tu cuenta de forma segura en este dispositivo.",
     "trainerSummaryTitle": "Perfil de entrenador",
     "trainerSummaryDescription": "Las herramientas de entrenador se gestionan desde tu gimnasio y área de entrenador.",
     "trainerHeaderTitle": "Identidad profesional",
@@ -2295,6 +2301,13 @@
       "language": {
         "title": "Idioma",
         "description": "Elige el idioma de la app para toda tu experiencia."
+      },
+      "units": {
+        "title": "Unidades",
+        "description": "Elige c\u00f3mo quieres ver peso y medidas.",
+        "action": "Editar unidades",
+        "modalTitle": "Unidades de medida",
+        "modalDescription": "Selecciona tu sistema preferido para peso y medidas."
       },
       "profile": {
         "title": "Perfil",

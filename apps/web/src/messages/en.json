@@ -342,7 +342,9 @@
     "kcal": "kcal",
     "grams": "g",
     "kilograms": "kg",
+    "pounds": "lb",
     "centimeters": "cm",
+    "inches": "in",
     "percent": "%"
   },
   "exerciseDetail": {
@@ -1382,6 +1384,10 @@
     "summaryInjuries": "Injuries and limitations",
     "summaryMacros": "Macros",
     "editProfile": "Edit profile",
+    "stepCounter": "Step {current} of {total}",
+    "accountSectionEyebrow": "Account",
+    "accountSectionBadge": "Secure",
+    "logoutDescription": "Sign out safely from this device.",
     "trainerSummaryTitle": "Trainer profile",
     "trainerSummaryDescription": "Trainer tools are managed from your gym and trainer workspace.",
     "trainerHeaderTitle": "Professional identity",
@@ -2292,6 +2298,13 @@
       "language": {
         "title": "Language",
         "description": "Choose your app language for the full experience."
+      },
+      "units": {
+        "title": "Units",
+        "description": "Choose how your body metrics are displayed.",
+        "action": "Edit units",
+        "modalTitle": "Measurement units",
+        "modalDescription": "Select your preferred system for weight and size."
       },
       "profile": {
         "title": "Profile",

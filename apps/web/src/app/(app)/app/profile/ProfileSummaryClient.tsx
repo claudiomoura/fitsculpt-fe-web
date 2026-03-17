@@ -9,6 +9,7 @@ import { isTrainer as isTrainerRole } from "@/lib/roles";
 import { extractGymMembership, type GymMembership } from "@/lib/gymMembership";
 import TrainerProfileSummary from "@/components/trainer/profile/TrainerProfileSummary";
 import { ButtonLink } from "@/design-system/components/Button";
+import { getMeasurementSystemLabel, getStoredMeasurementSystem, type MeasurementSystem } from "@/lib/measurementUnits";
 import LogoutButton from "../LogoutButton";
 import styles from "./ProfileSummaryClient.module.css";
 
@@ -42,6 +43,23 @@ export default function ProfileSummaryClient() {
   const [auth, setAuth] = useState<AuthState>({ name: null, email: null, plan: null });
   const [isTrainer, setIsTrainer] = useState(false);
   const [gymMembership, setGymMembership] = useState<GymMembership>(UNKNOWN_MEMBERSHIP);
+  const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>("metric");
+
+  useEffect(() => {
+    setMeasurementSystem(getStoredMeasurementSystem());
+
+    const handleMeasurementSystemChange = () => {
+      setMeasurementSystem(getStoredMeasurementSystem());
+    };
+
+    window.addEventListener("storage", handleMeasurementSystemChange);
+    window.addEventListener("settings:measurement-system", handleMeasurementSystemChange);
+
+    return () => {
+      window.removeEventListener("storage", handleMeasurementSystemChange);
+      window.removeEventListener("settings:measurement-system", handleMeasurementSystemChange);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -113,8 +131,8 @@ export default function ProfileSummaryClient() {
         <p className={styles.userName}>{displayName}</p>
         <p className={styles.userEmail}>{displayEmail}</p>
         <div className="inline-actions-sm mt-8">
-          <a className="btn" href="/app/profile/edit">Completar perfil</a>
-          <a className="btn secondary" href="/app/settings">Ajustes</a>
+          <a className="btn" href="/app/profile/edit">{t("profile.editProfile")}</a>
+          <a className="btn secondary" href="/app/settings">{t("nav.settings")}</a>
         </div>
       </section>
 
@@ -141,9 +159,9 @@ export default function ProfileSummaryClient() {
         <div className={styles.rows}>
           <HubRow label={t("ui.language")} value={localeLabel(locale)} href="/app/settings" />
           <HubRow
-            label={t("ui.select")}
-            value={`${t("units.kilograms")}/${t("units.centimeters")}`}
-            href="/app/settings"
+            label={t("settings.sections.units.title")}
+            value={getMeasurementSystemLabel(measurementSystem, t)}
+            href="/app/settings?modal=units"
           />
         </div>
       </section>
@@ -151,10 +169,10 @@ export default function ProfileSummaryClient() {
       <section className={`card ${styles.accountCard}`}>
         <div className={styles.accountHeader}>
           <div>
-            <p className={styles.accountEyebrow}>Cuenta</p>
+            <p className={styles.accountEyebrow}>{t("profile.accountSectionEyebrow")}</p>
             <h3 className={styles.groupTitle}>{t("navSections.account")}</h3>
           </div>
-          <span className={styles.accountBadge}>Seguro</span>
+          <span className={styles.accountBadge}>{t("profile.accountSectionBadge")}</span>
         </div>
         <div className={styles.rows}>
           <HubRow label={t("nav.settings")} href="/app/settings" />
@@ -182,8 +200,8 @@ export default function ProfileSummaryClient() {
 
       <section className={`card ${styles.logoutCard}`}>
         <div className={styles.logoutIntro}>
-          <p className={styles.logoutTitle}>Cerrar sesión</p>
-          <p className={styles.logoutDescription}>Sal de tu cuenta de forma segura en este dispositivo.</p>
+          <p className={styles.logoutTitle}>{t("nav.logout")}</p>
+          <p className={styles.logoutDescription}>{t("profile.logoutDescription")}</p>
         </div>
         <LogoutButton className={styles.logoutButton} />
       </section>

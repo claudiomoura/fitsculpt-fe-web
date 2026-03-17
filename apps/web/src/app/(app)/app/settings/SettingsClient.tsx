@@ -1,32 +1,59 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/design-system/components/Card";
-import { ButtonLink } from "@/design-system/components/Button";
+import { Button, ButtonLink } from "@/design-system/components/Button";
+import { Modal } from "@/design-system/components/Modal";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { extractGymMembership } from "@/lib/gymMembership";
 import { useAccess } from "@/lib/useAccess";
+import {
+  getMeasurementSystemLabel,
+  getStoredMeasurementSystem,
+  saveMeasurementSystem,
+  type MeasurementSystem,
+} from "@/lib/measurementUnits";
 
-type SettingsSection = "account" | "language" | "profile" | "billing" | "notifications" | "support";
+type SettingsSection = "account" | "language" | "units" | "profile" | "billing" | "notifications" | "support";
 type MembershipState = "none" | "pending" | "active" | "rejected" | "unknown";
 
-const sectionOrder: SettingsSection[] = ["account", "language", "profile", "billing", "notifications", "support"];
+const sectionOrder: SettingsSection[] = ["account", "language", "units", "profile", "billing", "notifications", "support"];
 
 export default function SettingsClient() {
   const { t } = useLanguage();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { isAdmin, isDev } = useAccess();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [membershipState, setMembershipState] = useState<MembershipState>("unknown");
   const [membershipGymName, setMembershipGymName] = useState<string | null>(null);
+  const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>("metric");
+  const [draftMeasurementSystem, setDraftMeasurementSystem] = useState<MeasurementSystem>("metric");
+  const [isUnitsModalOpen, setIsUnitsModalOpen] = useState(false);
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL;
   const hasGymSelectionEndpoint = false;
   const canSeeImplementationNote = (isAdmin || isDev) && !hasGymSelectionEndpoint;
+
+  useEffect(() => {
+    const storedSystem = getStoredMeasurementSystem();
+    setMeasurementSystem(storedSystem);
+    setDraftMeasurementSystem(storedSystem);
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get("modal") !== "units") return;
+    const storedSystem = getStoredMeasurementSystem();
+    setDraftMeasurementSystem(storedSystem);
+    setIsUnitsModalOpen(true);
+  }, [searchParams]);
 
   useEffect(() => {
     let mounted = true;
@@ -80,6 +107,27 @@ export default function SettingsClient() {
 
   const profileName = (profile?.name ?? "").trim();
   const gymMembership = extractGymMembership(profile);
+  const unitsValueLabel = getMeasurementSystemLabel(measurementSystem, t);
+
+  const closeUnitsModal = () => {
+    setIsUnitsModalOpen(false);
+    if (searchParams.get("modal") !== "units") return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("modal");
+    const query = nextParams.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const openUnitsModal = () => {
+    setDraftMeasurementSystem(measurementSystem);
+    setIsUnitsModalOpen(true);
+  };
+
+  const saveUnitsPreference = () => {
+    saveMeasurementSystem(draftMeasurementSystem);
+    setMeasurementSystem(draftMeasurementSystem);
+    closeUnitsModal();
+  };
 
   const sections = useMemo(
     () => ({
@@ -91,6 +139,11 @@ export default function SettingsClient() {
       language: {
         title: t("settings.sections.language.title"),
         description: t("settings.sections.language.description"),
+      },
+      units: {
+        title: t("settings.sections.units.title"),
+        description: t("settings.sections.units.description"),
+        action: t("settings.sections.units.action"),
       },
       profile: {
         title: t("settings.sections.profile.title"),
@@ -156,9 +209,13 @@ export default function SettingsClient() {
         </h1>
         <p className="section-subtitle">{t("settings.subtitle")}</p>
         <div className="inline-actions-sm">
-          <a className="btn" href="/app/profile/edit">Editar perfil</a>
-          <a className="btn secondary" href="/app/settings/password">Contraseña</a>
-          <a className="btn secondary" href="/app/settings/billing">Facturación</a>
+          <ButtonLink href="/app/profile/edit">{t("profile.editProfile")}</ButtonLink>
+          <ButtonLink href="/app/settings/password" variant="secondary">
+            {t("profile.passwordTitle")}
+          </ButtonLink>
+          <ButtonLink href="/app/settings/billing" variant="secondary">
+            {t("nav.billing")}
+          </ButtonLink>
         </div>
       </header>
 
@@ -221,6 +278,30 @@ export default function SettingsClient() {
             );
           }
 
+          if (sectionKey === "units") {
+            const section = sections.units;
+            return (
+              <Card key={sectionKey}>
+                <CardHeader>
+                  <div>
+                    <CardTitle>{section.title}</CardTitle>
+                    <CardDescription>{section.description}</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="m-0" style={{ fontWeight: 600 }}>
+                    {unitsValueLabel}
+                  </p>
+                </CardContent>
+                <CardFooter style={{ justifyContent: "flex-start" }}>
+                  <Button variant="secondary" onClick={openUnitsModal}>
+                    {section.action}
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          }
+
           if (sectionKey === "account") {
             const section = sections.account;
             return (
@@ -264,6 +345,44 @@ export default function SettingsClient() {
           );
         })}
       </div>
+
+      <Modal
+        open={isUnitsModalOpen}
+        onClose={closeUnitsModal}
+        title={t("settings.sections.units.modalTitle")}
+        description={t("settings.sections.units.modalDescription")}
+        footer={
+          <div className="inline-actions-sm" style={{ justifyContent: "flex-end", width: "100%" }}>
+            <Button variant="ghost" onClick={closeUnitsModal}>
+              {t("ui.cancel")}
+            </Button>
+            <Button onClick={saveUnitsPreference}>{t("ui.save")}</Button>
+          </div>
+        }
+      >
+        <div className="form-stack" style={{ marginTop: 16 }}>
+          <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input
+              type="radio"
+              name="measurement-system"
+              value="metric"
+              checked={draftMeasurementSystem === "metric"}
+              onChange={() => setDraftMeasurementSystem("metric")}
+            />
+            <span>{`${t("units.kilograms")}/${t("units.centimeters")}`}</span>
+          </label>
+          <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input
+              type="radio"
+              name="measurement-system"
+              value="imperial"
+              checked={draftMeasurementSystem === "imperial"}
+              onChange={() => setDraftMeasurementSystem("imperial")}
+            />
+            <span>{`${t("units.pounds")}/${t("units.inches")}`}</span>
+          </label>
+        </div>
+      </Modal>
     </section>
   );
 }

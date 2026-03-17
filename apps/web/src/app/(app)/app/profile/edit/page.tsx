@@ -7,7 +7,7 @@ export default async function ProfileEditPage() {
     <div className="page profile-edit-shell">
       <section className="card profile-edit-hero premium-hero-card">
         <div className="profile-edit-hero-head">
-          <div className="profile-edit-badge">Cuenta</div>
+          <div className="profile-edit-badge">{t("navSections.account")}</div>
           <h1 className="section-title">{t("app.profileTitle")}</h1>
           <p className="section-subtitle">{t("profile.legacySubtitle")}</p>
         </div>
