@@ -8,7 +8,9 @@ type NutritionAdherenceStore = Record<string, string[]>;
 const isBrowser = () => typeof window !== "undefined";
 const normalizeKey = (value?: string | null) => value?.trim() ?? "";
 
-export function buildNutritionAdherenceStoreFromMealLog(entries?: MealLogEntry[] | null): NutritionAdherenceStore {
+type MealLogLike = Partial<MealLogEntry>;
+
+export function buildNutritionAdherenceStoreFromMealLog(entries?: MealLogLike[] | null): NutritionAdherenceStore {
   if (!Array.isArray(entries)) return {};
   return entries.reduce<NutritionAdherenceStore>((acc, entry) => {
     if (!entry?.date || !entry?.mealKey) return acc;

@@ -72,6 +72,19 @@ type WorkoutEntry = {
   notes: string;
 };
 
+type MealLogEntry = {
+  id: string;
+  date: string;
+  mealKey: string;
+  mealType: string;
+  title: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  completedAt: string;
+};
+
 type UserFood = {
   id: string;
   name: string;
@@ -1276,7 +1289,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {!isCheckinOnly ? (
-        <section className="card">
+        <section className="card premium-fade-up">
           <div className="section-head">
             <div>
               <h2 className="section-title" style={{ fontSize: 20 }}>{t("latestMetricsTitle")}</h2>
@@ -1341,7 +1354,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {isCheckinOnly ? (
-        <section className={`card ${styles.checkinShell}`} id="checkin-entry">
+        <section className={`card ${styles.checkinShell} premium-fade-up`} id="checkin-entry">
           <div className={styles.checkinHero}>
             <div className="inline-actions-sm w-full justify-end">
               <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>Cerrar</button>

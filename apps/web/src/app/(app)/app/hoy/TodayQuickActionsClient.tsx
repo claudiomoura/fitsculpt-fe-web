@@ -56,6 +56,7 @@ type TodaySignals = {
 
 type TrackingPayload = {
   checkins?: Array<{ date?: string | null; weightKg?: number | null }>;
+  mealLog?: Array<{ id?: string; date?: string; mealKey?: string; mealType?: string; title?: string; calories?: number; protein?: number; carbs?: number; fats?: number; completedAt?: string }>;
 };
 
 type ActiveTrainingPlanPayload = {
@@ -264,6 +265,11 @@ export default function TodayQuickActionsClient() {
         hasTrainingAccess: true,
       };
 
+      let trackingPayload: TrackingPayload = {
+        checkins: [],
+        mealLog: [],
+      };
+
       if (authMeResponse.ok) {
         const authMe = (await authMeResponse.json()) as AuthMeResponse;
         const entitlementSnapshot = readAuthEntitlementSnapshot(authMe);
@@ -276,7 +282,7 @@ export default function TodayQuickActionsClient() {
       }
 
       if (trackingResponse.ok) {
-        const trackingPayload = (await trackingResponse.json()) as TrackingPayload & { mealLog?: Array<{ date: string; mealKey: string }> };
+        trackingPayload = (await trackingResponse.json()) as TrackingPayload;
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
         nextSignals.streakDays = getStreakDays(trackingPayload);
@@ -402,7 +408,7 @@ export default function TodayQuickActionsClient() {
       {status === "success" ? (
         <>
           {showCheckinSuccess ? (
-            <section className="card premium-inline-banner border border-emerald-400/30 bg-emerald-500/10">
+            <section className="card premium-inline-banner premium-success-surface premium-fade-up border border-emerald-400/30 bg-emerald-500/10">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="m-0 text-sm font-semibold text-emerald-300">Check-in guardado</p>
@@ -417,7 +423,7 @@ export default function TodayQuickActionsClient() {
           {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href="/app/entrenamiento" /> : null}
 
           <div className="grid gap-6 md:grid-cols-3" data-testid="today-actions-grid">
-            <section className="card xl:col-span-2" data-testid="today-action-card">
+            <section className="card xl:col-span-2 premium-fade-up" data-testid="today-action-card">
               <div className="mb-5 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
                   <PremiumWorkoutIcon width={28} height={28} className="text-primary" />
@@ -467,7 +473,7 @@ export default function TodayQuickActionsClient() {
               )}
             </section>
 
-            <section className="card" data-testid="today-action-card">
+            <section className="card premium-fade-up" data-testid="today-action-card">
               <div className="mb-5 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/20">
                   <PremiumNutritionIcon width={28} height={28} className="text-success" />
@@ -497,7 +503,7 @@ export default function TodayQuickActionsClient() {
               </ButtonLink>
             </section>
 
-            <section className="card" data-testid="today-action-card">
+            <section className="card premium-fade-up" data-testid="today-action-card">
               <div className="mb-5 flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-info/20">
                   <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-info">

@@ -31,7 +31,7 @@ export type ProxyErrorPayload = {
 };
 
 export type ProxyOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   request?: Request;
 };
