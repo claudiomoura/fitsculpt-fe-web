@@ -50,6 +50,8 @@ type TodaySignals = {
   nutritionMealsLogged: number;
   nutritionMealsTotal: number;
   currentWeightKg: number | null;
+  startWeightKg: number | null;
+  goalWeightKg: number | null;
   streakDays: number;
   hasTrainingAccess: boolean;
 };
@@ -145,6 +147,10 @@ function ProgressMetric({
   );
 }
 
+function isPositiveNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
   const todayKey = toDateKey(new Date());
   const dayFromDate = days.find((day) => {
@@ -222,6 +228,8 @@ export default function TodayQuickActionsClient() {
     nutritionMealsLogged: 0,
     nutritionMealsTotal: 0,
     currentWeightKg: null,
+    startWeightKg: null,
+    goalWeightKg: null,
     streakDays: 0,
     hasTrainingAccess: true,
   });
@@ -231,11 +239,12 @@ export default function TodayQuickActionsClient() {
     setStatus("loading");
 
     try {
-      const [trackingResponse, activeTrainingResponse, nutritionListResponse, authMeResponse] = await Promise.all([
+      const [trackingResponse, activeTrainingResponse, nutritionListResponse, authMeResponse, profileResponse] = await Promise.all([
         fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
         fetch("/api/training-plans/active?includeDays=1", { cache: "no-store", credentials: "include" }),
         fetch("/api/nutrition-plans?limit=1", { cache: "no-store", credentials: "include" }),
         fetch("/api/auth/me", { cache: "no-store", credentials: "include" }),
+        fetch("/api/profile", { cache: "no-store", credentials: "include" }),
       ]);
 
       if (!trackingResponse.ok && !activeTrainingResponse.ok && !nutritionListResponse.ok) {
@@ -261,6 +270,8 @@ export default function TodayQuickActionsClient() {
         nutritionMealsLogged: 0,
         nutritionMealsTotal: 0,
         currentWeightKg: null,
+        startWeightKg: null,
+        goalWeightKg: null,
         streakDays: 0,
         hasTrainingAccess: true,
       };
@@ -282,10 +293,25 @@ export default function TodayQuickActionsClient() {
         nextSignals.hasTrainingAccess = entitlementSnapshot.modules.strength;
       }
 
+      if (profileResponse.ok) {
+        const profile = (await profileResponse.json()) as {
+          weightKg?: number | null;
+          goalWeightKg?: number | null;
+        };
+        nextSignals.startWeightKg = isPositiveNumber(profile.weightKg) ? profile.weightKg : null;
+        nextSignals.goalWeightKg = isPositiveNumber(profile.goalWeightKg) ? profile.goalWeightKg : null;
+      }
+
       if (trackingResponse.ok) {
         trackingPayload = (await trackingResponse.json()) as TrackingPayload;
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
+        const earliestCheckin = [...(trackingPayload.checkins ?? [])]
+          .filter((entry) => isPositiveNumber(entry.weightKg) && typeof entry.date === "string")
+          .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
+        if (isPositiveNumber(earliestCheckin?.weightKg)) {
+          nextSignals.startWeightKg = earliestCheckin.weightKg;
+        }
         nextSignals.streakDays = getStreakDays(trackingPayload);
         const todaysMealLog = (trackingPayload.mealLog ?? []).filter((entry) => entry.date === todayDateKey);
         nextSignals.nutritionMealsLogged = todaysMealLog.length;
@@ -293,6 +319,10 @@ export default function TodayQuickActionsClient() {
           todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.calories) ? Number(entry.calories) : 0), 0),
         );
         nextSignals.nutritionReady = todaysMealLog.length > 0;
+      }
+
+      if (!isPositiveNumber(nextSignals.currentWeightKg) && isPositiveNumber(nextSignals.startWeightKg)) {
+        nextSignals.currentWeightKg = nextSignals.startWeightKg;
       }
 
       if (activeTrainingResponse.ok) {
@@ -375,6 +405,28 @@ export default function TodayQuickActionsClient() {
   const dailyProgressPercent = Math.round((completedGoals / 3) * 100);
   const nutritionProgressPercent = signals.nutritionMealsTotal > 0 ? Math.round((signals.nutritionMealsLogged / signals.nutritionMealsTotal) * 100) : 0;
   const checkinProgressPercent = signals.checkinDoneThisWeek ? 100 : 35;
+  const goalDeltaKg =
+    isPositiveNumber(signals.currentWeightKg) && isPositiveNumber(signals.goalWeightKg)
+      ? Number((signals.goalWeightKg - signals.currentWeightKg).toFixed(1))
+      : null;
+  const goalDistanceTotal =
+    isPositiveNumber(signals.startWeightKg) && isPositiveNumber(signals.goalWeightKg)
+      ? Math.abs(signals.startWeightKg - signals.goalWeightKg)
+      : null;
+  const goalDistanceRemaining =
+    isPositiveNumber(signals.currentWeightKg) && isPositiveNumber(signals.goalWeightKg)
+      ? Math.abs(signals.currentWeightKg - signals.goalWeightKg)
+      : null;
+  const goalProgressPercent =
+    goalDistanceTotal !== null && goalDistanceRemaining !== null
+      ? goalDistanceTotal === 0
+        ? 100
+        : Math.max(0, Math.min(100, Math.round((1 - goalDistanceRemaining / goalDistanceTotal) * 100)))
+      : checkinProgressPercent;
+  const goalLabel =
+    goalDeltaKg === null
+      ? "Meta"
+      : `Meta: ${goalDeltaKg > 0 ? "+" : ""}${goalDeltaKg.toFixed(1)} kg`;
   const aiLockReason = signals.aiTokenBalance <= 0 ? "Sin tokens" : !hasAiAccess ? "Plan bloqueado" : null;
 
   const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
@@ -526,7 +578,7 @@ export default function TodayQuickActionsClient() {
                 <span className="text-xl text-muted">kg</span>
               </div>
 
-              <ProgressMetric label="Meta: -5 kg" percent={checkinProgressPercent} color="var(--color-info)" />
+              <ProgressMetric label={goalLabel} percent={goalProgressPercent} color="var(--color-info)" />
 
               <ButtonLink as={Link} href={checkinRoute} className="flex h-12 w-full rounded-xl font-medium" data-testid="quick-action-tracking" onClick={() => trackEvent("checkin_opened", { target: "checkin", origin: "today" })}>
                 {signals.checkinDoneThisWeek ? "Actualizar check-in" : t("profile.checkinTitle")}

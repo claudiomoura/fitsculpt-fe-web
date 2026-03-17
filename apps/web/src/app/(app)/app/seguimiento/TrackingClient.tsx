@@ -105,6 +105,19 @@ type TrackingPayload = {
   mealLog: MealLogEntry[];
 };
 
+type WorkoutDbItem = {
+  id: string;
+  name: string;
+  notes?: string | null;
+  durationMin?: number | null;
+  scheduledAt?: string | null;
+  sessions?: Array<{
+    id: string;
+    startedAt?: string | null;
+    finishedAt?: string | null;
+  }> | null;
+};
+
 type TrackingClientProps = {
   view?: "all" | "checkin";
 };
@@ -145,6 +158,28 @@ function buildProfileSnapshotFallback(profile: ProfileData): CheckinEntry | null
     frontPhotoUrl: null,
     sidePhotoUrl: null,
   };
+}
+
+function normalizeWorkoutEntriesFromDb(workouts: WorkoutDbItem[] | null | undefined): WorkoutEntry[] {
+  if (!Array.isArray(workouts)) return [];
+
+  return workouts
+    .flatMap((workout) => {
+      const sessions = Array.isArray(workout.sessions) ? workout.sessions : [];
+      return sessions
+        .filter((session) => Boolean(session.finishedAt || session.startedAt || workout.scheduledAt))
+        .map((session) => {
+          const sourceDate = session.finishedAt ?? session.startedAt ?? workout.scheduledAt ?? new Date().toISOString();
+          return {
+            id: session.id,
+            date: sourceDate.slice(0, 10),
+            name: workout.name,
+            durationMin: Number(workout.durationMin ?? 0),
+            notes: workout.notes ?? "",
+          };
+        });
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 type ProgressInsightTab = "checkin" | "nutrition" | "training";
@@ -336,19 +371,25 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       setTrackingStatus("loading");
     }
     try {
-      const response = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
-      if (!response.ok) {
-        console.warn("Tracking load failed", response.status);
+      const [trackingResponse, workoutsResponse] = await Promise.all([
+        fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
+        fetch("/api/workouts", { cache: "no-store", credentials: "include" }),
+      ]);
+
+      if (!trackingResponse.ok) {
+        console.warn("Tracking load failed", trackingResponse.status);
         if (showError && isMountedRef.current) {
           setTrackingStatus("error");
         }
         return false;
       }
-      const data = (await response.json()) as TrackingPayload;
+      const data = (await trackingResponse.json()) as TrackingPayload;
+      const workoutsPayload = workoutsResponse.ok ? ((await workoutsResponse.json()) as WorkoutDbItem[]) : [];
+      const persistedWorkoutEntries = normalizeWorkoutEntriesFromDb(workoutsPayload);
       if (!isMountedRef.current) return false;
       setCheckins(data.checkins ?? []);
       setFoodLog(data.foodLog ?? []);
-      setWorkoutLog(data.workoutLog ?? []);
+      setWorkoutLog(persistedWorkoutEntries.length > 0 ? persistedWorkoutEntries : (data.workoutLog ?? []));
       setMealLog(data.mealLog ?? []);
       setTrackingSupports(detectTrackingSupport(data.checkins as Array<Record<string, unknown>>));
       setTrackingLoaded(true);
@@ -808,6 +849,20 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   const isTrackingError = trackingStatus === "error";
   const rangeDays = Number(progressRange);
   const daysBackForRange = Math.max(0, rangeDays - 1);
+
+  if (isTrackingLoading && !trackingLoaded) {
+    return (
+      <div className={isCheckinOnly ? "tracking-checkin-only-body premium-page-shell premium-page-shell--compact" : "page page-with-tabbar-safe-area premium-page-shell premium-page-shell--compact"} data-testid="tracking-page-loading">
+        <section className="card premium-fade-up">
+          <div className="form-stack">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-5 w-72" />
+            <Skeleton className="h-28 w-full" />
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   const formatEntryDate = (value: string) => {
     const parsed = new Date(value);
@@ -1335,7 +1390,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           <div className="section-head">
             <div>
               <h2 className="section-title" style={{ fontSize: 20 }}>{t("latestMetricsTitle")}</h2>
-              <p className="section-subtitle">Solo mostramos datos reales ya guardados en tracking.</p>
             </div>
           </div>
 
@@ -1356,19 +1410,19 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           </div>
 
           <div className="inline-actions-sm mt-16">
-            <button type="button" className="btn" onClick={() => router.push("/app/progress/check-in")}>
-              {t("profile.checkinAdd")}
-            </button>
-            <Link className="btn secondary" href="/app/nutrition">
-              {t("tracking.progressTabNutrition")}
-            </Link>
-            <Link className="btn secondary" href="/app/training">
-              {t("tracking.progressTabTraining")}
-            </Link>
+              <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
+                {t("profile.checkinAdd")}
+              </button>
+              <Link className="btn secondary" href="/app/nutricion">
+                {t("tracking.progressTabNutrition")}
+              </Link>
+              <Link className="btn secondary" href="/app/entrenamiento">
+                {t("tracking.progressTabTraining")}
+              </Link>
           </div>
 
           <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-            {checkins.length === 0 ? (
+            {sortedCheckins.length === 0 ? (
               <div className="empty-state">
                 <p className="muted">{t("profile.checkinEmpty")}</p>
               </div>
