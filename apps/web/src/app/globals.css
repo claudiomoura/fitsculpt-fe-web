@@ -6935,3 +6935,76 @@ html.theme-dark :focus-visible {
     animation: none;
   }
 }
+
+
+@media (max-width: 640px) {
+  .premium-page-shell--compact {
+    padding-inline: 4px;
+  }
+
+  .premium-page-header h1,
+  .premium-page-header h2 {
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  .premium-page-header .btn,
+  .premium-inline-banner .btn {
+    width: 100%;
+  }
+
+  .premium-inline-banner > div {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .premium-surface-card,
+  .premium-step-card,
+  .premium-stepper-card,
+  .premium-hero-card,
+  .premium-footer-card {
+    padding: 16px;
+  }
+
+  .nutrition-week-grid-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .nutrition-week-kpi {
+    min-height: 54px;
+    padding: 8px 6px;
+    border-radius: 14px;
+  }
+
+  .nutrition-week-kpi-kcal {
+    font-size: 0.75rem;
+  }
+
+  .calendar-range--compact {
+    gap: 10px;
+  }
+
+  .calendar-range--compact .btn-sm {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-stack input,
+  .form-stack select,
+  .form-stack textarea {
+    min-height: 46px;
+  }
+
+  .onboarding-step-card .section-title,
+  .premium-hero-card .section-title,
+  .premium-stepper-card .section-title {
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .onboarding-footer-card .btn,
+  .profile-edit-footer-card .btn {
+    flex: 1 1 100%;
+  }
+}

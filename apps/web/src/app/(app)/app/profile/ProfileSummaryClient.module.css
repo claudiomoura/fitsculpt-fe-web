@@ -158,3 +158,25 @@
 .logoutButton:hover {
   background: color-mix(in srgb, var(--danger, #ef4444) 16%, transparent);
 }
+
+
+@media (max-width: 640px) {
+  .row {
+    padding: 0.9rem 0.9rem;
+    border-radius: 16px;
+  }
+
+  .planCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .planCard :global(.btn) {
+    width: 100%;
+  }
+
+  .accountHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

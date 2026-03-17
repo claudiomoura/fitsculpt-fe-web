@@ -202,3 +202,23 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+@media (max-width: 640px) {
+  .checkinHero {
+    gap: 10px;
+  }
+
+  .checkinModeCard strong {
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .checkinShell :global(.inline-actions-sm) {
+    width: 100%;
+  }
+
+  .checkinShell :global(.inline-actions-sm .btn) {
+    width: 100%;
+  }
+}
