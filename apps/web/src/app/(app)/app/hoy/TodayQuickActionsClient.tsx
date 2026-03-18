@@ -109,13 +109,7 @@ function NutritionRing({
 
   return (
     <div className="relative flex h-[98px] w-[98px] items-center justify-center rounded-full" style={{ background: ringFill }}>
-      <div
-        className="flex h-[80px] w-[80px] flex-col items-center justify-center rounded-full border"
-        style={{
-          background: "color-mix(in srgb, var(--bg-card) 92%, black 8%)",
-          borderColor: "color-mix(in srgb, var(--border) 84%, transparent)",
-        }}
-      >
+      <div className="today-nutrition-ring-center flex h-[80px] w-[80px] flex-col items-center justify-center rounded-full border">
         <strong className="text-base font-semibold leading-none text-primary">{centerValue}</strong>
         <span className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted">{centerLabel}</span>
       </div>
@@ -504,12 +498,12 @@ export default function TodayQuickActionsClient() {
   };
 
   return (
-    <div className="page-with-tabbar-safe-area flex flex-col gap-4 px-4 pb-2 premium-page-shell premium-page-shell--compact md:px-0">
+    <div className="page-with-tabbar-safe-area flex flex-col gap-4 px-4 pb-3 premium-page-shell premium-page-shell--compact md:px-0">
       <header className="flex items-start justify-between gap-3 premium-page-header">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="m-0 text-[1.62rem] font-bold leading-tight text-primary">Buenos días, {userName}</h1>
           {signals.streakDays > 0 && (
-            <span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted" style={{ borderColor: "color-mix(in srgb, var(--border) 78%, transparent)", background: "color-mix(in srgb, var(--bg-muted) 42%, transparent)" }}>
+            <span className="today-streak-chip flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
                 <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
               </svg>
@@ -517,10 +511,7 @@ export default function TodayQuickActionsClient() {
             </span>
           )}
         </div>
-        <span
-          className="rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-[0.03em] text-muted"
-          style={{ borderColor: "color-mix(in srgb, var(--border) 74%, transparent)", background: "color-mix(in srgb, var(--bg-muted) 36%, transparent)" }}
-        >
+        <span className="today-top-chip rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-[0.03em] text-muted">
           {accountChipLabel}
         </span>
       </header>
@@ -555,15 +546,12 @@ export default function TodayQuickActionsClient() {
                   <p className="m-0 mt-2 text-xs text-muted">Aun no hay sesión disponible para hoy.</p>
                 ) : null}
               </div>
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-2xl border"
-                style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}
-              >
+              <div className="today-hero-icon flex h-12 w-12 items-center justify-center rounded-2xl border">
                 <PremiumWorkoutIcon width={24} height={24} className="text-primary" />
               </div>
             </div>
 
-            <div className="mt-4 space-y-2">
+            <div className="today-progress-inset mt-4 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-medium text-muted">Progreso diario</span>
                 <span className="font-semibold text-primary">{dailyProgressPercent}%</span>
@@ -589,12 +577,9 @@ export default function TodayQuickActionsClient() {
           </section>
 
           <div className="grid gap-4 md:grid-cols-2" data-testid="today-actions-grid">
-            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
+            <section className="card premium-surface-card today-secondary-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
               <div className="mb-4 flex items-center gap-3">
-                <div
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border"
-                  style={{ background: "color-mix(in srgb, var(--accent) 10%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 24%, transparent)" }}
-                >
+                <div className="today-module-icon flex h-11 w-11 items-center justify-center rounded-xl border">
                   <PremiumNutritionIcon width={20} height={20} className="text-primary" />
                 </div>
                 <div>
@@ -606,7 +591,6 @@ export default function TodayQuickActionsClient() {
               <div className="mb-4 flex items-center gap-3">
                 <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} status={signals.nutritionStatus} />
                 <div className="flex-1 space-y-1">
-                  <p className="m-0 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Dato principal</p>
                   <p className="m-0 text-2xl font-semibold leading-tight text-primary">
                     {nutritionPrimaryKcal}
                     <span className="ml-1 text-sm font-medium text-muted">kcal</span>
@@ -615,10 +599,10 @@ export default function TodayQuickActionsClient() {
                 </div>
               </div>
 
-              <div className="mb-4 space-y-2">
+              <div className="today-progress-inset mb-4 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-muted">Comidas</span>
-                  <span className="font-semibold text-primary">{signals.nutritionMealsLogged}/{signals.nutritionMealsTotal || 0}</span>
+                  <span className="font-medium text-muted">Comidas registradas</span>
+                  <span className="font-semibold text-primary">{signals.nutritionMealsLogged}/{signals.nutritionMealsTotal || 0} · {nutritionProgressPercent}%</span>
                 </div>
                 <ProgressBar value={nutritionProgressPercent} total={100} />
               </div>
@@ -628,12 +612,9 @@ export default function TodayQuickActionsClient() {
               </ButtonLink>
             </section>
 
-            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
+            <section className="card premium-surface-card today-secondary-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
               <div className="mb-4 flex items-center gap-3">
-                <div
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border"
-                  style={{ background: "color-mix(in srgb, var(--accent) 10%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 24%, transparent)" }}
-                >
+                <div className="today-module-icon flex h-11 w-11 items-center justify-center rounded-xl border">
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                   </svg>
@@ -644,8 +625,7 @@ export default function TodayQuickActionsClient() {
                 </div>
               </div>
 
-              <div className="mb-4 space-y-1">
-                <p className="m-0 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Dato principal</p>
+              <div className="mb-4 space-y-2">
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-bold leading-none text-primary">{checkinMainWeight}</span>
                   <span className="text-sm font-medium text-muted">kg</span>
@@ -653,7 +633,7 @@ export default function TodayQuickActionsClient() {
                 <p className="m-0 text-xs text-muted">{checkinStatusLabel}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="today-progress-inset space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-muted">{goalLabel}</span>
                   <span className="font-semibold text-primary">{goalProgressPercent}%</span>
