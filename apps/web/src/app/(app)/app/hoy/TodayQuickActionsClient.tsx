@@ -51,6 +51,7 @@ type TodaySignals = {
   goalWeightKg: number | null;
   streakDays: number;
   hasTrainingAccess: boolean;
+  todayWorkoutId: string | null;
   trainingStatus: ModuleStatus;
   nutritionStatus: ModuleStatus;
   checkinStatus: ModuleStatus;
@@ -69,11 +70,16 @@ type NutritionPlansPayload = {
   items?: Array<Pick<NutritionPlanListItem, "id">>;
 };
 
+type WorkoutLookupItem = {
+  id: string;
+  scheduledAt?: string | null;
+};
+
 function ProgressBar({ value, total, className = "" }: { value: number; total: number; className?: string }) {
   const width = Math.min(100, Math.max(0, total > 0 ? Math.round((value / total) * 100) : 0));
   return (
-    <div className={`h-2 w-full overflow-hidden rounded-full bg-[var(--bg-muted)] ${className}`}>
-      <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${width}%` }} />
+    <div className={`h-2 w-full overflow-hidden rounded-full ${className}`} style={{ background: "color-mix(in srgb, var(--bg-muted) 80%, transparent)" }}>
+      <div className="h-full rounded-full transition-all" style={{ width: `${width}%`, background: "color-mix(in srgb, var(--accent) 82%, white 18%)" }} />
     </div>
   );
 }
@@ -171,6 +177,13 @@ const hasWeeklyCheckin = (payload?: TrackingPayload | null) => {
   });
 };
 
+const normalizeWorkoutDateKey = (scheduledAt?: string | null) => {
+  if (!scheduledAt) return null;
+  const parsed = new Date(scheduledAt);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toDateKey(parsed);
+};
+
 export default function TodayQuickActionsClient() {
   const router = useRouter();
   const pathname = usePathname();
@@ -200,6 +213,7 @@ export default function TodayQuickActionsClient() {
     goalWeightKg: null,
     streakDays: 0,
     hasTrainingAccess: true,
+    todayWorkoutId: null,
     trainingStatus: "empty",
     nutritionStatus: "empty",
     checkinStatus: "empty",
@@ -210,12 +224,13 @@ export default function TodayQuickActionsClient() {
     setStatus("loading");
 
     try {
-      const [trackingResponse, activeTrainingResponse, nutritionListResponse, authMeResponse, profileResponse] = await Promise.all([
+      const [trackingResponse, activeTrainingResponse, nutritionListResponse, authMeResponse, profileResponse, workoutsResponse] = await Promise.all([
         fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
         fetch("/api/training-plans/active?includeDays=1", { cache: "no-store", credentials: "include" }),
         fetch("/api/nutrition-plans?limit=1", { cache: "no-store", credentials: "include" }),
         fetch("/api/auth/me", { cache: "no-store", credentials: "include" }),
         fetch("/api/profile", { cache: "no-store", credentials: "include" }),
+        fetch("/api/workouts", { cache: "no-store", credentials: "include" }),
       ]);
 
       if (!trackingResponse.ok && !activeTrainingResponse.ok && !nutritionListResponse.ok) {
@@ -243,6 +258,7 @@ export default function TodayQuickActionsClient() {
         goalWeightKg: null,
         streakDays: 0,
         hasTrainingAccess: true,
+        todayWorkoutId: null,
         trainingStatus: "empty",
         nutritionStatus: "empty",
         checkinStatus: "empty",
@@ -362,6 +378,15 @@ export default function TodayQuickActionsClient() {
         nextSignals.nutritionStatus = "error";
       }
 
+      if (workoutsResponse.ok) {
+        const workoutsPayload = (await workoutsResponse.json()) as WorkoutLookupItem[];
+        const targetDayKey = nextSignals.trainingDayKey ?? todayDateKey;
+        const matchedWorkout = Array.isArray(workoutsPayload)
+          ? workoutsPayload.find((workout) => normalizeWorkoutDateKey(workout.scheduledAt) === targetDayKey)
+          : undefined;
+        nextSignals.todayWorkoutId = matchedWorkout?.id ?? null;
+      }
+
       setSignals(nextSignals);
       setStatus("success");
     } catch {
@@ -438,7 +463,12 @@ export default function TodayQuickActionsClient() {
           ? "Check-in al día"
           : "0 registrado esta semana";
 
+  const nutritionPrimaryKcal = signals.nutritionStatus === "error" ? "--" : `${Math.max(0, signals.nutritionConsumedCalories)}`;
+  const nutritionMetaText = signals.nutritionStatus === "error" ? "No se pudo cargar este bloque" : nutritionStatusLabel;
+  const checkinMainWeight = typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) ? signals.currentWeightKg.toFixed(1) : "--";
+
   const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
+  const canStartTodayWorkout = signals.trainingState === "workout" && Boolean(signals.todayWorkoutId);
   const trainingMeta =
     signals.trainingState === "workout"
       ? [signals.trainingDuration ? `${signals.trainingDuration} min` : null, t("today.trainingExerciseCount", { count: signals.trainingExerciseCount })]
@@ -447,7 +477,7 @@ export default function TodayQuickActionsClient() {
       : signals.trainingState === "rest"
         ? "Hoy toca recuperación"
         : t("today.trainingStateNoPlan");
-  const todayTrainingHref = signals.trainingDayKey ? `${trainingRoute}?day=${signals.trainingDayKey}` : trainingRoute;
+  const todayTrainingHref = signals.todayWorkoutId ? `/app/entrenamiento/${encodeURIComponent(signals.todayWorkoutId)}/start` : trainingRoute;
   const primaryActionLabel =
     signals.trainingState === "rest"
       ? "Ver semana"
@@ -458,6 +488,9 @@ export default function TodayQuickActionsClient() {
   const handlePrimaryTrainingAction = () => {
     if (signals.trainingState === "no-plan") {
       router.push(manualPlanRoute);
+      return;
+    }
+    if (signals.trainingState === "workout" && !signals.todayWorkoutId) {
       return;
     }
     if (!signals.hasTrainingAccess) {
@@ -471,12 +504,12 @@ export default function TodayQuickActionsClient() {
   };
 
   return (
-    <div className="page-with-tabbar-safe-area flex flex-col gap-4 px-4 premium-page-shell premium-page-shell--compact md:px-0">
+    <div className="page-with-tabbar-safe-area flex flex-col gap-4 px-4 pb-2 premium-page-shell premium-page-shell--compact md:px-0">
       <header className="flex items-start justify-between gap-3 premium-page-header">
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="m-0 text-[1.7rem] font-bold leading-tight text-primary">Buenos días, {userName}</h1>
+          <h1 className="m-0 text-[1.62rem] font-bold leading-tight text-primary">Buenos días, {userName}</h1>
           {signals.streakDays > 0 && (
-            <span className="flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/8 px-2 py-0.5 text-xs font-medium text-amber-300">
+            <span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted" style={{ borderColor: "color-mix(in srgb, var(--border) 78%, transparent)", background: "color-mix(in srgb, var(--bg-muted) 42%, transparent)" }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
                 <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
               </svg>
@@ -485,8 +518,8 @@ export default function TodayQuickActionsClient() {
           )}
         </div>
         <span
-          className="rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.04em] text-muted"
-          style={{ borderColor: "color-mix(in srgb, var(--border) 80%, transparent)", background: "color-mix(in srgb, var(--bg-muted) 48%, transparent)" }}
+          className="rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-[0.03em] text-muted"
+          style={{ borderColor: "color-mix(in srgb, var(--border) 74%, transparent)", background: "color-mix(in srgb, var(--bg-muted) 36%, transparent)" }}
         >
           {accountChipLabel}
         </span>
@@ -498,10 +531,10 @@ export default function TodayQuickActionsClient() {
       {status === "success" ? (
         <>
           {showCheckinSuccess ? (
-            <section className="card premium-inline-banner premium-success-surface premium-fade-up border border-emerald-400/30 bg-emerald-500/10">
+            <section className="card premium-inline-banner premium-fade-up border" style={{ borderColor: "color-mix(in srgb, var(--color-success) 26%, var(--border))", background: "color-mix(in srgb, var(--color-success) 8%, var(--bg-card))" }}>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="m-0 text-sm font-semibold text-emerald-300">Check-in guardado</p>
+                  <p className="m-0 text-sm font-semibold text-primary">Check-in guardado</p>
                   <p className="m-0 mt-1 text-sm text-muted">Tu progreso de hoy ya se ha actualizado con tus métricas reales.</p>
                 </div>
                 <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" className="fit-content">
@@ -517,7 +550,10 @@ export default function TodayQuickActionsClient() {
               <div className="min-w-0">
                 <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Acción principal de hoy</p>
                 <h2 className="m-0 mt-1 text-[1.95rem] font-semibold leading-tight text-primary">{signals.trainingState === "workout" ? signals.trainingName : signals.trainingState === "rest" ? "Día de recuperación" : "Configura tu plan"}</h2>
-                <p className="m-0 mt-2 text-sm text-muted">{trainingMeta}</p>
+                <p className="m-0 mt-3 text-sm text-muted">{trainingMeta}</p>
+                {signals.trainingState === "workout" && !canStartTodayWorkout ? (
+                  <p className="m-0 mt-2 text-xs text-muted">Aun no hay sesión disponible para hoy.</p>
+                ) : null}
               </div>
               <div
                 className="flex h-12 w-12 items-center justify-center rounded-2xl border"
@@ -546,45 +582,45 @@ export default function TodayQuickActionsClient() {
                 {aiLockReason ? <p className="m-0 text-xs text-muted">{aiLockReason}</p> : null}
               </div>
             ) : (
-              <Button className="mt-4 flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction}>
+              <Button className="mt-4 flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction} disabled={signals.trainingState === "workout" && !canStartTodayWorkout}>
                 {primaryActionLabel}
               </Button>
             )}
           </section>
 
           <div className="grid gap-4 md:grid-cols-2" data-testid="today-actions-grid">
-            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
+            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" style={{ background: "color-mix(in srgb, var(--bg-card) 90%, black 10%)", borderColor: "color-mix(in srgb, var(--border) 76%, transparent)" }} data-testid="today-action-card">
               <div className="mb-4 flex items-center gap-3">
                 <div
                   className="flex h-11 w-11 items-center justify-center rounded-xl border"
-                  style={{ background: "color-mix(in srgb, var(--color-success) 10%, transparent)", borderColor: "color-mix(in srgb, var(--color-success) 24%, transparent)" }}
+                  style={{ background: "color-mix(in srgb, var(--accent) 10%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 24%, transparent)" }}
                 >
-                  <PremiumNutritionIcon width={20} height={20} className="text-success" />
+                  <PremiumNutritionIcon width={20} height={20} className="text-primary" />
                 </div>
                 <div>
                   <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Nutrición</p>
-                  <h2 className="m-0 mt-0.5 text-lg font-semibold text-primary">Calorías</h2>
+                  <h2 className="m-0 mt-0.5 text-base font-semibold text-primary">Calorías</h2>
                 </div>
               </div>
 
               <div className="mb-4 flex items-center gap-3">
                 <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} status={signals.nutritionStatus} />
-                <div className="flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm text-muted">Comidas</span>
-                    <span className="text-sm font-semibold text-primary">{nutritionStatusLabel}</span>
-                  </div>
-                  <p className="m-0 mt-1 text-sm text-muted">
-                    {signals.nutritionStatus === "error"
-                      ? "No se pudo cargar este bloque"
-                      : `${signals.nutritionConsumedCalories} kcal registradas hoy`}
+                <div className="flex-1 space-y-1">
+                  <p className="m-0 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Dato principal</p>
+                  <p className="m-0 text-2xl font-semibold leading-tight text-primary">
+                    {nutritionPrimaryKcal}
+                    <span className="ml-1 text-sm font-medium text-muted">kcal</span>
                   </p>
-                  <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className="text-muted">Progreso comidas</span>
-                    <span className="font-semibold text-primary">{nutritionProgressPercent}%</span>
-                  </div>
-                  <ProgressBar value={nutritionProgressPercent} total={100} className="mt-2" />
+                  <p className="m-0 text-xs text-muted">{nutritionMetaText}</p>
                 </div>
+              </div>
+
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-muted">Comidas</span>
+                  <span className="font-semibold text-primary">{signals.nutritionMealsLogged}/{signals.nutritionMealsTotal || 0}</span>
+                </div>
+                <ProgressBar value={nutritionProgressPercent} total={100} />
               </div>
 
               <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="flex h-11 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
@@ -592,28 +628,29 @@ export default function TodayQuickActionsClient() {
               </ButtonLink>
             </section>
 
-            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
+            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" style={{ background: "color-mix(in srgb, var(--bg-card) 90%, black 10%)", borderColor: "color-mix(in srgb, var(--border) 76%, transparent)" }} data-testid="today-action-card">
               <div className="mb-4 flex items-center gap-3">
                 <div
                   className="flex h-11 w-11 items-center justify-center rounded-xl border"
-                  style={{ background: "color-mix(in srgb, var(--color-info) 10%, transparent)", borderColor: "color-mix(in srgb, var(--color-info) 24%, transparent)" }}
+                  style={{ background: "color-mix(in srgb, var(--accent) 10%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 24%, transparent)" }}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-info">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                   </svg>
                 </div>
                 <div>
                   <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Check-in</p>
-                  <h2 className="m-0 mt-0.5 text-lg font-semibold text-primary">Peso actual</h2>
+                  <h2 className="m-0 mt-0.5 text-base font-semibold text-primary">Peso actual</h2>
                 </div>
               </div>
 
-              <div className="mb-4 flex items-end justify-between gap-2">
+              <div className="mb-4 space-y-1">
+                <p className="m-0 text-[11px] font-medium uppercase tracking-[0.08em] text-muted">Dato principal</p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-bold leading-none text-primary">{typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) ? signals.currentWeightKg.toFixed(1) : "--"}</span>
-                  <span className="text-base text-muted">kg</span>
+                  <span className="text-4xl font-bold leading-none text-primary">{checkinMainWeight}</span>
+                  <span className="text-sm font-medium text-muted">kg</span>
                 </div>
-                <span className="text-xs font-medium text-muted">{checkinStatusLabel}</span>
+                <p className="m-0 text-xs text-muted">{checkinStatusLabel}</p>
               </div>
 
               <div className="space-y-2">
