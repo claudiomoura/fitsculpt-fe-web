@@ -1210,10 +1210,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   const hasPlan = Boolean(visiblePlan?.days.length);
 
-  const openExerciseDetail = (exercise: Exercise, date: Date) => {
-    setExerciseDetail({ exercise: mergeExerciseWithCatalog(exercise), date });
-  };
-
   const closeExerciseDetail = () => {
     setExerciseDetail(null);
   };
@@ -1670,15 +1666,18 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   ) : (
                     selectedExercises.map((exercise, index) => {
                       const exerciseId = getExerciseIdentifier(exercise);
+                      const exerciseHref = exerciseId ? buildExerciseTechniqueHref(exerciseId) : null;
                       return (
                         <button
                           key={`${exercise.name}-${index}`}
                           type="button"
-                          className="exercise-mini-card exercise-mini-card-compact is-clickable"
+                          className={`exercise-mini-card exercise-mini-card-compact ${exerciseHref ? "is-clickable" : "is-disabled"}`}
                           data-testid="training-plan-exercise-item"
                           aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
                           aria-pressed={false}
-                          onClick={() => openExerciseDetail(exercise, selectedEntryDate)}
+                          aria-disabled={!exerciseHref}
+                          disabled={!exerciseHref}
+                          onClick={() => exerciseHref && router.push(exerciseHref)}
                         >
                           <ExerciseThumbnail
                             className="exercise-thumb"
@@ -1690,20 +1689,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           <div className="exercise-mini-copy">
                             <strong className="exercise-mini-name">{exercise.name}</strong>
                             <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
-                            <div className="exercise-mini-action-row">
-                              {exerciseId ? (
-                                <Link
-                                  href={buildExerciseTechniqueHref(exerciseId)}
-                                  className="exercise-mini-secondary-action"
-                                  data-testid="training-plan-view-technique"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  {t("training.viewTechnique")}
-                                </Link>
-                              ) : (
-                                <span className="exercise-mini-secondary-action is-disabled">{t("training.techniqueUnavailable")}</span>
-                              )}
-                            </div>
                           </div>
                         </button>
                       );
@@ -1773,7 +1758,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
                   <div className="list-grid">
                     {visiblePlan?.days.map((day, dayIdx) => {
-                      const dayDate = day.date ? parseDate(day.date) : null;
                       return (
                       <details key={`${day.label}-${dayIdx}`} className="accordion-card">
                         <summary>
@@ -1785,15 +1769,18 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         <div className="list-grid mt-12">
                           {day.exercises.map((exercise, exerciseIdx) => {
                             const exerciseId = getExerciseIdentifier(exercise);
+                            const exerciseHref = exerciseId ? buildExerciseTechniqueHref(exerciseId) : null;
                             return (
                               <button
                                 key={`${exercise.name}-${exerciseIdx}`}
                                 type="button"
-                                className="exercise-mini-card is-clickable"
+                                className={`exercise-mini-card ${exerciseHref ? "is-clickable" : "is-disabled"}`}
                                 data-testid="training-plan-exercise-item"
                                 aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
                                 aria-pressed={false}
-                                onClick={() => openExerciseDetail(exercise, dayDate ?? selectedEntryDate)}
+                                aria-disabled={!exerciseHref}
+                                disabled={!exerciseHref}
+                                onClick={() => exerciseHref && router.push(exerciseHref)}
                               >
                                 <ExerciseThumbnail
                                   className="exercise-thumb"
@@ -1804,25 +1791,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                                 />
                                 <div className="exercise-mini-top">
                                   <strong>{exercise.name}</strong>
-                                  <Icon name="chevron-down" size={18} className="exercise-item-chevron" />
+                                  {exerciseHref ? <Icon name="chevron-down" size={18} className="exercise-item-chevron" /> : null}
                                 </div>
                                 <span className="muted">
                                   {exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}
                                 </span>
-                                <div className="mt-8">
-                                  {exerciseId ? (
-                                    <Link
-                                      href={buildExerciseTechniqueHref(exerciseId)}
-                                      className="btn secondary fit-content"
-                                      data-testid="training-plan-view-technique"
-                                      onClick={(event) => event.stopPropagation()}
-                                    >
-                                      {t("training.viewTechnique")}
-                                    </Link>
-                                  ) : (
-                                    <span className="muted">{t("training.techniqueUnavailable")}</span>
-                                  )}
-                                </div>
                               </button>
                             );
                           })}
