@@ -1514,7 +1514,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   );
 
   return (
-    <div className="page training-plan-layout">
+    <div className="page page-with-tabbar-safe-area training-plan-layout premium-page-shell premium-page-shell--compact">
       {!isManualView ? (
         <>
           {!loading && !error && profile && !isProfileComplete(profile) ? (
@@ -1565,53 +1565,51 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </section>
           ) : hasPlan ? (
             <>
-              <section className="card training-header-compact training-main-section">
-
-
+              <section className="card premium-hero-card training-main-section p-5 sm:p-6">
                 <div className="training-hero">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/20">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border" style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
                         <path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 10v4"/><path d="M21 10v4"/><path d="M6 6v12"/><path d="M18 6v12"/><path d="M6 14h.01"/><path d="M18 14h.01"/>
                       </svg>
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-muted">{safeT("training.dayTrainingTitle", "Entrenamiento del dia")}</p>
-                      <h2 className="text-xl font-semibold text-primary mt-0.5">
+                      <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{safeT("training.dayTrainingTitle", "Entrenamiento del dia")}</p>
+                      <h2 className="m-0 mt-1 text-[1.9rem] font-semibold leading-tight text-primary">
                         {selectedDayIsRest
                           ? safeT("training.restDayTitle", "Descanso")
                           : selectedEntry?.day?.focus || safeT("training.calendarTitle", "Plan de entrenamiento")}
                       </h2>
                       {!selectedDayIsRest ? (
-                        <p className="muted m-0 mt-1">{isSelectedDayToday ? safeT("training.selectedDayTodayLabel", "Hoy") : selectedEntryDateLabel}</p>
+                        <p className="m-0 mt-1 text-sm text-muted">{isSelectedDayToday ? safeT("training.selectedDayTodayLabel", "Hoy") : selectedEntryDateLabel}</p>
                       ) : null}
                     </div>
                   </div>
                   {selectedDayHasWorkout ? (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="btn secondary rounded-xl h-11"
-                        onClick={() => void openSelectedDayDetails()}
-                        disabled={detailsCtaLoading}
-                        aria-label={safeT("training.detailsSessionAria", "Ver detalles del dia seleccionado")}
-                      >
-                        {detailsCtaLoading ? t("ui.loading") : safeT("training.detailsCta", "Detalles")}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn rounded-xl h-11 font-semibold"
+                        className="btn rounded-xl h-11 min-w-[148px] px-5 font-semibold"
                         onClick={() => void openSelectedDayStart()}
                         disabled={startCtaLoading}
                         aria-label={safeT("training.startSessionAria", "Empezar sesion del dia seleccionado")}
                       >
                         {startCtaLoading ? t("ui.loading") : safeT("training.startSession", "Empezar")}
                       </button>
+                      <button
+                        type="button"
+                        className="btn secondary fit-content rounded-xl h-10 px-3 text-sm"
+                        onClick={() => void openSelectedDayDetails()}
+                        disabled={detailsCtaLoading}
+                        aria-label={safeT("training.detailsSessionAria", "Ver detalles del dia seleccionado")}
+                      >
+                        {detailsCtaLoading ? t("ui.loading") : safeT("training.detailsCta", "Detalles")}
+                      </button>
                     </div>
                   ) : null}
                 </div>
 
-                <p className="muted training-hero-meta mt-3">
+                <p className="training-hero-meta mt-3 text-sm text-muted">
                   {!selectedDayHasWorkout
                     ? safeT("training.restDaySubtitle", "Dia de recuperacion activa.")
                     : selectedEntry
@@ -1642,21 +1640,79 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
                 ) : null}
 
-                <div className="mt-6 p-4 bg-muted/50 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-primary">Progreso</span>
-                    <span className="badge">{progressPercent}%</span>
+                <div className="training-progress mt-4">
+                  <div className="training-progress-head">
+                    <span className="text-xs font-medium text-muted">Progreso</span>
+                    <span className="text-xs font-semibold text-primary">{progressPercent}%</span>
                   </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden mb-2">
-                    <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
+                  <div className="training-progress-track">
+                    <span className="training-progress-fill" style={{ width: `${progressPercent}%` }} />
                   </div>
-                  <p className="text-xs text-muted">
+                  <p className="m-0 text-xs text-muted">
                     {estimatedCompletedSessions}/{totalPlannedSessions} sesiones completadas
                   </p>
                 </div>
               </section>
 
-              <section className="card training-main-section">
+              <section className="card premium-surface-card training-main-section p-4 sm:p-5">
+                <div className="section-head">
+                  <div>
+                    <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
+                    <p className="section-subtitle">{selectedEntryDateLabel}</p>
+                  </div>
+                </div>
+                <div className="exercise-list compact-exercise-list">
+                  {selectedExercises.length === 0 ? (
+                    <div className="stack-sm">
+                      <p className="m-0 font-medium text-primary">{safeT("training.restDayTitle", "Descanso")}</p>
+                      <p className="muted m-0">{safeT("training.restDaySubtitle", "Hoy prioriza recuperacion activa, movilidad suave o una caminata corta.")}</p>
+                    </div>
+                  ) : (
+                    selectedExercises.map((exercise, index) => {
+                      const exerciseId = getExerciseIdentifier(exercise);
+                      return (
+                        <button
+                          key={`${exercise.name}-${index}`}
+                          type="button"
+                          className="exercise-mini-card exercise-mini-card-compact is-clickable"
+                          data-testid="training-plan-exercise-item"
+                          aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                          aria-pressed={false}
+                          onClick={() => openExerciseDetail(exercise, selectedEntryDate)}
+                        >
+                          <ExerciseThumbnail
+                            className="exercise-thumb"
+                            src={getExerciseImageUrl(exercise)}
+                            alt={exercise.name}
+                            width={72}
+                            height={72}
+                          />
+                          <div className="exercise-mini-copy">
+                            <strong className="exercise-mini-name">{exercise.name}</strong>
+                            <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                            <div className="exercise-mini-action-row">
+                              {exerciseId ? (
+                                <Link
+                                  href={buildExerciseTechniqueHref(exerciseId)}
+                                  className="exercise-mini-secondary-action"
+                                  data-testid="training-plan-view-technique"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  {t("training.viewTechnique")}
+                                </Link>
+                              ) : (
+                                <span className="exercise-mini-secondary-action is-disabled">{t("training.techniqueUnavailable")}</span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+
+              <section className="card premium-surface-card training-main-section p-4 sm:p-5">
               <div className="section-head section-head-actions">
                 <div>
                   <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
@@ -1669,7 +1725,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         <button
                           key={option.value}
                           type="button"
-                          className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${isActive ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
+                          className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${isActive ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
                           aria-pressed={isActive}
                           aria-label={t("training.calendarViewOptionAria", { view: option.label })}
                           onClick={() => {
@@ -1885,65 +1941,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               )}
             </section>
 
-            <section className="card premium-surface-card training-main-section">
-              <div className="section-head">
-                <div>
-                  <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
-                  <p className="section-subtitle">{selectedEntryDateLabel}</p>
-                </div>
-              </div>
-              <div className="exercise-list compact-exercise-list">
-                {selectedExercises.length === 0 ? (
-                  <div className="stack-sm">
-                    <p className="m-0 font-medium text-primary">{safeT("training.restDayTitle", "Descanso")}</p>
-                    <p className="muted m-0">{safeT("training.restDaySubtitle", "Hoy prioriza recuperacion activa, movilidad suave o una caminata corta.")}</p>
-                  </div>
-                ) : (
-                  selectedExercises.map((exercise, index) => {
-                    const exerciseId = getExerciseIdentifier(exercise);
-                    return (
-                      <button
-                        key={`${exercise.name}-${index}`}
-                        type="button"
-                        className="exercise-mini-card exercise-mini-card-compact is-clickable"
-                        data-testid="training-plan-exercise-item"
-                        aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
-                        aria-pressed={false}
-                        onClick={() => openExerciseDetail(exercise, selectedEntryDate)}
-                      >
-                        <ExerciseThumbnail
-                          className="exercise-thumb"
-                          src={getExerciseImageUrl(exercise)}
-                          alt={exercise.name}
-                          width={72}
-                          height={72}
-                        />
-                        <div className="exercise-mini-copy">
-                          <strong className="exercise-mini-name">{exercise.name}</strong>
-                          <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
-                        </div>
-                        <div className="exercise-mini-action-row">
-                          {exerciseId ? (
-                            <Link
-                              href={buildExerciseTechniqueHref(exerciseId)}
-                              className="exercise-mini-secondary-action"
-                              data-testid="training-plan-view-technique"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              {t("training.viewTechnique")}
-                            </Link>
-                          ) : (
-                            <span className="exercise-mini-secondary-action is-disabled">{t("training.techniqueUnavailable")}</span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </section>
+            </>
+          ) : null}
 
-              <section className="card premium-surface-card training-insights-card training-plan-access-card">
+          {hasPlan && (
+            <aside className="training-layout-insights">
+              <section className="card training-insights-card">
                 <Link
                   href={selectedPlanId ? `/app/biblioteca/entrenamientos?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/entrenamientos"}
                   className="training-insight-link training-insight-link--with-affordance"
@@ -1961,11 +1964,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <span className="training-insight-affordance">Abrir</span>
                 </Link>
               </section>
-            </>
-          ) : null}
 
-          {hasPlan && (
-            <aside className="training-layout-insights">
               <section className="card training-insights-card">
                 <button
                   type="button"
