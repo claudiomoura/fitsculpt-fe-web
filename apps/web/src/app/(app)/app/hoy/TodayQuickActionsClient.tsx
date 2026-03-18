@@ -531,7 +531,7 @@ export default function TodayQuickActionsClient() {
       {status === "success" ? (
         <>
           {showCheckinSuccess ? (
-            <section className="card premium-inline-banner premium-fade-up border" style={{ borderColor: "color-mix(in srgb, var(--color-success) 26%, var(--border))", background: "color-mix(in srgb, var(--color-success) 8%, var(--bg-card))" }}>
+            <section className="card premium-inline-banner premium-success-surface premium-fade-up">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="m-0 text-sm font-semibold text-primary">Check-in guardado</p>
@@ -589,7 +589,7 @@ export default function TodayQuickActionsClient() {
           </section>
 
           <div className="grid gap-4 md:grid-cols-2" data-testid="today-actions-grid">
-            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" style={{ background: "color-mix(in srgb, var(--bg-card) 90%, black 10%)", borderColor: "color-mix(in srgb, var(--border) 76%, transparent)" }} data-testid="today-action-card">
+            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
               <div className="mb-4 flex items-center gap-3">
                 <div
                   className="flex h-11 w-11 items-center justify-center rounded-xl border"
@@ -628,7 +628,7 @@ export default function TodayQuickActionsClient() {
               </ButtonLink>
             </section>
 
-            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" style={{ background: "color-mix(in srgb, var(--bg-card) 90%, black 10%)", borderColor: "color-mix(in srgb, var(--border) 76%, transparent)" }} data-testid="today-action-card">
+            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
               <div className="mb-4 flex items-center gap-3">
                 <div
                   className="flex h-11 w-11 items-center justify-center rounded-xl border"

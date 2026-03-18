@@ -119,6 +119,19 @@
   --border: var(--color-border);
   --border-subtle: color-mix(in srgb, var(--border) 66%, var(--color-primary) 34%);
   --shadow: var(--shadow-md);
+  --surface-app-bg: var(--bg);
+  --surface-primary-bg: color-mix(in srgb, var(--bg-card) 94%, var(--bg) 6%);
+  --surface-secondary-bg: color-mix(in srgb, var(--bg-card) 90%, var(--bg) 10%);
+  --surface-inset-bg: color-mix(in srgb, var(--bg-muted) 86%, transparent);
+  --surface-border-default: color-mix(in srgb, var(--border) 78%, transparent);
+  --surface-border-emphasis: color-mix(in srgb, var(--accent) 24%, var(--border));
+  --surface-skeleton-base: var(--skeleton-base);
+  --surface-skeleton-highlight: var(--skeleton-highlight);
+  --surface-card-radius: 22px;
+  --surface-card-bg: var(--surface-secondary-bg);
+  --surface-card-border: var(--surface-border-default);
+  --surface-card-shadow: var(--shadow-sm);
+  --surface-card-inner-glow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
   --header-bg: rgba(255, 255, 255, 0.88);
   --header-gradient: linear-gradient(125deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 6%, transparent) 52%, transparent 100%);
   --badge-bg: #ecfeff;
@@ -224,6 +237,19 @@ html.theme-dark {
   --border: var(--color-border);
   --border-subtle: color-mix(in srgb, var(--border) 72%, var(--color-primary) 28%);
   --shadow: var(--shadow-md);
+  --surface-app-bg: var(--bg);
+  --surface-primary-bg: color-mix(in srgb, var(--bg-card) 92%, black 8%);
+  --surface-secondary-bg: color-mix(in srgb, var(--bg-card) 88%, black 12%);
+  --surface-inset-bg: color-mix(in srgb, var(--bg-muted) 80%, black 20%);
+  --surface-border-default: color-mix(in srgb, var(--border) 76%, transparent);
+  --surface-border-emphasis: color-mix(in srgb, var(--accent) 24%, var(--border));
+  --surface-skeleton-base: rgba(148, 163, 184, 0.12);
+  --surface-skeleton-highlight: rgba(148, 163, 184, 0.2);
+  --surface-card-radius: 22px;
+  --surface-card-bg: var(--surface-secondary-bg);
+  --surface-card-border: var(--surface-border-default);
+  --surface-card-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  --surface-card-inner-glow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
   --header-bg: rgba(15, 17, 21, 0.8);
   --header-gradient: linear-gradient(125deg, color-mix(in srgb, var(--color-primary) 12%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 10%, transparent) 52%, transparent 100%);
   --badge-bg: #10211f;
@@ -340,7 +366,7 @@ body {
   margin: 0;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   background: var(--app-background-gradient);
-  background-color: var(--bg);
+  background-color: var(--surface-app-bg);
   color: var(--text-primary);
   line-height: 1.5;
   font-size: var(--font-body-size);
@@ -964,13 +990,13 @@ main {
 
 .card,
 .ui-card {
-  background: var(--surface-glass-bg);
-  border: 1px solid var(--surface-glass-border);
-  border-radius: var(--radius-lg);
+  background: var(--surface-primary-bg);
+  border: 1px solid var(--surface-border-default);
+  border-radius: var(--surface-card-radius);
   padding: 24px;
-  box-shadow: var(--surface-glass-shadow);
-  backdrop-filter: blur(var(--surface-glass-blur)) saturate(135%);
-  -webkit-backdrop-filter: blur(var(--surface-glass-blur)) saturate(135%);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
+  backdrop-filter: blur(12px) saturate(128%);
+  -webkit-backdrop-filter: blur(12px) saturate(128%);
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
@@ -983,8 +1009,8 @@ main {
 
 .card:hover,
 .ui-card:hover {
-  border-color: var(--border-subtle);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border-color: var(--surface-border-emphasis);
+  box-shadow: var(--surface-card-inner-glow), 0 10px 24px color-mix(in srgb, var(--accent) 12%, transparent);
   transform: translateY(-1px);
 }
 
@@ -4061,7 +4087,7 @@ textarea:disabled {
 
 .ui-skeleton {
   border-radius: var(--radius-md);
-  background: linear-gradient(90deg, var(--skeleton-base) 0%, var(--skeleton-highlight) 50%, var(--skeleton-base) 100%);
+  background: linear-gradient(90deg, var(--surface-skeleton-base) 0%, var(--surface-skeleton-highlight) 50%, var(--surface-skeleton-base) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
 }
@@ -4076,12 +4102,19 @@ textarea:disabled {
 
 .ui-skeleton-card {
   padding: 16px;
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--surface-card-radius);
+  background: var(--surface-secondary-bg);
+  border: 1px solid var(--surface-border-default);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
   display: grid;
   gap: 12px;
+}
+
+.surface-loading-card {
+  border-radius: var(--surface-card-radius);
+  border: 1px solid var(--surface-border-default);
+  background: var(--surface-secondary-bg);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
 }
 
 .ui-skeleton-card .ui-skeleton--line {
@@ -7031,30 +7064,37 @@ html.theme-dark :focus-visible {
 }
 
 .premium-hero-card {
-  border-radius: 24px;
-  box-shadow: var(--shadow-md);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 48%);
+  border-radius: var(--surface-card-radius);
+  border: 1px solid var(--surface-border-emphasis);
+  box-shadow: var(--surface-card-inner-glow), var(--shadow-md);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 42%),
+    var(--surface-primary-bg);
 }
 
 .premium-stepper-card,
 .premium-step-card,
 .premium-surface-card {
-  border-radius: 22px;
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--surface-card-radius);
+  border: 1px solid var(--surface-border-default);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
 }
 
 .premium-step-card,
 .premium-surface-card {
-  background: color-mix(in srgb, var(--bg-card) 86%, white 14%);
+  background: var(--surface-secondary-bg);
 }
 
 .premium-subcard {
   border-radius: 18px;
-  background: color-mix(in srgb, var(--bg-card) 86%, white 14%);
+  border: 1px solid var(--surface-border-default);
+  background: var(--surface-inset-bg);
 }
 
 .premium-inline-banner {
   border-radius: 20px;
+  border: 1px solid var(--surface-border-default);
+  background: var(--surface-secondary-bg);
 }
 
 .premium-footer-card {
@@ -7076,6 +7116,7 @@ html.theme-dark :focus-visible {
   .premium-stepper-card,
   .premium-step-card,
   .premium-surface-card,
+  .surface-loading-card,
   .premium-footer-card {
     border-radius: 20px;
   }
@@ -7102,7 +7143,8 @@ html.theme-dark :focus-visible {
 }
 
 .premium-success-surface {
-  box-shadow: 0 14px 40px color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 24%, var(--surface-border-default));
+  box-shadow: var(--surface-card-inner-glow), 0 14px 34px color-mix(in srgb, var(--color-success) 14%, transparent);
 }
 
 .nutrition-today-summary-card {
@@ -7141,6 +7183,7 @@ html.theme-dark :focus-visible {
   .premium-step-card,
   .premium-stepper-card,
   .premium-hero-card,
+  .surface-loading-card,
   .premium-footer-card {
     padding: 16px;
   }
