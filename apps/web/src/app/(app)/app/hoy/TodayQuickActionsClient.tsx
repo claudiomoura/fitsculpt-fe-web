@@ -44,6 +44,9 @@ type TodaySignals = {
   nutritionReady: boolean;
   nutritionTargetCalories: number | null;
   nutritionConsumedCalories: number;
+  nutritionProteinG: number;
+  nutritionCarbsG: number;
+  nutritionFatsG: number;
   nutritionMealsLogged: number;
   nutritionMealsTotal: number;
   currentWeightKg: number | null;
@@ -75,11 +78,17 @@ type WorkoutLookupItem = {
   scheduledAt?: string | null;
 };
 
+type ProgressTone = "low" | "medium" | "high" | "complete";
+
 function ProgressBar({ value, total, className = "" }: { value: number; total: number; className?: string }) {
   const width = Math.min(100, Math.max(0, total > 0 ? Math.round((value / total) * 100) : 0));
+  const tone: ProgressTone = width >= 100 ? "complete" : width >= 70 ? "high" : width >= 30 ? "medium" : "low";
   return (
-    <div className={`h-2 w-full overflow-hidden rounded-full ${className}`} style={{ background: "color-mix(in srgb, var(--bg-muted) 80%, transparent)" }}>
-      <div className="h-full rounded-full transition-all" style={{ width: `${width}%`, background: "color-mix(in srgb, var(--accent) 82%, white 18%)" }} />
+    <div className={`today-progress-bar h-2 w-full overflow-hidden rounded-full ${className}`}>
+      <div
+        className={`today-progress-bar-fill today-progress-bar-fill--${tone} h-full rounded-full transition-all`}
+        style={{ width: `${width}%`, minWidth: width > 0 ? 8 : 0 }}
+      />
     </div>
   );
 }
@@ -88,27 +97,61 @@ function NutritionRing({
   value,
   total,
   status,
+  proteinG,
+  carbsG,
+  fatsG,
 }: {
   value: number;
   total: number | null;
   status: ModuleStatus;
+  proteinG: number;
+  carbsG: number;
+  fatsG: number;
 }) {
   const safeValue = Math.max(0, Math.round(value));
   const hasTarget = typeof total === "number" && Number.isFinite(total) && total > 0;
   const safeTarget = hasTarget ? Number(total) : 0;
-  const percent = hasTarget ? Math.min(100, Math.max(0, Math.round((safeValue / safeTarget) * 100))) : 0;
-  const trackColor = "color-mix(in srgb, var(--bg-muted) 80%, transparent)";
-  const accentColor = status === "error" ? "var(--color-danger)" : "var(--accent)";
-  const progressAngle = Math.round((percent / 100) * 360);
-  const ringFill =
-    status === "error"
-      ? `conic-gradient(${trackColor} 0deg 360deg)`
-      : `conic-gradient(${accentColor} 0deg ${progressAngle}deg, ${trackColor} ${progressAngle}deg 360deg)`;
+  const safeProtein = Math.max(0, Math.round(proteinG));
+  const safeCarbs = Math.max(0, Math.round(carbsG));
+  const safeFats = Math.max(0, Math.round(fatsG));
+  const macroTotal = safeProtein + safeCarbs + safeFats;
   const centerValue = status === "error" ? "--" : String(safeValue);
-  const centerLabel = hasTarget ? `de ${safeTarget}` : status === "empty" ? "sin datos" : "kcal";
+  const centerLabel = status === "error" ? "error" : hasTarget ? `${safeTarget} kcal` : status === "empty" ? "sin datos" : "kcal";
+
+  const mode = status === "error" ? "error" : status === "empty" ? "empty" : safeValue === 0 ? "zero" : "ready";
+  const trackColor = "var(--today-ring-track)";
+
+  const ringFill =
+    mode === "error" || mode === "empty" || mode === "zero" || macroTotal <= 0
+      ? `conic-gradient(${trackColor} 0deg 360deg)`
+      : (() => {
+          const proteinSlice = (safeProtein / macroTotal) * 360;
+          const carbsSlice = (safeCarbs / macroTotal) * 360;
+          const proteinEnd = proteinSlice;
+          const carbsEnd = proteinSlice + carbsSlice;
+          return `conic-gradient(
+            var(--macro-protein) 0deg ${proteinEnd}deg,
+            var(--macro-carbs) ${proteinEnd}deg ${carbsEnd}deg,
+            var(--macro-fats) ${carbsEnd}deg ${360}deg,
+            ${trackColor} ${360}deg 360deg
+          )`;
+        })();
 
   return (
-    <div className="relative flex h-[98px] w-[98px] items-center justify-center rounded-full" style={{ background: ringFill }}>
+    <div
+      className={`today-nutrition-ring today-nutrition-ring--${mode} relative flex h-[98px] w-[98px] items-center justify-center rounded-full`}
+      style={{ background: ringFill }}
+      aria-label={
+        mode === "error"
+          ? "Error de carga"
+          : mode === "empty"
+            ? "Sin datos"
+            : mode === "zero"
+              ? "0 registrado"
+              : `${safeValue} de ${safeTarget || 0} kcal`
+      }
+    >
+      {mode === "zero" ? <span className="today-nutrition-ring-zero-pip" aria-hidden="true" /> : null}
       <div className="today-nutrition-ring-center flex h-[80px] w-[80px] flex-col items-center justify-center rounded-full border">
         <strong className="text-base font-semibold leading-none text-primary">{centerValue}</strong>
         <span className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted">{centerLabel}</span>
@@ -200,6 +243,9 @@ export default function TodayQuickActionsClient() {
     nutritionReady: false,
     nutritionTargetCalories: null,
     nutritionConsumedCalories: 0,
+    nutritionProteinG: 0,
+    nutritionCarbsG: 0,
+    nutritionFatsG: 0,
     nutritionMealsLogged: 0,
     nutritionMealsTotal: 0,
     currentWeightKg: null,
@@ -245,6 +291,9 @@ export default function TodayQuickActionsClient() {
         nutritionReady: false,
         nutritionTargetCalories: null,
         nutritionConsumedCalories: 0,
+        nutritionProteinG: 0,
+        nutritionCarbsG: 0,
+        nutritionFatsG: 0,
         nutritionMealsLogged: 0,
         nutritionMealsTotal: 0,
         currentWeightKg: null,
@@ -298,6 +347,15 @@ export default function TodayQuickActionsClient() {
         nextSignals.nutritionMealsLogged = todaysMealLog.length;
         nextSignals.nutritionConsumedCalories = Math.round(
           todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.calories) ? Number(entry.calories) : 0), 0),
+        );
+        nextSignals.nutritionProteinG = Math.round(
+          todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.protein) ? Number(entry.protein) : 0), 0),
+        );
+        nextSignals.nutritionCarbsG = Math.round(
+          todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.carbs) ? Number(entry.carbs) : 0), 0),
+        );
+        nextSignals.nutritionFatsG = Math.round(
+          todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.fats) ? Number(entry.fats) : 0), 0),
         );
         nextSignals.nutritionReady = todaysMealLog.length > 0;
       } else {
@@ -355,6 +413,15 @@ export default function TodayQuickActionsClient() {
                 nextSignals.nutritionMealsLogged = nutritionDay.meals.reduce((count, meal, index) => count + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? 1 : 0), 0);
                 nextSignals.nutritionConsumedCalories = Math.round(
                   nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.calories) ? meal.calories : 0) : 0), 0),
+                );
+                nextSignals.nutritionProteinG = Math.round(
+                  nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.protein) ? meal.protein : 0) : 0), 0),
+                );
+                nextSignals.nutritionCarbsG = Math.round(
+                  nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.carbs) ? meal.carbs : 0) : 0), 0),
+                );
+                nextSignals.nutritionFatsG = Math.round(
+                  nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.fats) ? meal.fats : 0) : 0), 0),
                 );
                 nextSignals.nutritionReady = nextSignals.nutritionMealsLogged > 0;
               }
@@ -589,7 +656,14 @@ export default function TodayQuickActionsClient() {
               </div>
 
               <div className="mb-4 flex items-center gap-3">
-                <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} status={signals.nutritionStatus} />
+                <NutritionRing
+                  value={signals.nutritionConsumedCalories}
+                  total={signals.nutritionTargetCalories}
+                  status={signals.nutritionStatus}
+                  proteinG={signals.nutritionProteinG}
+                  carbsG={signals.nutritionCarbsG}
+                  fatsG={signals.nutritionFatsG}
+                />
                 <div className="flex-1 space-y-1">
                   <p className="m-0 text-2xl font-semibold leading-tight text-primary">
                     {nutritionPrimaryKcal}
