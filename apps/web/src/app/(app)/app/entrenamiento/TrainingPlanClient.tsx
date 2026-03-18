@@ -1885,7 +1885,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               )}
             </section>
 
-            <section className="card training-main-section">
+            <section className="card premium-surface-card training-main-section">
               <div className="section-head">
                 <div>
                   <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
@@ -1918,26 +1918,22 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           width={72}
                           height={72}
                         />
-                        <div className="exercise-mini-top">
-                          <strong>{exercise.name}</strong>
-                          <span className="muted">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                        <div className="exercise-mini-copy">
+                          <strong className="exercise-mini-name">{exercise.name}</strong>
+                          <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
                         </div>
-                        <span className="exercise-mini-card-callout">
-                          {safeT("training.exerciseDetailCta", "Ver detalle")}
-                          <Icon name="chevron-down" size={18} className="exercise-item-chevron" />
-                        </span>
-                        <div className="mt-8">
+                        <div className="exercise-mini-action-row">
                           {exerciseId ? (
                             <Link
                               href={buildExerciseTechniqueHref(exerciseId)}
-                              className="btn secondary fit-content"
+                              className="exercise-mini-secondary-action"
                               data-testid="training-plan-view-technique"
                               onClick={(event) => event.stopPropagation()}
                             >
                               {t("training.viewTechnique")}
                             </Link>
                           ) : (
-                            <span className="muted">{t("training.techniqueUnavailable")}</span>
+                            <span className="exercise-mini-secondary-action is-disabled">{t("training.techniqueUnavailable")}</span>
                           )}
                         </div>
                       </button>
@@ -1947,25 +1943,23 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </div>
             </section>
 
-              <section className="card premium-surface-card training-plan-access-card">
-                <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
-                  <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
-                    <p className="m-0 text-xs uppercase tracking-wider text-muted">Tus planes</p>
-                    <h3 className="section-title section-title-sm m-0">Biblioteca de entrenamiento</h3>
-                    <p className="section-subtitle m-0">Consulta todos tus planes y cambia al que quieras ver en mobile.</p>
-                    {activePlan?.title ? <p className="muted m-0">Actual: {activePlan.title}</p> : null}
+              <section className="card premium-surface-card training-insights-card training-plan-access-card">
+                <Link
+                  href={selectedPlanId ? `/app/biblioteca/entrenamientos?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/entrenamientos"}
+                  className="training-insight-link training-insight-link--with-affordance"
+                >
+                  <div className="training-insight-link-icon">
+                    <Icon name="book" size={20} />
                   </div>
-                  <div className="inline-actions-sm training-plan-access-actions">
-                    <Link className="btn" href={selectedPlanId ? `/app/biblioteca/entrenamientos?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/entrenamientos"}>
-                      Ver todos los planes
-                    </Link>
-                    {selectedPlanId ? (
-                      <Link className="btn secondary" href={`/app/biblioteca/entrenamientos/${encodeURIComponent(selectedPlanId)}`}>
-                        Ver plan actual
-                      </Link>
-                    ) : null}
+                  <div>
+                    <strong className="training-insight-title">Tus planes</strong>
+                    <p className="muted">Gestiona tu plan activo.</p>
+                    <p className="training-plan-access-status">
+                      {activePlan?.title ? `Actual: ${activePlan.title}` : "Sin plan activo"}
+                    </p>
                   </div>
-                </div>
+                  <span className="training-insight-affordance">Abrir</span>
+                </Link>
               </section>
             </>
           ) : null}

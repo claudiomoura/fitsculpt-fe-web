@@ -1565,6 +1565,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const highlightedMealsProgress = highlightedMeals.length > 0
     ? Math.round((highlightedCompletedMeals / highlightedMeals.length) * 100)
     : 0;
+  const highlightedPrimaryMeal = highlightedMeals.find((meal, index) => {
+    const key = getNutritionMealKey(meal, highlightedDayKey, index);
+    return !isConsumed(key, highlightedDayKey);
+  }) ?? highlightedMeals[0] ?? null;
+  const highlightedPrimaryMealIndex = highlightedPrimaryMeal
+    ? highlightedMeals.findIndex((meal) => meal === highlightedPrimaryMeal)
+    : -1;
+  const highlightedPrimaryMealKey = highlightedPrimaryMeal && highlightedPrimaryMealIndex >= 0
+    ? getNutritionMealKey(highlightedPrimaryMeal, highlightedDayKey, highlightedPrimaryMealIndex)
+    : null;
 
   const handleUseFavorite = (favorite: NutritionQuickFavorite) => {
     const dayKey = toDateKey(selectedDate);
@@ -2085,7 +2095,7 @@ const nutritionPlanDetails = profile ? (
     <div className="section-head section-head-actions">
       <div>
         <h2 className="section-title section-title-sm">{t("nutrition.planDetails.title")}</h2>
-        <p className="section-subtitle">{t("nutrition.planDetails.subtitle")}</p>
+        <p className="section-subtitle">{safeT("nutrition.planDetails.subtitle", "Ajusta metas y preferencias cuando lo necesites.")}</p>
       </div>
 
       <button
@@ -2228,7 +2238,7 @@ const nutritionPlanDetails = profile ? (
   ) : null;
 
   const pageContent = (
-    <div className="page">
+    <div className="page page-with-tabbar-safe-area nutrition-page-shell">
       {!isManualView ? (
         <>
           
@@ -2314,12 +2324,12 @@ const nutritionPlanDetails = profile ? (
             </section>
           ) : hasPlan ? (
             <>
-              <section className="card nutrition-mobile-hide-card nutrition-mobile-compact-card">
+              <section className="card premium-surface-card nutrition-mobile-hide-card nutrition-mobile-compact-card nutrition-plan-intro-card">
             <div className="section-head section-head-actions">
               <div>
-                <h2 className="section-title section-title-sm">Hoy</h2>
+                <h2 className="section-title section-title-sm">Plan de nutrición</h2>
                 {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
-                <p className="section-subtitle">Registra primero lo de hoy. El plan semanal queda como referencia.</p>
+                <p className="section-subtitle">Referencia semanal para tu día.</p>
               </div>
 
               <div className="section-actions plan-page-actions">
@@ -2434,23 +2444,37 @@ const nutritionPlanDetails = profile ? (
 
               {!loading && !error ? (
                 <>
-                <section id="nutrition-today-log" className="card nutrition-v2-layout training-main-section premium-fade-up" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
-                  <div className="status-card stack-sm nutrition-today-summary-card">
-                    <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
-                      <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
+                <section id="nutrition-today-log" className="card premium-hero-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+                  <div className="status-card stack-sm nutrition-today-summary-card nutrition-today-summary-head">
+                    <div className="inline-actions-space nutrition-log-head-row">
+                      <div className="stack-xs nutrition-log-head-copy">
                         <h2 className="section-title section-title-sm m-0">Tu log de hoy</h2>
                         <p className="section-subtitle m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</p>
                         {assignedPlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{assignedPlanTitle}</p> : null}
                       </div>
-                      <div className="badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
+                      <div className="badge nutrition-log-meals-badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
                     </div>
-                    <div className="stack-xs">
-                      <div className="inline-actions-space">
+                    <div className="stack-xs nutrition-log-progress-block">
+                      <div className="inline-actions-space nutrition-log-progress-head">
                         <span className="muted">{t("nutrition.dailyTargetTitle")}</span>
                         <strong>{highlightedMealsProgress}%</strong>
                       </div>
                       <ProgressBar value={highlightedMealsProgress} max={100} aria-label={t("nutrition.dailyTargetTitle")} />
-                      <p className="muted m-0 text-xs">Tus comidas registradas se reflejan en tu progreso diario real.</p>
+                      <div className="nutrition-log-primary-action">
+                        <button
+                          type="button"
+                          className="btn nutrition-dominant-cta"
+                          disabled={!highlightedPrimaryMeal || !highlightedPrimaryMealKey}
+                          onClick={() => {
+                            if (!highlightedPrimaryMeal || !highlightedPrimaryMealKey) return;
+                            void handleQuickLogMeal(highlightedPrimaryMealKey, highlightedPrimaryMeal, highlightedDayKey);
+                          }}
+                        >
+                          {highlightedPrimaryMeal && highlightedPrimaryMealKey && isConsumed(highlightedPrimaryMealKey, highlightedDayKey)
+                            ? t("nutrition.quickLogButtonConsumed")
+                            : "Registrar comida"}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -2460,7 +2484,7 @@ const nutritionPlanDetails = profile ? (
                     </div>
                   </div>
 
-                  <div className="nutrition-v2-calendar-head">
+                  <div className="nutrition-v2-calendar-head nutrition-v2-calendar-head--secondary">
                     <h3 className="section-title section-title-sm m-0">{t("nutrition.calendarTitle")}</h3>
                     <SegmentedControl
                       options={calendarOptions.map((option) => ({ id: option.value, label: option.label }))}
@@ -2545,7 +2569,7 @@ const nutritionPlanDetails = profile ? (
                         <>
                           <div className="nutrition-v2-meals stack-sm">
                             <div className="inline-actions-space">
-                              <h3 className="section-title section-title-sm m-0">{t("nutrition.mealsTitle")}</h3>
+                              <h3 className="section-title section-title-sm m-0">{safeT("nutrition.mealsTitle", "Comidas del día")}</h3>
                               <ButtonLink variant="secondary" href="/app/nutricion/editar">
                                 {t("ui.edit")}
                               </ButtonLink>
@@ -2679,25 +2703,21 @@ const nutritionPlanDetails = profile ? (
                   </div>
                 </section>
 
-                <section className="card premium-surface-card nutrition-plan-access-card">
-                  <div className="inline-actions-space" style={{ alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
-                    <div className="stack-xs" style={{ flex: 1, minWidth: "220px" }}>
-                      <p className="m-0 text-xs uppercase tracking-wider text-muted">Tus planes</p>
-                      <h3 className="section-title section-title-sm m-0">Biblioteca de nutrición</h3>
-                      <p className="section-subtitle m-0">Revisa todos tus planes y elige el que quieras consultar en mobile.</p>
-                      {assignedPlanTitle ? <p className="muted m-0">Actual: {assignedPlanTitle}</p> : null}
+                <section className="card premium-surface-card training-insights-card nutrition-plan-access-card">
+                  <Link
+                    className="training-insight-link training-insight-link--with-affordance"
+                    href={selectedPlanId ? `/app/dietas?planId=${encodeURIComponent(selectedPlanId)}` : "/app/dietas"}
+                  >
+                    <div className="training-insight-link-icon">
+                      <Icon name="book" size={20} />
                     </div>
-                    <div className="inline-actions-sm nutrition-plan-access-actions">
-                      <Link className="btn" href={selectedPlanId ? `/app/dietas?planId=${encodeURIComponent(selectedPlanId)}` : "/app/dietas"}>
-                        Ver todos los planes
-                      </Link>
-                      {selectedPlanId ? (
-                        <Link className="btn secondary" href={`/app/dietas/${encodeURIComponent(selectedPlanId)}`}>
-                          Ver plan actual
-                        </Link>
-                      ) : null}
+                    <div>
+                      <strong className="training-insight-title">Tus planes</strong>
+                      <p className="muted">Gestiona tu plan activo.</p>
+                      <p className="training-plan-access-status">{assignedPlanTitle ? `Actual: ${assignedPlanTitle}` : "Sin plan activo"}</p>
                     </div>
-                  </div>
+                    <span className="training-insight-affordance">Abrir</span>
+                  </Link>
                 </section>
                 </>
               ) : null}
