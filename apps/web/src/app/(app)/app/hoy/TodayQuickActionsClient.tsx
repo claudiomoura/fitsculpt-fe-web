@@ -5,10 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PremiumNutritionIcon,
-  PremiumProgressIcon,
   PremiumWorkoutIcon,
 } from "@/components/icons/PremiumIcons";
-import { MacroRing } from "@/design-system/components/MacroRing";
 import { Button, ButtonLink } from "@/design-system/components/Button";
 import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -31,14 +29,13 @@ const checkinRoute = "/app/seguimiento/check-in";
 
 type ViewStatus = "loading" | "success" | "error";
 type TrainingState = "workout" | "rest" | "no-plan";
+type ModuleStatus = "ready" | "empty" | "error";
 
 type TodaySignals = {
   checkinDoneThisWeek: boolean;
   userName: string;
   subscriptionPlan: string;
   aiTokenBalance: number;
-  canGenerateTrainingAi: boolean;
-  canGenerateNutritionAi: boolean;
   trainingName: string;
   trainingDuration: number | null;
   trainingExerciseCount: number;
@@ -54,6 +51,9 @@ type TodaySignals = {
   goalWeightKg: number | null;
   streakDays: number;
   hasTrainingAccess: boolean;
+  trainingStatus: ModuleStatus;
+  nutritionStatus: ModuleStatus;
+  checkinStatus: ModuleStatus;
 };
 
 type TrackingPayload = {
@@ -78,71 +78,41 @@ function ProgressBar({ value, total, className = "" }: { value: number; total: n
   );
 }
 
-function NutritionRing({ value, total }: { value: number; total: number | null }) {
-  const safeTotal = total && total > 0 ? total : 0;
-  const caloriesTarget = safeTotal;
-  
-  const protein = Math.round(value * 0.3 / 4);
-  const carbs = Math.round(value * 0.4 / 4);
-  const fats = Math.round(value * 0.3 / 9);
-  const proteinTarget = Math.round(caloriesTarget * 0.3 / 4) || 30;
-  const carbsTarget = Math.round(caloriesTarget * 0.4 / 4) || 40;
-  const fatsTarget = Math.round(caloriesTarget * 0.3 / 9) || 15;
-  
-  const segments = [
-    { key: "protein", label: "Proteína", grams: protein, target: proteinTarget, percent: (protein / proteinTarget) * 100, color: "var(--color-primary)" },
-    { key: "carbs", label: "Carbs", grams: carbs, target: carbsTarget, percent: (carbs / carbsTarget) * 100, color: "var(--color-warning)" },
-    { key: "fats", label: "Grasas", grams: fats, target: fatsTarget, percent: (fats / fatsTarget) * 100, color: "var(--color-info)" },
-  ];
-  
-  return (
-    <MacroRing
-      segments={segments}
-      centerValue={`${Math.round((value / safeTotal) * 100)}%`}
-      centerLabel="kcal"
-      size="md"
-      showLegend={false}
-    />
-  );
-}
-
-function ProgressMetric({
-  label,
-  percent,
-  color,
+function NutritionRing({
+  value,
+  total,
+  status,
 }: {
-  label: string;
-  percent: number;
-  color: string;
+  value: number;
+  total: number | null;
+  status: ModuleStatus;
 }) {
+  const safeValue = Math.max(0, Math.round(value));
+  const hasTarget = typeof total === "number" && Number.isFinite(total) && total > 0;
+  const safeTarget = hasTarget ? Number(total) : 0;
+  const percent = hasTarget ? Math.min(100, Math.max(0, Math.round((safeValue / safeTarget) * 100))) : 0;
+  const trackColor = "color-mix(in srgb, var(--bg-muted) 80%, transparent)";
+  const accentColor = status === "error" ? "var(--color-danger)" : "var(--accent)";
+  const progressAngle = Math.round((percent / 100) * 360);
+  const ringFill =
+    status === "error"
+      ? `conic-gradient(${trackColor} 0deg 360deg)`
+      : `conic-gradient(${accentColor} 0deg ${progressAngle}deg, ${trackColor} ${progressAngle}deg 360deg)`;
+  const centerValue = status === "error" ? "--" : String(safeValue);
+  const centerLabel = hasTarget ? `de ${safeTarget}` : status === "empty" ? "sin datos" : "kcal";
+
   return (
-    <div className="mb-5">
-      <div className="flex justify-between text-sm mb-2">
-        <span className="text-muted">{label}</span>
-        <span style={{ color }} className="font-semibold">{percent}%</span>
-      </div>
+    <div className="relative flex h-[98px] w-[98px] items-center justify-center rounded-full" style={{ background: ringFill }}>
       <div
-        className="overflow-hidden rounded-full"
+        className="flex h-[80px] w-[80px] flex-col items-center justify-center rounded-full border"
         style={{
-          height: 12,
-          background: "rgba(255,255,255,0.08)",
-          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.35)",
+          background: "color-mix(in srgb, var(--bg-card) 92%, black 8%)",
+          borderColor: "color-mix(in srgb, var(--border) 84%, transparent)",
         }}
       >
-        <div
-          style={{
-            width: `${percent}%`,
-            height: "100%",
-            borderRadius: 999,
-            background: color,
-            boxShadow: `0 0 18px ${color}55`,
-            transition: "width 400ms ease",
-          }}
-        />
+        <strong className="text-base font-semibold leading-none text-primary">{centerValue}</strong>
+        <span className="mt-1 text-[10px] uppercase tracking-[0.08em] text-muted">{centerLabel}</span>
       </div>
-      <p className="mt-2 text-sm font-semibold" style={{ color }}>
-        Completado {percent}%
-      </p>
     </div>
   );
 }
@@ -215,8 +185,6 @@ export default function TodayQuickActionsClient() {
     userName: "",
     subscriptionPlan: "FREE",
     aiTokenBalance: 0,
-    canGenerateTrainingAi: false,
-    canGenerateNutritionAi: false,
     trainingName: "",
     trainingDuration: null,
     trainingExerciseCount: 0,
@@ -232,6 +200,9 @@ export default function TodayQuickActionsClient() {
     goalWeightKg: null,
     streakDays: 0,
     hasTrainingAccess: true,
+    trainingStatus: "empty",
+    nutritionStatus: "empty",
+    checkinStatus: "empty",
   });
   const hasTrackedViewRef = useRef(false);
 
@@ -257,8 +228,6 @@ export default function TodayQuickActionsClient() {
         userName: "",
         subscriptionPlan: "FREE",
         aiTokenBalance: 0,
-        canGenerateTrainingAi: false,
-        canGenerateNutritionAi: false,
         trainingName: "",
         trainingDuration: null,
         trainingExerciseCount: 0,
@@ -274,6 +243,9 @@ export default function TodayQuickActionsClient() {
         goalWeightKg: null,
         streakDays: 0,
         hasTrainingAccess: true,
+        trainingStatus: "empty",
+        nutritionStatus: "empty",
+        checkinStatus: "empty",
       };
 
       let trackingPayload: TrackingPayload = {
@@ -288,8 +260,6 @@ export default function TodayQuickActionsClient() {
         nextSignals.userName = authMe.name?.trim() ?? "";
         nextSignals.subscriptionPlan = entitlementSnapshot.subscriptionPlan;
         nextSignals.aiTokenBalance = entitlementSnapshot.tokenBalance;
-        nextSignals.canGenerateTrainingAi = entitlementSnapshot.modules.strength && entitlementSnapshot.tokenBalance > 0;
-        nextSignals.canGenerateNutritionAi = entitlementSnapshot.modules.nutrition && entitlementSnapshot.tokenBalance > 0;
         nextSignals.hasTrainingAccess = entitlementSnapshot.modules.strength;
       }
 
@@ -304,6 +274,7 @@ export default function TodayQuickActionsClient() {
 
       if (trackingResponse.ok) {
         trackingPayload = (await trackingResponse.json()) as TrackingPayload;
+        nextSignals.checkinStatus = (trackingPayload.checkins?.length ?? 0) > 0 ? "ready" : "empty";
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
         const earliestCheckin = [...(trackingPayload.checkins ?? [])]
@@ -319,6 +290,8 @@ export default function TodayQuickActionsClient() {
           todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.calories) ? Number(entry.calories) : 0), 0),
         );
         nextSignals.nutritionReady = todaysMealLog.length > 0;
+      } else {
+        nextSignals.checkinStatus = "error";
       }
 
       if (!isPositiveNumber(nextSignals.currentWeightKg) && isPositiveNumber(nextSignals.startWeightKg)) {
@@ -332,14 +305,20 @@ export default function TodayQuickActionsClient() {
           const trainingDay = findTodayPlanDay(trainingPlan.days, trainingPlan.startDate);
           if (trainingDay && (trainingDay.exercises?.length ?? 0) > 0) {
             nextSignals.trainingState = "workout";
+            nextSignals.trainingStatus = "ready";
             nextSignals.trainingName = trainingDay.label || trainingDay.focus || trainingPlan.title;
             nextSignals.trainingDuration = Number.isFinite(trainingDay.duration) ? Number(trainingDay.duration) : null;
             nextSignals.trainingExerciseCount = trainingDay.exercises?.length ?? 0;
             nextSignals.trainingDayKey = trainingDay.date ? toDateKey(parseDate(trainingDay.date) ?? new Date()) : toDateKey(new Date());
           } else {
             nextSignals.trainingState = "rest";
+            nextSignals.trainingStatus = "ready";
           }
+        } else {
+          nextSignals.trainingStatus = "empty";
         }
+      } else {
+        nextSignals.trainingStatus = "error";
       }
 
       if (nutritionListResponse.ok) {
@@ -357,6 +336,7 @@ export default function TodayQuickActionsClient() {
               ? nutritionDetail.dailyCalories
               : null;
             if (nutritionDay?.meals?.length) {
+              nextSignals.nutritionStatus = "ready";
               const nutritionDayKey = nutritionDay.date ? toDateKey(parseDate(nutritionDay.date) ?? new Date()) : toDateKey(new Date());
               const adherenceStore = buildNutritionAdherenceStoreFromMealLog(trackingPayload.mealLog ?? []);
               const consumedMealKeys = new Set(adherenceStore[nutritionDayKey] ?? []);
@@ -369,10 +349,17 @@ export default function TodayQuickActionsClient() {
                 nextSignals.nutritionReady = nextSignals.nutritionMealsLogged > 0;
               }
             } else {
+              nextSignals.nutritionStatus = "empty";
               nextSignals.nutritionReady = nextSignals.nutritionMealsLogged > 0;
             }
+          } else {
+            nextSignals.nutritionStatus = "error";
           }
+        } else {
+          nextSignals.nutritionStatus = "empty";
         }
+      } else {
+        nextSignals.nutritionStatus = "error";
       }
 
       setSignals(nextSignals);
@@ -404,7 +391,7 @@ export default function TodayQuickActionsClient() {
   );
   const dailyProgressPercent = Math.round((completedGoals / 3) * 100);
   const nutritionProgressPercent = signals.nutritionMealsTotal > 0 ? Math.round((signals.nutritionMealsLogged / signals.nutritionMealsTotal) * 100) : 0;
-  const checkinProgressPercent = signals.checkinDoneThisWeek ? 100 : 35;
+  const checkinProgressPercent = signals.checkinDoneThisWeek ? 100 : 0;
   const goalDeltaKg =
     isPositiveNumber(signals.currentWeightKg) && isPositiveNumber(signals.goalWeightKg)
       ? Number((signals.goalWeightKg - signals.currentWeightKg).toFixed(1))
@@ -428,6 +415,28 @@ export default function TodayQuickActionsClient() {
       ? "Meta"
       : `Meta: ${goalDeltaKg > 0 ? "+" : ""}${goalDeltaKg.toFixed(1)} kg`;
   const aiLockReason = signals.aiTokenBalance <= 0 ? "Sin tokens" : !hasAiAccess ? "Plan bloqueado" : null;
+  const accountChipLabel =
+    status === "loading"
+      ? "Cargando"
+      : `${signals.subscriptionPlan === "PRO" ? "Pro" : "Free"} · ${Math.max(0, signals.aiTokenBalance)} tokens`;
+
+  const nutritionStatusLabel =
+    signals.nutritionStatus === "error"
+      ? "Error de carga"
+      : signals.nutritionStatus === "empty"
+        ? "Sin datos"
+        : signals.nutritionMealsLogged === 0
+          ? "0 registrado"
+          : `${signals.nutritionMealsLogged}/${signals.nutritionMealsTotal} comidas`;
+
+  const checkinStatusLabel =
+    signals.checkinStatus === "error"
+      ? "Error de carga"
+      : signals.checkinStatus === "empty"
+        ? "Sin datos"
+        : signals.checkinDoneThisWeek
+          ? "Check-in al día"
+          : "0 registrado esta semana";
 
   const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
   const trainingMeta =
@@ -462,12 +471,12 @@ export default function TodayQuickActionsClient() {
   };
 
   return (
-    <div className="flex flex-col gap-6 premium-page-shell premium-page-shell--compact">
-      <header className="flex items-center justify-between gap-4 premium-page-header">
-        <div className="flex items-center gap-3">
-          <h1 className="m-0 text-2xl font-bold text-primary">Buenos días, {userName}</h1>
+    <div className="page-with-tabbar-safe-area flex flex-col gap-4 px-4 premium-page-shell premium-page-shell--compact md:px-0">
+      <header className="flex items-start justify-between gap-3 premium-page-header">
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="m-0 text-[1.7rem] font-bold leading-tight text-primary">Buenos días, {userName}</h1>
           {signals.streakDays > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1 text-sm font-semibold text-amber-500">
+            <span className="flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/8 px-2 py-0.5 text-xs font-medium text-amber-300">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
                 <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
               </svg>
@@ -475,6 +484,12 @@ export default function TodayQuickActionsClient() {
             </span>
           )}
         </div>
+        <span
+          className="rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.04em] text-muted"
+          style={{ borderColor: "color-mix(in srgb, var(--border) 80%, transparent)", background: "color-mix(in srgb, var(--bg-muted) 48%, transparent)" }}
+        >
+          {accountChipLabel}
+        </span>
       </header>
 
       {status === "loading" ? <TodaySkeleton /> : null}
@@ -497,90 +512,119 @@ export default function TodayQuickActionsClient() {
           ) : null}
           {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href={trainingRoute} /> : null}
 
-          <section className="card premium-fade-up" data-testid="today-action-card-primary">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <section className="card premium-hero-card premium-fade-up p-5 sm:p-6" data-testid="today-action-card-primary">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="m-0 text-xs uppercase tracking-wider text-muted">Acción principal de hoy</p>
-                <h2 className="m-0 mt-1 text-2xl font-semibold text-primary">{signals.trainingState === "workout" ? signals.trainingName : signals.trainingState === "rest" ? "Día de recuperación" : "Configura tu plan"}</h2>
+                <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Acción principal de hoy</p>
+                <h2 className="m-0 mt-1 text-[1.95rem] font-semibold leading-tight text-primary">{signals.trainingState === "workout" ? signals.trainingName : signals.trainingState === "rest" ? "Día de recuperación" : "Configura tu plan"}</h2>
                 <p className="m-0 mt-2 text-sm text-muted">{trainingMeta}</p>
               </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/20">
-                <PremiumWorkoutIcon width={28} height={28} className="text-primary" />
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-2xl border"
+                style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}
+              >
+                <PremiumWorkoutIcon width={24} height={24} className="text-primary" />
               </div>
             </div>
 
-            <div className="mt-5">
-              <ProgressMetric label="Progreso diario" percent={dailyProgressPercent} color="var(--color-primary)" />
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-muted">Progreso diario</span>
+                <span className="font-semibold text-primary">{dailyProgressPercent}%</span>
+              </div>
+              <ProgressBar value={dailyProgressPercent} total={100} />
             </div>
 
             {signals.trainingState === "no-plan" ? (
-              <div className="space-y-2">
+              <div className="mt-4 space-y-2">
                 <Button className="flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction}>
                   {primaryActionLabel}
                 </Button>
-                <Button variant="secondary" className="flex h-12 w-full rounded-xl font-medium" disabled={!hasAiAccess} onClick={() => hasAiAccess && router.push(aiPlanRoute)}>
+                <Button variant="ghost" className="flex h-10 w-full rounded-xl text-sm font-medium" disabled={!hasAiAccess} onClick={() => hasAiAccess && router.push(aiPlanRoute)}>
                   {t("today.trainingAiCta")}
                 </Button>
+                {aiLockReason ? <p className="m-0 text-xs text-muted">{aiLockReason}</p> : null}
               </div>
             ) : (
-              <Button className="mt-3 flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction}>
+              <Button className="mt-4 flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction}>
                 {primaryActionLabel}
               </Button>
             )}
           </section>
 
           <div className="grid gap-4 md:grid-cols-2" data-testid="today-actions-grid">
-            <section className="card premium-fade-up" data-testid="today-action-card">
-              <div className="mb-5 flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-success/20">
-                  <PremiumNutritionIcon width={28} height={28} className="text-success" />
+            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
+              <div className="mb-4 flex items-center gap-3">
+                <div
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border"
+                  style={{ background: "color-mix(in srgb, var(--color-success) 10%, transparent)", borderColor: "color-mix(in srgb, var(--color-success) 24%, transparent)" }}
+                >
+                  <PremiumNutritionIcon width={20} height={20} className="text-success" />
                 </div>
                 <div>
-                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Nutrición</p>
-                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Calorías</h2>
+                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Nutrición</p>
+                  <h2 className="m-0 mt-0.5 text-lg font-semibold text-primary">Calorías</h2>
                 </div>
               </div>
 
-              <div className="mb-5 flex items-center gap-4">
-                <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} />
+              <div className="mb-4 flex items-center gap-3">
+                <NutritionRing value={signals.nutritionConsumedCalories} total={signals.nutritionTargetCalories} status={signals.nutritionStatus} />
                 <div className="flex-1">
-                  <div className="mb-3">
-                    <div className="mb-1 flex justify-between text-sm">
-                      <span className="text-muted">Registradas</span>
-                      <span className="font-semibold text-primary">{signals.nutritionMealsLogged}/{signals.nutritionMealsTotal || 0} comidas</span>
-                    </div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm text-muted">Comidas</span>
+                    <span className="text-sm font-semibold text-primary">{nutritionStatusLabel}</span>
                   </div>
-                  <p className="text-sm text-muted">{signals.nutritionConsumedCalories} kcal registradas hoy</p>
-                  <ProgressMetric label="Comidas del dia" percent={nutritionProgressPercent} color="var(--color-success)" />
+                  <p className="m-0 mt-1 text-sm text-muted">
+                    {signals.nutritionStatus === "error"
+                      ? "No se pudo cargar este bloque"
+                      : `${signals.nutritionConsumedCalories} kcal registradas hoy`}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between text-xs">
+                    <span className="text-muted">Progreso comidas</span>
+                    <span className="font-semibold text-primary">{nutritionProgressPercent}%</span>
+                  </div>
+                  <ProgressBar value={nutritionProgressPercent} total={100} className="mt-2" />
                 </div>
               </div>
 
-              <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="flex h-12 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
+              <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="flex h-11 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
                 Registrar comida
               </ButtonLink>
             </section>
 
-            <section className="card premium-fade-up" data-testid="today-action-card">
-              <div className="mb-5 flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-info/20">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-info">
+            <section className="card premium-surface-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
+              <div className="mb-4 flex items-center gap-3">
+                <div
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border"
+                  style={{ background: "color-mix(in srgb, var(--color-info) 10%, transparent)", borderColor: "color-mix(in srgb, var(--color-info) 24%, transparent)" }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-info">
                     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                   </svg>
                 </div>
                 <div>
-                  <p className="m-0 text-xs uppercase tracking-wider text-muted">Check-in</p>
-                  <h2 className="m-0 mt-0.5 text-xl font-semibold text-primary">Peso actual</h2>
+                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Check-in</p>
+                  <h2 className="m-0 mt-0.5 text-lg font-semibold text-primary">Peso actual</h2>
                 </div>
               </div>
 
-              <div className="mb-5 flex items-baseline gap-2">
-                <span className="text-5xl font-bold text-primary">{signals.currentWeightKg ? signals.currentWeightKg.toFixed(1) : "--"}</span>
-                <span className="text-xl text-muted">kg</span>
+              <div className="mb-4 flex items-end justify-between gap-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold leading-none text-primary">{typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) ? signals.currentWeightKg.toFixed(1) : "--"}</span>
+                  <span className="text-base text-muted">kg</span>
+                </div>
+                <span className="text-xs font-medium text-muted">{checkinStatusLabel}</span>
               </div>
 
-              <ProgressMetric label={goalLabel} percent={goalProgressPercent} color="var(--color-info)" />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-muted">{goalLabel}</span>
+                  <span className="font-semibold text-primary">{goalProgressPercent}%</span>
+                </div>
+                <ProgressBar value={goalProgressPercent} total={100} />
+              </div>
 
-              <ButtonLink as={Link} href={checkinRoute} className="flex h-12 w-full rounded-xl font-medium" data-testid="quick-action-tracking" onClick={() => trackEvent("checkin_opened", { target: "checkin", origin: "today" })}>
+              <ButtonLink as={Link} href={checkinRoute} variant="secondary" className="mt-4 flex h-11 w-full rounded-xl font-medium" data-testid="quick-action-tracking" onClick={() => trackEvent("checkin_opened", { target: "checkin", origin: "today" })}>
                 {signals.checkinDoneThisWeek ? "Actualizar check-in" : t("profile.checkinTitle")}
               </ButtonLink>
             </section>
