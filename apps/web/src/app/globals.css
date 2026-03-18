@@ -4541,6 +4541,16 @@ textarea:disabled {
   border-color: var(--surface-border-default);
 }
 
+.focus-session-finish-btn {
+  border-color: color-mix(in srgb, var(--color-danger) 26%, var(--surface-border-default));
+  color: color-mix(in srgb, var(--color-danger) 68%, var(--text-primary));
+  background: color-mix(in srgb, var(--surface-inset-bg) 90%, transparent);
+}
+
+.focus-session-finish-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--surface-inset-bg));
+}
+
 .focus-session-current-card {
   border-color: var(--surface-border-emphasis);
 }
@@ -4552,6 +4562,7 @@ textarea:disabled {
 
 .focus-session-thumb-fallback {
   background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--accent));
 }
 
 .focus-session-exercise-head-link {

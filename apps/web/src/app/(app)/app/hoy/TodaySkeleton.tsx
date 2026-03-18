@@ -2,33 +2,29 @@ import { Skeleton } from "@/design-system/components/Skeleton";
 
 export function TodaySkeleton() {
   return (
-    <section className="grid gap-4 lg:grid-cols-[1.5fr_1fr]" aria-busy="true" aria-live="polite" data-testid="today-wow-skeleton">
-      <article className="surface-loading-card order-3 p-5 lg:order-2">
-        <Skeleton variant="line" className="w-24" />
-        <Skeleton variant="line" className="mt-3 w-36" />
-        <Skeleton variant="line" className="mt-5 w-20" />
+    <section className="space-y-4" aria-busy="true" aria-live="polite" data-testid="today-wow-skeleton">
+      <article className="surface-loading-card p-5 md:p-6">
+        <Skeleton variant="line" className="w-28" />
+        <Skeleton variant="line" className="mt-3 w-48" />
+        <Skeleton variant="line" className="mt-3 w-40" />
         <Skeleton variant="line" className="mt-5 h-11 w-full" />
       </article>
-      <div className="order-1 space-y-4">
-        <article className="surface-loading-card p-5 md:p-6">
-          <Skeleton variant="line" className="w-28" />
-          <Skeleton variant="line" className="mt-3 w-48" />
-          <Skeleton variant="line" className="mt-3 w-40" />
-          <Skeleton variant="line" className="mt-5 h-11 w-full" />
-        </article>
+
+      <div className="grid gap-4 md:grid-cols-2">
         <article className="surface-loading-card p-5">
           <Skeleton variant="line" className="w-24" />
           <Skeleton variant="line" className="mt-3 w-40" />
           <Skeleton variant="line" className="mt-3 w-24" />
           <Skeleton variant="line" className="mt-5 h-11 w-full" />
         </article>
-      </div>
-      <article className="surface-loading-card order-4 p-5">
+
+        <article className="surface-loading-card p-5">
         <Skeleton variant="line" className="w-24" />
         <Skeleton variant="line" className="mt-3 w-40" />
         <Skeleton variant="line" className="mt-3 w-20" />
         <Skeleton variant="line" className="mt-5 h-11 w-full" />
-      </article>
+        </article>
+      </div>
     </section>
   );
 }

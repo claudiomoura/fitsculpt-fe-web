@@ -50,6 +50,7 @@ type TodaySignals = {
   nutritionMealsLogged: number;
   nutritionMealsTotal: number;
   currentWeightKg: number | null;
+  previousWeightKg: number | null;
   startWeightKg: number | null;
   goalWeightKg: number | null;
   streakDays: number;
@@ -191,6 +192,20 @@ const getLatestWeight = (payload?: TrackingPayload | null) => {
   return Number(validEntries.sort((a, b) => b.parsed.getTime() - a.parsed.getTime())[0]?.entry.weightKg);
 };
 
+const getPreviousWeight = (payload?: TrackingPayload | null) => {
+  const validEntries =
+    payload?.checkins
+      ?.map((entry) => ({ entry, parsed: parseDate(entry.date) }))
+      .filter(
+        (item): item is { entry: { weightKg?: number | null }; parsed: Date } =>
+          item.parsed !== null && Number.isFinite(item.entry.weightKg),
+      )
+      .sort((a, b) => b.parsed.getTime() - a.parsed.getTime()) ?? [];
+
+  if (validEntries.length < 2) return null;
+  return Number(validEntries[1]?.entry.weightKg);
+};
+
 const getStreakDays = (payload?: TrackingPayload | null) => {
   const rawDates = payload?.checkins?.map((entry) => parseDate(entry.date)).filter((date): date is Date => date !== null) ?? [];
   if (!rawDates.length) return 0;
@@ -249,6 +264,7 @@ export default function TodayQuickActionsClient() {
     nutritionMealsLogged: 0,
     nutritionMealsTotal: 0,
     currentWeightKg: null,
+    previousWeightKg: null,
     startWeightKg: null,
     goalWeightKg: null,
     streakDays: 0,
@@ -297,6 +313,7 @@ export default function TodayQuickActionsClient() {
         nutritionMealsLogged: 0,
         nutritionMealsTotal: 0,
         currentWeightKg: null,
+        previousWeightKg: null,
         startWeightKg: null,
         goalWeightKg: null,
         streakDays: 0,
@@ -336,6 +353,7 @@ export default function TodayQuickActionsClient() {
         nextSignals.checkinStatus = (trackingPayload.checkins?.length ?? 0) > 0 ? "ready" : "empty";
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
+        nextSignals.previousWeightKg = getPreviousWeight(trackingPayload);
         const earliestCheckin = [...(trackingPayload.checkins ?? [])]
           .filter((entry) => isPositiveNumber(entry.weightKg) && typeof entry.date === "string")
           .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
@@ -478,6 +496,10 @@ export default function TodayQuickActionsClient() {
   const dailyProgressPercent = Math.round((completedGoals / 3) * 100);
   const nutritionProgressPercent = signals.nutritionMealsTotal > 0 ? Math.round((signals.nutritionMealsLogged / signals.nutritionMealsTotal) * 100) : 0;
   const checkinProgressPercent = signals.checkinDoneThisWeek ? 100 : 0;
+  const checkinDeltaKg =
+    typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) && typeof signals.previousWeightKg === "number" && Number.isFinite(signals.previousWeightKg)
+      ? Number((signals.currentWeightKg - signals.previousWeightKg).toFixed(1))
+      : null;
   const goalDeltaKg =
     isPositiveNumber(signals.currentWeightKg) && isPositiveNumber(signals.goalWeightKg)
       ? Number((signals.goalWeightKg - signals.currentWeightKg).toFixed(1))
@@ -543,6 +565,10 @@ export default function TodayQuickActionsClient() {
           ? `${nutritionRemainingCalories} kcal restantes`
           : nutritionStatusLabel;
   const checkinMainWeight = typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) ? signals.currentWeightKg.toFixed(1) : "--";
+  const checkinContext =
+    checkinDeltaKg === null
+      ? checkinStatusLabel
+      : `${checkinDeltaKg > 0 ? "+" : ""}${checkinDeltaKg.toFixed(1)} kg vs último check-in`;
 
   const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
   const canStartTodayWorkout = signals.trainingState === "workout" && Boolean(signals.todayWorkoutId);
@@ -583,16 +609,9 @@ export default function TodayQuickActionsClient() {
   return (
     <div className="flex flex-col gap-4 pb-1">
       <header className="flex items-start justify-between gap-3 premium-page-header">
-        <div className="flex min-w-0 items-center gap-2">
-          <h1 className="m-0 text-[1.62rem] font-bold leading-tight text-primary">Buenos días, {userName}</h1>
-          {signals.streakDays > 0 && (
-            <span className="today-streak-chip flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
-                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
-              </svg>
-              {signals.streakDays} días
-            </span>
-          )}
+        <div className="min-w-0">
+          <h1 className="m-0 text-[1.58rem] font-bold leading-tight text-primary">Buenos días, {userName}</h1>
+          <p className="m-0 mt-1 text-sm text-muted">Tu enfoque de hoy en 3 acciones.</p>
         </div>
         <span className="today-top-chip rounded-full border px-1.5 py-0.5 text-[10px] font-medium tracking-[0.02em] text-muted">
           {accountChipLabel}
@@ -628,6 +647,7 @@ export default function TodayQuickActionsClient() {
                 {signals.trainingState === "workout" && !canStartTodayWorkout ? (
                   <p className="m-0 mt-2 text-xs text-muted">Aun no hay sesión disponible para hoy.</p>
                 ) : null}
+                {signals.trainingStatus === "error" ? <p className="m-0 mt-2 text-xs text-danger">No se pudo cargar tu sesión de hoy.</p> : null}
               </div>
               <div className="today-hero-icon flex h-12 w-12 items-center justify-center rounded-2xl border">
                 <PremiumWorkoutIcon width={24} height={24} className="text-primary" />
@@ -653,9 +673,16 @@ export default function TodayQuickActionsClient() {
                 {aiLockReason ? <p className="m-0 text-xs text-muted">{aiLockReason}</p> : null}
               </div>
             ) : (
-              <Button className="mt-4 flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction} disabled={signals.trainingState === "workout" && !canStartTodayWorkout}>
-                {primaryActionLabel}
-              </Button>
+              <div className="mt-4 space-y-2">
+                <Button className="flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction} disabled={signals.trainingState === "workout" && !canStartTodayWorkout}>
+                  {primaryActionLabel}
+                </Button>
+                {signals.trainingState === "workout" ? (
+                  <ButtonLink as={Link} href={trainingRoute} variant="ghost" className="flex h-10 w-full rounded-xl text-sm font-medium">
+                    Ver detalles
+                  </ButtonLink>
+                ) : null}
+              </div>
             )}
           </section>
 
@@ -692,7 +719,7 @@ export default function TodayQuickActionsClient() {
               <div className="today-progress-inset mb-4 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-muted">Comidas registradas</span>
-                  <span className="font-semibold text-primary">{signals.nutritionMealsLogged}/{signals.nutritionMealsTotal || 0} · {nutritionProgressPercent}%</span>
+                  <span className="font-semibold text-primary">{signals.nutritionMealsLogged}/{signals.nutritionMealsTotal || 0}</span>
                 </div>
                 <ProgressBar value={nutritionProgressPercent} total={100} />
               </div>
@@ -720,16 +747,10 @@ export default function TodayQuickActionsClient() {
                   <span className="text-4xl font-bold leading-none text-primary">{checkinMainWeight}</span>
                   <span className="text-sm font-medium text-muted">kg</span>
                 </div>
-                <p className="m-0 text-xs text-muted">{checkinStatusLabel}</p>
+                <p className="m-0 text-xs text-muted">{checkinContext}</p>
               </div>
 
-              <div className="today-progress-inset space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-muted">{goalLabel}</span>
-                  <span className="font-semibold text-primary">{goalProgressPercent}%</span>
-                </div>
-                <ProgressBar value={goalProgressPercent} total={100} />
-              </div>
+              <p className="m-0 text-xs text-muted">{goalLabel} · {goalProgressPercent}%</p>
 
               <ButtonLink as={Link} href={checkinRoute} variant="secondary" className="mt-4 flex h-11 w-full rounded-xl font-medium" data-testid="quick-action-tracking" onClick={() => trackEvent("checkin_opened", { target: "checkin", origin: "today" })}>
                 {signals.checkinDoneThisWeek ? "Actualizar check-in" : t("profile.checkinTitle")}

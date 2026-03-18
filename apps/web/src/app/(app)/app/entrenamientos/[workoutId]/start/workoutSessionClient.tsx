@@ -600,15 +600,43 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
           <div className="text-right">
             <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">Tiempo</p>
             <strong className="mt-1 block text-sm text-primary">{formatElapsed(elapsedSeconds)}</strong>
-            <button type="button" className="btn secondary mt-2 h-9 px-3 text-xs" onClick={() => void handleFinish()} disabled={saving || !session}>
-              {t("workoutDetail.sessionFinish")}
-            </button>
           </div>
         </div>
       </header>
 
+      <section className="card premium-surface-card mb-4 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">Resumen de sesión</p>
+            <p className="m-0 mt-1 text-sm font-semibold text-primary">{workout.name}</p>
+            <p className="muted m-0 mt-1 text-xs">Sesión activa</p>
+          </div>
+          <button type="button" className="btn secondary focus-session-finish-btn h-9 px-3 text-xs" onClick={() => void handleFinish()} disabled={saving || !session}>
+            {t("workoutDetail.sessionFinish")}
+          </button>
+        </div>
+        <div className="focus-session-summary-grid mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <article className="focus-session-summary-item">
+            <p className="muted m-0 text-xs">Tiempo</p>
+            <strong className="mt-1 block">{formatElapsed(elapsedSeconds)}</strong>
+          </article>
+          <article className="focus-session-summary-item">
+            <p className="muted m-0 text-xs">Sets</p>
+            <strong className="mt-1 block">{totalLoggedSets}/{Math.max(totalTargetSets, totalLoggedSets)}</strong>
+          </article>
+          <article className="focus-session-summary-item">
+            <p className="muted m-0 text-xs">Ejercicio</p>
+            <strong className="mt-1 block">{currentExercise + 1}/{totalExercises}</strong>
+          </article>
+          <article className="focus-session-summary-item">
+            <p className="muted m-0 text-xs">Descanso</p>
+            <strong className="mt-1 block">{restCountdown !== null ? `${restCountdown}s` : "Listo"}</strong>
+          </article>
+        </div>
+      </section>
+
       <section className="card premium-hero-card focus-session-current-card p-4">
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
           {activeExerciseDetailHref ? (
             <Link href={activeExerciseDetailHref} className="focus-session-exercise-head-link flex min-w-0 flex-1 items-start gap-3">
               <div className="focus-session-exercise-thumb h-20 w-20 shrink-0 overflow-hidden rounded-2xl border">
@@ -616,7 +644,13 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={exercisePreviewUrl} alt={activeExerciseName || "Ejercicio"} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="focus-session-thumb-fallback flex h-full w-full items-center justify-center text-xs font-medium text-muted">Sin imagen</div>
+                  <div className="focus-session-thumb-fallback flex h-full w-full items-center justify-center text-muted">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                      <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                      <path d="m8 11 2.5 3 2-2 3.5 4"/>
+                      <circle cx="9" cy="9" r="1"/>
+                    </svg>
+                  </div>
                 )}
               </div>
               <div className="min-w-0">
@@ -635,7 +669,13 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={exercisePreviewUrl} alt={activeExerciseName || "Ejercicio"} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="focus-session-thumb-fallback flex h-full w-full items-center justify-center text-xs font-medium text-muted">Sin imagen</div>
+                  <div className="focus-session-thumb-fallback flex h-full w-full items-center justify-center text-muted">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                      <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                      <path d="m8 11 2.5 3 2-2 3.5 4"/>
+                      <circle cx="9" cy="9" r="1"/>
+                    </svg>
+                  </div>
                 )}
               </div>
               <div className="min-w-0">
@@ -650,7 +690,10 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
           )}
           <span className="badge">{currentExercise + 1}/{totalExercises}</span>
         </div>
+      </section>
 
+      <section className="card premium-surface-card mt-4 p-4">
+        <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">Registro de sets</p>
         {inlineError ? <p className="focus-session-inline-state mb-3 rounded-xl px-3 py-2 text-sm font-medium text-danger">{inlineError}</p> : null}
         {error ? <p className="focus-session-inline-state mb-3 rounded-xl px-3 py-2 text-sm font-medium text-danger">{error}</p> : null}
 
@@ -755,28 +798,6 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
             Añadir set
           </button>
           {activeIsBodyweight ? <span className="badge">Ejercicio con peso corporal</span> : null}
-        </div>
-      </section>
-
-      <section className="card premium-surface-card mt-4 p-4">
-        <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">Resumen de sesión</p>
-        <div className="focus-session-summary-grid mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <article className="focus-session-summary-item">
-            <p className="muted m-0 text-xs">Tiempo</p>
-            <strong className="mt-1 block">{formatElapsed(elapsedSeconds)}</strong>
-          </article>
-          <article className="focus-session-summary-item">
-            <p className="muted m-0 text-xs">Sets</p>
-            <strong className="mt-1 block">{totalLoggedSets}/{Math.max(totalTargetSets, totalLoggedSets)}</strong>
-          </article>
-          <article className="focus-session-summary-item">
-            <p className="muted m-0 text-xs">Ejercicio</p>
-            <strong className="mt-1 block">{currentExercise + 1}/{totalExercises}</strong>
-          </article>
-          <article className="focus-session-summary-item">
-            <p className="muted m-0 text-xs">Descanso</p>
-            <strong className="mt-1 block">{restCountdown !== null ? `${restCountdown}s` : "Listo"}</strong>
-          </article>
         </div>
       </section>
 
