@@ -416,6 +416,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
 
   useEffect(() => {
     let active = true;
+    isMountedRef.current = true;
+
     const loadTracking = async () => {
       if (!active) return;
       await refreshTrackingData({ showLoading: true, showError: true });
