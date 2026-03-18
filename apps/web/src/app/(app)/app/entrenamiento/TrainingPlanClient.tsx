@@ -1514,7 +1514,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   );
 
   return (
-    <div className="page page-with-tabbar-safe-area training-plan-layout premium-page-shell premium-page-shell--compact">
+    <div className="page page-with-tabbar-safe-area nutrition-page-shell training-plan-layout">
       {!isManualView ? (
         <>
           {!loading && !error && profile && !isProfileComplete(profile) ? (
