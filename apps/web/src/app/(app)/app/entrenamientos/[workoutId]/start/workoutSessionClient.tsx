@@ -494,7 +494,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
             <button type="button" className="btn secondary" onClick={() => void retryAll()}>
               Reintentar
             </button>
-            <Link className="btn" href={`/app/training/${workoutId}`}>
+            <Link className="btn" href={`/app/entrenamiento/${workoutId}`}>
               Volver
             </Link>
           </div>
@@ -508,8 +508,8 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
       <section className="focus-session-page mx-auto max-w-xl px-4 pt-8 md:px-6">
         <div className="card p-5 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-2xl">🏆</div>
-          <h1 className="section-title section-title-sm">Sesion completada</h1>
-          <p className="section-subtitle">Resumen rapido de tu entrenamiento.</p>
+          <h1 className="section-title section-title-sm">Sesión completada</h1>
+          <p className="section-subtitle">Resumen rápido de tu entrenamiento.</p>
           <div className="mt-4 grid grid-cols-3 gap-3">
             <article className="feature-card p-3 text-center">
               <p className="muted m-0 text-xs">Tiempo</p>
@@ -557,7 +557,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
             </div>
           </div>
 
-          <Link href="/app/training" className="btn mt-6 flex w-full justify-center">
+          <Link href="/app/entrenamiento" className="btn mt-6 flex w-full justify-center">
             Volver a entrenamientos
           </Link>
         </div>
@@ -567,13 +567,13 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   return (
     <section className="focus-session-page mx-auto max-w-3xl px-4 pt-3 md:px-6">
-      <header className="card mb-4 p-4">
+      <header className="card premium-surface-card mb-4 p-4">
         <div className="flex items-start gap-3">
-          <Link className="btn secondary h-11 px-4" href={`/app/training/${workout.id}`}>
+          <Link className="btn secondary h-11 px-4" href={`/app/entrenamiento/${workout.id}`}>
             ←
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="muted m-0 text-xs uppercase tracking-wider">Sesion activa</p>
+            <p className="muted m-0 text-xs uppercase tracking-wider">Sesión activa</p>
             <h1 className="m-0 mt-1 truncate text-lg font-semibold text-primary md:text-xl">{workout.name}</h1>
             <p className="muted m-0 mt-1 text-sm">{t("workoutDetail.sessionSubtitle")}</p>
           </div>
@@ -606,7 +606,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
         </article>
       </section>
 
-      <section className="card mt-4 p-4">
+      <section className="card premium-surface-card mt-4 p-4">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <div className="h-20 w-20 overflow-hidden rounded-2xl border border-border bg-surface-muted shrink-0">

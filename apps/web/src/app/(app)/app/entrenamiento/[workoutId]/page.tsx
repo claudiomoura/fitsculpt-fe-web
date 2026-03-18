@@ -165,7 +165,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
 
   return (
     <div className="page">
-      <section className="card centered-card">
+      <section className="card premium-surface-card training-main-section centered-card">
         <div className="page-header">
           <div className="page-header-body">
             <h1 className="section-title">{workout.name}</h1>
@@ -224,7 +224,7 @@ export default async function WorkoutDetailPage(props: { params: Promise<{ worko
         </div>
       </section>
 
-      <section className="card centered-card mt-16">
+      <section className="card premium-surface-card training-main-section centered-card mt-16">
         <div className="section-head">
           <div>
             <h2 className="section-title section-title-sm">

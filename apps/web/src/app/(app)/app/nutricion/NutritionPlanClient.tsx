@@ -2460,7 +2460,7 @@ const nutritionPlanDetails = profile ? (
                         <strong>{highlightedMealsProgress}%</strong>
                       </div>
                       <ProgressBar value={highlightedMealsProgress} max={100} aria-label={t("nutrition.dailyTargetTitle")} />
-                      <div className="nutrition-log-primary-action">
+                      <div className="nutrition-log-primary-cta">
                         <button
                           type="button"
                           className="btn nutrition-dominant-cta"
