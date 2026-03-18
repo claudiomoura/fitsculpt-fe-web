@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
@@ -19,6 +20,9 @@ type DraftRow = {
 };
 
 type ExerciseMeta = {
+  id?: string;
+  exerciseId?: string;
+  name?: string;
   equipment?: string | null;
   imageUrl?: string | null;
   posterUrl?: string | null;
@@ -138,6 +142,8 @@ function getExercisePreviewUrl(meta?: ExerciseMeta | null) {
 }
 
 export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClientProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
   const { notify } = useToast();
   const [workout, setWorkout] = useState<Workout | null>(null);
@@ -147,6 +153,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [currentExercise, setCurrentExercise] = useState(0);
   const [rpe, setRpe] = useState(7);
   const [energia, setEnergia] = useState(3);
@@ -238,9 +245,6 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
   const activeExercise = exercises[currentExercise] ?? null;
   const activeExerciseName = activeExercise?.name ?? "";
   const activeExerciseId = activeExercise?.exerciseId ?? activeExercise?.id ?? null;
-  const activeExerciseDetailHref = activeExerciseId
-    ? `/app/biblioteca/${encodeURIComponent(activeExerciseId)}?from=plan&returnTo=${encodeURIComponent("/app/training")}`
-    : null;
 
   useEffect(() => {
     if (!activeExerciseId || exerciseMetaById[activeExerciseId]) return;
@@ -264,7 +268,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   useEffect(() => {
     const fallbackMetaKey = `name:${activeExerciseName.toLowerCase()}`;
-    if (activeExerciseId || !activeExerciseName || exerciseMetaById[fallbackMetaKey]) return;
+    if (!activeExerciseName || exerciseMetaById[fallbackMetaKey] || (activeExerciseId && exerciseMetaById[activeExerciseId])) return;
     let active = true;
     const loadMetaByName = async () => {
       try {
@@ -291,6 +295,21 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
   }, [activeExerciseId, activeExerciseName, exerciseMetaById]);
 
   const activeExerciseMeta = activeExerciseId ? exerciseMetaById[activeExerciseId] : exerciseMetaById[`name:${activeExerciseName.toLowerCase()}`] ?? null;
+  const resolvedExerciseLibraryId =
+    activeExerciseMeta?.id ??
+    activeExerciseMeta?.exerciseId ??
+    (typeof activeExercise?.exerciseId === "string" ? activeExercise.exerciseId : null);
+  const activeExerciseDetailHref = useMemo(() => {
+    if (!resolvedExerciseLibraryId) return null;
+    const params = new URLSearchParams();
+    params.set("from", "plan");
+    const dayKey = searchParams.get("dayKey") ?? searchParams.get("day");
+    if (dayKey) params.set("dayKey", dayKey);
+    const currentParams = searchParams.toString();
+    const returnTo = `${pathname}${currentParams ? `?${currentParams}` : ""}`;
+    params.set("returnTo", returnTo);
+    return `/app/biblioteca/${encodeURIComponent(resolvedExerciseLibraryId)}?${params.toString()}`;
+  }, [pathname, resolvedExerciseLibraryId, searchParams]);
   const activeIsBodyweight = isBodyweightExercise(activeExercise, activeExerciseMeta);
   const prescribedSetCount = Math.max(1, parseSetCount(activeExercise?.sets) ?? 3);
   const extraRows = extraRowsByExercise[currentExercise] ?? 0;
@@ -352,26 +371,30 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => row.done && !row.saved);
 
-  const savePendingRows = async () => {
+  const saveRows = async (
+    rowsToPersist: Array<{ row: DraftRow }>,
+    options?: { silent?: boolean },
+  ) => {
     if (!session || !activeExerciseName) return;
-    if (pendingRows.length === 0) {
-      setInlineError("Marca al menos una serie para guardarla o pulsa Siguiente para saltar el ejercicio.");
+    if (rowsToPersist.length === 0) {
+      if (!options?.silent) setInlineError("Marca al menos una serie para guardarla o pulsa Siguiente para saltar el ejercicio.");
       return;
     }
 
-    for (const { row } of pendingRows) {
+    for (const { row } of rowsToPersist) {
       const reps = parsePositiveNumber(row.reps);
       if (!reps || reps < 1) {
-        setInlineError("Introduce repeticiones válidas en las series marcadas.");
+        if (!options?.silent) setInlineError("Introduce repeticiones válidas en las series marcadas.");
         return;
       }
     }
 
     setSaving(true);
+    setAutosaveState("saving");
     setInlineError(null);
     setError(null);
     try {
-      const payload = pendingRows.map(({ row }) => ({
+      const payload = rowsToPersist.map(({ row }) => ({
         exercise: activeExerciseName,
         sets: 1,
         reps: parsePositiveNumber(row.reps) ?? 1,
@@ -393,25 +416,58 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
       const updatedExerciseEntries = updatedEntries.filter((entry) => entry.exercise === activeExerciseName);
       setEntries(updatedEntries);
       setSession(updated);
-      notify({ title: "Set guardado", variant: "success" });
+      setAutosaveState("saved");
+      if (!options?.silent) notify({ title: "Set guardado", variant: "success" });
       setDraftsByExercise((prev) => {
         const rebuilt = buildDraftRows(activeExercise, targetSetCount, updatedEntries);
         return { ...prev, [currentExercise]: rebuilt };
       });
       const restSeconds = parsePositiveNumber(activeExercise?.restSeconds);
       setRestCountdown(restSeconds && restSeconds > 0 ? restSeconds : null);
-      if (updatedExerciseEntries.length >= targetSetCount && currentExercise < exercises.length - 1) {
+      if (!options?.silent && updatedExerciseEntries.length >= targetSetCount && currentExercise < exercises.length - 1) {
         window.setTimeout(() => {
           goToExercise(Math.min(currentExercise + 1, exercises.length - 1));
         }, 120);
-      } else {
+      } else if (!options?.silent) {
         window.setTimeout(() => focusPrimaryInput(), 40);
       }
     } catch (_err) {
+      setAutosaveState("error");
       setError(t("workoutDetail.sessionSaveError"));
     } finally {
       setSaving(false);
+      window.setTimeout(() => {
+        setAutosaveState((current) => (current === "saved" ? "idle" : current));
+      }, 1200);
     }
+  };
+
+  const savePendingRows = async () => {
+    await saveRows(pendingRows);
+  };
+
+  const handleDoneToggle = async (rowIndex: number, checked: boolean) => {
+    const baseRows = draftsByExercise[currentExercise] ?? currentRows;
+    const targetRow = baseRows[rowIndex];
+    if (!targetRow || targetRow.saved) return;
+
+    const nextRow = { ...targetRow, done: checked };
+    updateRow(rowIndex, () => nextRow);
+
+    if (!checked) {
+      setAutosaveState("idle");
+      return;
+    }
+
+    const reps = parsePositiveNumber(nextRow.reps);
+    if (!reps || reps < 1) {
+      updateRow(rowIndex, (current) => ({ ...current, done: false }));
+      setInlineError("Introduce repeticiones válidas antes de marcar el set como hecho.");
+      setAutosaveState("error");
+      return;
+    }
+
+    await saveRows([{ row: nextRow }], { silent: true });
   };
 
   const handleFinish = async () => {
@@ -694,6 +750,11 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
       <section className="card premium-surface-card mt-4 p-4">
         <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">Registro de sets</p>
+        {autosaveState !== "idle" ? (
+          <p className="m-0 mt-2 text-xs text-muted" role="status" aria-live="polite">
+            {autosaveState === "saving" ? "Guardando..." : autosaveState === "saved" ? "Guardado" : "No se pudo guardar"}
+          </p>
+        ) : null}
         {inlineError ? <p className="focus-session-inline-state mb-3 rounded-xl px-3 py-2 text-sm font-medium text-danger">{inlineError}</p> : null}
         {error ? <p className="focus-session-inline-state mb-3 rounded-xl px-3 py-2 text-sm font-medium text-danger">{error}</p> : null}
 
@@ -742,7 +803,9 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
                         className="focus-session-check"
                         checked={row.done}
                         aria-label={`Completar set ${setLabel}`}
-                        onChange={(event) => updateRow(index, (current) => ({ ...current, done: event.target.checked }))}
+                        onChange={(event) => {
+                          void handleDoneToggle(index, event.target.checked);
+                        }}
                       />
                     </label>
                   </div>
