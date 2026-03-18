@@ -524,8 +524,24 @@ export default function TodayQuickActionsClient() {
           ? "Check-in al día"
           : "0 registrado esta semana";
 
-  const nutritionPrimaryKcal = signals.nutritionStatus === "error" ? "--" : `${Math.max(0, signals.nutritionConsumedCalories)}`;
-  const nutritionMetaText = signals.nutritionStatus === "error" ? "No se pudo cargar este bloque" : nutritionStatusLabel;
+  const nutritionPrimaryKcal =
+    signals.nutritionStatus === "error"
+      ? "--"
+      : signals.nutritionStatus === "empty"
+        ? "--"
+        : `${Math.max(0, signals.nutritionConsumedCalories)}`;
+  const nutritionRemainingCalories =
+    typeof signals.nutritionTargetCalories === "number" && Number.isFinite(signals.nutritionTargetCalories)
+      ? Math.max(0, Math.round(signals.nutritionTargetCalories - signals.nutritionConsumedCalories))
+      : null;
+  const nutritionMetaText =
+    signals.nutritionStatus === "error"
+      ? "No se pudo cargar este bloque"
+      : signals.nutritionStatus === "empty"
+        ? "Sin datos de comidas para hoy"
+        : nutritionRemainingCalories !== null
+          ? `${nutritionRemainingCalories} kcal restantes`
+          : nutritionStatusLabel;
   const checkinMainWeight = typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) ? signals.currentWeightKg.toFixed(1) : "--";
 
   const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
@@ -565,7 +581,7 @@ export default function TodayQuickActionsClient() {
   };
 
   return (
-    <div className="page-with-tabbar-safe-area flex flex-col gap-4 px-4 pb-3 premium-page-shell premium-page-shell--compact md:px-0">
+    <div className="flex flex-col gap-4 pb-1">
       <header className="flex items-start justify-between gap-3 premium-page-header">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className="m-0 text-[1.62rem] font-bold leading-tight text-primary">Buenos días, {userName}</h1>
@@ -578,7 +594,7 @@ export default function TodayQuickActionsClient() {
             </span>
           )}
         </div>
-        <span className="today-top-chip rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-[0.03em] text-muted">
+        <span className="today-top-chip rounded-full border px-1.5 py-0.5 text-[10px] font-medium tracking-[0.02em] text-muted">
           {accountChipLabel}
         </span>
       </header>
