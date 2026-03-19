@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -385,19 +386,64 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   const isStepValid = (step === 0 && hasValidBasics) || step > 0;
 
   if (loadState === "loading") {
-    return <div className="page"><section className="card"><h2 className="section-title">{t("onboarding.title")}</h2><p className="section-subtitle">{t("onboarding.loadingState")}</p></section></div>;
+    return (
+      <div className="page">
+        <LoadingState
+          title={t("onboarding.title")}
+          ariaLabel={t("onboarding.loadingState")}
+          lines={4}
+          cardClassName="onboarding-step-card"
+        />
+      </div>
+    );
   }
 
   if (loadState === "error") {
-    return <div className="page"><section className="card form-stack"><h2 className="section-title">{t("onboarding.errorTitle")}</h2><p className="section-subtitle">{t("onboarding.errorSubtitle")}</p><div style={{ display: "flex", gap: 10 }}><button type="button" className="btn" onClick={() => void loadProfile()}>{t("onboarding.retry")}</button><button type="button" className="btn secondary" onClick={() => router.push("/app/hoy")}>{t("onboarding.back")}</button></div></section></div>;
+    return (
+      <div className="page">
+        <ErrorState
+          title={t("onboarding.errorTitle")}
+          description={t("onboarding.errorSubtitle")}
+          retryLabel={t("onboarding.retry")}
+          onRetry={() => void loadProfile()}
+          wrapInCard
+          cardClassName="onboarding-step-card"
+          actions={[{ label: t("onboarding.back"), onClick: () => router.push("/app/hoy"), variant: "ghost" }]}
+        />
+      </div>
+    );
   }
 
   if (loadState === "empty") {
-    return <div className="page"><section className="card form-stack"><h2 className="section-title">{t("onboarding.emptyTitle")}</h2><p className="section-subtitle">{t("onboarding.emptySubtitle")}</p><div style={{ display: "flex", gap: 10 }}><button type="button" className="btn" onClick={() => setLoadState("ready")}>{t("onboarding.emptyAction")}</button><button type="button" className="btn secondary" onClick={() => void loadProfile()}>{t("onboarding.retry")}</button></div></section></div>;
+    return (
+      <div className="page">
+        <EmptyState
+          title={t("onboarding.emptyTitle")}
+          description={t("onboarding.emptySubtitle")}
+          wrapInCard
+          cardClassName="onboarding-step-card"
+          actions={[
+            { label: t("onboarding.emptyAction"), onClick: () => setLoadState("ready") },
+            { label: t("onboarding.retry"), onClick: () => void loadProfile(), variant: "secondary" },
+          ]}
+        />
+      </div>
+    );
   }
 
   if (saveState === "success") {
-    return <div className="page"><section className="card form-stack"><h2 className="section-title">{t("onboarding.successTitle")}</h2><p className="section-subtitle">{t("onboarding.successSubtitle")}</p><button type="button" className="btn" onClick={continueAfterSuccess}>{t("onboarding.continue")}</button></section></div>;
+    return (
+      <div className="page">
+        <EmptyState
+          title={t("onboarding.successTitle")}
+          description={t("onboarding.successSubtitle")}
+          icon="check"
+          wrapInCard
+          cardClassName="onboarding-step-card"
+          actions={[{ label: t("onboarding.continue"), onClick: continueAfterSuccess }]}
+        />
+      </div>
+    );
   }
 
   return (
@@ -502,7 +548,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
       <section className="card form-stack onboarding-footer-card">
         {saveState === "error" && <div className="form-stack" role="alert"><p className="section-subtitle">{t("onboarding.saveError")}</p><button type="button" className="btn secondary" onClick={() => void saveProfile()}>{t("onboarding.retry")}</button></div>}
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="inline-actions-sm">
           <button type="button" className="btn secondary" onClick={goToBack} disabled={saveState === "saving"}>{t("onboarding.back")}</button>
           {step < LAST_STEP ? <button type="button" className="btn" onClick={goToNext} disabled={!isStepValid || saveState === "saving"}>{t("onboarding.next")}</button> : <button type="button" className="btn" onClick={() => void saveProfile()} disabled={!isStepValid || saveState === "saving"}>{saveState === "saving" ? t("onboarding.saving") : t("onboarding.finish")}</button>}
         </div>

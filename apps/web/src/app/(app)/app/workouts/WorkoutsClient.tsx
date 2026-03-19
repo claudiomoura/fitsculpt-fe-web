@@ -583,7 +583,7 @@ export default function WorkoutsClient() {
                 {w.notes ? <p style={{ margin: 0 }} className="muted">{w.notes}</p> : null}
 
                 <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
-                  <Link className="btn secondary" href={`/app/training/${w.id}`}>
+                  <Link className="btn secondary" href={`/app/entrenamiento/${w.id}`}>
                     {t("workouts.viewDetail")}
                   </Link>
                   <button type="button" className="btn secondary" onClick={() => startEdit(w)}>
@@ -614,7 +614,7 @@ export default function WorkoutsClient() {
                         <strong>{workout.name}</strong>
                         <span className="muted">{workout.durationMin ?? 0} min</span>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <Link className="btn secondary" href={`/app/training/${workout.id}`}>
+                          <Link className="btn secondary" href={`/app/entrenamiento/${workout.id}`}>
                             {t("workouts.viewDetail")}
                           </Link>
                           <button type="button" className="btn secondary" onClick={() => startEdit(workout)}>

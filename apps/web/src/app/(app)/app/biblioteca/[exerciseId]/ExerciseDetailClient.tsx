@@ -77,7 +77,7 @@ export default function ExerciseDetailClient({
   const fromPlan = searchParams.get("from") === "plan";
   const returnToParam = searchParams.get("returnTo");
   const safeReturnTo = returnToParam && returnToParam.startsWith("/app/") ? returnToParam : null;
-  const backHref = fromPlan ? safeReturnTo ?? "/app/training" : "/app/biblioteca";
+  const backHref = fromPlan ? safeReturnTo ?? "/app/entrenamiento" : "/app/biblioteca";
   const backLabel = fromPlan ? t("ui.backToPlan") : t("ui.backToLibrary");
   const muscleGroups = useMemo(
     () => (exercise ? getMuscleGroups(exercise) : { primary: [], secondary: [] }),
@@ -504,7 +504,7 @@ export default function ExerciseDetailClient({
         allowMultiSelect
         onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
-        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/training"} submitUnavailable={false}      />
+        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"} submitUnavailable={false}      />
     </section>
   );
 }

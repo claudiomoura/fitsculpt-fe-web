@@ -48,7 +48,7 @@ export default function ExerciseLibraryClient() {
       params.set("athleteUserId", athleteUserId);
     }
     params.set("from", "plan");
-    const returnTo = athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/training";
+    const returnTo = athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento";
     params.set("returnTo", returnTo);
     return params.toString();
   }, [athleteUserId]);
@@ -615,7 +615,7 @@ export default function ExerciseLibraryClient() {
         allowMultiSelect
         onConfirm={addExerciseToPlans}
         onRetryLoad={() => setPlanRetryKey((prev) => prev + 1)}
-        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/training"}
+        emptyCtaHref={athleteUserId ? `/app/trainer/clients/${athleteUserId}` : "/app/entrenamiento"}
       />
     </section>
   );

@@ -1223,7 +1223,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const dayEditorPlanId = selectedPlanId.trim();
   const dayEditorDay = toDateKey(selectedEntryDate);
   const canOpenDayEditor = Boolean(dayEditorPlanId && dayEditorDay);
-  const dayEditorHref = `/app/training/edit?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
+  const dayEditorHref = `/app/entrenamiento/editar?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
   const selectedDayHasWorkout = selectedExercises.length > 0;
   const nextEntryHasWorkout = (nextPlannedEntry?.day.exercises?.length ?? 0) > 0;
   const normalizeName = (value?: string | null) => (value ?? "").trim().toLowerCase();
@@ -1523,7 +1523,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <h3 className="m-0">{t("training.profileIncompleteTitle")}</h3>
                   <p className="muted">{t("training.profileIncompleteSubtitle")}</p>
                 </div>
-                <ButtonLink href="/app/onboarding?next=/app/training">
+                <ButtonLink href="/app/onboarding?next=/app/entrenamiento">
                   {t("profile.openOnboarding")}
                 </ButtonLink>
               </div>

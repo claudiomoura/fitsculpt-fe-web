@@ -122,7 +122,7 @@ export default function TodayWeightSummary() {
       )}
 
       <div className="inline-actions" style={{ marginTop: 16 }}>
-        <ButtonLink href="/app/progress" size="lg">
+        <ButtonLink href="/app/seguimiento" size="lg">
           {t("today.recordWeightCta")}
         </ButtonLink>
       </div>

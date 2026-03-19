@@ -646,7 +646,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       showMessage(successMessage);
       trackEvent("checkin_saved", { target: "checkin", origin: isCheckinOnly ? "checkin_page" : "tracking", mode: checkinMode });
       if (isCheckinOnly) {
-        router.push("/app/today?checkin=success");
+        router.push("/app/hoy?checkin=success");
       }
       return true;
     } catch (_err) {
@@ -1146,7 +1146,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               <h2 className="section-title" style={{ fontSize: 24 }}>{t("app.trackingTitle")}</h2>
             </div>
             <div className="inline-actions-sm">
-              <button type="button" className="btn" onClick={() => router.push("/app/progress/check-in")}>
+              <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
                 Nuevo check-in
               </button>
               <a className="btn secondary" href="/app/weekly-review">

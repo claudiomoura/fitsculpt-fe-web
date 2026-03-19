@@ -368,8 +368,8 @@ export default function TrainingLibraryClient() {
             <strong>{t("library.training.aiPlaceholderTitle")}</strong>
             <p className="muted mt-6">{t("library.training.aiPlaceholderDescription")}</p>
             <div className="inline-actions-sm mt-12">
-              <Link href="/app/training?ai=1" className="btn">{t("trainingPlans.aiCta")}</Link>
-              <Link href="/app/training/editar" className="btn secondary">{t("training.manualCreate")}</Link>
+              <Link href="/app/entrenamiento?ai=1" className="btn">{t("trainingPlans.aiCta")}</Link>
+              <Link href="/app/entrenamiento/editar" className="btn secondary">{t("training.manualCreate")}</Link>
             </div>
           </div>
         ) : (
@@ -377,7 +377,7 @@ export default function TrainingLibraryClient() {
             <strong>{t("training.manualCreate")}</strong>
             <p className="muted mt-6">Crea un plan manual y selecciónalo después desde tu biblioteca.</p>
             <div className="mt-12">
-              <Link href="/app/training/editar" className="btn secondary">{t("training.manualCreate")}</Link>
+              <Link href="/app/entrenamiento/editar" className="btn secondary">{t("training.manualCreate")}</Link>
             </div>
           </div>
         )}

@@ -110,7 +110,7 @@ export default function RecipeLibraryClient() {
           description={t("recipes.empty")}
           ariaLabel={t("recipes.emptyTitle")}
           actions={[
-            ...(isAdmin ? [{ label: t("recipes.emptyAdminCta"), href: "/app/nutrition", variant: "secondary" as const }] : []),
+            ...(isAdmin ? [{ label: t("recipes.emptyAdminCta"), href: "/app/nutricion", variant: "secondary" as const }] : []),
             { label: t("recipes.retrySearch"), onClick: () => setRetryKey((prev) => prev + 1) },
           ]}
         />

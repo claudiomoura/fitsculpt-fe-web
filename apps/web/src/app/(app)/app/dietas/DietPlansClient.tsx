@@ -260,8 +260,8 @@ export default function DietPlansClient() {
             title={t("plans.historyEmpty")}
             description={t("plans.historyEmptyDescription")}
             actions={[
-              { label: t("dietPlans.emptyCta"), href: "/app/nutrition?ai=1", variant: "primary" },
-              { label: t("dietPlans.emptyManualCta"), href: "/app/nutrition/editar", variant: "secondary" },
+              { label: t("dietPlans.emptyCta"), href: "/app/nutricion?ai=1", variant: "primary" },
+              { label: t("dietPlans.emptyManualCta"), href: "/app/nutricion/editar", variant: "secondary" },
             ]}
           />
         ) : null}
@@ -307,8 +307,8 @@ export default function DietPlansClient() {
             <p className="muted">Genera uno con IA o crea uno manual y después selecciónalo desde tu biblioteca.</p>
           </div>
           <div className="inline-actions-sm mt-12">
-            <a className="btn" href="/app/nutrition?ai=1">{t("dietPlans.emptyCta")}</a>
-            <a className="btn secondary" href="/app/nutrition/editar">{t("dietPlans.emptyManualCta")}</a>
+            <a className="btn" href="/app/nutricion?ai=1">{t("dietPlans.emptyCta")}</a>
+            <a className="btn secondary" href="/app/nutricion/editar">{t("dietPlans.emptyManualCta")}</a>
           </div>
         </div>
       </section>

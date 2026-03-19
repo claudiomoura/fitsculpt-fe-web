@@ -12,10 +12,10 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { useAccess } from "@/lib/useAccess";
 
 const previewLinks = [
-  { id: "today", href: "/app/today", labelKey: "nav.today" },
-  { id: "plan", href: "/app/training", labelKey: "nav.trainingPlan" },
-  { id: "tracking", href: "/app/progress", labelKey: "nav.tracking" },
-  { id: "nutrition", href: "/app/nutrition", labelKey: "nav.nutrition" },
+  { id: "today", href: "/app/hoy", labelKey: "nav.today" },
+  { id: "plan", href: "/app/entrenamiento", labelKey: "nav.trainingPlan" },
+  { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
+  { id: "nutrition", href: "/app/nutricion", labelKey: "nav.nutrition" },
   { id: "library", href: "/app/biblioteca", labelKey: "nav.library" },
   { id: "trainer", href: "/app/trainer", labelKey: "nav.trainer" },
 ];

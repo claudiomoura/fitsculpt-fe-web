@@ -54,7 +54,7 @@ export default async function TrainingPlanDetailPage(props: {
       <TrainingPlanDetailClient
         plan={plan}
         error={error}
-        backHref={fromToday ? "/app/today" : "/app/biblioteca/entrenamientos"}
+        backHref={fromToday ? "/app/hoy" : "/app/biblioteca/entrenamientos"}
         backLabel={fromToday ? t("today.backToToday") : t("trainingPlans.backToTrainingPlans")}
       />
     </div>

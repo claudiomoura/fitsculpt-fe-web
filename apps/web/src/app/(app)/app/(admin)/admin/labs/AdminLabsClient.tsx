@@ -21,8 +21,8 @@ const LAB_ITEMS: LabItem[] = [
   { id: "trainerExerciseCreate", href: "/app/trainer/exercises/new", status: "beta" },
   { id: "trainingLibrary", href: "/app/biblioteca/entrenamientos", status: "read-only" },
   { id: "recipeLibrary", href: "/app/biblioteca/recetas", status: "read-only" },
-  { id: "nutrition", href: "/app/nutrition", status: "sem backend" },
-  { id: "tracking", href: "/app/progress", status: "read-only" },
+  { id: "nutrition", href: "/app/nutricion", status: "sem backend" },
+  { id: "tracking", href: "/app/seguimiento", status: "read-only" },
   { id: "profile", href: "/app/profile", status: "read-only" },
 ];
 

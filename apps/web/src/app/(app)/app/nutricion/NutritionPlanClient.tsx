@@ -2162,9 +2162,6 @@ const nutritionPlanDetails = profile ? (
           <button type="button" className="btn" onClick={handleCopyShoppingList}>
             {t("nutrition.exportCopyList")}
           </button>
-          <button type="button" className="btn secondary" disabled title={t("nutrition.comingSoon")}>
-            {t("nutrition.exportPdf")}
-          </button>
         </div>
 
         <div className="badge-list plan-summary-chips mt-12">
