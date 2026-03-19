@@ -1565,6 +1565,15 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const highlightedMealsProgress = highlightedMeals.length > 0
     ? Math.round((highlightedCompletedMeals / highlightedMeals.length) * 100)
     : 0;
+  const highlightedTargetCalories = typeof visiblePlan?.dailyCalories === "number" && Number.isFinite(visiblePlan.dailyCalories)
+    ? Math.max(0, Math.round(visiblePlan.dailyCalories))
+    : null;
+  const highlightedCaloriesProgress = highlightedTargetCalories && highlightedTargetCalories > 0
+    ? Math.min(100, Math.round((highlightedMealsTotals.calories / highlightedTargetCalories) * 100))
+    : 0;
+  const highlightedRemainingCalories = highlightedTargetCalories !== null
+    ? Math.max(0, highlightedTargetCalories - Math.round(highlightedMealsTotals.calories))
+    : null;
   const highlightedPrimaryMeal = highlightedMeals.find((meal, index) => {
     const key = getNutritionMealKey(meal, highlightedDayKey, index);
     return !isConsumed(key, highlightedDayKey);
@@ -1575,6 +1584,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const highlightedPrimaryMealKey = highlightedPrimaryMeal && highlightedPrimaryMealIndex >= 0
     ? getNutritionMealKey(highlightedPrimaryMeal, highlightedDayKey, highlightedPrimaryMealIndex)
     : null;
+  const isPrimaryMealConsumed = highlightedPrimaryMeal && highlightedPrimaryMealKey
+    ? isConsumed(highlightedPrimaryMealKey, highlightedDayKey)
+    : false;
+  const activePlanTitle = (typeof visiblePlan?.title === "string" && visiblePlan.title.trim().length > 0 ? visiblePlan.title.trim() : assignedPlanTitle) ?? null;
 
   const handleUseFavorite = (favorite: NutritionQuickFavorite) => {
     const dayKey = toDateKey(selectedDate);
@@ -2091,7 +2104,7 @@ useEffect(() => {
   };
 
 const nutritionPlanDetails = profile ? (
-  <section className="card">
+  <section className="card premium-surface-card nutrition-plan-details-card">
     <div className="section-head section-head-actions">
       <div>
         <h2 className="section-title section-title-sm">{t("nutrition.planDetails.title")}</h2>
@@ -2105,7 +2118,7 @@ const nutritionPlanDetails = profile ? (
         aria-controls="nutrition-plan-details"
         onClick={() => setIsPlanDetailsOpen((prev) => !prev)}
       >
-        {isPlanDetailsOpen ? t("ui.hide") : t("ui.show")}
+        {isPlanDetailsOpen ? safeT("ui.hide", "Ocultar") : safeT("ui.show", "Mostrar")}
         <Icon
           name="chevron-down"
           size={16}
@@ -2137,13 +2150,6 @@ const nutritionPlanDetails = profile ? (
           {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
         </p>
       ) : null}
-
-        {aiTokenBalance !== null ? (
-          <p className="muted mt-8 plan-token-line">
-            {t("ai.tokensRemaining")} {aiTokenBalance}
-            {aiTokenRenewalAt ? ` · ${t("ai.tokensReset")} ${formatDate(aiTokenRenewalAt)}` : ""}
-          </p>
-        ) : null}
 
         {exportMessage ? (
           <p className="muted mt-8">{exportMessage}</p>
@@ -2324,165 +2330,111 @@ const nutritionPlanDetails = profile ? (
             </section>
           ) : hasPlan ? (
             <>
-              <section className="card premium-surface-card nutrition-mobile-hide-card nutrition-mobile-compact-card nutrition-plan-intro-card">
-            <div className="section-head section-head-actions">
-              <div>
-                <h2 className="section-title section-title-sm">Plan de nutrición</h2>
-                {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
-                <p className="section-subtitle">Referencia semanal para tu día.</p>
-              </div>
-
-              <div className="section-actions plan-page-actions">
-                {/* <button type="button" className="btn" disabled={!plan} onClick={() => loadProfile({ current: true })}>
-                  {t("nutrition.generate")}
-                </button> 
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={isAiDisabled}
-                  onClick={handleGenerateClick}
-                >
-                  {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
-                </button>
-                {/* <button type="button" className="btn secondary" disabled={!plan || saving} onClick={handleSavePlan}>
-                  {saving ? t("nutrition.savePlanSaving") : t("nutrition.savePlan")}
-                </button> */}
-                <Link href="/app/nutricion/editar" className="btn secondary">
-                  {t("nutrition.editPlan")}
-                </Link>
-              </div>
-            </div>
-
-            {isAiLocked ? (
-              <AiModuleUpgradeCTA
-                title={t("aiLockedTitle")}
-                description={aiLockDescription}
-                buttonLabel={t("billing.upgradePro")}
-              />
-            ) : null}
-
-            {!isAiLocked && isOutOfTokens ? (
-              <div className="status-card status-card--warning" role="alert" aria-live="polite">
-                <p className="muted m-0">{t("ai.insufficientTokens")}</p>
-                <div className="inline-actions-sm mt-12">
-                  <Link href="/app/settings/billing" className="btn secondary fit-content">
-                    {t("billing.manageBilling")}
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-
-            {loading ? (
-              <div className="form-stack">
-                <Skeleton variant="line" className="w-40" />
-                <Skeleton variant="line" className="w-70" />
-              </div>
-            ) : error ? (
-              <div className="status-card status-card--warning">
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{t("nutrition.errorTitle")}</strong>
-                </div>
-                <p className="muted">{error}</p>
-                <div className="inline-actions-sm">
-                  <button type="button" className="btn secondary fit-content" onClick={handleRetry}>
-                    {t("ui.retry")}
-                  </button>
-                  <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>
-                    {t("ui.back")}
-                  </button>
-                </div>
-              </div>
-            ) : assignedError ? (
-              <div className="status-card status-card--warning">
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{t("nutrition.errorTitle")}</strong>
-                </div>
-                <p className="muted">{assignedError}</p>
-              </div>
-            ) : aiError ? (
-              <div className="status-card status-card--warning" role="alert" aria-live="polite">
-                <div className="inline-actions-sm">
-                  <Icon name="warning" />
-                  <strong>{aiError.title}</strong>
-                </div>
-                <p className="muted">{aiError.description}</p>
-                {aiError.actionableHint ? <p className="muted">{aiError.actionableHint}</p> : null}
-                {aiError.details ? (
-                  <details>
-                    <summary>{t("nutrition.aiErrorState.detailsCta")}</summary>
-                    <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{aiError.details}</pre>
-                  </details>
-                ) : null}
-                <div className="inline-actions-sm">
-                  <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
-                    {t("ui.retry")}
-                  </button>
-                  {aiError.ctaHref && aiError.ctaLabel ? (
-                    <Link href={aiError.ctaHref} className="btn secondary fit-content">
-                      {aiError.ctaLabel}
-                    </Link>
-                  ) : null}
-                  {!aiQuotaExceededError ? (
-                    <>
-                      <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
-                        {t("nutrition.aiErrorState.generateSimple")}
-                      </button>
-                      <Link href="/app/nutricion/editar" className="btn secondary fit-content">
-                        {t("nutrition.aiErrorState.adjustGoals")}
-                      </Link>
-                    </>
-                  ) : null}
-                </div>
-                {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
-              </div>
-            ) : saveMessage ? (
-              <p className="muted">{saveMessage}</p>
-            ) : null}
-          </section>
-
               {!loading && !error ? (
                 <>
                 <section id="nutrition-today-log" className="card premium-hero-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
-                  <div className="status-card stack-sm nutrition-today-summary-card nutrition-today-summary-head">
-                    <div className="inline-actions-space nutrition-log-head-row">
-                      <div className="stack-xs nutrition-log-head-copy">
-                        <h2 className="section-title section-title-sm m-0">Tu log de hoy</h2>
-                        <p className="section-subtitle m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</p>
-                        {assignedPlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{assignedPlanTitle}</p> : null}
+                  <div className="nutrition-today-summary-head nutrition-hero-shell">
+                    <div className="nutrition-hero-copy">
+                      <div className="nutrition-log-head-row">
+                        <div className="stack-xs nutrition-log-head-copy">
+                          <div className="inline-actions-sm nutrition-hero-kicker-row">
+                            <span className="section-label">Resumen del día</span>
+                            {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
+                          </div>
+                          <h2 className="section-title m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</h2>
+                          {activePlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{activePlanTitle}</p> : null}
+                        </div>
+                        <div className="badge nutrition-log-meals-badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
                       </div>
-                      <div className="badge nutrition-log-meals-badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
+
+                      <div className="stack-xs nutrition-log-progress-block">
+                        <div className="inline-actions-space nutrition-log-progress-head">
+                          <span className="muted">{safeT("nutrition.dailyTargetTitle", "Progreso del día")}</span>
+                          <strong>{highlightedTargetCalories !== null ? `${highlightedCaloriesProgress}%` : `${highlightedMealsProgress}%`}</strong>
+                        </div>
+                        <ProgressBar value={highlightedTargetCalories !== null ? highlightedCaloriesProgress : highlightedMealsProgress} max={100} aria-label={safeT("nutrition.dailyTargetTitle", "Progreso del día")} />
+                        <p className="muted m-0 nutrition-hero-progress-copy">
+                          {hasHighlightedMeals
+                            ? `${highlightedCompletedMeals} de ${highlightedMeals.length} comidas registradas.`
+                            : "Aún no tienes comidas asignadas para este día."}
+                        </p>
+                      </div>
+
                     </div>
-                    <div className="stack-xs nutrition-log-progress-block">
-                      <div className="inline-actions-space nutrition-log-progress-head">
-                        <span className="muted">{t("nutrition.dailyTargetTitle")}</span>
-                        <strong>{highlightedMealsProgress}%</strong>
-                      </div>
-                      <ProgressBar value={highlightedMealsProgress} max={100} aria-label={t("nutrition.dailyTargetTitle")} />
-                      <div className="nutrition-log-primary-cta">
-                        <button
-                          type="button"
-                          className="btn nutrition-dominant-cta"
-                          disabled={!highlightedPrimaryMeal || !highlightedPrimaryMealKey}
-                          onClick={() => {
-                            if (!highlightedPrimaryMeal || !highlightedPrimaryMealKey) return;
-                            void handleQuickLogMeal(highlightedPrimaryMealKey, highlightedPrimaryMeal, highlightedDayKey);
-                          }}
-                        >
-                          {highlightedPrimaryMeal && highlightedPrimaryMealKey && isConsumed(highlightedPrimaryMealKey, highlightedDayKey)
-                            ? t("nutrition.quickLogButtonConsumed")
-                            : "Registrar comida"}
-                        </button>
-                      </div>
+
+                    <div className="nutrition-hero-ring-wrap">
+                      <HeroNutrition title={safeT("nutrition.dailyTargetTitle", "Objetivo diario")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
                     </div>
                   </div>
 
-                  <div className="grid gap-12 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-                    <div className="stack-sm">
-                      <HeroNutrition title={t("nutrition.dailyTargetTitle")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
+                  {isAiLocked ? (
+                    <AiModuleUpgradeCTA
+                      title={t("aiLockedTitle")}
+                      description={aiLockDescription}
+                      buttonLabel={t("billing.upgradePro")}
+                    />
+                  ) : null}
+
+                  {!isAiLocked && isOutOfTokens ? (
+                    <div className="status-card status-card--warning" role="alert" aria-live="polite">
+                      <p className="muted m-0">{t("ai.insufficientTokens")}</p>
+                      <div className="inline-actions-sm mt-12">
+                        <Link href="/app/settings/billing" className="btn secondary fit-content">
+                          {t("billing.manageBilling")}
+                        </Link>
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
+
+                  {assignedError ? (
+                    <div className="status-card status-card--warning">
+                      <div className="inline-actions-sm">
+                        <Icon name="warning" />
+                        <strong>{t("nutrition.errorTitle")}</strong>
+                      </div>
+                      <p className="muted">{assignedError}</p>
+                    </div>
+                  ) : null}
+
+                  {aiError ? (
+                    <div className="status-card status-card--warning" role="alert" aria-live="polite">
+                      <div className="inline-actions-sm">
+                        <Icon name="warning" />
+                        <strong>{aiError.title}</strong>
+                      </div>
+                      <p className="muted">{aiError.description}</p>
+                      {aiError.actionableHint ? <p className="muted">{aiError.actionableHint}</p> : null}
+                      {aiError.details ? (
+                        <details>
+                          <summary>{t("nutrition.aiErrorState.detailsCta")}</summary>
+                          <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{aiError.details}</pre>
+                        </details>
+                      ) : null}
+                      <div className="inline-actions-sm">
+                        <button type="button" className="btn secondary fit-content" onClick={handleRetry} disabled={!aiError.canRetry || aiLoading}>
+                          {t("ui.retry")}
+                        </button>
+                        {aiError.ctaHref && aiError.ctaLabel ? (
+                          <Link href={aiError.ctaHref} className="btn secondary fit-content">
+                            {aiError.ctaLabel}
+                          </Link>
+                        ) : null}
+                        {!aiQuotaExceededError ? (
+                          <>
+                            <button type="button" className="btn secondary fit-content" onClick={() => void handleAiPlan("simple")} disabled={aiLoading}>
+                              {t("nutrition.aiErrorState.generateSimple")}
+                            </button>
+                            <Link href="/app/nutricion/editar" className="btn secondary fit-content">
+                              {t("nutrition.aiErrorState.adjustGoals")}
+                            </Link>
+                          </>
+                        ) : null}
+                      </div>
+                      {!aiError.canRetry ? <p className="muted">{t("nutrition.aiErrorState.retryLimit")}</p> : null}
+                    </div>
+                  ) : null}
+
+                  {saveMessage ? <p className="muted m-0">{saveMessage}</p> : null}
 
                   <div className="nutrition-v2-calendar-head nutrition-v2-calendar-head--secondary">
                     <h3 className="section-title section-title-sm m-0">{t("nutrition.calendarTitle")}</h3>
@@ -2570,25 +2522,29 @@ const nutritionPlanDetails = profile ? (
                           <div className="nutrition-v2-meals stack-sm">
                             <div className="inline-actions-space">
                               <h3 className="section-title section-title-sm m-0">{safeT("nutrition.mealsTitle", "Comidas del día")}</h3>
-                              <ButtonLink variant="secondary" href="/app/nutricion/editar">
+                              <ButtonLink variant="ghost" href="/app/nutricion/editar">
                                 {t("ui.edit")}
                               </ButtonLink>
                             </div>
                             {highlightedMealsByType.map((mealSection, mealIndex) => {
                               const meal = mealSection.meal;
                               const mealKey = getNutritionMealKey(meal, highlightedDayKey, mealSection.mealIndex ?? mealIndex);
+                              const mealLogged = isConsumed(mealKey, highlightedDayKey);
                               return (
-                                <div key={mealKey} className="feature-card stack-sm nutrition-meal-slot-card">
+                                <div key={mealKey} className="feature-card stack-sm nutrition-meal-slot-card nutrition-meal-slot-card--compact">
                                   <div className="inline-actions-space">
-                                    <strong>{mealSection.label}</strong>
-                                    <div className="inline-actions-sm">
+                                    <div className="stack-xs">
+                                      <strong>{mealSection.label}</strong>
+                                      <span className="muted text-sm">{getMealTitle(meal, t)}</span>
+                                    </div>
+                                    <div className="inline-actions-sm nutrition-meal-slot-actions">
                                       <span className="badge">{meal.macros.calories} {t("units.kcal")}</span>
                                       <button
                                         type="button"
-                                        className={`btn ${isConsumed(mealKey, highlightedDayKey) ? "secondary" : ""} fit-content`}
+                                        className={`btn ${mealLogged ? "secondary" : ""} fit-content nutrition-meal-log-btn`}
                                         onClick={() => void handleQuickLogMeal(mealKey, meal, highlightedDayKey)}
                                       >
-                                        {isConsumed(mealKey, highlightedDayKey) ? t("nutrition.quickLogButtonConsumed") : `Registrar ${mealSection.label.toLowerCase()}`}
+                                        {mealLogged ? t("nutrition.quickLogButtonConsumed") : `Registrar ${mealSection.label.toLowerCase()}`}
                                       </button>
                                     </div>
                                   </div>
@@ -2598,7 +2554,7 @@ const nutritionPlanDetails = profile ? (
                                     meta={getMealMeta(meal, t)}
                                     imageUrl={getMealMediaUrl(meal)}
                                     onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
-                                    className="meal-card--horizontal"
+                                    className="meal-card--horizontal meal-card--horizontal-compact"
                                   />
                                 </div>
                               );
@@ -2667,38 +2623,58 @@ const nutritionPlanDetails = profile ? (
                       )}
                     </div>
 
-                    <div className="nutrition-v2-shopping">
-                    <div className="inline-actions-space">
-                      <h3 className="section-title section-title-sm m-0">{t("nutrition.shoppingTitle")}</h3>
-                      <button
-                        type="button"
-                        className="btn secondary fit-content"
-                        onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
-                      >
-                        {t("nutrition.shoppingGenerate")}
-                      </button>
+                    <div className="stack-sm">
+                      <div className="nutrition-hero-metrics" aria-label={safeT("nutrition.dailyTargetTitle", "Progreso del día")}>
+                        <article className="nutrition-hero-metric nutrition-hero-metric--primary">
+                          <span className="nutrition-hero-metric-label">Llevas hoy</span>
+                          <strong>{Math.round(highlightedMealsTotals.calories)} {t("units.kcal")}</strong>
+                        </article>
+                        <article className="nutrition-hero-metric">
+                          <span className="nutrition-hero-metric-label">Objetivo</span>
+                          <strong>{highlightedTargetCalories !== null ? `${highlightedTargetCalories} ${t("units.kcal")}` : "-"}</strong>
+                        </article>
+                        <article className="nutrition-hero-metric">
+                          <span className="nutrition-hero-metric-label">Restantes</span>
+                          <strong>{highlightedRemainingCalories !== null ? `${highlightedRemainingCalories} ${t("units.kcal")}` : "-"}</strong>
+                        </article>
+                      </div>
+
+                    <div className="nutrition-v2-shopping nutrition-shopping-utility premium-surface-card card">
+                      <div className="inline-actions-space">
+                        <div>
+                          <h3 className="section-title section-title-sm m-0">{t("nutrition.shoppingTitle")}</h3>
+                          <p className="section-subtitle m-0">{shoppingList.length > 0 ? `${shoppingList.length} items listos.` : "Genera una lista útil a partir de tu plan actual."}</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn secondary fit-content"
+                          onClick={() => visiblePlan && buildShoppingList(visiblePlan)}
+                        >
+                          {t("nutrition.shoppingGenerate")}
+                        </button>
+                      </div>
+                      {shoppingList.length > 0 ? (
+                        <Accordion
+                          items={[
+                            {
+                              id: "shopping-list",
+                              title: t("nutrition.shoppingTitle"),
+                              subtitle: `${shoppingList.length} items`,
+                              content: (
+                                <ul className="list-reset nutrition-shopping-list-v2">
+                                  {shoppingList.map((item) => (
+                                    <li key={item.name}>
+                                      <span>{item.name}</span>
+                                      <strong>{item.grams} g</strong>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ),
+                            },
+                          ]}
+                        />
+                      ) : null}
                     </div>
-                    {shoppingList.length > 0 ? (
-                      <Accordion
-                        items={[
-                          {
-                            id: "shopping-list",
-                            title: t("nutrition.shoppingTitle"),
-                            subtitle: `${shoppingList.length} items`,
-                            content: (
-                              <ul className="list-reset nutrition-shopping-list-v2">
-                                {shoppingList.map((item) => (
-                                  <li key={item.name}>
-                                    <span>{item.name}</span>
-                                    <strong>{item.grams} g</strong>
-                                  </li>
-                                ))}
-                              </ul>
-                            ),
-                          },
-                        ]}
-                      />
-                    ) : null}
                     </div>
                   </div>
                 </section>
@@ -2714,7 +2690,7 @@ const nutritionPlanDetails = profile ? (
                     <div>
                       <strong className="training-insight-title">Tus planes</strong>
                       <p className="muted">Gestiona tu plan activo.</p>
-                      <p className="training-plan-access-status">{assignedPlanTitle ? `Actual: ${assignedPlanTitle}` : "Sin plan activo"}</p>
+                      <p className="training-plan-access-status">{`Actual: ${activePlanTitle ?? safeT("nutrition.activePlan", "Plan activo")}`}</p>
                     </div>
                   </Link>
                 </section>

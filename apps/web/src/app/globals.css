@@ -135,7 +135,15 @@
   --macro-protein: #6d5cff;
   --macro-carbs: #22c55e;
   --macro-fats: #f59e0b;
-  --today-ring-track: color-mix(in srgb, var(--surface-inset-bg) 90%, transparent);
+  --today-donut-track: #233244;
+  --today-donut-fill: #22d3ee;
+  --today-donut-marker: #7dd3fc;
+  --today-progress-track: #243445;
+  --today-progress-fill-low: #38bdf8;
+  --today-progress-fill-mid: #22d3ee;
+  --today-progress-fill-high: #14f1c7;
+  --today-progress-fill-complete: #52f5d1;
+  --today-ring-track: color-mix(in srgb, var(--today-donut-track) 92%, transparent);
   --progress-low: #f59e0b;
   --progress-medium: color-mix(in srgb, var(--accent) 76%, #14b8a6 24%);
   --progress-high: color-mix(in srgb, var(--accent) 88%, #67e8f9 12%);
@@ -5476,29 +5484,82 @@ html { scroll-behavior: smooth; }
   gap: 14px;
 }
 
-.nutrition-plan-intro-card {
-  background: color-mix(in srgb, var(--bg-card) 90%, white 10%);
-  border-color: color-mix(in srgb, var(--surface-card-border) 86%, transparent);
-}
-
-.nutrition-plan-intro-card .section-head {
-  gap: 10px;
-}
-
-.nutrition-plan-intro-card .section-subtitle {
-  margin-top: 4px;
-  color: var(--text-muted);
-}
-
 .nutrition-today-primary {
   border-color: color-mix(in srgb, var(--accent) 28%, var(--surface-card-border));
   box-shadow: 0 18px 46px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .nutrition-today-summary-head {
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--surface-card-border) 78%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, white 3%, transparent), transparent 28%);
+}
+
+.nutrition-hero-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.nutrition-hero-copy {
+  display: grid;
+  gap: 14px;
+}
+
+.nutrition-hero-kicker-row {
+  flex-wrap: wrap;
+}
+
+.nutrition-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.nutrition-hero-metric {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--surface-card-border) 84%, transparent);
-  background: color-mix(in srgb, var(--bg-card) 78%, white 22%);
+  border: 1px solid color-mix(in srgb, var(--surface-card-border) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 72%, transparent);
+}
+
+.nutrition-hero-metric--primary {
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--surface-card-border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-inset-bg));
+}
+
+.nutrition-hero-metric-label {
+  font-size: 0.74rem;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.nutrition-hero-metric strong {
+  font-size: 1rem;
+}
+
+.nutrition-hero-progress-copy {
+  font-size: 0.9rem;
+}
+
+.nutrition-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.nutrition-utility-action {
+  color: var(--text-muted);
+}
+
+.nutrition-hero-ring-wrap {
+  min-width: 0;
 }
 
 .nutrition-log-head-row {
@@ -5702,6 +5763,13 @@ html { scroll-behavior: smooth; }
   padding-top: 12px;
 }
 
+.nutrition-shopping-utility {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+}
+
 .nutrition-week-grid-v2 {
   gap: 8px;
 }
@@ -5779,6 +5847,34 @@ html { scroll-behavior: smooth; }
   color: var(--text-muted);
   font-size: 18px;
   line-height: 1;
+}
+
+.meal-card--horizontal-compact {
+  padding: 6px;
+  gap: 8px;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+}
+
+.meal-card--horizontal-compact .meal-card-media,
+.meal-card--horizontal-compact .meal-card-thumb {
+  width: 58px;
+  height: 58px;
+}
+
+.meal-card--horizontal-compact .meal-card-body {
+  gap: 4px;
+}
+
+.meal-card--horizontal-compact .meal-card-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.meal-card--horizontal-compact::after {
+  font-size: 15px;
 }
 
 .nutrition-shopping-list-v2 {
@@ -6949,6 +7045,25 @@ html.theme-dark :focus-visible {
   gap: 10px;
 }
 
+.nutrition-meal-slot-card--compact {
+  padding: 12px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-secondary-bg) 92%, black 8%);
+}
+
+.nutrition-meal-slot-actions {
+  align-items: center;
+}
+
+.nutrition-meal-log-btn {
+  min-height: 38px;
+  padding-inline: 12px;
+}
+
+.nutrition-plan-details-card {
+  border-radius: 20px;
+}
+
 @media (max-width: 640px) {
   .nutrition-mobile-compact-card {
     padding: 14px;
@@ -6971,6 +7086,30 @@ html.theme-dark :focus-visible {
     gap: 12px;
   }
 
+  .nutrition-hero-shell {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .nutrition-hero-copy {
+    gap: 12px;
+  }
+
+  .nutrition-hero-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .nutrition-hero-actions .btn,
+  .nutrition-hero-actions .ui-button {
+    width: 100%;
+    justify-content: center;
+  }
+
   .nutrition-log-head-row {
     flex-direction: column;
     align-items: stretch;
@@ -6984,6 +7123,10 @@ html.theme-dark :focus-visible {
   .nutrition-today-summary-card {
     padding: 12px;
     gap: 8px;
+  }
+
+  .nutrition-shopping-utility {
+    padding: 14px;
   }
 
   .nutrition-v2-layout {
@@ -7018,6 +7161,21 @@ html.theme-dark :focus-visible {
 
   .nutrition-week-kpi {
     min-height: 48px;
+  }
+
+  .nutrition-meal-slot-card--compact {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .nutrition-meal-slot-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .meal-card--horizontal-compact {
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    min-height: 72px;
   }
 }
 
@@ -7305,96 +7463,327 @@ html.theme-dark :focus-visible {
   display: none;
 }
 
+.page.page-with-tabbar-safe-area.today-page-shell {
+  width: min(100%, 1160px);
+  margin-inline: auto;
+  gap: 18px;
+  padding-inline: clamp(14px, 3.8vw, 26px);
+  padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
+}
+
+.today-page-stack {
+  gap: 18px;
+}
+
+.today-hero-card {
+  padding-block: 22px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 14%, transparent) 0%, transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 48%),
+    var(--surface-primary-bg);
+}
+
 .today-hero-icon,
 .today-module-icon {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 22%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--today-donut-fill) 12%, transparent);
+  border-color: color-mix(in srgb, var(--today-donut-fill) 26%, var(--surface-border-default));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 7%, transparent);
+}
+
+.today-hero-meta {
+  max-width: 32rem;
+  line-height: 1.55;
 }
 
 .today-secondary-card {
-  background: var(--surface-secondary-bg);
-  border-color: var(--surface-border-default);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 3%, transparent), transparent 26%),
+    var(--surface-secondary-bg);
+  border-color: color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+}
+
+.today-cards-grid {
+  align-items: stretch;
+}
+
+.today-nutrition-card {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--today-donut-fill) 20%, var(--surface-border-default));
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 14%, transparent) 0%, transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, white 4%, transparent), transparent 30%),
+    color-mix(in srgb, var(--surface-secondary-bg) 94%, black 6%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 7%, transparent),
+    0 18px 40px color-mix(in srgb, black 28%, transparent);
+}
+
+.today-nutrition-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--today-donut-fill) 10%, transparent) 0%, transparent 46%);
+}
+
+.today-nutrition-card--error {
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--surface-border-default));
+}
+
+.today-checkin-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.today-nutrition-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.today-nutrition-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.today-nutrition-kcal {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+  line-height: 1;
+}
+
+.today-nutrition-kcal-value {
+  font-size: clamp(2rem, 5vw, 2.55rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.today-nutrition-kcal-goal {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text-primary) 74%, var(--text-muted) 26%);
+  padding-bottom: 3px;
+}
+
+.today-nutrition-kcal-unit {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+
+.today-nutrition-meta {
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--text-primary) 88%, var(--text-muted) 12%);
+}
+
+.today-nutrition-status-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.today-nutrition-status-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--today-donut-fill) 22%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--today-donut-fill) 10%, var(--surface-inset-bg));
+  color: color-mix(in srgb, var(--text-primary) 92%, var(--today-donut-fill) 8%);
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
 .today-progress-inset {
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 92%, transparent);
-  background: color-mix(in srgb, var(--surface-inset-bg) 86%, transparent);
-  border-radius: 14px;
-  padding: 10px 12px;
+  position: relative;
+  z-index: 1;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 88%, #0b1018 12%);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.today-hero-progress {
+  margin-top: 2px;
+}
+
+.today-progress-inset--nutrition {
+  border-color: color-mix(in srgb, var(--today-donut-fill) 18%, var(--surface-border-default));
+}
+
+.today-progress-inset--danger {
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--surface-border-default));
+}
+
+.today-progress-inset--disabled {
+  background: color-mix(in srgb, var(--surface-inset-bg) 92%, black 8%);
 }
 
 .today-progress-bar {
-  background: color-mix(in srgb, var(--today-ring-track) 90%, transparent);
+  height: 10px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--today-progress-track) 92%, black 8%), color-mix(in srgb, #101722 92%, transparent));
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .today-progress-bar-fill {
+  position: relative;
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, white 14%, transparent),
-    0 0 10px color-mix(in srgb, var(--accent) 24%, transparent);
+    0 0 18px color-mix(in srgb, var(--today-donut-fill) 28%, transparent);
+}
+
+.today-progress-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, white 30%, transparent), transparent 62%);
 }
 
 .today-progress-bar-fill--low {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--progress-low) 86%, #fff 14%) 0%, var(--progress-low) 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--today-progress-fill-low) 86%, white 14%) 0%, var(--today-progress-fill-mid) 100%);
 }
 
 .today-progress-bar-fill--medium {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--progress-medium) 84%, #fff 16%) 0%, var(--progress-medium) 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--today-progress-fill-mid) 86%, white 14%) 0%, color-mix(in srgb, var(--today-progress-fill-high) 88%, white 12%) 100%);
 }
 
 .today-progress-bar-fill--high {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--progress-high) 82%, #fff 18%) 0%, var(--progress-high) 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--today-progress-fill-mid) 68%, var(--today-progress-fill-high) 32%) 0%, var(--today-progress-fill-high) 100%);
 }
 
 .today-progress-bar-fill--complete {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--progress-complete) 82%, #fff 18%) 0%, var(--progress-complete) 100%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--today-progress-fill-high) 80%, white 20%) 0%, var(--today-progress-fill-complete) 100%);
 }
 
 .today-nutrition-ring {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-border-default) 86%, transparent);
+  isolation: isolate;
 }
 
 .today-nutrition-ring-wrap {
-  width: 98px;
-  min-width: 98px;
+  width: 104px;
+  min-width: 104px;
+  height: 104px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--today-donut-fill) 16%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--surface-inset-bg) 88%, #09121b 12%);
+  display: grid;
+  place-items: center;
 }
 
 .today-nutrition-empty-ring {
-  border-color: color-mix(in srgb, var(--surface-border-default) 92%, transparent);
-  background: color-mix(in srgb, var(--surface-inset-bg) 86%, transparent);
+  border-color: color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 10%, transparent) 0%, transparent 44%),
+    color-mix(in srgb, var(--surface-inset-bg) 90%, black 10%);
 }
 
-.today-nutrition-ring--error {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-danger) 34%, var(--surface-border-default));
+.today-nutrition-ring-svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
 }
 
-.today-nutrition-ring--empty {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-border-default) 92%, transparent);
+.today-nutrition-ring-track,
+.today-nutrition-ring-fill {
+  fill: none;
+  stroke-width: 12;
 }
 
-.today-nutrition-ring--zero {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-border-default) 92%, transparent);
+.today-nutrition-ring-track {
+  stroke: var(--today-donut-track);
+  opacity: 0.95;
+}
+
+.today-nutrition-ring-fill {
+  stroke: var(--today-donut-fill);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 260ms ease;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--today-donut-fill) 34%, transparent));
 }
 
 .today-nutrition-ring-zero-pip {
   position: absolute;
-  top: 4px;
+  top: 6px;
   left: 50%;
   width: 8px;
   height: 8px;
   border-radius: 999px;
   transform: translateX(-50%);
-  background: color-mix(in srgb, var(--accent) 78%, white 22%);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface-secondary-bg) 90%, black 10%);
+  background: var(--today-donut-marker);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--surface-secondary-bg) 94%, black 6%),
+    0 0 14px color-mix(in srgb, var(--today-donut-fill) 32%, transparent);
 }
 
 .today-nutrition-ring-center {
-  background: color-mix(in srgb, var(--surface-secondary-bg) 92%, black 8%);
-  border-color: color-mix(in srgb, var(--surface-border-default) 90%, transparent);
+  background: color-mix(in srgb, var(--surface-secondary-bg) 90%, #091018 10%);
+  border-color: color-mix(in srgb, var(--today-donut-fill) 16%, var(--surface-border-default));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+
+.today-checkin-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.today-checkin-meta {
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 90%, black 10%);
+}
+
+.today-cta-secondary {
+  position: relative;
+  z-index: 1;
+  justify-content: center;
 }
 
 @media (max-width: 640px) {
-  .today-page-shell {
-    padding-inline: 12px;
+  .page.page-with-tabbar-safe-area.today-page-shell {
+    gap: 16px;
+    padding-inline: 14px;
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
+  }
+
+  .today-page-stack {
+    gap: 16px;
+  }
+
+  .today-hero-card {
+    padding: 20px 18px;
+  }
+
+  .today-nutrition-layout {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 14px;
+  }
+
+  .today-nutrition-copy {
+    width: 100%;
+  }
+
+  .today-nutrition-ring-wrap {
+    margin-inline: auto;
+    width: 98px;
+    min-width: 98px;
+    height: 98px;
+  }
+
+  .today-progress-inset {
+    padding: 12px;
   }
 }
 
