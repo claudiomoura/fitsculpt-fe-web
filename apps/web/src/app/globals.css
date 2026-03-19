@@ -137,9 +137,9 @@
   --macro-fats: #f59e0b;
   --today-ring-track: color-mix(in srgb, var(--surface-inset-bg) 90%, transparent);
   --progress-low: #f59e0b;
-  --progress-medium: color-mix(in srgb, #22c55e 48%, var(--accent) 52%);
-  --progress-high: color-mix(in srgb, var(--accent) 82%, white 18%);
-  --progress-complete: color-mix(in srgb, var(--accent) 74%, #22c55e 26%);
+  --progress-medium: color-mix(in srgb, var(--accent) 76%, #14b8a6 24%);
+  --progress-high: color-mix(in srgb, var(--accent) 88%, #67e8f9 12%);
+  --progress-complete: color-mix(in srgb, #22d3ee 72%, #34d399 28%);
   --header-bg: rgba(255, 255, 255, 0.88);
   --header-gradient: linear-gradient(125deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 6%, transparent) 52%, transparent 100%);
   --badge-bg: #ecfeff;
@@ -263,9 +263,9 @@ html.theme-dark {
   --macro-fats: #f6b34a;
   --today-ring-track: color-mix(in srgb, var(--surface-inset-bg) 92%, transparent);
   --progress-low: #f6b34a;
-  --progress-medium: color-mix(in srgb, #38d178 42%, var(--accent) 58%);
-  --progress-high: color-mix(in srgb, var(--accent) 86%, white 14%);
-  --progress-complete: color-mix(in srgb, var(--accent) 72%, #38d178 28%);
+  --progress-medium: color-mix(in srgb, var(--accent) 78%, #2dd4bf 22%);
+  --progress-high: color-mix(in srgb, var(--accent) 90%, #67e8f9 10%);
+  --progress-complete: color-mix(in srgb, #22d3ee 70%, #4ade80 30%);
   --header-bg: rgba(15, 17, 21, 0.8);
   --header-gradient: linear-gradient(125deg, color-mix(in srgb, var(--color-primary) 12%, transparent) 0%, color-mix(in srgb, var(--color-secondary) 10%, transparent) 52%, transparent 100%);
   --badge-bg: #10211f;
@@ -7356,6 +7356,11 @@ html.theme-dark :focus-visible {
   min-width: 98px;
 }
 
+.today-nutrition-empty-ring {
+  border-color: color-mix(in srgb, var(--surface-border-default) 92%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 86%, transparent);
+}
+
 .today-nutrition-ring--error {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-danger) 34%, var(--surface-border-default));
 }
@@ -7383,6 +7388,12 @@ html.theme-dark :focus-visible {
 .today-nutrition-ring-center {
   background: color-mix(in srgb, var(--surface-secondary-bg) 92%, black 8%);
   border-color: color-mix(in srgb, var(--surface-border-default) 90%, transparent);
+}
+
+@media (max-width: 640px) {
+  .today-page-shell {
+    margin-inline: -4px;
+  }
 }
 
 .nutrition-today-summary-card {

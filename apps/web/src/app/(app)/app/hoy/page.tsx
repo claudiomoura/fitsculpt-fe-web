@@ -5,7 +5,7 @@ export default async function TodayPage() {
   await redirectToOnboardingIfIncomplete("/app/hoy");
 
   return (
-    <main className="page page-with-tabbar-safe-area nutrition-page-shell" data-testid="today-page">
+    <main className="page page-with-tabbar-safe-area nutrition-page-shell today-page-shell" data-testid="today-page">
       <TodayQuickActionsClient />
     </main>
   );

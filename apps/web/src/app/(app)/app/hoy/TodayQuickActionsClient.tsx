@@ -545,6 +545,7 @@ export default function TodayQuickActionsClient() {
     typeof signals.nutritionTargetCalories === "number" && Number.isFinite(signals.nutritionTargetCalories)
       ? Math.max(0, Math.round(signals.nutritionTargetCalories))
       : null;
+  const canRenderNutritionRing = nutritionGoalKcal !== null;
   const hasNutritionData =
     signals.nutritionStatus === "ready" &&
     (signals.nutritionConsumedCalories > 0 || signals.nutritionMealsLogged > 0 || signals.nutritionMealsTotal > 0);
@@ -682,14 +683,20 @@ export default function TodayQuickActionsClient() {
 
               <div className="mb-4 flex items-center gap-3">
                 <div className="today-nutrition-ring-wrap shrink-0">
-                  <NutritionRing
-                    value={signals.nutritionConsumedCalories}
-                    total={signals.nutritionTargetCalories}
-                    status={signals.nutritionStatus}
-                    proteinG={signals.nutritionProteinG}
-                    carbsG={signals.nutritionCarbsG}
-                    fatsG={signals.nutritionFatsG}
-                  />
+                  {canRenderNutritionRing ? (
+                    <NutritionRing
+                      value={signals.nutritionConsumedCalories}
+                      total={signals.nutritionTargetCalories}
+                      status={signals.nutritionStatus}
+                      proteinG={signals.nutritionProteinG}
+                      carbsG={signals.nutritionCarbsG}
+                      fatsG={signals.nutritionFatsG}
+                    />
+                  ) : (
+                    <div className="today-nutrition-empty-ring flex h-[98px] w-[98px] items-center justify-center rounded-full border">
+                      <span className="text-xs text-muted">Sin objetivo</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 space-y-1">
                   <p className="m-0 text-2xl font-semibold leading-tight text-primary">
@@ -708,9 +715,9 @@ export default function TodayQuickActionsClient() {
                     Reintentar
                   </Button>
                 </div>
-              ) : signals.nutritionStatus === "empty" || !hasNutritionData ? (
+              ) : signals.nutritionStatus === "empty" || !hasNutritionData || !canRenderNutritionRing ? (
                 <div className="today-progress-inset mb-4 space-y-1">
-                  <p className="m-0 text-xs font-medium text-primary">Sin registros de comida hoy</p>
+                  <p className="m-0 text-xs font-medium text-primary">{canRenderNutritionRing ? "Sin registros de comida hoy" : "Objetivo calórico no disponible"}</p>
                   <p className="m-0 text-xs text-muted">Registra una comida para activar el progreso.</p>
                 </div>
               ) : (
