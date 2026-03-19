@@ -7523,7 +7523,8 @@ html.theme-dark :focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
-  align-items: center;
+  align-items: start;
+  width: 100%;
 }
 
 .today-nutrition-copy {
@@ -7595,6 +7596,13 @@ html.theme-dark :focus-visible {
   background: color-mix(in srgb, #22c55e 8%, var(--surface-inset-bg));
 }
 
+.today-hero-progress--complete .today-progress-bar-fill {
+  background: linear-gradient(90deg, #16a34a 0%, #22c55e 100%) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, white 16%, transparent),
+    0 0 18px color-mix(in srgb, #22c55e 40%, transparent);
+}
+
 .today-hero-progress-value--complete {
   color: var(--color-success);
 }
@@ -7652,18 +7660,22 @@ html.theme-dark :focus-visible {
 
 .today-nutrition-ring {
   isolation: isolate;
+  position: relative;
 }
 
 .today-nutrition-ring-wrap {
   width: 70px;
   min-width: 70px;
   height: 70px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--today-donut-fill) 16%, var(--surface-border-default));
-  background: color-mix(in srgb, var(--surface-inset-bg) 88%, #09121b 12%);
+  justify-self: end;
+  align-self: start;
+  margin-left: auto;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
   display: grid;
   place-items: center;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .today-nutrition-empty-ring {
@@ -7701,6 +7713,10 @@ html.theme-dark :focus-visible {
 }
 
 .today-nutrition-ring-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   background: color-mix(in srgb, var(--surface-secondary-bg) 90%, #091018 10%);
   border-color: color-mix(in srgb, var(--today-donut-fill) 16%, var(--surface-border-default));
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
