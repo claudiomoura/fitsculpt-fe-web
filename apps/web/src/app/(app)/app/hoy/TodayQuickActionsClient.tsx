@@ -147,21 +147,29 @@ function NutritionRing({ value, total }: { value: number; total: number }) {
   const safeTarget = Math.max(1, Math.round(total));
   const progress = Math.max(0, Math.min(1, safeValue / safeTarget));
   const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
+
+  const RING_SIZE = 112;
+  const INNER_SIZE = 76;
+  const OUTER_RADIUS = 52;
+  const INNER_RADIUS = 42;
+  const BAR_SIZE = 8;
+
   const chartData = [{ name: "calories", value: percent }];
 
   return (
     <div
-      className={`today-nutrition-ring today-nutrition-ring--${progress === 0 ? "zero" : "ready"} relative flex h-[70px] w-[70px] items-center justify-center rounded-full`}
+      className={`today-nutrition-ring today-nutrition-ring--${progress === 0 ? "zero" : "ready"}`}
       aria-label={`${safeValue} de ${safeTarget} kcal`}
+      style={{ width: RING_SIZE, height: RING_SIZE }}
     >
       <RadialBarChart
-        width={100}
-        height={100}
-        cx="50%"
-        cy="50%"
-        innerRadius="68%"
-        outerRadius="100%"
-        barSize={7}
+        width={RING_SIZE}
+        height={RING_SIZE}
+        cx={RING_SIZE / 2}
+        cy={RING_SIZE / 2}
+        innerRadius={INNER_RADIUS}
+        outerRadius={OUTER_RADIUS}
+        barSize={BAR_SIZE}
         startAngle={90}
         endAngle={-270}
         data={chartData}
@@ -180,58 +188,13 @@ function NutritionRing({ value, total }: { value: number; total: number }) {
           isAnimationActive={false}
         />
       </RadialBarChart>
-      <div className="today-nutrition-ring-center pointer-events-none absolute left-1/2 top-1/2 flex h-[52px] w-[52px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border">
-        <strong className="text-[0.76rem] font-semibold leading-none text-primary">
-          {percent}%
-        </strong>
+
+      <div
+        className="today-nutrition-ring-center"
+        style={{ width: INNER_SIZE, height: INNER_SIZE }}
+      >
+        <strong className="today-nutrition-ring-value">{percent}%</strong>
       </div>
-    </div>
-  );
-}
-
-function CheckinTrendChart({
-  points,
-}: {
-  points: Array<{ label: string; weightKg: number }>;
-}) {
-  if (points.length < 2) return null;
-
-  return (
-    <div
-      className="today-checkin-chart"
-      aria-label="Tendencia de peso reciente"
-    >
-      <ResponsiveContainer width="100%" height={72}>
-        <AreaChart
-          data={points}
-          margin={{ top: 6, right: 2, left: 2, bottom: 0 }}
-        >
-          <defs>
-            <linearGradient id="today-checkin-area" x1="0" y1="0" x2="0" y2="1">
-              <stop
-                offset="0%"
-                stopColor="var(--today-donut-fill)"
-                stopOpacity={0.42}
-              />
-              <stop
-                offset="100%"
-                stopColor="var(--today-donut-fill)"
-                stopOpacity={0}
-              />
-            </linearGradient>
-          </defs>
-          <Area
-            type="monotone"
-            dataKey="weightKg"
-            stroke="var(--today-donut-fill)"
-            strokeWidth={2}
-            fill="url(#today-checkin-area)"
-            isAnimationActive={false}
-            dot={false}
-            activeDot={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
     </div>
   );
 }
@@ -1169,10 +1132,6 @@ export default function TodayQuickActionsClient() {
                     </p>
                   ) : null}
                 </div>
-                {signals.checkinStatus === "ready" &&
-                signals.checkinTrend.length > 1 ? (
-                  <CheckinTrendChart points={signals.checkinTrend} />
-                ) : null}
               </div>
 
               {signals.checkinStatus === "error" ? (
