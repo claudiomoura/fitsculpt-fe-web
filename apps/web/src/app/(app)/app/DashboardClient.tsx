@@ -571,7 +571,7 @@ export default function DashboardClient() {
             <p className="muted m-0">{t("dashboard.weightProgressEmptyTitle")}</p>
             <p className="muted m-0">{t("dashboard.weightProgressEmptySubtitle")}</p>
           </div>
-          <ButtonLink href="/app/progress#weight-entry" className="fit-content">
+          <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
             {t("dashboard.weightProgressEmptyCta")}
           </ButtonLink>
         </div>
@@ -588,7 +588,7 @@ export default function DashboardClient() {
             <p className="muted m-0">{t("dashboard.weightProgressInsufficientTitle")}</p>
             <p className="muted m-0">{t("dashboard.weightProgressInsufficientSubtitle")}</p>
           </div>
-          <ButtonLink href="/app/progress#weight-entry" className="fit-content">
+          <ButtonLink href="/app/seguimiento#weight-entry" className="fit-content">
             {t("dashboard.weightProgressEmptyCta")}
           </ButtonLink>
         </div>
@@ -842,7 +842,7 @@ export default function DashboardClient() {
             <h2 className="section-title section-title-sm">{t("dashboard.weightProgressTitle")}</h2>
             <p className="section-subtitle">{t("dashboard.weightProgressSubtitle")}</p>
           </div>
-          <ButtonLink variant="secondary" href="/app/progress#weight-entry">
+          <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry">
             {t("dashboard.weightProgressCta")}
           </ButtonLink>
         </div>

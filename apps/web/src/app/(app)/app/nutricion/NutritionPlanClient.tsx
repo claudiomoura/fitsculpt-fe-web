@@ -1229,7 +1229,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       params.delete("dish");
     }
     const query = params.toString();
-    router.replace(`/app/nutrition${query.length > 0 ? `?${query}` : ""}`, { scroll: false });
+    router.replace(`/app/nutricion${query.length > 0 ? `?${query}` : ""}`, { scroll: false });
   };
 
   const openMealDetail = (
@@ -1909,7 +1909,7 @@ useEffect(() => {
   const params = new URLSearchParams(searchParams.toString());
   params.delete("ai");
   const query = params.toString();
-  router.replace(`/app/nutrition${query.length > 0 ? `?${query}` : ""}`, {
+  router.replace(`/app/nutricion${query.length > 0 ? `?${query}` : ""}`, {
     scroll: false,
   });
 

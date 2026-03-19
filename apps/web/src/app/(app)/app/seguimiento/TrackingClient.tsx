@@ -20,6 +20,7 @@ import {
   getTrainingAdjustmentInput,
   hasTrainingPlanAdjustmentCapability,
 } from "@/domains/training";
+import { Input } from "@/design-system/components/Input";
 import { Skeleton } from "@/design-system/components/Skeleton";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import TrainingAdjustmentDiffSummary, {
@@ -1134,26 +1135,38 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
   return (
     <div className={isCheckinOnly ? "tracking-checkin-only-body premium-page-shell premium-page-shell--compact" : styles.trackingPageContent} data-testid="tracking-page">
-      {actionMessage && (
-        <div className="toast" role="status" aria-live="polite">
+      {actionMessage && !isCheckinOnly && (
+        <div className="status-card status-card--success" role="status" aria-live="polite">
           {actionMessage}
         </div>
       )}
       {!isCheckinOnly ? (
-        <section className={`card ${styles.heroCard}`}>
+        <section className={`card ${styles.heroCard} ${styles.quickCheckinHero}`}>
           <div className={styles.heroHeader}>
             <div>
-              <h2 className="section-title" style={{ fontSize: 24 }}>{t("app.trackingTitle")}</h2>
+              <h2 className="section-title m-0">{t("profile.checkinTitle")}</h2>
+              <p className="section-subtitle m-0">{t("tracking.weightEntrySubtitle")}</p>
             </div>
-            <div className="inline-actions-sm">
-              <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
-                Nuevo check-in
+            <div className={styles.heroPrimaryActionWrap}>
+              <button type="button" className={`btn ${styles.heroPrimaryAction}`} onClick={() => router.push("/app/seguimiento/check-in")}>
+                {t("today.checkinPrimaryCta")}
               </button>
-              <a className="btn secondary" href="/app/weekly-review">
-                Ver review semanal
-              </a>
             </div>
           </div>
+
+          {latestCheckin ? (
+            <div className={styles.checkinLatestPill}>
+              <span className="muted">{t("tracking.latestWeightTitle")}</span>
+              <strong>{latestCheckin.weightKg.toFixed(1)} {t("units.kilograms")}</strong>
+            </div>
+          ) : (
+            <p className="muted m-0">{t("tracking.latestWeightEmpty")}</p>
+          )}
+
+          <Link className={styles.heroSecondaryLink} href="/app/weekly-review">
+            {t("nav.weeklyReview")}
+          </Link>
+
           <div className={styles.segmentedControl} role="tablist" aria-label="Rango">
             {[
               { value: "7", label: "Semana" },
@@ -1469,7 +1482,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         <section className={`card ${styles.checkinShell} premium-fade-up`} id="checkin-entry">
           <div className={styles.checkinHero}>
             <div className="inline-actions-sm w-full justify-end">
-              <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>Cerrar</button>
+              <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>{t("ui.close")}</button>
             </div>
             <div>
               <h2 className="section-title" style={{ fontSize: 22 }}>{t("profile.checkinTitle")}</h2>
@@ -1490,8 +1503,8 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               onClick={() => setCheckinMode("quick")}
               aria-pressed={checkinMode === "quick"}
             >
-              <strong>Registrar peso rapido</strong>
-              <span className="muted">Solo fecha y peso del dia.</span>
+              <strong>{t("tracking.checkinModeQuick")}</strong>
+              <span className="muted">{t("tracking.checkinModeQuickHint")}</span>
             </button>
             <button
               type="button"
@@ -1499,29 +1512,29 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               onClick={() => setCheckinMode("full")}
               aria-pressed={checkinMode === "full"}
             >
-              <strong>Registrar metricas completas</strong>
-              <span className="muted">Todas las metricas reales del check-in.</span>
+              <strong>{t("tracking.checkinModeFull")}</strong>
+              <span className="muted">{t("tracking.checkinModeFullHint")}</span>
             </button>
           </div>
 
           <form onSubmit={checkinMode === "quick" ? addQuickWeightEntry : addCheckin} className="form-stack">
             <div className={styles.checkinFormGrid}>
-              <label className="form-stack">
-                {t("profile.checkinDate")}
-                <input type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
-              </label>
-              <label className="form-stack">
-                {t("profile.checkinWeight")}
-                <input
-                  type="number"
-                  min={30}
-                  max={250}
-                  step="0.1"
-                  value={checkinWeight}
-                  onChange={(e) => setCheckinWeight(Number(e.target.value))}
-                  aria-invalid={!isWeightValid && isTrackingReady}
-                />
-              </label>
+              <Input
+                type="date"
+                label={t("profile.checkinDate")}
+                value={checkinDate}
+                onChange={(e) => setCheckinDate(e.target.value)}
+              />
+              <Input
+                type="number"
+                min={30}
+                max={250}
+                step="0.1"
+                label={t("profile.checkinWeight")}
+                value={checkinWeight}
+                onChange={(e) => setCheckinWeight(Number(e.target.value))}
+                errorText={!isWeightValid && isTrackingReady ? t("tracking.weightEntryInvalid") : undefined}
+              />
               {checkinMode === "full" ? (
                 <>
                   <label className="form-stack">
@@ -1589,7 +1602,16 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 <textarea value={checkinNotes} onChange={(e) => setCheckinNotes(e.target.value)} rows={3} />
               </label>
             ) : null}
-            {submitError ? <p className="muted">{submitError}</p> : null}
+            {submitError ? (
+              <div className="status-card status-card--warning" role="alert">
+                <p className="muted m-0">{submitError}</p>
+              </div>
+            ) : null}
+            {actionMessage ? (
+              <div className="status-card status-card--success" role="status" aria-live="polite">
+                <p className="muted m-0">{actionMessage}</p>
+              </div>
+            ) : null}
 
             <button
               type="submit"
@@ -1603,7 +1625,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   <span className="spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
                 </>
               ) : (
-                checkinMode === "quick" ? "Guardar peso de hoy" : "Guardar check-in completo"
+                checkinMode === "quick" ? t("tracking.weightEntryCta") : t("profile.checkinAdd")
               )}
             </button>
           </form>

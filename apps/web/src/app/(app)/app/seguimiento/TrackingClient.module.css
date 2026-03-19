@@ -3,6 +3,26 @@
   gap: 14px;
 }
 
+.quickCheckinHero {
+  gap: 12px;
+}
+
+.heroPrimaryActionWrap {
+  width: 100%;
+}
+
+.heroPrimaryAction {
+  width: 100%;
+  min-height: 44px;
+}
+
+.heroSecondaryLink {
+  width: fit-content;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-decoration: underline;
+}
+
 .trackingPageContent {
   display: grid;
   gap: 14px;
@@ -104,6 +124,16 @@
   .rightColumn {
     position: sticky;
     top: 88px;
+  }
+}
+
+@media (min-width: 640px) {
+  .heroPrimaryActionWrap {
+    width: auto;
+  }
+
+  .heroPrimaryAction {
+    width: auto;
   }
 }
 

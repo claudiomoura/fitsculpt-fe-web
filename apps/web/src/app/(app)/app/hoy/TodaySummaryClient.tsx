@@ -362,7 +362,7 @@ export default function TodaySummaryClient() {
 
   const weightAction = useMemo(
     () => (
-      <ButtonLink variant="secondary" href="/app/progress#weight-entry" size="lg">
+      <ButtonLink variant="secondary" href="/app/seguimiento#weight-entry" size="lg">
         {t("today.weightCta")}
       </ButtonLink>
     ),
@@ -557,7 +557,7 @@ const notesErrorActions: ErrorAction[] = [
             title={t("today.weightErrorTitle")}
             description={t("today.weightErrorDescription")}
             actions={[
-              { label: t("today.weightCta"), href: "/app/progress#weight-entry" },
+              { label: t("today.weightCta"), href: "/app/seguimiento#weight-entry" },
               { label: t("ui.retry"), onClick: loadTracking, variant: "secondary" },
             ]}
           />
@@ -566,7 +566,7 @@ const notesErrorActions: ErrorAction[] = [
           <EmptyState
             title={t("today.weightEmptyTitle")}
             description={t("today.weightEmptyDescription")}
-            actions={[{ label: t("today.weightCta"), href: "/app/progress#weight-entry", variant: "secondary" }]}
+            actions={[{ label: t("today.weightCta"), href: "/app/seguimiento#weight-entry", variant: "secondary" }]}
           />
         }
       >
