@@ -1717,36 +1717,35 @@ label {
   position: sticky;
   top: 0;
   z-index: 80;
-  background: color-mix(in srgb, var(--bg-card) 78%, transparent);
-  background-image: var(--header-gradient);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
-  box-shadow: 0 6px 24px color-mix(in srgb, var(--text-primary) 10%, transparent);
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, var(--surface-primary-bg) 92%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--surface-border-default) 92%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, black 14%, transparent);
 }
 
 @supports ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
   .site-header {
-    backdrop-filter: saturate(130%) blur(12px);
-    -webkit-backdrop-filter: saturate(130%) blur(12px);
+    backdrop-filter: saturate(118%) blur(8px);
+    -webkit-backdrop-filter: saturate(118%) blur(8px);
   }
 }
 
 .nav-inner {
-  max-width: 1120px;
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 12px 20px;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .nav-brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .nav-brand-logo {
@@ -1766,13 +1765,11 @@ label {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-left: auto;
-  flex-wrap: wrap;
-  padding: 4px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .nav-toggle {
@@ -1808,11 +1805,11 @@ label {
 .nav-utility {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px;
+  gap: 6px;
+  padding: 2px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 84%, transparent);
 }
 
 .account-pill {
@@ -3876,7 +3873,7 @@ label {
     width: 100%;
     gap: 8px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     min-width: 0;
   }
@@ -3897,7 +3894,7 @@ label {
     justify-content: center;
     gap: 0;
     margin-left: 0;
-    grid-column: 3;
+    grid-column: 2;
     justify-self: end;
     width: 40px;
     padding-inline: 0;
@@ -3905,11 +3902,6 @@ label {
 
   .nav-utility {
     order: 1;
-  }
-
-  .account-pill {
-    grid-column: 2;
-    justify-self: center;
   }
 
   .app-shell {

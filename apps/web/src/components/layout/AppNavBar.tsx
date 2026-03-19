@@ -11,8 +11,6 @@ import { buildNavigationSections, getMostSpecificActiveHref } from "./navConfig"
 import { applyEntitlementGating } from "./navConfig";
 import { useAccess } from "@/lib/useAccess";
 import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
-import { resolveHeaderPlan, type HeaderPlan } from "@/lib/authPlan";
-import { readAuthEntitlementSnapshot } from "@/context/auth/entitlements";
 
 export default function AppNavBar() {
   const { t } = useLanguage();
@@ -24,7 +22,7 @@ export default function AppNavBar() {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const { role, isAdmin, isCoach, isDev, gymMembershipState } = useAccess();
   const showHamburgerMenu = isAdmin;
-  const { entitlements, authMe, loading: authLoading, reload } = useAuthEntitlements();
+  const { entitlements, authMe, reload } = useAuthEntitlements();
 
   useEffect(() => {
     const handleRefresh = () => {
@@ -48,15 +46,6 @@ export default function AppNavBar() {
 
   const userRole = typeof authMe?.role === "string" ? authMe.role : "";
   const userMeta = authMe?.email || userRole || "";
-  const planValue: HeaderPlan = resolveHeaderPlan(authMe);
-  const entitlementSnapshot = readAuthEntitlementSnapshot(authMe);
-  const normalizedPlan = planValue.toLowerCase();
-  const planKey = `billing.planLabels.${normalizedPlan}`;
-  const translatedPlan = t(planKey);
-  const planLabel = authLoading ? t("ui.loading") : translatedPlan === planKey ? t("billing.planLabels.free") : translatedPlan;
-  const isPaidPlan = planValue !== "FREE";
-  const tokenBalance = entitlementSnapshot.tokenBalance;
-  const hasTokenBalance = typeof tokenBalance === "number";
 
   const sections = useMemo(() => {
     const baseSections = buildNavigationSections({
@@ -121,19 +110,6 @@ export default function AppNavBar() {
           <div className="nav-user-desktop-only">
             <AppUserBadge user={authMe} />
           </div>
-
-          <Link
-            href="/app/settings/billing"
-            className={`account-pill ${isPaidPlan ? "is-pro" : "is-free"}`}
-            aria-label={t("billing.manageBilling")}
-          >
-            <span className="account-pill-label">{planLabel}</span>
-            {isPaidPlan && hasTokenBalance ? (
-              <span className="account-pill-meta">
-                {t("ui.tokensLabel")} {tokenBalance}
-              </span>
-            ) : null}
-          </Link>
 
           <div className="nav-utility">
             <ThemeToggle />
