@@ -1133,21 +1133,21 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       label: t("nutrition.protein"),
       grams: highlightedMealsTotals.protein,
       percent: toMacroSegment(highlightedMealsTotals.protein, highlightedMacroTotal),
-      color: "#6d5cff",
+      color: "var(--macro-protein)",
     },
     {
       key: "carbs",
       label: t("nutrition.carbs"),
       grams: highlightedMealsTotals.carbs,
       percent: toMacroSegment(highlightedMealsTotals.carbs, highlightedMacroTotal),
-      color: "#22c55e",
+      color: "var(--macro-carbs)",
     },
     {
       key: "fats",
       label: t("nutrition.fat"),
       grams: highlightedMealsTotals.fats,
       percent: toMacroSegment(highlightedMealsTotals.fats, highlightedMacroTotal),
-      color: "#f59e0b",
+      color: "var(--macro-fats)",
     },
   ];
   const isSelectedDayReplicated = selectedVisiblePlanDay?.isReplicated ?? false;
@@ -1956,6 +1956,10 @@ useEffect(() => {
   const isOutOfTokens = aiTokenBalance !== null && aiTokenBalance <= 0;
   const isAiDisabled = aiLoading || isAiLocked || isOutOfTokens;
   const aiLockDescription = safeT("nutrition.aiModuleRequired", "Requiere NutriAI o PRO");
+  const saveMessageTone = saveMessage === t("nutrition.savePlanError") ? "warning" : "success";
+  const exportMessageTone = exportMessage === t("nutrition.exportEmpty") ? "warning" : "success";
+  const getFeedbackClassName = (tone: "success" | "warning") =>
+    tone === "warning" ? "status-card status-card--warning" : "status-card status-card--success";
 
   const generatedPlanPreviewDay = useMemo(() => {
     if (!lastGeneratedAiPlan?.days?.length) return null;
@@ -2152,7 +2156,9 @@ const nutritionPlanDetails = profile ? (
       ) : null}
 
         {exportMessage ? (
-          <p className="muted mt-8">{exportMessage}</p>
+          <div className={`${getFeedbackClassName(exportMessageTone)} mt-8`} role="status" aria-live="polite">
+            <p className="muted m-0">{exportMessage}</p>
+          </div>
         ) : null}
 
         <div className="export-actions mt-12">
@@ -2431,7 +2437,11 @@ const nutritionPlanDetails = profile ? (
                     </div>
                   ) : null}
 
-                  {saveMessage ? <p className="muted m-0">{saveMessage}</p> : null}
+                  {saveMessage ? (
+                    <div className={getFeedbackClassName(saveMessageTone)} role="status" aria-live="polite">
+                      <p className="muted m-0">{saveMessage}</p>
+                    </div>
+                  ) : null}
 
                   <div className="nutrition-v2-calendar-head nutrition-v2-calendar-head--secondary">
                     <h3 className="section-title section-title-sm m-0">{t("nutrition.calendarTitle")}</h3>
@@ -2740,7 +2750,9 @@ const nutritionPlanDetails = profile ? (
               </div>
             </div>
           ) : saveMessage ? (
-            <p className="muted">{saveMessage}</p>
+            <div className={getFeedbackClassName(saveMessageTone)} role="status" aria-live="polite">
+              <p className="muted m-0">{saveMessage}</p>
+            </div>
           ) : null}
 
           {manualPlan ? (

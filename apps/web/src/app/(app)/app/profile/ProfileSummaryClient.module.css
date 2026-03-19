@@ -4,8 +4,10 @@
 }
 
 .userCard {
-  background: linear-gradient(160deg, #121212, #1f1b2e);
-  color: #fff;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 48%),
+    var(--surface-secondary-bg);
+  color: var(--text-primary);
 }
 
 .userCardHeader {
@@ -24,18 +26,18 @@
 
 .userAvatar {
   object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+  border: 1px solid var(--surface-border-default);
+  box-shadow: var(--shadow-sm);
 }
 
 .userAvatarFallback {
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--accent) 24%, rgba(255, 255, 255, 0.08));
-  color: #fff;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-inset-bg));
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--surface-border-default);
 }
 
 .userName {
@@ -46,7 +48,7 @@
 
 .userEmail {
   margin: 0.35rem 0 0;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
@@ -59,7 +61,7 @@
 
 .planLabel {
   margin: 0;
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 0.8rem;
 }
 
@@ -85,11 +87,11 @@
   justify-content: space-between;
   gap: 1rem;
   text-decoration: none;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.7rem 0.8rem;
   color: inherit;
-  background: var(--surface-2);
+  background: var(--surface-secondary-bg);
 }
 
 .rowLabel {
@@ -101,24 +103,12 @@
 .rowValue {
   margin: 0.2rem 0 0;
   font-size: 0.8rem;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .chevron {
-  color: var(--muted);
+  color: var(--text-muted);
   font-size: 1rem;
-}
-
-
-.logoutButton {
-  width: 100%;
-  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 35%, transparent);
-  color: var(--danger, #ef4444);
-  background: color-mix(in srgb, var(--danger, #ef4444) 10%, transparent);
-}
-
-.logoutButton:hover {
-  background: color-mix(in srgb, var(--danger, #ef4444) 16%, transparent);
 }
 
 
@@ -155,7 +145,7 @@
 .logoutCard {
   display: grid;
   gap: 0.85rem;
-  border-color: color-mix(in srgb, var(--danger, #ef4444) 28%, var(--line));
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 28%, var(--border));
   background: linear-gradient(180deg, color-mix(in srgb, var(--danger, #ef4444) 8%, transparent), transparent 52%);
 }
 
@@ -174,7 +164,7 @@
 .logoutDescription {
   margin: 0;
   font-size: 0.86rem;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .logoutButton {

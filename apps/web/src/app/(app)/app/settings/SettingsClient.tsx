@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/design-system/components/Card";
 import { Button, ButtonLink } from "@/design-system/components/Button";
 import { Modal } from "@/design-system/components/Modal";
-import { EmptyState, ErrorState, LoadingState } from "@/components/states";
+import { ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
@@ -203,23 +203,20 @@ export default function SettingsClient() {
 
   return (
     <section className="form-stack" aria-labelledby="settings-title">
-      <header className="form-stack">
+      <header className="form-stack settings-header">
         <h1 id="settings-title" className="section-title">
           {t("app.settingsTitle")}
         </h1>
         <p className="section-subtitle">{t("settings.subtitle")}</p>
-        <div className="inline-actions-sm">
+        <div className="inline-actions-sm settings-header-actions">
           <ButtonLink href="/app/profile/edit">{t("profile.editProfile")}</ButtonLink>
-          <ButtonLink href="/app/settings/password" variant="secondary">
+          <ButtonLink href="/app/settings/password" variant="ghost">
             {t("profile.passwordTitle")}
-          </ButtonLink>
-          <ButtonLink href="/app/settings/billing" variant="secondary">
-            {t("nav.billing")}
           </ButtonLink>
         </div>
       </header>
 
-      <div className="list-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+      <div className="list-grid settings-grid">
         {sectionOrder.map((sectionKey) => {
           if (sectionKey === "notifications") {
             const section = sections.notifications;
@@ -232,7 +229,7 @@ export default function SettingsClient() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <EmptyState title={section.emptyTitle} icon="info" />
+                  <p className="muted m-0">{section.emptyTitle}</p>
                 </CardContent>
               </Card>
             );
@@ -265,7 +262,7 @@ export default function SettingsClient() {
                     <CardDescription>{section.description}</CardDescription>
                   </div>
                 </CardHeader>
-                <CardFooter style={{ justifyContent: "flex-start" }}>
+                <CardFooter className="settings-card-footer">
                   {supportUrl ? (
                     <ButtonLink href={supportUrl} target="_blank" rel="noreferrer" variant="secondary">
                       {section.action}
@@ -289,11 +286,11 @@ export default function SettingsClient() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="m-0" style={{ fontWeight: 600 }}>
+                  <p className="m-0 settings-value">
                     {unitsValueLabel}
                   </p>
                 </CardContent>
-                <CardFooter style={{ justifyContent: "flex-start" }}>
+                <CardFooter className="settings-card-footer">
                   <Button variant="secondary" onClick={openUnitsModal}>
                     {section.action}
                   </Button>
@@ -313,7 +310,7 @@ export default function SettingsClient() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="m-0" style={{ fontWeight: 600 }}>
+                  <p className="m-0 settings-value">
                     {section.content}
                   </p>
                 </CardContent>
@@ -336,7 +333,7 @@ export default function SettingsClient() {
                   {canSeeImplementationNote ? <p className="muted m-0">{t("billing.gym.linkRequiresImplementation")}</p> : null}
                 </CardContent>
               ) : null}
-              <CardFooter style={{ justifyContent: "flex-start" }}>
+              <CardFooter className="settings-card-footer">
                 <ButtonLink href={section.href} variant="secondary">
                   {section.ctaLabel}
                 </ButtonLink>
@@ -352,7 +349,7 @@ export default function SettingsClient() {
         title={t("settings.sections.units.modalTitle")}
         description={t("settings.sections.units.modalDescription")}
         footer={
-          <div className="inline-actions-sm" style={{ justifyContent: "flex-end", width: "100%" }}>
+          <div className="inline-actions-sm settings-modal-footer">
             <Button variant="ghost" onClick={closeUnitsModal}>
               {t("ui.cancel")}
             </Button>
@@ -360,8 +357,8 @@ export default function SettingsClient() {
           </div>
         }
       >
-        <div className="form-stack" style={{ marginTop: 16 }}>
-          <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="form-stack settings-modal-body">
+          <label className="settings-radio-option">
             <input
               type="radio"
               name="measurement-system"
@@ -371,7 +368,7 @@ export default function SettingsClient() {
             />
             <span>{`${t("units.kilograms")}/${t("units.centimeters")}`}</span>
           </label>
-          <label style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <label className="settings-radio-option">
             <input
               type="radio"
               name="measurement-system"

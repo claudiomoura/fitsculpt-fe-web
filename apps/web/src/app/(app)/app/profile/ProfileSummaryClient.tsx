@@ -206,13 +206,8 @@ export default function ProfileSummaryClient() {
         <div className={styles.rows}>
           <HubRow label={t("nav.tracking")} href="/app/seguimiento" />
           <HubRow label={t("profile.checkinTitle")} href="/app/seguimiento/check-in" />
-          <HubRow label={t("nav.today")} href="/app/hoy" value={t("nav.weeklyReview")} />
-          <HubRow label={t("nav.weeklyReview")} href="/app/weekly-review" />
+          <HubRow label={t("nav.today")} href="/app/hoy" />
           <HubRow label={t("nav.library")} href="/app/biblioteca" />
-          <HubRow label={t("nav.trainingPlans")} href="/app/biblioteca/entrenamientos" />
-          <HubRow label={t("nav.recipeLibrary")} href="/app/biblioteca/recetas" />
-          <HubRow label={t("nav.feed")} href="/app/feed" />
-          <HubRow label={t("nav.gym")} href="/app/gym" />
           {/* Requiere implementación: centro de notificaciones/cuenta dedicado fuera de las rutas existentes. */}
         </div>
       </section>

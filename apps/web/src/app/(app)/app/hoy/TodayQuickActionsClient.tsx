@@ -716,9 +716,9 @@ export default function TodayQuickActionsClient() {
       : null;
   const aiLockReason =
     signals.aiTokenBalance <= 0
-      ? "Sin tokens"
+      ? t("ai.insufficientTokens")
       : !hasAiAccess
-        ? "Plan bloqueado"
+        ? t("today.lockedDescription")
         : null;
   const nutritionGoalKcal =
     typeof signals.nutritionTargetCalories === "number" &&
@@ -881,7 +881,7 @@ export default function TodayQuickActionsClient() {
       {status === "success" ? (
         <>
           {showCheckinSuccess ? (
-            <section className="card premium-inline-banner premium-success-surface premium-fade-up">
+            <section className="status-card status-card--success premium-fade-up" role="status" aria-live="polite">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="m-0 text-sm font-semibold text-primary">

@@ -655,6 +655,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
             <input type="checkbox" checked={showAdvancedMacros} onChange={(e) => setShowAdvancedMacros(e.target.checked)} />
             {t("profile.macroAdvancedToggle")}
           </label>
+          {!showAdvancedMacros ? <p className="muted m-0 text-xs">{t("profile.macroAdvancedToggle")}</p> : null}
           <Input
             variant="premium"
             type="number"
@@ -721,7 +722,14 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
       ) : null}
 
       <section className="card form-stack onboarding-footer-card">
-        {saveState === "error" && <div className="form-stack" role="alert"><p className="section-subtitle">{t("onboarding.saveError")}</p><button type="button" className="btn secondary" onClick={() => void saveProfile()}>{t("onboarding.retry")}</button></div>}
+        {saveState === "error" ? (
+          <div className="status-card status-card--warning" role="alert">
+            <p className="muted m-0">{t("onboarding.saveError")}</p>
+            <div className="inline-actions-sm mt-8">
+              <button type="button" className="btn secondary fit-content" onClick={() => void saveProfile()}>{t("onboarding.retry")}</button>
+            </div>
+          </div>
+        ) : null}
         <div className="inline-actions-sm">
           <button type="button" className="btn secondary" onClick={goToBack} disabled={saveState === "saving"}>{t("onboarding.back")}</button>
           {step < LAST_STEP ? <button type="button" className="btn" onClick={goToNext} disabled={!isStepValid || saveState === "saving"}>{t("onboarding.next")}</button> : <button type="button" className="btn" onClick={() => void saveProfile()} disabled={!isStepValid || saveState === "saving"}>{saveState === "saving" ? t("onboarding.saving") : t("onboarding.finish")}</button>}

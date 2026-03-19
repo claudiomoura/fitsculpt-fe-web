@@ -535,6 +535,12 @@ main {
   -webkit-backdrop-filter: blur(14px) saturate(130%);
 }
 
+.sidebar-section.is-secondary {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--bg-card) 52%, transparent);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
 .sidebar-section > summary {
   list-style: none;
   cursor: pointer;
@@ -569,6 +575,10 @@ main {
   gap: 8px;
 }
 
+.sidebar-section.is-secondary .sidebar-links {
+  gap: 6px;
+}
+
 .sidebar-link {
   padding: 10px 12px;
   border-radius: 14px;
@@ -578,11 +588,26 @@ main {
   font-size: 14px;
 }
 
+.sidebar-link.is-secondary {
+  border-style: dashed;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
 .sidebar-link:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
   border-color: color-mix(in srgb, var(--color-primary) 28%, var(--border));
   background: color-mix(in srgb, var(--bg-muted) 85%, transparent);
+}
+
+.sidebar-link.is-secondary:hover {
+  transform: none;
+  box-shadow: none;
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--border) 72%, var(--color-primary) 28%);
+  background: color-mix(in srgb, var(--bg-muted) 58%, transparent);
 }
 
 .sidebar-link.is-active {
@@ -1337,11 +1362,6 @@ main {
   height: 90px;
 }
 
-.empty-state {
-  display: grid;
-  gap: 8px;
-}
-
 .segmented-control {
   display: flex;
   gap: 8px;
@@ -1655,43 +1675,6 @@ button.exercise-mini-card {
 
 .progress-ring.status-exact .progress-ring-value {
   stroke: var(--status-success);
-}
-
-.profile-avatar-card {
-  margin-top: 16px;
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.profile-avatar-preview {
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--bg-muted);
-  display: grid;
-  place-items: center;
-}
-
-.profile-avatar-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.profile-avatar-fallback {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.profile-avatar-actions {
-  display: grid;
-  gap: 6px;
-  min-width: 220px;
 }
 
 .export-actions {
@@ -2724,19 +2707,18 @@ label {
 }
 
 .feature-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--surface-border-default);
   border-radius: 16px;
-  padding: 18px;
-  background: var(--bg-card);
+  padding: 14px;
+  background: var(--surface-inset-bg);
   display: grid;
   gap: 8px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .feature-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--surface-border-default) 70%, var(--accent) 30%);
+  background: color-mix(in srgb, var(--surface-inset-bg) 88%, var(--bg-card) 12%);
 }
 
 .app-frame[data-shell="admin"] .card,
@@ -3250,6 +3232,41 @@ label {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.settings-header {
+  gap: 10px;
+}
+
+.settings-header-actions {
+  margin-top: 4px;
+}
+
+.settings-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.settings-card-footer {
+  justify-content: flex-start;
+}
+
+.settings-value {
+  font-weight: 600;
+}
+
+.settings-modal-footer {
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.settings-modal-body {
+  margin-top: 16px;
+}
+
+.settings-radio-option {
+  display: flex;
+  gap: 10px;
   align-items: center;
 }
 
@@ -4205,10 +4222,22 @@ textarea:disabled {
 .today-premium-modal {
   width: min(560px, 100%);
   border-radius: 24px;
-  border-color: rgba(255, 255, 255, 0.1);
-  background: #0f1624;
-  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.45);
-  color: #e2e8f0;
+  border-color: var(--surface-border-emphasis);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 14%, transparent) 0%, transparent 48%),
+    var(--surface-card-bg);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+}
+
+.today-premium-modal-item {
+  border-color: var(--surface-border-default);
+  background: var(--surface-inset-bg);
+  color: var(--text-primary);
+}
+
+.today-premium-modal-kicker {
+  color: var(--accent);
 }
 
 .trainer-plans-exercise-editor-modal {
@@ -6024,6 +6053,13 @@ html { scroll-behavior: smooth; }
   gap: 12px;
 }
 
+.tracking-overview-card,
+.training-insights-card {
+  background: var(--surface-secondary-bg);
+  border-color: var(--surface-border-default);
+  box-shadow: var(--surface-card-inner-glow), var(--shadow-sm);
+}
+
 .training-weekly-flow {
   display: grid;
   gap: 0;
@@ -7137,6 +7173,23 @@ html.theme-dark :focus-visible {
   .info-value {
     font-size: 0.875rem;
   }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-header-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .settings-header-actions .btn,
+  .settings-header-actions .ui-button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 
@@ -8072,6 +8125,11 @@ html.theme-dark :focus-visible {
 }
 
 @media (max-width: 640px) {
+  .feature-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
   .training-plan-access-actions,
   .nutrition-plan-access-actions {
     display: grid;

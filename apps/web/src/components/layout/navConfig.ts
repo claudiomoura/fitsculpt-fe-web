@@ -131,8 +131,6 @@ export const sidebarUser: NavSectionGroup[] = [
     items: [
       { id: "today", href: "/app/hoy", labelKey: "nav.today" },
       { id: "training", href: "/app/entrenamiento", labelKey: "nav.trainingCalendar" },
-      { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
-      { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
     ],
   },
   {
@@ -140,21 +138,29 @@ export const sidebarUser: NavSectionGroup[] = [
     labelKey: "navSections.nutrition",
     items: [
       { id: "nutrition-calendar", href: "/app/nutricion", labelKey: "nav.nutritionCalendar", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
     ],
   },
   {
     id: "account",
     labelKey: "navSections.account",
     items: [
-      { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "tracking", href: "/app/seguimiento", labelKey: "nav.tracking" },
-      { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
-      { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
       { id: "settings", href: "/app/settings", labelKey: "nav.settings" },
       { id: "profile", href: "/app/profile", labelKey: "nav.profile" },
+    ],
+  },
+  {
+    id: "more",
+    labelKey: "navSections.more",
+    items: [
+      { id: "dashboard", href: "/app", labelKey: "nav.progress" },
+      { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
+      { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
+      { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
+      { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
       { id: "gym", href: "/app/gym", labelKey: "nav.gym" },
     ],
   },

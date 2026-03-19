@@ -63,17 +63,20 @@ function SidebarContent() {
   return (
     <>
       {sections.map((section) => {
-        const isDevelopmentSection = section.id === "development";
+        const isSecondarySection = section.id === "more" || section.id === "development";
+        const sectionClassName = `sidebar-section${section.id === "more" ? " is-secondary" : ""}`;
+        const linkClassName = (active: boolean) =>
+          `sidebar-link${active ? " is-active" : ""}${section.id === "more" ? " is-secondary" : ""}`;
 
         return (
-          <details key={section.id} className="sidebar-section" open={!isDevelopmentSection}>
+          <details key={section.id} className={sectionClassName} open={!isSecondarySection}>
             <summary className="sidebar-section-title">{t(section.labelKey)}</summary>
             <div className="sidebar-links">
               {section.items.map((item) => {
                 const active = isActive(item.href);
                 if (item.disabled) {
                   return (
-                    <div key={`${section.id}:${item.id}`} className="sidebar-link" aria-disabled="true">
+                    <div key={`${section.id}:${item.id}`} className={linkClassName(false)} aria-disabled="true">
                       <span>
                         {t(item.labelKey)}
                         {item.disabledNoteKey ? (
@@ -93,7 +96,7 @@ function SidebarContent() {
                   <Link
                     key={`${section.id}:${item.id}`}
                     href={item.href}
-                    className={`sidebar-link ${active ? "is-active" : ""}`}
+                    className={linkClassName(active)}
                     aria-current={active ? "page" : undefined}
                   >
                     {t(item.labelKey)}

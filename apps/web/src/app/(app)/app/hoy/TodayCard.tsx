@@ -43,12 +43,13 @@ export function TodayCard({
 
   return (
     <article
-      className={`flex h-full min-h-[220px] flex-col rounded-3xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] ${
+      className={`flex h-full min-h-[220px] flex-col rounded-3xl border p-5 ${
         isHero ? "md:min-h-[270px]" : ""
       } ${orderClassName ?? ""}`}
       style={{
         background: "var(--bg-card)",
         borderColor: "var(--border)",
+        boxShadow: "var(--surface-card-shadow)",
       }}
       data-testid="today-action-card"
     >
