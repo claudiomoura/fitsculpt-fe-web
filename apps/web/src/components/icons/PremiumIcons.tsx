@@ -53,6 +53,20 @@ export function PremiumNutritionIcon(props: PremiumIconProps) {
   );
 }
 
+export function PremiumCheckinIcon(props: PremiumIconProps) {
+  return (
+    <BasePremiumIcon {...props}>
+      <path d="M12 4.5a6.5 6.5 0 1 0 6.5 6.5" />
+      <path d="M12 8.5v2.8" />
+      <path d="M12 4.5v1.6" />
+      <path d="M8.7 6.2 9.8 7.3" />
+      <path d="M15.3 6.2 14.2 7.3" />
+      <path d="M5.5 16.8h13" />
+      <path d="M12 11.3 15.2 8.1" />
+    </BasePremiumIcon>
+  );
+}
+
 export function PremiumProgressIcon(props: PremiumIconProps) {
   return (
     <BasePremiumIcon {...props}>

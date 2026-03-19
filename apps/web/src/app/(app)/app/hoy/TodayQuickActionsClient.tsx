@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  PremiumCheckinIcon,
   PremiumNutritionIcon,
   PremiumWorkoutIcon,
 } from "@/components/icons/PremiumIcons";
@@ -107,15 +108,15 @@ function NutritionRing({
   const safeTarget = Math.max(1, Math.round(total));
   const progress = Math.max(0, Math.min(1, safeValue / safeTarget));
   const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-  const size = 92;
-  const strokeWidth = 10;
+  const size = 72;
+  const strokeWidth = 7;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - progress);
 
   return (
     <div
-      className={`today-nutrition-ring today-nutrition-ring--${progress === 0 ? "zero" : "ready"} relative flex h-[92px] w-[92px] items-center justify-center rounded-full`}
+      className={`today-nutrition-ring today-nutrition-ring--${progress === 0 ? "zero" : "ready"} relative flex h-[72px] w-[72px] items-center justify-center rounded-full`}
       aria-label={`${safeValue} de ${safeTarget} kcal`}
     >
       <svg className="today-nutrition-ring-svg" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
@@ -130,9 +131,8 @@ function NutritionRing({
         />
       </svg>
       {progress === 0 ? <span className="today-nutrition-ring-zero-pip" aria-hidden="true" /> : null}
-      <div className="today-nutrition-ring-center flex h-[62px] w-[62px] flex-col items-center justify-center rounded-full border">
-        <strong className="text-[0.95rem] font-semibold leading-none text-primary">{percent}%</strong>
-        <span className="mt-1 text-[10px] uppercase tracking-[0.12em] text-muted">del objetivo</span>
+      <div className="today-nutrition-ring-center pointer-events-none absolute left-1/2 top-1/2 flex h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border">
+        <strong className="text-[0.78rem] font-semibold leading-none text-primary">{percent}%</strong>
       </div>
     </div>
   );
@@ -486,15 +486,6 @@ export default function TodayQuickActionsClient() {
     typeof signals.nutritionTargetCalories === "number" && Number.isFinite(signals.nutritionTargetCalories)
       ? Math.max(0, Math.round(signals.nutritionTargetCalories))
       : null;
-  const nutritionStatusLabel =
-    signals.nutritionStatus === "error"
-      ? "Error de carga"
-      : nutritionGoalKcal === null
-        ? "Sin objetivo"
-        : signals.nutritionMealsTotal > 0
-          ? `${signals.nutritionMealsLogged}/${signals.nutritionMealsTotal} comidas`
-          : `${signals.nutritionMealsLogged} registradas`;
-
   const checkinStatusLabel =
     signals.checkinStatus === "error"
       ? "Error de carga"
@@ -529,12 +520,23 @@ export default function TodayQuickActionsClient() {
     checkinDeltaKg === null
       ? checkinStatusLabel
       : `${checkinDeltaKg > 0 ? "+" : ""}${checkinDeltaKg.toFixed(1)} kg vs último check-in`;
+  const checkinGoalGapKg =
+    typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) && typeof signals.goalWeightKg === "number" && Number.isFinite(signals.goalWeightKg)
+      ? Number((signals.currentWeightKg - signals.goalWeightKg).toFixed(1))
+      : null;
+  const checkinGoalContext =
+    checkinGoalGapKg === null
+      ? null
+      : checkinGoalGapKg === 0
+        ? "Objetivo de peso alcanzado"
+        : `A ${Math.abs(checkinGoalGapKg).toFixed(1)} kg de tu objetivo`;
 
   const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
   const canStartTodayWorkout = signals.trainingState === "workout" && Boolean(signals.todayWorkoutId);
+  const isDailyProgressComplete = dailyProgressPercent >= 100;
   const trainingMeta =
     signals.trainingState === "workout"
-      ? [signals.trainingDuration ? `${signals.trainingDuration} min` : null, t("today.trainingExerciseCount", { count: signals.trainingExerciseCount })]
+      ? [signals.trainingDuration ? `${signals.trainingDuration} min` : null, `${signals.trainingExerciseCount} ejercicios hoy`]
           .filter(Boolean)
           .join(" · ")
       : signals.trainingState === "rest"
@@ -615,7 +617,7 @@ export default function TodayQuickActionsClient() {
             <div className="today-progress-inset today-hero-progress mt-1 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-medium text-muted">Progreso diario</span>
-                <span className="font-semibold text-primary">{dailyProgressPercent}%</span>
+                <span className={`font-semibold ${isDailyProgressComplete ? "text-success" : "text-primary"}`}>{dailyProgressPercent}%</span>
               </div>
               <ProgressBar value={dailyProgressPercent} total={100} />
             </div>
@@ -657,15 +659,6 @@ export default function TodayQuickActionsClient() {
               </div>
 
               <div className="today-nutrition-layout mb-5">
-                <div className="today-nutrition-ring-wrap shrink-0">
-                  {canRenderNutritionRing ? (
-                    <NutritionRing value={nutritionConsumedKcal} total={nutritionGoalKcal ?? 0} />
-                  ) : (
-                    <div className="today-nutrition-empty-ring flex h-[92px] w-[92px] items-center justify-center rounded-full border">
-                      <span className="text-xs font-semibold text-muted">Sin objetivo</span>
-                    </div>
-                  )}
-                </div>
                 <div className="today-nutrition-copy min-w-0">
                   <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Calorías consumidas</p>
                   <div className="today-nutrition-kcal mt-2">
@@ -674,9 +667,15 @@ export default function TodayQuickActionsClient() {
                     <span className="today-nutrition-kcal-unit">kcal</span>
                   </div>
                   <p className="today-nutrition-meta m-0 mt-3">{nutritionMetaText}</p>
-                  <div className="today-nutrition-status-row mt-3">
-                    <span className="today-nutrition-status-chip">{nutritionStatusLabel}</span>
-                  </div>
+                </div>
+                <div className="today-nutrition-ring-wrap shrink-0">
+                  {canRenderNutritionRing ? (
+                    <NutritionRing value={nutritionConsumedKcal} total={nutritionGoalKcal ?? 0} />
+                  ) : (
+                    <div className="today-nutrition-empty-ring flex h-[72px] w-[72px] items-center justify-center rounded-full border">
+                      <span className="text-xs font-semibold text-muted">Sin objetivo</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -698,14 +697,7 @@ export default function TodayQuickActionsClient() {
                     <span className="font-medium text-muted">Comidas registradas</span>
                     <span className="font-semibold text-primary">{nutritionProgressLabel}</span>
                   </div>
-                  <ProgressBar value={nutritionProgressPercent} total={100} />
-                  <p className="m-0 text-xs text-muted">
-                    {signals.nutritionMealsTotal > 0
-                      ? signals.nutritionMealsLogged > 0
-                        ? "El progreso refleja las comidas reales registradas hoy."
-                        : "Aun no has registrado comidas hoy, pero tu objetivo ya esta listo."
-                      : "Aun no hay comidas planificadas para hoy en tu plan nutricional."}
-                  </p>
+                  <ProgressBar value={nutritionProgressPercent} total={100} className="today-progress-bar--nutrition" />
                 </div>
               )}
 
@@ -717,9 +709,7 @@ export default function TodayQuickActionsClient() {
             <section className="card premium-surface-card today-secondary-card today-checkin-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
               <div className="mb-5 flex items-center gap-3">
                 <div className="today-module-icon flex h-11 w-11 items-center justify-center rounded-xl border">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                  </svg>
+                  <PremiumCheckinIcon width={20} height={20} className="text-primary" />
                 </div>
                 <div>
                   <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Check-in</p>
@@ -734,6 +724,7 @@ export default function TodayQuickActionsClient() {
                 </div>
                 <div className="today-checkin-meta">
                   <p className="m-0 text-xs text-muted">{checkinContext}</p>
+                  {checkinGoalContext ? <p className="m-0 mt-1 text-xs text-muted">{checkinGoalContext}</p> : null}
                 </div>
               </div>
 
