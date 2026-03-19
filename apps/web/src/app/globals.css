@@ -6024,6 +6024,68 @@ html { scroll-behavior: smooth; }
   gap: 12px;
 }
 
+.training-weekly-flow {
+  display: grid;
+  gap: 0;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 86%, transparent);
+  border-radius: var(--surface-card-radius);
+  background: var(--surface-secondary-bg);
+  overflow: hidden;
+}
+
+.training-weekly-section--calendar {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.training-weekly-section--day {
+  margin-top: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  border-top: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.training-week-nav {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.training-week-nav-arrow {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.training-week-nav-center {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 0;
+  text-align: center;
+}
+
+.training-week-nav-center strong {
+  font-size: 0.95rem;
+}
+
+.training-week-nav-center .muted {
+  font-size: 0.76rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 .training-week-strip {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -6200,8 +6262,30 @@ html { scroll-behavior: smooth; }
 }
 
 @media (max-width: 720px) {
+  .training-weekly-section--calendar {
+    padding-bottom: 12px;
+  }
+
+  .training-weekly-section--day {
+    padding-top: 12px;
+  }
+
   .training-week-strip {
     gap: 8px;
+  }
+
+  .training-week-nav {
+    gap: 8px;
+  }
+
+  .training-week-nav-arrow {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .training-week-nav-center .muted {
+    font-size: 0.72rem;
   }
 
   .training-week-pill-icon {
@@ -6922,6 +7006,12 @@ html.theme-dark :focus-visible {
   padding: 8px 4px;
 }
 
+.calendar-range--compact.training-week-nav {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+}
+
 .calendar-range-info {
   display: flex;
   flex-direction: column;
@@ -7470,13 +7560,26 @@ html.theme-dark :focus-visible {
 .page.page-with-tabbar-safe-area.today-page-shell {
   width: min(100%, 1160px);
   margin-inline: auto;
-  gap: 18px;
+  gap: 14px;
   padding-inline: clamp(14px, 3.8vw, 26px);
   padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
 }
 
+.page.page-with-tabbar-safe-area.tracking-page-shell {
+  width: min(100%, 1160px);
+  margin-inline: auto;
+  gap: 14px;
+  padding-inline: clamp(14px, 3.8vw, 26px);
+  padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
+}
+
+.tracking-overview-card {
+  display: grid;
+  gap: 12px;
+}
+
 .today-page-stack {
-  gap: 18px;
+  gap: 14px;
 }
 
 .today-hero-card {
@@ -7506,6 +7609,7 @@ html.theme-dark :focus-visible {
 
 .today-cards-grid {
   align-items: stretch;
+  gap: 12px;
 }
 
 .today-nutrition-card {
@@ -7673,9 +7777,9 @@ html.theme-dark :focus-visible {
 }
 
 .today-nutrition-ring-wrap {
-  width: 70px;
-  min-width: 70px;
-  height: 70px;
+  width: 74px;
+  min-width: 74px;
+  height: 74px;
   justify-self: end;
   align-self: start;
   margin-left: auto;
@@ -7759,13 +7863,19 @@ html.theme-dark :focus-visible {
 
 @media (max-width: 640px) {
   .page.page-with-tabbar-safe-area.today-page-shell {
-    gap: 16px;
+    gap: 12px;
+    padding-inline: 14px;
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
+  }
+
+  .page.page-with-tabbar-safe-area.tracking-page-shell {
+    gap: 12px;
     padding-inline: 14px;
     padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
   }
 
   .today-page-stack {
-    gap: 16px;
+    gap: 12px;
   }
 
   .today-hero-card {
@@ -7784,9 +7894,9 @@ html.theme-dark :focus-visible {
 
   .today-nutrition-ring-wrap {
     margin-inline: 0;
-    width: 70px;
-    min-width: 70px;
-    height: 70px;
+    width: 74px;
+    min-width: 74px;
+    height: 74px;
   }
 
   .today-progress-inset {

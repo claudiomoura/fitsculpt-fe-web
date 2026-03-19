@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
@@ -764,38 +765,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       }
     : null;
 
-  function getStatusClass(value: number, target: number) {
-    const delta = value - target;
-    if (Math.abs(delta) <= 0.5) return "status-exact";
-    return delta < 0 ? "status-under" : "status-over";
-  }
-
-  function getStatusLabel(value: number, target: number) {
-    const delta = value - target;
-    if (Math.abs(delta) <= 0.5) return t("tracking.statusExact");
-    return delta < 0 ? t("tracking.statusUnder") : t("tracking.statusOver");
-  }
-
-  const macroLabels = useMemo(
-    () => ({
-      protein: t("macros.proteinShort"),
-      carbs: t("macros.carbsShort"),
-      fat: t("macros.fatShort"),
-    }),
-    [t]
-  );
-
-  function getMacroBadge(label: string, value: number, target?: number | null) {
-    if (!target) return null;
-    const statusClass = getStatusClass(value, target);
-    return (
-      <span className={`status-pill is-compact ${statusClass}`} key={label}>
-        {label} {value.toFixed(0)}
-        {t("units.grams")}
-      </span>
-    );
-  }
-
   const checkinsInRange = useMemo(() => {
     if (checkins.length === 0) return [];
     const endDate = new Date();
@@ -849,7 +818,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     );
     return Math.min(100, Math.round((uniqueDays.size / 7) * 100));
   }, [checkins]);
-  const latestEnergyCheckin = sortedCheckins.find((entry) => Number.isFinite(entry.energy) && entry.energy > 0);
   const latestNotesCheckin = sortedCheckins.find((entry) => entry.notes?.trim());
   const baseWeight = Number(latestCheckin?.weightKg ?? profile.weightKg ?? 0);
   const hasBaseWeight = Number.isFinite(baseWeight) && baseWeight >= 30 && baseWeight <= 250;
@@ -864,7 +832,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
   if (isTrackingLoading && !trackingLoaded) {
     return (
-      <div className={isCheckinOnly ? "tracking-checkin-only-body premium-page-shell premium-page-shell--compact" : "page page-with-tabbar-safe-area premium-page-shell premium-page-shell--compact"} data-testid="tracking-page-loading">
+      <div className={isCheckinOnly ? "tracking-checkin-only-body premium-page-shell premium-page-shell--compact" : styles.trackingPageContent} data-testid="tracking-page-loading">
         <section className="card premium-fade-up">
           <div className="form-stack">
             <Skeleton className="h-8 w-40" />
@@ -940,6 +908,37 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   const targetSessions = Math.max(1, Number(profile.trainingPreferences.daysPerWeek ?? 3));
   const trainingConsistency = Math.min(100, Math.round((trainingSessions / targetSessions) * 100));
   const workoutsRecent = workoutsSorted.slice(0, 5);
+
+  const checkinTrendData = checkinChart.map((point) => ({
+    date: formatEntryDate(point.date),
+    weight: Number(point.weight.toFixed(1)),
+  }));
+
+  const nutritionTrendData = nutritionInRange.map((entry) => ({
+    date: formatEntryDate(entry.date),
+    calories: Math.round(entry.totals.calories),
+  }));
+
+  const trainingTrendData = (() => {
+    if (workoutsInRange.length === 0) return [] as Array<{ date: string; sessions: number; minutes: number }>;
+
+    const grouped = workoutsInRange.reduce<Record<string, { sessions: number; minutes: number }>>((acc, entry) => {
+      if (!acc[entry.date]) {
+        acc[entry.date] = { sessions: 0, minutes: 0 };
+      }
+      acc[entry.date].sessions += 1;
+      acc[entry.date].minutes += Number(entry.durationMin) || 0;
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, values]) => ({
+        date: formatEntryDate(date),
+        sessions: values.sessions,
+        minutes: values.minutes,
+      }));
+  })();
 
   async function addQuickWeightEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -1134,7 +1133,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   }
 
   return (
-    <div className={isCheckinOnly ? "tracking-checkin-only-body premium-page-shell premium-page-shell--compact" : "page page-with-tabbar-safe-area premium-page-shell premium-page-shell--compact"} data-testid="tracking-page">
+    <div className={isCheckinOnly ? "tracking-checkin-only-body premium-page-shell premium-page-shell--compact" : styles.trackingPageContent} data-testid="tracking-page">
       {actionMessage && (
         <div className="toast" role="status" aria-live="polite">
           {actionMessage}
@@ -1177,7 +1176,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {!isCheckinOnly ? (
-        <section className="card">
+        <section className="card premium-surface-card tracking-overview-card">
           <div className={styles.insightTabs} role="tablist" aria-label={t("tracking.insightsLabel")}>
             {([
               { id: "checkin", label: t("tracking.progressTabCheckin") },
@@ -1200,23 +1199,38 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {progressInsightTab === "checkin" ? (
             <div className={styles.overviewGrid}>
               <div className={styles.leftColumn}>
-                <section className="feature-card">
+                <section className={`feature-card ${styles.primaryChartCard}`}>
                   <h2 className="section-title section-title-sm">{t("tracking.weeklyProgressTitle")}</h2>
-                  {checkinChart.length === 0 ? (
+                  {checkinTrendData.length < 2 ? (
                     <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
                   ) : (
-                    <div style={{ display: "grid", gap: 12 }}>
-                      {checkinChart.map((point, index) => (
-                        <div key={`${point.date}-${index}`} className="info-item">
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                            <strong>{formatEntryDate(point.date)}</strong>
-                            <span className="muted">{point.weight.toFixed(1)} {t("units.kilograms")}</span>
-                          </div>
-                          <div className="tracking-weekly-progress-bar-track">
-                            <div className="tracking-weekly-progress-bar-value" style={{ width: `${point.percent}%` }} />
-                          </div>
-                        </div>
-                      ))}
+                    <div className={styles.chartWrap}>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={checkinTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="tracking-weight-area" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.36} />
+                              <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                          <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} domain={["dataMin - 0.6", "dataMax + 0.6"]} />
+                          <Tooltip
+                            formatter={(value) => {
+                              const numericValue = Number(value ?? 0);
+                              return [`${numericValue.toFixed(1)} ${t("units.kilograms")}`, t("tracking.latestWeightTitle")];
+                            }}
+                            labelFormatter={(label) => String(label)}
+                            contentStyle={{
+                              borderRadius: 12,
+                              border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
+                              background: "var(--bg-card)",
+                            }}
+                          />
+                          <Area type="monotone" dataKey="weight" stroke="var(--accent)" strokeWidth={2.25} fill="url(#tracking-weight-area)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
                     </div>
                   )}
                 </section>
@@ -1236,14 +1250,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 </section>
               </div>
               <aside className={styles.rightColumn}>
-                {latestCheckin ? (
-                  <section className="feature-card">
-                    <h3 className="section-title section-title-sm">{t("tracking.latestWeightTitle")}</h3>
-                    <p className="muted">{t("tracking.latestMetricsHint")}</p>
-                    <strong>{`${latestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}`}</strong>
-                    <span className="muted">{latestCheckin.date}</span>
-                  </section>
-                ) : null}
                 {supportsBodyFat && latestCheckin ? (
                   <section className="feature-card">
                     <h3 className="section-title section-title-sm">{t("tracking.bodyFatPercent")}</h3>
@@ -1256,6 +1262,23 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     <p className="muted">{latestNotesCheckin.notes}</p>
                   </section>
                 ) : null}
+                <section className="feature-card">
+                  <h3 className="section-title section-title-sm">{t("tracking.weightHistoryTitle")}</h3>
+                  {sortedCheckins.length === 0 ? (
+                    <p className="muted">{t("profile.checkinEmpty")}</p>
+                  ) : (
+                    <div style={{ display: "grid", gap: 8 }}>
+                      {sortedCheckins.slice(0, 5).map((entry) => (
+                        <div key={entry.id} className="info-item">
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                            <strong>{formatEntryDate(entry.date)}</strong>
+                            <span className="muted">{entry.weightKg.toFixed(1)} {t("units.kilograms")}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
               </aside>
             </div>
           ) : null}
@@ -1263,6 +1286,36 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {progressInsightTab === "nutrition" ? (
             <div className={styles.overviewGrid}>
               <div className={styles.leftColumn}>
+                <section className={`feature-card ${styles.primaryChartCard}`}>
+                  <h3 className="section-title section-title-sm">{t("tracking.progressComplianceTitle")}</h3>
+                  {nutritionTrendData.length === 0 ? (
+                    <p className="muted">{t("tracking.mealEmpty")}</p>
+                  ) : (
+                    <div className={styles.chartWrap}>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={nutritionTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                          <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                          <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} />
+                          <Tooltip
+                            formatter={(value) => {
+                              const numericValue = Number(value ?? 0);
+                              return [`${Math.round(numericValue)} ${t("units.kcal")}`, t("tracking.progressAverageCalories")];
+                            }}
+                            labelFormatter={(label) => String(label)}
+                            contentStyle={{
+                              borderRadius: 12,
+                              border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
+                              background: "var(--bg-card)",
+                            }}
+                          />
+                          <Bar dataKey="calories" radius={[8, 8, 0, 0]} fill="var(--accent)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </section>
+
                 <section className={styles.metricCards}>
                   <article className="feature-card">
                     <p className="muted">{t("tracking.progressDaysLogged")}</p>
@@ -1277,49 +1330,29 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     <strong>{nutritionDaysLogged > 0 ? `${nutritionAverages.protein.toFixed(0)} ${t("units.grams")}` : "—"}</strong>
                   </article>
                 </section>
-
-                {nutritionDaysLogged === 0 ? (
-                  <p className="muted">{t("tracking.mealEmpty")}</p>
-                ) : (
-                  <section className="feature-card">
-                    <h3 className="section-title section-title-sm">{t("tracking.progressComplianceTitle")}</h3>
-                    <div style={{ display: "grid", gap: 12 }}>
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                          <span className="muted">{t("tracking.progressLoggingLabel")}</span>
-                          <strong>{nutritionLoggingAdherence}%</strong>
-                        </div>
-                        <div className="tracking-weekly-progress-bar-track">
-                          <div className="tracking-weekly-progress-bar-value" style={{ width: `${nutritionLoggingAdherence}%` }} />
-                        </div>
-                      </div>
-                      {nutritionCaloriesTargetAdherence !== null ? (
-                        <div>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                            <span className="muted">{t("tracking.progressCaloriesTargetLabel")}</span>
-                            <strong>{nutritionCaloriesTargetAdherence}%</strong>
-                          </div>
-                          <div className="tracking-weekly-progress-bar-track">
-                            <div className="tracking-weekly-progress-bar-value" style={{ width: `${nutritionCaloriesTargetAdherence}%` }} />
-                          </div>
-                        </div>
-                      ) : null}
-                      {nutritionProteinTargetAdherence !== null ? (
-                        <div>
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                            <span className="muted">{t("tracking.progressProteinTargetLabel")}</span>
-                            <strong>{nutritionProteinTargetAdherence}%</strong>
-                          </div>
-                          <div className="tracking-weekly-progress-bar-track">
-                            <div className="tracking-weekly-progress-bar-value" style={{ width: `${nutritionProteinTargetAdherence}%` }} />
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </section>
-                )}
               </div>
               <aside className={styles.rightColumn}>
+                <section className="feature-card">
+                  <h3 className="section-title section-title-sm">{t("tracking.progressComplianceTitle")}</h3>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                      <span className="muted">{t("tracking.progressLoggingLabel")}</span>
+                      <strong>{nutritionLoggingAdherence}%</strong>
+                    </div>
+                    {nutritionCaloriesTargetAdherence !== null ? (
+                      <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                        <span className="muted">{t("tracking.progressCaloriesTargetLabel")}</span>
+                        <strong>{nutritionCaloriesTargetAdherence}%</strong>
+                      </div>
+                    ) : null}
+                    {nutritionProteinTargetAdherence !== null ? (
+                      <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                        <span className="muted">{t("tracking.progressProteinTargetLabel")}</span>
+                        <strong>{nutritionProteinTargetAdherence}%</strong>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
                 <section className="feature-card">
                   <h3 className="section-title section-title-sm">{t("tracking.progressRecentMeals")}</h3>
                   {nutritionInRange.length === 0 ? (
@@ -1344,6 +1377,39 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {progressInsightTab === "training" ? (
             <div className={styles.overviewGrid}>
               <div className={styles.leftColumn}>
+                <section className={`feature-card ${styles.primaryChartCard}`}>
+                  <h3 className="section-title section-title-sm">{t("tracking.progressSessionTarget")}</h3>
+                  {trainingTrendData.length === 0 ? (
+                    <p className="muted">{t("tracking.workoutEmpty")}</p>
+                  ) : (
+                    <div className={styles.chartWrap}>
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={trainingTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                          <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                          <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={32} allowDecimals={false} />
+                          <Tooltip
+                            formatter={(value, key) => {
+                              const numericValue = Number(value ?? 0);
+                              const metric = key === "sessions" ? t("tracking.progressSessions") : t("tracking.progressTrainingTime");
+                              return [
+                                key === "sessions" ? `${numericValue} ${t("tracking.progressSessions")}` : `${numericValue} min`,
+                                metric,
+                              ];
+                            }}
+                            labelFormatter={(label) => String(label)}
+                            contentStyle={{
+                              borderRadius: 12,
+                              border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
+                              background: "var(--bg-card)",
+                            }}
+                          />
+                          <Bar dataKey="sessions" radius={[8, 8, 0, 0]} fill="var(--accent)" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </section>
                 <section className={styles.metricCards}>
                   <article className="feature-card">
                     <p className="muted">{t("tracking.progressSessions")}</p>
@@ -1362,15 +1428,19 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     <strong>{trainingConsistency}%</strong>
                   </article>
                 </section>
-                <section className="feature-card">
-                  <h3 className="section-title section-title-sm">{t("tracking.progressSessionTarget")}</h3>
-                  <p className="muted">{targetSessions} {t("tracking.progressPerWeek")}</p>
-                  <div className="tracking-weekly-progress-bar-track">
-                    <div className="tracking-weekly-progress-bar-value" style={{ width: `${trainingConsistency}%` }} />
-                  </div>
-                </section>
               </div>
               <aside className={styles.rightColumn}>
+                <section className="feature-card">
+                  <h3 className="section-title section-title-sm">{t("tracking.progressSessionTarget")}</h3>
+                  <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <span className="muted">{t("tracking.progressPerWeek")}</span>
+                    <strong>{targetSessions}</strong>
+                  </div>
+                  <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <span className="muted">{t("tracking.progressConsistency")}</span>
+                    <strong>{trainingConsistency}%</strong>
+                  </div>
+                </section>
                 <section className="feature-card">
                   <h3 className="section-title section-title-sm">{t("tracking.progressRecentWorkouts")}</h3>
                   {workoutsRecent.length === 0 ? (
@@ -1392,70 +1462,6 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               </aside>
             </div>
           ) : null}
-        </section>
-      ) : null}
-
-      {!isCheckinOnly ? (
-        <section className="card premium-fade-up">
-          <div className="section-head">
-            <div>
-              <h2 className="section-title" style={{ fontSize: 20 }}>{t("latestMetricsTitle")}</h2>
-            </div>
-          </div>
-
-          <div className={styles.metricCards}>
-            <article className="feature-card">
-              <p className="muted">{t("tracking.latestWeightTitle")}</p>
-              <strong>{latestCheckin ? `${latestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}` : t("tracking.latestWeightEmpty")}</strong>
-              {latestCheckin ? <span className="muted">{latestCheckin.date}</span> : null}
-            </article>
-            <article className="feature-card">
-              <p className="muted">{t("tracking.latestEnergyTitle")}</p>
-              <strong>{latestEnergyCheckin ? String(latestEnergyCheckin.energy) : t("tracking.latestEnergyEmpty")}</strong>
-            </article>
-            <article className="feature-card">
-              <p className="muted">{t("tracking.latestNotesTitle")}</p>
-              <strong>{latestNotesCheckin ? latestNotesCheckin.notes : t("tracking.latestNotesEmpty")}</strong>
-            </article>
-          </div>
-
-          <div className="inline-actions-sm mt-16">
-              <button type="button" className="btn" onClick={() => router.push("/app/seguimiento/check-in")}>
-                {t("profile.checkinAdd")}
-              </button>
-              <Link className="btn secondary" href="/app/nutricion">
-                {t("tracking.progressTabNutrition")}
-              </Link>
-              <Link className="btn secondary" href="/app/entrenamiento">
-                {t("tracking.progressTabTraining")}
-              </Link>
-          </div>
-
-          <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-            {sortedCheckins.length === 0 ? (
-              <div className="empty-state">
-                <p className="muted">{t("profile.checkinEmpty")}</p>
-              </div>
-            ) : (
-              sortedCheckins.slice(0, 5).map((entry) => (
-                <div key={entry.id} className="feature-card">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <strong>{entry.date}</strong>
-                    <span>
-                      {[
-                        `${entry.weightKg} ${t("units.kilograms")}`,
-                        supportsWaist ? `${entry.waistCm} ${t("units.centimeters")}` : null,
-                        supportsBodyFat ? `${entry.bodyFatPercent}${t("units.percent")}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </div>
-                  {entry.notes ? <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p> : null}
-                </div>
-              ))
-            )}
-          </div>
         </section>
       ) : null}
 

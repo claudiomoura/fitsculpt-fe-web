@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Area, AreaChart, PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
+import {
+  Area,
+  AreaChart,
+  PolarAngleAxis,
+  RadialBar,
+  RadialBarChart,
+  ResponsiveContainer,
+} from "recharts";
 import {
   PremiumCheckinIcon,
   PremiumNutritionIcon,
@@ -16,7 +23,12 @@ import { useAuthEntitlements } from "@/hooks/useAuthEntitlements";
 import { trackEvent } from "@/lib/analytics";
 import { differenceInDays, parseDate, toDateKey } from "@/lib/calendar";
 import { canAccessFeature } from "@/lib/entitlements";
-import type { AuthMeResponse, NutritionPlanDetail, NutritionPlanListItem, TrainingPlanDetail } from "@/lib/types";
+import type {
+  AuthMeResponse,
+  NutritionPlanDetail,
+  NutritionPlanListItem,
+  TrainingPlanDetail,
+} from "@/lib/types";
 import { buildNutritionAdherenceStoreFromMealLog } from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import { TodayEmptyState } from "./TodayEmptyState";
@@ -66,7 +78,18 @@ type TodaySignals = {
 
 type TrackingPayload = {
   checkins?: Array<{ date?: string | null; weightKg?: number | null }>;
-  mealLog?: Array<{ id?: string; date?: string; mealKey?: string; mealType?: string; title?: string; calories?: number; protein?: number; carbs?: number; fats?: number; completedAt?: string }>;
+  mealLog?: Array<{
+    id?: string;
+    date?: string;
+    mealKey?: string;
+    mealType?: string;
+    title?: string;
+    calories?: number;
+    protein?: number;
+    carbs?: number;
+    fats?: number;
+    completedAt?: string;
+  }>;
 };
 
 type ActiveTrainingPlanPayload = {
@@ -86,11 +109,31 @@ type ProgressTone = "low" | "medium" | "high" | "complete";
 
 const integerFormatter = new Intl.NumberFormat("es-ES");
 
-function ProgressBar({ value, total, className = "" }: { value: number; total: number; className?: string }) {
-  const width = Math.min(100, Math.max(0, total > 0 ? Math.round((value / total) * 100) : 0));
-  const tone: ProgressTone = width >= 100 ? "complete" : width >= 70 ? "high" : width >= 30 ? "medium" : "low";
+function ProgressBar({
+  value,
+  total,
+  className = "",
+}: {
+  value: number;
+  total: number;
+  className?: string;
+}) {
+  const width = Math.min(
+    100,
+    Math.max(0, total > 0 ? Math.round((value / total) * 100) : 0),
+  );
+  const tone: ProgressTone =
+    width >= 100
+      ? "complete"
+      : width >= 70
+        ? "high"
+        : width >= 30
+          ? "medium"
+          : "low";
   return (
-    <div className={`today-progress-bar h-2 w-full overflow-hidden rounded-full ${className}`}>
+    <div
+      className={`today-progress-bar h-2 w-full overflow-hidden rounded-full ${className}`}
+    >
       <div
         className={`today-progress-bar-fill today-progress-bar-fill--${tone} h-full rounded-full transition-all`}
         style={{ width: `${width}%`, minWidth: width > 0 ? 8 : 0 }}
@@ -99,13 +142,7 @@ function ProgressBar({ value, total, className = "" }: { value: number; total: n
   );
 }
 
-function NutritionRing({
-  value,
-  total,
-}: {
-  value: number;
-  total: number;
-}) {
+function NutritionRing({ value, total }: { value: number; total: number }) {
   const safeValue = Math.max(0, Math.round(value));
   const safeTarget = Math.max(1, Math.round(total));
   const progress = Math.max(0, Math.min(1, safeValue / safeTarget));
@@ -114,22 +151,27 @@ function NutritionRing({
 
   return (
     <div
-      className={`today-nutrition-ring today-nutrition-ring--${progress === 0 ? "zero" : "ready"} relative flex h-[64px] w-[64px] items-center justify-center rounded-full`}
+      className={`today-nutrition-ring today-nutrition-ring--${progress === 0 ? "zero" : "ready"} relative flex h-[70px] w-[70px] items-center justify-center rounded-full`}
       aria-label={`${safeValue} de ${safeTarget} kcal`}
     >
       <RadialBarChart
-        width={64}
-        height={64}
+        width={100}
+        height={100}
         cx="50%"
         cy="50%"
         innerRadius="68%"
         outerRadius="100%"
-        barSize={6}
+        barSize={7}
         startAngle={90}
         endAngle={-270}
         data={chartData}
       >
-        <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+        <PolarAngleAxis
+          type="number"
+          domain={[0, 100]}
+          angleAxisId={0}
+          tick={false}
+        />
         <RadialBar
           dataKey="value"
           background={{ fill: "var(--today-donut-track)" }}
@@ -138,24 +180,44 @@ function NutritionRing({
           isAnimationActive={false}
         />
       </RadialBarChart>
-      <div className="today-nutrition-ring-center pointer-events-none absolute left-1/2 top-1/2 flex h-[48px] w-[48px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border">
-        <strong className="text-[0.76rem] font-semibold leading-none text-primary">{percent}%</strong>
+      <div className="today-nutrition-ring-center pointer-events-none absolute left-1/2 top-1/2 flex h-[52px] w-[52px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border">
+        <strong className="text-[0.76rem] font-semibold leading-none text-primary">
+          {percent}%
+        </strong>
       </div>
     </div>
   );
 }
 
-function CheckinTrendChart({ points }: { points: Array<{ label: string; weightKg: number }> }) {
+function CheckinTrendChart({
+  points,
+}: {
+  points: Array<{ label: string; weightKg: number }>;
+}) {
   if (points.length < 2) return null;
 
   return (
-    <div className="today-checkin-chart" aria-label="Tendencia de peso reciente">
+    <div
+      className="today-checkin-chart"
+      aria-label="Tendencia de peso reciente"
+    >
       <ResponsiveContainer width="100%" height={72}>
-        <AreaChart data={points} margin={{ top: 6, right: 2, left: 2, bottom: 0 }}>
+        <AreaChart
+          data={points}
+          margin={{ top: 6, right: 2, left: 2, bottom: 0 }}
+        >
           <defs>
             <linearGradient id="today-checkin-area" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--today-donut-fill)" stopOpacity={0.42} />
-              <stop offset="100%" stopColor="var(--today-donut-fill)" stopOpacity={0} />
+              <stop
+                offset="0%"
+                stopColor="var(--today-donut-fill)"
+                stopOpacity={0.42}
+              />
+              <stop
+                offset="100%"
+                stopColor="var(--today-donut-fill)"
+                stopOpacity={0}
+              />
             </linearGradient>
           </defs>
           <Area
@@ -178,7 +240,10 @@ function isPositiveNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-const findTodayPlanDay = <T extends { date?: string }>(days: T[], startDate?: string | null) => {
+const findTodayPlanDay = <T extends { date?: string }>(
+  days: T[],
+  startDate?: string | null,
+) => {
   const todayKey = toDateKey(new Date());
   const dayFromDate = days.find((day) => {
     const parsed = parseDate(day.date);
@@ -202,7 +267,10 @@ const getLatestWeight = (payload?: TrackingPayload | null) => {
       ) ?? [];
 
   if (!validEntries.length) return null;
-  return Number(validEntries.sort((a, b) => b.parsed.getTime() - a.parsed.getTime())[0]?.entry.weightKg);
+  return Number(
+    validEntries.sort((a, b) => b.parsed.getTime() - a.parsed.getTime())[0]
+      ?.entry.weightKg,
+  );
 };
 
 const getPreviousWeight = (payload?: TrackingPayload | null) => {
@@ -226,7 +294,10 @@ const getCheckinTrend = (payload?: TrackingPayload | null) => {
         parsed: parseDate(entry.date),
         weightKg: Number(entry.weightKg),
       }))
-      .filter((item): item is { parsed: Date; weightKg: number } => item.parsed !== null && Number.isFinite(item.weightKg))
+      .filter(
+        (item): item is { parsed: Date; weightKg: number } =>
+          item.parsed !== null && Number.isFinite(item.weightKg),
+      )
       .sort((a, b) => a.parsed.getTime() - b.parsed.getTime())
       .slice(-8)
       .map((item) => ({
@@ -238,7 +309,10 @@ const getCheckinTrend = (payload?: TrackingPayload | null) => {
 };
 
 const getStreakDays = (payload?: TrackingPayload | null) => {
-  const rawDates = payload?.checkins?.map((entry) => parseDate(entry.date)).filter((date): date is Date => date !== null) ?? [];
+  const rawDates =
+    payload?.checkins
+      ?.map((entry) => parseDate(entry.date))
+      .filter((date): date is Date => date !== null) ?? [];
   if (!rawDates.length) return 0;
   const keys = new Set(rawDates.map((date) => toDateKey(date)));
   const cursor = new Date();
@@ -312,16 +386,33 @@ export default function TodayQuickActionsClient() {
     setStatus("loading");
 
     try {
-      const [trackingResponse, activeTrainingResponse, nutritionListResponse, authMeResponse, profileResponse, workoutsResponse] = await Promise.all([
+      const [
+        trackingResponse,
+        activeTrainingResponse,
+        nutritionListResponse,
+        authMeResponse,
+        profileResponse,
+        workoutsResponse,
+      ] = await Promise.all([
         fetch("/api/tracking", { cache: "no-store", credentials: "include" }),
-        fetch("/api/training-plans/active?includeDays=1", { cache: "no-store", credentials: "include" }),
-        fetch("/api/nutrition-plans?limit=1", { cache: "no-store", credentials: "include" }),
+        fetch("/api/training-plans/active?includeDays=1", {
+          cache: "no-store",
+          credentials: "include",
+        }),
+        fetch("/api/nutrition-plans?limit=1", {
+          cache: "no-store",
+          credentials: "include",
+        }),
         fetch("/api/auth/me", { cache: "no-store", credentials: "include" }),
         fetch("/api/profile", { cache: "no-store", credentials: "include" }),
         fetch("/api/workouts", { cache: "no-store", credentials: "include" }),
       ]);
 
-      if (!trackingResponse.ok && !activeTrainingResponse.ok && !nutritionListResponse.ok) {
+      if (
+        !trackingResponse.ok &&
+        !activeTrainingResponse.ok &&
+        !nutritionListResponse.ok
+      ) {
         setStatus("error");
         return;
       }
@@ -377,59 +468,101 @@ export default function TodayQuickActionsClient() {
           weightKg?: number | null;
           goalWeightKg?: number | null;
         };
-        nextSignals.startWeightKg = isPositiveNumber(profile.weightKg) ? profile.weightKg : null;
-        nextSignals.goalWeightKg = isPositiveNumber(profile.goalWeightKg) ? profile.goalWeightKg : null;
+        nextSignals.startWeightKg = isPositiveNumber(profile.weightKg)
+          ? profile.weightKg
+          : null;
+        nextSignals.goalWeightKg = isPositiveNumber(profile.goalWeightKg)
+          ? profile.goalWeightKg
+          : null;
       }
 
       if (trackingResponse.ok) {
         trackingPayload = (await trackingResponse.json()) as TrackingPayload;
-        nextSignals.checkinStatus = (trackingPayload.checkins?.length ?? 0) > 0 ? "ready" : "empty";
+        nextSignals.checkinStatus =
+          (trackingPayload.checkins?.length ?? 0) > 0 ? "ready" : "empty";
         nextSignals.checkinTrend = getCheckinTrend(trackingPayload);
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
         nextSignals.previousWeightKg = getPreviousWeight(trackingPayload);
         const earliestCheckin = [...(trackingPayload.checkins ?? [])]
-          .filter((entry) => isPositiveNumber(entry.weightKg) && typeof entry.date === "string")
+          .filter(
+            (entry) =>
+              isPositiveNumber(entry.weightKg) &&
+              typeof entry.date === "string",
+          )
           .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
         if (isPositiveNumber(earliestCheckin?.weightKg)) {
           nextSignals.startWeightKg = earliestCheckin.weightKg;
         }
         nextSignals.streakDays = getStreakDays(trackingPayload);
-        const todaysMealLog = (trackingPayload.mealLog ?? []).filter((entry) => entry.date === todayDateKey);
+        const todaysMealLog = (trackingPayload.mealLog ?? []).filter(
+          (entry) => entry.date === todayDateKey,
+        );
         nextSignals.nutritionMealsLogged = todaysMealLog.length;
         nextSignals.nutritionConsumedCalories = Math.round(
-          todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.calories) ? Number(entry.calories) : 0), 0),
+          todaysMealLog.reduce(
+            (sum, entry) =>
+              sum +
+              (Number.isFinite(entry.calories) ? Number(entry.calories) : 0),
+            0,
+          ),
         );
         nextSignals.nutritionProteinG = Math.round(
-          todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.protein) ? Number(entry.protein) : 0), 0),
+          todaysMealLog.reduce(
+            (sum, entry) =>
+              sum +
+              (Number.isFinite(entry.protein) ? Number(entry.protein) : 0),
+            0,
+          ),
         );
         nextSignals.nutritionCarbsG = Math.round(
-          todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.carbs) ? Number(entry.carbs) : 0), 0),
+          todaysMealLog.reduce(
+            (sum, entry) =>
+              sum + (Number.isFinite(entry.carbs) ? Number(entry.carbs) : 0),
+            0,
+          ),
         );
         nextSignals.nutritionFatsG = Math.round(
-          todaysMealLog.reduce((sum, entry) => sum + (Number.isFinite(entry.fats) ? Number(entry.fats) : 0), 0),
+          todaysMealLog.reduce(
+            (sum, entry) =>
+              sum + (Number.isFinite(entry.fats) ? Number(entry.fats) : 0),
+            0,
+          ),
         );
         nextSignals.nutritionReady = todaysMealLog.length > 0;
       } else {
         nextSignals.checkinStatus = "error";
       }
 
-      if (!isPositiveNumber(nextSignals.currentWeightKg) && isPositiveNumber(nextSignals.startWeightKg)) {
+      if (
+        !isPositiveNumber(nextSignals.currentWeightKg) &&
+        isPositiveNumber(nextSignals.startWeightKg)
+      ) {
         nextSignals.currentWeightKg = nextSignals.startWeightKg;
       }
 
       if (activeTrainingResponse.ok) {
-        const activeTraining = (await activeTrainingResponse.json()) as ActiveTrainingPlanPayload;
+        const activeTraining =
+          (await activeTrainingResponse.json()) as ActiveTrainingPlanPayload;
         const trainingPlan = activeTraining.plan;
         if (trainingPlan?.days?.length) {
-          const trainingDay = findTodayPlanDay(trainingPlan.days, trainingPlan.startDate);
+          const trainingDay = findTodayPlanDay(
+            trainingPlan.days,
+            trainingPlan.startDate,
+          );
           if (trainingDay && (trainingDay.exercises?.length ?? 0) > 0) {
             nextSignals.trainingState = "workout";
             nextSignals.trainingStatus = "ready";
-            nextSignals.trainingName = trainingDay.label || trainingDay.focus || trainingPlan.title;
-            nextSignals.trainingDuration = Number.isFinite(trainingDay.duration) ? Number(trainingDay.duration) : null;
-            nextSignals.trainingExerciseCount = trainingDay.exercises?.length ?? 0;
-            nextSignals.trainingDayKey = trainingDay.date ? toDateKey(parseDate(trainingDay.date) ?? new Date()) : toDateKey(new Date());
+            nextSignals.trainingName =
+              trainingDay.label || trainingDay.focus || trainingPlan.title;
+            nextSignals.trainingDuration = Number.isFinite(trainingDay.duration)
+              ? Number(trainingDay.duration)
+              : null;
+            nextSignals.trainingExerciseCount =
+              trainingDay.exercises?.length ?? 0;
+            nextSignals.trainingDayKey = trainingDay.date
+              ? toDateKey(parseDate(trainingDay.date) ?? new Date())
+              : toDateKey(new Date());
           } else {
             nextSignals.trainingState = "rest";
             nextSignals.trainingStatus = "ready";
@@ -442,40 +575,110 @@ export default function TodayQuickActionsClient() {
       }
 
       if (nutritionListResponse.ok) {
-        const nutritionList = (await nutritionListResponse.json()) as NutritionPlansPayload;
+        const nutritionList =
+          (await nutritionListResponse.json()) as NutritionPlansPayload;
         const nutritionPlanId = nutritionList.items?.[0]?.id;
         if (nutritionPlanId) {
-          const nutritionDetailResponse = await fetch(`/api/nutrition-plans/${nutritionPlanId}`, {
-            cache: "no-store",
-            credentials: "include",
-          });
+          const nutritionDetailResponse = await fetch(
+            `/api/nutrition-plans/${nutritionPlanId}`,
+            {
+              cache: "no-store",
+              credentials: "include",
+            },
+          );
           if (nutritionDetailResponse.ok) {
-            const nutritionDetail = (await nutritionDetailResponse.json()) as NutritionPlanDetail;
-            const nutritionDay = findTodayPlanDay(nutritionDetail.days, nutritionDetail.startDate);
-            nextSignals.nutritionTargetCalories = Number.isFinite(nutritionDetail.dailyCalories)
+            const nutritionDetail =
+              (await nutritionDetailResponse.json()) as NutritionPlanDetail;
+            const nutritionDay = findTodayPlanDay(
+              nutritionDetail.days,
+              nutritionDetail.startDate,
+            );
+            nextSignals.nutritionTargetCalories = Number.isFinite(
+              nutritionDetail.dailyCalories,
+            )
               ? nutritionDetail.dailyCalories
               : null;
             if (nutritionDay?.meals?.length) {
               nextSignals.nutritionStatus = "ready";
-              const nutritionDayKey = nutritionDay.date ? toDateKey(parseDate(nutritionDay.date) ?? new Date()) : toDateKey(new Date());
-              const adherenceStore = buildNutritionAdherenceStoreFromMealLog(trackingPayload.mealLog ?? []);
-              const consumedMealKeys = new Set(adherenceStore[nutritionDayKey] ?? []);
+              const nutritionDayKey = nutritionDay.date
+                ? toDateKey(parseDate(nutritionDay.date) ?? new Date())
+                : toDateKey(new Date());
+              const adherenceStore = buildNutritionAdherenceStoreFromMealLog(
+                trackingPayload.mealLog ?? [],
+              );
+              const consumedMealKeys = new Set(
+                adherenceStore[nutritionDayKey] ?? [],
+              );
               nextSignals.nutritionMealsTotal = nutritionDay.meals.length;
               if (nextSignals.nutritionMealsLogged === 0) {
-                nextSignals.nutritionMealsLogged = nutritionDay.meals.reduce((count, meal, index) => count + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? 1 : 0), 0);
+                nextSignals.nutritionMealsLogged = nutritionDay.meals.reduce(
+                  (count, meal, index) =>
+                    count +
+                    (consumedMealKeys.has(
+                      getNutritionMealKey(meal, nutritionDayKey, index),
+                    )
+                      ? 1
+                      : 0),
+                  0,
+                );
                 nextSignals.nutritionConsumedCalories = Math.round(
-                  nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.calories) ? meal.calories : 0) : 0), 0),
+                  nutritionDay.meals.reduce(
+                    (sum, meal, index) =>
+                      sum +
+                      (consumedMealKeys.has(
+                        getNutritionMealKey(meal, nutritionDayKey, index),
+                      )
+                        ? Number.isFinite(meal.calories)
+                          ? meal.calories
+                          : 0
+                        : 0),
+                    0,
+                  ),
                 );
                 nextSignals.nutritionProteinG = Math.round(
-                  nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.protein) ? meal.protein : 0) : 0), 0),
+                  nutritionDay.meals.reduce(
+                    (sum, meal, index) =>
+                      sum +
+                      (consumedMealKeys.has(
+                        getNutritionMealKey(meal, nutritionDayKey, index),
+                      )
+                        ? Number.isFinite(meal.protein)
+                          ? meal.protein
+                          : 0
+                        : 0),
+                    0,
+                  ),
                 );
                 nextSignals.nutritionCarbsG = Math.round(
-                  nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.carbs) ? meal.carbs : 0) : 0), 0),
+                  nutritionDay.meals.reduce(
+                    (sum, meal, index) =>
+                      sum +
+                      (consumedMealKeys.has(
+                        getNutritionMealKey(meal, nutritionDayKey, index),
+                      )
+                        ? Number.isFinite(meal.carbs)
+                          ? meal.carbs
+                          : 0
+                        : 0),
+                    0,
+                  ),
                 );
                 nextSignals.nutritionFatsG = Math.round(
-                  nutritionDay.meals.reduce((sum, meal, index) => sum + (consumedMealKeys.has(getNutritionMealKey(meal, nutritionDayKey, index)) ? (Number.isFinite(meal.fats) ? meal.fats : 0) : 0), 0),
+                  nutritionDay.meals.reduce(
+                    (sum, meal, index) =>
+                      sum +
+                      (consumedMealKeys.has(
+                        getNutritionMealKey(meal, nutritionDayKey, index),
+                      )
+                        ? Number.isFinite(meal.fats)
+                          ? meal.fats
+                          : 0
+                        : 0),
+                    0,
+                  ),
                 );
-                nextSignals.nutritionReady = nextSignals.nutritionMealsLogged > 0;
+                nextSignals.nutritionReady =
+                  nextSignals.nutritionMealsLogged > 0;
               }
             } else {
               nextSignals.nutritionStatus = "empty";
@@ -492,10 +695,14 @@ export default function TodayQuickActionsClient() {
       }
 
       if (workoutsResponse.ok) {
-        const workoutsPayload = (await workoutsResponse.json()) as WorkoutLookupItem[];
+        const workoutsPayload =
+          (await workoutsResponse.json()) as WorkoutLookupItem[];
         const targetDayKey = nextSignals.trainingDayKey ?? todayDateKey;
         const matchedWorkout = Array.isArray(workoutsPayload)
-          ? workoutsPayload.find((workout) => normalizeWorkoutDateKey(workout.scheduledAt) === targetDayKey)
+          ? workoutsPayload.find(
+              (workout) =>
+                normalizeWorkoutDateKey(workout.scheduledAt) === targetDayKey,
+            )
           : undefined;
         nextSignals.todayWorkoutId = matchedWorkout?.id ?? null;
       }
@@ -524,17 +731,35 @@ export default function TodayQuickActionsClient() {
   const billingHref = `${billingRoute}?returnTo=${encodeURIComponent(currentRoute)}`;
 
   const completedGoals = useMemo(
-    () => [signals.trainingState === "workout", signals.nutritionReady, signals.checkinDoneThisWeek].filter(Boolean).length,
-    [signals.checkinDoneThisWeek, signals.nutritionReady, signals.trainingState],
+    () =>
+      [
+        signals.trainingState === "workout",
+        signals.nutritionReady,
+        signals.checkinDoneThisWeek,
+      ].filter(Boolean).length,
+    [
+      signals.checkinDoneThisWeek,
+      signals.nutritionReady,
+      signals.trainingState,
+    ],
   );
   const dailyProgressPercent = Math.round((completedGoals / 3) * 100);
   const checkinDeltaKg =
-    typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) && typeof signals.previousWeightKg === "number" && Number.isFinite(signals.previousWeightKg)
+    typeof signals.currentWeightKg === "number" &&
+    Number.isFinite(signals.currentWeightKg) &&
+    typeof signals.previousWeightKg === "number" &&
+    Number.isFinite(signals.previousWeightKg)
       ? Number((signals.currentWeightKg - signals.previousWeightKg).toFixed(1))
       : null;
-  const aiLockReason = signals.aiTokenBalance <= 0 ? "Sin tokens" : !hasAiAccess ? "Plan bloqueado" : null;
+  const aiLockReason =
+    signals.aiTokenBalance <= 0
+      ? "Sin tokens"
+      : !hasAiAccess
+        ? "Plan bloqueado"
+        : null;
   const nutritionGoalKcal =
-    typeof signals.nutritionTargetCalories === "number" && Number.isFinite(signals.nutritionTargetCalories)
+    typeof signals.nutritionTargetCalories === "number" &&
+    Number.isFinite(signals.nutritionTargetCalories)
       ? Math.max(0, Math.round(signals.nutritionTargetCalories))
       : null;
   const checkinStatusLabel =
@@ -551,8 +776,14 @@ export default function TodayQuickActionsClient() {
       ? "--"
       : `${Math.max(0, signals.nutritionConsumedCalories)}`;
   const nutritionRemainingCalories =
-    typeof signals.nutritionTargetCalories === "number" && Number.isFinite(signals.nutritionTargetCalories)
-      ? Math.max(0, Math.round(signals.nutritionTargetCalories - signals.nutritionConsumedCalories))
+    typeof signals.nutritionTargetCalories === "number" &&
+    Number.isFinite(signals.nutritionTargetCalories)
+      ? Math.max(
+          0,
+          Math.round(
+            signals.nutritionTargetCalories - signals.nutritionConsumedCalories,
+          ),
+        )
       : null;
   const nutritionMetaText =
     signals.nutritionStatus === "error"
@@ -560,19 +791,41 @@ export default function TodayQuickActionsClient() {
       : nutritionRemainingCalories !== null
         ? `${integerFormatter.format(nutritionRemainingCalories)} kcal restantes`
         : "Sin objetivo calórico";
-  const canRenderNutritionRing = typeof nutritionGoalKcal === "number" && nutritionGoalKcal > 0;
-  const nutritionConsumedKcal = Math.max(0, Math.round(signals.nutritionConsumedCalories));
+  const canRenderNutritionRing =
+    typeof nutritionGoalKcal === "number" && nutritionGoalKcal > 0;
+  const nutritionConsumedKcal = Math.max(
+    0,
+    Math.round(signals.nutritionConsumedCalories),
+  );
   const nutritionSummaryValue = integerFormatter.format(nutritionConsumedKcal);
-  const nutritionSummaryTarget = nutritionGoalKcal !== null ? integerFormatter.format(nutritionGoalKcal) : null;
-  const nutritionProgressLabel = signals.nutritionMealsTotal > 0 ? `${signals.nutritionMealsLogged}/${signals.nutritionMealsTotal} comidas` : "Sin comidas planificadas";
-  const nutritionCardTone = signals.nutritionStatus === "error" ? "error" : canRenderNutritionRing ? "ready" : "disabled";
-  const checkinMainWeight = typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) ? signals.currentWeightKg.toFixed(1) : "--";
+  const nutritionSummaryTarget =
+    nutritionGoalKcal !== null
+      ? integerFormatter.format(nutritionGoalKcal)
+      : null;
+  const nutritionProgressLabel =
+    signals.nutritionMealsTotal > 0
+      ? `${signals.nutritionMealsLogged}/${signals.nutritionMealsTotal} comidas`
+      : "Sin comidas planificadas";
+  const nutritionCardTone =
+    signals.nutritionStatus === "error"
+      ? "error"
+      : canRenderNutritionRing
+        ? "ready"
+        : "disabled";
+  const checkinMainWeight =
+    typeof signals.currentWeightKg === "number" &&
+    Number.isFinite(signals.currentWeightKg)
+      ? signals.currentWeightKg.toFixed(1)
+      : "--";
   const checkinContext =
     checkinDeltaKg === null
       ? checkinStatusLabel
       : `${checkinDeltaKg > 0 ? "+" : ""}${checkinDeltaKg.toFixed(1)} kg vs último check-in`;
   const checkinGoalGapKg =
-    typeof signals.currentWeightKg === "number" && Number.isFinite(signals.currentWeightKg) && typeof signals.goalWeightKg === "number" && Number.isFinite(signals.goalWeightKg)
+    typeof signals.currentWeightKg === "number" &&
+    Number.isFinite(signals.currentWeightKg) &&
+    typeof signals.goalWeightKg === "number" &&
+    Number.isFinite(signals.goalWeightKg)
       ? Number((signals.currentWeightKg - signals.goalWeightKg).toFixed(1))
       : null;
   const checkinGoalContext =
@@ -584,18 +837,28 @@ export default function TodayQuickActionsClient() {
           ? `${Math.abs(checkinGoalGapKg).toFixed(1)} kg por encima de tu objetivo`
           : `${Math.abs(checkinGoalGapKg).toFixed(1)} kg por debajo de tu objetivo`;
 
-  const showEmptyBanner = status === "success" && signals.trainingState === "no-plan" && !signals.nutritionReady && !signals.checkinDoneThisWeek;
-  const canStartTodayWorkout = signals.trainingState === "workout" && Boolean(signals.todayWorkoutId);
+  const showEmptyBanner =
+    status === "success" &&
+    signals.trainingState === "no-plan" &&
+    !signals.nutritionReady &&
+    !signals.checkinDoneThisWeek;
+  const canStartTodayWorkout =
+    signals.trainingState === "workout" && Boolean(signals.todayWorkoutId);
   const isDailyProgressComplete = dailyProgressPercent >= 100;
   const trainingMeta =
     signals.trainingState === "workout"
-      ? [signals.trainingDuration ? `${signals.trainingDuration} min` : null, `${signals.trainingExerciseCount} ejercicios hoy`]
+      ? [
+          signals.trainingDuration ? `${signals.trainingDuration} min` : null,
+          `${signals.trainingExerciseCount} ejercicios hoy`,
+        ]
           .filter(Boolean)
           .join(" · ")
       : signals.trainingState === "rest"
         ? "Hoy toca recuperación"
         : t("today.trainingStateNoPlan");
-  const todayTrainingHref = signals.todayWorkoutId ? `/app/entrenamiento/${encodeURIComponent(signals.todayWorkoutId)}/start` : trainingRoute;
+  const todayTrainingHref = signals.todayWorkoutId
+    ? `/app/entrenamiento/${encodeURIComponent(signals.todayWorkoutId)}/start`
+    : trainingRoute;
   const primaryActionLabel =
     signals.trainingState === "rest"
       ? "Ver semana"
@@ -612,26 +875,45 @@ export default function TodayQuickActionsClient() {
       return;
     }
     if (!signals.hasTrainingAccess) {
-      trackEvent("today_cta_click", { target: "billing", origin: "today_training", returnTo: currentRoute });
+      trackEvent("today_cta_click", {
+        target: "billing",
+        origin: "today_training",
+        returnTo: currentRoute,
+      });
       router.push(billingHref);
       return;
     }
-    trackEvent("training_start_clicked", { target: "training", origin: "today" });
+    trackEvent("training_start_clicked", {
+      target: "training",
+      origin: "today",
+    });
     trackEvent("workout_started", { target: "training", origin: "today" });
-    router.push(signals.trainingState === "workout" ? todayTrainingHref : trainingRoute);
+    router.push(
+      signals.trainingState === "workout" ? todayTrainingHref : trainingRoute,
+    );
   };
 
   return (
     <div className="today-page-stack flex flex-col gap-4 pb-12">
       <header className="flex items-start justify-between gap-3 premium-page-header">
         <div className="min-w-0">
-          <h1 className="m-0 text-[1.58rem] font-bold leading-tight text-primary">Buenos días, {userName}</h1>
-          <p className="m-0 mt-1 text-sm text-muted">Tu enfoque de hoy en 3 acciones.</p>
+          <h1 className="m-0 text-[1.58rem] font-bold leading-tight text-primary">
+            Buenos días, {userName}
+          </h1>
+          <p className="m-0 mt-1 text-sm text-muted">
+            Tu enfoque de hoy en 3 acciones.
+          </p>
         </div>
       </header>
 
       {status === "loading" ? <TodaySkeleton /> : null}
-      {status === "error" ? <TodayErrorState message={t("today.hubErrorMessage")} retryLabel={t("ui.retry")} onRetry={() => void loadTodaySignals()} /> : null}
+      {status === "error" ? (
+        <TodayErrorState
+          message={t("today.hubErrorMessage")}
+          retryLabel={t("ui.retry")}
+          onRetry={() => void loadTodaySignals()}
+        />
+      ) : null}
 
       {status === "success" ? (
         <>
@@ -639,58 +921,125 @@ export default function TodayQuickActionsClient() {
             <section className="card premium-inline-banner premium-success-surface premium-fade-up">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="m-0 text-sm font-semibold text-primary">Check-in guardado</p>
-                  <p className="m-0 mt-1 text-sm text-muted">Tu progreso de hoy ya se ha actualizado con tus métricas reales.</p>
+                  <p className="m-0 text-sm font-semibold text-primary">
+                    Check-in guardado
+                  </p>
+                  <p className="m-0 mt-1 text-sm text-muted">
+                    Tu progreso de hoy ya se ha actualizado con tus métricas
+                    reales.
+                  </p>
                 </div>
-                <ButtonLink as={Link} href="/app/seguimiento" variant="secondary" className="fit-content">
+                <ButtonLink
+                  as={Link}
+                  href="/app/seguimiento"
+                  variant="secondary"
+                  className="fit-content"
+                >
                   Ver progreso
                 </ButtonLink>
               </div>
             </section>
           ) : null}
-          {showEmptyBanner ? <TodayEmptyState description={t("today.hubEmptyDescription")} ctaLabel={t("today.hubEmptyCta")} href={trainingRoute} /> : null}
+          {showEmptyBanner ? (
+            <TodayEmptyState
+              description={t("today.hubEmptyDescription")}
+              ctaLabel={t("today.hubEmptyCta")}
+              href={trainingRoute}
+            />
+          ) : null}
 
-          <section className="card premium-hero-card today-hero-card premium-fade-up p-5 sm:p-6" data-testid="today-action-card-primary">
+          <section
+            className="card premium-hero-card today-hero-card premium-fade-up p-5 sm:p-6"
+            data-testid="today-action-card-primary"
+          >
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Acción principal de hoy</p>
-                <h2 className="m-0 mt-2 text-[1.95rem] font-semibold leading-tight text-primary">{signals.trainingState === "workout" ? signals.trainingName : signals.trainingState === "rest" ? "Día de recuperación" : "Configura tu plan"}</h2>
-                <p className="today-hero-meta m-0 mt-3 text-sm text-muted">{trainingMeta}</p>
-                {signals.trainingState === "workout" && !canStartTodayWorkout ? (
-                  <p className="m-0 mt-2 text-xs text-muted">Aun no hay sesión disponible para hoy.</p>
+                <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                  Acción principal de hoy
+                </p>
+                <h2 className="m-0 mt-2 text-[1.95rem] font-semibold leading-tight text-primary">
+                  {signals.trainingState === "workout"
+                    ? signals.trainingName
+                    : signals.trainingState === "rest"
+                      ? "Día de recuperación"
+                      : "Configura tu plan"}
+                </h2>
+                <p className="today-hero-meta m-0 mt-3 text-sm text-muted">
+                  {trainingMeta}
+                </p>
+                {signals.trainingState === "workout" &&
+                !canStartTodayWorkout ? (
+                  <p className="m-0 mt-2 text-xs text-muted">
+                    Aun no hay sesión disponible para hoy.
+                  </p>
                 ) : null}
-                {signals.trainingStatus === "error" ? <p className="m-0 mt-2 text-xs text-danger">No se pudo cargar tu sesión de hoy.</p> : null}
+                {signals.trainingStatus === "error" ? (
+                  <p className="m-0 mt-2 text-xs text-danger">
+                    No se pudo cargar tu sesión de hoy.
+                  </p>
+                ) : null}
               </div>
               <div className="today-hero-icon flex h-12 w-12 items-center justify-center rounded-2xl border">
-                <PremiumWorkoutIcon width={24} height={24} className="text-primary" />
+                <PremiumWorkoutIcon
+                  width={24}
+                  height={24}
+                  className="text-primary"
+                />
               </div>
             </div>
 
-            <div className={`today-progress-inset today-hero-progress mt-1 space-y-2 ${isDailyProgressComplete ? "today-hero-progress--complete" : ""}`}>
+            <div
+              className={`today-progress-inset today-hero-progress mt-1 space-y-2 ${isDailyProgressComplete ? "today-hero-progress--complete" : ""}`}
+            >
               <div className="flex items-center justify-between text-xs">
                 <span className="font-medium text-muted">Progreso diario</span>
-                <span className={`font-semibold today-hero-progress-value ${isDailyProgressComplete ? "today-hero-progress-value--complete" : ""}`}>{dailyProgressPercent}%</span>
+                <span
+                  className={`font-semibold today-hero-progress-value ${isDailyProgressComplete ? "today-hero-progress-value--complete" : ""}`}
+                >
+                  {dailyProgressPercent}%
+                </span>
               </div>
               <ProgressBar value={dailyProgressPercent} total={100} />
             </div>
 
             {signals.trainingState === "no-plan" ? (
               <div className="mt-4 space-y-2">
-                <Button className="flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction}>
+                <Button
+                  className="flex h-12 w-full rounded-xl font-semibold"
+                  onClick={handlePrimaryTrainingAction}
+                >
                   {primaryActionLabel}
                 </Button>
-                <Button variant="ghost" className="flex h-10 w-full rounded-xl text-sm font-medium" disabled={!hasAiAccess} onClick={() => hasAiAccess && router.push(aiPlanRoute)}>
+                <Button
+                  variant="ghost"
+                  className="flex h-10 w-full rounded-xl text-sm font-medium"
+                  disabled={!hasAiAccess}
+                  onClick={() => hasAiAccess && router.push(aiPlanRoute)}
+                >
                   {t("today.trainingAiCta")}
                 </Button>
-                {aiLockReason ? <p className="m-0 text-xs text-muted">{aiLockReason}</p> : null}
+                {aiLockReason ? (
+                  <p className="m-0 text-xs text-muted">{aiLockReason}</p>
+                ) : null}
               </div>
             ) : (
               <div className="mt-4 space-y-2">
-                <Button className="flex h-12 w-full rounded-xl font-semibold" onClick={handlePrimaryTrainingAction} disabled={signals.trainingState === "workout" && !canStartTodayWorkout}>
+                <Button
+                  className="flex h-12 w-full rounded-xl font-semibold"
+                  onClick={handlePrimaryTrainingAction}
+                  disabled={
+                    signals.trainingState === "workout" && !canStartTodayWorkout
+                  }
+                >
                   {primaryActionLabel}
                 </Button>
                 {signals.trainingState === "workout" ? (
-                  <ButtonLink as={Link} href={trainingRoute} variant="ghost" className="flex h-10 w-full rounded-xl text-sm font-medium">
+                  <ButtonLink
+                    as={Link}
+                    href={trainingRoute}
+                    variant="ghost"
+                    className="flex h-10 w-full rounded-xl text-sm font-medium"
+                  >
                     Ver detalles
                   </ButtonLink>
                 ) : null}
@@ -698,84 +1047,174 @@ export default function TodayQuickActionsClient() {
             )}
           </section>
 
-          <div className="today-cards-grid grid gap-4 md:grid-cols-2" data-testid="today-actions-grid">
-            <section className={`card premium-surface-card today-secondary-card today-nutrition-card today-nutrition-card--${nutritionCardTone} premium-fade-up p-4 sm:p-5`} data-testid="today-action-card">
+          <div
+            className="today-cards-grid grid gap-4 md:grid-cols-2"
+            data-testid="today-actions-grid"
+          >
+            <section
+              className={`card premium-surface-card today-secondary-card today-nutrition-card today-nutrition-card--${nutritionCardTone} premium-fade-up p-4 sm:p-5`}
+              data-testid="today-action-card"
+            >
               <div className="mb-5 flex items-center gap-3">
                 <div className="today-module-icon flex h-11 w-11 items-center justify-center rounded-xl border">
-                  <PremiumNutritionIcon width={20} height={20} className="text-primary" />
+                  <PremiumNutritionIcon
+                    width={20}
+                    height={20}
+                    className="text-primary"
+                  />
                 </div>
                 <div>
-                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Nutrición</p>
-                  <h2 className="m-0 mt-0.5 text-base font-semibold text-primary">Calorías</h2>
+                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Nutrición
+                  </p>
+                  <h2 className="m-0 mt-0.5 text-base font-semibold text-primary">
+                    Calorías
+                  </h2>
                 </div>
               </div>
 
               <div className="today-nutrition-layout mb-5">
                 <div className="today-nutrition-copy min-w-0">
-                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Calorías consumidas</p>
+                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Calorías consumidas
+                  </p>
                   <div className="today-nutrition-kcal mt-2">
-                    <span className="today-nutrition-kcal-value">{nutritionPrimaryKcal === "--" ? "--" : nutritionSummaryValue}</span>
-                    {nutritionSummaryTarget ? <span className="today-nutrition-kcal-goal">/ {nutritionSummaryTarget}</span> : null}
+                    <span className="today-nutrition-kcal-value">
+                      {nutritionPrimaryKcal === "--"
+                        ? "--"
+                        : nutritionSummaryValue}
+                    </span>
+                    {nutritionSummaryTarget ? (
+                      <span className="today-nutrition-kcal-goal">
+                        / {nutritionSummaryTarget}
+                      </span>
+                    ) : null}
                     <span className="today-nutrition-kcal-unit">kcal</span>
                   </div>
-                  <p className="today-nutrition-meta m-0 mt-3">{nutritionMetaText}</p>
-                  <p className="today-nutrition-progress-line m-0 mt-2">{nutritionProgressLabel}</p>
+                  <p className="today-nutrition-meta m-0 mt-3">
+                    {nutritionMetaText}
+                  </p>
+                  <p className="today-nutrition-progress-line m-0 mt-2">
+                    {nutritionProgressLabel}
+                  </p>
                 </div>
                 <div className="today-nutrition-ring-wrap shrink-0">
                   {canRenderNutritionRing ? (
-                    <NutritionRing value={nutritionConsumedKcal} total={nutritionGoalKcal ?? 0} />
+                    <NutritionRing
+                      value={nutritionConsumedKcal}
+                      total={nutritionGoalKcal ?? 0}
+                    />
                   ) : (
-                    <div className="today-nutrition-empty-ring flex h-[64px] w-[64px] items-center justify-center rounded-full border">
-                      <span className="text-xs font-semibold text-muted">Sin objetivo</span>
+                    <div className="today-nutrition-empty-ring flex h-[70px] w-[70px] items-center justify-center rounded-full border">
+                      <span className="text-xs font-semibold text-muted">
+                        Sin objetivo
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
 
-              <ButtonLink as={Link} href="/app/nutricion" variant="secondary" className="today-cta-secondary flex h-11 w-full rounded-xl font-medium" onClick={() => trackEvent("nutrition_log_opened", { target: "nutrition", origin: "today" })}>
+              <ButtonLink
+                as={Link}
+                href="/app/nutricion"
+                variant="secondary"
+                className="today-cta-secondary flex h-11 w-full rounded-xl font-medium"
+                onClick={() =>
+                  trackEvent("nutrition_log_opened", {
+                    target: "nutrition",
+                    origin: "today",
+                  })
+                }
+              >
                 Registrar comida
               </ButtonLink>
             </section>
 
-            <section className="card premium-surface-card today-secondary-card today-checkin-card premium-fade-up p-4 sm:p-5" data-testid="today-action-card">
+            <section
+              className="card premium-surface-card today-secondary-card today-checkin-card premium-fade-up p-4 sm:p-5"
+              data-testid="today-action-card"
+            >
               <div className="mb-5 flex items-center gap-3">
                 <div className="today-module-icon flex h-11 w-11 items-center justify-center rounded-xl border">
-                  <PremiumCheckinIcon width={20} height={20} className="text-primary" />
+                  <PremiumCheckinIcon
+                    width={20}
+                    height={20}
+                    className="text-primary"
+                  />
                 </div>
                 <div>
-                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Check-in</p>
-                  <h2 className="m-0 mt-0.5 text-base font-semibold text-primary">Peso actual</h2>
+                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
+                    Check-in
+                  </p>
+                  <h2 className="m-0 mt-0.5 text-base font-semibold text-primary">
+                    Peso actual
+                  </h2>
                 </div>
               </div>
 
               <div className="today-checkin-summary mb-5 space-y-3">
                 <div className="flex items-end gap-2">
-                  <span className="text-[2.75rem] font-bold leading-none text-primary">{checkinMainWeight}</span>
-                  <span className="pb-1 text-sm font-medium text-muted">kg</span>
+                  <span className="text-[2.75rem] font-bold leading-none text-primary">
+                    {checkinMainWeight}
+                  </span>
+                  <span className="pb-1 text-sm font-medium text-muted">
+                    kg
+                  </span>
                 </div>
                 <div className="today-checkin-meta">
                   <p className="m-0 text-xs text-muted">{checkinContext}</p>
-                  {checkinGoalContext ? <p className="m-0 mt-1 text-xs text-muted">{checkinGoalContext}</p> : null}
+                  {checkinGoalContext ? (
+                    <p className="m-0 mt-1 text-xs text-muted">
+                      {checkinGoalContext}
+                    </p>
+                  ) : null}
                 </div>
-                {signals.checkinStatus === "ready" && signals.checkinTrend.length > 1 ? <CheckinTrendChart points={signals.checkinTrend} /> : null}
+                {signals.checkinStatus === "ready" &&
+                signals.checkinTrend.length > 1 ? (
+                  <CheckinTrendChart points={signals.checkinTrend} />
+                ) : null}
               </div>
 
               {signals.checkinStatus === "error" ? (
                 <div className="today-progress-inset today-progress-inset--danger space-y-2">
-                  <p className="m-0 text-xs text-danger">No se pudo cargar check-in.</p>
-                  <Button variant="ghost" className="h-9 w-full rounded-xl text-sm" onClick={() => void loadTodaySignals()}>
+                  <p className="m-0 text-xs text-danger">
+                    No se pudo cargar check-in.
+                  </p>
+                  <Button
+                    variant="ghost"
+                    className="h-9 w-full rounded-xl text-sm"
+                    onClick={() => void loadTodaySignals()}
+                  >
                     Reintentar
                   </Button>
                 </div>
               ) : signals.checkinStatus === "empty" ? (
                 <div className="today-progress-inset today-progress-inset--disabled space-y-1">
-                  <p className="m-0 text-xs font-medium text-primary">Sin check-ins recientes</p>
-                  <p className="m-0 text-xs text-muted">Añade uno para ver la variación frente al ultimo registro.</p>
+                  <p className="m-0 text-xs font-medium text-primary">
+                    Sin check-ins recientes
+                  </p>
+                  <p className="m-0 text-xs text-muted">
+                    Añade uno para ver la variación frente al ultimo registro.
+                  </p>
                 </div>
               ) : null}
 
-              <ButtonLink as={Link} href={checkinRoute} variant="secondary" className="today-cta-secondary mt-4 flex h-11 w-full rounded-xl font-medium" data-testid="quick-action-tracking" onClick={() => trackEvent("checkin_opened", { target: "checkin", origin: "today" })}>
-                {signals.checkinDoneThisWeek ? "Actualizar check-in" : t("profile.checkinTitle")}
+              <ButtonLink
+                as={Link}
+                href={checkinRoute}
+                variant="secondary"
+                className="today-cta-secondary mt-4 flex h-11 w-full rounded-xl font-medium"
+                data-testid="quick-action-tracking"
+                onClick={() =>
+                  trackEvent("checkin_opened", {
+                    target: "checkin",
+                    origin: "today",
+                  })
+                }
+              >
+                {signals.checkinDoneThisWeek
+                  ? "Actualizar check-in"
+                  : t("profile.checkinTitle")}
               </ButtonLink>
             </section>
           </div>

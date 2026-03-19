@@ -3,6 +3,11 @@
   gap: 14px;
 }
 
+.trackingPageContent {
+  display: grid;
+  gap: 14px;
+}
+
 .heroHeader {
   display: flex;
   justify-content: space-between;
@@ -73,11 +78,21 @@
 .rightColumn,
 .metricCards {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .metricCards {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.primaryChartCard {
+  display: grid;
+  gap: 10px;
+}
+
+.chartWrap {
+  width: 100%;
+  min-height: 220px;
 }
 
 @media (min-width: 1024px) {

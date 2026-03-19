@@ -1650,10 +1650,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </div>
               </section>
 
-              <section className="card premium-surface-card training-main-section p-4 sm:p-5">
+              <div className="training-weekly-flow training-main-section">
+              <section className="card premium-surface-card training-weekly-section training-weekly-section--calendar p-4 sm:p-5">
               <div className="section-head section-head-actions">
                 <div>
-                  <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
+                  <h2 className="section-title section-title-sm hidden sm:block">{t("training.calendarTitle")}</h2>
                 </div>
                 <div className="section-actions calendar-actions">
                   <div className="flex gap-1 p-1 bg-muted rounded-xl" role="group" aria-label={t("training.calendarViewToggleAria")}>
@@ -1749,31 +1750,33 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 <>
                   {calendarView === "week" ? (
                     <div className="calendar-week">
-                      <div className="calendar-range calendar-range--compact">
+                      <div className="calendar-range calendar-range--compact training-week-nav">
                         <button
                           type="button"
-                          className="btn secondary"
+                          className="btn secondary training-week-nav-arrow"
                           aria-label={t("calendar.previousWeekAria")}
                           onClick={() => setSelectedDate((prev) => clampDateNotBefore(addWeeks(prev, -1), normalizedPlanStartDate))}
                           disabled={!canGoPrevWeek}
                         >
-                          {t("calendar.previousWeek")}
+                          <Icon name="chevron-left" size={16} />
                         </button>
-                        <strong>
-                          {t("training.weekLabel")} {displayWeekNumber}
-                        </strong>
-                        <span className="muted">{weekDates[0]?.toLocaleDateString(localeCode, { month: "short", day: "numeric" }) ?? weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {weekDates[weekDates.length - 1]?.toLocaleDateString(localeCode, { month: "short", day: "numeric" }) ?? addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
+                        <div className="training-week-nav-center" aria-live="polite">
+                          <strong>
+                            {t("training.weekLabel")} {displayWeekNumber}
+                          </strong>
+                          <span className="muted">{weekDates[0]?.toLocaleDateString(localeCode, { month: "short", day: "numeric" }) ?? weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → {weekDates[weekDates.length - 1]?.toLocaleDateString(localeCode, { month: "short", day: "numeric" }) ?? addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}</span>
+                        </div>
                         <button
                           type="button"
-                          className="btn secondary"
+                          className="btn secondary training-week-nav-arrow"
                           aria-label={t("calendar.nextWeekAria")}
                           onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))}
                           disabled={weekOffset >= maxProjectedWeeksAhead}
                         >
-                          {t("calendar.nextWeek")}
+                          <Icon name="chevron-right" size={16} />
                         </button>
-                        {projectedWeek.isReplicated ? <Badge variant="muted">{t("plan.replicatedWeekLabel")}</Badge> : null}
                       </div>
+                      {projectedWeek.isReplicated ? <Badge variant="muted" className="mt-2 fit-content">{t("plan.replicatedWeekLabel")}</Badge> : null}
                       <div className="training-week-strip">
                         {weekDates.map((date) => {
                           const entry = visibleDayMap.get(toDateKey(date));
@@ -1854,7 +1857,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               )}
             </section>
 
-              <section className="card premium-surface-card training-main-section p-4 sm:p-5">
+              <section className="card premium-surface-card training-weekly-section training-weekly-section--day p-4 sm:p-5">
                 <div className="section-head">
                   <div>
                     <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
@@ -1900,6 +1903,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   )}
                 </div>
               </section>
+              </div>
 
             </>
           ) : null}

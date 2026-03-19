@@ -5,8 +5,8 @@ export default async function TrackingPage() {
   await redirectToOnboardingIfIncomplete("/app/seguimiento");
 
   return (
-    <div className="page">
+    <main className="page page-with-tabbar-safe-area nutrition-page-shell tracking-page-shell" data-testid="tracking-page-shell">
       <TrackingClient />
-    </div>
+    </main>
   );
 }
