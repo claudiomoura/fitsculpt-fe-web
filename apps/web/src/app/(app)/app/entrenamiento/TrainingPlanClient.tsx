@@ -1934,7 +1934,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       {activePlan?.title ? `Actual: ${activePlan.title}` : "Sin plan activo"}
                     </p>
                   </div>
-                  <span className="training-insight-affordance">Abrir</span>
+                  <span className="training-insight-affordance" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="m9 6 6 6-6 6" />
+                    </svg>
+                  </span>
                 </Link>
               </section>
 

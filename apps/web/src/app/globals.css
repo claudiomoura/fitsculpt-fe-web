@@ -7497,15 +7497,32 @@ html.theme-dark :focus-visible {
 .training-insight-link--with-affordance {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
+  border-radius: 14px;
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.training-insight-link--with-affordance:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--surface-inset-bg) 66%, transparent);
+}
+
+.training-insight-link--with-affordance:active {
+  transform: translateY(0);
+}
+
+.training-insight-link--with-affordance:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 48%, transparent);
+  outline-offset: 2px;
 }
 
 .training-insight-affordance {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 28px;
-  font-size: 0.82rem;
-  font-weight: 600;
   color: color-mix(in srgb, var(--text-primary) 86%, var(--text-muted) 14%);
+  width: 24px;
+  height: 24px;
 }
 
 @media (max-width: 640px) {
@@ -7563,7 +7580,6 @@ html.theme-dark :focus-visible {
   }
 
   .training-insight-affordance {
-    grid-column: 1 / -1;
     justify-self: end;
   }
 }
