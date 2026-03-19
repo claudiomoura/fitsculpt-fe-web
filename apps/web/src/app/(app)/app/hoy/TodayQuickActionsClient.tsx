@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Area, AreaChart, PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
 import {
   PremiumCheckinIcon,
   PremiumNutritionIcon,
@@ -60,6 +61,7 @@ type TodaySignals = {
   trainingStatus: ModuleStatus;
   nutritionStatus: ModuleStatus;
   checkinStatus: ModuleStatus;
+  checkinTrend: Array<{ label: string; weightKg: number }>;
 };
 
 type TrackingPayload = {
@@ -108,31 +110,66 @@ function NutritionRing({
   const safeTarget = Math.max(1, Math.round(total));
   const progress = Math.max(0, Math.min(1, safeValue / safeTarget));
   const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
-  const size = 64;
-  const strokeWidth = 6;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference * (1 - progress);
+  const chartData = [{ name: "calories", value: percent }];
 
   return (
     <div
       className={`today-nutrition-ring today-nutrition-ring--${progress === 0 ? "zero" : "ready"} relative flex h-[64px] w-[64px] items-center justify-center rounded-full`}
       aria-label={`${safeValue} de ${safeTarget} kcal`}
     >
-      <svg className="today-nutrition-ring-svg" viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle className="today-nutrition-ring-track" cx={size / 2} cy={size / 2} r={radius} />
-        <circle
-          className="today-nutrition-ring-fill"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
+      <RadialBarChart
+        width={64}
+        height={64}
+        cx="50%"
+        cy="50%"
+        innerRadius="68%"
+        outerRadius="100%"
+        barSize={6}
+        startAngle={90}
+        endAngle={-270}
+        data={chartData}
+      >
+        <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+        <RadialBar
+          dataKey="value"
+          background={{ fill: "var(--today-donut-track)" }}
+          cornerRadius={99}
+          fill="var(--today-donut-fill)"
+          isAnimationActive={false}
         />
-      </svg>
+      </RadialBarChart>
       <div className="today-nutrition-ring-center pointer-events-none absolute left-1/2 top-1/2 flex h-[48px] w-[48px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border">
         <strong className="text-[0.76rem] font-semibold leading-none text-primary">{percent}%</strong>
       </div>
+    </div>
+  );
+}
+
+function CheckinTrendChart({ points }: { points: Array<{ label: string; weightKg: number }> }) {
+  if (points.length < 2) return null;
+
+  return (
+    <div className="today-checkin-chart" aria-label="Tendencia de peso reciente">
+      <ResponsiveContainer width="100%" height={72}>
+        <AreaChart data={points} margin={{ top: 6, right: 2, left: 2, bottom: 0 }}>
+          <defs>
+            <linearGradient id="today-checkin-area" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--today-donut-fill)" stopOpacity={0.42} />
+              <stop offset="100%" stopColor="var(--today-donut-fill)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey="weightKg"
+            stroke="var(--today-donut-fill)"
+            strokeWidth={2}
+            fill="url(#today-checkin-area)"
+            isAnimationActive={false}
+            dot={false}
+            activeDot={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -180,6 +217,24 @@ const getPreviousWeight = (payload?: TrackingPayload | null) => {
 
   if (validEntries.length < 2) return null;
   return Number(validEntries[1]?.entry.weightKg);
+};
+
+const getCheckinTrend = (payload?: TrackingPayload | null) => {
+  const points =
+    payload?.checkins
+      ?.map((entry) => ({
+        parsed: parseDate(entry.date),
+        weightKg: Number(entry.weightKg),
+      }))
+      .filter((item): item is { parsed: Date; weightKg: number } => item.parsed !== null && Number.isFinite(item.weightKg))
+      .sort((a, b) => a.parsed.getTime() - b.parsed.getTime())
+      .slice(-8)
+      .map((item) => ({
+        label: `${item.parsed.getDate()}/${item.parsed.getMonth() + 1}`,
+        weightKg: Number(item.weightKg.toFixed(1)),
+      })) ?? [];
+
+  return points;
 };
 
 const getStreakDays = (payload?: TrackingPayload | null) => {
@@ -249,6 +304,7 @@ export default function TodayQuickActionsClient() {
     trainingStatus: "empty",
     nutritionStatus: "empty",
     checkinStatus: "empty",
+    checkinTrend: [],
   });
   const hasTrackedViewRef = useRef(false);
 
@@ -298,6 +354,7 @@ export default function TodayQuickActionsClient() {
         trainingStatus: "empty",
         nutritionStatus: "empty",
         checkinStatus: "empty",
+        checkinTrend: [],
       };
 
       let trackingPayload: TrackingPayload = {
@@ -327,6 +384,7 @@ export default function TodayQuickActionsClient() {
       if (trackingResponse.ok) {
         trackingPayload = (await trackingResponse.json()) as TrackingPayload;
         nextSignals.checkinStatus = (trackingPayload.checkins?.length ?? 0) > 0 ? "ready" : "empty";
+        nextSignals.checkinTrend = getCheckinTrend(trackingPayload);
         nextSignals.checkinDoneThisWeek = hasWeeklyCheckin(trackingPayload);
         nextSignals.currentWeightKg = getLatestWeight(trackingPayload);
         nextSignals.previousWeightKg = getPreviousWeight(trackingPayload);
@@ -699,6 +757,7 @@ export default function TodayQuickActionsClient() {
                   <p className="m-0 text-xs text-muted">{checkinContext}</p>
                   {checkinGoalContext ? <p className="m-0 mt-1 text-xs text-muted">{checkinGoalContext}</p> : null}
                 </div>
+                {signals.checkinStatus === "ready" && signals.checkinTrend.length > 1 ? <CheckinTrendChart points={signals.checkinTrend} /> : null}
               </div>
 
               {signals.checkinStatus === "error" ? (

@@ -7734,6 +7734,14 @@ html.theme-dark :focus-visible {
   background: color-mix(in srgb, var(--surface-inset-bg) 90%, black 10%);
 }
 
+.today-checkin-chart {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--today-donut-fill) 16%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--surface-inset-bg) 90%, black 10%);
+  padding: 4px 8px 2px;
+  min-height: 78px;
+}
+
 .today-cta-secondary {
   position: relative;
   z-index: 1;
