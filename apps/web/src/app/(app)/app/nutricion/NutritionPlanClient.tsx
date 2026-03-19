@@ -2716,11 +2716,6 @@ const nutritionPlanDetails = profile ? (
                       <p className="muted">Gestiona tu plan activo.</p>
                       <p className="training-plan-access-status">{assignedPlanTitle ? `Actual: ${assignedPlanTitle}` : "Sin plan activo"}</p>
                     </div>
-                    <span className="training-insight-affordance" aria-hidden="true">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="m9 6 6 6-6 6" />
-                      </svg>
-                    </span>
                   </Link>
                 </section>
                 </>
