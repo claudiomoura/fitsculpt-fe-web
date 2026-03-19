@@ -671,7 +671,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
             {t("workoutDetail.sessionFinish")}
           </button>
         </div>
-        <div className="focus-session-summary-grid mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="focus-session-summary-grid mt-3">
           <article className="focus-session-summary-item">
             <p className="muted m-0 text-xs">Tiempo</p>
             <strong className="mt-1 block">{formatElapsed(elapsedSeconds)}</strong>
