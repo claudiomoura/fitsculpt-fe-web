@@ -7301,6 +7301,10 @@ html.theme-dark :focus-visible {
   background: color-mix(in srgb, var(--surface-inset-bg) 88%, transparent);
 }
 
+.today-top-chip {
+  display: none;
+}
+
 .today-hero-icon,
 .today-module-icon {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -7345,6 +7349,11 @@ html.theme-dark :focus-visible {
 
 .today-nutrition-ring {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-border-default) 86%, transparent);
+}
+
+.today-nutrition-ring-wrap {
+  width: 98px;
+  min-width: 98px;
 }
 
 .today-nutrition-ring--error {
