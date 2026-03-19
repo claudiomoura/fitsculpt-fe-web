@@ -13,7 +13,7 @@ export default function SeguimientoCheckinModalPage() {
       router.back();
       return;
     }
-    router.push("/app/progress");
+    router.push("/app/seguimiento");
   }, [router]);
 
   return (

@@ -16,7 +16,7 @@ export default function WeeklyReviewModal({ children }: WeeklyReviewModalProps) 
       router.back();
       return;
     }
-    router.push("/app/today");
+    router.push("/app/hoy");
   };
 
   return (

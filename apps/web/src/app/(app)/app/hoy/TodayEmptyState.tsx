@@ -10,8 +10,7 @@ type TodayEmptyStateProps = {
 export function TodayEmptyState({ description, ctaLabel, href }: TodayEmptyStateProps) {
   return (
     <section
-      className="rounded-3xl border p-5"
-      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+      className="card premium-surface-card today-inline-state today-inline-state--empty"
       data-testid="today-wow-empty"
     >
       <p className="m-0 text-sm text-muted">{description}</p>

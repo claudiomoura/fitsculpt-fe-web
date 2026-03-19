@@ -20,7 +20,7 @@
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px;
   gap: 4px;
@@ -38,7 +38,7 @@
 }
 
 .segmentedButtonActive {
-  background: var(--brand);
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -46,7 +46,7 @@
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 4px;
   gap: 4px;
@@ -65,7 +65,7 @@
 }
 
 .insightTabButtonActive {
-  background: color-mix(in srgb, var(--brand) 86%, #ffffff 14%);
+  background: color-mix(in srgb, var(--color-primary) 86%, #ffffff 14%);
   color: #fff;
 }
 
@@ -125,7 +125,7 @@
   display: grid;
   gap: 4px;
   padding: 12px 14px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 16px;
   background: rgba(255,255,255,0.04);
 }
@@ -137,7 +137,7 @@
 }
 
 .checkinModeCard {
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border);
   border-radius: 18px;
   background: rgba(255,255,255,0.03);
   padding: 16px;
@@ -148,8 +148,8 @@
 }
 
 .checkinModeCardActive {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 55%, transparent), var(--shadow-sm);
-  background: color-mix(in srgb, var(--brand) 12%, var(--bg-card));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 55%, transparent), var(--shadow-sm);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-card));
 }
 
 .checkinFormGrid {

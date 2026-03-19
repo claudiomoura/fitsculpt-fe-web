@@ -1,5 +1,7 @@
 "use client";
 
+import { Icon } from "@/design-system/components/Icon";
+import type { ReactNode } from "react";
 
 type WeeklyCalendarDay = {
   id: string;
@@ -11,8 +13,6 @@ type WeeklyCalendarDay = {
   complete?: boolean;
   completedMeals?: number;
 };
-
-import type { ReactNode } from "react";
 
 type WeeklyCalendarProps = {
   previousWeekLabel: string;
@@ -59,7 +59,7 @@ export function WeeklyCalendar({
     <div className="calendar-week stack-sm">
       <div className="calendar-range calendar-range--compact">
         <button type="button" className="btn-sm" aria-label={previousWeekAriaLabel} onClick={onPreviousWeek}>
-          ←
+          <Icon name="chevron-left" size={16} />
         </button>
         <div className="calendar-range-info">
           <strong>
@@ -68,7 +68,7 @@ export function WeeklyCalendar({
           <span className="muted">{weekRangeLabel}</span>
         </div>
         <button type="button" className="btn-sm" aria-label={nextWeekAriaLabel} onClick={onNextWeek} disabled={nextWeekDisabled}>
-          →
+          <Icon name="chevron-right" size={16} />
         </button>
       </div>
 

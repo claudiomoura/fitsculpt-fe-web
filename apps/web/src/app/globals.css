@@ -7565,6 +7565,30 @@ html.theme-dark :focus-visible {
   padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
 }
 
+.page.page-with-tabbar-safe-area.tracking-page-shell {
+  width: min(100%, 1160px);
+  margin-inline: auto;
+  gap: 14px;
+  padding-inline: clamp(14px, 3.8vw, 26px);
+  padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
+}
+
+.today-inline-state {
+  border-radius: var(--surface-card-radius);
+  border: 1px solid var(--surface-border-default);
+  background: var(--surface-secondary-bg);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
+}
+
+.today-inline-state--error {
+  border-color: color-mix(in srgb, var(--status-error) 34%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--status-error) 10%, var(--surface-secondary-bg));
+}
+
+.today-inline-state--empty {
+  border-color: color-mix(in srgb, var(--surface-border-default) 92%, transparent);
+}
+
 .today-page-stack {
   gap: 14px;
 }
@@ -7881,6 +7905,12 @@ html.theme-dark :focus-visible {
 
 @media (max-width: 640px) {
   .page.page-with-tabbar-safe-area.today-page-shell {
+    gap: 12px;
+    padding-inline: 14px;
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
+  }
+
+  .page.page-with-tabbar-safe-area.tracking-page-shell {
     gap: 12px;
     padding-inline: 14px;
     padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
