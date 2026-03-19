@@ -7328,7 +7328,9 @@ html.theme-dark :focus-visible {
 }
 
 .today-progress-bar-fill {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, white 10%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    0 0 10px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .today-progress-bar-fill--low {
@@ -7392,7 +7394,7 @@ html.theme-dark :focus-visible {
 
 @media (max-width: 640px) {
   .today-page-shell {
-    margin-inline: -4px;
+    padding-inline: 12px;
   }
 }
 

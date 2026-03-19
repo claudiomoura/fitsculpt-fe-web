@@ -98,45 +98,27 @@ function NutritionRing({
   value,
   total,
   status,
-  proteinG,
-  carbsG,
-  fatsG,
 }: {
   value: number;
   total: number | null;
   status: ModuleStatus;
-  proteinG: number;
-  carbsG: number;
-  fatsG: number;
 }) {
   const safeValue = Math.max(0, Math.round(value));
   const hasTarget = typeof total === "number" && Number.isFinite(total) && total > 0;
   const safeTarget = hasTarget ? Number(total) : 0;
-  const safeProtein = Math.max(0, Math.round(proteinG));
-  const safeCarbs = Math.max(0, Math.round(carbsG));
-  const safeFats = Math.max(0, Math.round(fatsG));
-  const macroTotal = safeProtein + safeCarbs + safeFats;
+  const percent = hasTarget ? Math.max(0, Math.min(100, Math.round((safeValue / safeTarget) * 100))) : 0;
+  const progressAngle = Math.round((percent / 100) * 360);
   const centerValue = status === "error" ? "--" : String(safeValue);
   const centerLabel = status === "error" ? "error" : hasTarget ? `${safeTarget} kcal` : status === "empty" ? "sin datos" : "kcal";
 
   const mode = status === "error" ? "error" : status === "empty" ? "empty" : safeValue === 0 ? "zero" : "ready";
   const trackColor = "color-mix(in srgb, var(--accent) 18%, var(--surface-inset-bg))";
+  const fillColor = "color-mix(in srgb, var(--accent) 86%, #67e8f9 14%)";
 
   const ringFill =
-    mode === "error" || mode === "empty" || mode === "zero" || macroTotal <= 0
+    mode === "error" || mode === "empty" || mode === "zero"
       ? `conic-gradient(${trackColor} 0deg 360deg)`
-      : (() => {
-          const proteinSlice = (safeProtein / macroTotal) * 360;
-          const carbsSlice = (safeCarbs / macroTotal) * 360;
-          const proteinEnd = proteinSlice;
-          const carbsEnd = proteinSlice + carbsSlice;
-          return `conic-gradient(
-            var(--macro-protein) 0deg ${proteinEnd}deg,
-            var(--macro-carbs) ${proteinEnd}deg ${carbsEnd}deg,
-            var(--macro-fats) ${carbsEnd}deg ${360}deg,
-            ${trackColor} ${360}deg 360deg
-          )`;
-        })();
+      : `conic-gradient(${fillColor} 0deg ${progressAngle}deg, ${trackColor} ${progressAngle}deg 360deg)`;
 
   return (
     <div
@@ -684,14 +666,11 @@ export default function TodayQuickActionsClient() {
               <div className="mb-4 flex items-center gap-3">
                 <div className="today-nutrition-ring-wrap shrink-0">
                   {canRenderNutritionRing ? (
-                    <NutritionRing
-                      value={signals.nutritionConsumedCalories}
-                      total={signals.nutritionTargetCalories}
-                      status={signals.nutritionStatus}
-                      proteinG={signals.nutritionProteinG}
-                      carbsG={signals.nutritionCarbsG}
-                      fatsG={signals.nutritionFatsG}
-                    />
+                  <NutritionRing
+                    value={signals.nutritionConsumedCalories}
+                    total={signals.nutritionTargetCalories}
+                    status={signals.nutritionStatus}
+                  />
                   ) : (
                     <div className="today-nutrition-empty-ring flex h-[98px] w-[98px] items-center justify-center rounded-full border">
                       <span className="text-xs text-muted">Sin objetivo</span>
