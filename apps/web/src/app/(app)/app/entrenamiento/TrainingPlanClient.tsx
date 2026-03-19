@@ -1651,53 +1651,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </section>
 
               <section className="card premium-surface-card training-main-section p-4 sm:p-5">
-                <div className="section-head">
-                  <div>
-                    <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
-                    <p className="section-subtitle">{selectedEntryDateLabel}</p>
-                  </div>
-                </div>
-                <div className="exercise-list compact-exercise-list">
-                  {selectedExercises.length === 0 ? (
-                    <div className="stack-sm">
-                      <p className="m-0 font-medium text-primary">{safeT("training.restDayTitle", "Descanso")}</p>
-                      <p className="muted m-0">{safeT("training.restDaySubtitle", "Hoy prioriza recuperacion activa, movilidad suave o una caminata corta.")}</p>
-                    </div>
-                  ) : (
-                    selectedExercises.map((exercise, index) => {
-                      const exerciseId = getExerciseIdentifier(exercise);
-                      const exerciseHref = exerciseId ? buildExerciseTechniqueHref(exerciseId) : null;
-                      return (
-                        <button
-                          key={`${exercise.name}-${index}`}
-                          type="button"
-                          className={`exercise-mini-card exercise-mini-card-compact ${exerciseHref ? "is-clickable" : "is-disabled"}`}
-                          data-testid="training-plan-exercise-item"
-                          aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
-                          aria-pressed={false}
-                          aria-disabled={!exerciseHref}
-                          disabled={!exerciseHref}
-                          onClick={() => exerciseHref && router.push(exerciseHref)}
-                        >
-                          <ExerciseThumbnail
-                            className="exercise-thumb"
-                            src={getExerciseImageUrl(exercise)}
-                            alt={exercise.name}
-                            width={72}
-                            height={72}
-                          />
-                          <div className="exercise-mini-copy">
-                            <strong className="exercise-mini-name">{exercise.name}</strong>
-                            <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
-                          </div>
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </section>
-
-              <section className="card premium-surface-card training-main-section p-4 sm:p-5">
               <div className="section-head section-head-actions">
                 <div>
                   <h2 className="section-title section-title-sm">{t("training.calendarTitle")}</h2>
@@ -1724,19 +1677,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
                 </div>
               </div>
-
-              {!isManualView && activePlan ? (
-                <div className="status-card" style={{ marginBottom: 12 }}>
-                  <div className="inline-actions-sm" style={{ justifyContent: "space-between", width: "100%" }}>
-                    <strong>
-                      {t("training.activePlanLabel")}: {activePlan.title?.trim() || selectedPlanId || "-"}
-                    </strong>
-                    <Badge variant={activePlanOrigin === "selected" ? "success" : "default"}>
-                      {activePlanOrigin === "selected" ? t("training.activePlanSelected") : t("training.activePlanAssigned")}
-                    </Badge>
-                  </div>
-                </div>
-              ) : null}
 
               {activePlanError ? (
                 <div className="status-card status-card--warning" style={{ marginBottom: 12 }}>
@@ -1913,6 +1853,53 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </>
               )}
             </section>
+
+              <section className="card premium-surface-card training-main-section p-4 sm:p-5">
+                <div className="section-head">
+                  <div>
+                    <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
+                    <p className="section-subtitle">{selectedEntryDateLabel}</p>
+                  </div>
+                </div>
+                <div className="exercise-list compact-exercise-list">
+                  {selectedExercises.length === 0 ? (
+                    <div className="stack-sm">
+                      <p className="m-0 font-medium text-primary">{safeT("training.restDayTitle", "Descanso")}</p>
+                      <p className="muted m-0">{safeT("training.restDaySubtitle", "Hoy prioriza recuperacion activa, movilidad suave o una caminata corta.")}</p>
+                    </div>
+                  ) : (
+                    selectedExercises.map((exercise, index) => {
+                      const exerciseId = getExerciseIdentifier(exercise);
+                      const exerciseHref = exerciseId ? buildExerciseTechniqueHref(exerciseId) : null;
+                      return (
+                        <button
+                          key={`${exercise.name}-${index}`}
+                          type="button"
+                          className={`exercise-mini-card exercise-mini-card-compact ${exerciseHref ? "is-clickable" : "is-disabled"}`}
+                          data-testid="training-plan-exercise-item"
+                          aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                          aria-pressed={false}
+                          aria-disabled={!exerciseHref}
+                          disabled={!exerciseHref}
+                          onClick={() => exerciseHref && router.push(exerciseHref)}
+                        >
+                          <ExerciseThumbnail
+                            className="exercise-thumb"
+                            src={getExerciseImageUrl(exercise)}
+                            alt={exercise.name}
+                            width={72}
+                            height={72}
+                          />
+                          <div className="exercise-mini-copy">
+                            <strong className="exercise-mini-name">{exercise.name}</strong>
+                            <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
 
             </>
           ) : null}
