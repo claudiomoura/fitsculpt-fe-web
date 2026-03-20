@@ -7,6 +7,8 @@
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 48%),
     var(--surface-secondary-bg);
+  border: 1px solid var(--surface-border-default);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
   color: var(--text-primary);
 }
 

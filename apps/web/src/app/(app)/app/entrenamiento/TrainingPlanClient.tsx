@@ -1561,7 +1561,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </section>
           ) : hasPlan ? (
             <>
-              <section className="card premium-hero-card training-main-section p-5 sm:p-6">
+              <section className="card premium-hero-card surface-action-card training-main-section">
                 <div className="training-hero">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl border" style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}>
@@ -1651,7 +1651,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </section>
 
               <div className="training-weekly-flow training-main-section">
-              <section className="card premium-surface-card training-weekly-section training-weekly-section--calendar p-4 sm:p-5">
+              <section className="card premium-surface-card surface-content-card training-weekly-section training-weekly-section--calendar">
               <div className="section-head section-head-actions">
                 <div>
                   <h2 className="section-title section-title-sm hidden sm:block">{t("training.calendarTitle")}</h2>
@@ -1857,7 +1857,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               )}
             </section>
 
-              <section className="card premium-surface-card training-weekly-section training-weekly-section--day p-4 sm:p-5">
+              <section className="card premium-surface-card surface-content-card training-weekly-section training-weekly-section--day">
                 <div className="section-head">
                   <div>
                     <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
@@ -1910,7 +1910,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
           {hasPlan && (
             <aside className="training-layout-insights">
-              <section className="card training-insights-card">
+              <section className="card premium-surface-card surface-content-card training-insights-card">
                 <Link
                   href={selectedPlanId ? `/app/biblioteca/entrenamientos?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/entrenamientos"}
                   className="training-insight-link training-insight-link--with-affordance"
@@ -1928,7 +1928,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </Link>
               </section>
 
-              <section className="card training-insights-card">
+              <section className="card premium-surface-card surface-content-card training-insights-card">
                 <button
                   type="button"
                   className="training-insight-link"
@@ -1946,7 +1946,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </button>
               </section>
 
-              <section className="card training-insights-card">
+              <section className="card premium-surface-card surface-content-card training-insights-card">
                 <Link href="/app/biblioteca/entrenamientos" className="training-insight-link">
                   <div className="training-insight-link-icon">
                     <Icon name="book" size={20} />
@@ -1958,7 +1958,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </Link>
               </section>
 
-              <section className="card training-insights-card">
+              <section className="card premium-surface-card surface-content-card training-insights-card">
                 <div className="training-stats-grid">
                   <div className="training-stat-box">
                     <strong>{estimatedCompletedSessions}</strong>
@@ -1971,7 +1971,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </div>
               </section>
 
-              <section className="card training-insights-card">
+              <section className="card premium-surface-card surface-content-card training-insights-card">
               <div className="section-head">
                 <div>
                   <h2 className="section-title section-title-sm">{t("training.periodTitle")}</h2>

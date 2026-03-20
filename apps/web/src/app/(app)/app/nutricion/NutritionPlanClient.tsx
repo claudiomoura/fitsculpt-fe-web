@@ -2108,7 +2108,7 @@ useEffect(() => {
   };
 
 const nutritionPlanDetails = profile ? (
-  <section className="card premium-surface-card nutrition-plan-details-card">
+  <section className="card premium-surface-card surface-content-card nutrition-plan-details-card">
     <div className="section-head section-head-actions">
       <div>
         <h2 className="section-title section-title-sm">{t("nutrition.planDetails.title")}</h2>
@@ -2335,8 +2335,8 @@ const nutritionPlanDetails = profile ? (
             <>
               {!loading && !error ? (
                 <>
-                <section id="nutrition-today-log" className="card premium-hero-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
-                  <div className="nutrition-today-summary-head nutrition-hero-shell">
+                <section className="card premium-surface-card surface-content-card nutrition-v2-layout nutrition-today-summary-only premium-fade-up">
+                  <div className="nutrition-today-summary-head">
                     <div className="nutrition-hero-copy">
                       <div className="nutrition-log-head-row">
                         <div className="stack-xs nutrition-log-head-copy">
@@ -2362,9 +2362,12 @@ const nutritionPlanDetails = profile ? (
                             : "Aún no tienes comidas asignadas para este día."}
                         </p>
                       </div>
-
                     </div>
+                  </div>
+                </section>
 
+                <section id="nutrition-today-log" className="card premium-hero-card surface-action-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+                  <div className="nutrition-today-summary-head nutrition-today-donut-card">
                     <div className="nutrition-hero-ring-wrap">
                       <HeroNutrition title={safeT("nutrition.dailyTargetTitle", "Objetivo diario")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
                     </div>
@@ -2686,7 +2689,7 @@ const nutritionPlanDetails = profile ? (
                   </div>
                 </section>
 
-                <section className="card premium-surface-card training-insights-card nutrition-plan-access-card">
+                <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
                   <Link
                     className="training-insight-link training-insight-link--with-affordance"
                     href={selectedPlanId ? `/app/dietas?planId=${encodeURIComponent(selectedPlanId)}` : "/app/dietas"}

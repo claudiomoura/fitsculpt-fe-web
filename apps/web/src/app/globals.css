@@ -1042,6 +1042,8 @@ main {
   background: var(--surface-primary-bg);
   border: 1px solid var(--surface-border-default);
   border-radius: var(--surface-card-radius);
+  width: 100%;
+  max-width: none;
   padding: 24px;
   box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
   backdrop-filter: blur(12px) saturate(128%);
@@ -2709,6 +2711,8 @@ label {
 .feature-card {
   border: 1px solid var(--surface-border-default);
   border-radius: 16px;
+  width: 100%;
+  max-width: none;
   padding: 14px;
   background: var(--surface-inset-bg);
   display: grid;
@@ -3257,6 +3261,12 @@ label {
 
 .settings-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.settings-grid .ui-card {
+  padding: 18px;
+  border-radius: var(--surface-card-radius);
+  background: var(--surface-secondary-bg);
 }
 
 .settings-card-footer {
@@ -5531,12 +5541,19 @@ html { scroll-behavior: smooth; }
 }
 
 .nutrition-page-shell {
+  width: 100%;
+  margin-inline: 0;
   gap: 14px;
+  padding-inline: clamp(8px, 1.8vw, 18px);
 }
 
 .nutrition-today-primary {
   border-color: color-mix(in srgb, var(--accent) 28%, var(--surface-card-border));
   box-shadow: 0 18px 46px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.nutrition-today-summary-only {
+  gap: 10px;
 }
 
 .nutrition-today-summary-head {
@@ -5610,6 +5627,15 @@ html { scroll-behavior: smooth; }
 
 .nutrition-hero-ring-wrap {
   min-width: 0;
+}
+
+.nutrition-today-donut-card {
+  display: grid;
+  justify-items: center;
+}
+
+.nutrition-today-donut-card .nutrition-hero-ring-wrap {
+  width: min(100%, 460px);
 }
 
 .nutrition-log-head-row {
@@ -7190,6 +7216,10 @@ html.theme-dark :focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .settings-grid .ui-card {
+    padding: 16px;
+  }
+
   .settings-header-actions {
     width: 100%;
     display: grid;
@@ -7555,6 +7585,16 @@ html.theme-dark :focus-visible {
   background: var(--surface-secondary-bg);
 }
 
+.surface-action-card {
+  padding: 20px;
+  border-radius: var(--surface-card-radius);
+}
+
+.surface-content-card {
+  padding: 18px;
+  border-radius: var(--surface-card-radius);
+}
+
 .premium-subcard {
   border-radius: 18px;
   border: 1px solid var(--surface-border-default);
@@ -7586,9 +7626,16 @@ html.theme-dark :focus-visible {
   .premium-stepper-card,
   .premium-step-card,
   .premium-surface-card,
+  .surface-action-card,
+  .surface-content-card,
   .surface-loading-card,
   .premium-footer-card {
     border-radius: 20px;
+  }
+
+  .surface-action-card,
+  .surface-content-card {
+    padding: 16px;
   }
 
   .premium-inline-banner {
@@ -7623,18 +7670,12 @@ html.theme-dark :focus-visible {
 }
 
 .page.page-with-tabbar-safe-area.today-page-shell {
-  width: min(100%, 1160px);
-  margin-inline: auto;
   gap: 14px;
-  padding-inline: clamp(14px, 3.8vw, 26px);
   padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
 }
 
 .page.page-with-tabbar-safe-area.tracking-page-shell {
-  width: min(100%, 1160px);
-  margin-inline: auto;
   gap: 14px;
-  padding-inline: clamp(14px, 3.8vw, 26px);
   padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
 }
 

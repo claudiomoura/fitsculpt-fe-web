@@ -912,7 +912,7 @@ export default function TodayQuickActionsClient() {
           ) : null}
 
           <section
-            className="card premium-hero-card today-hero-card premium-fade-up p-5 sm:p-6"
+            className="card premium-hero-card surface-action-card today-hero-card premium-fade-up"
             data-testid="today-action-card-primary"
           >
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -1015,7 +1015,7 @@ export default function TodayQuickActionsClient() {
             data-testid="today-actions-grid"
           >
             <section
-              className={`card premium-surface-card today-secondary-card today-nutrition-card today-nutrition-card--${nutritionCardTone} premium-fade-up p-4 sm:p-5`}
+              className={`card premium-surface-card surface-content-card today-secondary-card today-nutrition-card today-nutrition-card--${nutritionCardTone} premium-fade-up`}
               data-testid="today-action-card"
             >
               <div className="mb-5 flex items-center gap-3">
@@ -1094,7 +1094,7 @@ export default function TodayQuickActionsClient() {
             </section>
 
             <section
-              className="card premium-surface-card today-secondary-card today-checkin-card premium-fade-up p-4 sm:p-5"
+              className="card premium-surface-card surface-content-card today-secondary-card today-checkin-card premium-fade-up"
               data-testid="today-action-card"
             >
               <div className="mb-5 flex items-center gap-3">

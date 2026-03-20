@@ -1141,7 +1141,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         </div>
       )}
       {!isCheckinOnly ? (
-        <section className={`card ${styles.heroCard} ${styles.quickCheckinHero}`}>
+        <section className={`card premium-hero-card surface-action-card ${styles.heroCard} ${styles.quickCheckinHero}`}>
           <div className={styles.heroHeader}>
             <div>
               <h2 className="section-title m-0">{t("profile.checkinTitle")}</h2>
@@ -1189,7 +1189,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {!isCheckinOnly ? (
-        <section className="card premium-surface-card tracking-overview-card">
+        <section className="card premium-surface-card surface-content-card tracking-overview-card">
           <div className={styles.insightTabs} role="tablist" aria-label={t("tracking.insightsLabel")}>
             {([
               { id: "checkin", label: t("tracking.progressTabCheckin") },
@@ -1479,7 +1479,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {isCheckinOnly ? (
-        <section className={`card ${styles.checkinShell} premium-fade-up`} id="checkin-entry">
+        <section className={`card premium-surface-card surface-content-card ${styles.checkinShell} premium-fade-up`} id="checkin-entry">
           <div className={styles.checkinHero}>
             <div className="inline-actions-sm w-full justify-end">
               <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>{t("ui.close")}</button>

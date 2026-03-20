@@ -134,7 +134,7 @@ export default function ProfileSummaryClient() {
 
   return (
     <div className={styles.stack}>
-      <section className={`card ${styles.userCard} premium-hero-card`}>
+      <section className={`card premium-hero-card surface-action-card ${styles.userCard}`}>
         <div className={styles.userCardHeader}>
           {profileAvatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -155,7 +155,7 @@ export default function ProfileSummaryClient() {
         </div>
       </section>
 
-      <section className={`card ${styles.planCard} premium-surface-card`}>
+      <section className={`card premium-surface-card surface-content-card ${styles.planCard}`}>
         <div>
           <p className={styles.planLabel}>{t("nav.billing")}</p>
           <p className={styles.planName}>{normalizePlanLabel(auth.plan)}</p>
@@ -165,7 +165,7 @@ export default function ProfileSummaryClient() {
         </ButtonLink>
       </section>
 
-      <section className="card">
+      <section className="card premium-surface-card surface-content-card">
         <h3 className={styles.groupTitle}>{t("nav.trainingPlan")}</h3>
         <div className={styles.rows}>
           <HubRow label={t("profile.goal")} value={goalLabel} href="/app/profile/edit" />
@@ -173,7 +173,7 @@ export default function ProfileSummaryClient() {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card premium-surface-card surface-content-card">
         <h3 className={styles.groupTitle}>{t("profile.preferencesTitle")}</h3>
         <div className={styles.rows}>
           <HubRow label={t("ui.language")} value={localeLabel(locale)} href="/app/settings" />
@@ -185,7 +185,7 @@ export default function ProfileSummaryClient() {
         </div>
       </section>
 
-      <section className={`card ${styles.accountCard}`}>
+      <section className={`card premium-surface-card surface-content-card ${styles.accountCard}`}>
         <div className={styles.accountHeader}>
           <div>
             <p className={styles.accountEyebrow}>{t("profile.accountSectionEyebrow")}</p>
@@ -201,7 +201,7 @@ export default function ProfileSummaryClient() {
         </div>
       </section>
 
-      <section className="card">
+      <section className="card premium-surface-card surface-content-card">
         <h3 className={styles.groupTitle}>{t("navSections.more")}</h3>
         <div className={styles.rows}>
           <HubRow label={t("nav.tracking")} href="/app/seguimiento" />
@@ -212,7 +212,7 @@ export default function ProfileSummaryClient() {
         </div>
       </section>
 
-      <section className={`card ${styles.logoutCard}`}>
+      <section className={`card premium-surface-card surface-content-card ${styles.logoutCard}`}>
         <div className={styles.logoutIntro}>
           <p className={styles.logoutTitle}>{t("nav.logout")}</p>
           <p className={styles.logoutDescription}>{t("profile.logoutDescription")}</p>
