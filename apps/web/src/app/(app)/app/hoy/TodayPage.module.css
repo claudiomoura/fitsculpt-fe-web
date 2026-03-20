@@ -1,3 +1,79 @@
+.todayShell {
+  width: min(100%, 1080px);
+  margin-inline: auto;
+  padding-inline: clamp(10px, 2vw, 18px);
+  gap: 14px;
+  padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
+}
+
+.todayScope :global(.today-inline-state) {
+  border-radius: var(--surface-card-radius);
+  border: 1px solid var(--surface-border-default);
+  background: var(--surface-secondary-bg);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
+}
+
+.todayScope :global(.today-inline-state--error) {
+  border-color: color-mix(in srgb, var(--status-error) 34%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--status-error) 10%, var(--surface-secondary-bg));
+}
+
+.todayScope :global(.today-inline-state--empty) {
+  border-color: color-mix(in srgb, var(--surface-border-default) 92%, transparent);
+}
+
+.todayScope :global(.today-page-stack) {
+  gap: 14px;
+}
+
+.todayScope :global(.today-hero-card) {
+  padding-block: 22px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 14%, transparent) 0%, transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 48%),
+    var(--surface-primary-bg);
+}
+
+.todayScope :global(.today-hero-icon),
+.todayScope :global(.today-module-icon) {
+  background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
+  border-color: color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  box-shadow: none;
+}
+
+.todayScope :global(.today-hero-meta) {
+  max-width: 32rem;
+  line-height: 1.55;
+}
+
+.todayScope :global(.today-secondary-card) {
+  background: var(--surface-secondary-bg);
+  border-color: color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+}
+
+.todayScope :global(.today-cards-grid) {
+  align-items: stretch;
+  gap: 12px;
+}
+
+.todayScope :global(.today-nutrition-card) {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-secondary-bg);
+  border-color: color-mix(in srgb, var(--today-donut-fill) 14%, var(--surface-border-default));
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
+}
+
+.todayScope :global(.today-nutrition-card--error) {
+  border-color: color-mix(in srgb, var(--color-danger) 28%, var(--surface-border-default));
+}
+
+.todayScope :global(.today-checkin-card) {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
 .todayScope :global(.today-progress-inset) {
   position: relative;
   z-index: 1;
@@ -135,8 +211,39 @@
   line-height: 1;
 }
 
+.todayScope :global(.today-nutrition-kcal-value) {
+  font-size: clamp(2rem, 5vw, 2.55rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.todayScope :global(.today-nutrition-kcal-goal) {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text-primary) 74%, var(--text-muted) 26%);
+  padding-bottom: 3px;
+}
+
+.todayScope :global(.today-nutrition-kcal-unit) {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+
 .todayScope :global(.today-nutrition-meta) {
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--text-primary) 88%, var(--text-muted) 12%);
   text-align: left;
+}
+
+.todayScope :global(.today-nutrition-progress-line) {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .todayScope :global(.today-nutrition-ring-wrap) {
@@ -203,6 +310,12 @@
 }
 
 @media (max-width: 640px) {
+  .todayShell {
+    gap: 12px;
+    padding-inline: 14px;
+    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
+  }
+
   .todayScope :global(.today-page-stack) {
     gap: 12px;
   }
