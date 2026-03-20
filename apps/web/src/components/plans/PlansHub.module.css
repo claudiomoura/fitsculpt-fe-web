@@ -1,0 +1,15 @@
+.plansHubShell {
+  display: grid;
+  gap: 14px;
+}
+
+.plansHubSegmented {
+  width: 100%;
+  max-width: 420px;
+}
+
+@media (max-width: 640px) {
+  .plansHubSegmented {
+    max-width: none;
+  }
+}

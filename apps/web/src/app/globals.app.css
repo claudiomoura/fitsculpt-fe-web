@@ -1158,63 +1158,6 @@ html.theme-dark :focus-visible {
    CALENDARIO SEMANAL COMPACTO
    ============================================ */
 
-.calendar-range--compact {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 4px;
-}
-
-.calendar-range--compact.training-week-nav {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.calendar-range-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.calendar-range-info strong {
-  font-size: 0.9375rem;
-  color: var(--text-primary);
-}
-
-.calendar-range-info .muted {
-  font-size: 0.75rem;
-}
-
-.btn-sm {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 160ms ease;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
-}
-
-.btn-sm:hover:not(:disabled) {
-  background: var(--bg-muted);
-  border-color: var(--color-primary);
-}
-
-.btn-sm:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 /* ============================================
    PROFILE PAGE MOBILE
    ============================================ */
@@ -1426,15 +1369,6 @@ html.theme-dark :focus-visible {
     padding: 16px;
   }
 
-  .calendar-range--compact {
-    gap: 10px;
-  }
-
-  .calendar-range--compact .btn-sm {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
   .form-stack input,
   .form-stack select,
   .form-stack textarea {
@@ -1461,23 +1395,6 @@ html.theme-dark :focus-visible {
     border-radius: 12px;
   }
 
-}
-
-
-.plans-hub-shell {
-  display: grid;
-  gap: 14px;
-}
-
-.plans-hub-segmented {
-  width: 100%;
-  max-width: 420px;
-}
-
-@media (max-width: 640px) {
-  .plans-hub-segmented {
-    max-width: none;
-  }
 }
 
 

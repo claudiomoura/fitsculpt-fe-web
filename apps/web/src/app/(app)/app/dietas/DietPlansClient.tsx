@@ -7,6 +7,7 @@ import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { useLanguage } from "@/context/LanguageProvider";
 import { ActivePlanSection, PlanCard, PlanHistoryList } from "@/components/plans/PlanSections";
+import plansHubStyles from "@/components/plans/PlansHub.module.css";
 import type { NutritionPlanListItem } from "@/lib/types";
 import {
   ACTIVE_NUTRITION_PLAN_STORAGE_KEY,
@@ -189,7 +190,7 @@ export default function DietPlansClient() {
 
   return (
     <>
-      <section className="card premium-surface-card plans-hub-shell">
+      <section className={`card premium-surface-card ${plansHubStyles.plansHubShell}`}>
         <div className="stack-sm">
           <div>
             <p className="m-0 text-xs uppercase tracking-wider text-muted">Planes</p>
@@ -197,7 +198,7 @@ export default function DietPlansClient() {
             <p className="section-subtitle m-0">Consulta planes asignados, revisa tu biblioteca y crea uno nuevo desde aquí.</p>
           </div>
           <SegmentedControl
-            className="plans-hub-segmented"
+            className={plansHubStyles.plansHubSegmented}
             ariaLabel="Secciones de planes de nutrición"
             value={planSection}
             onChange={(id) => setPlanSection(id as "assigned" | "library" | "create")}

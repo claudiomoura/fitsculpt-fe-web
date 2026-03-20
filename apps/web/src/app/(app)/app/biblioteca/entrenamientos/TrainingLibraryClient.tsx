@@ -9,6 +9,7 @@ import { Input } from "@/design-system/components/Input";
 import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { ActivePlanSection, PlanCard, PlanHistoryList } from "@/components/plans/PlanSections";
+import plansHubStyles from "@/components/plans/PlansHub.module.css";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { TrainingPlanListItem } from "@/lib/types";
 
@@ -258,7 +259,7 @@ export default function TrainingLibraryClient() {
 
   return (
     <>
-      <section className="card premium-surface-card plans-hub-shell">
+      <section className={`card premium-surface-card ${plansHubStyles.plansHubShell}`}>
         <div className="stack-sm">
           <div>
             <p className="m-0 text-xs uppercase tracking-wider text-muted">Planes</p>
@@ -266,7 +267,7 @@ export default function TrainingLibraryClient() {
             <p className="section-subtitle m-0">Consulta planes asignados, revisa tu biblioteca y crea uno nuevo desde aquí.</p>
           </div>
           <SegmentedControl
-            className="plans-hub-segmented"
+            className={plansHubStyles.plansHubSegmented}
             ariaLabel="Secciones de planes de entrenamiento"
             value={planSection}
             onChange={(id) => setPlanSection(id as "assigned" | "library" | "create")}

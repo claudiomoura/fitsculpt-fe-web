@@ -1752,7 +1752,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 <>
                   {calendarView === "week" ? (
                     <div className="calendar-week">
-                      <div className={`calendar-range calendar-range--compact ${styles.weekNav}`}>
+                      <div className={`calendar-range ${styles.weekNav}`}>
                         <button
                           type="button"
                           className={`btn secondary ${styles.weekNavArrow}`}
