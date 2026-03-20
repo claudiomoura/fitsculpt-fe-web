@@ -1,4 +1,6 @@
 import "./globals.css";
+import "./globals.app.css";
+import "./globals.marketing.css";
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import ClientProviders from "@/components/layout/ClientProviders";
