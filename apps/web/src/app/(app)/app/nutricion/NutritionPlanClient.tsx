@@ -44,6 +44,7 @@ import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateEr
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError, classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState } from "@/lib/aiErrorUi";
 import styles from "./NutritionPlanClient.module.css";
+import trainingSharedStyles from "../_styles/TrainingShared.module.css";
 
 type NutritionForm = {
   age: number;
@@ -2248,7 +2249,7 @@ const nutritionPlanDetails = profile ? (
   ) : null;
 
   const pageContent = (
-    <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.nutritionScope}`}>
+    <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.nutritionScope} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
         <>
           

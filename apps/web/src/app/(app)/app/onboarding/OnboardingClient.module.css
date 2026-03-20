@@ -1,0 +1,84 @@
+.onboardingScope :global(.onboarding-shell) {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.onboardingScope :global(.onboarding-shell-hero) {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.onboardingScope :global(.onboarding-shell-brand) {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.onboardingScope :global(.onboarding-shell-logo) {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--brand));
+  box-shadow: var(--shadow-sm);
+}
+
+.onboardingScope :global(.onboarding-shell-progress) {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.onboardingScope :global(.onboarding-shell-progress-bar) {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.onboardingScope :global(.onboarding-shell-progress-bar.is-active) {
+  background: color-mix(in srgb, var(--accent) 85%, white 15%);
+}
+
+.onboardingScope :global(.onboarding-shell-progress-bar.is-current) {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent), var(--shadow-sm);
+}
+
+.onboardingScope :global(.onboarding-shell-counter) {
+  margin: 0;
+}
+
+.onboardingScope :global(.onboarding-step-card) {
+  padding: 20px;
+}
+
+.onboardingScope :global(.onboarding-footer-card) {
+  position: sticky;
+  bottom: 16px;
+  z-index: 5;
+}
+
+@media (max-width: 640px) {
+  .onboardingScope :global(.onboarding-shell-hero),
+  .onboardingScope :global(.onboarding-step-card) {
+    padding: 16px;
+  }
+
+  .onboardingScope :global(.onboarding-shell-progress) {
+    gap: 6px;
+  }
+
+  .onboardingScope :global(.onboarding-step-card .section-title),
+  .onboardingScope :global(.premium-hero-card .section-title),
+  .onboardingScope :global(.premium-stepper-card .section-title) {
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .onboardingScope :global(.onboarding-footer-card .btn) {
+    flex: 1 1 100%;
+  }
+}

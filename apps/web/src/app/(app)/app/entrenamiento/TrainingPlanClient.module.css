@@ -1,0 +1,225 @@
+.trainingPlanLayout {
+  display: grid;
+  gap: 16px;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heroMeta {
+  margin: 0;
+}
+
+.progress {
+  display: grid;
+  gap: 8px;
+}
+
+.progressHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--bg-muted);
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  transition: width 180ms ease;
+}
+
+.weeklyFlow {
+  display: grid;
+  gap: 0;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 86%, transparent);
+  border-radius: var(--surface-card-radius);
+  background: var(--surface-secondary-bg);
+  overflow: hidden;
+}
+
+.weeklySectionCalendar {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.weeklySectionDay {
+  margin-top: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  border-top: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.weekNav {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.weekNavArrow {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.weekNavCenter {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 0;
+  text-align: center;
+}
+
+.weekNavCenter strong {
+  font-size: 0.95rem;
+}
+
+.weekNavCenter :global(.muted) {
+  font-size: 0.76rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.layoutInsights {
+  display: grid;
+  gap: 12px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.statBox {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 86%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 76%, transparent);
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.statBox strong {
+  font-size: 1.12rem;
+}
+
+.statBox span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.manualRow {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  grid-template-columns: 2fr 1fr 1fr auto;
+}
+
+@media (min-width: 1080px) {
+  .trainingPlanLayout {
+    align-items: start;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
+  }
+
+  .trainingPlanLayout > * {
+    grid-column: 1;
+  }
+
+  .trainingPlanLayout > .layoutInsights {
+    grid-column: 2;
+    grid-row: 2 / span 3;
+    position: sticky;
+    top: 170px;
+  }
+
+  .trainingPlanLayout > :global(.training-main-section) {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 1024px) {
+  .trainingPlanLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .trainingPlanLayout > * {
+    min-width: 0;
+  }
+
+  .trainingPlanLayout > .layoutInsights {
+    position: static;
+  }
+
+  .trainingPlanLayout > :global(.training-main-section) {
+    max-width: 100%;
+  }
+
+  .weeklySectionCalendar {
+    border-bottom: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent) !important;
+  }
+
+  .weeklySectionDay {
+    border-top: 0 !important;
+  }
+
+  .weekNav {
+    grid-template-columns: 1fr auto 1fr;
+  }
+
+  .weekNavArrow {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 720px) {
+  .weeklySectionCalendar {
+    padding-bottom: 12px;
+  }
+
+  .weeklySectionDay {
+    padding-top: 12px;
+  }
+
+  .weekNav {
+    gap: 8px;
+  }
+
+  .weekNavArrow {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .weekNavCenter :global(.muted) {
+    font-size: 0.72rem;
+  }
+}

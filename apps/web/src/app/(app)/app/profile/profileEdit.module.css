@@ -1,0 +1,91 @@
+.shell {
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.hero {
+  padding: 20px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.content {
+  max-width: 980px;
+  margin-inline: auto;
+}
+
+.section {
+  padding: 20px;
+}
+
+.stepper {
+  display: grid;
+  gap: 14px;
+}
+
+.stepperHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stepCounter {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stepProgress {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+}
+
+.stepDot {
+  border: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.stepDotActive {
+  background: color-mix(in srgb, var(--accent) 85%, white 15%);
+}
+
+.stepDotCurrent {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent), var(--shadow-sm);
+}
+
+.footerCard {
+  position: sticky;
+  bottom: 16px;
+  z-index: 5;
+}
+
+@media (max-width: 640px) {
+  .hero,
+  .section {
+    padding: 16px;
+  }
+
+  .footerCard :global(.btn) {
+    flex: 1 1 100%;
+  }
+}

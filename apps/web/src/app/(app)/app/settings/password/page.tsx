@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
+import profileEditStyles from "../../profile/profileEdit.module.css";
+import styles from "./page.module.css";
 
 export default function SettingsPasswordPage() {
   const { t } = useLanguage();
@@ -30,17 +32,17 @@ export default function SettingsPasswordPage() {
   }
 
   return (
-    <div className="page profile-edit-shell">
-      <section className="card profile-edit-hero">
+    <div className={`page ${profileEditStyles.shell}`}>
+      <section className={`card ${profileEditStyles.hero}`}>
         <div className="profile-edit-hero-head">
-          <div className="profile-edit-badge">Cuenta</div>
+          <div className={profileEditStyles.badge}>Cuenta</div>
           <h1 className="section-title">{t("profile.passwordTitle")}</h1>
           <p className="section-subtitle">{t("profile.passwordSubtitle")}</p>
         </div>
       </section>
-      <section className="card profile-edit-section">
+      <section className={`card ${profileEditStyles.section}`}>
         <form className="form-stack" onSubmit={handleChangePassword}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          <div className={styles.passwordGrid}>
             <label className="form-stack">
               {t("profile.currentPassword")}
               <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required minLength={8} />

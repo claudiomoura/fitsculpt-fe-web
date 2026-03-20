@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { Input } from "@/design-system/components/Input";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
+import styles from "./OnboardingClient.module.css";
 import {
   defaultProfile,
   type Activity,
@@ -348,7 +349,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   if (loadState === "loading") {
     return (
-      <div className="page">
+      <div className={`page ${styles.onboardingScope}`}>
         <LoadingState
           title={t("onboarding.title")}
           ariaLabel={t("onboarding.loadingState")}
@@ -361,7 +362,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   if (loadState === "error") {
     return (
-      <div className="page">
+      <div className={`page ${styles.onboardingScope}`}>
         <ErrorState
           title={t("onboarding.errorTitle")}
           description={t("onboarding.errorSubtitle")}
@@ -377,7 +378,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   if (loadState === "empty") {
     return (
-      <div className="page">
+      <div className={`page ${styles.onboardingScope}`}>
         <EmptyState
           title={t("onboarding.emptyTitle")}
           description={t("onboarding.emptySubtitle")}
@@ -394,7 +395,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
 
   if (saveState === "success") {
     return (
-      <div className="page">
+      <div className={`page ${styles.onboardingScope}`}>
         <EmptyState
           title={t("onboarding.successTitle")}
           description={t("onboarding.successSubtitle")}
@@ -408,7 +409,7 @@ export default function OnboardingClient({ nextUrl, ai }: Props) {
   }
 
   return (
-    <div className="page onboarding-shell">
+    <div className={`page onboarding-shell ${styles.onboardingScope}`}>
       <section className="card onboarding-shell-hero premium-hero-card">
         <div className="onboarding-shell-brand">
           <div className="onboarding-shell-logo">FS</div>

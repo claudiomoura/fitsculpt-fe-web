@@ -43,6 +43,8 @@ import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 import { ExercisePlanDetailModal } from "@/components/exercise-library/detail/ExercisePlanDetailModal";
 import { TRAINING_ANALYTICS_TODO } from "./analytics";
 import { clampDayKeyToPlanStart, clampDateNotBefore, useTrainingCalendar } from "./hooks/useTrainingCalendar";
+import styles from "./TrainingPlanClient.module.css";
+import trainingSharedStyles from "../_styles/TrainingShared.module.css";
 
 type Exercise = {
   id?: string;
@@ -1510,7 +1512,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   );
 
   return (
-    <div className="page page-with-tabbar-safe-area nutrition-page-shell training-plan-layout">
+    <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.trainingPlanLayout} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
         <>
           {!loading && !error && profile && !isProfileComplete(profile) ? (
@@ -1562,7 +1564,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           ) : hasPlan ? (
             <>
               <section className="card premium-hero-card surface-action-card training-main-section">
-                <div className="training-hero">
+                <div className={styles.hero}>
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl border" style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
@@ -1605,7 +1607,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   ) : null}
                 </div>
 
-                <p className="training-hero-meta mt-3 text-sm text-muted">
+                <p className={`${styles.heroMeta} mt-3 text-sm text-muted`}>
                   {!selectedDayHasWorkout
                     ? safeT("training.restDaySubtitle", "Dia de recuperacion activa.")
                     : selectedEntry
@@ -1636,13 +1638,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
                 ) : null}
 
-                <div className="training-progress mt-4">
-                  <div className="training-progress-head">
+                <div className={`${styles.progress} mt-4`}>
+                  <div className={styles.progressHead}>
                     <span className="text-xs font-medium text-muted">Progreso</span>
                     <span className="text-xs font-semibold text-primary">{progressPercent}%</span>
                   </div>
-                  <div className="training-progress-track">
-                    <span className="training-progress-fill" style={{ width: `${progressPercent}%` }} />
+                  <div className={styles.progressTrack}>
+                    <span className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
                   </div>
                   <p className="m-0 text-xs text-muted">
                     {estimatedCompletedSessions}/{totalPlannedSessions} sesiones completadas
@@ -1650,8 +1652,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 </div>
               </section>
 
-              <div className="training-weekly-flow training-main-section">
-              <section className="card premium-surface-card surface-content-card training-weekly-section training-weekly-section--calendar">
+              <div className={`${styles.weeklyFlow} training-main-section`}>
+              <section className={`card premium-surface-card surface-content-card training-weekly-section ${styles.weeklySectionCalendar}`}>
               <div className="section-head section-head-actions">
                 <div>
                   <h2 className="section-title section-title-sm hidden sm:block">{t("training.calendarTitle")}</h2>
@@ -1750,17 +1752,17 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 <>
                   {calendarView === "week" ? (
                     <div className="calendar-week">
-                      <div className="calendar-range calendar-range--compact training-week-nav">
+                      <div className={`calendar-range calendar-range--compact ${styles.weekNav}`}>
                         <button
                           type="button"
-                          className="btn secondary training-week-nav-arrow"
+                          className={`btn secondary ${styles.weekNavArrow}`}
                           aria-label={t("calendar.previousWeekAria")}
                           onClick={() => setSelectedDate((prev) => clampDateNotBefore(addWeeks(prev, -1), normalizedPlanStartDate))}
                           disabled={!canGoPrevWeek}
                         >
                           <Icon name="chevron-left" size={16} />
                         </button>
-                        <div className="training-week-nav-center" aria-live="polite">
+                        <div className={styles.weekNavCenter} aria-live="polite">
                           <strong>
                             {t("training.weekLabel")} {displayWeekNumber}
                           </strong>
@@ -1768,7 +1770,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         </div>
                         <button
                           type="button"
-                          className="btn secondary training-week-nav-arrow"
+                          className={`btn secondary ${styles.weekNavArrow}`}
                           aria-label={t("calendar.nextWeekAria")}
                           onClick={() => setSelectedDate((prev) => addWeeks(prev, 1))}
                           disabled={weekOffset >= maxProjectedWeeksAhead}
@@ -1857,7 +1859,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               )}
             </section>
 
-              <section className="card premium-surface-card surface-content-card training-weekly-section training-weekly-section--day">
+              <section className={`card premium-surface-card surface-content-card training-weekly-section ${styles.weeklySectionDay}`}>
                 <div className="section-head">
                   <div>
                     <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
@@ -1909,7 +1911,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           ) : null}
 
           {hasPlan && (
-            <aside className="training-layout-insights">
+            <aside className={styles.layoutInsights}>
               <section className="card premium-surface-card surface-content-card training-insights-card">
                 <Link
                   href={selectedPlanId ? `/app/biblioteca/entrenamientos?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/entrenamientos"}
@@ -1959,12 +1961,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </section>
 
               <section className="card premium-surface-card surface-content-card training-insights-card">
-                <div className="training-stats-grid">
-                  <div className="training-stat-box">
+                <div className={styles.statsGrid}>
+                  <div className={styles.statBox}>
                     <strong>{estimatedCompletedSessions}</strong>
                     <span>{safeT("training.completedShort", "Completados")}</span>
                   </div>
-                  <div className="training-stat-box">
+                  <div className={styles.statBox}>
                     <strong>{Math.max(totalPlannedSessions - estimatedCompletedSessions, 0)}</strong>
                     <span>{safeT("training.pendingShort", "Pendientes")}</span>
                   </div>
@@ -2071,7 +2073,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       day.exercises.map((exercise, exerciseIndex) => (
                         <div
                           key={`manual-exercise-${dayIndex}-${exerciseIndex}`}
-                          className="training-manual-row"
+                          className={styles.manualRow}
                         >
                           <input
                             value={exercise.name}

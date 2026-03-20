@@ -22,6 +22,7 @@ import {
 } from "@/lib/profile";
 import { getUserProfile, updateUserProfile, updateUserProfilePreferences } from "@/lib/profileService";
 import BodyFatSelector from "@/components/profile/BodyFatSelector";
+import styles from "./profileEdit.module.css";
 
 export default function ProfileClient() {
   const { t } = useLanguage();
@@ -319,23 +320,23 @@ export default function ProfileClient() {
   }
 
   return (
-    <div className="page profile-edit-content">
-      <section className="card profile-edit-stepper premium-stepper-card">
-        <div className="profile-edit-stepper-head">
+    <div className={`page ${styles.content}`}>
+      <section className={`card premium-stepper-card ${styles.stepper}`}>
+        <div className={styles.stepperHead}>
           <div>
             <h2 className="section-title">{profileSteps[profileStep]?.title}</h2>
             <p className="section-subtitle">{profileSteps[profileStep]?.hint}</p>
           </div>
-          <div className="profile-edit-step-counter">
+          <div className={styles.stepCounter}>
             {t("profile.stepCounter", { current: profileStep + 1, total: profileSteps.length })}
           </div>
         </div>
-        <div className="profile-edit-step-progress">
+        <div className={styles.stepProgress}>
           {profileSteps.map((stepMeta, index) => (
             <button
               key={stepMeta.title}
               type="button"
-              className={`profile-edit-step-dot ${index <= profileStep ? "is-active" : ""} ${index === profileStep ? "is-current" : ""}`}
+              className={`${styles.stepDot} ${index <= profileStep ? styles.stepDotActive : ""} ${index === profileStep ? styles.stepDotCurrent : ""}`}
               onClick={() => setProfileStep(index)}
               aria-label={stepMeta.title}
             />
@@ -344,7 +345,7 @@ export default function ProfileClient() {
       </section>
       {/* Card 1: Avatar & Basics */}
       {profileStep === 0 ? (
-      <section className="card profile-edit-section premium-step-card" style={{ position: "relative" }}>
+      <section className={`card premium-step-card ${styles.section}`} style={{ position: "relative" }}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.basicsTitle")}</h2>
         </div>
@@ -486,7 +487,7 @@ export default function ProfileClient() {
 
       {/* Card 2: Goals */}
       {profileStep === 1 ? (
-      <section className="card profile-edit-section premium-step-card">
+      <section className={`card premium-step-card ${styles.section}`}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.goalsTitle")}</h2>
         </div>
@@ -527,7 +528,7 @@ export default function ProfileClient() {
 
       {/* Card 3: Training */}
       {profileStep === 2 ? (
-      <section className="card profile-edit-section premium-step-card">
+      <section className={`card premium-step-card ${styles.section}`}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.trainingPrefsTitle")}</h2>
         </div>
@@ -618,7 +619,7 @@ export default function ProfileClient() {
 
       {/* Card 4: Nutrition */}
       {profileStep === 3 ? (
-      <section className="card profile-edit-section premium-step-card">
+      <section className={`card premium-step-card ${styles.section}`}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.nutritionPrefsTitle")}</h2>
         </div>
@@ -722,7 +723,7 @@ export default function ProfileClient() {
 
       {/* Card 5: Macros */}
       {profileStep === 4 ? (
-      <section className="card profile-edit-section premium-step-card">
+      <section className={`card premium-step-card ${styles.section}`}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.macroPrefsTitle")}</h2>
         </div>
@@ -764,7 +765,7 @@ export default function ProfileClient() {
 
       {/* Card 6: Body Metrics */}
       {profileStep === 5 ? (
-      <section className="card profile-edit-section premium-step-card">
+      <section className={`card premium-step-card ${styles.section}`}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.latestMetricsTitle")}</h2>
           <p className="section-subtitle">{t("profile.latestMetricsHint")}</p>
@@ -815,7 +816,7 @@ export default function ProfileClient() {
 
       {/* Card 7: Medical & Notes */}
       {profileStep === 6 ? (
-      <section className="card profile-edit-section premium-step-card">
+      <section className={`card premium-step-card ${styles.section}`}>
         <div className="section-head">
           <h2 className="section-title">{t("profile.injuriesTitle")}</h2>
         </div>
@@ -835,7 +836,7 @@ export default function ProfileClient() {
       </section>
       ) : null}
 
-      <section className="card profile-edit-footer-card premium-footer-card">
+      <section className={`card premium-footer-card ${styles.footerCard}`}>
         <div className="inline-actions-sm">
           <button type="button" className="btn secondary" onClick={() => setProfileStep((current) => Math.max(0, current - 1))} disabled={isFirstProfileStep}>
             {t("ui.back")}
