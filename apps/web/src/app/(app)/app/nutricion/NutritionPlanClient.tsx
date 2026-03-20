@@ -2249,7 +2249,7 @@ const nutritionPlanDetails = profile ? (
   ) : null;
 
   const pageContent = (
-    <div className={`page page-with-tabbar-safe-area app-page-shell app-page-shell--default ${styles.nutritionScope} ${trainingSharedStyles.trainingSharedScope}`}>
+    <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.nutritionScope} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
         <>
           
