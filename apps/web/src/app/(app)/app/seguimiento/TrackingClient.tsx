@@ -1212,7 +1212,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {progressInsightTab === "checkin" ? (
             <div className={styles.overviewGrid}>
               <div className={styles.leftColumn}>
-                <section className={`feature-card ${styles.primaryChartCard}`}>
+                <section className={`feature-card feature-card--compact ${styles.primaryChartCard}`}>
                   <h2 className="section-title section-title-sm">{t("tracking.weeklyProgressTitle")}</h2>
                   {checkinTrendData.length < 2 ? (
                     <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
@@ -1248,15 +1248,15 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   )}
                 </section>
                 <section className={styles.metricCards}>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.latestWeightTitle")}</p>
                     <strong>{latestCheckin ? `${latestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}` : "—"}</strong>
                   </article>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.weightHistoryTitle")}</p>
                     <strong>{rangeWeightDelta === null ? "—" : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}</strong>
                   </article>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressConsistency")}</p>
                     <strong>{adherenceLast7Days}%</strong>
                   </article>
@@ -1264,18 +1264,18 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               </div>
               <aside className={styles.rightColumn}>
                 {supportsBodyFat && latestCheckin ? (
-                  <section className="feature-card">
+                  <section className="feature-card feature-card--compact">
                     <h3 className="section-title section-title-sm">{t("tracking.bodyFatPercent")}</h3>
                     <strong>{latestCheckin.bodyFatPercent.toFixed(1)}{t("units.percent")}</strong>
                   </section>
                 ) : null}
                 {latestNotesCheckin ? (
-                  <section className="feature-card">
+                  <section className="feature-card feature-card--compact">
                     <h3 className="section-title section-title-sm">{t("tracking.latestNotesTitle")}</h3>
                     <p className="muted">{latestNotesCheckin.notes}</p>
                   </section>
                 ) : null}
-                <section className="feature-card">
+                <section className="feature-card feature-card--compact">
                   <h3 className="section-title section-title-sm">{t("tracking.weightHistoryTitle")}</h3>
                   {sortedCheckins.length === 0 ? (
                     <p className="muted">{t("profile.checkinEmpty")}</p>
@@ -1299,7 +1299,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {progressInsightTab === "nutrition" ? (
             <div className={styles.overviewGrid}>
               <div className={styles.leftColumn}>
-                <section className={`feature-card ${styles.primaryChartCard}`}>
+                <section className={`feature-card feature-card--compact ${styles.primaryChartCard}`}>
                   <h3 className="section-title section-title-sm">{t("tracking.progressComplianceTitle")}</h3>
                   {nutritionTrendData.length === 0 ? (
                     <p className="muted">{t("tracking.mealEmpty")}</p>
@@ -1330,22 +1330,22 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 </section>
 
                 <section className={styles.metricCards}>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressDaysLogged")}</p>
                     <strong>{nutritionDaysLogged}/{rangeDays}</strong>
                   </article>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressAverageCalories")}</p>
                     <strong>{nutritionDaysLogged > 0 ? `${nutritionAverages.calories.toFixed(0)} ${t("units.kcal")}` : "—"}</strong>
                   </article>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressAverageProtein")}</p>
                     <strong>{nutritionDaysLogged > 0 ? `${nutritionAverages.protein.toFixed(0)} ${t("units.grams")}` : "—"}</strong>
                   </article>
                 </section>
               </div>
               <aside className={styles.rightColumn}>
-                <section className="feature-card">
+                <section className="feature-card feature-card--compact">
                   <h3 className="section-title section-title-sm">{t("tracking.progressComplianceTitle")}</h3>
                   <div style={{ display: "grid", gap: 10 }}>
                     <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
@@ -1366,7 +1366,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     ) : null}
                   </div>
                 </section>
-                <section className="feature-card">
+                <section className="feature-card feature-card--compact">
                   <h3 className="section-title section-title-sm">{t("tracking.progressRecentMeals")}</h3>
                   {nutritionInRange.length === 0 ? (
                     <p className="muted">{t("tracking.mealEmpty")}</p>
@@ -1390,7 +1390,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {progressInsightTab === "training" ? (
             <div className={styles.overviewGrid}>
               <div className={styles.leftColumn}>
-                <section className={`feature-card ${styles.primaryChartCard}`}>
+                <section className={`feature-card feature-card--compact ${styles.primaryChartCard}`}>
                   <h3 className="section-title section-title-sm">{t("tracking.progressSessionTarget")}</h3>
                   {trainingTrendData.length === 0 ? (
                     <p className="muted">{t("tracking.workoutEmpty")}</p>
@@ -1424,26 +1424,26 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   )}
                 </section>
                 <section className={styles.metricCards}>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressSessions")}</p>
                     <strong>{trainingSessions}</strong>
                   </article>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressTrainingTime")}</p>
                     <strong>{trainingMinutes} min</strong>
                   </article>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.workoutDuration")}</p>
                     <strong>{trainingAverageMinutes > 0 ? `${trainingAverageMinutes} min` : "—"}</strong>
                   </article>
-                  <article className="feature-card">
+                  <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressConsistency")}</p>
                     <strong>{trainingConsistency}%</strong>
                   </article>
                 </section>
               </div>
               <aside className={styles.rightColumn}>
-                <section className="feature-card">
+                <section className="feature-card feature-card--compact">
                   <h3 className="section-title section-title-sm">{t("tracking.progressSessionTarget")}</h3>
                   <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                     <span className="muted">{t("tracking.progressPerWeek")}</span>
@@ -1454,7 +1454,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     <strong>{trainingConsistency}%</strong>
                   </div>
                 </section>
-                <section className="feature-card">
+                <section className="feature-card feature-card--compact">
                   <h3 className="section-title section-title-sm">{t("tracking.progressRecentWorkouts")}</h3>
                   {workoutsRecent.length === 0 ? (
                     <p className="muted">{t("tracking.workoutEmpty")}</p>
@@ -1637,7 +1637,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               </div>
             ) : (
               sortedCheckins.slice(0, 8).map((entry) => (
-                <div key={entry.id} className="feature-card">
+                <div key={entry.id} className="feature-card feature-card--compact">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                     <strong>{entry.date}</strong>
                     <span>

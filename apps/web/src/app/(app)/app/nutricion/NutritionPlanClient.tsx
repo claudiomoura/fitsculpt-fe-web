@@ -2538,7 +2538,7 @@ const nutritionPlanDetails = profile ? (
                               const mealKey = getNutritionMealKey(meal, highlightedDayKey, mealSection.mealIndex ?? mealIndex);
                               const mealLogged = isConsumed(mealKey, highlightedDayKey);
                               return (
-                                <div key={mealKey} className="feature-card stack-sm nutrition-meal-slot-card nutrition-meal-slot-card--compact">
+                                <div key={mealKey} className="feature-card feature-card--compact stack-sm nutrition-meal-slot-card nutrition-meal-slot-card--compact">
                                   <div className="inline-actions-space">
                                     <div className="stack-xs">
                                       <strong>{mealSection.label}</strong>
@@ -2572,7 +2572,7 @@ const nutritionPlanDetails = profile ? (
                             <div className="nutrition-meal-list mt-12">
                               {visiblePlanEntries.length > 0 ? (
                                 visiblePlanEntries.map((entry) => (
-                                  <div key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`} className="feature-card stack-sm">
+                                  <div key={`${entry.day.dayLabel}-${toDateKey(entry.date)}`} className="feature-card feature-card--compact stack-sm">
                                     <div className="inline-actions-space">
                                       <strong>{entry.date.toLocaleDateString(localeCode, { weekday: "short", day: "numeric", month: "short" })}</strong>
                                       <span className="badge">{entry.day.dayLabel}</span>
@@ -2610,7 +2610,7 @@ const nutritionPlanDetails = profile ? (
                           ) : null}
                         </>
                       ) : (
-                        <div className="feature-card stack-sm nutrition-empty-day-card">
+                        <div className="feature-card feature-card--compact stack-sm nutrition-empty-day-card">
                           <div className="inline-actions-space">
                             <strong>{t("nutrition.weeklyEmptyTitle")}</strong>
                             <span className="badge">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</span>
@@ -2758,7 +2758,7 @@ const nutritionPlanDetails = profile ? (
           {manualPlan ? (
             <div className="form-stack">
               {manualPlan.days.map((day, dayIndex) => (
-                <div key={`${day.dayLabel}-${dayIndex}`} className="feature-card stack-md">
+                <div key={`${day.dayLabel}-${dayIndex}`} className="feature-card feature-card--compact stack-md">
                   <label className="form-stack">
                     {t("nutrition.manualDayLabel")}
                     <input
@@ -2934,7 +2934,7 @@ const nutritionPlanDetails = profile ? (
       >
         {lastGeneratedAiPlan ? (
           <div className="stack-md">
-            <div className="feature-card">
+            <div className="feature-card feature-card--compact">
               <p className="m-0"><strong>{t("nutrition.aiSuccessModal.summaryTitle")}</strong></p>
               <ul className="list-muted-sm mt-8">
                 <li>{t("nutrition.aiSuccessModal.planTitle")}: {lastGeneratedAiPlan.title?.trim() || "-"}</li>
@@ -2950,7 +2950,7 @@ const nutritionPlanDetails = profile ? (
             </div>
 
             {generatedPlanPreviewDay ? (
-              <div className="feature-card">
+              <div className="feature-card feature-card--compact">
                 <p className="m-0"><strong>{t("nutrition.aiSuccessModal.dayPreviewTitle")}</strong></p>
                 <p className="muted mt-4 mb-0">{generatedPlanPreviewDay.day.dayLabel}</p>
                 <ul className="list-muted-sm mt-8">
@@ -2964,7 +2964,7 @@ const nutritionPlanDetails = profile ? (
             ) : null}
 
             {(lastGeneratedMode === "FALLBACK" || typeof lastGeneratedUsage?.totalTokens === "number" || typeof lastGeneratedUsage?.promptTokens === "number" || typeof lastGeneratedUsage?.completionTokens === "number" || typeof lastGeneratedUsage?.balanceAfter === "number") ? (
-              <div className="feature-card">
+              <div className="feature-card feature-card--compact">
                 <p className="m-0"><strong>{t("nutrition.aiSuccessModal.aiBlockTitle")}</strong></p>
                 <ul className="list-muted-sm mt-8">
                   <li>

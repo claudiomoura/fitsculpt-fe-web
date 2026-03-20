@@ -2721,6 +2721,18 @@ label {
   background: color-mix(in srgb, var(--surface-inset-bg) 88%, var(--bg-card) 12%);
 }
 
+.feature-card--compact {
+  padding: 12px;
+  gap: 6px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.feature-card--compact:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .app-frame[data-shell="admin"] .card,
 .app-frame[data-shell="admin"] .feature-card,
 .app-frame[data-shell="trainer"] .card,
@@ -8128,6 +8140,11 @@ html.theme-dark :focus-visible {
   .feature-card {
     padding: 12px;
     border-radius: 14px;
+  }
+
+  .feature-card--compact {
+    padding: 10px;
+    border-radius: 12px;
   }
 
   .training-plan-access-actions,

@@ -1980,7 +1980,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </div>
               <div className="mesocycle-grid">
                 {periodization.map((week, idx) => (
-                  <div key={`${week.label}-${idx}`} className="feature-card mesocycle-card">
+                  <div key={`${week.label}-${idx}`} className="feature-card feature-card--compact mesocycle-card">
                     <span className="badge">{t("training.weekLabel")} {idx + 1}</span>
                     <strong>{t(`training.${week.label}`)}</strong>
                     <p className="muted">{t(`training.${week.detailKey}`)}</p>
@@ -2023,7 +2023,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           {manualPlan ? (
             <div className="form-stack">
               {manualPlan.days.map((day, dayIndex) => (
-                <div key={`manual-day-${dayIndex}`} className="feature-card stack-md">
+                <div key={`manual-day-${dayIndex}`} className="feature-card feature-card--compact stack-md">
                   <div className="inline-grid-2">
                     <div className="inline-actions-sm" style={{ gridColumn: "1 / -1", justifyContent: "space-between" }}>
                       <button type="button" className="btn secondary" onClick={addManualDay} disabled={!canManageManualDays}>
