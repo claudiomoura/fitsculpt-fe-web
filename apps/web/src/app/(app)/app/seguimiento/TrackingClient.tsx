@@ -834,7 +834,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
   if (isTrackingLoading && !trackingLoaded) {
     return (
-      <div className={isCheckinOnly ? `${styles.checkinOnlyBody} premium-page-shell premium-page-shell--compact` : styles.trackingPageContent} data-testid="tracking-page-loading">
+      <div className={isCheckinOnly ? `${styles.checkinOnlyBody} app-page-shell app-page-shell--compact` : styles.trackingPageContent} data-testid="tracking-page-loading">
         <section className="card premium-fade-up">
           <div className="form-stack">
             <Skeleton className="h-8 w-40" />
@@ -1135,7 +1135,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   }
 
   return (
-    <div className={isCheckinOnly ? `${styles.checkinOnlyBody} premium-page-shell premium-page-shell--compact` : styles.trackingPageContent} data-testid="tracking-page">
+    <div className={isCheckinOnly ? `${styles.checkinOnlyBody} app-page-shell app-page-shell--compact` : styles.trackingPageContent} data-testid="tracking-page">
       {actionMessage && !isCheckinOnly && (
         <div className="status-card status-card--success" role="status" aria-live="polite">
           <p className="muted m-0">{actionMessage}</p>

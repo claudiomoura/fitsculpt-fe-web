@@ -795,10 +795,20 @@ export default function TodayQuickActionsClient() {
     checkinGoalGapKg === null
       ? null
       : checkinGoalGapKg === 0
-        ? "Objetivo de peso alcanzado"
+        ? "Objetivo alcanzado. Excelente constancia."
         : checkinGoalGapKg > 0
-          ? `${Math.abs(checkinGoalGapKg).toFixed(1)} kg por encima de tu objetivo`
-          : `${Math.abs(checkinGoalGapKg).toFixed(1)} kg por debajo de tu objetivo`;
+          ? `Te faltan ${Math.abs(checkinGoalGapKg).toFixed(1)} kg para tu objetivo. Vas por buen camino.`
+          : `Ya superaste tu objetivo por ${Math.abs(checkinGoalGapKg).toFixed(1)} kg. Mantenerlo tambien es progreso.`;
+  const nutritionProgressPercent =
+    nutritionGoalKcal && nutritionGoalKcal > 0
+      ? Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round((nutritionConsumedKcal / nutritionGoalKcal) * 100),
+          ),
+        )
+      : 0;
 
   const showEmptyBanner =
     status === "success" &&
@@ -857,7 +867,7 @@ export default function TodayQuickActionsClient() {
   };
 
   return (
-    <div className="today-page-stack flex flex-col gap-4 pb-12">
+    <div className="today-page-stack flex flex-col gap-4 pb-0">
       <header className="flex items-start justify-between gap-3 premium-page-header">
         <div className="min-w-0">
           <h1 className="m-0 text-[1.58rem] font-bold leading-tight text-primary">
@@ -954,10 +964,10 @@ export default function TodayQuickActionsClient() {
             <div
               className={`today-progress-inset today-hero-progress mt-1 space-y-2 ${isDailyProgressComplete ? "today-hero-progress--complete" : ""}`}
             >
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-muted">Progreso diario</span>
+              <div className="today-hero-progress-head text-xs">
+                <span className="today-hero-progress-label">Progreso diario</span>
                 <span
-                  className={`font-semibold today-hero-progress-value ${isDailyProgressComplete ? "today-hero-progress-value--complete" : ""}`}
+                  className={`today-hero-progress-pill today-hero-progress-value ${isDailyProgressComplete ? "today-hero-progress-value--complete" : ""}`}
                 >
                   {dailyProgressPercent}%
                 </span>
@@ -1018,7 +1028,7 @@ export default function TodayQuickActionsClient() {
               className={`card premium-surface-card surface-content-card today-secondary-card today-nutrition-card today-nutrition-card--${nutritionCardTone} premium-fade-up`}
               data-testid="today-action-card"
             >
-              <div className="mb-5 flex items-center gap-3">
+              <div className="mb-6 flex items-center gap-3">
                 <div className="today-module-icon flex h-11 w-11 items-center justify-center rounded-xl border">
                   <PremiumNutritionIcon
                     width={20}
@@ -1030,18 +1040,16 @@ export default function TodayQuickActionsClient() {
                   <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
                     Nutrición
                   </p>
-                  <h2 className="m-0 mt-0.5 text-base font-semibold text-primary">
+                  <h2 className="m-0 mt-0.5 text-[1.1rem] font-semibold text-primary">
                     Calorías
                   </h2>
                 </div>
               </div>
 
-              <div className="today-nutrition-layout mb-5">
+              <div className="today-nutrition-layout mb-6">
                 <div className="today-nutrition-copy min-w-0">
-                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Calorías consumidas
-                  </p>
-                  <div className="today-nutrition-kcal mt-2">
+                  <p className="today-nutrition-meta-label m-0">Consumidas hoy</p>
+                  <div className="today-nutrition-kcal mt-1.5">
                     <span className="today-nutrition-kcal-value">
                       {nutritionPrimaryKcal === "--"
                         ? "--"
@@ -1054,11 +1062,8 @@ export default function TodayQuickActionsClient() {
                     ) : null}
                     <span className="today-nutrition-kcal-unit">kcal</span>
                   </div>
-                  <p className="today-nutrition-meta m-0 mt-3">
+                  <p className="today-nutrition-meta m-0 mt-2.5">
                     {nutritionMetaText}
-                  </p>
-                  <p className="today-nutrition-progress-line m-0 mt-2">
-                    {nutritionProgressLabel}
                   </p>
                 </div>
                 <div className="today-nutrition-ring-wrap shrink-0">
@@ -1075,6 +1080,17 @@ export default function TodayQuickActionsClient() {
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div className="today-progress-inset today-nutrition-progress mb-5 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-muted">Avance nutricional</span>
+                  <span className="today-nutrition-progress-percent font-semibold text-primary">
+                    {nutritionProgressPercent}%
+                  </span>
+                </div>
+                <ProgressBar value={nutritionConsumedKcal} total={nutritionGoalKcal ?? 0} />
+                <p className="today-nutrition-progress-line m-0">{nutritionProgressLabel}</p>
               </div>
 
               <ButtonLink

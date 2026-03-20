@@ -5,7 +5,7 @@ import styles from "../profileEdit.module.css";
 export default async function ProfileEditPage() {
   const { t } = await getServerT();
   return (
-    <div className={`page ${styles.shell}`}>
+    <div className={`page app-page-shell app-page-shell--default ${styles.shell}`}>
       <section className={`card premium-hero-card ${styles.hero}`}>
         <div className="profile-edit-hero-head">
           <div className={styles.badge}>{t("navSections.account")}</div>

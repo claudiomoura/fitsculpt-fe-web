@@ -1,6 +1,5 @@
 .shell {
-  max-width: 980px;
-  margin-inline: auto;
+  width: 100%;
 }
 
 .hero {
@@ -22,8 +21,7 @@
 }
 
 .content {
-  max-width: 980px;
-  margin-inline: auto;
+  width: 100%;
 }
 
 .section {

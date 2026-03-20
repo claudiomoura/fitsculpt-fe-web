@@ -1047,17 +1047,58 @@ textarea:disabled {
   }
 }
 
-.nutrition-page-shell {
-  width: min(100%, 1260px);
+.app-page-shell {
+  --app-page-shell-max-width: 1200px;
+  --app-page-shell-gutter: 16px;
+
+  width: min(100%, var(--app-page-shell-max-width));
   margin-inline: auto;
-  gap: 14px;
-  padding-inline: clamp(12px, 2.4vw, 24px);
+  padding-inline: var(--app-page-shell-gutter);
 }
 
+.app-page-shell--default,
+.nutrition-page-shell,
 .content-page-shell {
-  width: min(100%, 1260px);
+  --app-page-shell-max-width: 1200px;
+}
+
+.app-page-shell--compact,
+.premium-page-shell--compact {
+  --app-page-shell-max-width: 1080px;
+}
+
+.app-page-shell--narrow {
+  --app-page-shell-max-width: 960px;
+}
+
+.nutrition-page-shell {
+  gap: 14px;
+}
+
+.nutrition-page-shell,
+.content-page-shell,
+.premium-page-shell--compact {
+  width: min(100%, var(--app-page-shell-max-width));
   margin-inline: auto;
-  padding-inline: clamp(12px, 2.4vw, 24px);
+  padding-inline: var(--app-page-shell-gutter);
+}
+
+@media (min-width: 641px) {
+  .app-page-shell,
+  .nutrition-page-shell,
+  .content-page-shell,
+  .premium-page-shell--compact {
+    --app-page-shell-gutter: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-page-shell,
+  .nutrition-page-shell,
+  .content-page-shell,
+  .premium-page-shell--compact {
+    --app-page-shell-gutter: 32px;
+  }
 }
 
 .compact-exercise-list {
@@ -1238,10 +1279,9 @@ html.theme-dark :focus-visible {
 }
 
 .premium-page-shell--compact {
-  max-width: 1080px;
+  width: min(100%, var(--app-page-shell-max-width));
   margin-inline: auto;
-  width: 100%;
-  padding-inline: 16px;
+  padding-inline: var(--app-page-shell-gutter);
 }
 
 .premium-page-header {
@@ -1332,7 +1372,6 @@ html.theme-dark :focus-visible {
 @media (max-width: 640px) {
   .page.page-with-tabbar-safe-area.tracking-page-shell {
     gap: 12px;
-    padding-inline: 14px;
     padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
   }
 
@@ -1346,10 +1385,6 @@ html.theme-dark :focus-visible {
 
 
 @media (max-width: 640px) {
-  .premium-page-shell--compact {
-    padding-inline: 16px;
-  }
-
   .premium-page-header h1,
   .premium-page-header h2 {
     line-height: 1.1;

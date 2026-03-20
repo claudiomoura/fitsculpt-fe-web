@@ -1,9 +1,6 @@
 .todayShell {
-  width: min(100%, 1080px);
-  margin-inline: auto;
-  padding-inline: clamp(10px, 2vw, 18px);
   gap: 14px;
-  padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
+  padding-bottom: 18px;
 }
 
 .todayScope :global(.today-inline-state) {
@@ -27,7 +24,7 @@
 }
 
 .todayScope :global(.today-hero-card) {
-  padding-block: 22px;
+  padding: 26px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 14%, transparent) 0%, transparent 38%),
     linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 48%),
@@ -49,6 +46,7 @@
 .todayScope :global(.today-secondary-card) {
   background: var(--surface-secondary-bg);
   border-color: color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+  padding: 22px;
 }
 
 .todayScope :global(.today-cards-grid) {
@@ -84,7 +82,32 @@
 }
 
 .todayScope :global(.today-hero-progress) {
-  margin-top: 2px;
+  margin-top: 4px;
+}
+
+.todayScope :global(.today-hero-progress-head) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.todayScope :global(.today-hero-progress-label) {
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.todayScope :global(.today-hero-progress-pill) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 56px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 86%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 90%, black 10%);
 }
 
 .todayScope :global(.today-hero-progress-value) {
@@ -105,6 +128,8 @@
 
 .todayScope :global(.today-hero-progress-value--complete) {
   color: var(--color-success);
+  border-color: color-mix(in srgb, #22c55e 30%, var(--surface-border-default));
+  background: color-mix(in srgb, #22c55e 12%, var(--surface-inset-bg));
 }
 
 .todayScope :global(.today-hero-progress--complete .today-hero-progress-value--complete) {
@@ -197,9 +222,17 @@
 .todayScope :global(.today-nutrition-copy) {
   width: 100%;
   display: grid;
-  gap: 2px;
+  gap: 4px;
   justify-items: start;
   text-align: left;
+}
+
+.todayScope :global(.today-nutrition-meta-label) {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text-muted) 92%, var(--text-primary) 8%);
 }
 
 .todayScope :global(.today-nutrition-kcal) {
@@ -212,8 +245,8 @@
 }
 
 .todayScope :global(.today-nutrition-kcal-value) {
-  font-size: clamp(2rem, 5vw, 2.55rem);
-  font-weight: 700;
+  font-size: clamp(2.2rem, 5.2vw, 2.9rem);
+  font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text-primary);
 }
@@ -235,15 +268,25 @@
 }
 
 .todayScope :global(.today-nutrition-meta) {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: color-mix(in srgb, var(--text-primary) 88%, var(--text-muted) 12%);
   text-align: left;
 }
 
 .todayScope :global(.today-nutrition-progress-line) {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+.todayScope :global(.today-nutrition-progress-percent) {
+  min-width: 44px;
+  text-align: right;
+}
+
+.todayScope :global(.today-nutrition-progress) {
+  padding-block: 11px;
 }
 
 .todayScope :global(.today-nutrition-ring-wrap) {
@@ -312,8 +355,7 @@
 @media (max-width: 640px) {
   .todayShell {
     gap: 12px;
-    padding-inline: 14px;
-    padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 40px);
+    padding-bottom: 14px;
   }
 
   .todayScope :global(.today-page-stack) {
@@ -321,7 +363,11 @@
   }
 
   .todayScope :global(.today-hero-card) {
-    padding: 20px 18px;
+    padding: 22px 18px;
+  }
+
+  .todayScope :global(.today-secondary-card) {
+    padding: 18px;
   }
 
   .todayScope :global(.today-progress-inset) {
