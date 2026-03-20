@@ -21,6 +21,7 @@ import {
   hasTrainingPlanAdjustmentCapability,
 } from "@/domains/training";
 import { Input } from "@/design-system/components/Input";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { Skeleton } from "@/design-system/components/Skeleton";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import TrainingAdjustmentDiffSummary, {
@@ -1167,47 +1168,33 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             {t("nav.weeklyReview")}
           </Link>
 
-          <div className={styles.segmentedControl} role="tablist" aria-label="Rango">
-            {[
-              { value: "7", label: "Semana" },
-              { value: "30", label: "Mes" },
-              { value: "90", label: "3 meses" },
-            ].map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="tab"
-                aria-selected={progressRange === option.value}
-                className={`${styles.segmentedButton} ${progressRange === option.value ? styles.segmentedButtonActive : ""}`}
-                onClick={() => setProgressRange(option.value as "7" | "30" | "90")}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            className={styles.segmentedControl}
+            ariaLabel="Rango"
+            options={[
+              { id: "7", label: "Semana" },
+              { id: "30", label: "Mes" },
+              { id: "90", label: "3 meses" },
+            ]}
+            value={progressRange}
+            onChange={(nextValue) => setProgressRange(nextValue as "7" | "30" | "90")}
+          />
         </section>
       ) : null}
 
       {!isCheckinOnly ? (
         <section className="card premium-surface-card surface-content-card tracking-overview-card">
-          <div className={styles.insightTabs} role="tablist" aria-label={t("tracking.insightsLabel")}>
-            {([
+          <SegmentedControl
+            className={styles.insightTabs}
+            ariaLabel={t("tracking.insightsLabel")}
+            options={[
               { id: "checkin", label: t("tracking.progressTabCheckin") },
               { id: "nutrition", label: t("tracking.progressTabNutrition") },
               { id: "training", label: t("tracking.progressTabTraining") },
-            ] as const).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={progressInsightTab === tab.id}
-                className={`${styles.insightTabButton} ${progressInsightTab === tab.id ? styles.insightTabButtonActive : ""}`}
-                onClick={() => setProgressInsightTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+            ]}
+            value={progressInsightTab}
+            onChange={(nextValue) => setProgressInsightTab(nextValue as ProgressInsightTab)}
+          />
 
           {progressInsightTab === "checkin" ? (
             <div className={styles.overviewGrid}>
@@ -1622,7 +1609,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             >
               {isSubmitting ? (
                 <>
-                  <span className="spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
+                  <span className="ui-spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
                 </>
               ) : (
                 checkinMode === "quick" ? t("tracking.weightEntryCta") : t("profile.checkinAdd")

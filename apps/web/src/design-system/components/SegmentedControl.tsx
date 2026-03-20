@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { useId } from 'react';
 import type { ButtonHTMLAttributes, HTMLAttributes, KeyboardEvent, ReactNode } from 'react';
 
@@ -8,6 +9,7 @@ import { createTransition } from '../motion';
 export type SegmentedControlOption = {
   id: string;
   label: ReactNode;
+  href?: string;
 };
 
 export type SegmentedControlProps = HTMLAttributes<HTMLDivElement> & {
@@ -41,6 +43,23 @@ export function SegmentedControl({ options, value, onChange, className, ariaLabe
         const active = option.id === value;
         const optionId = `${segmentedControlId}-${option.id}`;
 
+        if (option.href) {
+          return (
+            <Link
+              key={option.id}
+              id={optionId}
+              href={option.href}
+              className={getSegmentedControlButtonClassName(active)}
+              role="tab"
+              aria-selected={active}
+              aria-current={active ? 'page' : undefined}
+              tabIndex={active ? 0 : -1}
+            >
+              {option.label}
+            </Link>
+          );
+        }
+
         return (
           <SegmentedControlButton
             key={option.id}
@@ -64,17 +83,21 @@ type SegmentedControlButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   active?: boolean;
 };
 
+function getSegmentedControlButtonClassName(active: boolean, className?: string) {
+  return cn(
+    'rounded-lg px-3 py-1.5 text-sm font-medium text-text-muted',
+    'hover:-translate-y-px active:scale-[0.98]',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+    active ? 'bg-surface text-text' : 'hover:text-text',
+    className,
+  );
+}
+
 function SegmentedControlButton({ active = false, className, ...props }: SegmentedControlButtonProps) {
   return (
     <button
       type="button"
-      className={cn(
-        'rounded-lg px-3 py-1.5 text-sm font-medium text-text-muted',
-        'hover:-translate-y-px active:scale-[0.98]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
-        active ? 'bg-surface text-text' : 'hover:text-text',
-        className,
-      )}
+      className={getSegmentedControlButtonClassName(active, className)}
       style={{ transition: createTransition('interactive') }}
       {...props}
     />

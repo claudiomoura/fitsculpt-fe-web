@@ -31,7 +31,7 @@ export function EmptyBlock({
     >
       <Stack align="center" gap="5" className="text-center">
         {icon ? (
-          <div className="glass-card flex h-14 w-14 items-center justify-center rounded-2xl text-[var(--color-text-secondary)] shadow-sm">
+          <div className="glass-card text-text-muted flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm">
             {icon}
           </div>
         ) : null}

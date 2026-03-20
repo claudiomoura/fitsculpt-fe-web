@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { getServerT } from "@/lib/serverI18n";
 
 type LibraryTabsProps = {
@@ -20,19 +20,5 @@ export default async function LibraryTabs({ active, libraryType }: LibraryTabsPr
           { id: "nutritionPlans", href: "/app/dietas", label: t("nav.nutritionPlans") },
         ];
 
-  return (
-    <div className="segmented-control library-tabs" role="tablist">
-      {tabs.map((tab) => (
-        <Link
-          key={tab.id}
-          href={tab.href}
-          className={`segmented-control-btn ${active === tab.id ? "active" : ""}`}
-          aria-current={active === tab.id ? "page" : undefined}
-          role="tab"
-        >
-          {tab.label}
-        </Link>
-      ))}
-    </div>
-  );
+  return <SegmentedControl options={tabs} value={active} className="library-tabs" />;
 }

@@ -705,47 +705,8 @@ main {
   justify-content: flex-end;
 }
 
-.segmented-control {
-  display: flex;
-  gap: 6px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-muted);
-}
-
-.segmented-control-btn {
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
 .library-tabs {
   margin-top: 12px;
-  flex-wrap: wrap;
-}
-
-.library-tabs .segmented-control-btn {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.segmented-control-btn.active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-weight: 600;
-}
-
-.segmented-control-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .calendar-day {
@@ -1252,16 +1213,19 @@ main {
   opacity: 0.8;
 }
 
-.spinner {
+.spinner,
+.ui-spinner {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
+  border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: #fff;
   animation: spin 0.8s linear infinite;
 }
 
-.btn.secondary .spinner {
+.btn.secondary .spinner,
+.ui-button--secondary .ui-spinner,
+.ui-button--ghost .ui-spinner {
   border-color: rgba(15, 23, 42, 0.25);
   border-top-color: var(--text-primary);
 }
@@ -1362,12 +1326,6 @@ main {
 .chart-svg {
   width: 100%;
   height: 90px;
-}
-
-.segmented-control {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .calendar-grid {
@@ -1683,10 +1641,6 @@ button.exercise-mini-card {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.btn.secondary:hover {
-  background: var(--bg-muted);
 }
 
 input,
@@ -4123,21 +4077,6 @@ textarea:disabled {
   border: none;
 }
 
-.ui-spinner {
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-  animation: spin 0.8s linear infinite;
-}
-
-.ui-button--secondary .ui-spinner,
-.ui-button--ghost .ui-spinner {
-  border-color: rgba(15, 23, 42, 0.25);
-  border-top-color: var(--text-primary);
-}
-
 .ui-skeleton {
   border-radius: var(--radius-md);
   background: linear-gradient(90deg, var(--surface-skeleton-base) 0%, var(--surface-skeleton-highlight) 50%, var(--surface-skeleton-base) 100%);
@@ -5541,10 +5480,16 @@ html { scroll-behavior: smooth; }
 }
 
 .nutrition-page-shell {
-  width: 100%;
-  margin-inline: 0;
+  width: min(100%, 1260px);
+  margin-inline: auto;
   gap: 14px;
-  padding-inline: clamp(8px, 1.8vw, 18px);
+  padding-inline: clamp(12px, 2.4vw, 24px);
+}
+
+.content-page-shell {
+  width: min(100%, 1260px);
+  margin-inline: auto;
+  padding-inline: clamp(12px, 2.4vw, 24px);
 }
 
 .nutrition-today-primary {
@@ -7035,39 +6980,6 @@ html.theme-dark :focus-visible {
   font-weight: 600;
 }
 
-/* Legacy nutrition-macro-ring for backwards compatibility */
-.nutrition-macro-ring {
-  position: relative;
-  border-radius: 50%;
-  width: 140px;
-  height: 140px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nutrition-macro-ring-center {
-  width: 65%;
-  height: 65%;
-  border-radius: 50%;
-  background: var(--bg-card);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.nutrition-macro-ring-center strong {
-  font-size: 1.5rem;
-  color: var(--text-primary);
-}
-
-.nutrition-macro-ring-center span {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
 /* ============================================
    CALENDARIO SEMANAL COMPACTO
    ============================================ */
@@ -7670,14 +7582,13 @@ html.theme-dark :focus-visible {
 }
 
 .page.page-with-tabbar-safe-area.today-page-shell {
+  width: min(190%, 10800px);
+  margin-inline: auto;
+  padding-inline: clamp(100px, 20vw, 18px);
   gap: 14px;
   padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
 }
 
-.page.page-with-tabbar-safe-area.tracking-page-shell {
-  gap: 14px;
-  padding-bottom: calc(var(--mobile-tab-bar-offset-effective) + 32px);
-}
 
 .today-inline-state {
   border-radius: var(--surface-card-radius);

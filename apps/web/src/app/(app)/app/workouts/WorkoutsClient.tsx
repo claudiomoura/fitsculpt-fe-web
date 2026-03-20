@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Workout, WorkoutExercise } from "@/lib/types";
 
@@ -129,6 +130,14 @@ export default function WorkoutsClient() {
 
     return items;
   }, [workouts, query, fromDate, toDate, sort]);
+
+  const workoutViewOptions = useMemo(
+    () => [
+      { id: "list", label: t("workouts.viewList") },
+      { id: "calendar", label: t("workouts.viewCalendar") },
+    ],
+    [t]
+  );
 
   const calendarDays = useMemo(() => {
     const base = new Date(Date.UTC(2023, 0, 2));
@@ -475,22 +484,12 @@ export default function WorkoutsClient() {
               ({visibleWorkouts.length} de {workouts.length})
             </span>
           </div>
-          <div className="segmented-control">
-            <button
-              type="button"
-              className={`btn secondary ${viewMode === "list" ? "is-active" : ""}`}
-              onClick={() => setViewMode("list")}
-            >
-              {t("workouts.viewList")}
-            </button>
-            <button
-              type="button"
-              className={`btn secondary ${viewMode === "calendar" ? "is-active" : ""}`}
-              onClick={() => setViewMode("calendar")}
-            >
-              {t("workouts.viewCalendar")}
-            </button>
-          </div>
+          <SegmentedControl
+            options={workoutViewOptions}
+            value={viewMode}
+            onChange={(nextValue) => setViewMode(nextValue as "list" | "calendar")}
+            ariaLabel={t("workouts.sort")}
+          />
         </div>
 
         <div className="form-stack" style={{ marginTop: 12 }}>

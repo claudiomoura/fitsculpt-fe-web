@@ -13,7 +13,7 @@ const VARIANT_CLASS: Record<BadgeVariant, string> = {
   success: "ui-badge--success",
   warning: "ui-badge--warning",
   error: "ui-badge--error",
-  danger: "ui-badge--error",
+  danger: "ui-badge--danger",
   info: "ui-badge--info",
   muted: "ui-badge--muted",
   pro: "ui-badge--info text-primary",

@@ -202,7 +202,7 @@ export default function SettingsClient() {
   }
 
   return (
-    <section className="form-stack" aria-labelledby="settings-title">
+    <section className="form-stack content-page-shell" aria-labelledby="settings-title">
       <header className="form-stack settings-header">
         <h1 id="settings-title" className="section-title">
           {t("app.settingsTitle")}

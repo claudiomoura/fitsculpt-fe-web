@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Modal } from "@/design-system/components/Modal";
 import { Badge } from "@/design-system/components/Badge";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import {
   ClientHeaderCardSkeleton,
@@ -475,22 +476,12 @@ export default function TrainerClientContextClient() {
       </header>
 
       <nav aria-label={t("trainer.clientContext.tabs.ariaLabel")}>
-        <div role="tablist" aria-orientation="horizontal" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              aria-controls={`trainer-client-tabpanel-${tab.id}`}
-              id={`trainer-client-tab-${tab.id}`}
-              className={`btn ${activeTab === tab.id ? "" : "secondary"}`}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          ariaLabel={t("trainer.clientContext.tabs.ariaLabel")}
+          options={tabs.map((tab) => ({ id: tab.id, label: tab.label }))}
+          value={activeTab}
+          onChange={(nextValue) => setActiveTab(nextValue as TrainerClientTab)}
+        />
       </nav>
 
       {activeTab === "summary" ? (

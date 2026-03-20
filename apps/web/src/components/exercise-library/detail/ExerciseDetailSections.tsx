@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { EmptyState } from "../states/EmptyState";
 
 export type ExerciseDetailSectionsLabels = {
@@ -58,19 +59,10 @@ export function ExerciseDetailSections({
     }
     return availableTabs[0]?.id ?? "execution";
   });
-  const tabIds = useMemo(
-    () => ({
-      execution: {
-        tabId: "exercise-detail-tab-execution",
-        panelId: "exercise-detail-panel-execution",
-      },
-      muscles: {
-        tabId: "exercise-detail-tab-muscles",
-        panelId: "exercise-detail-panel-muscles",
-      },
-    }),
-    []
-  );
+  const panelIds = {
+    execution: "exercise-detail-panel-execution",
+    muscles: "exercise-detail-panel-muscles",
+  } as const;
 
   if (availableTabs.length === 0) {
     return (
@@ -82,62 +74,24 @@ export function ExerciseDetailSections({
     );
   }
   const showTabs = availableTabs.length > 1;
-  const executionLabelledBy = showTabs ? tabIds.execution.tabId : undefined;
-  const musclesLabelledBy = showTabs ? tabIds.muscles.tabId : undefined;
-
   return (
     <div className="stack-lg">
       {showTabs ? (
-        <div
-          className="tab-list mt-20"
-          role="tablist"
-          aria-label={labels.tabsLabel}
-          onKeyDown={(event) => {
-            const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
-            if (!keys.includes(event.key)) return;
-            const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='tab']"));
-            const currentIndex = tabs.findIndex((tab) => tab.dataset.tabId === activeTab);
-            if (currentIndex === -1 || tabs.length === 0) return;
-            event.preventDefault();
-            let nextIndex = currentIndex;
-            if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
-            if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-            if (event.key === "Home") nextIndex = 0;
-            if (event.key === "End") nextIndex = tabs.length - 1;
-            const nextTab = tabs[nextIndex];
-            const nextTabId = nextTab?.dataset.tabId as "execution" | "muscles" | undefined;
-            if (nextTabId) {
-              setActiveTab(nextTabId);
-              nextTab.focus();
-            }
-          }}
-        >
-          {availableTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-              role="tab"
-              id={tabIds[tab.id].tabId}
-              aria-controls={tabIds[tab.id].panelId}
-              aria-selected={activeTab === tab.id}
-              tabIndex={activeTab === tab.id ? 0 : -1}
-              data-tab-id={tab.id}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          className="mt-20"
+          ariaLabel={labels.tabsLabel}
+          options={availableTabs.map((tab) => ({ id: tab.id, label: tab.label }))}
+          value={activeTab}
+          onChange={(nextValue) => setActiveTab(nextValue as "execution" | "muscles")}
+        />
       ) : null}
 
       {activeTab === "execution" && hasExecutionDetails ? (
         <div
           className="tab-panel"
           role="tabpanel"
-          id={tabIds.execution.panelId}
-          aria-labelledby={executionLabelledBy}
-          aria-label={!showTabs ? labels.executionTab : undefined}
+          id={panelIds.execution}
+          aria-label={labels.executionTab}
           tabIndex={0}
         >
           {description ? (
@@ -165,9 +119,8 @@ export function ExerciseDetailSections({
         <div
           className="tab-panel"
           role="tabpanel"
-          id={tabIds.muscles.panelId}
-          aria-labelledby={musclesLabelledBy}
-          aria-label={!showTabs ? labels.musclesTab : undefined}
+          id={panelIds.muscles}
+          aria-label={labels.musclesTab}
           tabIndex={0}
         >
           {labels.muscleMapPlaceholder ? (

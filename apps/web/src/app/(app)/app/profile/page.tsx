@@ -5,7 +5,7 @@ export default async function ProfilePage() {
   const { t } = await getServerT();
 
   return (
-    <div className="page">
+    <div className="page content-page-shell">
       <header className="page-header">
         <div className="page-header-body">
           <h1 className="section-title">{t("app.profileTitle")}</h1>
