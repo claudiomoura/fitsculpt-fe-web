@@ -212,48 +212,11 @@
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 
-.table-grid-tight {
-  display: grid;
-  gap: 10px;
-}
-
 .modal-header {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
-}
-
-.modal-header-title {
-  margin: 0;
-}
-
-.modal-header-subtitle {
-  margin: 4px 0 0;
-}
-
-.modal-content-stack {
-  margin-top: 16px;
-  display: grid;
-  gap: 12px;
-}
-
-.modal-image {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-}
-
-.modal-section-title {
-  margin: 0;
-}
-
-.modal-section-copy {
-  margin-top: 6px;
-}
-
-.modal-section-copy-tight {
-  margin-top: 4px;
 }
 
 
@@ -574,26 +537,6 @@ textarea:disabled {
   height: 10px;
 }
 
-.tracking-history-skeleton {
-  display: grid;
-  gap: 10px;
-}
-
-.tracking-history-skeleton-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.tracking-history-skeleton-date {
-  width: 45%;
-}
-
-.tracking-history-skeleton-value {
-  width: 25%;
-}
-
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -908,57 +851,6 @@ textarea:disabled {
   }
 }
 
-.tracking-metric-skeleton {
-  display: grid;
-  gap: 8px;
-}
-
-.tracking-metric-skeleton-value {
-  width: 42%;
-}
-
-.tracking-metric-skeleton-date {
-  width: 32%;
-}
-
-.tracking-weekly-skeleton {
-  display: grid;
-  gap: 12px;
-}
-
-.tracking-weekly-skeleton-row {
-  display: grid;
-  gap: 8px;
-}
-
-.tracking-weekly-skeleton-label {
-  width: 40%;
-}
-
-.tracking-weekly-skeleton-value {
-  width: 28%;
-}
-
-.tracking-weekly-skeleton-bar {
-  width: 100%;
-  height: 10px;
-  border-radius: 999px;
-}
-
-.tracking-weekly-progress-bar-track {
-  margin-top: 8px;
-  height: 10px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--accent) 20%, var(--bg-muted));
-}
-
-.tracking-weekly-progress-bar-value {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
 .app-shell,
 .page,
 .app-content {
@@ -1206,192 +1098,9 @@ textarea:disabled {
    MICROINTERACCIONES Y ANIMACIONES PREMIUM
    ============================================ */
 
-@keyframes fadeInScale {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-fadeInScale {
-  animation: fadeInScale 350ms ease-out forwards;
-}
-
 /* ============================================
    PREMIUM PAYWALL & FEATURE CARDS
    ============================================ */
-
-.premium-feature-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 32px 24px;
-  margin-top: 48px;
-  border-radius: 24px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  gap: 16px;
-  transition: all 250ms ease;
-}
-
-.premium-feature-card:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--border));
-}
-
-.premium-feature-card--gradient {
-  background: linear-gradient(165deg, 
-    color-mix(in srgb, var(--color-primary) 12%, var(--bg-card)) 0%, 
-    var(--bg-card) 100%
-  );
-  border-color: color-mix(in srgb, var(--color-primary) 25%, var(--border));
-  box-shadow: 0 8px 32px color-mix(in srgb, var(--color-primary) 15%, transparent);
-}
-
-.premium-feature-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 20%, transparent), color-mix(in srgb, var(--color-secondary) 15%, transparent));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-primary);
-}
-
-.premium-feature-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.premium-feature-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.premium-feature-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.premium-feature-description {
-  font-size: 0.9375rem;
-  color: var(--text-muted);
-  margin: 0;
-  max-width: 320px;
-}
-
-.premium-feature-action {
-  margin-top: 8px;
-}
-
-/* Full Premium Paywall */
-.premium-paywall {
-  padding: 40px 32px;
-  border-radius: 24px;
-  background: linear-gradient(165deg, 
-    color-mix(in srgb, var(--color-primary) 8%, var(--bg-card)) 0%, 
-    var(--bg-card) 100%
-  );
-  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--border));
-  text-align: center;
-  max-width: 480px;
-  margin: 32px auto;
-  animation: fadeInScale 400ms ease-out;
-}
-
-.premium-paywall-header {
-  margin-bottom: 32px;
-}
-
-.premium-paywall-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 20%, transparent), color-mix(in srgb, var(--color-secondary) 15%, transparent));
-  color: var(--color-primary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 16px;
-}
-
-.premium-paywall-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 12px;
-}
-
-.premium-paywall-description {
-  font-size: 1rem;
-  color: var(--text-muted);
-  margin: 0;
-  max-width: 360px;
-  margin: 0 auto;
-}
-
-.premium-paywall-features {
-  display: grid;
-  gap: 16px;
-  text-align: left;
-  margin-bottom: 32px;
-}
-
-.premium-paywall-feature {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.premium-paywall-check {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-success) 20%, transparent);
-  color: var(--color-success);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.premium-paywall-check svg {
-  width: 14px;
-  height: 14px;
-}
-
-.premium-paywall-feature-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 2px;
-}
-
-.premium-paywall-feature-description {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.premium-paywall-cta {
-  display: flex;
-  justify-content: center;
-}
-
-.premium-paywall-button {
-  min-width: 200px;
-}
 
 /* ============================================
    PÁGINA TRANSICIONES
@@ -1444,76 +1153,6 @@ html.theme-dark :focus-visible {
 /* ============================================
    MACRO RING - GRÁFICO DE NUTRICIÓN
    ============================================ */
-
-.macro-ring-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
-.macro-ring {
-  position: relative;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 
-    0 0 0 4px var(--bg-card),
-    0 8px 24px rgba(0, 0, 0, 0.15);
-}
-
-.macro-ring-center {
-  width: 65%;
-  height: 65%;
-  border-radius: 50%;
-  background: var(--bg-card);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.macro-ring-center strong {
-  color: var(--text-primary);
-  line-height: 1;
-}
-
-.macro-ring-center span {
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.macro-ring-legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 16px;
-}
-
-.macro-ring-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8125rem;
-}
-
-.macro-ring-legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.macro-ring-legend-label {
-  color: var(--text-muted);
-}
-
-.macro-ring-legend-value {
-  color: var(--text-primary);
-  font-weight: 600;
-}
 
 /* ============================================
    CALENDARIO SEMANAL COMPACTO
@@ -1745,16 +1384,6 @@ html.theme-dark :focus-visible {
 
 .premium-fade-up {
   animation: premiumFadeUp 280ms ease-out;
-}
-
-.premium-success-surface {
-  border-color: color-mix(in srgb, var(--color-success) 24%, var(--surface-border-default));
-  box-shadow: var(--surface-card-inner-glow), 0 14px 34px color-mix(in srgb, var(--color-success) 14%, transparent);
-}
-
-.today-streak-chip {
-  border-color: color-mix(in srgb, var(--surface-border-default) 92%, transparent);
-  background: color-mix(in srgb, var(--surface-inset-bg) 88%, transparent);
 }
 
 .page.page-with-tabbar-safe-area.today-page-shell {

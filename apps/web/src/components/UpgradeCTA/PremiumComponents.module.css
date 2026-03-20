@@ -1,0 +1,177 @@
+.featureCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 24px;
+  margin-top: 48px;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  gap: 16px;
+  transition: all 250ms ease;
+}
+
+.featureCard:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--border));
+}
+
+.featureCardGradient {
+  background: linear-gradient(165deg,
+    color-mix(in srgb, var(--color-primary) 12%, var(--bg-card)) 0%,
+    var(--bg-card) 100%
+  );
+  border-color: color-mix(in srgb, var(--color-primary) 25%, var(--border));
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.featureIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 20%, transparent), color-mix(in srgb, var(--color-secondary) 15%, transparent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+}
+
+.featureIcon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.featureContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.featureTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.featureDescription {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 320px;
+}
+
+.featureAction {
+  margin-top: 8px;
+}
+
+@keyframes paywallFadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.paywall {
+  padding: 40px 32px;
+  border-radius: 24px;
+  background: linear-gradient(165deg,
+    color-mix(in srgb, var(--color-primary) 8%, var(--bg-card)) 0%,
+    var(--bg-card) 100%
+  );
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, var(--border));
+  text-align: center;
+  max-width: 480px;
+  margin: 32px auto;
+  animation: paywallFadeInScale 400ms ease-out;
+}
+
+.paywallHeader {
+  margin-bottom: 32px;
+}
+
+.paywallBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 20%, transparent), color-mix(in srgb, var(--color-secondary) 15%, transparent));
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+}
+
+.paywallTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.paywallDescription {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 360px;
+  margin-inline: auto;
+}
+
+.paywallFeatures {
+  display: grid;
+  gap: 16px;
+  text-align: left;
+  margin-bottom: 32px;
+}
+
+.paywallFeature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.paywallCheck {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.paywallCheck svg {
+  width: 14px;
+  height: 14px;
+}
+
+.paywallFeatureTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 2px;
+}
+
+.paywallFeatureDescription {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.paywallCta {
+  display: flex;
+  justify-content: center;
+}
+
+.paywallButton {
+  min-width: 200px;
+}

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/classNames";
+import styles from "./MacroRing.module.css";
 
 type MacroRingSegment = {
   key: string;
@@ -46,28 +47,28 @@ export function MacroRing({
     .join(", ")})`;
 
   return (
-    <div className={cn("macro-ring-container", className)}>
+    <div className={cn(styles.container, className)}>
       <div
-        className="macro-ring"
+        className={styles.ring}
         style={{
           width: config.ring,
           height: config.ring,
           background: gradient
         }}
       >
-        <div className={cn("macro-ring-center", centerClassName)}>
+        <div className={cn(styles.center, centerClassName)}>
           <strong className={config.font}>{centerValue}</strong>
           <span className={config.label}>{centerLabel}</span>
         </div>
       </div>
 
       {showLegend && (
-        <div className="macro-ring-legend">
+        <div className={styles.legend}>
           {segments.map((segment) => (
-            <div key={segment.key} className="macro-ring-legend-item">
-              <span className="macro-ring-legend-dot" style={{ background: segment.color }} />
-              <span className="macro-ring-legend-label">{segment.label}</span>
-              <span className="macro-ring-legend-value">{segment.grams}g{segment.target ? ` / ${segment.target}g` : ""}</span>
+            <div key={segment.key} className={styles.legendItem}>
+              <span className={styles.legendDot} style={{ background: segment.color }} />
+              <span className={styles.legendLabel}>{segment.label}</span>
+              <span className={styles.legendValue}>{segment.grams}g{segment.target ? ` / ${segment.target}g` : ""}</span>
             </div>
           ))}
         </div>

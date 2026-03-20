@@ -1,5 +1,6 @@
 import { ButtonLink } from "@/design-system/components/Button";
 import { Icon } from "@/design-system/components/Icon";
+import styles from "./PremiumComponents.module.css";
 
 type PremiumFeatureCardProps = {
   title: string;
@@ -20,18 +21,18 @@ export function PremiumFeatureCard({
 
   return (
     <div 
-      className={`premium-feature-card ${isGradient ? 'premium-feature-card--gradient' : ''}`}
+      className={`${styles.featureCard} ${isGradient ? styles.featureCardGradient : ''}`}
       role="status" 
       aria-live="polite"
     >
-      <div className="premium-feature-icon">
+      <div className={styles.featureIcon}>
         <Icon name={icon} />
       </div>
-      <div className="premium-feature-content">
-        <h3 className="premium-feature-title">{title}</h3>
-        <p className="premium-feature-description">{description}</p>
+      <div className={styles.featureContent}>
+        <h3 className={styles.featureTitle}>{title}</h3>
+        <p className={styles.featureDescription}>{description}</p>
       </div>
-      <div className="premium-feature-action">
+      <div className={styles.featureAction}>
         <ButtonLink href="/app/settings/billing" variant={isGradient ? "primary" : "secondary"}>
           {buttonLabel}
         </ButtonLink>
@@ -50,32 +51,32 @@ type PremiumPaywallProps = {
 
 export function PremiumPaywall({ title, description, features, ctaLabel, ctaHref = "/app/settings/billing" }: PremiumPaywallProps) {
   return (
-    <div className="premium-paywall" role="region" aria-label="Premium features">
-      <div className="premium-paywall-header">
-        <div className="premium-paywall-badge">
+    <div className={styles.paywall} role="region" aria-label="Premium features">
+      <div className={styles.paywallHeader}>
+        <div className={styles.paywallBadge}>
           <Icon name="sparkles" size={14} />
           <span>Premium</span>
         </div>
-        <h2 className="premium-paywall-title">{title}</h2>
-        <p className="premium-paywall-description">{description}</p>
+        <h2 className={styles.paywallTitle}>{title}</h2>
+        <p className={styles.paywallDescription}>{description}</p>
       </div>
       
-      <div className="premium-paywall-features">
+      <div className={styles.paywallFeatures}>
         {features.map((feature, index) => (
-          <div key={index} className="premium-paywall-feature">
-            <div className="premium-paywall-check">
+          <div key={index} className={styles.paywallFeature}>
+            <div className={styles.paywallCheck}>
               <Icon name="check" size={14} />
             </div>
             <div>
-              <h4 className="premium-paywall-feature-title">{feature.title}</h4>
-              <p className="premium-paywall-feature-description">{feature.description}</p>
+              <h4 className={styles.paywallFeatureTitle}>{feature.title}</h4>
+              <p className={styles.paywallFeatureDescription}>{feature.description}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="premium-paywall-cta">
-        <ButtonLink href={ctaHref} variant="primary" className="premium-paywall-button">
+      <div className={styles.paywallCta}>
+        <ButtonLink href={ctaHref} variant="primary" className={styles.paywallButton}>
           {ctaLabel}
         </ButtonLink>
       </div>
