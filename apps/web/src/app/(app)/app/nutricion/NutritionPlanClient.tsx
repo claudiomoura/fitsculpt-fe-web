@@ -43,6 +43,7 @@ import { useToast } from "@/design-system/components/Toast";
 import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError, classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState } from "@/lib/aiErrorUi";
+import styles from "./NutritionPlanClient.module.css";
 
 type NutritionForm = {
   age: number;
@@ -2247,7 +2248,7 @@ const nutritionPlanDetails = profile ? (
   ) : null;
 
   const pageContent = (
-    <div className="page page-with-tabbar-safe-area nutrition-page-shell">
+    <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.nutritionScope}`}>
       {!isManualView ? (
         <>
           

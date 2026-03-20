@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { Modal } from "@/design-system/components/Modal";
 import CheckinRouteContent from "../../check-in/CheckinRouteContent";
+import styles from "./page.module.css";
 
 export default function SeguimientoCheckinModalPage() {
   const router = useRouter();
@@ -20,8 +21,8 @@ export default function SeguimientoCheckinModalPage() {
     <Modal
       open
       onClose={handleClose}
-      className="tracking-checkin-modal"
-      overlayClassName="tracking-checkin-modal-overlay"
+      className={styles.trackingCheckinModal}
+      overlayClassName={styles.trackingCheckinModalOverlay}
     >
       <div className="flex justify-end px-4 pt-4">
         <button type="button" className="btn secondary fit-content" onClick={handleClose}>Cerrar</button>

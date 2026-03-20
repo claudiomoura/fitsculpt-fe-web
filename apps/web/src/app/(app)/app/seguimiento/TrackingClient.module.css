@@ -28,6 +28,11 @@
   gap: 14px;
 }
 
+.checkinOnlyBody {
+  display: grid;
+  gap: 16px;
+}
+
 .heroHeader {
   display: flex;
   justify-content: space-between;
@@ -92,6 +97,12 @@
 .overviewGrid {
   display: grid;
   gap: 16px;
+}
+
+.trackingOverviewCard {
+  background: var(--surface-secondary-bg);
+  border-color: var(--surface-border-default);
+  box-shadow: var(--surface-card-inner-glow), var(--shadow-sm);
 }
 
 .leftColumn,

@@ -1,0 +1,25 @@
+.trackingCheckinModalOverlay {
+  padding: 12px;
+}
+
+.trackingCheckinModal {
+  width: min(760px, 100%);
+  max-height: min(90vh, 960px);
+  overflow-y: auto;
+}
+
+@media (max-width: 720px) {
+  .trackingCheckinModalOverlay {
+    padding: 0;
+    align-items: end;
+  }
+
+  .trackingCheckinModal {
+    width: 100vw;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: none;
+    padding-bottom: calc(24px + var(--viewport-offset-bottom, 0px));
+  }
+}
