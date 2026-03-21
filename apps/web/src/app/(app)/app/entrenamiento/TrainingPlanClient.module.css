@@ -18,7 +18,12 @@
 .dismissibleMainCard {
   position: relative;
   z-index: 3;
-  width: 100%;
+  width: 100vw;
+  margin: 0;
+  margin-left: calc(50% - 50vw);
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
   background: color-mix(in srgb, var(--surface-secondary-bg) 74%, transparent);
   backdrop-filter: blur(10px) saturate(118%);
   -webkit-backdrop-filter: blur(10px) saturate(118%);
@@ -30,10 +35,11 @@
 }
 
 .overlayAnchor {
-  position: sticky;
-  top: 10px;
-  z-index: 3;
-  height: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
   pointer-events: none;
 }
 
