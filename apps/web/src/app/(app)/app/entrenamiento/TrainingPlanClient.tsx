@@ -372,6 +372,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [workoutsByDate, setWorkoutsByDate] = useState<Record<string, WorkoutLookupItem[]>>({});
   const [startCtaLoading, setStartCtaLoading] = useState(false);
   const [detailsCtaLoading, setDetailsCtaLoading] = useState(false);
+  const [hideMainCard, setHideMainCard] = useState(false);
   const requestedCatalogExerciseIds = useRef<Set<string>>(new Set());
   const requestedCatalogExerciseNames = useRef<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -1563,7 +1564,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </section>
           ) : hasPlan ? (
             <>
-              <section className="card premium-hero-card surface-action-card training-main-section">
+              {!hideMainCard ? (
+              <section className={`card premium-hero-card surface-action-card training-main-section ${styles.dismissibleMainCard}`} data-testid="training-main-card">
+                <button
+                  type="button"
+                  className={styles.dismissCardButton}
+                  onClick={() => setHideMainCard(true)}
+                  aria-label="Ocultar tarjeta principal"
+                >
+                  ×
+                </button>
                 <div className={styles.hero}>
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl border" style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}>
@@ -1651,6 +1661,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </p>
                 </div>
               </section>
+              ) : null}
 
               <div className={`${styles.weeklyFlow} training-main-section`}>
               <section className={`card premium-surface-card surface-content-card training-weekly-section ${styles.weeklySectionCalendar}`}>

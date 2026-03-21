@@ -15,6 +15,34 @@
   margin: 0;
 }
 
+.dismissibleMainCard {
+  position: relative;
+}
+
+.dismissCardButton {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 86%, black 14%);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.dismissCardButton:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+}
+
 .progress {
   display: grid;
   gap: 8px;
