@@ -1579,14 +1579,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               {showMainCardOverlay ? (
               <div className={styles.overlayAnchor}>
               <section className={`card premium-hero-card surface-action-card training-main-section ${styles.dismissibleMainCard}`} data-testid="training-main-card">
-                <button
-                  type="button"
-                  className={styles.dismissCardButton}
-                  onClick={() => setHideMainCard(true)}
-                  aria-label="Ocultar tarjeta principal"
-                >
-                  ×
-                </button>
                 <div className={styles.hero}>
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl border" style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}>

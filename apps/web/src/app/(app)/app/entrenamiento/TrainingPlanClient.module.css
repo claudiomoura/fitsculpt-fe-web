@@ -17,30 +17,18 @@
 
 .dismissibleMainCard {
   position: relative;
-  z-index: 3;
-  width: 100vw;
-  margin: 0;
-  margin-left: calc(50% - 50vw);
-  border-radius: 0;
-  border-left: 0;
-  border-right: 0;
-  background: color-mix(in srgb, var(--surface-secondary-bg) 74%, transparent);
-  backdrop-filter: blur(10px) saturate(118%);
-  -webkit-backdrop-filter: blur(10px) saturate(118%);
-  border-color: color-mix(in srgb, var(--surface-card-border) 74%, transparent);
+  border-radius: var(--surface-card-radius);
+  background: var(--surface-secondary-bg);
+  overflow: hidden;
 }
 
 .overlayCalendarStack {
-  position: relative;
+  display: grid;
+  gap: 16px;
 }
 
 .overlayAnchor {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 60;
-  pointer-events: none;
+  /* Normal card in flow — not fixed overlay */
 }
 
 .overlayAnchor > * {
@@ -48,32 +36,10 @@
 }
 
 .overlayCalendarFlow {
-  position: relative;
-  z-index: 1;
 }
 
 .dismissCardButton {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 88%, transparent);
-  background: color-mix(in srgb, var(--surface-inset-bg) 86%, black 14%);
-  color: var(--text-muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: all 140ms ease;
-}
-
-.dismissCardButton:hover {
-  color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  /* removed — card is no longer a floating overlay */
 }
 
 .progress {
