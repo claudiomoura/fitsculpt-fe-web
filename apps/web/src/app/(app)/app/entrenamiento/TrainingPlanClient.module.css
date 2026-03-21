@@ -17,6 +17,33 @@
 
 .dismissibleMainCard {
   position: relative;
+  z-index: 3;
+  width: 100%;
+  background: color-mix(in srgb, var(--surface-secondary-bg) 74%, transparent);
+  backdrop-filter: blur(10px) saturate(118%);
+  -webkit-backdrop-filter: blur(10px) saturate(118%);
+  border-color: color-mix(in srgb, var(--surface-card-border) 74%, transparent);
+}
+
+.overlayCalendarStack {
+  position: relative;
+}
+
+.overlayAnchor {
+  position: sticky;
+  top: 10px;
+  z-index: 3;
+  height: 0;
+  pointer-events: none;
+}
+
+.overlayAnchor > * {
+  pointer-events: auto;
+}
+
+.overlayCalendarFlow {
+  position: relative;
+  z-index: 1;
 }
 
 .dismissCardButton {

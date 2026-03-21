@@ -1568,6 +1568,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const highlightedMealsProgress = highlightedMeals.length > 0
     ? Math.round((highlightedCompletedMeals / highlightedMeals.length) * 100)
     : 0;
+  const isHighlightedDayCompleted = hasHighlightedMeals
+    && highlightedMeals.length > 0
+    && highlightedCompletedMeals >= highlightedMeals.length;
+  const showDailySummaryOverlay = !hideDailySummaryCard && !isHighlightedDayCompleted;
   const highlightedTargetCalories = typeof visiblePlan?.dailyCalories === "number" && Number.isFinite(visiblePlan.dailyCalories)
     ? Math.max(0, Math.round(visiblePlan.dailyCalories))
     : null;
@@ -2338,48 +2342,51 @@ const nutritionPlanDetails = profile ? (
             <>
               {!loading && !error ? (
                 <>
-                {!hideDailySummaryCard ? (
-                <section className="card premium-surface-card surface-content-card nutrition-v2-layout nutrition-today-summary-only premium-fade-up relative">
-                  <button
-                    type="button"
-                    className="btn secondary absolute right-4 top-4 h-8 w-8 rounded-full p-0"
-                    aria-label="Ocultar resumen del dia"
-                    onClick={() => setHideDailySummaryCard(true)}
-                  >
-                    ×
-                  </button>
-                  <div className="nutrition-today-summary-head">
-                    <div className="nutrition-hero-copy">
-                      <div className="nutrition-log-head-row">
-                        <div className="stack-xs nutrition-log-head-copy">
-                          <div className="inline-actions-sm nutrition-hero-kicker-row">
-                            <span className="section-label">Resumen del día</span>
-                            {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
+                <div className={styles.overlayPrimaryStack}>
+                {showDailySummaryOverlay ? (
+                  <div className={styles.overlayAnchor}>
+                  <section className={`card premium-surface-card surface-content-card nutrition-v2-layout nutrition-today-summary-only premium-fade-up ${styles.dismissibleSummaryCard}`}>
+                    <button
+                      type="button"
+                      className={styles.dismissCardButton}
+                      aria-label="Ocultar resumen del dia"
+                      onClick={() => setHideDailySummaryCard(true)}
+                    >
+                      ×
+                    </button>
+                    <div className="nutrition-today-summary-head">
+                      <div className="nutrition-hero-copy">
+                        <div className="nutrition-log-head-row">
+                          <div className="stack-xs nutrition-log-head-copy">
+                            <div className="inline-actions-sm nutrition-hero-kicker-row">
+                              <span className="section-label">Resumen del día</span>
+                              {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
+                            </div>
+                            <h2 className="section-title m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</h2>
+                            {activePlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{activePlanTitle}</p> : null}
                           </div>
-                          <h2 className="section-title m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</h2>
-                          {activePlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{activePlanTitle}</p> : null}
+                          <div className="badge nutrition-log-meals-badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
                         </div>
-                        <div className="badge nutrition-log-meals-badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
-                      </div>
 
-                      <div className="stack-xs nutrition-log-progress-block">
-                        <div className="inline-actions-space nutrition-log-progress-head">
-                          <span className="muted">{safeT("nutrition.dailyTargetTitle", "Progreso del día")}</span>
-                          <strong>{highlightedTargetCalories !== null ? `${highlightedCaloriesProgress}%` : `${highlightedMealsProgress}%`}</strong>
+                        <div className="stack-xs nutrition-log-progress-block">
+                          <div className="inline-actions-space nutrition-log-progress-head">
+                            <span className="muted">{safeT("nutrition.dailyTargetTitle", "Progreso del día")}</span>
+                            <strong>{highlightedTargetCalories !== null ? `${highlightedCaloriesProgress}%` : `${highlightedMealsProgress}%`}</strong>
+                          </div>
+                          <ProgressBar value={highlightedTargetCalories !== null ? highlightedCaloriesProgress : highlightedMealsProgress} max={100} aria-label={safeT("nutrition.dailyTargetTitle", "Progreso del día")} />
+                          <p className="muted m-0 nutrition-hero-progress-copy">
+                            {hasHighlightedMeals
+                              ? `${highlightedCompletedMeals} de ${highlightedMeals.length} comidas registradas.`
+                              : "Aún no tienes comidas asignadas para este día."}
+                          </p>
                         </div>
-                        <ProgressBar value={highlightedTargetCalories !== null ? highlightedCaloriesProgress : highlightedMealsProgress} max={100} aria-label={safeT("nutrition.dailyTargetTitle", "Progreso del día")} />
-                        <p className="muted m-0 nutrition-hero-progress-copy">
-                          {hasHighlightedMeals
-                            ? `${highlightedCompletedMeals} de ${highlightedMeals.length} comidas registradas.`
-                            : "Aún no tienes comidas asignadas para este día."}
-                        </p>
                       </div>
                     </div>
+                  </section>
                   </div>
-                </section>
                 ) : null}
 
-                <section id="nutrition-today-log" className="card premium-hero-card surface-action-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary" ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+                <section id="nutrition-today-log" className={`card premium-hero-card surface-action-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary ${styles.overlayPrimaryFlow}`} ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
                   <div className="nutrition-today-summary-head nutrition-today-donut-card">
                     <div className="nutrition-hero-ring-wrap">
                       <HeroNutrition title={safeT("nutrition.dailyTargetTitle", "Objetivo diario")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
@@ -2701,6 +2708,7 @@ const nutritionPlanDetails = profile ? (
                     </div>
                   </div>
                 </section>
+                </div>
 
                 <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
                   <Link

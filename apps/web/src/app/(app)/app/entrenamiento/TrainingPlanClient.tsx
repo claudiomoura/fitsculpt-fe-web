@@ -1219,6 +1219,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const todayKey = toDateKey(today);
   const selectedEntry = visibleDayMap.get(toDateKey(clampedSelectedDate)) ?? null;
   const selectedEntryDate = clampedSelectedDate;
+  const selectedDayKey = toDateKey(selectedEntryDate);
   const selectedExercises = (selectedEntry?.day.exercises ?? []).map(mergeExerciseWithCatalog);
   const selectedDayIsRest = selectedExercises.length === 0;
   const nextPlannedEntry = visiblePlanEntries.find((entry) => entry.date.getTime() >= today.getTime()) ?? selectedEntry;
@@ -1254,6 +1255,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     });
     return keys;
   }, [workoutsByDate]);
+  const isSelectedDayCompleted = completedDayKeys.has(selectedDayKey);
+  const showMainCardOverlay = !hideMainCard && !isSelectedDayCompleted;
 
   const isSelectedDayToday = isSameDay(selectedEntryDate, today);
   const displayWeekNumber = useMemo(() => {
@@ -1564,7 +1567,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </section>
           ) : hasPlan ? (
             <>
-              {!hideMainCard ? (
+              <div className={styles.overlayCalendarStack}>
+              {showMainCardOverlay ? (
+              <div className={styles.overlayAnchor}>
               <section className={`card premium-hero-card surface-action-card training-main-section ${styles.dismissibleMainCard}`} data-testid="training-main-card">
                 <button
                   type="button"
@@ -1661,9 +1666,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </p>
                 </div>
               </section>
+              </div>
               ) : null}
 
-              <div className={`${styles.weeklyFlow} training-main-section`}>
+              <div className={`${styles.weeklyFlow} ${styles.overlayCalendarFlow} training-main-section`}>
               <section className={`card premium-surface-card surface-content-card training-weekly-section ${styles.weeklySectionCalendar}`}>
               <div className="section-head section-head-actions">
                 <div>
@@ -1916,6 +1922,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   )}
                 </div>
               </section>
+              </div>
               </div>
 
             </>
