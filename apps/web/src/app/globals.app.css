@@ -880,9 +880,14 @@ textarea:disabled {
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
 }
 
+/* ===== HEADER ===== */
+
 .focus-session-head {
   border-color: var(--surface-border-default);
+  background: var(--surface-secondary-bg);
 }
+
+/* ===== FINISH BUTTON ===== */
 
 .focus-session-finish-btn {
   border-color: color-mix(in srgb, var(--color-danger) 26%, var(--surface-border-default));
@@ -894,8 +899,104 @@ textarea:disabled {
   background: color-mix(in srgb, var(--color-danger) 12%, var(--surface-inset-bg));
 }
 
+/* ===== EXERCISE HERO CARD ===== */
+
 .focus-session-current-card {
   border-color: var(--surface-border-emphasis);
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.focus-session-exercise-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 20px;
+  min-height: 120px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 8%, var(--surface-secondary-bg)) 0%,
+    var(--surface-secondary-bg) 100%
+  );
+}
+
+.focus-session-exercise-hero-img {
+  width: 88px;
+  height: 88px;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 2px solid color-mix(in srgb, var(--accent) 20%, var(--surface-border-default));
+  flex-shrink: 0;
+  background: var(--surface-inset-bg);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.focus-session-exercise-hero-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.focus-session-exercise-hero-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.focus-session-exercise-hero-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin: 0;
+}
+
+.focus-session-exercise-hero-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 4px 0 0;
+  line-height: 1.2;
+}
+
+.focus-session-exercise-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.focus-session-exercise-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.focus-session-exercise-progress-bar {
+  padding: 0 20px 16px;
+}
+
+.focus-session-exercise-progress-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-inset-bg);
+  overflow: hidden;
+}
+
+.focus-session-exercise-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  transition: width 300ms ease;
 }
 
 .focus-session-exercise-thumb {
@@ -918,14 +1019,20 @@ textarea:disabled {
   outline-offset: 2px;
 }
 
+/* ===== ERROR STATE ===== */
+
 .focus-session-inline-state {
   border: 1px solid color-mix(in srgb, var(--color-danger) 24%, var(--surface-border-default));
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
 
+/* ===== SETS SECTION ===== */
+
 .focus-session-sets-shell {
   border-color: var(--surface-border-default);
   background: var(--surface-secondary-bg);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
 .focus-session-sets-head {
@@ -937,7 +1044,17 @@ textarea:disabled {
 }
 
 .focus-session-set-row {
-  border-color: color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+  border-color: color-mix(in srgb, var(--surface-border-default) 60%, transparent);
+  padding: 14px 16px;
+  transition: background 150ms ease;
+}
+
+.focus-session-set-row:hover {
+  background: color-mix(in srgb, var(--surface-inset-bg) 50%, transparent);
+}
+
+.focus-session-set-row--done {
+  background: color-mix(in srgb, var(--color-success) 6%, transparent);
 }
 
 .focus-session-set-top {
@@ -947,13 +1064,33 @@ textarea:disabled {
   gap: 8px;
 }
 
+.focus-session-set-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.focus-session-set-number--done {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+
 .focus-session-set-label {
   display: block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
+  margin-bottom: 4px;
 }
 
 .focus-session-set-done {
@@ -961,21 +1098,49 @@ textarea:disabled {
   font-weight: 600;
 }
 
+.focus-session-set-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.focus-session-set-value-box {
+  display: grid;
+  gap: 2px;
+}
+
+.focus-session-set-value-box p {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ===== INPUTS ===== */
+
 .focus-session-input {
   width: 100%;
-  min-height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--surface-border-default);
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1.5px solid var(--surface-border-default);
   background: var(--surface-inset-bg);
   color: var(--text-primary);
-  padding: 0 10px;
-  font-size: 0.95rem;
+  padding: 0 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .focus-session-input:focus {
-  outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
-  outline-offset: 1px;
-  border-color: var(--surface-border-emphasis);
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.focus-session-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 .focus-session-input:disabled {
@@ -987,55 +1152,183 @@ textarea:disabled {
 }
 
 .focus-session-check {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 8px;
-  border: 1px solid var(--surface-border-default);
+  border: 2px solid var(--surface-border-default);
   accent-color: var(--accent);
   cursor: pointer;
+  transition: border-color 150ms ease;
 }
 
+.focus-session-check:checked {
+  border-color: var(--color-success);
+}
+
+/* ===== SUMMARY GRID ===== */
+
 .focus-session-summary-item {
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 84%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-inset-bg) 78%, transparent);
-  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-inset-bg) 60%, transparent);
+  padding: 12px;
+  text-align: center;
+  transition: background 150ms ease;
+}
+
+.focus-session-summary-item:hover {
+  background: color-mix(in srgb, var(--surface-inset-bg) 80%, transparent);
+}
+
+.focus-session-summary-item p {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.focus-session-summary-item strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .focus-session-summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
   align-items: stretch;
 }
 
-@media (min-width: 1024px) {
-  .focus-session-summary-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+/* ===== REST TIMER ===== */
+
+.focus-session-rest-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  margin-top: 12px;
 }
 
-.focus-session-sticky-bar {
-  border-color: var(--surface-border-default);
-  background: color-mix(in srgb, var(--surface-primary-bg) 94%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+.focus-session-rest-timer-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
+
+.focus-session-rest-timer-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ===== STICKY BAR ===== */
+
+.focus-session-sticky-bar {
+  border-color: color-mix(in srgb, var(--surface-border-default) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-primary-bg) 96%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.focus-session-sticky-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: transform 100ms ease, opacity 100ms ease;
+}
+
+.focus-session-sticky-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ===== COMPLETION SCREEN ===== */
+
+.focus-session-complete {
+  display: grid;
+  place-items: center;
+  gap: 20px;
+  padding: 40px 20px;
+  text-align: center;
+  min-height: 60dvh;
+}
+
+.focus-session-complete-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 15%, transparent), color-mix(in srgb, var(--accent-strong) 8%, transparent));
+  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.focus-session-complete-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.focus-session-complete-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+/* ===== RESPONSIVE ===== */
 
 @media (max-width: 900px) {
   .focus-session-page {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 112px);
   }
+
+  .focus-session-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
+  .focus-session-exercise-hero {
+    padding: 16px;
+    min-height: 100px;
+  }
+
+  .focus-session-exercise-hero-img {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+
+  .focus-session-exercise-hero-name {
+    font-size: 1.2rem;
+  }
+
   .focus-session-set-fields {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .focus-session-summary-item {
-    padding: 8px;
+    padding: 10px 8px;
+  }
+
+  .focus-session-summary-item strong {
+    font-size: 0.95rem;
   }
 }
 

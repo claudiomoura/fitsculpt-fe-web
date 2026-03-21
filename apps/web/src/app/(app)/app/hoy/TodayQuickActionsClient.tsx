@@ -203,6 +203,76 @@ function isPositiveNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
+type ProfileActivity = "sedentary" | "light" | "moderate" | "very" | "extra";
+type ProfileGoal = "cut" | "maintain" | "bulk";
+
+type ProfileSummaryPayload = {
+  age?: number | null;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  goalWeightKg?: number | null;
+  sex?: "male" | "female" | null;
+  activity?: ProfileActivity | null;
+  goal?: ProfileGoal | null;
+  macroPreferences?: {
+    cutPercent?: number | null;
+    bulkPercent?: number | null;
+  } | null;
+  nutritionPlan?: {
+    dailyCalories?: number | null;
+  } | null;
+};
+
+function activityMultiplier(activity: ProfileActivity): number {
+  switch (activity) {
+    case "sedentary":
+      return 1.2;
+    case "light":
+      return 1.375;
+    case "moderate":
+      return 1.55;
+    case "very":
+      return 1.725;
+    case "extra":
+      return 1.9;
+    default:
+      return 1.55;
+  }
+}
+
+function estimateNutritionTargetCalories(profile: ProfileSummaryPayload): number | null {
+  if (
+    !isPositiveNumber(profile.weightKg) ||
+    !isPositiveNumber(profile.heightCm) ||
+    !isPositiveNumber(profile.age)
+  ) {
+    return null;
+  }
+
+  const weight = profile.weightKg;
+  const height = profile.heightCm;
+  const age = profile.age;
+  const sexOffset = profile.sex === "female" ? -161 : 5;
+
+  const bmr = 10 * weight + 6.25 * height - 5 * age + sexOffset;
+  const tdee = bmr * activityMultiplier(profile.activity ?? "moderate");
+
+  let target = tdee;
+  const cutPercent = Number(profile.macroPreferences?.cutPercent);
+  const bulkPercent = Number(profile.macroPreferences?.bulkPercent);
+
+  if (profile.goal === "cut") {
+    const cutFactor = Number.isFinite(cutPercent) ? cutPercent / 100 : 0.15;
+    target = tdee * (1 - cutFactor);
+  } else if (profile.goal === "bulk") {
+    const bulkFactor = Number.isFinite(bulkPercent) ? bulkPercent / 100 : 0.1;
+    target = tdee * (1 + bulkFactor);
+  }
+
+  if (!Number.isFinite(target) || target <= 0) return null;
+  return Math.max(1000, Math.round(target));
+}
+
 const findTodayPlanDay = <T extends { date?: string }>(
   days: T[],
   startDate?: string | null,
@@ -416,6 +486,7 @@ export default function TodayQuickActionsClient() {
         mealLog: [],
       };
       const todayDateKey = toDateKey(new Date());
+      let profileEstimatedNutritionTarget: number | null = null;
 
       if (authMeResponse.ok) {
         const authMe = (await authMeResponse.json()) as AuthMeResponse;
@@ -427,16 +498,22 @@ export default function TodayQuickActionsClient() {
       }
 
       if (profileResponse.ok) {
-        const profile = (await profileResponse.json()) as {
-          weightKg?: number | null;
-          goalWeightKg?: number | null;
-        };
+        const profile = (await profileResponse.json()) as ProfileSummaryPayload;
         nextSignals.startWeightKg = isPositiveNumber(profile.weightKg)
           ? profile.weightKg
           : null;
         nextSignals.goalWeightKg = isPositiveNumber(profile.goalWeightKg)
           ? profile.goalWeightKg
           : null;
+
+        // Prefer explicit nutrition plan target from profile when available.
+        const profilePlanTarget = Number(profile.nutritionPlan?.dailyCalories);
+        if (Number.isFinite(profilePlanTarget) && profilePlanTarget > 0) {
+          profileEstimatedNutritionTarget = Math.round(profilePlanTarget);
+        } else {
+          // Fallback to calculated target from profile metrics.
+          profileEstimatedNutritionTarget = estimateNutritionTargetCalories(profile);
+        }
       }
 
       if (trackingResponse.ok) {
@@ -655,6 +732,15 @@ export default function TodayQuickActionsClient() {
         }
       } else {
         nextSignals.nutritionStatus = "error";
+      }
+
+      // Fallback goal calories when user has profile but no active nutrition plan.
+      if (
+        (nextSignals.nutritionTargetCalories === null ||
+          !Number.isFinite(nextSignals.nutritionTargetCalories)) &&
+        profileEstimatedNutritionTarget !== null
+      ) {
+        nextSignals.nutritionTargetCalories = profileEstimatedNutritionTarget;
       }
 
       if (workoutsResponse.ok) {

@@ -99,7 +99,7 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 
 .weekNavArrow {
@@ -113,12 +113,21 @@
   justify-content: center;
 }
 
+.weekNavArrow:first-of-type {
+  justify-self: start;
+}
+
+.weekNavArrow:last-of-type {
+  justify-self: end;
+}
+
 .weekNavCenter {
   display: grid;
   justify-items: center;
   gap: 1px;
   min-width: 0;
   text-align: center;
+  padding-inline: 6px;
 }
 
 .weekNavCenter strong {
@@ -218,6 +227,7 @@
 
   .weekNav {
     grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
   }
 
   .weekNavArrow {
@@ -238,7 +248,7 @@
   }
 
   .weekNav {
-    gap: 8px;
+    gap: 12px;
   }
 
   .weekNavArrow {

@@ -512,7 +512,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   if (loading) {
     return (
-      <section className="focus-session-page app-page-shell app-page-shell--compact pt-3">
+      <section className="focus-session-page app-page-shell pt-3">
         <div className="surface-loading-card mb-4 p-4">
           <div className="ui-skeleton ui-skeleton--line w-35 mb-3" />
           <div className="ui-skeleton ui-skeleton--line w-60 mb-2" />
@@ -543,7 +543,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   if (error || !workout) {
     return (
-      <section className="focus-session-page app-page-shell app-page-shell--compact flex pt-8">
+      <section className="focus-session-page app-page-shell flex pt-8">
         <div className="card w-full p-5">
           <p className="m-0 text-sm font-semibold text-primary">No pudimos cargar la sesión</p>
           <p className="muted mt-2">{error ?? t("workoutDetail.loadError")}</p>
@@ -562,7 +562,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   if (!hasExercises) {
     return (
-      <section className="focus-session-page app-page-shell app-page-shell--compact pt-6">
+      <section className="focus-session-page app-page-shell pt-6">
         <div className="card premium-surface-card p-5">
           <p className="m-0 text-sm font-semibold text-primary">Esta sesión no tiene ejercicios</p>
           <p className="muted mt-2">Vuelve al entrenamiento para revisar o asignar ejercicios antes de empezar.</p>
@@ -581,68 +581,82 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   if (Boolean(session?.finishedAt)) {
     return (
-      <section className="focus-session-page app-page-shell app-page-shell--compact pt-8">
-        <div className="card p-5 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-2xl">🏆</div>
-          <h1 className="section-title section-title-sm">Sesión completada</h1>
-          <p className="section-subtitle">Resumen rápido de tu entrenamiento.</p>
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <article className="feature-card p-3 text-center">
-              <p className="muted m-0 text-xs">Tiempo</p>
-              <strong>{formatElapsed(elapsedSeconds)}</strong>
-            </article>
-            <article className="feature-card p-3 text-center">
-              <p className="muted m-0 text-xs">Series</p>
-              <strong>{totalLoggedSets}</strong>
-            </article>
-            <article className="feature-card p-3 text-center">
-              <p className="muted m-0 text-xs">Kcal est.</p>
-              <strong>{Math.round(totalLoggedSets * 18)}</strong>
-            </article>
+      <section className="focus-session-page app-page-shell pt-4">
+        <div className="focus-session-complete">
+          <div className="focus-session-complete-icon">🏆</div>
+          <div>
+            <h1 className="focus-session-complete-title">¡Sesión completada!</h1>
+            <p className="focus-session-complete-subtitle">Buen trabajo. Aquí está tu resumen.</p>
           </div>
 
-          <div className="mt-4 text-left">
-            <p className="m-0 text-sm font-semibold text-primary">RPE final</p>
-            <div className="mt-3 grid grid-cols-10 gap-1">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => setRpe(level)}
-                  className={`h-9 rounded-lg text-xs ${rpe === level ? "bg-accent text-black" : "bg-surface-muted text-text-muted"}`}
-                >
-                  {level}
-                </button>
-              ))}
+          <div className="w-full max-w-sm">
+            <div className="grid grid-cols-3 gap-3">
+              <article className="focus-session-summary-item">
+                <p>Tiempo</p>
+                <strong>{formatElapsed(elapsedSeconds)}</strong>
+              </article>
+              <article className="focus-session-summary-item">
+                <p>Series</p>
+                <strong>{totalLoggedSets}</strong>
+              </article>
+              <article className="focus-session-summary-item">
+                <p>Kcal est.</p>
+                <strong>{Math.round(totalLoggedSets * 18)}</strong>
+              </article>
             </div>
-          </div>
 
-          <div className="mt-4 text-left">
-            <p className="m-0 text-sm font-semibold text-primary">Energía final</p>
-            <div className="mt-3 grid grid-cols-5 gap-2">
-              {[1, 2, 3, 4, 5].map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => setEnergia(level)}
-                  className={`h-10 rounded-xl text-xs ${energia === level ? "bg-accent text-black" : "bg-surface-muted text-text-muted"}`}
-                >
-                  {level}
-                </button>
-              ))}
+            <div className="mt-5 text-left">
+              <p className="m-0 text-sm font-bold text-primary">¿Cómo te sentiste?</p>
+              <p className="muted m-0 mt-1 text-xs">RPE (esfuerzo percibido)</p>
+              <div className="mt-2 grid grid-cols-5 gap-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setRpe(level)}
+                    className={`h-10 rounded-xl text-sm font-bold transition-all ${
+                      rpe === level
+                        ? "bg-accent text-black scale-105"
+                        : "bg-surface-muted text-text-muted hover:bg-surface-alt"
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <Link href="/app/entrenamiento" className="btn mt-6 flex w-full justify-center">
-            Volver a entrenamientos
-          </Link>
+            <div className="mt-4 text-left">
+              <p className="muted m-0 text-xs font-bold uppercase tracking-wider">Energía</p>
+              <div className="mt-2 grid grid-cols-5 gap-2">
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setEnergia(level)}
+                    className={`h-11 rounded-xl text-sm font-bold transition-all ${
+                      energia === level
+                        ? "bg-accent text-black scale-105"
+                        : "bg-surface-muted text-text-muted hover:bg-surface-alt"
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Link href="/app/entrenamiento" className="btn mt-6 flex w-full justify-center h-12 text-base font-bold rounded-2xl">
+              Volver a entrenamientos →
+            </Link>
+          </div>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="focus-session-page app-page-shell app-page-shell--compact pt-3">
+    <section className="focus-session-page app-page-shell pt-3">
       <header className="card premium-surface-card focus-session-head mb-4 p-4">
         <div className="flex items-start gap-3">
           <Link className="btn secondary h-10 px-3" href={`/app/entrenamiento/${workout.id}`}>
@@ -691,60 +705,47 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
         </div>
       </section>
 
-      <section className="card premium-hero-card focus-session-current-card p-4">
-        <div className="flex items-start justify-between gap-3">
-          {activeExerciseDetailHref ? (
-            <Link href={activeExerciseDetailHref} className="focus-session-exercise-head-link flex min-w-0 flex-1 items-start gap-3">
-              <div className="focus-session-exercise-thumb h-20 w-20 shrink-0 overflow-hidden rounded-2xl border">
-                {exercisePreviewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={exercisePreviewUrl} alt={activeExerciseName || "Ejercicio"} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="focus-session-thumb-fallback flex h-full w-full items-center justify-center text-muted">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                      <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                      <path d="m8 11 2.5 3 2-2 3.5 4"/>
-                      <circle cx="9" cy="9" r="1"/>
-                    </svg>
-                  </div>
-                )}
+      <section className="card premium-hero-card focus-session-current-card">
+        <div className="focus-session-exercise-hero">
+          <div className="focus-session-exercise-hero-img">
+            {exercisePreviewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={exercisePreviewUrl} alt={activeExerciseName || "Ejercicio"} />
+            ) : (
+              <div className="focus-session-thumb-fallback flex h-full w-full items-center justify-center text-muted">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                  <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <path d="m8 11 2.5 3 2-2 3.5 4"/>
+                  <circle cx="9" cy="9" r="1"/>
+                </svg>
               </div>
-              <div className="min-w-0">
-                <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">Ejercicio actual</p>
-                <h2 className="m-0 mt-1 text-2xl font-semibold leading-tight text-primary">{activeExerciseName || t("workoutDetail.sessionExerciseLabel")}</h2>
-                <p className="muted m-0 mt-2 text-sm">
-                  {Math.max(prescribedSetCount, 1)} series objetivo
-                  {activeExercise?.restSeconds ? ` · Descanso ${activeExercise.restSeconds}s` : ""}
-                </p>
-              </div>
-            </Link>
-          ) : (
-            <div className="flex min-w-0 flex-1 items-start gap-3">
-              <div className="focus-session-exercise-thumb h-20 w-20 shrink-0 overflow-hidden rounded-2xl border">
-                {exercisePreviewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={exercisePreviewUrl} alt={activeExerciseName || "Ejercicio"} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="focus-session-thumb-fallback flex h-full w-full items-center justify-center text-muted">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                      <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                      <path d="m8 11 2.5 3 2-2 3.5 4"/>
-                      <circle cx="9" cy="9" r="1"/>
-                    </svg>
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">Ejercicio actual</p>
-                <h2 className="m-0 mt-1 text-2xl font-semibold leading-tight text-primary">{activeExerciseName || t("workoutDetail.sessionExerciseLabel")}</h2>
-                <p className="muted m-0 mt-2 text-sm">
-                  {Math.max(prescribedSetCount, 1)} series objetivo
-                  {activeExercise?.restSeconds ? ` · Descanso ${activeExercise.restSeconds}s` : ""}
-                </p>
-              </div>
+            )}
+          </div>
+          <div className="focus-session-exercise-hero-info">
+            <p className="focus-session-exercise-hero-label">Ejercicio {currentExercise + 1} de {totalExercises}</p>
+            <h2 className="focus-session-exercise-hero-name">{activeExerciseName || t("workoutDetail.sessionExerciseLabel")}</h2>
+            <div className="focus-session-exercise-hero-meta">
+              <span className="focus-session-exercise-hero-badge">
+                {Math.max(prescribedSetCount, 1)} × {recommendedRepsText}
+              </span>
+              {activeExercise?.restSeconds ? (
+                <span className="focus-session-exercise-hero-badge">
+                  {activeExercise.restSeconds}s descanso
+                </span>
+              ) : null}
+              {activeIsBodyweight ? (
+                <span className="focus-session-exercise-hero-badge">Peso corporal</span>
+              ) : null}
             </div>
-          )}
-          <span className="badge">{currentExercise + 1}/{totalExercises}</span>
+          </div>
+        </div>
+        <div className="focus-session-exercise-progress-bar">
+          <div className="focus-session-exercise-progress-track">
+            <div
+              className="focus-session-exercise-progress-fill"
+              style={{ width: `${totalExercises > 0 ? ((currentExercise + 1) / totalExercises) * 100 : 0}%` }}
+            />
+          </div>
         </div>
       </section>
 
@@ -752,18 +753,29 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
         <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">Registro de sets</p>
         {autosaveState !== "idle" ? (
           <p className="m-0 mt-2 text-xs text-muted" role="status" aria-live="polite">
-            {autosaveState === "saving" ? "Guardando..." : autosaveState === "saved" ? "Guardado" : "No se pudo guardar"}
+            {autosaveState === "saving" ? "Guardando..." : autosaveState === "saved" ? "Guardado ✓" : "No se pudo guardar"}
           </p>
         ) : null}
         {inlineError ? <p className="focus-session-inline-state mb-3 rounded-xl px-3 py-2 text-sm font-medium text-danger">{inlineError}</p> : null}
         {error ? <p className="focus-session-inline-state mb-3 rounded-xl px-3 py-2 text-sm font-medium text-danger">{error}</p> : null}
 
-        <div className="focus-session-sets-shell overflow-hidden rounded-2xl border">
-          <div className="focus-session-sets-head hidden grid-cols-[64px_1fr_1fr_90px] items-center gap-2 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted md:grid">
+        {/* Rest timer */}
+        {restCountdown !== null ? (
+          <div className="focus-session-rest-timer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span className="focus-session-rest-timer-value">{restCountdown}</span>
+            <span className="focus-session-rest-timer-label">seg descanso</span>
+          </div>
+        ) : null}
+
+        <div className="focus-session-sets-shell mt-3 overflow-hidden border">
+          <div className="focus-session-sets-head hidden grid-cols-[64px_1fr_1fr_90px] items-center gap-2 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted md:grid">
             <span>Set</span>
             <span>Peso</span>
             <span>Reps</span>
-            <span className="text-right">Hecho</span>
+            <span className="text-right">Estado</span>
           </div>
 
           <div className="focus-session-sets-list">
@@ -772,32 +784,36 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
               if (row.saved) {
                 return (
-                  <div key={`${activeExerciseName}-saved-${setLabel}`} className="focus-session-set-row border-t px-3 py-3">
+                  <div key={`${activeExerciseName}-saved-${setLabel}`} className={`focus-session-set-row focus-session-set-row--done border-t`}>
                     <div className="focus-session-set-top">
-                      <span className="text-sm font-semibold text-primary">Set {setLabel}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`focus-session-set-number focus-session-set-number--done`}>✓</span>
+                        <span className="text-sm font-bold text-primary">Set {setLabel}</span>
+                      </div>
                       <span className="focus-session-set-done text-success">Completado</span>
                     </div>
-                    <div className="focus-session-set-values mt-2 grid grid-cols-2 gap-2">
-                      <div>
+                    <div className="focus-session-set-values">
+                      <div className="focus-session-set-value-box">
                         <span className="focus-session-set-label">Peso</span>
-                        <p className="m-0 mt-1 text-sm text-muted">
-                          {activeIsBodyweight ? (row.loadKg ? `BW + ${row.loadKg}` : "BW") : (row.loadKg || "-")}
-                        </p>
+                        <p>{activeIsBodyweight ? (row.loadKg ? `BW + ${row.loadKg}` : "BW") : (row.loadKg || "-")} kg</p>
                       </div>
-                      <div>
+                      <div className="focus-session-set-value-box">
                         <span className="focus-session-set-label">Reps</span>
-                        <p className="m-0 mt-1 text-sm text-muted">{row.reps || recommendedRepsText}</p>
+                        <p>{row.reps || recommendedRepsText}</p>
                       </div>
                     </div>
                   </div>
                 );
               }
               return (
-                <div key={`${activeExerciseName}-draft-${setLabel}`} className="focus-session-set-row border-t px-3 py-3">
+                <div key={`${activeExerciseName}-draft-${setLabel}`} className="focus-session-set-row border-t">
                   <div className="focus-session-set-top">
-                    <span className="text-sm font-semibold text-primary">Set {setLabel}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="focus-session-set-number">{setLabel}</span>
+                      <span className="text-sm font-bold text-primary">Set {setLabel}</span>
+                    </div>
                     <label className="focus-session-check-wrap flex items-center gap-2">
-                      <span className="focus-session-set-label">Hecho</span>
+                      <span className="focus-session-set-label" style={{ marginBottom: 0 }}>Listo</span>
                       <input
                         type="checkbox"
                         className="focus-session-check"
@@ -809,9 +825,9 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
                       />
                     </label>
                   </div>
-                  <div className="focus-session-set-fields mt-2 grid grid-cols-2 gap-2">
+                  <div className="focus-session-set-values">
                     <div>
-                      <span className="focus-session-set-label">Peso</span>
+                      <span className="focus-session-set-label">Peso (kg)</span>
                       {activeIsBodyweight ? (
                         <div className="mt-1 flex items-center gap-2">
                           <span className="badge">BW</span>
@@ -858,17 +874,16 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" className="btn secondary h-10" onClick={addExtraSet}>
-            Añadir set
+            + Añadir set
           </button>
-          {activeIsBodyweight ? <span className="badge">Ejercicio con peso corporal</span> : null}
         </div>
       </section>
 
       <div className="focus-session-sticky-bar fixed inset-x-0 bottom-0 z-30 border-t">
-        <div className="app-page-shell app-page-shell--compact flex gap-3 pt-3">
+        <div className="app-page-shell flex gap-3 pt-3">
           <button
             type="button"
-            className="btn secondary flex-1 h-12"
+            className="btn secondary focus-session-sticky-btn flex-1"
             disabled={currentExercise === 0 || saving}
             onClick={() => goToExercise(Math.max(currentExercise - 1, 0))}
           >
@@ -876,7 +891,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
           </button>
           <button
             type="button"
-            className="btn flex-1 h-12"
+            className="btn focus-session-sticky-btn flex-1"
             onClick={() => void handlePrimaryAction()}
             disabled={saving || !session || (pendingRows.length === 0 && currentExercise >= exercises.length - 1)}
           >
@@ -885,8 +900,8 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
               : pendingRows.length === 0
                 ? currentExercise >= exercises.length - 1
                   ? "Último ejercicio"
-                  : "Siguiente ejercicio"
-                : "Guardar sets"}
+                  : "Siguiente →"
+                : "Guardar sets ✓"}
           </button>
         </div>
       </div>

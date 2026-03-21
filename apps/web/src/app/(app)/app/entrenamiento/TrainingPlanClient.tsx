@@ -373,6 +373,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [workoutsByDate, setWorkoutsByDate] = useState<Record<string, WorkoutLookupItem[]>>({});
   const [startCtaLoading, setStartCtaLoading] = useState(false);
   const [detailsCtaLoading, setDetailsCtaLoading] = useState(false);
+  const [markCompleteLoading, setMarkCompleteLoading] = useState(false);
   const [hideMainCard, setHideMainCard] = useState(false);
   const requestedCatalogExerciseIds = useRef<Set<string>>(new Set());
   const requestedCatalogExerciseNames = useRef<Set<string>>(new Set());
@@ -1349,6 +1350,65 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
   };
 
+  const markSelectedDayCompleted = async () => {
+    if (!selectedEntry || !selectedDayHasWorkout || markCompleteLoading) return;
+    setMarkCompleteLoading(true);
+    try {
+      const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
+      if (!workoutId) {
+        throw new Error("WORKOUT_NOT_FOUND");
+      }
+
+      const startResponse = await fetch(
+        `/api/workouts/${encodeURIComponent(workoutId)}/start`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      if (!startResponse.ok) {
+        throw new Error("SESSION_START_FAILED");
+      }
+
+      const startedSession = (await startResponse.json()) as { id?: string };
+      const sessionId = startedSession?.id;
+      if (!sessionId) {
+        throw new Error("SESSION_ID_MISSING");
+      }
+
+      const finishResponse = await fetch(
+        `/api/workout-sessions/${encodeURIComponent(sessionId)}/finish`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      if (!finishResponse.ok) {
+        throw new Error("SESSION_FINISH_FAILED");
+      }
+
+      const refreshed = { current: true };
+      await loadWorkoutsForLookup(refreshed);
+      notify({
+        title: safeT(
+          "training.markCompletedSuccess",
+          "Sesion marcada como completada.",
+        ),
+        variant: "success",
+      });
+    } catch (_err) {
+      notify({
+        title: safeT(
+          "training.markCompletedError",
+          "No pudimos marcar la sesion como completada.",
+        ),
+        variant: "error",
+      });
+    } finally {
+      setMarkCompleteLoading(false);
+    }
+  };
+
   const openNextDayDetails = async () => {
     if (!nextPlannedEntry || !nextEntryHasWorkout || detailsCtaLoading) return;
     setDetailsCtaLoading(true);
@@ -1612,6 +1672,15 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       <button
                         type="button"
                         className="btn secondary fit-content rounded-xl h-10 px-3 text-sm"
+                        onClick={() => void markSelectedDayCompleted()}
+                        disabled={markCompleteLoading}
+                        aria-label={safeT("training.markCompletedAria", "Marcar sesion del dia como completada")}
+                      >
+                        {markCompleteLoading ? t("ui.loading") : safeT("training.markCompletedCta", "Marcar completado")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary fit-content rounded-xl h-10 px-3 text-sm"
                         onClick={() => void openSelectedDayDetails()}
                         disabled={detailsCtaLoading}
                         aria-label={safeT("training.detailsSessionAria", "Ver detalles del dia seleccionado")}
@@ -1676,14 +1745,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   <h2 className="section-title section-title-sm hidden sm:block">{t("training.calendarTitle")}</h2>
                 </div>
                 <div className="section-actions calendar-actions">
-                  <div className="flex gap-1 p-1 bg-muted rounded-xl" role="group" aria-label={t("training.calendarViewToggleAria")}>
+                  <div className="inline-flex flex-nowrap gap-1 p-1 bg-muted rounded-xl" role="group" aria-label={t("training.calendarViewToggleAria")}>
                     {calendarOptions.map((option) => {
                       const isActive = calendarView === option.value;
                       return (
                         <button
                           key={option.value}
                           type="button"
-                          className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${isActive ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
+                          className={`rounded-lg px-4 py-1.5 text-xs font-medium whitespace-nowrap transition-all ${isActive ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
                           aria-pressed={isActive}
                           aria-label={t("training.calendarViewOptionAria", { view: option.label })}
                           onClick={() => {
