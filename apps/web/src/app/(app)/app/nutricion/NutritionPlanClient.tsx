@@ -2746,30 +2746,54 @@ const nutritionPlanDetails = profile ? (
                 </section>
                 </div>
 
+                <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card nutrition-insight-card--accent">
+                  <button
+                    type="button"
+                    className="training-insight-link"
+                    onClick={handleGenerateClick}
+                    disabled={isAiDisabled}
+                    title={isAiLocked ? aiLockDescription : ""}
+                    data-testid="nutrition-generate-ai-card"
+                  >
+                    <div className="training-insight-link-icon is-accent">
+                      <Icon name="sparkles" size={20} />
+                    </div>
+                    <div>
+                      <strong>{safeT("nutrition.aiGenerate", "Generar con IA")}</strong>
+                      <p className="muted">{safeT("nutrition.aiSidebarCopy", "Renueva tu menú con una propuesta personalizada según tus metas.")}</p>
+                    </div>
+                  </button>
+                </section>
                 <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
                   <Link
-                    className="training-insight-link training-insight-link--with-affordance"
+                    className="training-insight-link training-insight-link--with-affordance nutrition-insight-link--premium"
                     href={selectedPlanId ? `/app/biblioteca/planes-nutricion?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/planes-nutricion"}
                   >
-                    <div className="training-insight-link-icon">
-                      <Icon name="book" size={20} />
+                    <div className="training-insight-link-icon nutrition-insight-link-icon--plans">
+                      <Icon name="clipboard-list" size={20} />
                     </div>
                     <div>
                       <strong className="training-insight-title">Tus planes</strong>
-                      <p className="muted">Gestiona tu plan activo.</p>
+                      <p className="muted">Gestiona tu planificación nutricional con una vista más clara.</p>
                       <p className="training-plan-access-status">{`Actual: ${activePlanTitle ?? safeT("nutrition.activePlan", "Plan activo")}`}</p>
                     </div>
+                    <span className="training-insight-affordance" aria-hidden="true">
+                      <Icon name="chevron-right" size={18} />
+                    </span>
                   </Link>
                 </section>
                 <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
-                  <Link className="training-insight-link" href="/app/biblioteca/recetas">
-                    <div className="training-insight-link-icon">
-                      <Icon name="book" size={20} />
+                  <Link className="training-insight-link training-insight-link--with-affordance nutrition-insight-link--premium" href="/app/biblioteca/recetas">
+                    <div className="training-insight-link-icon nutrition-insight-link-icon--recipes">
+                      <Icon name="chef-hat" size={20} />
                     </div>
                     <div>
-                      <strong>{safeT("nav.recipeLibrary", "Biblioteca de recetas")}</strong>
-                      <p className="muted">{safeT("nutrition.recipeLibraryCopy", "Explora recetas guardadas y opciones para tu plan.")}</p>
+                      <strong className="training-insight-title">{safeT("nav.recipeLibrary", "Biblioteca de recetas")}</strong>
+                      <p className="muted">{safeT("nutrition.recipeLibraryCopy", "Descubre recetas curadas y guardadas para sumar variedad a tu plan.")}</p>
                     </div>
+                    <span className="training-insight-affordance" aria-hidden="true">
+                      <Icon name="chevron-right" size={18} />
+                    </span>
                   </Link>
                 </section>
                 </>

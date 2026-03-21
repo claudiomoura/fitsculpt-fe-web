@@ -5,6 +5,8 @@ export type IconName =
   | "sparkles"
   | "dumbbell"
   | "book"
+  | "clipboard-list"
+  | "chef-hat"
   | "info"
   | "warning"
   | "check"
@@ -34,6 +36,18 @@ const ICONS: Record<IconName, JSX.Element> = {
   book: (
     <path
       d="M4 4h10a3 3 0 013 3v11a2 2 0 00-2-2H5a1 1 0 01-1-1V4zm13 2a3 3 0 00-3-3H5a2 2 0 00-2 2v12a3 3 0 013-3h9a2 2 0 012 2V6z"
+      fill="currentColor"
+    />
+  ),
+  "clipboard-list": (
+    <path
+      d="M9 3h6a2 2 0 012 2h1a2 2 0 012 2v11a3 3 0 01-3 3H7a3 3 0 01-3-3V7a2 2 0 012-2h1a2 2 0 012-2zm0 2v1h6V5H9zm-1 6h1.5a1 1 0 100-2H8a1 1 0 100 2zm4 0h4a1 1 0 100-2h-4a1 1 0 100 2zm-4 5h1.5a1 1 0 100-2H8a1 1 0 100 2zm4 0h4a1 1 0 100-2h-4a1 1 0 100 2z"
+      fill="currentColor"
+    />
+  ),
+  "chef-hat": (
+    <path
+      d="M8 18h8v1a2 2 0 01-2 2h-4a2 2 0 01-2-2v-1zm9-1H7v-2.4a4.8 4.8 0 01-3-4.4 4.6 4.6 0 017.8-3.3A4.3 4.3 0 0115 5.5 5 5 0 0120 10a4.8 4.8 0 01-3 4.6V17zm-8-2h6v-1.8l1-.3a2.8 2.8 0 002-2.7A3 3 0 0015 7.5a2.6 2.6 0 00-2 .9l-1 .9-.7-1.1A2.6 2.6 0 009 7a2.6 2.6 0 00-2.4 3.6 2.8 2.8 0 001.9 2.2l.5.2V15z"
       fill="currentColor"
     />
   ),
