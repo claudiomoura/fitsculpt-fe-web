@@ -20,6 +20,12 @@ type DailyTip = {
   message: string;
 };
 
+type ContextualChatReply = {
+  title?: string;
+  message: string;
+  suggestions?: string[];
+};
+
 function formatDate(value: string, localeCode: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -40,6 +46,9 @@ export default function FeedClient() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [tipLoading, setTipLoading] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatReply, setChatReply] = useState<ContextualChatReply | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
@@ -143,6 +152,71 @@ export default function FeedClient() {
     }
   };
 
+  const handleContextualChat = async () => {
+    if (!aiEntitled) {
+      setError(t("ai.notPro"));
+      return;
+    }
+    if ((aiTokenBalance ?? 0) <= 0) {
+      setTokensExhaustedModalOpen(true);
+      return;
+    }
+    const message = chatInput.trim();
+    if (!message) {
+      setError(t("feed.chatEmpty"));
+      return;
+    }
+
+    setChatLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ai/chat/contextual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          message,
+          surface: "feed",
+          locale,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            error?: string;
+            reply?: ContextualChatReply;
+            aiTokenBalance?: number;
+          }
+        | null;
+
+      if (!response.ok) {
+        if (
+          payload?.error === "INSUFFICIENT_TOKENS" ||
+          payload?.error === "AI_TOKENS_EXHAUSTED" ||
+          payload?.error === "AI_QUOTA_EXCEEDED"
+        ) {
+          setTokensExhaustedModalOpen(true);
+          throw new Error(t("ai.insufficientTokens"));
+        }
+        throw new Error(t("feed.chatError"));
+      }
+
+      if (!payload?.reply) {
+        throw new Error(t("feed.chatError"));
+      }
+
+      setChatReply(payload.reply);
+      setChatInput("");
+      if (typeof payload.aiTokenBalance === "number") {
+        setAiTokenBalance(payload.aiTokenBalance);
+      }
+      void refreshSubscription();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("feed.chatError"));
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const isAiLocked = !aiEntitled || (aiTokenBalance ?? 0) <= 0;
   const currentRoute = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const billingHref = `/app/settings/billing?returnTo=${encodeURIComponent(currentRoute)}`;
@@ -179,6 +253,48 @@ export default function FeedClient() {
           </p>
         </div>
       ) : null}
+
+      <div className="feature-card" style={{ marginTop: 12 }}>
+        <strong>{t("feed.chatTitle")}</strong>
+        <p className="muted" style={{ marginTop: 6 }}>
+          {t("feed.chatSubtitle")}
+        </p>
+        <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+          <textarea
+            value={chatInput}
+            onChange={(event) => setChatInput(event.target.value)}
+            placeholder={t("feed.chatPlaceholder")}
+            aria-label={t("feed.chatInputAria")}
+            rows={3}
+            maxLength={1200}
+            style={{ width: "100%", resize: "vertical" }}
+            disabled={chatLoading || isAiLocked}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+            <span className="muted">{chatInput.trim().length}/1200</span>
+            <button
+              className="btn secondary"
+              type="button"
+              onClick={handleContextualChat}
+              disabled={chatLoading || isAiLocked}
+            >
+              {chatLoading ? t("feed.chatSending") : t("feed.chatSend")}
+            </button>
+          </div>
+        </div>
+
+        {chatReply ? (
+          <article className="feed-item" style={{ marginTop: 12 }}>
+            <div>
+              <h3>{chatReply.title ?? t("feed.chatReplyTitle")}</h3>
+              <p>{chatReply.message}</p>
+            </div>
+            {chatReply.suggestions?.length ? (
+              <p className="muted">{chatReply.suggestions.join(" • ")}</p>
+            ) : null}
+          </article>
+        ) : null}
+      </div>
 
 
       <Modal

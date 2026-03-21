@@ -48,6 +48,10 @@ export function resetMockNavigation() {
   nextNavigationState.prefetch.mockReset();
 }
 
+export function getMockNavigation() {
+  return nextNavigationState;
+}
+
 function Providers({ children }: ProvidersProps) {
   return (
     <ThemeProvider>

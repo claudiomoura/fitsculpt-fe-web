@@ -97,6 +97,9 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
     normalizeNutritionPlanDaysWithLabels,
     applyNutritionPlanVarietyGuard,
     resolveNutritionPlanRecipeIds,
+    contextualChatRequestSchema,
+    contextualChatResponseSchema,
+    buildContextualChatPrompt,
   } = deps;
 
   const aiQuotaRequestSchema = z.object({}).passthrough();
@@ -106,12 +109,14 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
     aiGenerateTrainingSchema.shape,
   );
   const aiDailyTipRequestSchema = z.object(aiTipSchema.shape);
+  const aiContextualChatRequestSchema = z.object(contextualChatRequestSchema.shape);
 
   type AiTrainingPlanRequest = z.infer<typeof aiTrainingPlanRequestSchema>;
   type AiTrainingPlanGenerateRequest = z.infer<
     typeof aiTrainingPlanGenerateRequestSchema
   >;
   type AiDailyTipRequest = z.infer<typeof aiDailyTipRequestSchema>;
+  type AiContextualChatRequest = z.infer<typeof aiContextualChatRequestSchema>;
 
 app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
@@ -1186,6 +1191,131 @@ app.post(
     }
   },
 );
+app.post(
+  "/ai/chat/contextual",
+  { preHandler: aiAccessGuard },
+  async (request, reply) => {
+    try {
+      logAuthCookieDebug(request, "/ai/chat/contextual");
+      const authRequest = request as AuthenticatedEntitlementsRequest;
+      const user =
+        authRequest.currentUser ??
+        (await requireUser(request, { logContext: "/ai/chat/contextual" }));
+      const entitlements =
+        authRequest.currentEntitlements ?? getUserEntitlements(user);
+      const input: AiContextualChatRequest = aiContextualChatRequestSchema.parse(
+        request.body,
+      );
+      const shouldChargeAi = !entitlements.role.adminOverride;
+      const aiMeta = getAiTokenPayload(user, entitlements);
+
+      if (shouldChargeAi) {
+        assertSufficientAiTokenBalance(
+          user,
+          getEstimatedAiFeatureTokens("tip"),
+        );
+      }
+
+      await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
+
+      const [profileRow, activeTrainingPlan, activeNutritionPlan] =
+        await Promise.all([
+          prisma.userProfile.findUnique({
+            where: { userId: user.id },
+            select: { profile: true },
+          }),
+          prisma.trainingPlan.findFirst({
+            where: { userId: user.id },
+            orderBy: { startDate: "desc" },
+            select: { title: true, goal: true, daysPerWeek: true },
+          }),
+          prisma.nutritionPlan.findFirst({
+            where: { userId: user.id },
+            orderBy: { startDate: "desc" },
+            select: { title: true, dailyCalories: true },
+          }),
+        ]);
+
+      const profileData =
+        profileRow &&
+        typeof profileRow.profile === "object" &&
+        profileRow.profile !== null
+          ? (profileRow.profile as Record<string, unknown>)
+          : {};
+
+      const prompt = buildContextualChatPrompt(input, {
+        user: {
+          name: user.name,
+          plan: user.plan,
+        },
+        profile: {
+          goal:
+            typeof profileData.goal === "string" ? profileData.goal : undefined,
+          activity:
+            typeof profileData.activity === "string"
+              ? profileData.activity
+              : undefined,
+          level:
+            typeof profileData.level === "string"
+              ? profileData.level
+              : undefined,
+        },
+        activeTrainingPlan,
+        activeNutritionPlan,
+      });
+
+      const aiResult = await callOpenAi(prompt, 0, extractTopLevelJson, {
+        model: "gpt-4o-mini",
+        maxTokens: 700,
+        responseFormat: {
+          type: "json_object",
+        },
+      });
+
+      const responsePayload = contextualChatResponseSchema.safeParse(aiResult.payload);
+      if (!responsePayload.success) {
+        throw createHttpError(502, "AI_REQUEST_FAILED", {
+          kind: "upstream",
+          reason: "contextual_chat_invalid_payload",
+        });
+      }
+
+      let aiTokenBalance: number | null = null;
+      if (shouldChargeAi) {
+        const charged = await chargeAiUsageForResult({
+          prisma,
+          pricing: aiPricing,
+          user: {
+            id: user.id,
+            plan: user.plan,
+            aiTokenBalance: user.aiTokenBalance ?? 0,
+            aiTokenResetAt: user.aiTokenResetAt,
+            aiTokenRenewalAt: user.aiTokenRenewalAt,
+          },
+          feature: "tip",
+          result: aiResult,
+          meta: { route: "contextual-chat" },
+          createHttpError,
+        });
+        aiTokenBalance = charged.balance;
+      }
+
+      const exactUsage = extractExactProviderUsage(aiResult.usage);
+      return reply.status(200).send({
+        ...responsePayload.data,
+        aiRequestId: aiResult.requestId ?? null,
+        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        aiTokenRenewalAt: shouldChargeAi
+          ? getUserTokenExpiryAt(user)
+          : aiMeta.aiTokenRenewalAt,
+        ...(exactUsage ? { usage: exactUsage } : {}),
+      });
+    } catch (error) {
+      return sendAiEndpointError(reply, error);
+    }
+  },
+);
+
 app.post(
   "/ai/daily-tip",
   { preHandler: aiAccessGuard },

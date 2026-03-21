@@ -105,6 +105,11 @@ import {
   normalizeNutritionPlanDays as normalizeNutritionPlanDaysWithLabels,
   toIsoDateString,
 } from "./ai/nutrition-plan/normalizeNutritionPlanDays.js";
+import { buildContextualChatPrompt } from "./ai/chat/buildContextualChatPrompt.js";
+import {
+  contextualChatRequestSchema,
+  contextualChatResponseSchema,
+} from "./ai/chat/contextualChatSchemas.js";
 
 const env = getEnv();
 const app = Fastify({ logger: true });
@@ -6685,6 +6690,9 @@ registerAiRoutes(app, {
   normalizeNutritionPlanDaysWithLabels,
   applyNutritionPlanVarietyGuard,
   resolveNutritionPlanRecipeIds,
+  contextualChatRequestSchema,
+  contextualChatResponseSchema,
+  buildContextualChatPrompt,
 });
 
 app.get("/feed", async (request, reply) => {

@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultProfile } from "@/lib/profile";
-import { renderWithProviders, resetMockNavigation, setMockPathname } from "@/test/utils/renderWithProviders";
+import { getMockNavigation, renderWithProviders, resetMockNavigation, setMockPathname } from "@/test/utils/renderWithProviders";
 
 import TrainingPlanClient from "@/app/(app)/app/training/TrainingPlanClient";
 
@@ -196,7 +196,9 @@ describe("Training premium UX from plan", () => {
     expect(fetchMock).not.toHaveBeenCalledWith("/api/exercises/cmmay-plan-entry-1", expect.any(Object));
 
     fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
-    expect(await screen.findByTestId("training-exercise-detail-modal")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getMockNavigation().push).toHaveBeenCalledWith(expect.stringMatching(/^\/app\/biblioteca\/ex-1\?/));
+    });
     expect(screen.getAllByAltText("Press banca").some((image) => image.getAttribute("src")?.includes("ex-1.jpg"))).toBe(true);
   });
 
@@ -216,7 +218,9 @@ describe("Training premium UX from plan", () => {
     await screen.findByText("Ejercicio desconocido");
 
     fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
-    expect(await screen.findByTestId("training-exercise-detail-modal")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getMockNavigation().push).toHaveBeenCalledWith(expect.stringMatching(/^\/app\/biblioteca\/ex-missing\?/));
+    });
 
     await waitFor(() => {
       const calls = fetchMock.mock.calls.filter(([input]) => String(input) === "/api/exercises/ex-missing");
@@ -224,7 +228,7 @@ describe("Training premium UX from plan", () => {
     });
   });
 
-  it("opens exercise modal from plan and closes without losing selected day context", async () => {
+  it("navigates to exercise technique from plan while keeping day context visible", async () => {
     setupFetchMock(
       [
         { exerciseId: "ex-1", name: "Press banca", sets: "4", reps: "8" },
@@ -248,12 +252,8 @@ describe("Training premium UX from plan", () => {
 
     fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
 
-    expect(await screen.findByTestId("training-exercise-detail-modal")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /cerrar|close/i }));
-
     await waitFor(() => {
-      expect(screen.queryByTestId("training-exercise-detail-modal")).not.toBeInTheDocument();
+      expect(getMockNavigation().push).toHaveBeenCalledWith(expect.stringMatching(/^\/app\/biblioteca\/ex-1\?/));
       expect(screen.getByText(/Ejercicios del dia|Ejercicios de hoy/i)).toBeInTheDocument();
     });
   });

@@ -36,19 +36,27 @@ describe("navConfig", () => {
   it("groups sidebar items into fitness, nutrition, and account sections", () => {
     const fitnessSection = sidebarUser.find((section) => section.id === "fitness");
     const nutritionSection = sidebarUser.find((section) => section.id === "nutrition");
+    const moreSection = sidebarUser.find((section) => section.id === "more");
 
     expect(fitnessSection?.items.map((item) => item.href)).toEqual([
       "/app/hoy",
       "/app/entrenamiento",
-      "/app/biblioteca",
-      "/app/biblioteca/planes-entrenamiento",
     ]);
 
     expect(nutritionSection?.items.map((item) => item.href)).toEqual([
       "/app/nutricion",
+    ]);
+
+    expect(moreSection?.items.map((item) => item.href)).toEqual([
+      "/app",
+      "/app/biblioteca",
+      "/app/biblioteca/planes-entrenamiento",
       "/app/biblioteca/recetas",
       "/app/biblioteca/planes-nutricion",
       "/app/macros",
+      "/app/weekly-review",
+      "/app/feed",
+      "/app/gym",
     ]);
   });
 

@@ -50,7 +50,7 @@ export type CreateTrainerPlanInput = {
   }>;
 };
 
-export type SaveTrainerPlanInput = Partial<CreateTrainerPlanInput> & {
+export type SaveTrainerPlanInput = Omit<Partial<CreateTrainerPlanInput>, "days"> & {
   days?: TrainingPlanDetail["days"];
 };
 
