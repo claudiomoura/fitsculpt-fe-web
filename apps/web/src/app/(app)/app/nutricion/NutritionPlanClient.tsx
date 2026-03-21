@@ -89,6 +89,40 @@ type AssignedNutritionPayload = {
   trainerAssignedPlan?: NutritionPlan | { plan?: NutritionPlan | null; title?: string | null } | null;
 };
 
+type NutritionPlanApiDay = {
+  dayLabel?: string;
+  date?: string;
+  meals?: NutritionPlanApiMeal[];
+};
+
+type NutritionPlanApiMeal = Partial<NutritionMeal> & {
+  type?: "breakfast" | "lunch" | "dinner" | "snack";
+  title?: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fats?: number;
+  macros?: {
+    calories?: number;
+    protein?: number;
+    carbs?: number;
+    fats?: number;
+  };
+  ingredients?: Array<{ name?: string; grams?: number }>;
+};
+
+type NutritionPlanApiPayload = {
+  title?: string;
+  startDate?: string | null;
+  dailyCalories?: number;
+  proteinG?: number;
+  fatG?: number;
+  carbsG?: number;
+  days?: NutritionPlanApiDay[];
+};
+
 type NutritionPlanClientProps = {
   mode?: "suggested" | "manual";
 };
@@ -112,6 +146,47 @@ function resolveAssignedNutritionPlan(payload: AssignedNutritionPayload): Nutrit
 function readAssignedNutritionPlanTitle(plan: NutritionPlan | null): string | null {
   const title = typeof plan?.title === "string" ? plan.title.trim() : "";
   return title.length > 0 ? title : null;
+}
+
+function normalizeFetchedNutritionPlan(plan: NutritionPlanApiPayload | NutritionPlan | null): NutritionPlan | null {
+  if (!plan) return null;
+
+  const normalizedDays = Array.isArray(plan.days)
+    ? plan.days.map((day, dayIndex) => ({
+        date: typeof day.date === "string" ? day.date : undefined,
+        dayLabel: typeof day.dayLabel === "string" && day.dayLabel.trim().length > 0 ? day.dayLabel : `Día ${dayIndex + 1}`,
+        meals: Array.isArray(day.meals)
+          ? (day.meals as NutritionPlanApiMeal[]).map((meal) => ({
+              type: meal.type ?? "lunch",
+              title: meal.title ?? "Comida",
+              description: meal.description ?? undefined,
+              imageUrl: meal.imageUrl ?? undefined,
+              macros: {
+                calories: Number(meal.macros?.calories ?? meal.calories ?? 0),
+                protein: Number(meal.macros?.protein ?? meal.protein ?? 0),
+                carbs: Number(meal.macros?.carbs ?? meal.carbs ?? 0),
+                fats: Number(meal.macros?.fats ?? meal.fats ?? 0),
+              },
+              ingredients: Array.isArray(meal.ingredients)
+                ? meal.ingredients.map((ingredient) => ({
+                    name: ingredient.name ?? "Ingrediente",
+                    grams: Number(ingredient.grams ?? 0),
+                  }))
+                : [],
+            }))
+          : [],
+      }))
+    : [];
+
+  return {
+    title: plan.title,
+    startDate: plan.startDate ?? null,
+    dailyCalories: Number(plan.dailyCalories ?? 0),
+    proteinG: Number(plan.proteinG ?? 0),
+    fatG: Number(plan.fatG ?? 0),
+    carbsG: Number(plan.carbsG ?? 0),
+    days: normalizedDays,
+  };
 }
 
 type MealMediaCandidate = {
@@ -874,7 +949,9 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         if (!response.ok) throw new Error("ASSIGNED_PLAN_ERROR");
         const payload = (await response.json()) as AssignedNutritionPayload;
         if (!active) return;
-        setTrainerAssignedPlan(resolveAssignedNutritionPlan(payload));
+        setTrainerAssignedPlan(
+          normalizeFetchedNutritionPlan(resolveAssignedNutritionPlan(payload) as NutritionPlanApiPayload | NutritionPlan | null)
+        );
       } catch {
         if (!active) return;
         setAssignedError(t("nutrition.errorTitle"));
@@ -905,65 +982,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
           return;
         }
 
-        const payload = (await response.json()) as {
-          title?: string;
-          startDate?: string | null;
-          dailyCalories?: number;
-          proteinG?: number;
-          fatG?: number;
-          carbsG?: number;
-          days?: Array<{
-            dayLabel?: string;
-            date?: string;
-            meals?: Array<{
-              type?: "breakfast" | "lunch" | "dinner" | "snack";
-              title?: string;
-              description?: string;
-              calories?: number;
-              protein?: number;
-              carbs?: number;
-              fats?: number;
-              ingredients?: Array<{ name?: string; grams?: number }>;
-            }>;
-          }>;
-        };
+        const payload = (await response.json()) as NutritionPlanApiPayload;
 
         if (!active) return;
-        const normalizedDays = Array.isArray(payload.days)
-          ? payload.days.map((day, dayIndex) => ({
-            date: typeof day.date === "string" ? day.date : undefined,
-            dayLabel: typeof day.dayLabel === "string" && day.dayLabel.trim().length > 0 ? day.dayLabel : `Día ${dayIndex + 1}`,
-            meals: Array.isArray(day.meals)
-              ? day.meals.map((meal) => ({
-                type: meal.type ?? "lunch",
-                title: meal.title ?? "Comida",
-                description: meal.description,
-                macros: {
-                  calories: Number(meal.calories ?? 0),
-                  protein: Number(meal.protein ?? 0),
-                  carbs: Number(meal.carbs ?? 0),
-                  fats: Number(meal.fats ?? 0),
-                },
-                ingredients: Array.isArray(meal.ingredients)
-                  ? meal.ingredients.map((ingredient) => ({
-                    name: ingredient.name ?? "Ingrediente",
-                    grams: Number(ingredient.grams ?? 0),
-                  }))
-                  : [],
-              }))
-              : [],
-          }))
-          : [];
-
-        setSelectedLibraryPlan({
-          title: payload.title,
-          startDate: payload.startDate ?? null,
-          dailyCalories: Number(payload.dailyCalories ?? 0),
-          proteinG: Number(payload.proteinG ?? 0),
-          fatG: Number(payload.fatG ?? 0),
-          carbsG: Number(payload.carbsG ?? 0),
-          days: normalizedDays,
-        });
+        setSelectedLibraryPlan(normalizeFetchedNutritionPlan(payload));
       } catch {
         if (active) setSelectedLibraryPlan(null);
       }

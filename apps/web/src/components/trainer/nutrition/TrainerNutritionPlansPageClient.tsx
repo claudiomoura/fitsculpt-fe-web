@@ -21,16 +21,48 @@ type RecipeItem = {
   category?: string | null;
 };
 
-type MealType = "breakfast" | "lunch" | "snack" | "dinner";
+type MealType =
+  | "breakfast"
+  | "snack_1"
+  | "lunch"
+  | "snack_2"
+  | "dinner"
+  | "snack_3"
+  | "extra";
 
 type DayMealSelection = Partial<Record<MealType, string>>;
 
+type NutritionPlanDetail = {
+  id: string;
+  title: string;
+  startDate?: string;
+  daysCount?: number;
+  dailyCalories?: number;
+  proteinG?: number;
+  carbsG?: number;
+  fatG?: number;
+  days?: Array<{
+    order?: number;
+    meals?: Array<{
+      type?: string;
+      title?: string;
+    }>;
+  }>;
+};
+
 const MEAL_TYPE_OPTIONS: Array<{ type: MealType; label: string }> = [
   { type: "breakfast", label: "Desayuno" },
+  { type: "snack_1", label: "Snack 1" },
   { type: "lunch", label: "Comida" },
-  { type: "snack", label: "Snack" },
+  { type: "snack_2", label: "Snack 2" },
   { type: "dinner", label: "Cena" },
+  { type: "snack_3", label: "Snack 3" },
+  { type: "extra", label: "Extra" },
 ];
+
+const DEFAULT_MEAL_TYPES: MealType[] = ["breakfast", "lunch", "snack_1", "dinner"];
+
+const MAX_MEALS_PER_DAY = 7;
 
 function dayLabel(dayIndex: number) {
   const week = Math.floor(dayIndex / 7) + 1;
@@ -44,6 +76,21 @@ function normalizeMealSelectionShape(daysCount: number, current: Record<number, 
     next[dayIndex] = current[dayIndex] ?? {};
   }
   return next;
+}
+
+function normalizeMealSlotsShape(daysCount: number, current: Record<number, MealType[]>) {
+  const next: Record<number, MealType[]> = {};
+  for (let dayIndex = 0; dayIndex < daysCount; dayIndex += 1) {
+    const existing = current[dayIndex] ?? DEFAULT_MEAL_TYPES;
+    next[dayIndex] = existing.slice(0, MAX_MEALS_PER_DAY);
+  }
+  return next;
+}
+
+function normalizeIncomingMealType(rawType: string): MealType | null {
+  if (rawType === "snack") return "snack_1";
+  if (MEAL_TYPE_OPTIONS.some((option) => option.type === rawType)) return rawType as MealType;
+  return null;
 }
 
 export default function TrainerNutritionPlansPageClient() {
@@ -64,8 +111,11 @@ export default function TrainerNutritionPlansPageClient() {
 
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [dayMeals, setDayMeals] = useState<Record<number, DayMealSelection>>({});
+  const [dayMealSlots, setDayMealSlots] = useState<Record<number, MealType[]>>({});
 
-  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [editingPlanLoading, setEditingPlanLoading] = useState(false);
   const [members, setMembers] = useState<TrainerClient[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState("");
@@ -76,10 +126,16 @@ export default function TrainerNutritionPlansPageClient() {
 
   useEffect(() => {
     setDayMeals((prev) => normalizeMealSelectionShape(daysCount, prev));
+    setDayMealSlots((prev) => normalizeMealSlotsShape(daysCount, prev));
     setSelectedDayIndex((prev) => Math.min(prev, daysCount - 1));
   }, [daysCount]);
 
   const selectedDayMeals = useMemo(() => dayMeals[selectedDayIndex] ?? {}, [dayMeals, selectedDayIndex]);
+  const selectedDaySlots = useMemo(
+    () => (dayMealSlots[selectedDayIndex] ?? DEFAULT_MEAL_TYPES).slice(0, MAX_MEALS_PER_DAY),
+    [dayMealSlots, selectedDayIndex],
+  );
+  const isEditing = Boolean(editingPlanId);
 
   const loadData = async () => {
     setLoading(true);
@@ -161,6 +217,7 @@ export default function TrainerNutritionPlansPageClient() {
 
   const applyCurrentDayToAllDays = () => {
     const source = dayMeals[selectedDayIndex] ?? {};
+    const sourceSlots = (dayMealSlots[selectedDayIndex] ?? DEFAULT_MEAL_TYPES).slice(0, MAX_MEALS_PER_DAY);
     setDayMeals((prev) => {
       const next = { ...prev };
       for (let dayIndex = 0; dayIndex < daysCount; dayIndex += 1) {
@@ -168,23 +225,135 @@ export default function TrainerNutritionPlansPageClient() {
       }
       return next;
     });
+    setDayMealSlots((prev) => {
+      const next = { ...prev };
+      for (let dayIndex = 0; dayIndex < daysCount; dayIndex += 1) {
+        next[dayIndex] = [...sourceSlots];
+      }
+      return next;
+    });
   };
 
   const clearCurrentDay = () => {
     setDayMeals((prev) => ({ ...prev, [selectedDayIndex]: {} }));
+    setDayMealSlots((prev) => ({ ...prev, [selectedDayIndex]: [...DEFAULT_MEAL_TYPES] }));
+  };
+
+  const addMealSlotToDay = (dayIndex: number) => {
+    setDayMealSlots((prev) => {
+      const currentSlots = (prev[dayIndex] ?? DEFAULT_MEAL_TYPES).slice(0, MAX_MEALS_PER_DAY);
+      if (currentSlots.length >= MAX_MEALS_PER_DAY) return prev;
+      const nextSlot = MEAL_TYPE_OPTIONS.find((option) => !currentSlots.includes(option.type));
+      if (!nextSlot) return prev;
+      return {
+        ...prev,
+        [dayIndex]: [...currentSlots, nextSlot.type],
+      };
+    });
+  };
+
+  const removeMealSlotFromDay = (dayIndex: number, type: MealType) => {
+    setDayMealSlots((prev) => {
+      const currentSlots = (prev[dayIndex] ?? DEFAULT_MEAL_TYPES).slice(0, MAX_MEALS_PER_DAY);
+      const nextSlots = currentSlots.filter((slotType) => slotType !== type);
+      return {
+        ...prev,
+        [dayIndex]: nextSlots.length > 0 ? nextSlots : [...DEFAULT_MEAL_TYPES],
+      };
+    });
+    setDayMeals((prev) => {
+      const day = { ...(prev[dayIndex] ?? {}) };
+      delete day[type];
+      return {
+        ...prev,
+        [dayIndex]: day,
+      };
+    });
+  };
+
+  const resetBuilder = () => {
+    setTitle("");
+    setStartDate(new Date().toISOString().slice(0, 10));
+    setWeeks(4);
+    setDailyCalories(2200);
+    setProteinG(140);
+    setCarbsG(240);
+    setFatG(70);
+    setSelectedDayIndex(0);
+    setDayMeals({});
+    setDayMealSlots({});
+    setEditingPlanId(null);
+  };
+
+  const startEditingPlan = async (planId: string) => {
+    if (!planId || editingPlanLoading || saving) return;
+    setEditingPlanLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/trainer/nutrition-plans/${planId}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+
+      if (!response.ok) throw new Error("LOAD_PLAN_ERROR");
+
+      const payload = (await response.json()) as NutritionPlanDetail;
+      setEditingPlanId(payload.id);
+      setTitle(payload.title ?? "");
+      setStartDate(payload.startDate ? new Date(payload.startDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+      const nextDaysCount = Math.max(1, payload.daysCount ?? 7);
+      setWeeks(Math.max(1, Math.min(12, Math.ceil(nextDaysCount / 7))));
+      setDailyCalories(Math.round(payload.dailyCalories ?? 2200));
+      setProteinG(Math.round(payload.proteinG ?? 140));
+      setCarbsG(Math.round(payload.carbsG ?? 240));
+      setFatG(Math.round(payload.fatG ?? 70));
+
+      const recipesByName = new Map(recipes.map((recipe) => [recipe.name.trim().toLowerCase(), recipe.id]));
+      const nextMeals: Record<number, DayMealSelection> = {};
+      const nextSlots: Record<number, MealType[]> = {};
+
+      (payload.days ?? []).forEach((day, index) => {
+        const dayIndex = typeof day.order === "number" && day.order > 0 ? day.order - 1 : index;
+        const daySelection: DayMealSelection = {};
+        const slotTypes = new Set<MealType>(DEFAULT_MEAL_TYPES);
+
+        (day.meals ?? []).forEach((meal) => {
+          const normalizedType = meal.type ? normalizeIncomingMealType(meal.type) : null;
+          if (!normalizedType) return;
+          slotTypes.add(normalizedType);
+          const recipeId = recipesByName.get((meal.title ?? "").trim().toLowerCase());
+          if (recipeId) {
+            daySelection[normalizedType] = recipeId;
+          }
+        });
+
+        nextMeals[dayIndex] = daySelection;
+        nextSlots[dayIndex] = Array.from(slotTypes).slice(0, MAX_MEALS_PER_DAY);
+      });
+
+      setDayMeals(normalizeMealSelectionShape(nextDaysCount, nextMeals));
+      setDayMealSlots(normalizeMealSlotsShape(nextDaysCount, nextSlots));
+      setSelectedDayIndex(0);
+      setAssignmentMessage(null);
+    } catch {
+      setError("No se pudo cargar el plan para editarlo.");
+    } finally {
+      setEditingPlanLoading(false);
+    }
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim() || creating) return;
+    if (!title.trim() || saving) return;
 
-    setCreating(true);
+    setSaving(true);
     setError(null);
     try {
       const days = Array.from({ length: daysCount }).map((_, dayIndex) => {
         const mealsSelection = dayMeals[dayIndex] ?? {};
-        const meals = MEAL_TYPE_OPTIONS
-          .map(({ type }) => {
+        const slots = dayMealSlots[dayIndex] ?? DEFAULT_MEAL_TYPES;
+        const meals = slots
+          .map((type) => {
             const recipeId = mealsSelection[type];
             if (!recipeId) return null;
             return {
@@ -201,43 +370,44 @@ export default function TrainerNutritionPlansPageClient() {
         };
       });
 
-      const response = await fetch("/api/trainer/nutrition-plans", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          startDate,
-          weeks,
-          daysCount,
-          dailyCalories,
-          proteinG,
-          carbsG,
-          fatG,
-          days,
-        }),
-      });
+      const response = await fetch(
+        isEditing ? `/api/trainer/nutrition-plans/${editingPlanId}` : "/api/trainer/nutrition-plans",
+        {
+          method: isEditing ? "PATCH" : "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title.trim(),
+            startDate,
+            weeks,
+            daysCount,
+            dailyCalories,
+            proteinG,
+            carbsG,
+            fatG,
+            days,
+          }),
+        },
+      );
 
       if (!response.ok) {
-        throw new Error("CREATE_ERROR");
+        throw new Error(isEditing ? "UPDATE_ERROR" : "CREATE_ERROR");
       }
 
-      setTitle("");
-      setWeeks(4);
-      setDailyCalories(2200);
-      setProteinG(140);
-      setCarbsG(240);
-      setFatG(70);
-      setSelectedDayIndex(0);
-      setDayMeals({});
+      resetBuilder();
       setAssignmentMessage(null);
 
       await loadData();
     } catch {
       setError(t("trainer.error"));
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
+  };
+
+  const cancelEditing = () => {
+    resetBuilder();
+    setError(null);
   };
 
   const assignPlan = async () => {
@@ -278,9 +448,9 @@ export default function TrainerNutritionPlansPageClient() {
       <h1 className="section-title">Planes de nutrición</h1>
 
       <form className="card form-stack" onSubmit={onSubmit}>
-        <h2 style={{ margin: 0 }}>Crear plan de nutrición</h2>
+        <h2 style={{ margin: 0 }}>{isEditing ? "Editar plan de nutrición" : "Crear plan de nutrición"}</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Define semanas y selecciona recetas por día y por comida (desayuno, comida, snack y cena).
+          Define semanas y selecciona recetas por día. Puedes usar entre 1 y 7 comidas por día.
         </p>
 
         <label className="form-stack" style={{ gap: 6 }}>
@@ -368,7 +538,7 @@ export default function TrainerNutritionPlansPageClient() {
                   onClick={() => setSelectedDayIndex(dayIndex)}
                 >
                   <span>D{dayIndex + 1}</span>
-                  <span className="badge">{mealCount}/4</span>
+                  <span className="badge">{mealCount}/{MAX_MEALS_PER_DAY}</span>
                 </button>
               );
             })}
@@ -378,29 +548,50 @@ export default function TrainerNutritionPlansPageClient() {
             <div className="inline-actions-sm" style={{ justifyContent: "space-between", alignItems: "center" }}>
               <strong>{dayLabel(selectedDayIndex)}</strong>
               <div className="inline-actions-sm">
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => addMealSlotToDay(selectedDayIndex)}
+                  disabled={selectedDaySlots.length >= MAX_MEALS_PER_DAY}
+                >
+                  Agregar comida
+                </button>
                 <button type="button" className="btn secondary" onClick={clearCurrentDay}>Limpiar día</button>
                 <button type="button" className="btn secondary" onClick={applyCurrentDayToAllDays}>Aplicar a todos</button>
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(220px, 1fr))", gap: 10, marginTop: 10 }}>
-              {MEAL_TYPE_OPTIONS.map(({ type, label }) => (
-                <label key={type} className="form-stack" style={{ gap: 6 }}>
-                  <span>{label}</span>
-                  <select
-                    value={selectedDayMeals[type] ?? ""}
-                    onChange={(event) => updateMealForDay(selectedDayIndex, type, event.target.value)}
-                    disabled={recipes.length === 0}
-                  >
-                    <option value="">Sin receta</option>
-                    {recipes.map((recipe) => (
-                      <option key={recipe.id} value={recipe.id}>
-                        {recipe.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
+              {selectedDaySlots.map((type) => {
+                const mealLabel = MEAL_TYPE_OPTIONS.find((option) => option.type === type)?.label ?? type;
+                return (
+                  <div key={type} className="form-stack" style={{ gap: 6 }}>
+                    <div className="inline-actions-sm" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                      <span>{mealLabel}</span>
+                      <button
+                        type="button"
+                        className="btn secondary"
+                        onClick={() => removeMealSlotFromDay(selectedDayIndex, type)}
+                        disabled={selectedDaySlots.length <= 1}
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                    <select
+                      value={selectedDayMeals[type] ?? ""}
+                      onChange={(event) => updateMealForDay(selectedDayIndex, type, event.target.value)}
+                      disabled={recipes.length === 0}
+                    >
+                      <option value="">Sin receta</option>
+                      {recipes.map((recipe) => (
+                        <option key={recipe.id} value={recipe.id}>
+                          {recipe.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
             </div>
             {recipes.length === 0 ? (
               <p className="muted" style={{ margin: "10px 0 0" }}>
@@ -414,10 +605,15 @@ export default function TrainerNutritionPlansPageClient() {
           type="submit"
           className="btn"
           data-testid="create-nutrition-plan-button"
-          disabled={creating || !title.trim()}
+          disabled={saving || !title.trim()}
         >
-          {creating ? t("ui.loading") : "Crear plan de nutrición"}
+          {saving ? t("ui.loading") : isEditing ? "Guardar cambios" : "Crear plan de nutrición"}
         </button>
+        {isEditing ? (
+          <button type="button" className="btn secondary" onClick={cancelEditing} disabled={saving}>
+            Cancelar edición
+          </button>
+        ) : null}
       </form>
 
       <section className="card form-stack" data-testid="nutrition-plan-list">
@@ -440,6 +636,16 @@ export default function TrainerNutritionPlansPageClient() {
                 <p className="muted" style={{ margin: "4px 0 0" }}>
                   {plan.daysCount ?? 0} días · {plan.startDate ? new Date(plan.startDate).toLocaleDateString() : "Sin fecha"}
                 </p>
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="btn secondary"
+                    onClick={() => void startEditingPlan(plan.id)}
+                    disabled={editingPlanLoading || saving}
+                  >
+                    {editingPlanId === plan.id && editingPlanLoading ? t("ui.loading") : "Editar"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

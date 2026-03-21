@@ -7019,6 +7019,46 @@ const assignedNutritionPlanSummarySelect = {
     },
   },
 } as const;
+const assignedNutritionPlanDetailSelect = {
+  id: true,
+  title: true,
+  startDate: true,
+  daysCount: true,
+  dailyCalories: true,
+  proteinG: true,
+  fatG: true,
+  carbsG: true,
+  createdAt: true,
+  days: {
+    orderBy: { order: "asc" as const },
+    select: {
+      id: true,
+      date: true,
+      dayLabel: true,
+      order: true,
+      meals: {
+        select: {
+          id: true,
+          type: true,
+          title: true,
+          description: true,
+          calories: true,
+          protein: true,
+          carbs: true,
+          fats: true,
+          imageUrl: true,
+          ingredients: {
+            select: {
+              id: true,
+              name: true,
+              grams: true,
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
 const trainerAssignNutritionPlanResultSchema = {
   id: true,
   title: true,
@@ -7149,7 +7189,7 @@ app.get("/members/me/assigned-nutrition-plan", async (request, reply) => {
       select: {
         gym: { select: { id: true, name: true } },
         assignedNutritionPlan: {
-          select: assignedNutritionPlanSummarySelect,
+          select: assignedNutritionPlanDetailSelect,
         },
       },
       orderBy: { updatedAt: "desc" },
@@ -7170,17 +7210,29 @@ app.get("/members/me/assigned-nutrition-plan", async (request, reply) => {
 });
 
 const trainerNutritionPlanMealSchema = z.object({
-  type: z.enum(["breakfast", "lunch", "snack", "dinner"]),
+  type: z.string().trim().min(1).max(40),
   recipeId: z.string().min(1),
 });
 
 const trainerNutritionPlanDaySchema = z.object({
   dayIndex: z.coerce.number().int().min(0).max(365),
   dayLabel: z.string().trim().min(1).max(80).optional(),
-  meals: z.array(trainerNutritionPlanMealSchema).max(8).default([]),
+  meals: z.array(trainerNutritionPlanMealSchema).max(7).default([]),
 });
 
 const trainerNutritionPlanCreateSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  weeks: z.coerce.number().int().min(1).max(12).optional(),
+  daysCount: z.coerce.number().int().min(1).max(84).optional(),
+  startDate: z.string().trim().min(1).optional(),
+  dailyCalories: z.coerce.number().positive().max(20000).optional(),
+  proteinG: z.coerce.number().min(0).max(2000).optional(),
+  fatG: z.coerce.number().min(0).max(1000).optional(),
+  carbsG: z.coerce.number().min(0).max(3000).optional(),
+  days: z.array(trainerNutritionPlanDaySchema).max(84).optional(),
+});
+
+const trainerNutritionPlanUpdateSchema = z.object({
   title: z.string().trim().min(1).max(120),
   weeks: z.coerce.number().int().min(1).max(12).optional(),
   daysCount: z.coerce.number().int().min(1).max(84).optional(),
@@ -8146,6 +8198,10 @@ app.get("/trainer/nutrition-plans", async (request, reply) => {
         title: true,
         startDate: true,
         daysCount: true,
+        dailyCalories: true,
+        proteinG: true,
+        fatG: true,
+        carbsG: true,
         createdAt: true,
         days: {
           orderBy: { order: "asc" },
@@ -8348,6 +8404,185 @@ app.get("/trainer/nutrition-plans/:id", async (request, reply) => {
     return handleRequestError(reply, error);
   }
 });
+
+const handleTrainerNutritionPlanUpdate = async (request: any, reply: any) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { id } = trainerNutritionPlanParamsSchema.parse(request.params);
+    const payload = trainerNutritionPlanUpdateSchema.parse(request.body);
+
+    const existingPlan = await prisma.nutritionPlan.findFirst({
+      where: {
+        id,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: GymMembershipStatus.ACTIVE,
+                role: GymRole.MEMBER,
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        daysCount: true,
+        dailyCalories: true,
+        proteinG: true,
+        fatG: true,
+        carbsG: true,
+      },
+    });
+
+    if (!existingPlan) {
+      return reply.status(404).send({ error: "NUTRITION_PLAN_NOT_FOUND" });
+    }
+
+    const parsedStartDate = payload.startDate ? parseDateInput(payload.startDate) : null;
+    if (payload.startDate && !parsedStartDate) {
+      return reply.status(400).send({ error: "INVALID_START_DATE" });
+    }
+    const nextStartDate = parsedStartDate ?? existingPlan.startDate;
+
+    const nextDaysCount = payload.daysCount ?? (payload.weeks ? payload.weeks * 7 : existingPlan.daysCount);
+    const dates = buildDateRange(nextStartDate, nextDaysCount);
+
+    const selectedRecipeIds = Array.from(
+      new Set(
+        (payload.days ?? [])
+          .flatMap((day: any) => day.meals ?? [])
+          .map((meal: any) => String(meal.recipeId))
+          .filter((value: string) => value.length > 0),
+      ),
+    );
+
+    const recipesById = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        description: string | null;
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+        photoUrl: string | null;
+        ingredients: { name: string; grams: number }[];
+      }
+    >();
+
+    if (selectedRecipeIds.length > 0) {
+      const recipes = await prisma.recipe.findMany({
+        where: { id: { in: selectedRecipeIds } },
+        include: {
+          ingredients: {
+            select: { name: true, grams: true },
+          },
+        },
+      });
+      recipes.forEach((recipe: any) => {
+        recipesById.set(recipe.id, recipe);
+      });
+    }
+
+    const dayPlansByIndex = new Map<
+      number,
+      {
+        dayLabel?: string;
+        meals: Array<{ type: string; recipeId: string }>;
+      }
+    >();
+
+    (payload.days ?? []).forEach((day: any) => {
+      dayPlansByIndex.set(day.dayIndex, {
+        dayLabel: day.dayLabel,
+        meals: day.meals ?? [],
+      });
+    });
+
+    const updatedPlan = await prisma.nutritionPlan.update({
+      where: { id: existingPlan.id },
+      data: {
+        title: payload.title,
+        startDate: nextStartDate,
+        daysCount: nextDaysCount,
+        dailyCalories: payload.dailyCalories ?? existingPlan.dailyCalories,
+        proteinG: payload.proteinG ?? existingPlan.proteinG,
+        fatG: payload.fatG ?? existingPlan.fatG,
+        carbsG: payload.carbsG ?? existingPlan.carbsG,
+        days: {
+          deleteMany: {},
+          create: dates.map((date, index) => {
+            const plannedDay = dayPlansByIndex.get(index);
+            const meals = (plannedDay?.meals ?? [])
+              .map((meal) => {
+                const recipe = recipesById.get(meal.recipeId);
+                if (!recipe) return null;
+                return {
+                  type: meal.type,
+                  title: recipe.name,
+                  description: recipe.description,
+                  calories: recipe.calories,
+                  protein: recipe.protein,
+                  carbs: recipe.carbs,
+                  fats: recipe.fat,
+                  imageUrl: recipe.photoUrl,
+                  ingredients: {
+                    create: recipe.ingredients.map((ingredient) => ({
+                      name: ingredient.name,
+                      grams: ingredient.grams,
+                    })),
+                  },
+                };
+              })
+              .filter((meal): meal is NonNullable<typeof meal> => Boolean(meal));
+
+            return {
+              date: new Date(`${date}T00:00:00.000Z`),
+              dayLabel: plannedDay?.dayLabel ?? `Día ${index + 1}`,
+              order: index + 1,
+              ...(meals.length > 0
+                ? {
+                    meals: {
+                      create: meals,
+                    },
+                  }
+                : {}),
+            };
+          }),
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        daysCount: true,
+        dailyCalories: true,
+        proteinG: true,
+        fatG: true,
+        carbsG: true,
+        createdAt: true,
+        days: {
+          orderBy: { order: "asc" },
+          select: { id: true, dayLabel: true, order: true },
+        },
+      },
+    });
+
+    return reply.status(200).send(updatedPlan);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+};
+
+app.patch("/trainer/nutrition-plans/:id", handleTrainerNutritionPlanUpdate);
+app.put("/trainer/nutrition-plans/:id", handleTrainerNutritionPlanUpdate);
 
 app.get("/trainer/plans", async (request, reply) => {
   try {
