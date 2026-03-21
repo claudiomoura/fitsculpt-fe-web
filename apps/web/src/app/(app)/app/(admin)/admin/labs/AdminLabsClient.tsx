@@ -19,7 +19,7 @@ const LAB_ITEMS: LabItem[] = [
   { id: "trainerHome", href: "/app/trainer", status: "beta" },
   { id: "trainerExercises", href: "/app/trainer/exercises", status: "beta" },
   { id: "trainerExerciseCreate", href: "/app/trainer/exercises/new", status: "beta" },
-  { id: "trainingLibrary", href: "/app/biblioteca/entrenamientos", status: "read-only" },
+  { id: "trainingLibrary", href: "/app/biblioteca/planes-entrenamiento", status: "read-only" },
   { id: "recipeLibrary", href: "/app/biblioteca/recetas", status: "read-only" },
   { id: "nutrition", href: "/app/nutricion", status: "sem backend" },
   { id: "tracking", href: "/app/seguimiento", status: "read-only" },

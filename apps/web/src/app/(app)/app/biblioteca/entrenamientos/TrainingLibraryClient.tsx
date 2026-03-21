@@ -302,7 +302,7 @@ export default function TrainingLibraryClient() {
             metadata={t("library.training.planMeta", { days: assignedPlan.daysCount, level: assignedPlan.level, date: formatPlanDate(assignedPlan) })}
             statusLabel={t("plans.activeBadge")}
             actions={[
-              { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${getPlanId(assignedPlan)}`, variant: "secondary" },
+              { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/planes-entrenamiento/${getPlanId(assignedPlan)}`, variant: "secondary" },
               { label: t("library.training.choose"), onClick: () => selectPlan(getPlanId(assignedPlan)) },
             ]}
           />
@@ -333,7 +333,7 @@ export default function TrainingLibraryClient() {
                   metadata={t("library.training.planMeta", { days: plan.daysCount, level: plan.level, date: formatPlanDate(plan) })}
                   actions={[
                     { label: isSelected ? t("library.training.selected") : t("library.training.choose"), onClick: () => selectPlan(planId), variant: isSelected ? "secondary" : "primary" },
-                    { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${planId}`, variant: "secondary" },
+                    { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/planes-entrenamiento/${planId}`, variant: "secondary" },
                   ]}
                 />
               );

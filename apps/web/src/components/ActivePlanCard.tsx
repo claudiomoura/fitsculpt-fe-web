@@ -59,7 +59,7 @@ export function ActivePlanCard({
       emptyTitle: "Sin plan de entrenamiento",
       emptyDesc: "Activa un plan para empezar a entrenar",
       emptyCta: "Ver planes",
-      fallbackHref: "/app/biblioteca/entrenamientos",
+      fallbackHref: "/app/biblioteca/planes-entrenamiento",
     },
     nutrition: {
       icon: "🥗",
@@ -67,7 +67,7 @@ export function ActivePlanCard({
       emptyTitle: "Sin plan nutricional",
       emptyDesc: "Activa un plan para ver tu dieta",
       emptyCta: "Ver planes",
-      fallbackHref: "/app/dietas",
+      fallbackHref: "/app/biblioteca/planes-nutricion",
     },
   }[type];
 

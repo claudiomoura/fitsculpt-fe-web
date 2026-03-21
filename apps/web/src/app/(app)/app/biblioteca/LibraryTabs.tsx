@@ -13,11 +13,11 @@ export default async function LibraryTabs({ active, libraryType }: LibraryTabsPr
     libraryType === "fitness"
       ? [
           { id: "exercises", href: "/app/biblioteca", label: t("library.tabs.exercises") },
-          { id: "training", href: "/app/biblioteca/entrenamientos", label: t("library.tabs.training") },
+          { id: "training", href: "/app/biblioteca/planes-entrenamiento", label: t("library.tabs.training") },
         ]
       : [
           { id: "recipes", href: "/app/biblioteca/recetas", label: t("library.tabs.recipes") },
-          { id: "nutritionPlans", href: "/app/dietas", label: t("nav.nutritionPlans") },
+          { id: "nutritionPlans", href: "/app/biblioteca/planes-nutricion", label: t("nav.nutritionPlans") },
         ];
 
   return <SegmentedControl options={tabs} value={active} className="library-tabs" />;

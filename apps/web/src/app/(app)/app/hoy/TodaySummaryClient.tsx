@@ -338,7 +338,7 @@ export default function TodaySummaryClient() {
     () => (trainingUnsupported ? null : (
       <ButtonLink
         variant="secondary"
-        href={assignedPlanId ? `/app/biblioteca/entrenamientos/${assignedPlanId}?from=hoy` : "/app/biblioteca/entrenamientos"}
+        href={assignedPlanId ? `/app/biblioteca/planes-entrenamiento/${assignedPlanId}?from=hoy` : "/app/biblioteca/planes-entrenamiento"}
         size="lg"
       >
         {t("today.trainingCta")}
@@ -351,7 +351,7 @@ export default function TodaySummaryClient() {
     () => (
       <ButtonLink
         variant="secondary"
-        href={assignedNutritionPlanId ? `/app/dietas/${assignedNutritionPlanId}?from=hoy` : "/app/dietas"}
+        href={assignedNutritionPlanId ? `/app/biblioteca/planes-nutricion/${assignedNutritionPlanId}?from=hoy` : "/app/biblioteca/planes-nutricion"}
         size="lg"
       >
         {t("today.nutritionCta")}
@@ -390,7 +390,7 @@ export default function TodaySummaryClient() {
 const nutritionEmptyActions: EmptyAction[] = [
   {
     label: t("today.nutritionCta"),
-    href: assignedNutritionPlanId ? `/app/dietas/${assignedNutritionPlanId}?from=hoy` : "/app/dietas",
+    href: assignedNutritionPlanId ? `/app/biblioteca/planes-nutricion/${assignedNutritionPlanId}?from=hoy` : "/app/biblioteca/planes-nutricion",
     variant: "secondary",
   },
 ];
@@ -398,7 +398,7 @@ const nutritionEmptyActions: EmptyAction[] = [
 const nutritionErrorActions: ErrorAction[] = [
   {
     label: t("today.nutritionCta"),
-    href: assignedNutritionPlanId ? `/app/dietas/${assignedNutritionPlanId}?from=hoy` : "/app/dietas",
+    href: assignedNutritionPlanId ? `/app/biblioteca/planes-nutricion/${assignedNutritionPlanId}?from=hoy` : "/app/biblioteca/planes-nutricion",
   },
   { label: t("ui.retry"), onClick: loadAssignedNutritionPlan, variant: "secondary" },
 ];
@@ -515,7 +515,7 @@ const notesErrorActions: ErrorAction[] = [
             description={trainingUnsupported ? t("library.training.assignedUnavailable") : t("today.trainingAssignedEmptyDescription")}
             actions={trainingUnsupported
               ? [{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]
-              : [{ label: t("today.trainingCta"), href: "/app/biblioteca/entrenamientos", variant: "secondary" }]}
+              : [{ label: t("today.trainingCta"), href: "/app/biblioteca/planes-entrenamiento", variant: "secondary" }]}
           />
         }
       >

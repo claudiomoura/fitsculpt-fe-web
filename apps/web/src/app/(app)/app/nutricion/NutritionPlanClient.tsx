@@ -2008,7 +2008,7 @@ useEffect(() => {
   const handleViewGeneratedPlan = () => {
     setAiSuccessModalOpen(false);
     if (lastGeneratedPlanId) {
-      router.push(`/app/dietas/${lastGeneratedPlanId}`);
+      router.push(`/app/biblioteca/planes-nutricion/${lastGeneratedPlanId}`);
       return;
     }
 
@@ -2286,7 +2286,7 @@ const nutritionPlanDetails = profile ? (
               type="nutrition"
               planTitle={activePlanTitle}
               source={trainerPlanVisible ? "assigned" : activePlanTitle ? "own" : null}
-              manageHref="/app/dietas"
+              manageHref="/app/biblioteca/planes-nutricion"
             />
           ) : null}
 
@@ -2749,7 +2749,7 @@ const nutritionPlanDetails = profile ? (
                 <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
                   <Link
                     className="training-insight-link training-insight-link--with-affordance"
-                    href={selectedPlanId ? `/app/dietas?planId=${encodeURIComponent(selectedPlanId)}` : "/app/dietas"}
+                    href={selectedPlanId ? `/app/biblioteca/planes-nutricion?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/planes-nutricion"}
                   >
                     <div className="training-insight-link-icon">
                       <Icon name="book" size={20} />

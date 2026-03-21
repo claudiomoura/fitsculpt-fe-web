@@ -235,7 +235,7 @@ export default function DietPlansClient() {
             statusLabel={t("plans.activeBadge")}
             testId="nutrition-assigned-plan-card"
             actions={[
-              { label: t("dietPlans.viewDetail"), href: `/app/dietas/${getNutritionPlanId(assignedPlan)}`, variant: "secondary", testId: "nutrition-view-active-plan" },
+              { label: t("dietPlans.viewDetail"), href: `/app/biblioteca/planes-nutricion/${getNutritionPlanId(assignedPlan)}`, variant: "secondary", testId: "nutrition-view-active-plan" },
               { label: t("dietPlans.selectActiveCta"), onClick: () => selectActivePlan(getNutritionPlanId(assignedPlan)), testId: "nutrition-go-calendar-cta" },
             ]}
           />
@@ -289,7 +289,7 @@ export default function DietPlansClient() {
                   }
                   actions={[
                     { label: isSelected ? t("dietPlans.activeBadge") : t("dietPlans.selectActiveCta"), onClick: () => selectActivePlan(planId), variant: isSelected ? "secondary" : "primary", testId: `nutrition-select-active-${planId}` },
-                    { label: t("dietPlans.viewDetail"), href: `/app/dietas/${planId}`, variant: "secondary", testId: `nutrition-view-plan-${planId}` },
+                    { label: t("dietPlans.viewDetail"), href: `/app/biblioteca/planes-nutricion/${planId}`, variant: "secondary", testId: `nutrition-view-plan-${planId}` },
                   ]}
                   testId={planId === assignedPlanCardId ? "nutrition-assigned-plan-card" : `nutrition-plan-card-${planId}`}
                 />

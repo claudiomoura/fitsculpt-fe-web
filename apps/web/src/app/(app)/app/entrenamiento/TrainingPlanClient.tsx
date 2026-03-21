@@ -1583,7 +1583,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               type="training"
               planTitle={activePlan?.title ?? null}
               source={activePlanOrigin}
-              manageHref="/app/biblioteca/entrenamientos"
+              manageHref="/app/biblioteca/planes-entrenamiento"
             />
           ) : null}
 
@@ -1613,12 +1613,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 )}
                 actions={isAiLocked
                   ? [
-                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
+                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/planes-entrenamiento" },
                     { label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" },
                     { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]
                   : [
-                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/entrenamientos" },
+                    { label: safeT("training.selectPlanCta", "Seleccionar plan"), href: "/app/biblioteca/planes-entrenamiento" },
                     { label: safeT("training.createPlanCta", "Crear con IA"), href: "/app/entrenamiento?ai=1", variant: "secondary" },
                     { label: safeT("training.manualCreate", "Crear manual"), href: "/app/entrenamiento/editar", variant: "secondary" },
                   ]}
@@ -2001,7 +2001,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             <aside className={styles.layoutInsights}>
               <section className="card premium-surface-card surface-content-card training-insights-card">
                 <Link
-                  href={selectedPlanId ? `/app/biblioteca/entrenamientos?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/entrenamientos"}
+                  href={selectedPlanId ? `/app/biblioteca/planes-entrenamiento?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/planes-entrenamiento"}
                   className="training-insight-link training-insight-link--with-affordance"
                 >
                   <div className="training-insight-link-icon">
@@ -2036,7 +2036,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </section>
 
               <section className="card premium-surface-card surface-content-card training-insights-card">
-                <Link href="/app/biblioteca" className="training-insight-link">
+                <Link href="/app/biblioteca/planes-entrenamiento" className="training-insight-link">
                   <div className="training-insight-link-icon">
                     <Icon name="book" size={20} />
                   </div>
