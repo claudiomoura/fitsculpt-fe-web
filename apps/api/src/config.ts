@@ -1,5 +1,5 @@
 import { z } from "zod";
-import "dotenv/config";
+import "./loadEnv.js";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
