@@ -57,7 +57,7 @@
   background: var(--surface-secondary-bg);
   border-color: color-mix(in srgb, var(--today-donut-fill) 14%, var(--surface-border-default));
   box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
-  margin-top: 20px;
+  margin-top: 0px;
 }
 
 .todayScope :global(.today-nutrition-card--error) {
@@ -65,12 +65,10 @@
 }
 
 .todayScope :global(.today-checkin-card) {
-  position: relative;
-  overflow: hidden;
-  background: var(--surface-secondary-bg);
-  border-color: color-mix(in srgb, var(--today-donut-fill) 14%, var(--surface-border-default));
-  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
-  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin-top: 30px;
 }
 
 .todayScope :global(.today-progress-inset) {

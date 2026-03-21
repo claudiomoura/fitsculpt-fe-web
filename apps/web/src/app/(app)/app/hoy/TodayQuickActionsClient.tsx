@@ -922,7 +922,7 @@ export default function TodayQuickActionsClient() {
           ) : null}
 
           <section
-            className="card premium-hero-card surface-action-card today-hero-card premium-fade-up"
+            className="card premium-surface-card surface-content-card today-secondary-card today-hero-card premium-fade-up"
             data-testid="today-action-card-primary"
           >
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -1021,7 +1021,7 @@ export default function TodayQuickActionsClient() {
           </section>
 
           <div
-            className="today-cards-grid grid gap-4 md:grid-cols-2"
+            className="today-cards-grid grid md:grid-cols-2"
             data-testid="today-actions-grid"
           >
             <section
