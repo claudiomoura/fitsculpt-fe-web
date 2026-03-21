@@ -59,6 +59,32 @@ describe("BETA-11 critical BFF contract tests", () => {
         tokens: expect.any(Number),
       }),
     );
+    expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("forwards billing sync query params to backend", async () => {
+    cookiesMock.mockResolvedValue({
+      get: () => ({ value: "token_123" }),
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse(200, {
+        plan: "PRO",
+        tokens: 44444,
+        tokensExpiresAt: "2026-04-01T00:00:00.000Z",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { GET } = await import("@/app/api/billing/status/route");
+    await GET(new Request("http://localhost/api/billing/status?sync=1"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://backend.local/billing/status?sync=1",
+      expect.objectContaining({
+        cache: "no-store",
+        headers: { cookie: "fs_token=token_123" },
+      }),
+    );
   });
 
   it("validates GET /api/ai/quota contract for token balance", async () => {

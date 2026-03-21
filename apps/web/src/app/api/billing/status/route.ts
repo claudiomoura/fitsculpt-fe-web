@@ -5,6 +5,12 @@ import { jsonBffError } from "@/app/api/_utils/normalizeBffError";
 
 export const dynamic = "force-dynamic";
 
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 function parseResponsePayload(text: string): unknown {
   if (!text) {
     return null;
@@ -53,7 +59,10 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json(payload, { status: response.status });
+    return NextResponse.json(payload, {
+      status: response.status,
+      headers: NO_STORE_HEADERS,
+    });
   } catch (_err) {
     return jsonBffError({ status: 502, type: "upstream" });
   }

@@ -42,6 +42,7 @@ import { classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState, type AiErrorUiState } from "@/lib/aiErrorUi";
 import { getExerciseThumbUrl } from "@/lib/exerciseMedia";
 import { ExercisePlanDetailModal } from "@/components/exercise-library/detail/ExercisePlanDetailModal";
+import type { Workout } from "@/lib/types";
 import { TRAINING_ANALYTICS_TODO } from "./analytics";
 import { clampDayKeyToPlanStart, clampDateNotBefore, useTrainingCalendar } from "./hooks/useTrainingCalendar";
 import styles from "./TrainingPlanClient.module.css";
@@ -124,6 +125,12 @@ type WorkoutLookupItem = {
   name?: string | null;
   scheduledAt?: string | null;
   sessions?: Array<{ finishedAt?: string | null }>;
+};
+
+type ExerciseProgressState = {
+  loggedSets: number;
+  targetSets: number;
+  completed: boolean;
 };
 
 type PlanEntry = {
@@ -373,7 +380,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [workoutsByDate, setWorkoutsByDate] = useState<Record<string, WorkoutLookupItem[]>>({});
   const [startCtaLoading, setStartCtaLoading] = useState(false);
   const [detailsCtaLoading, setDetailsCtaLoading] = useState(false);
-  const [markCompleteLoading, setMarkCompleteLoading] = useState(false);
+  const [selectedWorkoutDetail, setSelectedWorkoutDetail] = useState<Workout | null>(null);
+  const [exerciseLogLoadingKey, setExerciseLogLoadingKey] = useState<string | null>(null);
   const [hideMainCard, setHideMainCard] = useState(false);
   const requestedCatalogExerciseIds = useRef<Set<string>>(new Set());
   const requestedCatalogExerciseNames = useRef<Set<string>>(new Set());
@@ -1244,6 +1252,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return candidates[0]?.id ?? null;
   };
   const nextPlannedWorkoutId = nextPlannedEntry ? pickWorkoutIdForDate(nextPlannedEntry.date, nextPlannedEntry.day.focus) : null;
+  const selectedWorkoutId = selectedEntry ? pickWorkoutIdForDate(selectedEntry.date, selectedEntry.day.focus) : null;
 
   const completedDayKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -1268,6 +1277,66 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     const match = sets.match(/x\s*(.+)$/i);
     return match?.[1]?.trim() || null;
   };
+
+  const parseSetCountFromExercise = (exercise: Exercise) => {
+    if (typeof exercise.sets === "number" && Number.isFinite(exercise.sets)) {
+      return Math.max(1, Math.round(exercise.sets));
+    }
+    if (typeof exercise.sets === "string") {
+      const match = exercise.sets.match(/\d+/);
+      if (match) return Math.max(1, Number(match[0]));
+    }
+    return 1;
+  };
+
+  const parseDefaultRepsFromExercise = (exercise: Exercise) => {
+    const direct = typeof exercise.reps === "string" ? exercise.reps.trim() : exercise.reps ? String(exercise.reps) : "";
+    if (direct) {
+      const match = direct.match(/\d+/);
+      if (match) return Math.max(1, Number(match[0]));
+    }
+    const fallback = parseRepsFromSets(exercise.sets);
+    if (!fallback) return 1;
+    const match = fallback.match(/\d+/);
+    return match ? Math.max(1, Number(match[0])) : 1;
+  };
+
+  const normalizeExerciseLogName = (value?: string | null) => (value ?? "").trim().toLowerCase();
+
+  const buildExerciseProgressMap = (workout: Workout | null) => {
+    const loggedSetsByExercise = new Map<string, number>();
+    const sessions = Array.isArray(workout?.sessions) ? workout.sessions : [];
+    sessions.forEach((session) => {
+      (session.entries ?? []).forEach((entry) => {
+        const key = normalizeExerciseLogName(entry.exercise);
+        if (!key) return;
+        loggedSetsByExercise.set(key, (loggedSetsByExercise.get(key) ?? 0) + 1);
+      });
+    });
+
+    const next = new Map<string, ExerciseProgressState>();
+    (workout?.exercises ?? []).forEach((exercise) => {
+      const key = normalizeExerciseLogName(exercise.name);
+      if (!key) return;
+      const targetSets = parseSetCountFromExercise({
+        name: exercise.name,
+        sets: exercise.sets ?? 1,
+        reps: typeof exercise.reps === "number" ? String(exercise.reps) : exercise.reps ?? undefined,
+      });
+      const loggedSets = loggedSetsByExercise.get(key) ?? 0;
+      next.set(key, {
+        loggedSets,
+        targetSets,
+        completed: loggedSets >= targetSets,
+      });
+    });
+
+    return next;
+  };
+  const selectedExerciseProgress = useMemo(
+    () => buildExerciseProgressMap(selectedWorkoutDetail),
+    [selectedWorkoutDetail]
+  );
 
   const buildWorkoutPayload = (entry: PlanEntry) => {
     const isoDate = new Date(`${toDateKey(entry.date)}T12:00:00`).toISOString();
@@ -1311,6 +1380,39 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     return createdId;
   };
 
+  const loadWorkoutDetail = async (workoutId: string) => {
+    const response = await fetch(`/api/workouts/${encodeURIComponent(workoutId)}`, {
+      cache: "no-store",
+      credentials: "include",
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as Workout;
+  };
+
+  useEffect(() => {
+    if (!selectedWorkoutId) {
+      setSelectedWorkoutDetail(null);
+      return;
+    }
+
+    let active = true;
+    const syncSelectedWorkout = async () => {
+      try {
+        const workout = await loadWorkoutDetail(selectedWorkoutId);
+        if (!active) return;
+        setSelectedWorkoutDetail(workout);
+      } catch (_err) {
+        if (!active) return;
+        setSelectedWorkoutDetail(null);
+      }
+    };
+
+    void syncSelectedWorkout();
+    return () => {
+      active = false;
+    };
+  }, [selectedWorkoutId]);
+
   const openSelectedDayStart = async () => {
     if (!selectedEntry || !selectedDayHasWorkout || startCtaLoading) return;
     setStartCtaLoading(true);
@@ -1350,62 +1452,87 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
   };
 
-  const markSelectedDayCompleted = async () => {
-    if (!selectedEntry || !selectedDayHasWorkout || markCompleteLoading) return;
-    setMarkCompleteLoading(true);
+  const handleLogExercise = async (exercise: Exercise, index: number) => {
+    if (!selectedEntry || exerciseLogLoadingKey) return;
+
+    const actionKey = `${selectedDayKey}:${normalizeExerciseLogName(exercise.name)}:${index}`;
+    setExerciseLogLoadingKey(actionKey);
+
     try {
-      const workoutId = await ensureWorkoutIdForEntry(selectedEntry);
+      const workoutId = selectedWorkoutId ?? (await ensureWorkoutIdForEntry(selectedEntry));
       if (!workoutId) {
         throw new Error("WORKOUT_NOT_FOUND");
       }
 
-      const startResponse = await fetch(
-        `/api/workouts/${encodeURIComponent(workoutId)}/start`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
-      if (!startResponse.ok) {
-        throw new Error("SESSION_START_FAILED");
+      const workout = (selectedWorkoutDetail?.id === workoutId ? selectedWorkoutDetail : await loadWorkoutDetail(workoutId)) ?? null;
+      const progressMap = buildExerciseProgressMap(workout);
+      const progress = progressMap.get(normalizeExerciseLogName(exercise.name));
+      const targetSets = progress?.targetSets ?? parseSetCountFromExercise(exercise);
+      const loggedSets = progress?.loggedSets ?? 0;
+      const remainingSets = Math.max(0, targetSets - loggedSets);
+
+      if (remainingSets === 0) {
+        notify({
+          title: safeT("training.exerciseAlreadyCompleted", "Este ejercicio ya esta completado."),
+          variant: "success",
+        });
+        const refreshedWorkout = await loadWorkoutDetail(workoutId);
+        setSelectedWorkoutDetail(refreshedWorkout);
+        return;
       }
 
-      const startedSession = (await startResponse.json()) as { id?: string };
-      const sessionId = startedSession?.id;
+      const openSession = [...(workout?.sessions ?? [])].reverse().find((session) => !session.finishedAt);
+      let sessionId = openSession?.id ?? null;
+
+      if (!sessionId) {
+        const startResponse = await fetch(`/api/workouts/${encodeURIComponent(workoutId)}/start`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!startResponse.ok) {
+          throw new Error("SESSION_START_FAILED");
+        }
+        const startedSession = (await startResponse.json()) as { id?: string };
+        sessionId = startedSession?.id ?? null;
+      }
+
       if (!sessionId) {
         throw new Error("SESSION_ID_MISSING");
       }
 
-      const finishResponse = await fetch(
-        `/api/workout-sessions/${encodeURIComponent(sessionId)}/finish`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
-      if (!finishResponse.ok) {
-        throw new Error("SESSION_FINISH_FAILED");
+      const reps = parseDefaultRepsFromExercise(exercise);
+      const payload = Array.from({ length: remainingSets }, () => ({
+        exercise: exercise.name,
+        sets: 1,
+        reps,
+      }));
+
+      const patchResponse = await fetch(`/api/workout-sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ entries: payload }),
+      });
+      if (!patchResponse.ok) {
+        throw new Error("SESSION_PATCH_FAILED");
       }
 
-      const refreshed = { current: true };
-      await loadWorkoutsForLookup(refreshed);
+      const [refreshedWorkout] = await Promise.all([
+        loadWorkoutDetail(workoutId),
+        loadWorkoutsForLookup({ current: true }),
+      ]);
+      setSelectedWorkoutDetail(refreshedWorkout);
       notify({
-        title: safeT(
-          "training.markCompletedSuccess",
-          "Sesion marcada como completada.",
-        ),
+        title: safeT("training.exerciseLoggedSuccess", "Ejercicio registrado."),
         variant: "success",
       });
     } catch (_err) {
       notify({
-        title: safeT(
-          "training.markCompletedError",
-          "No pudimos marcar la sesion como completada.",
-        ),
+        title: safeT("training.exerciseLoggedError", "No pudimos registrar este ejercicio."),
         variant: "error",
       });
     } finally {
-      setMarkCompleteLoading(false);
+      setExerciseLogLoadingKey(null);
     }
   };
 
@@ -1668,15 +1795,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         aria-label={safeT("training.startSessionAria", "Empezar sesion del dia seleccionado")}
                       >
                         {startCtaLoading ? t("ui.loading") : safeT("training.startSession", "Empezar")}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn secondary fit-content rounded-xl h-10 px-3 text-sm"
-                        onClick={() => void markSelectedDayCompleted()}
-                        disabled={markCompleteLoading}
-                        aria-label={safeT("training.markCompletedAria", "Marcar sesion del dia como completada")}
-                      >
-                        {markCompleteLoading ? t("ui.loading") : safeT("training.markCompletedCta", "Marcar completado")}
                       </button>
                       <button
                         type="button"
@@ -1962,17 +2080,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                     selectedExercises.map((exercise, index) => {
                       const exerciseId = getExerciseIdentifier(exercise);
                       const exerciseHref = exerciseId ? buildExerciseTechniqueHref(exerciseId) : null;
+                      const progress = selectedExerciseProgress.get(normalizeExerciseLogName(exercise.name));
+                      const targetSets = progress?.targetSets ?? parseSetCountFromExercise(exercise);
+                      const loggedSets = progress?.loggedSets ?? 0;
+                      const isExerciseCompleted = progress?.completed ?? false;
+                      const exerciseActionKey = `${selectedDayKey}:${normalizeExerciseLogName(exercise.name)}:${index}`;
+                      const isLoggingExercise = exerciseLogLoadingKey === exerciseActionKey;
                       return (
-                        <button
+                        <div
                           key={`${exercise.name}-${index}`}
-                          type="button"
-                          className={`exercise-mini-card exercise-mini-card-compact ${exerciseHref ? "is-clickable" : "is-disabled"}`}
-                          data-testid="training-plan-exercise-item"
-                          aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
-                          aria-pressed={false}
-                          aria-disabled={!exerciseHref}
-                          disabled={!exerciseHref}
-                          onClick={() => exerciseHref && router.push(exerciseHref)}
+                          className={`exercise-mini-card exercise-mini-card-compact ${styles.exerciseCard} ${isExerciseCompleted ? styles.exerciseCardCompleted : ""}`}
                         >
                           <ExerciseThumbnail
                             className="exercise-thumb"
@@ -1981,11 +2098,47 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             width={72}
                             height={72}
                           />
-                          <div className="exercise-mini-copy">
-                            <strong className="exercise-mini-name">{exercise.name}</strong>
-                            <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                          <div className={styles.exerciseCardBody}>
+                            <button
+                              type="button"
+                              className={`${styles.exerciseDetailButton} ${exerciseHref ? "is-clickable" : "is-disabled"}`}
+                              data-testid="training-plan-exercise-item"
+                              aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                              aria-pressed={false}
+                              aria-disabled={!exerciseHref}
+                              disabled={!exerciseHref}
+                              onClick={() => exerciseHref && router.push(exerciseHref)}
+                            >
+                              <div className="exercise-mini-copy">
+                                <strong className="exercise-mini-name">{exercise.name}</strong>
+                                <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                              </div>
+                              <span className={styles.exerciseMetaPill}>{loggedSets}/{targetSets} sets</span>
+                            </button>
+                            <div className={styles.exerciseCardActions}>
+                              <span className={`${styles.exerciseStatus} ${isExerciseCompleted ? styles.exerciseStatusDone : styles.exerciseStatusPending}`}>
+                                {isExerciseCompleted
+                                  ? safeT("training.dayCompletedBadge", "Completado")
+                                  : safeT("training.exercisePendingLabel", "Pendiente")}
+                              </span>
+                              <button
+                                type="button"
+                                className={`btn ${isExerciseCompleted ? "secondary" : ""} fit-content rounded-xl h-10 px-4 text-sm font-semibold ${styles.exerciseActionButton}`}
+                                onClick={() => void handleLogExercise(exercise, index)}
+                                disabled={isLoggingExercise || isExerciseCompleted}
+                                aria-label={isExerciseCompleted
+                                  ? safeT("training.exerciseCompletedAria", "Ejercicio completado")
+                                  : safeT("training.registerExerciseAria", "Registrar ejercicio")}
+                              >
+                                {isExerciseCompleted
+                                  ? safeT("training.dayCompletedBadge", "Completado")
+                                  : isLoggingExercise
+                                    ? t("ui.loading")
+                                    : safeT("training.registerExerciseCta", "Registrar ejercicio")}
+                              </button>
+                            </div>
                           </div>
-                        </button>
+                        </div>
                       );
                     })
                   )}

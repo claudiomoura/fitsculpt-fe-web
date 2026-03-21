@@ -76,7 +76,11 @@ import {
 } from "./prismaClient.js";
 import { runDatabasePreflight } from "./dbPreflight.js";
 import { isStripePriceNotFoundError } from "./billing/stripeErrors.js";
-import { tokenGrantForPlan } from "./billing/tokenPolicy.js";
+import { getStripeSubscriptionPeriodEnd } from "./billing/stripeSubscriptionPeriods.js";
+import {
+  shouldGrantTokensForBillingCycle,
+  tokenGrantForPlan,
+} from "./billing/tokenPolicy.js";
 import { resolveAiTokens, resolveBillingStatusReason } from "./billing/resolveAiTokens.js";
 import {
   defaultTracking,
@@ -146,6 +150,7 @@ type StripeSubscription = {
 };
 
 type StripeSubscriptionItem = {
+  current_period_end?: number | null;
   price?: {
     id?: string | null;
   } | null;
@@ -763,7 +768,9 @@ async function getLatestActiveSubscription(customerId: string) {
       : activeSubscriptions;
   return (
     prioritizedSubscriptions.sort(
-      (a, b) => (b.current_period_end ?? 0) - (a.current_period_end ?? 0),
+      (a, b) =>
+        (getStripeSubscriptionPeriodEnd(b)?.getTime() ?? 0) -
+        (getStripeSubscriptionPeriodEnd(a)?.getTime() ?? 0),
     )[0] ?? null
   );
 }
@@ -826,8 +833,7 @@ async function getOrCreateCustomerId(user: User) {
 }
 
 function getSubscriptionPeriodEnd(subscription?: StripeSubscription | null) {
-  if (!subscription?.current_period_end) return null;
-  return new Date(subscription.current_period_end * 1000);
+  return getStripeSubscriptionPeriodEnd(subscription);
 }
 
 function getPlanFromInvoice(
@@ -925,6 +931,11 @@ async function syncUserBillingFromStripe(
   const currentPeriodEnd = getSubscriptionPeriodEnd(activeSubscription);
   const plan = getPlanFromSubscription(activeSubscription) ?? "FREE";
   const planAllowance = getPlanTokenAllowance(plan);
+  const shouldGrantTokens = shouldGrantTokensForBillingCycle({
+    plan,
+    currentPeriodEnd,
+    aiTokenRenewalAt: user.aiTokenRenewalAt,
+  });
 
   return await prisma.user.update({
     where: { id: user.id },
@@ -934,6 +945,13 @@ async function syncUserBillingFromStripe(
       stripeSubscriptionId: activeSubscription.id,
       currentPeriodEnd: currentPeriodEnd ?? null,
       aiTokenMonthlyAllowance: planAllowance,
+      ...(shouldGrantTokens
+        ? {
+            aiTokenBalance: planAllowance,
+            aiTokenResetAt: currentPeriodEnd ?? null,
+            aiTokenRenewalAt: currentPeriodEnd ?? null,
+          }
+        : {}),
     },
   });
 }
@@ -6410,21 +6428,32 @@ app.put("/profile", async (request, reply) => {
 
 const billingStatusHandler = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
+    reply.header("Cache-Control", "no-store");
     const user = await requireUser(request);
     const query = request.query as { sync?: string };
+    const shouldCreateCustomer = query?.sync === "1";
     let syncError: unknown = null;
-    if (query?.sync === "1") {
-      try {
-        await syncUserBillingFromStripe(user);
-      } catch (error) {
-        syncError = error;
-        app.log.warn({ err: error, userId: user.id }, "billing sync failed");
+    let refreshedUser = user;
+
+    try {
+      const syncedUser = await syncUserBillingFromStripe(user, {
+        createCustomerIfMissing: shouldCreateCustomer,
+      });
+      if (syncedUser) {
+        refreshedUser = syncedUser;
       }
+    } catch (error) {
+      syncError = error;
+      app.log.warn(
+        {
+          err: error,
+          userId: user.id,
+          createCustomerIfMissing: shouldCreateCustomer,
+        },
+        "billing sync failed",
+      );
     }
-    const refreshedUser =
-      query?.sync === "1"
-        ? await prisma.user.findUnique({ where: { id: user.id } })
-        : user;
+
     if (!refreshedUser) {
       return reply.status(404).send({ error: "USER_NOT_FOUND" });
     }

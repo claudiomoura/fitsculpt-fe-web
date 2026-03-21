@@ -323,4 +323,73 @@ describe("Training premium UX from plan", () => {
 
     expect(await screen.findByRole("button", { name: /Detalles/i })).toBeInTheDocument();
   });
+
+  it("logs a single exercise from the daily exercise list", async () => {
+    let loggedEntries = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url === "/api/auth/me") return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+      if (url.startsWith("/api/training-plans/active")) {
+        return mockResponse({
+          source: "assigned",
+          plan: {
+            id: "plan-1",
+            title: "Plan premium",
+            startDate: today.toISOString(),
+            days: [
+              {
+                label: "Dia 1",
+                focus: "Fuerza",
+                duration: 50,
+                date: todayKey,
+                exercises: [{ name: "Press banca", sets: "4", reps: "8" }],
+              },
+            ],
+          },
+        });
+      }
+      if (url === "/api/workouts") {
+        return mockResponse([{ id: "workout-1", name: "Fuerza", scheduledAt: `${todayKey}T08:00:00.000Z` }]);
+      }
+      if (url === "/api/workouts/workout-1") {
+        return mockResponse({
+          id: "workout-1",
+          name: "Fuerza",
+          scheduledAt: `${todayKey}T08:00:00.000Z`,
+          exercises: [{ name: "Press banca", sets: "4", reps: "8" }],
+          sessions: loggedEntries > 0
+            ? [{ id: "session-1", startedAt: `${todayKey}T08:00:00.000Z`, entries: Array.from({ length: loggedEntries }, (_, index) => ({ id: `entry-${index}`, exercise: "Press banca", sets: 1, reps: 8, createdAt: `${todayKey}T08:00:00.000Z` })) }]
+            : [],
+        });
+      }
+      if (url === "/api/workouts/workout-1/start") {
+        return mockResponse({ id: "session-1" });
+      }
+      if (url === "/api/workout-sessions/session-1" && init?.method === "PATCH") {
+        loggedEntries = 4;
+        return mockResponse({
+          id: "session-1",
+          workoutId: "workout-1",
+          startedAt: `${todayKey}T08:00:00.000Z`,
+          entries: Array.from({ length: loggedEntries }, (_, index) => ({ id: `entry-${index}`, exercise: "Press banca", sets: 1, reps: 8, createdAt: `${todayKey}T08:00:00.000Z` })),
+        });
+      }
+      return mockResponse({});
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    renderWithProviders(<TrainingPlanClient />);
+
+    const quickAction = await screen.findByRole("button", { name: /Registrar ejercicio/i });
+    fireEvent.click(quickAction);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/workouts/workout-1/start", expect.objectContaining({ method: "POST" }));
+      expect(fetchMock).toHaveBeenCalledWith("/api/workout-sessions/session-1", expect.objectContaining({ method: "PATCH" }));
+    });
+
+    expect(await screen.findByRole("button", { name: /Ejercicio completado/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Registrar dia/i })).not.toBeInTheDocument();
+  });
 });
