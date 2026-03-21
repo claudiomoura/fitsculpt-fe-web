@@ -6914,10 +6914,26 @@ const assignedTrainingPlanSummarySelect = {
 const trainerMemberIdParamsSchema = z.object({
   id: z.string().min(1),
 });
+const trainerPlanExerciseCreateSchema = z.object({
+  exerciseId: z.string().min(1),
+  name: z.string().trim().min(1).max(200).optional(),
+  sets: z.coerce.number().int().min(1).max(30).optional(),
+  reps: z.string().trim().min(1).max(80).optional(),
+  rest: z.coerce.number().int().min(0).max(3600).optional(),
+});
+
+const trainerPlanDayCreateSchema = z.object({
+  dayIndex: z.coerce.number().int().min(0).max(365),
+  label: z.string().trim().min(1).max(80).optional(),
+  focus: z.string().trim().min(1).max(120).optional(),
+  duration: z.coerce.number().int().min(1).max(240).optional(),
+  exercises: z.array(trainerPlanExerciseCreateSchema).max(40).default([]),
+});
+
 const trainerPlanCreateSchema = z
   .object({
     title: z.string().trim().min(1).max(120),
-    daysCount: z.coerce.number().int().min(1).max(14).optional(),
+    daysCount: z.coerce.number().int().min(1).max(84).optional(),
     description: z.string().trim().min(1).max(600).optional(),
     notes: z.string().trim().min(1).max(600).optional(),
     goal: z.string().trim().min(1).max(80).default("general_fitness"),
@@ -6926,6 +6942,7 @@ const trainerPlanCreateSchema = z
     equipment: z.string().trim().min(1).max(120).default("bodyweight"),
     daysPerWeek: z.coerce.number().int().min(1).max(7).optional(),
     startDate: z.string().trim().min(1).optional(),
+    days: z.array(trainerPlanDayCreateSchema).max(84).optional(),
   })
   .refine(
     (value) => value.daysCount !== undefined || value.daysPerWeek !== undefined,
@@ -6937,7 +6954,7 @@ const trainerPlanCreateSchema = z
 const trainerPlanUpdateSchema = z
   .object({
     title: z.string().trim().min(1).max(120).optional(),
-    daysCount: z.coerce.number().int().min(1).max(14).optional(),
+    daysCount: z.coerce.number().int().min(1).max(84).optional(),
     notes: z.string().trim().min(1).max(600).nullable().optional(),
     goal: z.string().trim().min(1).max(80).optional(),
     level: z.string().trim().min(1).max(80).optional(),
@@ -7152,16 +7169,76 @@ app.get("/members/me/assigned-nutrition-plan", async (request, reply) => {
   }
 });
 
+const trainerNutritionPlanMealSchema = z.object({
+  type: z.enum(["breakfast", "lunch", "snack", "dinner"]),
+  recipeId: z.string().min(1),
+});
+
+const trainerNutritionPlanDaySchema = z.object({
+  dayIndex: z.coerce.number().int().min(0).max(365),
+  dayLabel: z.string().trim().min(1).max(80).optional(),
+  meals: z.array(trainerNutritionPlanMealSchema).max(8).default([]),
+});
+
 const trainerNutritionPlanCreateSchema = z.object({
   title: z.string().trim().min(1).max(120),
-  daysCount: z.coerce.number().int().min(1).max(14).optional(),
+  weeks: z.coerce.number().int().min(1).max(12).optional(),
+  daysCount: z.coerce.number().int().min(1).max(84).optional(),
   startDate: z.string().trim().min(1).optional(),
   dailyCalories: z.coerce.number().positive().max(20000).optional(),
   proteinG: z.coerce.number().min(0).max(2000).optional(),
   fatG: z.coerce.number().min(0).max(1000).optional(),
   carbsG: z.coerce.number().min(0).max(3000).optional(),
+  days: z.array(trainerNutritionPlanDaySchema).max(84).optional(),
 });
 const trainerNutritionPlanParamsSchema = z.object({
+  id: z.string().min(1),
+});
+
+const trainerRecipeIngredientSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  grams: z.coerce.number().positive().max(10000),
+});
+
+const trainerRecipeCreateSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(2000).optional(),
+  calories: z.coerce.number().positive().max(10000),
+  protein: z.coerce.number().min(0).max(1000),
+  carbs: z.coerce.number().min(0).max(1000),
+  fat: z.coerce.number().min(0).max(1000),
+  photoUrl: z.string().trim().url().optional().nullable(),
+  imageUrls: z.array(z.string().trim().url()).max(10).default([]),
+  source: z.string().trim().max(200).optional().nullable(),
+  sourceId: z.string().trim().max(200).optional().nullable(),
+  slug: z.string().trim().max(200).optional().nullable(),
+  category: z.string().trim().max(200).optional().nullable(),
+  steps: z.array(z.string().trim().min(1)).max(50).default([]),
+  ingredients: z.array(trainerRecipeIngredientSchema).max(50).default([]),
+  tiempoPreparacion: z.coerce.number().int().positive().max(1440).optional().nullable(),
+  porciones: z.coerce.number().int().positive().max(100).optional().nullable(),
+});
+
+const trainerRecipeUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  calories: z.coerce.number().positive().max(10000).optional(),
+  protein: z.coerce.number().min(0).max(1000).optional(),
+  carbs: z.coerce.number().min(0).max(1000).optional(),
+  fat: z.coerce.number().min(0).max(1000).optional(),
+  photoUrl: z.string().trim().url().optional().nullable(),
+  imageUrls: z.array(z.string().trim().url()).max(10).optional(),
+  source: z.string().trim().max(200).optional().nullable(),
+  sourceId: z.string().trim().max(200).optional().nullable(),
+  slug: z.string().trim().max(200).optional().nullable(),
+  category: z.string().trim().max(200).optional().nullable(),
+  steps: z.array(z.string().trim().min(1)).max(50).optional(),
+  ingredients: z.array(trainerRecipeIngredientSchema).max(50).optional(),
+  tiempoPreparacion: z.coerce.number().int().positive().max(1440).optional().nullable(),
+  porciones: z.coerce.number().int().positive().max(100).optional().nullable(),
+});
+
+const trainerRecipeParamsSchema = z.object({
   id: z.string().min(1),
 });
 
@@ -8859,6 +8936,127 @@ app.delete("/trainer/clients/:userId", async (request, reply) => {
     await prisma.gymMembership.delete({ where: { id: targetMembership.id } });
 
     return reply.status(200).send({ memberId: userId, gymId: managerMembership.gymId, removed: true });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+// Trainer recipes CRUD
+app.get("/trainer/recipes", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const recipes = await prisma.recipe.findMany({
+      where: {
+        trainerId: requester.id,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        ingredients: true,
+      },
+    });
+    return recipes;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.post("/trainer/recipes", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const data = trainerRecipeCreateSchema.parse(request.body);
+    const { ingredients, ...recipeData } = data;
+    const recipe = await prisma.recipe.create({
+      data: {
+        ...recipeData,
+        trainerId: requester.id,
+        ingredients: {
+          create: ingredients,
+        },
+      },
+      include: {
+        ingredients: true,
+      },
+    });
+    return reply.status(201).send(recipe);
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.get("/trainer/recipes/:id", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { id } = trainerRecipeParamsSchema.parse(request.params);
+    const recipe = await prisma.recipe.findFirst({
+      where: {
+        id,
+        trainerId: requester.id,
+      },
+      include: {
+        ingredients: true,
+      },
+    });
+    if (!recipe) {
+      return reply.status(404).send({ error: "RECIPE_NOT_FOUND" });
+    }
+    return recipe;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.put("/trainer/recipes/:id", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { id } = trainerRecipeParamsSchema.parse(request.params);
+    const data = trainerRecipeUpdateSchema.parse(request.body);
+    const { ingredients, ...recipeData } = data;
+    const existing = await prisma.recipe.findFirst({
+      where: { id, trainerId: requester.id },
+    });
+    if (!existing) {
+      return reply.status(404).send({ error: "RECIPE_NOT_FOUND" });
+    }
+    // Update recipe and replace ingredients if provided
+    const updated = await prisma.$transaction(async (tx) => {
+      const updatedRecipe = await tx.recipe.update({
+        where: { id },
+        data: recipeData,
+      });
+      if (ingredients) {
+        await tx.recipeIngredient.deleteMany({ where: { recipeId: id } });
+        await tx.recipeIngredient.createMany({
+          data: ingredients.map((ing) => ({ ...ing, recipeId: id })),
+        });
+      }
+      return tx.recipe.findUnique({
+        where: { id },
+        include: { ingredients: true },
+      });
+    });
+    return updated;
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
+app.delete("/trainer/recipes/:id", async (request, reply) => {
+  try {
+    const requester = await requireUser(request);
+    const managerMembership = await requireActiveGymManagerMembership(requester.id);
+    const { id } = trainerRecipeParamsSchema.parse(request.params);
+    const existing = await prisma.recipe.findFirst({
+      where: { id, trainerId: requester.id },
+    });
+    if (!existing) {
+      return reply.status(404).send({ error: "RECIPE_NOT_FOUND" });
+    }
+    await prisma.recipe.delete({ where: { id } });
+    return reply.status(204).send();
   } catch (error) {
     return handleRequestError(reply, error);
   }

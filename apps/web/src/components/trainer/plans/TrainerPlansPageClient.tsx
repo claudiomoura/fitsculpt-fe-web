@@ -232,9 +232,40 @@ export default function TrainerPlansPageClient() {
     setCreateErrorMessage(null);
 
     try {
+      const daysPayload = selectedScheduleCells.map((cellKey) => {
+        const [weekRaw, dayRaw] = cellKey.split("-");
+        const weekIndex = Math.max(0, Number(weekRaw) - 1);
+        const dayIndexInWeek = Math.max(0, Number(dayRaw) - 1);
+        const dayIndex = weekIndex * 7 + dayIndexInWeek;
+        const draft = dayDrafts[cellKey] ?? dayDraft();
+
+        return {
+          dayIndex,
+          label: `Semana ${weekIndex + 1} · Día ${dayIndexInWeek + 1}`,
+          focus: draft.workoutName?.trim() || undefined,
+          duration: 45,
+          exercises: draft.exercises.map((exercise) => {
+            const baseSet = draft.sets[0] ?? { repsMin: 8, repsMax: 12, restSeconds: 60 };
+            const maxSetNumber = Math.max(
+              1,
+              ...draft.sets.map((setItem) => Number(setItem.setNumber) || 1),
+            );
+            return {
+              exerciseId: exercise.exerciseId,
+              name: exercise.name,
+              sets: maxSetNumber,
+              reps: `${Math.max(1, baseSet.repsMin)}-${Math.max(baseSet.repsMin, baseSet.repsMax)}`,
+              rest: Math.max(0, baseSet.restSeconds || 0),
+            };
+          }),
+        };
+      });
+
       const result = await createTrainerPlan({
         title: title.trim(),
         daysPerWeek: derivedDaysPerWeek,
+        daysCount: scheduleWeeks * 7,
+        days: daysPayload,
       });
 
       if (!result.ok) {

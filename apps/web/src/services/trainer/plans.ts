@@ -34,6 +34,20 @@ export type CreateTrainerPlanInput = {
   equipment?: string;
   startDate?: string;
   daysPerWeek?: number;
+  daysCount?: number;
+  days?: Array<{
+    dayIndex: number;
+    label?: string;
+    focus?: string;
+    duration?: number;
+    exercises: Array<{
+      exerciseId: string;
+      name?: string;
+      sets?: number;
+      reps?: string;
+      rest?: number;
+    }>;
+  }>;
 };
 
 export type SaveTrainerPlanInput = Partial<CreateTrainerPlanInput> & {
@@ -201,12 +215,18 @@ export async function createTrainerPlan(payload: CreateTrainerPlanInput): Promis
     ? Math.max(1, Math.min(7, payload.daysPerWeek))
     : undefined;
 
+  const normalizedDaysCount = typeof payload.daysCount === "number"
+    ? Math.max(1, Math.min(84, payload.daysCount))
+    : undefined;
+
   return requestJson<TrainingPlanDetail>("/api/trainer/plans", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       ...payload,
-      ...(normalizedDaysPerWeek ? { daysPerWeek: normalizedDaysPerWeek, daysCount: normalizedDaysPerWeek } : {}),
+      ...(normalizedDaysPerWeek ? { daysPerWeek: normalizedDaysPerWeek } : {}),
+      ...(normalizedDaysCount ? { daysCount: normalizedDaysCount } : {}),
+      ...(!normalizedDaysCount && normalizedDaysPerWeek ? { daysCount: normalizedDaysPerWeek } : {}),
     }),
   });
 }

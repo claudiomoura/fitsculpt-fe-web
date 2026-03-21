@@ -93,6 +93,8 @@ export type Recipe = {
   slug?: string | null;
   category?: string | null;
   steps: string[];
+  tiempoPreparacion?: number | null;
+  porciones?: number | null;
   ingredients: RecipeIngredient[];
 };
 

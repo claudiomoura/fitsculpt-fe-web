@@ -11,23 +11,27 @@ function killPort(port) {
   try {
     if (process.platform === "win32") {
       // Windows: find PID via netstat and kill via taskkill
-      const output = execSync(`netstat -ano | findstr :${port} | findstr LISTENING`, {
-        encoding: "utf8",
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      const pids = [...new Set(
-        output
-          .split("\n")
-          .map((line) => line.trim().split(/\s+/).pop())
-          .filter((pid) => pid && /^\d+$/.test(pid))
-      )];
-      for (const pid of pids) {
-        try {
-          execSync(`taskkill //PID ${pid} //F`, { stdio: "pipe" });
-          console.log(`[predev] Killed PID ${pid} on port ${port}`);
-        } catch {
-          // Process already gone
+      try {
+        const output = execSync(`netstat -ano | findstr :${port}`, {
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+        const pids = [...new Set(
+          output
+            .split("\n")
+            .map((line) => line.trim().split(/\s+/).pop())
+            .filter((pid) => pid && /^\d+$/.test(pid))
+        )];
+        for (const pid of pids) {
+          try {
+            execSync(`taskkill //PID ${pid} //F`, { stdio: "pipe" });
+            console.log(`[predev] Killed PID ${pid} on port ${port}`);
+          } catch {
+            // Process already gone
+          }
         }
+      } catch {
+        // No process found
       }
     } else {
       // macOS/Linux: use lsof
