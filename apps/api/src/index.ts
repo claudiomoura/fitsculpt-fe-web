@@ -784,18 +784,38 @@ async function getActivePlanSubscriptions(customerId: string) {
 async function getOrCreateCustomerId(user: User) {
   let customerId = user.stripeCustomerId ?? null;
 
-  if (!customerId) {
-    const customer = await stripeRequest<{ id: string }>("customers", {
-      email: user.email,
-      name: user.name ?? undefined,
-      "metadata[userId]": user.id,
-    });
-    customerId = customer.id;
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { stripeCustomerId: customerId },
-    });
+  if (customerId) {
+    // Verify the customer still exists in Stripe
+    try {
+      await stripeRequest<{ id: string }>(
+        `customers/${customerId}`,
+        {},
+        { method: "GET" },
+      );
+      return customerId;
+    } catch {
+      app.log.warn(
+        { userId: user.id, stripeCustomerId: customerId },
+        "stripe customer not found in getOrCreateCustomerId, recreating",
+      );
+      customerId = null;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId: null },
+      });
+    }
   }
+
+  const customer = await stripeRequest<{ id: string }>("customers", {
+    email: user.email,
+    name: user.name ?? undefined,
+    "metadata[userId]": user.id,
+  });
+  customerId = customer.id;
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { stripeCustomerId: customerId },
+  });
 
   return customerId;
 }
@@ -821,7 +841,25 @@ function getPlanFromInvoice(
 
 async function getOrCreateStripeCustomer(user: User) {
   if (user.stripeCustomerId) {
-    return user.stripeCustomerId;
+    // Verify the customer still exists in Stripe before reusing
+    try {
+      await stripeRequest<StripeCustomer>(
+        `customers/${user.stripeCustomerId}`,
+        {},
+        { method: "GET" },
+      );
+      return user.stripeCustomerId;
+    } catch {
+      app.log.warn(
+        { userId: user.id, stripeCustomerId: user.stripeCustomerId },
+        "stripe customer not found, will recreate",
+      );
+      // Customer doesn't exist in Stripe — clear the stale ID and create a new one
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { stripeCustomerId: null },
+      });
+    }
   }
 
   const customer = await stripeRequest<StripeCustomer>("customers", {
