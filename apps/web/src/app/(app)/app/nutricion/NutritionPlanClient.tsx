@@ -2761,6 +2761,17 @@ const nutritionPlanDetails = profile ? (
                     </div>
                   </Link>
                 </section>
+                <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
+                  <Link className="training-insight-link" href="/app/biblioteca/recetas">
+                    <div className="training-insight-link-icon">
+                      <Icon name="book" size={20} />
+                    </div>
+                    <div>
+                      <strong>{safeT("nav.recipeLibrary", "Biblioteca de recetas")}</strong>
+                      <p className="muted">{safeT("nutrition.recipeLibraryCopy", "Explora recetas guardadas y opciones para tu plan.")}</p>
+                    </div>
+                  </Link>
+                </section>
                 </>
               ) : null}
 

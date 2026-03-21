@@ -2036,12 +2036,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
               </section>
 
               <section className="card premium-surface-card surface-content-card training-insights-card">
-                <Link href="/app/biblioteca/entrenamientos" className="training-insight-link">
+                <Link href="/app/biblioteca" className="training-insight-link">
                   <div className="training-insight-link-icon">
                     <Icon name="book" size={20} />
                   </div>
                   <div>
-                    <strong>{safeT("training.exerciseLibrary", "Biblioteca de entrenamientos")}</strong>
+                    <strong>{safeT("nav.library", "Biblioteca")}</strong>
                     <p className="muted">{safeT("training.exerciseLibraryCopy", "Explora rutinas y ejercicios guardados.")}</p>
                   </div>
                 </Link>
