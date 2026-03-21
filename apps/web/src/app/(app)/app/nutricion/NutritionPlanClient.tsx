@@ -3064,9 +3064,9 @@ const nutritionPlanDetails = profile ? (
             <RecipeImage
               src={getMealMediaUrl(selectedMealDetails)}
               alt={selectedMealTitle}
+              width={320}
+              height={160}
               className="meal-card-thumb"
-              fallbackClassName="meal-card-thumb meal-card-thumb--placeholder"
-              testId="nutrition-meal-detail-image"
             />
             {selectedMealDescription ? (
               <p className="muted mt-4">{selectedMealDescription}</p>

@@ -33,6 +33,7 @@ export type CatalogRecipe = {
   protein: number;
   carbs: number;
   fat: number;
+  imageUrl?: string | null;
   ingredients: NutritionIngredientLike[];
 };
 

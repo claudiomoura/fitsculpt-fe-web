@@ -6,6 +6,7 @@ export type NutritionRecipeCatalogItem = {
   protein: number;
   carbs: number;
   fat: number;
+  imageUrl?: string | null;
   ingredients: Array<{ name: string; grams: number }>;
 };
 
@@ -156,6 +157,7 @@ export function resolveNutritionPlanRecipeIds(
           recipeId: resolvedRecipe.id,
           title: resolvedRecipe.name,
           description: resolvedRecipe.description ?? meal.description,
+          imageUrl: resolvedRecipe.imageUrl ?? null,
           macros: scaledRecipe.macros,
           ingredients: scaledRecipe.ingredients,
         };

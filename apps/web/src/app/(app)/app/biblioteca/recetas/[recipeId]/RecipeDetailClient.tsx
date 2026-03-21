@@ -59,9 +59,9 @@ export default function RecipeDetailClient({ recipe, error }: RecipeDetailClient
         <RecipeImage
           src={recipe.photoUrl}
           alt={recipe.name}
+          width={600}
+          height={400}
           className="recipe-detail-media"
-          fallbackClassName="recipe-detail-media recipe-image-fallback--detail"
-          testId="recipe-detail-image"
         />
         {!hasPhoto ? <p className="muted">{t("recipes.mediaPlaceholder")}</p> : null}
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Recipe } from "@/lib/types";
 import { Badge } from "@/design-system/components/Badge";
@@ -10,18 +10,57 @@ import { SkeletonCard } from "@/design-system/components/Skeleton";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
 import { EmptyState, ErrorState } from "@/components/states";
 
+type SearchMode = "name" | "ingredient";
+
 type RecipeResponse = {
   items: Recipe[];
+  total: number;
 };
+
+function useDebounce<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setDebounced(value), delayMs);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [value, delayMs]);
+
+  return debounced;
+}
+
+const CATEGORY_OPTIONS = [
+  { value: "", label: "Todas" },
+  { value: "breakfast", label: "Desayuno" },
+  { value: "snack", label: "Snack" },
+  { value: "fish", label: "Pescado" },
+  { value: "seafood", label: "Marisco" },
+  { value: "poultry", label: "Pollo/Pavo" },
+  { value: "beef", label: "Ternera" },
+  { value: "vegetarian", label: "Vegetariano" },
+  { value: "salad", label: "Ensalada" },
+  { value: "soup", label: "Sopa/Crema" },
+  { value: "pasta", label: "Pasta" },
+  { value: "rice", label: "Arroz/Bowl" },
+  { value: "wrap", label: "Wrap/Taco" },
+];
 
 export default function RecipeLibraryClient() {
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>("name");
+  const [category, setCategory] = useState("");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+
+  const debouncedQuery = useDebounce(query, 350);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -45,8 +84,21 @@ export default function RecipeLibraryClient() {
         setLoading(true);
         setError(null);
         const params = new URLSearchParams();
-        if (query.trim()) params.set("query", query.trim());
+
+        if (debouncedQuery.trim()) {
+          if (searchMode === "ingredient") {
+            params.set("ingredient", debouncedQuery.trim());
+          } else {
+            params.set("query", debouncedQuery.trim());
+          }
+        }
+
+        if (category) {
+          params.set("category", category);
+        }
+
         params.set("limit", "100");
+
         const response = await fetch(`/api/recipes?${params.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
@@ -54,37 +106,114 @@ export default function RecipeLibraryClient() {
         if (!response.ok) {
           setError(t("recipes.loadErrorList"));
           setRecipes([]);
+          setTotal(0);
           setLoading(false);
           return;
         }
         const data = (await response.json()) as RecipeResponse;
         setRecipes(data.items ?? []);
+        setTotal(data.total ?? 0);
         setLoading(false);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(t("recipes.loadErrorList"));
         setRecipes([]);
+        setTotal(0);
         setLoading(false);
       }
     };
 
     void loadRecipes();
     return () => controller.abort();
-  }, [query, retryKey, t]);
+  }, [debouncedQuery, searchMode, category, retryKey, t]);
+
+  const activeFilters = useMemo(() => {
+    const filters: string[] = [];
+    if (debouncedQuery.trim()) {
+      filters.push(searchMode === "ingredient" ? `Ingrediente: ${debouncedQuery.trim()}` : `Nombre: ${debouncedQuery.trim()}`);
+    }
+    if (category) {
+      const cat = CATEGORY_OPTIONS.find((c) => c.value === category);
+      filters.push(`Categoría: ${cat?.label ?? category}`);
+    }
+    return filters;
+  }, [debouncedQuery, searchMode, category]);
 
   return (
     <section className="card">
       <div className="library-search">
+        {/* Search mode toggle */}
+        <div className="flex gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => setSearchMode("name")}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              searchMode === "name"
+                ? "bg-primary text-on-primary"
+                : "bg-surface-alt text-text-muted hover:text-text"
+            }`}
+          >
+            Buscar por nombre
+          </button>
+          <button
+            type="button"
+            onClick={() => setSearchMode("ingredient")}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              searchMode === "ingredient"
+                ? "bg-primary text-on-primary"
+                : "bg-surface-alt text-text-muted hover:text-text"
+            }`}
+          >
+            Buscar por ingrediente
+          </button>
+        </div>
+
+        {/* Search input */}
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={t("recipes.searchPlaceholder")}
-          label={t("recipes.searchLabel")}
-          helperText={t("recipes.searchHelper")}
+          placeholder={
+            searchMode === "ingredient"
+              ? "Ej: pollo, arroz, salmón, brócoli..."
+              : t("recipes.searchPlaceholder")
+          }
+          label={searchMode === "ingredient" ? "Ingrediente" : t("recipes.searchLabel")}
+          helperText={
+            searchMode === "ingredient"
+              ? "Buscá recetas que contengan un ingrediente específico"
+              : t("recipes.searchHelper")
+          }
         />
-        <div className="library-filter-actions">
-          <Badge variant="muted">{t("recipes.filtersActive")}</Badge>
-          {query.trim().length > 0 ? <Badge>{t("recipes.filterQueryLabel")} {query.trim()}</Badge> : null}
+
+        {/* Category filter */}
+        <div className="mt-3">
+          <label className="block text-xs font-medium text-text-muted mb-1.5">Categoría</label>
+          <div className="flex flex-wrap gap-1.5">
+            {CATEGORY_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setCategory(opt.value)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  category === opt.value
+                    ? "bg-primary text-on-primary"
+                    : "bg-surface-alt text-text-muted hover:text-text"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Active filters badges */}
+        <div className="library-filter-actions mt-3">
+          <Badge variant="muted">
+            {recipes.length} de {total} recetas
+          </Badge>
+          {activeFilters.map((filter) => (
+            <Badge key={filter}>{filter}</Badge>
+          ))}
         </div>
       </div>
 
@@ -107,7 +236,11 @@ export default function RecipeLibraryClient() {
         <EmptyState
           className="mt-16"
           title={t("recipes.emptyTitle")}
-          description={t("recipes.empty")}
+          description={
+            searchMode === "ingredient"
+              ? `No se encontraron recetas con "${debouncedQuery}"`
+              : t("recipes.empty")
+          }
           ariaLabel={t("recipes.emptyTitle")}
           actions={[
             ...(isAdmin ? [{ label: t("recipes.emptyAdminCta"), href: "/app/nutricion", variant: "secondary" as const }] : []),
@@ -128,9 +261,9 @@ export default function RecipeLibraryClient() {
                 <RecipeImage
                   src={photoUrl}
                   alt={recipe.name}
+                  width={320}
+                  height={160}
                   className="recipe-card-media"
-                  fallbackClassName="recipe-card-media recipe-image-fallback--card"
-                  testId="recipe-library-image"
                 />
                 <h3>{recipe.name}</h3>
                 {recipe.description ? <p className="muted">{recipe.description}</p> : null}

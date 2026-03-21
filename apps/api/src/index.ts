@@ -1276,7 +1276,7 @@ const trainingPreferencesSchema = z.object({
   includeCardio: z.boolean(),
   includeMobilityWarmups: z.boolean(),
   workoutLength: z.enum(["30m", "45m", "60m", "flexible"]),
-  timerSound: z.enum(["ding", "repsToDo"]),
+  timerSound: z.enum(["ding", "repsToDo"]).or(z.literal("")).transform((v) => v || "ding"),
 });
 
 const goalTagSchema = z.enum([
@@ -1349,14 +1349,14 @@ const profileSchema = z.object({
   macroPreferences: macroPreferencesSchema,
   notes: z.string(),
   measurements: z.object({
-    chestCm: z.number(),
-    waistCm: z.number(),
-    hipsCm: z.number(),
-    bicepsCm: z.number(),
-    thighCm: z.number(),
-    calfCm: z.number(),
-    neckCm: z.number(),
-    bodyFatPercent: z.number(),
+    chestCm: z.number().nullable(),
+    waistCm: z.number().nullable(),
+    hipsCm: z.number().nullable(),
+    bicepsCm: z.number().nullable(),
+    thighCm: z.number().nullable(),
+    calfCm: z.number().nullable(),
+    neckCm: z.number().nullable(),
+    bodyFatPercent: z.number().nullable(),
   }),
 });
 
@@ -2498,6 +2498,9 @@ type RecipeDbItem = {
   fat: number;
   steps: string[];
   ingredients: Array<{ name: string; grams: number }>;
+  imageUrl?: string | null;
+  slug?: string | null;
+  category?: string | null;
 };
 
 type RecipeSeedItem = Omit<RecipeDbItem, "id">;
@@ -2513,6 +2516,7 @@ function toNutritionRecipeCatalog(
     protein: recipe.protein,
     carbs: recipe.carbs,
     fat: recipe.fat,
+    imageUrl: recipe.imageUrl ?? null,
     ingredients: recipe.ingredients.map(
       (ingredient: { name: string; grams: number }) => ({
         name: ingredient.name,
@@ -2688,6 +2692,7 @@ async function saveNutritionPlan(
               protein: meal.macros.protein,
               carbs: meal.macros.carbs,
               fats: meal.macros.fats,
+              imageUrl: (meal as any).imageUrl ?? null,
               ingredients: (meal.ingredients ?? []).map((ingredient) => ({
                 id: crypto.randomUUID(),
                 mealId,
@@ -2734,6 +2739,7 @@ async function saveNutritionPlan(
               protein: meal.protein,
               carbs: meal.carbs,
               fats: meal.fats,
+              imageUrl: meal.imageUrl,
             })),
           });
         }
@@ -5019,6 +5025,25 @@ function categorizeRecipe(name: string) {
   return "other";
 }
 
+function getCategoryFallbackImage(category: string): string {
+  const categoryImages: Record<string, string> = {
+    breakfast: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800&q=80",
+    snack: "https://images.unsplash.com/photo-1490474418585-ba9bad8fd0ea?w=800&q=80",
+    fish: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=800&q=80",
+    seafood: "https://images.unsplash.com/photo-1565680018093-ebb15f005a4e?w=800&q=80",
+    poultry: "https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=800&q=80",
+    beef: "https://images.unsplash.com/photo-1546833998-877b37c2e5c6?w=800&q=80",
+    vegetarian: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80",
+    salad: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80",
+    soup: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=800&q=80",
+    pasta: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=800&q=80",
+    rice: "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=800&q=80",
+    wrap: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=800&q=80",
+    other: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80",
+  };
+  return categoryImages[category] ?? categoryImages.other;
+}
+
 function buildRecipeSeedItem(name: string, index: number): RecipeSeedItem {
   const category = categorizeRecipe(name);
   const base = recipeMacroTemplates[category] ?? recipeMacroTemplates.other;
@@ -5037,6 +5062,13 @@ function buildRecipeSeedItem(name: string, index: number): RecipeSeedItem {
     "Preparar el acompañamiento o verduras.",
     "Emplatar y ajustar sal y aceite de oliva.",
   ];
+  const slug = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
   return {
     name,
     description: `Receta ${category} fácil y equilibrada.`,
@@ -5046,6 +5078,8 @@ function buildRecipeSeedItem(name: string, index: number): RecipeSeedItem {
     fat,
     steps: steps.slice(0, 3 + (index % 2)),
     ingredients,
+    slug,
+    category,
   };
 }
 
@@ -6739,6 +6773,8 @@ const createExerciseSchema = z.object({
 });
 const recipeListSchema = z.object({
   query: z.string().min(1).optional(),
+  ingredient: z.string().min(1).optional(),
+  category: z.string().min(1).optional(),
   limit: z.preprocess((value) => {
     if (value === undefined || value === null || value === "") return undefined;
     const parsed = Number(value);
@@ -7160,10 +7196,29 @@ function parseClientMetrics(profile: unknown, tracking: unknown) {
 app.get("/recipes", async (request, reply) => {
   try {
     await requireUser(request);
-    const { query, limit, offset } = recipeListSchema.parse(request.query);
-    const where: Prisma.RecipeWhereInput = query
-      ? { name: { contains: query, mode: Prisma.QueryMode.insensitive } }
-      : {};
+    const { query, ingredient, category, limit, offset } = recipeListSchema.parse(request.query);
+
+    const where: Prisma.RecipeWhereInput = {};
+
+    // Search by recipe name
+    if (query) {
+      where.name = { contains: query, mode: Prisma.QueryMode.insensitive };
+    }
+
+    // Search by ingredient name (matches any ingredient in the recipe)
+    if (ingredient) {
+      where.ingredients = {
+        some: {
+          name: { contains: ingredient, mode: Prisma.QueryMode.insensitive },
+        },
+      };
+    }
+
+    // Filter by category
+    if (category) {
+      where.category = category;
+    }
+
     const [items, total] = await prisma.$transaction([
       prisma.recipe.findMany({
         where,
@@ -9369,6 +9424,11 @@ app.post("/dev/seed-recipes", async (_request, reply) => {
           carbs: seed.carbs,
           fat: seed.fat,
           steps: seed.steps,
+          slug: seed.slug,
+          category: seed.category,
+          photoUrl: getCategoryFallbackImage(seed.category ?? "other"),
+          imageUrls: [getCategoryFallbackImage(seed.category ?? "other")],
+          source: "unsplash",
           ingredients: {
             create: seed.ingredients.map((ingredient) => ({
               name: ingredient.name,
@@ -9383,6 +9443,8 @@ app.post("/dev/seed-recipes", async (_request, reply) => {
           carbs: seed.carbs,
           fat: seed.fat,
           steps: seed.steps,
+          slug: seed.slug,
+          category: seed.category,
           ingredients: {
             deleteMany: {},
             create: seed.ingredients.map((ingredient) => ({

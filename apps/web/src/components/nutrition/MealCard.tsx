@@ -29,9 +29,9 @@ export function MealCard({ title, description, meta, imageUrl, onClick, classNam
         <RecipeImage
           src={imageUrl}
           alt={title || t("nutrition.mealTitleFallback")}
+          width={80}
+          height={80}
           className="meal-card-thumb"
-          fallbackClassName="meal-card-thumb meal-card-thumb--placeholder"
-          testId="meal-card-image"
         />
       </div>
       <div className="meal-card-body">

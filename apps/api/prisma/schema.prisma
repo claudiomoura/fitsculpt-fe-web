@@ -131,10 +131,18 @@ model Recipe {
   carbs       Float
   fat         Float
   photoUrl    String?
+  imageUrls   String[]           @default([])
+  source      String?
+  sourceId    String?
+  slug        String?            @unique
+  category    String?
   steps       String[]
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   ingredients RecipeIngredient[]
+
+  @@index([source, sourceId])
+  @@index([category])
 }
 
 model RecipeIngredient {
@@ -188,6 +196,7 @@ model NutritionMeal {
   protein     Float
   carbs       Float
   fats        Float
+  imageUrl    String?
   day         NutritionDay         @relation(fields: [dayId], references: [id], onDelete: Cascade)
   ingredients NutritionIngredient[]
 

@@ -62,6 +62,7 @@ export type NutritionMeal = {
   type: "breakfast" | "lunch" | "dinner" | "snack";
   title: string;
   description?: string;
+  imageUrl?: string | null;
   macros: {
     calories: number;
     protein: number;
