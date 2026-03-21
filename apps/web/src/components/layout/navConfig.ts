@@ -117,6 +117,12 @@ export const trainerTabsMobile: MobileTab[] = [
     icon: "sparkles",
   },
   {
+    id: "trainer-recipes",
+    href: "/app/trainer/recipes",
+    labelKey: "nav.trainerRecipes",
+    icon: "book",
+  },
+  {
     id: "trainer-exercises",
     href: "/app/trainer/exercises",
     labelKey: "nav.trainerExercises",
@@ -196,6 +202,7 @@ export const sidebarTrainer: NavSectionGroup[] = [
       { id: "trainer-clients", href: "/app/trainer/clients", labelKey: "nav.trainerClients" },
       { id: "trainer-plans", href: "/app/trainer/plans", labelKey: "nav.trainerPlans" },
       { id: "trainer-nutrition-plans", href: "/app/trainer/nutrition-plans", labelKey: "nav.trainerNutritionPlans" },
+      { id: "trainer-recipes", href: "/app/trainer/recipes", labelKey: "nav.trainerRecipes" },
       {
         id: "trainer-exercises",
         href: "/app/trainer/exercises",
@@ -234,6 +241,12 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         href: "/app/trainer/nutrition-plans",
         labelKey: "nav.trainerNutritionPlans",
         meta: "/app/trainer/nutrition-plans",
+      },
+      {
+        id: "dev-trainer-recipes",
+        href: "/app/trainer/recipes",
+        labelKey: "nav.trainerRecipes",
+        meta: "/app/trainer/recipes",
       },
       {
         id: "dev-trainer-exercises",
