@@ -33,6 +33,7 @@ import {
 } from "@/domains/ai";
 import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 import { EmptyState } from "@/components/states";
+import { ActivePlanCard } from "@/components/ActivePlanCard";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/design-system/components/Toast";
 import { ErrorBlock } from "@/design-system";
@@ -82,7 +83,7 @@ type ActiveTrainingPlanResponse = {
   plan?: TrainingPlan | null;
 };
 
-type ActivePlanOrigin = "selected" | "assigned";
+type ActivePlanOrigin = "selected" | "assigned" | "own";
 
 const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
 const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
@@ -527,6 +528,26 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     const loadActivePlan = async () => {
       setActivePlanError(null);
       try {
+        // Always check for trainer-assigned plan first
+        const activeResponse = await fetch("/api/training-plans/active?includeDays=1", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (activeResponse.ok) {
+          const activePayload = (await activeResponse.json()) as ActiveTrainingPlanResponse;
+          if (activePayload.plan) {
+            setActivePlan(activePayload.plan);
+            setActivePlanOrigin(activePayload.source ?? "own");
+            // Clear stale selectedPlanId if trainer assigned a plan
+            if (activePayload.source === "assigned" && selectedPlanId) {
+              try { localStorage.removeItem(SELECTED_PLAN_STORAGE_KEY); } catch {}
+            }
+            return;
+          }
+        }
+
+        // No trainer-assigned plan — fall back to selected plan
         if (selectedPlanId) {
           const selectedResponse = await fetch(`/api/training-plans/${encodeURIComponent(selectedPlanId)}`, {
             cache: "no-store",
@@ -541,42 +562,19 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           }
         }
 
-        const response = await fetch("/api/training-plans/active?includeDays=1", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (response.status === 404 || response.status === 405) {
+        // Nothing found
+        if (activeResponse.status === 404 || activeResponse.status === 405) {
           setActivePlan(null);
           setActivePlanOrigin(null);
-          if (selectedPlanId) {
-            setActivePlanError(t("training.selectedPlanLoadError"));
-          }
           return;
         }
 
-        if (!response.ok) {
-          setActivePlan(null);
-          setActivePlanOrigin(null);
-          if (selectedPlanId) {
-            setActivePlanError(t("training.selectedPlanLoadError"));
-          }
-          return;
-        }
-
-        const payload = (await response.json()) as ActiveTrainingPlanResponse;
-        setActivePlan(payload.plan ?? null);
-        setActivePlanOrigin(payload.plan ? "assigned" : null);
-        if (selectedPlanId && payload.plan) {
-          setActivePlanError(t("training.selectedPlanFallbackToAssigned"));
-        }
+        setActivePlan(null);
+        setActivePlanOrigin(null);
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setActivePlan(null);
         setActivePlanOrigin(null);
-        if (selectedPlanId) {
-          setActivePlanError(t("training.selectedPlanLoadError"));
-        }
       }
     };
 
@@ -1519,6 +1517,16 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.trainingPlanLayout} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
         <>
+          {/* Active plan indicator */}
+          {!loading && !error && profile && isProfileComplete(profile) ? (
+            <ActivePlanCard
+              type="training"
+              planTitle={activePlan?.title ?? null}
+              source={activePlanOrigin}
+              manageHref="/app/biblioteca/entrenamientos"
+            />
+          ) : null}
+
           {!loading && !error && profile && !isProfileComplete(profile) ? (
             <section className="card">
               <div className="empty-state">

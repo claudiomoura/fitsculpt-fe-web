@@ -26,6 +26,7 @@ import { Icon } from "@/design-system/components/Icon";
 import { Skeleton } from "@/design-system/components/Skeleton";
 import { hasNutritionAiEntitlement, type AiEntitlementProfile } from "@/domains/ai";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
+import { ActivePlanCard } from "@/components/ActivePlanCard";
 import { Modal } from "@/design-system/components/Modal";
 import { AiTokensExhaustedModal } from "@/components/ai/AiTokensExhaustedModal";
 import { MealCard, MealCardSkeleton } from "@/components/nutrition/MealCard";
@@ -2257,7 +2258,15 @@ const nutritionPlanDetails = profile ? (
     <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.nutritionScope} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
         <>
-          
+          {/* Active plan indicator */}
+          {!loading && !assignedLoading && !error && profile && isProfileComplete(profile) ? (
+            <ActivePlanCard
+              type="nutrition"
+              planTitle={activePlanTitle}
+              source={trainerPlanVisible ? "assigned" : activePlanTitle ? "own" : null}
+              manageHref="/app/dietas"
+            />
+          ) : null}
 
           {loading || assignedLoading ? (
             <section className="card">
