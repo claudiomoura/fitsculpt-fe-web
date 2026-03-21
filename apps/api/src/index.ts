@@ -8944,6 +8944,53 @@ app.delete("/trainer/clients/:userId/assigned-plan", async (request, reply) => {
   }
 });
 
+app.post("/trainer/clients/:userId/assigned-nutrition-plan", async (request, reply) => {
+  try {
+    const { userId } = trainerClientParamsSchema.parse(request.params);
+    const { nutritionPlanId } = trainerAssignNutritionPlanBodySchema.parse(request.body);
+    const requester = await requireUser(request);
+
+    const { managerMembership, targetMembership } = await getTrainerMemberAssignment(requester.id, userId);
+
+    const selectedPlan = await prisma.nutritionPlan.findFirst({
+      where: {
+        id: nutritionPlanId,
+        OR: [
+          { userId: requester.id },
+          {
+            gymAssignments: {
+              some: {
+                gymId: managerMembership.gymId,
+                status: "ACTIVE",
+                role: "MEMBER",
+              },
+            },
+          },
+        ],
+      },
+      select: trainerAssignNutritionPlanResultSchema,
+    });
+
+    if (!selectedPlan) {
+      return reply.status(404).send({ error: "NUTRITION_PLAN_NOT_FOUND" });
+    }
+
+    await prisma.gymMembership.update({
+      where: { id: targetMembership.id },
+      data: { assignedNutritionPlanId: selectedPlan.id },
+    });
+
+    return reply.status(200).send({
+      ok: true,
+      memberId: userId,
+      gymId: managerMembership.gymId,
+      assignedPlan: selectedPlan,
+    });
+  } catch (error) {
+    return handleRequestError(reply, error);
+  }
+});
+
 app.post("/trainer/members/:id/training-plan-assignment", async (request, reply) => {
   try {
     const requester = await requireUser(request);
