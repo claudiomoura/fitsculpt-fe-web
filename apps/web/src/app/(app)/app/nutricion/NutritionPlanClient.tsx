@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
 import { addDays, buildMonthGrid, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
@@ -46,7 +46,14 @@ import {
 import { trackEvent } from "@/lib/analytics";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/design-system/components/Toast";
-import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
+import {
+  ACTIVE_NUTRITION_PLAN_STORAGE_KEY,
+  NUTRITION_PLANS_UPDATED_AT_KEY,
+  buildNutritionPlanSearch,
+  generateNutritionPlan,
+  normalizePlanSelection,
+  type NutritionGenerateError,
+} from "@/domains/nutrition";
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError, classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState } from "@/lib/aiErrorUi";
 import styles from "./NutritionPlanClient.module.css";
@@ -284,7 +291,6 @@ type NutritionAiErrorState = {
 };
 
 const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
-const NUTRITION_PLANS_UPDATED_AT_KEY = "fs_nutrition_plans_updated_at";
 
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
   try {
@@ -846,11 +852,18 @@ export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: st
   return { ...plan, days: nextDays };
 }
 
+function readStoredSelectedPlanId(): string | null {
+  if (typeof window === "undefined") return null;
+  return normalizePlanSelection(window.localStorage.getItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY));
+}
+
 export default function NutritionPlanClient({ mode = "suggested" }: NutritionPlanClientProps) {
   const { t, locale } = useLanguage();
   const { notify } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const safeT = (key: string, fallback: string) => {
     const value = t(key);
     return value === key ? fallback : value;
@@ -867,6 +880,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
   const [trainerAssignedPlan, setTrainerAssignedPlan] = useState<NutritionPlan | null>(null);
+  const [storedPlanId, setStoredPlanId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return readStoredSelectedPlanId();
+  });
+  const [plansSyncTick, setPlansSyncTick] = useState(0);
   const [assignedLoading, setAssignedLoading] = useState(true);
   const [assignedError, setAssignedError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -913,7 +931,8 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const renderedTokenToastId = useRef(0);
   const calendarInitialized = useRef(false);
   const urlSyncInitialized = useRef(false);
-  const selectedPlanId = normalizePlanSelection(searchParams.get("planId"));
+  const queryPlanId = normalizePlanSelection(searchParams.get("planId"));
+  const selectedPlanId = queryPlanId ?? storedPlanId;
   const isManualView = mode === "manual";
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
@@ -937,6 +956,60 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       ref.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setStoredPlanId(readStoredSelectedPlanId());
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncStoredSelection = () => {
+      setStoredPlanId(readStoredSelectedPlanId());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === ACTIVE_NUTRITION_PLAN_STORAGE_KEY) {
+        syncStoredSelection();
+        return;
+      }
+
+      if (event.key !== NUTRITION_PLANS_UPDATED_AT_KEY) return;
+      syncStoredSelection();
+      setPlansSyncTick((value) => value + 1);
+    };
+
+    const handleFocus = () => {
+      syncStoredSelection();
+      setPlansSyncTick((value) => value + 1);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (queryPlanId) {
+      window.localStorage.setItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY, queryPlanId);
+      if (storedPlanId !== queryPlanId) {
+        setStoredPlanId(queryPlanId);
+      }
+      return;
+    }
+
+    if (!storedPlanId) return;
+    const nextHref = buildNutritionPlanSearch(pathname, searchParamsString, storedPlanId);
+    if (nextHref === `${pathname}?${searchParamsString}` || nextHref === pathname) return;
+    router.replace(nextHref, { scroll: false });
+  }, [pathname, queryPlanId, router, searchParamsString, storedPlanId]);
 
   useEffect(() => {
     let active = true;
@@ -969,7 +1042,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     return () => {
       active = false;
     };
-  }, [t]);
+  }, [plansSyncTick, t]);
 
   useEffect(() => {
     let active = true;
@@ -983,7 +1056,22 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       try {
         const response = await fetch(`/api/nutrition-plans/${encodeURIComponent(selectedPlanId)}`, { cache: "no-store", credentials: "include" });
         if (!response.ok) {
-          if (active) setSelectedLibraryPlan(null);
+          if (active) {
+            if (response.status === 401 || response.status === 403 || response.status === 404) {
+              setSelectedLibraryPlan(null);
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY);
+              }
+              setStoredPlanId(null);
+
+              if (queryPlanId && queryPlanId === selectedPlanId) {
+                const params = new URLSearchParams(searchParamsString);
+                params.delete("planId");
+                const nextParams = params.toString();
+                router.replace(`${pathname}${nextParams.length > 0 ? `?${nextParams}` : ""}`, { scroll: false });
+              }
+            }
+          }
           return;
         }
 
@@ -992,7 +1080,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         if (!active) return;
         setSelectedLibraryPlan(normalizeFetchedNutritionPlan(payload));
       } catch {
-        if (active) setSelectedLibraryPlan(null);
+        if (!active) return;
       }
     };
 
@@ -1000,7 +1088,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     return () => {
       active = false;
     };
-  }, [selectedPlanId]);
+  }, [pathname, plansSyncTick, queryPlanId, router, searchParamsString, selectedPlanId]);
 
   const refreshSubscription = async () => {
     try {
@@ -1051,9 +1139,10 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   }, [profile, mealTemplates, dayLabels, t]);
   const trainerPlanVisible = useMemo(() => normalizeNutritionPlan(trainerAssignedPlan, dayLabels), [trainerAssignedPlan, dayLabels]);
   const assignedPlanTitle = useMemo(() => readAssignedNutritionPlanTitle(trainerAssignedPlan), [trainerAssignedPlan]);
+  const hasSelectedLibraryPlan = Boolean(selectedPlanId && selectedLibraryPlan);
   const visiblePlan = useMemo(
     () => normalizeNutritionPlan(selectedLibraryPlan ?? trainerPlanVisible ?? (isManualView ? savedPlan ?? plan : savedPlan), dayLabels),
-    [selectedLibraryPlan, trainerPlanVisible, isManualView, savedPlan, plan, dayLabels]
+    [dayLabels, isManualView, plan, savedPlan, selectedLibraryPlan, trainerPlanVisible]
   );
   const planStartDate = useMemo(
     () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
@@ -1661,6 +1750,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     ? isConsumed(highlightedPrimaryMealKey, highlightedDayKey)
     : false;
   const activePlanTitle = (typeof visiblePlan?.title === "string" && visiblePlan.title.trim().length > 0 ? visiblePlan.title.trim() : assignedPlanTitle) ?? null;
+  const activePlanSource = hasSelectedLibraryPlan ? "selected" : trainerPlanVisible ? "assigned" : activePlanTitle ? "own" : null;
 
   const handleUseFavorite = (favorite: NutritionQuickFavorite) => {
     const dayKey = toDateKey(clampedSelectedDate);
@@ -2329,7 +2419,7 @@ const nutritionPlanDetails = profile ? (
             <ActivePlanCard
               type="nutrition"
               planTitle={activePlanTitle}
-              source={trainerPlanVisible ? "assigned" : activePlanTitle ? "own" : null}
+              source={activePlanSource}
               manageHref="/app/biblioteca/planes-nutricion"
             />
           ) : null}
