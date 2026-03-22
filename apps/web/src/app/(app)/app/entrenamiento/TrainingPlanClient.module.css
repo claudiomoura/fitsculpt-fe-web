@@ -84,27 +84,15 @@
 
 .weeklyFlow {
   display: grid;
-  gap: 0;
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 86%, transparent);
-  border-radius: var(--surface-card-radius);
-  background: var(--surface-secondary-bg);
-  overflow: hidden;
+  gap: 12px;
 }
 
 .weeklySectionCalendar {
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  margin: 0;
 }
 
 .weeklySectionDay {
   margin-top: 0;
-  border: 0 !important;
-  border-radius: 0 !important;
-  border-top: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent) !important;
-  background: transparent !important;
-  box-shadow: none !important;
 }
 
 .trainingPlanLayout :global(.meal-card--horizontal) {
@@ -166,17 +154,28 @@
 
 .dayExerciseSectionShell {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
-.dayExerciseHeader {
+.exerciseCountBadge {
+  min-width: 30px;
+  justify-content: center;
+}
+
+.dayExerciseSubtitle {
+  margin-top: -6px;
+}
+
+.exerciseList {
   display: grid;
-  gap: 6px;
+  gap: 10px;
 }
 
 .exerciseCard {
-  display: grid;
-  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 78%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-secondary-bg) 92%, black 8%);
+  box-shadow: var(--surface-card-inner-glow), var(--shadow-sm);
 }
 
 .exerciseCardCompleted {
@@ -188,15 +187,16 @@
 
 .exerciseCardBody {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .exerciseDetailButton {
   width: 100%;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 80%, transparent);
+  border-radius: 16px;
   padding: 6px;
-  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -204,7 +204,18 @@
   grid-template-columns: 58px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.exerciseMiniCard:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--surface-border-default) 62%, transparent);
+}
+
+.exerciseMiniCard:active {
+  transform: scale(0.98);
 }
 
 .exerciseDetailButton.is-disabled :global(.meal-card-affordance) {
@@ -366,11 +377,11 @@
   }
 
   .weeklySectionCalendar {
-    border-bottom: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent) !important;
+    margin-bottom: 0;
   }
 
   .weeklySectionDay {
-    border-top: 0 !important;
+    margin-top: 0;
   }
 
   .weekNav {

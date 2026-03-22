@@ -2225,12 +2225,12 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
               <section className={`card premium-surface-card surface-content-card training-weekly-section ${styles.weeklySectionDay}`}>
                 <div className={styles.dayExerciseSectionShell}>
-                  <div className={styles.dayExerciseHeader}>
-                    <div className="inline-actions-space">
-                      <div className="inline-actions-sm">
-                        <h2 className="section-title section-title-sm m-0">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
-                        <Badge>{selectedExercises.length}</Badge>
-                      </div>
+                  <div className="section-head section-head-actions">
+                    <div className="inline-actions-sm">
+                      <h2 className="section-title section-title-sm m-0">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
+                      <Badge className={styles.exerciseCountBadge}>{selectedExercises.length}</Badge>
+                    </div>
+                    <div className="section-actions">
                       {canOpenDayEditor ? (
                         <ButtonLink variant="ghost" href={dayEditorHref}>
                           {t("ui.edit")}
@@ -2247,9 +2247,9 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                         </button>
                       )}
                     </div>
-                    <p className="section-subtitle m-0">{selectedEntryDateLabel}</p>
                   </div>
-                  <div className="exercise-list compact-exercise-list">
+                  <p className={`section-subtitle m-0 ${styles.dayExerciseSubtitle}`}>{selectedEntryDateLabel}</p>
+                  <div className={styles.exerciseList}>
                   {selectedExercises.length === 0 ? (
                     <div className="stack-sm">
                       <p className="m-0 font-medium text-primary">{safeT("training.restDayTitle", "Descanso")}</p>
@@ -2293,7 +2293,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           </div>
                           <button
                             type="button"
-                            className={`meal-card meal-card--horizontal meal-card--horizontal-compact ${styles.exerciseDetailButton} ${exerciseHref ? "is-clickable" : "is-disabled"}`}
+                            className={`meal-card meal-card--horizontal meal-card--horizontal-compact ${styles.exerciseDetailButton} ${styles.exerciseMiniCard} ${exerciseHref ? "is-clickable" : "is-disabled"}`}
                             data-testid="training-plan-exercise-item"
                             aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
                             aria-pressed={false}
