@@ -2356,9 +2356,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       <p className="training-plan-access-status">Sin plan activo</p>
                     )}
                   </div>
-                  <span className="training-insight-affordance" aria-hidden="true">
-                    <Icon name="chevron-right" size={18} />
-                  </span>
                 </Link>
               </section>
 

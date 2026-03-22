@@ -3003,9 +3003,6 @@ const nutritionPlanDetails = profile ? (
                       </div>
                       <p className="training-plan-access-status">Origen: {activePlanSourceLabel}</p>
                     </div>
-                    <span className="training-insight-affordance" aria-hidden="true">
-                      <Icon name="chevron-right" size={18} />
-                    </span>
                   </Link>
                 </section>
                 <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
@@ -3017,9 +3014,6 @@ const nutritionPlanDetails = profile ? (
                       <strong className="training-insight-title">{safeT("nav.recipeLibrary", "Biblioteca de recetas")}</strong>
                       <p className="muted">{safeT("nutrition.recipeLibraryCopy", "Descubre recetas curadas y guardadas para sumar variedad a tu plan.")}</p>
                     </div>
-                    <span className="training-insight-affordance" aria-hidden="true">
-                      <Icon name="chevron-right" size={18} />
-                    </span>
                   </Link>
                 </section>
                 </>
