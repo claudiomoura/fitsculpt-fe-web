@@ -91,6 +91,21 @@ const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
 const TRAINING_PLANS_UPDATED_AT_KEY = "fs_training_plans_updated_at";
 const AUTO_AI_TRIGGER_GUARD_TTL_MS = 4000;
 
+function normalizePlanSelection(value: string | null | undefined): string {
+  if (typeof value !== "string") return "";
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : "";
+}
+
+function readStoredSelectedPlanId(): string {
+  if (typeof window === "undefined") return "";
+  return (
+    normalizePlanSelection(window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY))
+    || normalizePlanSelection(window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY))
+    || ""
+  );
+}
+
 type TrainingPlanClientProps = {
   mode?: "suggested" | "manual";
 };
@@ -481,12 +496,33 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const persistedPlanId = (
-      window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY)?.trim()
-      || window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY)?.trim()
-      || ""
-    );
-    setStoredPlanId(persistedPlanId);
+    setStoredPlanId(readStoredSelectedPlanId());
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncStoredSelection = () => {
+      setStoredPlanId(readStoredSelectedPlanId());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (
+        event.key === SELECTED_PLAN_STORAGE_KEY
+        || event.key === LEGACY_ACTIVE_PLAN_STORAGE_KEY
+        || event.key === TRAINING_PLANS_UPDATED_AT_KEY
+      ) {
+        syncStoredSelection();
+      }
+    };
+
+    window.addEventListener("focus", syncStoredSelection);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("focus", syncStoredSelection);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   useEffect(() => {
@@ -538,26 +574,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     const loadActivePlan = async () => {
       setActivePlanError(null);
       try {
-        // Always check for trainer-assigned plan first
-        const activeResponse = await fetch("/api/training-plans/active?includeDays=1", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (activeResponse.ok) {
-          const activePayload = (await activeResponse.json()) as ActiveTrainingPlanResponse;
-          if (activePayload.plan) {
-            setActivePlan(activePayload.plan);
-            setActivePlanOrigin(activePayload.source ?? "own");
-            // Clear stale selectedPlanId if trainer assigned a plan
-            if (activePayload.source === "assigned" && selectedPlanId) {
-              try { localStorage.removeItem(SELECTED_PLAN_STORAGE_KEY); } catch {}
-            }
-            return;
-          }
-        }
-
-        // No trainer-assigned plan — fall back to selected plan
+        // Source of truth: explicit user selection from library.
         if (selectedPlanId) {
           const selectedResponse = await fetch(`/api/training-plans/${encodeURIComponent(selectedPlanId)}`, {
             cache: "no-store",
@@ -568,6 +585,29 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             const selectedPayload = (await selectedResponse.json()) as TrainingPlan;
             setActivePlan(selectedPayload);
             setActivePlanOrigin("selected");
+            return;
+          }
+
+          if ([401, 403, 404].includes(selectedResponse.status)) {
+            if (typeof window !== "undefined") {
+              window.localStorage.removeItem(SELECTED_PLAN_STORAGE_KEY);
+              window.localStorage.removeItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY);
+              setStoredPlanId("");
+            }
+          }
+        }
+
+        // Fall back to trainer/owner active plan when selected one does not exist.
+        const activeResponse = await fetch("/api/training-plans/active?includeDays=1", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (activeResponse.ok) {
+          const activePayload = (await activeResponse.json()) as ActiveTrainingPlanResponse;
+          if (activePayload.plan) {
+            setActivePlan(activePayload.plan);
+            setActivePlanOrigin(activePayload.source ?? "own");
             return;
           }
         }
@@ -590,7 +630,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
 
     void loadActivePlan();
     return () => controller.abort();
-  }, [selectedPlanId, t]);
+  }, [selectedPlanId]);
 
   const plan = useMemo(() => (form ? generatePlan(form, locale, t) : null), [form, locale, t]);
   const visiblePlan = isManualView ? savedPlan ?? plan : activePlan;
