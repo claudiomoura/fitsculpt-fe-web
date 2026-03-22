@@ -25,7 +25,6 @@ import {
   hasTrainingPlanAdjustmentCapability,
 } from "@/domains/training";
 import { Input } from "@/design-system/components/Input";
-import { SegmentedControl } from "@/design-system/components/SegmentedControl";
 import { Skeleton } from "@/design-system/components/Skeleton";
 import { defaultFoodProfiles } from "@/lib/foodProfiles";
 import TrainingAdjustmentDiffSummary, {
@@ -1327,17 +1326,24 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             {t("nav.weeklyReview")}
           </Link>
 
-          <SegmentedControl
-            className={styles.segmentedControl}
-            ariaLabel="Rango"
-            options={[
+          <div className={styles.segmentedControl} role="tablist" aria-label="Rango">
+            {([
               { id: "7", label: "Semana" },
               { id: "30", label: "Mes" },
               { id: "90", label: "3 meses" },
-            ]}
-            value={progressRange}
-            onChange={(nextValue) => setProgressRange(nextValue as "7" | "30" | "90")}
-          />
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`${styles.segmentedButton} ${progressRange === option.id ? styles.segmentedButtonActive : ""}`}
+                onClick={() => setProgressRange(option.id)}
+                role="tab"
+                aria-selected={progressRange === option.id}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </section>
       ) : null}
 
@@ -1354,17 +1360,24 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
       {!isCheckinOnly ? (
         <section className={`${styles.trackingOverviewCard}`}>
-          <SegmentedControl
-            className={styles.insightTabs}
-            ariaLabel={t("tracking.insightsLabel")}
-            options={[
+          <div className={styles.insightTabs} role="tablist" aria-label={t("tracking.insightsLabel")}>
+            {([
               { id: "checkin", label: t("tracking.progressTabCheckin") },
               { id: "nutrition", label: t("tracking.progressTabNutrition") },
               { id: "training", label: t("tracking.progressTabTraining") },
-            ]}
-            value={progressInsightTab}
-            onChange={(nextValue) => setProgressInsightTab(nextValue as ProgressInsightTab)}
-          />
+            ] as const).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={`${styles.insightTabButton} ${progressInsightTab === option.id ? styles.insightTabButtonActive : ""}`}
+                onClick={() => setProgressInsightTab(option.id as ProgressInsightTab)}
+                role="tab"
+                aria-selected={progressInsightTab === option.id}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
 
             {progressInsightTab === "checkin" ? (
             <div className={styles.checkinInsightStack}>
