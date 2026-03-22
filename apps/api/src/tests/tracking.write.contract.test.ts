@@ -30,6 +30,15 @@ assert.equal(snapshotAfterFirstWrite.checkins.length, 1, "POST /tracking should 
 assert.equal(snapshotAfterFirstWrite.checkins[0]?.id, "checkin-1", "checkin id should be persisted");
 trackingSchema.parse(snapshotAfterFirstWrite);
 
+const normalizedLegacySnapshot = normalizeTrackingSnapshot({
+  checkins: [{ id: "legacy-1", date: "2026-02-20", weightKg: "81.2" }],
+  workoutLog: [{ id: "workout-legacy", date: "2026-02-20", name: "Upper body" }],
+  mealLog: [{ id: "meal-legacy", date: "2026-02-20", title: "Almuerzo", mealKey: "meal-legacy" }],
+});
+trackingSchema.parse(normalizedLegacySnapshot);
+assert.equal(normalizedLegacySnapshot.checkins[0]?.notes, "", "legacy checkins should receive safe default strings");
+assert.equal(normalizedLegacySnapshot.mealLog[0]?.completedAt, "2026-02-20T00:00:00.000Z", "legacy meal log should receive a stable completion timestamp");
+
 const updatePayload = trackingEntryCreateSchema.parse({
   collection: "checkins",
   item: {

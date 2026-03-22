@@ -15,7 +15,11 @@ export type AnalyticsEventName =
   | "checkin_opened"
   | "checkin_saved"
   | "nutrition_meal_logged"
-  | "meal_logged";
+  | "meal_logged"
+  | "weekly_review_opened"
+  | "adjustment_accepted"
+  | "adjustment_rejected"
+  | "recommendation_seen";
 
 export type AnalyticsEventProps = {
   target?: "training" | "nutrition" | "checkin" | "billing";
@@ -23,6 +27,10 @@ export type AnalyticsEventProps = {
   mealType?: string;
   origin?: string;
   returnTo?: string;
+  recommendationId?: string;
+  recommendationType?: string;
+  weekKey?: string;
+  decision?: string;
 };
 
 declare global {

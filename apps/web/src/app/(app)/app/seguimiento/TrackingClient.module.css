@@ -99,10 +99,30 @@
   gap: 16px;
 }
 
+.checkinInsightStack {
+  display: grid;
+  gap: 16px;
+}
+
 .trackingOverviewCard {
-  background: var(--surface-secondary-bg);
-  border-color: var(--surface-border-default);
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 78%, transparent);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-secondary-bg) 78%, transparent), color-mix(in srgb, var(--bg-card) 92%, transparent)),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 7%, transparent), transparent 42%);
   box-shadow: var(--surface-card-inner-glow), var(--shadow-sm);
+}
+
+.trackingOverviewCard :global(.feature-card),
+.trackingOverviewCard :global(.info-item),
+.checkinShell :global(.feature-card),
+.checkinShell :global(.info-item) {
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+  border-color: color-mix(in srgb, var(--surface-border-default) 55%, transparent);
+  box-shadow: none;
 }
 
 .leftColumn,
@@ -151,7 +171,14 @@
 
 .checkinShell {
   display: grid;
-  gap: 16px;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 74%, transparent);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-secondary-bg) 72%, transparent), color-mix(in srgb, var(--bg-card) 95%, transparent)),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 8%, transparent), transparent 38%);
+  box-shadow: var(--surface-card-inner-glow), var(--shadow-sm);
 }
 
 .checkinHero {
@@ -166,9 +193,9 @@
   display: grid;
   gap: 4px;
   padding: 12px 14px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent);
   border-radius: 16px;
-  background: rgba(255,255,255,0.04);
+  background: color-mix(in srgb, var(--bg-card) 76%, transparent);
 }
 
 .checkinModeGrid {
@@ -178,9 +205,9 @@
 }
 
 .checkinModeCard {
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 55%, transparent);
   border-radius: 18px;
-  background: rgba(255,255,255,0.03);
+  background: color-mix(in srgb, var(--bg-card) 74%, transparent);
   padding: 16px;
   text-align: left;
   display: grid;
@@ -190,7 +217,8 @@
 
 .checkinModeCardActive {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 55%, transparent), var(--shadow-sm);
-  background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-card));
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-card));
 }
 
 .checkinFormGrid {
@@ -236,13 +264,26 @@
     gap: 14px;
   }
 
+  .trackingOverviewCard,
+  .checkinShell {
+    padding: 16px;
+    border-radius: 24px;
+  }
+
   .rightColumn {
     gap: 12px;
   }
 
   .checkinShell {
-    gap: 18px;
-    padding: 16px;
+    gap: 16px;
+  }
+
+  .trackingOverviewCard :global(.feature-card),
+  .trackingOverviewCard :global(.info-item),
+  .checkinShell :global(.feature-card),
+  .checkinShell :global(.info-item) {
+    background: transparent;
+    border-color: color-mix(in srgb, var(--surface-border-default) 42%, transparent);
   }
 
   .checkinLatestPill {

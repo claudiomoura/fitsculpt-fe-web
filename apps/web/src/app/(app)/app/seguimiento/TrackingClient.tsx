@@ -6,8 +6,11 @@ import { useRouter } from "next/navigation";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
+import { addDays, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
+import { buildProfessionalTrackingInsights, normalizeDailyCheckins } from "@/lib/trackingProfessionalMetrics";
+import { getTrackingRangeConfig } from "@/lib/trackingProfessionalRules";
 import {
   hasAiEntitlement,
   requestAiTrainingPlan,
@@ -28,6 +31,7 @@ import TrainingAdjustmentDiffSummary, {
   buildTrainingAdjustmentDiff,
   type TrainingAdjustmentDiff,
 } from "@/components/tracking/TrainingAdjustmentDiffSummary";
+import TrackingProfessionalInsights from "@/components/tracking/TrackingProfessionalInsights";
 import styles from "./TrackingClient.module.css";
 
 type CheckinEntry = {
@@ -186,6 +190,94 @@ function normalizeWorkoutEntriesFromDb(workouts: WorkoutDbItem[] | null | undefi
 }
 
 type ProgressInsightTab = "checkin" | "nutrition" | "training";
+
+function buildWeightTrendData(entries: Array<{ date: string; weightKg: number }>, rangeDays: number, formatEntryDate: (value: string) => string) {
+  const rangeConfig = getTrackingRangeConfig(rangeDays);
+  if (rangeConfig.chartGranularity === "day") {
+    return entries.map((entry) => ({
+      date: formatEntryDate(entry.date),
+      weight: Number(entry.weightKg.toFixed(1)),
+    }));
+  }
+
+  const grouped = new Map<string, { startDate: string; totalWeight: number; count: number }>();
+  entries.forEach((entry) => {
+    const parsed = parseDate(entry.date);
+    if (!parsed) return;
+    const bucketKey = toDateKey(startOfWeek(parsed, 1));
+    const current = grouped.get(bucketKey) ?? { startDate: bucketKey, totalWeight: 0, count: 0 };
+    current.totalWeight += entry.weightKg;
+    current.count += 1;
+    grouped.set(bucketKey, current);
+  });
+
+  return Array.from(grouped.values())
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .map((entry) => ({
+      date: formatEntryDate(entry.startDate),
+      weight: Number((entry.totalWeight / entry.count).toFixed(1)),
+    }));
+}
+
+function buildNutritionTrendData(
+  entries: Array<{ date: string; totals: { calories: number } }>,
+  rangeDays: number,
+  formatEntryDate: (value: string) => string,
+) {
+  const rangeConfig = getTrackingRangeConfig(rangeDays);
+  if (rangeConfig.chartGranularity === "day") {
+    return entries.map((entry) => ({
+      date: formatEntryDate(entry.date),
+      calories: Math.round(entry.totals.calories),
+    }));
+  }
+
+  const grouped = new Map<string, { startDate: string; calories: number }>();
+  entries.forEach((entry) => {
+    const parsed = parseDate(entry.date);
+    if (!parsed) return;
+    const bucketKey = toDateKey(startOfWeek(parsed, 1));
+    const current = grouped.get(bucketKey) ?? { startDate: bucketKey, calories: 0 };
+    current.calories += entry.totals.calories;
+    grouped.set(bucketKey, current);
+  });
+
+  return Array.from(grouped.values())
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .map((entry) => ({
+      date: formatEntryDate(entry.startDate),
+      calories: Math.round(entry.calories),
+    }));
+}
+
+function buildTrainingTrendData(
+  entries: WorkoutEntry[],
+  rangeDays: number,
+  formatEntryDate: (value: string) => string,
+) {
+  const rangeConfig = getTrackingRangeConfig(rangeDays);
+  if (entries.length === 0) return [] as Array<{ date: string; sessions: number; minutes: number }>;
+
+  const grouped = new Map<string, { startDate: string; sessions: number; minutes: number }>();
+  entries.forEach((entry) => {
+    const parsed = parseDate(entry.date);
+    if (!parsed) return;
+    const bucketDate = rangeConfig.chartGranularity === "day" ? parsed : startOfWeek(parsed, 1);
+    const bucketKey = toDateKey(bucketDate);
+    const current = grouped.get(bucketKey) ?? { startDate: bucketKey, sessions: 0, minutes: 0 };
+    current.sessions += 1;
+    current.minutes += Number(entry.durationMin) || 0;
+    grouped.set(bucketKey, current);
+  });
+
+  return Array.from(grouped.values())
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .map((entry) => ({
+      date: formatEntryDate(entry.startDate),
+      sessions: entry.sessions,
+      minutes: entry.minutes,
+    }));
+}
 
 export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const { t } = useLanguage();
@@ -767,17 +859,26 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       }
     : null;
 
+  const checkinAnalysisSource = useMemo(() => {
+    if (checkins.length > 0) return checkins;
+    const fallback = buildProfileSnapshotFallback(profile);
+    return fallback ? [fallback] : [];
+  }, [checkins, profile]);
+
+  const normalizedCheckins = useMemo(() => normalizeDailyCheckins(checkinAnalysisSource), [checkinAnalysisSource]);
+  const rangeConfig = useMemo(() => getTrackingRangeConfig(Number(progressRange)), [progressRange]);
+
   const checkinsInRange = useMemo(() => {
-    if (checkins.length === 0) return [];
+    if (normalizedCheckins.length === 0) return [];
     const endDate = new Date();
     endDate.setHours(23, 59, 59, 999);
-    const startDate = new Date(endDate);
-    startDate.setDate(endDate.getDate() - (Number(progressRange) - 1));
-    return checkins.filter((entry) => {
-      const parsed = new Date(entry.date);
-      return parsed >= startDate && parsed <= endDate;
+    const startDate = addDays(endDate, -(rangeConfig.days - 1));
+    startDate.setHours(0, 0, 0, 0);
+    return normalizedCheckins.filter((entry) => {
+      const parsed = parseDate(entry.date);
+      return parsed ? parsed >= startDate && parsed <= endDate : false;
     });
-  }, [checkins, progressRange]);
+  }, [normalizedCheckins, rangeConfig.days]);
 
   const checkinChart = useMemo(() => {
     if (checkinsInRange.length === 0) return [];
@@ -802,25 +903,27 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     const source = checkins.length > 0 ? checkins : fallbackProfileCheckin ? [fallbackProfileCheckin] : [];
     return [...source].sort((a, b) => b.date.localeCompare(a.date));
   }, [checkins, fallbackProfileCheckin]);
+  const professionalInsights = useMemo(
+    () =>
+      buildProfessionalTrackingInsights({
+        checkins: checkinAnalysisSource,
+        mealLog,
+        workoutLog,
+        profile,
+        rangeDays: Number(progressRange),
+      }),
+    [checkinAnalysisSource, mealLog, workoutLog, profile, progressRange]
+  );
   const latestCheckin = sortedCheckins[0];
+  const rangeLatestCheckin = checkinsInRange[0] ?? null;
   const rangeFirstCheckin = checkinChart[0] ?? null;
   const rangeLastCheckin = checkinChart[checkinChart.length - 1] ?? null;
   const rangeWeightDelta =
     rangeFirstCheckin && rangeLastCheckin ? rangeLastCheckin.weight - rangeFirstCheckin.weight : null;
-  const adherenceLast7Days = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 6);
-    const uniqueDays = new Set(
-      checkins
-        .filter((entry) => {
-          const parsed = new Date(entry.date);
-          return parsed >= cutoff;
-        })
-        .map((entry) => entry.date)
-    );
-    return Math.min(100, Math.round((uniqueDays.size / 7) * 100));
-  }, [checkins]);
-  const latestNotesCheckin = sortedCheckins.find((entry) => entry.notes?.trim());
+  const rangeCheckinConsistency = useMemo(() => {
+    return Math.min(100, Math.round((checkinsInRange.length / Math.max(1, rangeConfig.days)) * 100));
+  }, [checkinsInRange.length, rangeConfig.days]);
+  const latestNotesCheckin = checkinsInRange.find((entry) => entry.notes?.trim()) ?? sortedCheckins.find((entry) => entry.notes?.trim());
   const baseWeight = Number(latestCheckin?.weightKg ?? profile.weightKg ?? 0);
   const hasBaseWeight = Number.isFinite(baseWeight) && baseWeight >= 30 && baseWeight <= 250;
   const isEnergySubmitDisabled =
@@ -829,7 +932,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     !supportsNotes || !isTrackingReady || !isNotesValid || !notesDate || !hasBaseWeight || isNotesSubmitting;
   const isTrackingLoading = trackingStatus === "loading";
   const isTrackingError = trackingStatus === "error";
-  const rangeDays = Number(progressRange);
+  const rangeDays = rangeConfig.days;
   const daysBackForRange = Math.max(0, rangeDays - 1);
 
   if (isTrackingLoading && !trackingLoaded) {
@@ -856,11 +959,11 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     .map(([date, entries]) => ({ date, totals: macroTotals(entries) }))
     .sort((a, b) => a.date.localeCompare(b.date));
   const nutritionInRange = nutritionDateTotals.filter((entry) => {
-    const parsed = new Date(entry.date);
+    const parsed = parseDate(entry.date);
     const cutoff = new Date();
     cutoff.setHours(0, 0, 0, 0);
     cutoff.setDate(cutoff.getDate() - daysBackForRange);
-    return parsed >= cutoff;
+    return parsed ? parsed >= cutoff : false;
   });
   const nutritionDaysLogged = nutritionInRange.length;
   const nutritionTotals = nutritionInRange.reduce(
@@ -898,49 +1001,29 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
   const workoutsSorted = [...workoutLog].sort((a, b) => b.date.localeCompare(a.date));
   const workoutsInRange = workoutsSorted.filter((entry) => {
-    const parsed = new Date(entry.date);
+    const parsed = parseDate(entry.date);
     const cutoff = new Date();
     cutoff.setHours(0, 0, 0, 0);
     cutoff.setDate(cutoff.getDate() - daysBackForRange);
-    return parsed >= cutoff;
+    return parsed ? parsed >= cutoff : false;
   });
   const trainingSessions = workoutsInRange.length;
   const trainingMinutes = workoutsInRange.reduce((sum, entry) => sum + entry.durationMin, 0);
   const trainingAverageMinutes = trainingSessions > 0 ? Math.round(trainingMinutes / trainingSessions) : 0;
   const targetSessions = Math.max(1, Number(profile.trainingPreferences.daysPerWeek ?? 3));
-  const trainingConsistency = Math.min(100, Math.round((trainingSessions / targetSessions) * 100));
-  const workoutsRecent = workoutsSorted.slice(0, 5);
+  const targetSessionsForRange = Math.max(1, Math.round((targetSessions * rangeDays) / 7));
+  const trainingConsistency = Math.min(100, Math.round((trainingSessions / targetSessionsForRange) * 100));
+  const workoutsRecent = workoutsInRange.slice(0, 5);
 
-  const checkinTrendData = checkinChart.map((point) => ({
-    date: formatEntryDate(point.date),
-    weight: Number(point.weight.toFixed(1)),
-  }));
+  const checkinTrendData = buildWeightTrendData(
+    checkinChart.map((point) => ({ date: point.date, weightKg: point.weight })),
+    rangeDays,
+    formatEntryDate,
+  );
 
-  const nutritionTrendData = nutritionInRange.map((entry) => ({
-    date: formatEntryDate(entry.date),
-    calories: Math.round(entry.totals.calories),
-  }));
+  const nutritionTrendData = buildNutritionTrendData(nutritionInRange, rangeDays, formatEntryDate);
 
-  const trainingTrendData = (() => {
-    if (workoutsInRange.length === 0) return [] as Array<{ date: string; sessions: number; minutes: number }>;
-
-    const grouped = workoutsInRange.reduce<Record<string, { sessions: number; minutes: number }>>((acc, entry) => {
-      if (!acc[entry.date]) {
-        acc[entry.date] = { sessions: 0, minutes: 0 };
-      }
-      acc[entry.date].sessions += 1;
-      acc[entry.date].minutes += Number(entry.durationMin) || 0;
-      return acc;
-    }, {});
-
-    return Object.entries(grouped)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, values]) => ({
-        date: formatEntryDate(date),
-        sessions: values.sessions,
-        minutes: values.minutes,
-      }));
-  })();
+  const trainingTrendData = buildTrainingTrendData(workoutsInRange, rangeDays, formatEntryDate);
 
   async function addQuickWeightEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -1183,7 +1266,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {!isCheckinOnly ? (
-        <section className={`card premium-surface-card surface-content-card ${styles.trackingOverviewCard}`}>
+        <section className={`${styles.trackingOverviewCard}`}>
           <SegmentedControl
             className={styles.insightTabs}
             ariaLabel={t("tracking.insightsLabel")}
@@ -1196,90 +1279,93 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             onChange={(nextValue) => setProgressInsightTab(nextValue as ProgressInsightTab)}
           />
 
-          {progressInsightTab === "checkin" ? (
-            <div className={styles.overviewGrid}>
-              <div className={styles.leftColumn}>
-                <section className={`feature-card feature-card--compact ${styles.primaryChartCard}`}>
-                  <h2 className="section-title section-title-sm">{t("tracking.weeklyProgressTitle")}</h2>
-                  {checkinTrendData.length < 2 ? (
-                    <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
-                  ) : (
-                    <div className={styles.chartWrap}>
-                      <ResponsiveContainer width="100%" height={220}>
-                        <AreaChart data={checkinTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="tracking-weight-area" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.36} />
-                              <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                          <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} domain={["dataMin - 0.6", "dataMax + 0.6"]} />
-                          <Tooltip
-                            formatter={(value) => {
-                              const numericValue = Number(value ?? 0);
-                              return [`${numericValue.toFixed(1)} ${t("units.kilograms")}`, t("tracking.latestWeightTitle")];
-                            }}
-                            labelFormatter={(label) => String(label)}
-                            contentStyle={{
-                              borderRadius: 12,
-                              border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
-                              background: "var(--bg-card)",
-                            }}
-                          />
-                          <Area type="monotone" dataKey="weight" stroke="var(--accent)" strokeWidth={2.25} fill="url(#tracking-weight-area)" />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </section>
-                <section className={styles.metricCards}>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.latestWeightTitle")}</p>
-                    <strong>{latestCheckin ? `${latestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}` : "—"}</strong>
-                  </article>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.weightHistoryTitle")}</p>
-                    <strong>{rangeWeightDelta === null ? "—" : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}</strong>
-                  </article>
-                  <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.progressConsistency")}</p>
-                    <strong>{adherenceLast7Days}%</strong>
-                  </article>
-                </section>
-              </div>
-              <aside className={styles.rightColumn}>
-                {supportsBodyFat && latestCheckin ? (
-                  <section className="feature-card feature-card--compact">
-                    <h3 className="section-title section-title-sm">{t("tracking.bodyFatPercent")}</h3>
-                    <strong>{latestCheckin.bodyFatPercent.toFixed(1)}{t("units.percent")}</strong>
+            {progressInsightTab === "checkin" ? (
+            <div className={styles.checkinInsightStack}>
+              <div className={styles.overviewGrid}>
+                <div className={styles.leftColumn}>
+                  <section className={`feature-card feature-card--compact ${styles.primaryChartCard}`}>
+                    <h2 className="section-title section-title-sm">{t("tracking.weeklyProgressTitle")}</h2>
+                    {checkinTrendData.length < 2 ? (
+                      <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
+                    ) : (
+                      <div className={styles.chartWrap}>
+                        <ResponsiveContainer width="100%" height={220}>
+                          <AreaChart data={checkinTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="tracking-weight-area" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.36} />
+                                <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+                            <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} domain={["dataMin - 0.6", "dataMax + 0.6"]} />
+                            <Tooltip
+                              formatter={(value) => {
+                                const numericValue = Number(value ?? 0);
+                                return [`${numericValue.toFixed(1)} ${t("units.kilograms")}`, t("tracking.latestWeightTitle")];
+                              }}
+                              labelFormatter={(label) => String(label)}
+                              contentStyle={{
+                                borderRadius: 12,
+                                border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
+                                background: "var(--bg-card)",
+                              }}
+                            />
+                            <Area type="monotone" dataKey="weight" stroke="var(--accent)" strokeWidth={2.25} fill="url(#tracking-weight-area)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
                   </section>
-                ) : null}
-                {latestNotesCheckin ? (
-                  <section className="feature-card feature-card--compact">
-                    <h3 className="section-title section-title-sm">{t("tracking.latestNotesTitle")}</h3>
-                    <p className="muted">{latestNotesCheckin.notes}</p>
+                  <section className={styles.metricCards}>
+                    <article className="feature-card feature-card--compact">
+                      <p className="muted">{t("tracking.latestWeightTitle")}</p>
+                      <strong>{rangeLatestCheckin ? `${rangeLatestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}` : "—"}</strong>
+                    </article>
+                    <article className="feature-card feature-card--compact">
+                      <p className="muted">{t("tracking.weightHistoryTitle")}</p>
+                      <strong>{rangeWeightDelta === null ? "—" : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}</strong>
+                    </article>
+                    <article className="feature-card feature-card--compact">
+                      <p className="muted">{t("tracking.progressConsistency")}</p>
+                      <strong>{rangeCheckinConsistency}%</strong>
+                    </article>
                   </section>
-                ) : null}
-                <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">{t("tracking.weightHistoryTitle")}</h3>
-                  {sortedCheckins.length === 0 ? (
-                    <p className="muted">{t("profile.checkinEmpty")}</p>
-                  ) : (
-                    <div style={{ display: "grid", gap: 8 }}>
-                      {sortedCheckins.slice(0, 5).map((entry) => (
-                        <div key={entry.id} className="info-item">
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                            <strong>{formatEntryDate(entry.date)}</strong>
-                            <span className="muted">{entry.weightKg.toFixed(1)} {t("units.kilograms")}</span>
+                </div>
+                <aside className={styles.rightColumn}>
+                  {supportsBodyFat && rangeLatestCheckin ? (
+                    <section className="feature-card feature-card--compact">
+                      <h3 className="section-title section-title-sm">{t("tracking.bodyFatPercent")}</h3>
+                      <strong>{rangeLatestCheckin.bodyFatPercent.toFixed(1)}{t("units.percent")}</strong>
+                    </section>
+                  ) : null}
+                  {latestNotesCheckin ? (
+                    <section className="feature-card feature-card--compact">
+                      <h3 className="section-title section-title-sm">{t("tracking.latestNotesTitle")}</h3>
+                      <p className="muted">{latestNotesCheckin.notes}</p>
+                    </section>
+                  ) : null}
+                  <section className="feature-card feature-card--compact">
+                    <h3 className="section-title section-title-sm">{t("tracking.weightHistoryTitle")}</h3>
+                    {professionalInsights.historyRows.length === 0 ? (
+                      <p className="muted">{t("profile.checkinEmpty")}</p>
+                    ) : (
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {professionalInsights.historyRows.slice(0, 5).map((entry) => (
+                          <div key={entry.id} className="info-item">
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                              <strong>{formatEntryDate(entry.date)}</strong>
+                              <span className="muted">{entry.weightKg.toFixed(1)} {t("units.kilograms")}</span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </aside>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                </aside>
+              </div>
+              <TrackingProfessionalInsights insights={professionalInsights} />
             </div>
           ) : null}
 
@@ -1466,7 +1552,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {isCheckinOnly ? (
-        <section className={`card premium-surface-card surface-content-card ${styles.checkinShell} premium-fade-up`} id="checkin-entry">
+        <section className={`${styles.checkinShell} premium-fade-up`} id="checkin-entry">
           <div className={styles.checkinHero}>
             <div className="inline-actions-sm w-full justify-end">
               <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>{t("ui.close")}</button>
@@ -1623,7 +1709,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 <p className="muted">{t("profile.checkinEmpty")}</p>
               </div>
             ) : (
-              sortedCheckins.slice(0, 8).map((entry) => (
+              professionalInsights.historyRows.slice(0, 8).map((entry) => (
                 <div key={entry.id} className="feature-card feature-card--compact">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                     <strong>{entry.date}</strong>

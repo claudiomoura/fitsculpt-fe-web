@@ -1,0 +1,120 @@
+.shell {
+  display: grid;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.scoreGrid,
+.alertGrid,
+.signalGrid,
+.columns,
+.columnStack {
+  display: grid;
+  gap: 12px;
+}
+
+.scoreGrid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.waistHipCard {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface-secondary-bg) 92%, #ffffff 8%), color-mix(in srgb, var(--bg-card) 90%, #f59e0b 10%));
+}
+
+.alertGrid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.alertCard {
+  border-radius: 18px;
+  padding: 14px 16px;
+  border: 1px solid transparent;
+}
+
+.alertSuccess {
+  background: color-mix(in srgb, #16a34a 12%, var(--bg-card));
+  border-color: color-mix(in srgb, #16a34a 28%, var(--border));
+}
+
+.alertWatch {
+  background: color-mix(in srgb, #f59e0b 10%, var(--bg-card));
+  border-color: color-mix(in srgb, #f59e0b 30%, var(--border));
+}
+
+.alertAlert {
+  background: color-mix(in srgb, #ef4444 10%, var(--bg-card));
+  border-color: color-mix(in srgb, #ef4444 32%, var(--border));
+}
+
+.signalGrid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.signalCard {
+  min-height: 120px;
+}
+
+.chartWrap {
+  width: 100%;
+  min-height: 260px;
+}
+
+.historyWrap {
+  overflow-x: auto;
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.historyTable th,
+.historyTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+
+.historyTable th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.dateCell {
+  display: grid;
+  gap: 2px;
+}
+
+.notesCell {
+  max-width: 280px;
+  white-space: normal;
+}
+
+@media (min-width: 1100px) {
+  .columns {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .waistHipCard {
+    grid-template-columns: 1fr;
+  }
+}

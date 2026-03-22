@@ -6514,7 +6514,7 @@ app.get("/tracking", async (request, reply) => {
 app.put("/tracking", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const data = trackingSchema.parse(request.body);
+    const data = trackingSchema.parse(normalizeTrackingSnapshot(request.body));
     const updated = await prisma.userProfile.upsert({
       where: { userId: user.id },
       create: {
@@ -6613,6 +6613,7 @@ registerBillingRoutes(app, {
 });
 
 registerWeeklyReviewRoute(app, {
+  prisma,
   requireUser,
   getOrCreateProfile,
   handleRequestError,

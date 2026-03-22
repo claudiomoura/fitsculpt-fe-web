@@ -1,12 +1,23 @@
 "use client";
 
+import { trackEvent } from "@/lib/analytics";
+import type { WeeklyReviewRecommendation } from "@/types/weeklyReview";
+
 export type WeeklyReviewTelemetryEvent =
-  | { event: "weekly_review_opened"; timestamp: string }
+  | { event: "weekly_review_opened"; timestamp: string; weekKey?: string }
   | {
-      event: "weekly_review_recommendation_decision";
+      event: "recommendation_seen";
       timestamp: string;
-      recommendationId: string;
-      decision: "accepted" | "dismissed";
+      weekKey: string;
+      recommendationId: WeeklyReviewRecommendation["id"];
+      recommendationType: WeeklyReviewRecommendation["type"];
+    }
+  | {
+      event: "adjustment_accepted" | "adjustment_rejected";
+      timestamp: string;
+      weekKey: string;
+      recommendationId: WeeklyReviewRecommendation["id"];
+      recommendationType: WeeklyReviewRecommendation["type"];
     };
 
 const STORAGE_KEY = "fitsculpt.weeklyReview.events";
@@ -31,6 +42,28 @@ export function trackWeeklyReviewEvent(event: WeeklyReviewTelemetryEvent): void 
   const next = [...readStoredEvents(), event].slice(-50);
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   window.dispatchEvent(new CustomEvent("fitsculpt:weekly-review-telemetry", { detail: event }));
+
+  if (event.event === "weekly_review_opened") {
+    trackEvent("weekly_review_opened", { origin: "weekly_review", weekKey: event.weekKey });
+    return;
+  }
+
+  if (event.event === "recommendation_seen") {
+    trackEvent("recommendation_seen", {
+      origin: "weekly_review",
+      recommendationId: event.recommendationId,
+      recommendationType: event.recommendationType,
+      weekKey: event.weekKey,
+    });
+    return;
+  }
+
+  trackEvent(event.event, {
+    origin: "weekly_review",
+    recommendationId: event.recommendationId,
+    recommendationType: event.recommendationType,
+    weekKey: event.weekKey,
+  });
 }
 
 export function getWeeklyReviewTelemetryStorageKey(): string {
