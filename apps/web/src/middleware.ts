@@ -50,12 +50,12 @@ export function middleware(req: NextRequest) {
 
   const sessionRole = readSessionRole(token);
 
-  if (sessionRole === "TRAINER" && isClientPath(pathname)) {
-    return redirectTo(req, "/app/trainer");
-  }
-
   if (sessionRole === "USER" && isTrainerPath(pathname)) {
     return redirectTo(req, "/app");
+  }
+
+  if (sessionRole === "ADMIN" && !isAdminPath(pathname) && !isTrainerPath(pathname)) {
+    return redirectTo(req, "/app/admin");
   }
 
   return NextResponse.next();

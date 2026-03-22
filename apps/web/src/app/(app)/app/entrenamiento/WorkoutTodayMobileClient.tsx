@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { EmptyBlock, ErrorBlock, ExerciseCardCompact, LoadingBlock } from "@/design-system";
+import { EmptyBlock, ErrorBlock, LoadingBlock } from "@/design-system";
 import { Modal } from "@/design-system/components/Modal";
 import { useLanguage } from "@/context/LanguageProvider";
 import { useToast } from "@/design-system/components/Toast";
@@ -38,6 +38,49 @@ function toWeekDay(date: Date): WeekDay {
   };
 }
 
+function ProgressRing({ progress, size = 56, strokeWidth = 4 }: { progress: number; size?: number; strokeWidth?: number }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (progress / 100) * circumference;
+  const isComplete = progress >= 100;
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-white/10"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{
+            stroke: isComplete ? "#10B981" : "var(--primary)",
+            transition: "stroke-dashoffset 0.6s ease-out, stroke 0.3s ease",
+          }}
+        />
+      </svg>
+      <span
+        className="absolute text-xs font-bold"
+        style={{ color: isComplete ? "#10B981" : "var(--text)" }}
+      >
+        {isComplete ? "✓" : `${progress}%`}
+      </span>
+    </div>
+  );
+}
+
 export default function WorkoutTodayMobileClient() {
   const { t } = useLanguage();
   const { notify } = useToast();
@@ -52,6 +95,7 @@ export default function WorkoutTodayMobileClient() {
   const [completedExercises, setCompletedExercises] = useState<Set<number>>(new Set());
   const [confirmCompleteAll, setConfirmCompleteAll] = useState(false);
   const [completingAll, setCompletingAll] = useState(false);
+  const [showCompleteAllCTA, setShowCompleteAllCTA] = useState(true);
 
   const loadWorkouts = useCallback(async () => {
     setState("loading");
@@ -98,75 +142,76 @@ export default function WorkoutTodayMobileClient() {
     const map = new Map<string, TrainingPlanDay>();
     parsedDays.forEach(({ day, date }) => {
       const key = dayKey(date);
-      if (!key || map.has(key)) return;
-      map.set(key, day);
+      if (key) map.set(key, day);
     });
     return map;
   }, [parsedDays]);
 
-  const workoutDays = useMemo(() => {
-    return parsedDays
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .map(({ date }) => toWeekDay(date));
-  }, [parsedDays]);
+  const activeDayKey = useMemo(() => {
+    const urlDay = searchParams.get("day");
+    if (urlDay && daysByIso.has(urlDay)) return urlDay;
+    const today = todayLocalDayKey();
+    if (today && daysByIso.has(today)) return today;
+    return parsedDays.length ? dayKey(parsedDays[0].date) ?? null : null;
+  }, [searchParams, daysByIso, parsedDays]);
 
-  const todayIso = todayLocalDayKey();
-
-  const completedDayKeys = useMemo(() => {
-    const keys = new Set<string>();
-    workouts.forEach((workout) => {
-      (workout.sessions ?? []).forEach((session) => {
-        if (!session.finishedAt) return;
-        const parsed = parseDate(session.finishedAt);
-        const key = parsed ? dayKey(parsed) : null;
-        if (key) keys.add(key);
-      });
-    });
-    return keys;
-  }, [workouts]);
-
-  const queryDay = searchParams.get("day");
-  const dayKeyCandidate = manualSelectedDay ?? queryDay ?? todayIso;
-
-  const firstDayWithExercises = useMemo(
-    () =>
-      workoutDays.find((day) => {
-        const planDay = daysByIso.get(day.iso);
-        return (planDay?.exercises?.length ?? 0) > 0;
-      }),
-    [daysByIso, workoutDays],
-  );
-
-  const candidatePlanDay = daysByIso.get(dayKeyCandidate) ?? null;
-  const shouldFallback =
-    !manualSelectedDay &&
-    (!candidatePlanDay || (candidatePlanDay.exercises?.length ?? 0) === 0);
-  const activeDayKey = shouldFallback
-    ? (firstDayWithExercises?.iso ?? dayKeyCandidate)
-    : dayKeyCandidate;
-  const selectedDay = daysByIso.get(activeDayKey) ?? null;
-
-  const exercises = selectedDay?.exercises ?? [];
-  const totalExercises = exercises.length;
-  const selectedDayCompleted = Boolean(activeDayKey && completedDayKeys.has(activeDayKey));
-  const completedCount = selectedDayCompleted ? totalExercises : completedExercises.size;
-  const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0;
-  const estimatedMinutes = selectedDay?.duration ?? 45;
-  const allDone = selectedDayCompleted || completedCount >= totalExercises;
+  const selectedDay = useMemo(() => {
+    const key = manualSelectedDay ?? activeDayKey;
+    if (!key) return null;
+    return { id: key, day: daysByIso.get(key) ?? null };
+  }, [manualSelectedDay, activeDayKey, daysByIso]);
 
   const weekDays = useMemo(() => {
-    return workoutDays.map((day) => {
-      const planDay = daysByIso.get(day.iso);
-      const hasExercises = (planDay?.exercises?.length ?? 0) > 0;
+    if (!parsedDays.length) return [];
+    const firstDay = parsedDays[0].date;
+    const weekStart = new Date(firstDay);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const dayIso = dayKey(d);
+      const hasWorkout = dayIso ? daysByIso.has(dayIso) : false;
+      const isActive = dayIso === (manualSelectedDay ?? activeDayKey);
       return {
-        id: day.id,
-        label: day.label,
-        date: day.dateNumber,
-        selected: day.iso === activeDayKey,
-        complete: hasExercises && completedDayKeys.has(day.iso),
+        id: dayIso ?? `day-${i}`,
+        label: WEEKDAY_LABELS[d.getDay()] ?? "",
+        date: d.getDate(),
+        iso: dayIso ?? `day-${i}`,
+        isWorkout: hasWorkout,
+        selected: isActive,
       };
     });
-  }, [activeDayKey, completedDayKeys, workoutDays, daysByIso]);
+  }, [parsedDays, daysByIso, manualSelectedDay, activeDayKey]);
+
+  const exercises = useMemo(() => selectedDay?.day?.exercises ?? [], [selectedDay]);
+
+  const totalExercises = exercises.length;
+
+  const selectedDayCompleted = useMemo(() => {
+    if (!selectedDay?.day?.date) return false;
+    const dayDate = parseDate(selectedDay.day.date);
+    if (!dayDate) return false;
+    const dayIso = dayKey(dayDate);
+    return workouts.some((w) => {
+      const wDate = parseDate(w.scheduledAt ?? null);
+      if (!wDate) return false;
+      const sessions = w.sessions ?? [];
+      const hasFinishedSession = sessions.some((s) => Boolean(s.finishedAt));
+      return dayKey(wDate) === dayIso && hasFinishedSession;
+    });
+  }, [selectedDay, workouts]);
+
+  const completedCount = selectedDayCompleted
+    ? totalExercises
+    : completedExercises.size;
+  const allDone = selectedDayCompleted || completedCount >= totalExercises;
+  const progressPercent = totalExercises > 0 ? Math.round((completedCount / totalExercises) * 100) : 0;
+
+  const estimatedMinutes = useMemo(
+    () => exercises.reduce((sum, ex) => sum + ((ex.sets ?? 3) * 1.5 + 2), 0),
+    [exercises],
+  );
 
   const toggleExercise = useCallback((index: number) => {
     setCompletedExercises((prev) => {
@@ -181,9 +226,9 @@ export default function WorkoutTodayMobileClient() {
   }, []);
 
   const handleCompleteAll = useCallback(async () => {
-    if (totalExercises === 0 || allDone) return;
+    if (!exercises.length || allDone) return;
     setConfirmCompleteAll(true);
-  }, [totalExercises, allDone]);
+  }, [exercises, allDone]);
 
   const executeCompleteAll = useCallback(async () => {
     setCompletingAll(true);
@@ -193,10 +238,8 @@ export default function WorkoutTodayMobileClient() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name: selectedDay?.label ?? "Entrenamiento",
-          scheduledAt: new Date().toISOString(),
-          durationMin: estimatedMinutes,
-          notes: `Completado desde vista móvil - ${selectedDay?.focus ?? ""}`,
+          name: selectedDay?.day?.focus ?? "Entrenamiento",
+          scheduledAt: selectedDay?.day?.date,
         }),
       });
 
@@ -242,6 +285,7 @@ export default function WorkoutTodayMobileClient() {
       });
 
       setCompletedExercises(new Set(exercises.map((_, i) => i)));
+      setShowCompleteAllCTA(false);
       notify({ title: "¡Entrenamiento completado!", description: `${totalExercises} ejercicios marcados como hechos.`, variant: "success" });
       await loadWorkouts();
     } catch {
@@ -249,7 +293,7 @@ export default function WorkoutTodayMobileClient() {
     }
     setCompletingAll(false);
     setConfirmCompleteAll(false);
-  }, [exercises, estimatedMinutes, selectedDay, totalExercises, loadWorkouts, notify]);
+  }, [exercises, selectedDay, totalExercises, loadWorkouts, notify]);
 
   const buildExerciseDetailHref = (exerciseId: string) => {
     const params = new URLSearchParams();
@@ -288,6 +332,14 @@ export default function WorkoutTodayMobileClient() {
     );
   }
 
+  const workoutDays = parsedDays.map(({ day, date }) => ({
+    id: dayKey(date) ?? "",
+    label: day.focus ?? "Entrenamiento",
+    date: dayKey(date) ?? "",
+    iso: dayKey(date) ?? "",
+    complete: false,
+  }));
+
   if (!workoutDays.length) {
     return (
       <EmptyBlock
@@ -306,130 +358,133 @@ export default function WorkoutTodayMobileClient() {
 
   return (
     <section className="mx-auto max-w-lg px-4 pb-32 pt-6">
+      {/* Hero Card */}
       <div
-        className="mb-5 overflow-hidden rounded-2xl border border-border"
+        className="relative mb-5 overflow-hidden rounded-3xl"
         style={{
-          background: "linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface) 92%) 0%, var(--surface) 60%)",
+          background: allDone
+            ? "linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.05) 100%)"
+            : "linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, var(--surface) 88%) 0%, var(--surface) 100%)",
         }}
       >
-        <div className="p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                {selectedDay?.label ?? "Hoy"}
-              </p>
-              <h1 className="mt-1 text-xl font-bold tracking-tight text-text">
-                {selectedDay?.focus ?? "Entrenamiento del día"}
+        <div className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{
+                    background: allDone ? "#10B981" : "var(--primary)",
+                    boxShadow: allDone ? "0 0 8px rgba(16,185,129,0.5)" : "none",
+                  }}
+                />
+                <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+                  {selectedDay?.day?.date ? new Date(selectedDay.day.date).toLocaleDateString("es", { weekday: "long", day: "numeric", month: "short" }) : "Hoy"}
+                </p>
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-text">
+                {selectedDay?.day?.focus ?? "Entrenamiento"}
               </h1>
+              {allDone && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  Sesión completada
+                </div>
+              )}
             </div>
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-              style={{ background: "color-mix(in srgb, var(--primary) 15%, transparent)" }}
-            >
-              <span className="text-lg font-bold text-primary">{progressPercent}%</span>
-            </div>
+            <ProgressRing progress={progressPercent} size={64} strokeWidth={5} />
           </div>
 
-          <div className="mt-4 flex items-center gap-4 text-xs text-text-muted">
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
-                style={{ background: "var(--primary)" }}
-              />
-              {totalExercises} ejercicios
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
-                style={{ background: "var(--accent-secondary, var(--secondary))" }}
-              />
-              ~{estimatedMinutes} min
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
-                style={{ background: allDone ? "var(--success, #10B981)" : "var(--text-muted)" }}
-              />
-              {completedCount}/{totalExercises} hechos
-            </span>
+          <div className="mt-5 flex items-center gap-6 text-xs text-text-muted">
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              <span>{totalExercises} ejercicios</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>~{estimatedMinutes} min</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={allDone ? "#10B981" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <span style={{ color: allDone ? "#10B981" : undefined }}>{completedCount}/{totalExercises}</span>
+            </div>
           </div>
+        </div>
 
-          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-            <div
-              className="h-full rounded-full transition-all duration-500 ease-out"
-              style={{
-                width: `${progressPercent}%`,
-                background: allDone
-                  ? "var(--success, #10B981)"
-                  : "var(--primary)",
-              }}
-            />
-          </div>
+        {/* Progress bar bottom */}
+        <div className="h-1 w-full bg-black/5 dark:bg-white/5">
+          <div
+            className="h-full transition-all duration-700 ease-out"
+            style={{
+              width: `${progressPercent}%`,
+              background: allDone ? "#10B981" : "var(--primary)",
+              borderRadius: progressPercent > 0 ? "0 4px 4px 0" : "0",
+            }}
+          />
         </div>
       </div>
 
-      <div className="mb-5 rounded-2xl border border-border bg-surface p-3">
-        <div className="grid grid-cols-7 gap-1.5">
-          {weekDays.map((d) => (
-            <button
-              key={d.id}
-              type="button"
-              onClick={() => {
-                const normalizedDay = typeof d.id === "string" ? d.id : null;
-                if (!normalizedDay) return;
-                setManualSelectedDay(normalizedDay);
-                const params = new URLSearchParams(searchParams.toString());
-                params.set("day", normalizedDay);
-                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-              }}
-              className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2.5 text-center transition-all duration-200 ${
-                d.selected
-                  ? "border border-primary/30 bg-primary/10 shadow-sm"
-                  : "border border-transparent hover:bg-surface-muted"
-              }`}
-            >
-              <span className={`text-[10px] font-medium uppercase tracking-wide ${d.selected ? "text-primary" : "text-text-muted"}`}>
-                {d.label}
-              </span>
-              <span className={`text-sm font-bold ${d.selected ? "text-text" : "text-text-muted"}`}>
-                {d.date}
-              </span>
-              <span
-                className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
-                  d.complete
-                    ? "bg-emerald-500/20 text-emerald-400"
-                    : d.selected
-                      ? "bg-primary/20 text-primary"
-                      : "bg-surface-muted text-text-muted"
-                }`}
-              >
-                {d.complete ? "✓" : ""}
-              </span>
-            </button>
-          ))}
-        </div>
+      {/* Week Strip */}
+      <div className="mb-6 flex items-center justify-center gap-2">
+        {weekDays.map((d) => (
+          <button
+            key={d.id}
+            type="button"
+            onClick={() => {
+              const normalizedDay = typeof d.id === "string" ? d.id : null;
+              if (!normalizedDay) return;
+              setManualSelectedDay(normalizedDay);
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("day", normalizedDay);
+              router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+            }}
+            className="flex flex-col items-center gap-1 rounded-2xl px-3 py-2 transition-all duration-200 active:scale-95"
+            style={{
+              background: d.selected
+                ? "var(--primary)"
+                : "transparent",
+              color: d.selected
+                ? "var(--bg-primary, #0B0E13)"
+                : d.isWorkout
+                  ? "var(--text)"
+                  : "var(--text-muted)",
+              opacity: d.isWorkout || d.selected ? 1 : 0.5,
+              minWidth: 44,
+            }}
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wide">
+              {d.label}
+            </span>
+            <span className="text-sm font-bold">{d.date}</span>
+            {d.isWorkout && !d.selected && (
+              <span className="mt-0.5 inline-block h-1.5 w-1.5 rounded-full" style={{ background: "var(--primary)" }} />
+            )}
+            {d.selected && (
+              <span className="mt-0.5 inline-block h-1.5 w-1.5 rounded-full" style={{ background: d.isWorkout ? "var(--bg-primary, #0B0E13)" : "transparent" }} />
+            )}
+          </button>
+        ))}
       </div>
 
+      {/* Exercise List */}
       <section className="mb-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-text">Ejercicios</h2>
-          {hasAnyExercises && totalExercises > 0 && !allDone ? (
+          <h2 className="text-base font-semibold text-text">
+            {totalExercises} ejercicios
+          </h2>
+          {hasAnyExercises && totalExercises > 0 && !allDone && showCompleteAllCTA ? (
             <button
               type="button"
               onClick={() => void handleCompleteAll()}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all active:scale-95"
               style={{
-                background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                color: "var(--primary)",
+                background: "var(--primary)",
+                color: "var(--bg-primary, #0B0E13)",
               }}
             >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               Completar todo
             </button>
-          ) : null}
-          {allDone ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-400">
-              ✓ Completado
-            </span>
           ) : null}
         </div>
 
@@ -453,56 +508,61 @@ export default function WorkoutTodayMobileClient() {
               const isDone = selectedDayCompleted || completedExercises.has(index);
 
               return (
-                <div key={`${exercise.id ?? exercise.name}-${index}`} className="relative">
-                  <ExerciseCardCompact
-                    name={
-                      <span className="flex items-center gap-2">
-                        {isDone ? (
-                          <span
-                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                            style={{ background: "var(--success, #10B981)", color: "#fff" }}
-                          >
-                            ✓
-                          </span>
-                        ) : (
-                          <span
-                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                            style={{ background: "color-mix(in srgb, var(--primary) 20%, transparent)", color: "var(--primary)" }}
-                          >
-                            {index + 1}
-                          </span>
-                        )}
-                        <span className={isDone ? "line-through opacity-60" : ""}>{exercise.name}</span>
-                      </span>
-                    }
-                    detail={`${exercise.sets ?? "3"} series · ${exercise.reps ?? "10"} reps`}
-                    imageSrc={getExerciseThumbUrl(exercise)}
-                    imageAlt={exercise.name}
-                    progress={isDone ? 100 : 0}
-                    onClick={() => {
-                      if (!exerciseId) return;
-                      router.push(buildExerciseDetailHref(exerciseId));
+                <button
+                  key={`${exercise.id ?? exercise.name}-${index}`}
+                  type="button"
+                  onClick={() => toggleExercise(index)}
+                  className="group flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all duration-200 active:scale-[0.98]"
+                  style={{
+                    borderColor: isDone ? "rgba(16,185,129,0.3)" : "var(--border)",
+                    background: isDone
+                      ? "rgba(16,185,129,0.08)"
+                      : "var(--surface)",
+                  }}
+                >
+                  {/* Number / Check */}
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-all duration-300"
+                    style={{
+                      background: isDone
+                        ? "#10B981"
+                        : "color-mix(in srgb, var(--primary) 12%, transparent)",
+                      color: isDone ? "#fff" : "var(--primary)",
                     }}
-                    onDoubleClick={() => toggleExercise(index)}
-                    aria-label={`${isDone ? "Desmarcar" : "Marcar"} ${exercise.name}`}
-                  />
-                  {!isDone && !selectedDayCompleted ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleExercise(index);
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors"
-                      style={{
-                        background: "color-mix(in srgb, var(--primary) 10%, transparent)",
-                        color: "var(--primary)",
-                      }}
+                  >
+                    {isDone ? "✓" : index + 1}
+                  </div>
+
+                  {/* Exercise Info */}
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={`text-sm font-medium transition-all duration-200 ${isDone ? "line-through opacity-50" : ""}`}
+                      style={{ color: "var(--text)" }}
                     >
-                      Hecho
-                    </button>
-                  ) : null}
-                </div>
+                      {exercise.name}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-text-muted">
+                      {exercise.sets ?? "3"} × {exercise.reps ?? "10"} · descanso {exercise.rest ?? "60"}s
+                    </p>
+                  </div>
+
+                  {/* Thumbnail */}
+                  {getExerciseThumbUrl(exercise) ? (
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-surface-muted">
+                      <img
+                        src={getExerciseThumbUrl(exercise) ?? ""}
+                        alt={exercise.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-[10px] text-text-muted">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    </div>
+                  )}
+                </button>
               );
             })}
           </div>
@@ -515,21 +575,35 @@ export default function WorkoutTodayMobileClient() {
           />
         )}
 
-        {hasAnyExercises && totalExercises > 0 && !allDone ? (
-          <button
-            type="button"
-            onClick={() => void handleCompleteAll()}
-            className="mt-4 w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-[0.98]"
-            style={{
-              background: "var(--primary)",
-              color: "var(--bg-primary, #0B0E13)",
-            }}
-          >
-            Marcar todo como completado
-          </button>
+        {/* Complete All CTA at bottom for easy access */}
+        {hasAnyExercises && totalExercises > 0 && !allDone && showCompleteAllCTA && totalExercises > 1 ? (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => void handleCompleteAll()}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-all active:scale-[0.98]"
+              style={{
+                background: "color-mix(in srgb, var(--primary) 8%, var(--surface) 92%)",
+                color: "var(--primary)",
+                border: "1px solid color-mix(in srgb, var(--primary) 20%, transparent)",
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Marcar todos como hechos
+              <span className="text-[10px] opacity-60">(olvidé el móvil)</span>
+            </button>
+          </div>
+        ) : null}
+
+        {allDone && totalExercises > 0 ? (
+          <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-emerald-500/10 py-3 text-sm font-semibold text-emerald-400">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Todos los ejercicios completados
+          </div>
         ) : null}
       </section>
 
+      {/* Bottom Sticky CTA */}
       <div className="fixed inset-x-0 bottom-[calc(var(--mobile-tab-bar-height)+12px)] z-20 px-4 md:hidden">
         <div
           className="mx-auto max-w-lg overflow-hidden rounded-2xl border border-border shadow-lg backdrop-blur"
@@ -540,33 +614,36 @@ export default function WorkoutTodayMobileClient() {
           <div className="p-4">
             <div className="mb-2.5 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">{selectedDay?.label ?? "Hoy"}</p>
-                <p className="text-sm font-semibold text-text">{exercises.length ? `${exercises.length} ejercicios` : "Día de descanso"}</p>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">{selectedDay?.day?.focus ?? "Hoy"}</p>
+                <p className="text-sm font-semibold text-text">
+                  {completedCount}/{totalExercises} ejercicios
+                </p>
               </div>
-              {exercises.length > 0 ? (
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold"
-                  style={{
-                    background: allDone
-                      ? "var(--success, #10B981)"
-                      : "color-mix(in srgb, var(--primary) 20%, transparent)",
-                    color: allDone ? "#fff" : "var(--primary)",
-                  }}
-                >
-                  {progressPercent}%
-                </div>
-              ) : null}
+              <ProgressRing progress={progressPercent} size={44} strokeWidth={3} />
             </div>
-            {exercises.length ? (
-              <Link
-                className="btn flex w-full items-center justify-center rounded-xl py-2.5 text-sm font-semibold no-underline"
-                href={selectedDay?.id ? `/app/entrenamiento?day=${encodeURIComponent(selectedDay.id)}` : "/app/entrenamiento"}
-                style={{ background: "var(--primary)", color: "var(--bg-primary, #0B0E13)" }}
+            {!allDone && exercises.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => void handleCompleteAll()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all active:scale-[0.98]"
+                style={{
+                  background: "var(--primary)",
+                  color: "var(--bg-primary, #0B0E13)",
+                }}
               >
-                {allDone ? "Ver resumen" : "Empezar entrenamiento"}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Completar todo ahora
+              </button>
+            ) : exercises.length > 0 ? (
+              <Link
+                className="flex w-full items-center justify-center rounded-xl bg-emerald-500/15 py-3 text-sm font-semibold text-emerald-400 no-underline"
+                href="/app/entrenamiento"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><polyline points="20 6 9 17 4 12"/></svg>
+                Ver resumen
               </Link>
             ) : (
-              <Link className="btn secondary flex w-full items-center justify-center rounded-xl py-2.5 text-sm font-semibold no-underline" href="/app/entrenamiento">
+              <Link className="btn secondary flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold no-underline" href="/app/entrenamiento">
                 Ver semana completa
               </Link>
             )}
@@ -574,6 +651,7 @@ export default function WorkoutTodayMobileClient() {
         </div>
       </div>
 
+      {/* Confirm Modal */}
       <Modal
         open={confirmCompleteAll}
         onClose={() => setConfirmCompleteAll(false)}
@@ -591,10 +669,19 @@ export default function WorkoutTodayMobileClient() {
             </button>
             <button
               type="button"
-              className="btn"
               onClick={() => void executeCompleteAll()}
               disabled={completingAll}
-              style={{ background: "var(--primary)", color: "var(--bg-primary, #0B0E13)" }}
+              style={{
+                background: "var(--primary)",
+                color: "var(--bg-primary, #0B0E13)",
+                border: "none",
+                borderRadius: 12,
+                padding: "8px 20px",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: completingAll ? "not-allowed" : "pointer",
+                opacity: completingAll ? 0.7 : 1,
+              }}
             >
               {completingAll ? "Completando..." : "Confirmar"}
             </button>
