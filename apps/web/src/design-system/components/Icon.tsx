@@ -10,6 +10,10 @@ export type IconName =
   | "info"
   | "warning"
   | "check"
+  | "circle"
+  | "minus"
+  | "clock"
+  | "image"
   | "close"
   | "chevron-down"
   | "chevron-left"
@@ -68,6 +72,25 @@ const ICONS: Record<IconName, JSX.Element> = {
       d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6l-10 10z"
       fill="currentColor"
     />
+  ),
+  circle: (
+    <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2" />
+  ),
+  minus: (
+    <path d="M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 7v5l3 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="9" cy="10" r="1.5" fill="currentColor" />
+      <path d="M6 17l4-4 3 3 3-3 2 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </>
   ),
   close: (
     <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

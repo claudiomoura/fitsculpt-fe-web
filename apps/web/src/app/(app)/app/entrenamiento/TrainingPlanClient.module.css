@@ -107,32 +107,79 @@
   box-shadow: none !important;
 }
 
+.trainingPlanLayout :global(.meal-card--horizontal) {
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  box-shadow: var(--shadow-sm);
+  padding: 8px;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal:hover) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal:active) {
+  transform: scale(0.98);
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal .meal-card-media) {
+  width: 72px;
+  height: 72px;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal .meal-card-thumb) {
+  width: 72px;
+  height: 72px;
+  border: none;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal .meal-card-affordance) {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal-compact) {
+  padding: 6px;
+  gap: 8px;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal-compact .meal-card-media),
+.trainingPlanLayout :global(.meal-card--horizontal-compact .meal-card-thumb) {
+  width: 58px;
+  height: 58px;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal-compact .meal-card-body) {
+  gap: 4px;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal-compact .meal-card-affordance) {
+  width: 22px;
+  height: 22px;
+}
+
+.dayExerciseSectionShell {
+  display: grid;
+  gap: 10px;
+}
+
+.dayExerciseHeader {
+  display: grid;
+  gap: 6px;
+}
+
 .exerciseCard {
   display: grid;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  gap: 10px;
 }
 
-.exerciseActionSurface,
-.exerciseContentSurface {
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 86%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface-inset-bg) 86%, transparent);
-}
-
-.exerciseActionSurface {
-  padding: 10px 12px;
-}
-
-.exerciseContentSurface {
-  width: 100%;
-  padding: 10px;
-}
-
-.exerciseCardCompleted .exerciseActionSurface,
-.exerciseCardCompleted .exerciseContentSurface {
+.exerciseCardCompleted {
   border-color: color-mix(in srgb, var(--accent) 24%, var(--surface-border-default));
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 64%),
@@ -147,31 +194,20 @@
 
 .exerciseDetailButton {
   width: 100%;
-  border: 0;
-  padding: 0;
-  background: transparent;
+  border: none;
+  padding: 6px;
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
   color: inherit;
   font: inherit;
   text-align: left;
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  box-shadow: none;
 }
 
-.exerciseContentAffordance {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 80%, transparent);
-  background: color-mix(in srgb, var(--surface-secondary-bg) 82%, transparent);
-  color: var(--text-muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.exerciseDetailButton.is-disabled .exerciseContentAffordance {
+.exerciseDetailButton.is-disabled :global(.meal-card-affordance) {
   opacity: 0.48;
 }
 
@@ -373,17 +409,14 @@
     font-size: 0.72rem;
   }
 
-  .exerciseActionSurface {
-    padding: 9px 10px;
-  }
-
-  .exerciseContentSurface {
-    padding: 9px;
-  }
-
   .exerciseDetailButton {
     grid-template-columns: 56px minmax(0, 1fr) auto;
     gap: 10px;
+  }
+
+  .trainingPlanLayout :global(.meal-card--horizontal-compact) {
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    min-height: 72px;
   }
 
   .exerciseMetaPill {

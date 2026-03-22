@@ -6,6 +6,7 @@ import { cn } from "@/lib/classNames";
 
 import { elevation } from "../elevation";
 import { createTransition } from "../motion";
+import { Icon } from "./Icon";
 import { WorkoutProgressBar } from "./WorkoutProgressBar";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 
@@ -71,7 +72,7 @@ export function ExerciseCardCompact({
           {statusLabel}
         </span>
       ) : null}
-      {showChevron ? <span className="text-text-muted" aria-hidden>›</span> : null}
+      {showChevron ? <Icon name="chevron-right" size={16} className="text-text-muted" /> : null}
     </button>
   );
 }

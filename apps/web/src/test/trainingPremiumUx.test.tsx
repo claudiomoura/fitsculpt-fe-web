@@ -392,6 +392,59 @@ describe("Training premium UX from plan", () => {
     });
   });
 
+  it("omits blank exercise notes when creating workout from start CTA", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url === "/api/auth/me") return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+      if (url.startsWith("/api/training-plans/active")) {
+        return mockResponse({
+          source: "assigned",
+          plan: {
+            id: "plan-1",
+            title: "Plan premium",
+            startDate: today.toISOString(),
+            days: [
+              {
+                label: "Dia 1",
+                focus: "Fuerza",
+                duration: 50,
+                date: todayKey,
+                exercises: [{ name: "Press banca", sets: "4", reps: "8", notes: "" }],
+              },
+            ],
+          },
+        });
+      }
+      if (url === "/api/workouts") {
+        if (init?.method === "POST") {
+          const payload = JSON.parse(String(init.body ?? "{}")) as {
+            exercises?: Array<{ notes?: string }>;
+          };
+          const notesValue = payload.exercises?.[0]?.notes;
+          if (notesValue === "") {
+            return mockResponse({ code: "VALIDATION" }, 400);
+          }
+          return mockResponse({ id: "workout-new" });
+        }
+        const callCount = fetchMock.mock.calls.filter(([call]) => String(call) === "/api/workouts").length;
+        if (callCount <= 1) return mockResponse([]);
+        return mockResponse([{ id: "workout-new", name: "Fuerza", scheduledAt: `${todayKey}T12:00:00.000Z` }]);
+      }
+      return mockResponse({});
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    renderWithProviders(<TrainingPlanClient />);
+
+    const startButton = await screen.findByRole("button", { name: /Empezar/i });
+    fireEvent.click(startButton);
+
+    await waitFor(() => {
+      expect(getMockNavigation().push).toHaveBeenCalledWith("/app/entrenamiento/workout-new/start");
+    });
+  });
+
   it("renders details CTA in next workout card", async () => {
     setupFetchMock([{ name: "Press banca", sets: "4", reps: "8" }]);
 

@@ -1407,6 +1407,11 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   );
 
   const buildWorkoutPayload = (entry: PlanEntry) => {
+    const asOptionalText = (value?: string | null) => {
+      if (typeof value !== "string") return undefined;
+      const normalized = value.trim();
+      return normalized.length > 0 ? normalized : undefined;
+    };
     const isoDate = new Date(`${toDateKey(entry.date)}T12:00:00`).toISOString();
     return {
       name: entry.day.focus || entry.day.label || safeT("training.calendarTitle", "Plan de entrenamiento"),
@@ -1415,13 +1420,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       durationMin: entry.day.duration || 45,
       exercises: (entry.day.exercises ?? []).map((exercise, index) => ({
         exerciseId: getExerciseIdentifier(exercise) ?? undefined,
-        name: exercise.name,
-        sets: String(exercise.sets ?? "").trim() || undefined,
+        name: asOptionalText(exercise.name) ?? exercise.name,
+        sets: asOptionalText(String(exercise.sets ?? "")),
         reps: (() => {
           const value = exercise.reps ?? parseRepsFromSets(exercise.sets);
-          return value ? String(value) : undefined;
+          return asOptionalText(value ? String(value) : undefined);
         })(),
-        notes: exercise.notes ?? undefined,
+        notes: asOptionalText(exercise.notes),
         order: index,
       })),
     };
@@ -2154,7 +2159,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             >
                               <span className="training-week-pill-label">{date.toLocaleDateString(localeCode, { weekday: "short" })}</span>
                               <div className="training-week-pill-icon" aria-hidden="true">
-                                {state === "done" ? "✓" : state === "planned" ? "○" : "-"}
+                                {state === "done" ? <Icon name="check" size={14} /> : state === "planned" ? <Icon name="circle" size={14} /> : <Icon name="minus" size={14} />}
                               </div>
                               <span className="training-week-pill-date">{date.getDate()}</span>
                             </button>
@@ -2219,13 +2224,32 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
             </section>
 
               <section className={`card premium-surface-card surface-content-card training-weekly-section ${styles.weeklySectionDay}`}>
-                <div className="section-head">
-                  <div>
-                    <h2 className="section-title section-title-sm">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
-                    <p className="section-subtitle">{selectedEntryDateLabel}</p>
+                <div className={styles.dayExerciseSectionShell}>
+                  <div className={styles.dayExerciseHeader}>
+                    <div className="inline-actions-space">
+                      <div className="inline-actions-sm">
+                        <h2 className="section-title section-title-sm m-0">{safeT("training.dayExercisesTitle", "Ejercicios del dia")}</h2>
+                        <Badge>{selectedExercises.length}</Badge>
+                      </div>
+                      {canOpenDayEditor ? (
+                        <ButtonLink variant="ghost" href={dayEditorHref}>
+                          {t("ui.edit")}
+                        </ButtonLink>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn secondary fit-content"
+                          disabled
+                          aria-disabled="true"
+                          title={safeT("training.editPlanRequiresSelection", "Editar ejercicios requiere seleccionar un plan activo.")}
+                        >
+                          {t("ui.edit")}
+                        </button>
+                      )}
+                    </div>
+                    <p className="section-subtitle m-0">{selectedEntryDateLabel}</p>
                   </div>
-                </div>
-                <div className="exercise-list compact-exercise-list">
+                  <div className="exercise-list compact-exercise-list">
                   {selectedExercises.length === 0 ? (
                     <div className="stack-sm">
                       <p className="m-0 font-medium text-primary">{safeT("training.restDayTitle", "Descanso")}</p>
@@ -2244,10 +2268,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       return (
                         <div
                           key={`${exercise.name}-${index}`}
-                          className={`exercise-mini-card ${styles.exerciseCard} ${isExerciseCompleted ? styles.exerciseCardCompleted : ""}`}
+                          className={`feature-card feature-card--compact stack-sm ${styles.exerciseCard} ${isExerciseCompleted ? styles.exerciseCardCompleted : ""}`}
                         >
-                          <div className={`${styles.exerciseActionSurface} ${styles.exerciseCardBody}`}>
-                            <div className={`inline-actions-sm ${styles.exerciseCardActions}`}>
+                          <div className={styles.exerciseCardBody}>
+                            <div className={`inline-actions-space ${styles.exerciseCardActions}`}>
                               <span className={`badge ${styles.exerciseProgressLabel}`}>{loggedSets}/{targetSets} sets</span>
                               <button
                                 type="button"
@@ -2269,7 +2293,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                           </div>
                           <button
                             type="button"
-                            className={`${styles.exerciseContentSurface} ${styles.exerciseDetailButton} ${exerciseHref ? "is-clickable" : "is-disabled"}`}
+                            className={`meal-card meal-card--horizontal meal-card--horizontal-compact ${styles.exerciseDetailButton} ${exerciseHref ? "is-clickable" : "is-disabled"}`}
                             data-testid="training-plan-exercise-item"
                             aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
                             aria-pressed={false}
@@ -2277,18 +2301,20 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                             disabled={!exerciseHref}
                             onClick={() => exerciseHref && router.push(exerciseHref)}
                           >
-                            <ExerciseThumbnail
-                              className="exercise-thumb"
-                              src={getExerciseImageUrl(exercise)}
-                              alt={exercise.name}
-                              width={72}
-                              height={72}
-                            />
-                            <div className="exercise-mini-copy">
-                              <strong className="exercise-mini-name">{exercise.name}</strong>
-                              <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                            <div className="meal-card-media" aria-hidden="true">
+                              <ExerciseThumbnail
+                                className="meal-card-thumb"
+                                src={getExerciseImageUrl(exercise)}
+                                alt={exercise.name}
+                                width={72}
+                                height={72}
+                              />
                             </div>
-                            <span className={styles.exerciseContentAffordance} aria-hidden="true">
+                            <div className="meal-card-body">
+                              <strong className="meal-card-title">{exercise.name}</strong>
+                              <p className="meal-card-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</p>
+                            </div>
+                            <span className="meal-card-affordance" aria-hidden="true">
                               <Icon name="chevron-right" size={16} />
                             </span>
                           </button>
@@ -2296,6 +2322,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       );
                     })
                   )}
+                </div>
                 </div>
               </section>
               </div>
