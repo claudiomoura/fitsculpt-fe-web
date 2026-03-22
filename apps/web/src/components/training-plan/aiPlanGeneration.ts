@@ -32,6 +32,7 @@ export type TrainingPlanAiResult = {
   planId?: string;
   aiTokenBalance?: number;
   aiTokenRenewalAt?: string | null;
+  mode?: string;
   usage?: {
     totalTokens?: number;
     promptTokens?: number;
@@ -242,6 +243,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
           balanceAfter: typeof data.usage.balanceAfter === "number" ? data.usage.balanceAfter : undefined,
         }
       : undefined,
+    mode: typeof data?.mode === "string" ? data.mode : undefined,
     aiRequestId: typeof data?.aiRequestId === "string" ? data.aiRequestId : undefined,
     balanceAfter: typeof data?.balanceAfter === "number" ? data.balanceAfter : undefined,
     metadata: {

@@ -1012,7 +1012,7 @@
       "tokensUsed": "Tokens consumidos",
       "promptTokens": "Tokens de prompt",
       "completionTokens": "Tokens de respuesta",
-      "fallbackTokens": "Fallback (0 tokens)",
+      "fallbackTokens": "No consumidos (fallback)",
       "notAvailable": "No disponible",
       "aiRequestId": "aiRequestId",
       "currentBalance": "Balance actual",

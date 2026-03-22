@@ -352,6 +352,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiTokenRenewalAt, setAiTokenRenewalAt] = useState<string | null>(null);
   const [lastGeneratedUsage, setLastGeneratedUsage] = useState<AiUsageSummary | null>(null);
+  const [lastGeneratedMode, setLastGeneratedMode] = useState<string | null>(null);
   const [lastGeneratedAiRequestId, setLastGeneratedAiRequestId] = useState<string | null>(null);
   const [lastGeneratedPlanId, setLastGeneratedPlanId] = useState<string | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
@@ -1037,6 +1038,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         setAiTokenRenewalAt(result.aiTokenRenewalAt ?? null);
       }
       setLastGeneratedUsage(result.usage ?? null);
+      setLastGeneratedMode(typeof result.mode === "string" ? result.mode : null);
       setLastGeneratedAiRequestId(result.aiRequestId ?? null);
       setLastGeneratedPlanId(result.planId ?? null);
       setAiPreviewPlan(result.plan);
@@ -2408,11 +2410,13 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
         durationUnit={t("training.minutesLabel")}
         aiBlockTitle={t("nutrition.aiSuccessModal.aiBlockTitle")}
         tokensUsedLabel={t("nutrition.aiSuccessModal.tokensUsed")}
+        fallbackTokensLabel={t("nutrition.aiSuccessModal.fallbackTokens")}
         promptTokensLabel={t("nutrition.aiSuccessModal.promptTokens")}
         completionTokensLabel={t("nutrition.aiSuccessModal.completionTokens")}
         aiRequestIdLabel={t("nutrition.aiSuccessModal.aiRequestId")}
         remainingBalanceLabel={t("nutrition.aiSuccessModal.currentBalance")}
         notAvailableLabel={t("nutrition.aiSuccessModal.notAvailable")}
+        mode={lastGeneratedMode}
         usage={lastGeneratedUsage}
         aiRequestId={lastGeneratedAiRequestId}
         remainingBalance={resultBalancePlaceholder}

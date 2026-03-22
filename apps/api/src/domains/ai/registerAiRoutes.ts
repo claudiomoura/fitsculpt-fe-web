@@ -937,6 +937,7 @@ app.post(
         authRequest.currentEntitlements ?? getUserEntitlements(user);
 
       const shouldChargeAi = !entitlements.role.adminOverride;
+      const aiMeta = getAiTokenPayload(user, entitlements);
       if (shouldChargeAi) {
         assertSufficientAiTokenBalance(
           user,
@@ -1076,7 +1077,7 @@ app.post(
                 trainingInput.daysCount ?? expectedDays,
                 trainingInput,
               );
-              await chargeAiUsageForResult({
+              const charged = await chargeAiUsageForResult({
                 prisma: tx,
                 pricing: aiPricing,
                 user: {
@@ -1090,7 +1091,7 @@ app.post(
                 result: aiResult,
                 createHttpError,
               });
-              return { persistedPlan };
+              return { persistedPlan, charged };
             })
           : {
               persistedPlan: await saveTrainingPlan(
@@ -1101,6 +1102,7 @@ app.post(
                 trainingInput.daysCount ?? expectedDays,
                 trainingInput,
               ),
+              charged: null,
             };
 
       if (aiResult && !shouldChargeAi) {
@@ -1134,13 +1136,27 @@ app.post(
         });
       }
 
+      const isFallback = !aiResult;
       const exactUsage = extractExactProviderUsage(aiResult?.usage);
+      const responseUsage = exactUsage ?? (isFallback
+        ? { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+        : undefined);
+      const responseBalance = shouldChargeAi
+        ? savedPlan.charged?.balance ?? aiMeta.aiTokenBalance
+        : aiMeta.aiTokenBalance;
+      const responseRenewalAt = shouldChargeAi
+        ? getUserTokenExpiryAt(user)
+        : aiMeta.aiTokenRenewalAt;
       return reply.status(200).send({
         planId: savedPlan.persistedPlan.id,
         summary: summarizeTrainingPlan(resolvedPlan),
         plan: resolvedPlan,
+        mode: isFallback ? "FALLBACK" : "AI",
         aiRequestId: aiResult?.requestId ?? null,
-        ...(exactUsage ? { usage: exactUsage } : {}),
+        aiTokenBalance: responseBalance,
+        aiTokenRenewalAt: responseRenewalAt,
+        ...(shouldChargeAi ? { balanceAfter: responseBalance } : {}),
+        ...(responseUsage ? { usage: responseUsage } : {}),
       });
     } catch (error) {
       const classified = classifyAiGenerateError(error);

@@ -15,11 +15,13 @@ type Props = {
   durationUnit: string;
   aiBlockTitle: string;
   tokensUsedLabel: string;
+  fallbackTokensLabel: string;
   promptTokensLabel: string;
   completionTokensLabel: string;
   aiRequestIdLabel: string;
   remainingBalanceLabel: string;
   notAvailableLabel: string;
+  mode?: string | null;
   usage: {
     totalTokens?: number;
     promptTokens?: number;
@@ -43,11 +45,13 @@ export function AiPlanPreviewModal({
   durationUnit,
   aiBlockTitle,
   tokensUsedLabel,
+  fallbackTokensLabel,
   promptTokensLabel,
   completionTokensLabel,
   aiRequestIdLabel,
   remainingBalanceLabel,
   notAvailableLabel,
+  mode,
   usage,
   aiRequestId,
   remainingBalance,
@@ -83,11 +87,11 @@ export function AiPlanPreviewModal({
           </div>
         ))}
 
-        {(typeof usage?.totalTokens === "number" || typeof usage?.promptTokens === "number" || typeof usage?.completionTokens === "number" || aiRequestId || typeof remainingBalance === "number") ? (
+        {(mode === "FALLBACK" || typeof usage?.totalTokens === "number" || typeof usage?.promptTokens === "number" || typeof usage?.completionTokens === "number" || aiRequestId || typeof remainingBalance === "number") ? (
           <div className="feature-card">
             <p style={{ margin: 0 }}><strong>{aiBlockTitle}</strong></p>
             <ul style={{ margin: "6px 0 0", paddingInlineStart: 20 }}>
-              <li>{tokensUsedLabel}: {usage?.totalTokens ?? notAvailableLabel}</li>
+              <li>{tokensUsedLabel}: {mode === "FALLBACK" ? fallbackTokensLabel : (usage?.totalTokens ?? notAvailableLabel)}</li>
               {typeof usage?.promptTokens === "number" ? <li>{promptTokensLabel}: {usage.promptTokens}</li> : null}
               {typeof usage?.completionTokens === "number" ? <li>{completionTokensLabel}: {usage.completionTokens}</li> : null}
               {aiRequestId ? <li>{aiRequestIdLabel}: {aiRequestId}</li> : null}

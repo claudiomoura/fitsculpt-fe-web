@@ -216,7 +216,11 @@ async function run() {
   assert.equal(body.planId, "saved-plan");
   assert.ok(body.plan);
   assert.ok(body.summary);
+  assert.equal(body.mode, "AI");
   assert.equal(typeof body.aiRequestId, "string");
+  assert.equal(body.aiTokenBalance, 900);
+  assert.equal(body.balanceAfter, 900);
+  assert.deepEqual(body.usage, { promptTokens: 10, completionTokens: 20, totalTokens: 30 });
 
   response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength" } });
   assert.equal(response.statusCode, 400);
@@ -233,12 +237,18 @@ async function run() {
   assert.equal(body.kind, "internal");
   await app.close();
 
-  app = await buildApp({ callOpenAi: async () => { throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }); } });
+  app = await buildApp({
+    callOpenAi: async () => { throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }); },
+    extractExactProviderUsage: () => undefined,
+  });
   response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength", daysPerWeek: 4, experienceLevel: "beginner", constraints: [] } });
   assert.equal(response.statusCode, 200);
   body = response.json();
   assert.equal(body.planId, "saved-plan");
   assert.ok(body.plan);
+  assert.equal(body.mode, "FALLBACK");
+  assert.equal(body.aiTokenBalance, 800);
+  assert.deepEqual(body.usage, { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
   await app.close();
 
   app = await buildApp();
