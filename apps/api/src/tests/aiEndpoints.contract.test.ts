@@ -61,8 +61,14 @@ function baseDeps() {
     goal: z.string(),
     daysPerWeek: z.number().int().min(1).max(7),
     experienceLevel: z.enum(["beginner", "intermediate", "advanced"]),
-    constraints: z.array(z.string()).default([]),
+    constraints: z.union([z.string(), z.array(z.string())]).optional(),
     userId: z.string().optional(),
+    age: z.number().optional(),
+    sex: z.enum(["male", "female"]).optional(),
+    focus: z.enum(["full", "upperLower", "ppl"]).optional(),
+    equipment: z.enum(["gym", "home"]).optional(),
+    sessionTime: z.enum(["short", "medium", "long"]).optional(),
+    timeAvailableMinutes: z.number().optional(),
   });
 
   const aiTipSchema = z.object({
@@ -208,9 +214,21 @@ async function buildApp(overrides: Record<string, unknown> = {}) {
 
 async function run() {
   let app: FastifyInstance | null = null;
+  const validGeneratePayload = {
+    goal: "strength",
+    daysPerWeek: 4,
+    experienceLevel: "beginner",
+    constraints: [],
+    age: 30,
+    sex: "male",
+    focus: "full",
+    equipment: "gym",
+    sessionTime: "medium",
+    timeAvailableMinutes: 45,
+  };
 
   app = await buildApp();
-  let response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength", daysPerWeek: 4, experienceLevel: "beginner", constraints: [] } });
+  let response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: validGeneratePayload });
   assert.equal(response.statusCode, 200);
   let body = response.json();
   assert.equal(body.planId, "saved-plan");
@@ -223,7 +241,75 @@ async function run() {
   assert.deepEqual(body.usage, { promptTokens: 10, completionTokens: 20, totalTokens: 30 });
   assert.equal(body.costCents, 1);
   assert.equal(body.costEur, 0.01);
+  await app.close();
 
+  app = await buildApp({
+    getCachedAiPayload: async () => ({
+      planId: "cached-plan-id",
+      plan: {
+        title: "cached",
+        days: [
+          {
+            date: "2026-01-01",
+            label: "Día 1",
+            focus: "Full",
+            duration: 45,
+            exercises: [
+              { exerciseId: "ex_001", name: "Press banca", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_002", name: "Sentadilla", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_003", name: "Remo", sets: 3, reps: "8-10" },
+            ],
+          },
+          {
+            date: "2026-01-02",
+            label: "Día 2",
+            focus: "Full",
+            duration: 45,
+            exercises: [
+              { exerciseId: "ex_001", name: "Press banca", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_002", name: "Sentadilla", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_003", name: "Remo", sets: 3, reps: "8-10" },
+            ],
+          },
+          {
+            date: "2026-01-03",
+            label: "Día 3",
+            focus: "Full",
+            duration: 45,
+            exercises: [
+              { exerciseId: "ex_001", name: "Press banca", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_002", name: "Sentadilla", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_003", name: "Remo", sets: 3, reps: "8-10" },
+            ],
+          },
+          {
+            date: "2026-01-04",
+            label: "Día 4",
+            focus: "Full",
+            duration: 45,
+            exercises: [
+              { exerciseId: "ex_001", name: "Press banca", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_002", name: "Sentadilla", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_003", name: "Remo", sets: 3, reps: "8-10" },
+            ],
+          },
+        ],
+      },
+      summary: { days: 4 },
+      mode: "AI",
+      aiRequestId: "cached-request-id",
+    }),
+  });
+  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: validGeneratePayload });
+  assert.equal(response.statusCode, 200);
+  body = response.json();
+  assert.equal(body.mode, "CACHE");
+  assert.equal(body.planId, "cached-plan-id");
+  assert.deepEqual(body.usage, { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+  assert.equal(body.costCents, 0);
+  await app.close();
+
+  app = await buildApp();
   response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength" } });
   assert.equal(response.statusCode, 400);
   body = response.json();
@@ -232,7 +318,7 @@ async function run() {
   await app.close();
 
   app = await buildApp({ assertSufficientAiTokenBalance: () => { throw httpError(429, "AI_QUOTA_EXCEEDED", { kind: "quota" }); } });
-  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength", daysPerWeek: 4, experienceLevel: "beginner", constraints: [] } });
+  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: validGeneratePayload });
   assert.equal(response.statusCode, 429);
   body = response.json();
   assert.equal(body.error, "AI_QUOTA_EXCEEDED");
@@ -243,7 +329,7 @@ async function run() {
     callOpenAi: async () => { throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }); },
     extractExactProviderUsage: () => undefined,
   });
-  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength", daysPerWeek: 4, experienceLevel: "beginner", constraints: [] } });
+  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: validGeneratePayload });
   assert.equal(response.statusCode, 200);
   body = response.json();
   assert.equal(body.planId, "saved-plan");

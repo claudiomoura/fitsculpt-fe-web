@@ -1621,7 +1621,24 @@ const aiGenerateTrainingSchema = z.object({
   daysPerWeek: z.number().int().min(1).max(7),
   goal: z.enum(["cut", "maintain", "bulk"]),
   experienceLevel: z.enum(["beginner", "intermediate", "advanced"]),
-  constraints: z.string().optional(),
+  constraints: z.union([z.string(), z.array(z.string())]).optional(),
+  aiRequestId: z.string().uuid().optional(),
+  name: z.string().min(1).optional(),
+  age: z.number().int().min(10).max(100).optional(),
+  sex: z.enum(["male", "female"]).optional(),
+  focus: z.enum(["full", "upperLower", "ppl"]).optional(),
+  equipment: z.enum(["gym", "home"]).optional(),
+  sessionTime: z.enum(["short", "medium", "long"]).optional(),
+  timeAvailableMinutes: z.number().int().min(20).max(120).optional(),
+  startDate: z.string().min(1).optional(),
+  daysCount: z.number().int().min(1).max(14).optional(),
+  includeCardio: z.boolean().optional(),
+  includeMobilityWarmups: z.boolean().optional(),
+  workoutLength: z.enum(["30m", "45m", "60m", "flexible"]).optional(),
+  timerSound: z.enum(["ding", "repsToDo"]).optional(),
+  injuries: z.string().optional(),
+  restrictions: z.string().optional(),
+  goals: z.array(goalTagSchema).optional(),
 });
 
 const aiGenerateNutritionSchema = z.object({
@@ -2499,40 +2516,31 @@ function buildTrainingPrompt(
   const timerSound = data.timerSound ?? "no especificado";
   const injuries = data.injuries?.trim() || "ninguna";
   const daysCount = Math.min(data.daysCount ?? data.daysPerWeek, 14);
+  const catalogInstruction = exerciseCatalogPrompt
+    ? `Usa SOLO exerciseId existentes en catálogo (id:nombre): ${exerciseCatalogPrompt}`
+    : "";
   return [
-    "Eres un entrenador personal senior. Devuelve SOLO un objeto JSON válido, sin markdown ni texto extra.",
-    "Esquema exacto:",
-    '{"title":string,"startDate":string|null,"notes":string|null,"days":[{"date":string|null,"label":string,"focus":string,"duration":number,"exercises":[{"exerciseId":string,"name":string,"sets":number,"reps":string|null,"tempo":string|null,"rest":number|null,"notes":string|null}]}]}',
-    "Usa ejercicios reales acordes al equipo disponible. No incluyas máquinas si el equipo es solo en casa.",
-    exerciseCatalogPrompt
-      ? `OBLIGATORIO: para CADA ejercicio debes elegir un exerciseId de esta biblioteca, sin excepciones. No inventes IDs, no dejes null. Biblioteca (id: nombre): ${exerciseCatalogPrompt}`
-      : "",
-    "OBLIGATORIO: days.length debe ser EXACTAMENTE el número solicitado (si >7 usa 7).",
-    "Máximo 7 días, máximo 5 ejercicios por día, mínimo 3 ejercicios por día.",
+    "Eres entrenador personal senior. Responde SOLO JSON valido, sin markdown.",
+    "Formato exacto: {title,startDate,notes,days:[{date,label,focus,duration,exercises:[{exerciseId,name,sets,reps,tempo,rest,notes}]}]}.",
+    "days.length debe ser EXACTAMENTE diasPerWeek (max 7). Cada dia: 3-5 ejercicios.",
+    "No inventes exerciseId ni entidades; todos los exerciseId deben existir en el catalogo.",
+    catalogInstruction,
     strict
-      ? "REINTENTO: si devuelves menos o más días, la respuesta será rechazada."
+      ? "REINTENTO: corrige dias exactos y volumen por nivel o se rechaza."
       : "",
-    "Respeta el nivel del usuario:",
-    "- principiante: ejercicios básicos y seguros, 3-4 ejercicios por sesión, 30-50 minutos.",
-    "- intermedio/avanzado: 4-5 ejercicios por sesión, básicos multiarticulares, 40-60 minutos.",
-    "Evita volúmenes absurdos y mantén descansos coherentes.",
-    `Perfil: Edad ${data.age}, sexo ${data.sex}, nivel ${data.level}, objetivo ${data.goal}.`,
-    `Objetivos secundarios: ${secondaryGoals}. Cardio incluido: ${cardio}. Movilidad/warm-ups: ${mobility}.`,
-    `Duración preferida por sesión: ${workoutLength}. Sonido del timer: ${timerSound}.`,
-    `Días/semana ${data.daysPerWeek}, enfoque ${data.focus}, equipo ${data.equipment}.`,
+    "Nivel: beginner (3-4 ejercicios, 30-50 min), intermedio/avanzado (4-5 ejercicios, 40-60 min).",
+    "Evita volumen excesivo y descansos incoherentes.",
+    `Perfil: edad ${data.age}, sexo ${data.sex}, nivel ${data.level}, objetivo ${data.goal}.`,
+    `Secundarios: ${secondaryGoals}. Cardio: ${cardio}. Movilidad: ${mobility}.`,
+    `Sesion preferida: ${workoutLength}. Timer: ${timerSound}.`,
+    `Dias/semana ${data.daysPerWeek}, enfoque ${data.focus}, equipo ${data.equipment}.`,
     `Tiempo disponible por sesión ${data.timeAvailableMinutes} min. Restricciones/lesiones: ${
       data.restrictions ?? injuries
     }.`,
-    "Estructura según el enfoque:",
-    "- full: cuerpo completo cada día.",
-    "- upperLower: alterna upper/lower empezando por upper.",
-    "- ppl: rota push, pull, legs en orden.",
-    'Usa days.length = días por semana (límite 7). label en español consistente (ej: "Día 1", "Día 2").',
-    `Asigna date (YYYY-MM-DD) iniciando en ${data.startDate ?? "la fecha indicada"} y distribuye ${data.daysPerWeek} sesiones dentro de ${daysCount} días.`,
-    "En cada día incluye duration en minutos (number).",
-    "En cada ejercicio incluye exerciseId (string obligatorio y existente en biblioteca), name (español), sets (number) y reps (string). tempo/rest/notes solo si son cortos.",
-    "Ejemplo EXACTO de JSON (solo ejemplo, respeta tipos y campos):",
-    '{"title":"Plan semanal compacto","startDate":"2024-01-01","notes":"Enfoque simple.","days":[{"date":"2024-01-01","label":"Día 1","focus":"Full body","duration":45,"exercises":[{"exerciseId":"ex_001","name":"Sentadilla","sets":3,"reps":"8-10"},{"exerciseId":"ex_002","name":"Press banca","sets":3,"reps":"8-10"},{"exerciseId":"ex_003","name":"Remo con barra","sets":3,"reps":"8-10"}]}]}',
+    "Estructura por enfoque: full=full body; upperLower=alterna upper/lower; ppl=push-pull-legs.",
+    `Asigna date (YYYY-MM-DD) desde ${data.startDate ?? "fecha indicada"} y distribuye sesiones en ${daysCount} dias.`,
+    'Labels en espanol consistentes (ej: "Dia 1", "Dia 2").',
+    "En cada ejercicio incluye exerciseId, name, sets y reps; tempo/rest/notes breves solo si aportan.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -3888,7 +3896,7 @@ const exerciseMetadataByName: Record<
 
 function formatExerciseCatalogForPrompt(
   catalog: ExerciseCatalogItem[],
-  limit = 120,
+  limit = 80,
 ) {
   if (!catalog.length) return "";
   return catalog
@@ -9517,6 +9525,10 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
 
+    const trackingRaw = membership.user.profile?.tracking ?? null;
+    const trackingRecord = isRecord(trackingRaw) ? (trackingRaw as Record<string, unknown>) : null;
+    const rawCheckins = trackingRecord && Array.isArray(trackingRecord.checkins) ? trackingRecord.checkins : [];
+
     return {
       id: membership.user.id,
       name: membership.user.name,
@@ -9526,7 +9538,10 @@ app.get("/trainer/clients/:userId", async (request, reply) => {
       subscriptionStatus: membership.user.subscriptionStatus,
       lastLoginAt: membership.user.lastLoginAt,
       assignedPlan: membership.assignedTrainingPlan,
-      metrics: parseClientMetrics(membership.user.profile?.profile ?? null, membership.user.profile?.tracking ?? null),
+      metrics: parseClientMetrics(membership.user.profile?.profile ?? null, trackingRaw),
+      tracking: {
+        checkins: rawCheckins.filter((entry) => isRecord(entry) && typeof (entry as Record<string, unknown>).date === "string"),
+      },
     };
   } catch (error) {
     return handleRequestError(reply, error);

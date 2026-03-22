@@ -82,7 +82,6 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
     aiNutritionPlanResponseSchema,
     resolveTrainingPlanWithDeterministicFallback,
     assertTrainingLevelConsistency,
-    upsertExercisesFromPlan,
     classifyAiGenerateError,
     findInvalidTrainingPlanExerciseIds,
     resolveTrainingPlanExerciseIdsWithCatalog,
@@ -132,6 +131,45 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
 
   const toEurAmount = (costCents: number) =>
     Number((Math.max(0, costCents) / 100).toFixed(2));
+
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+  const readString = (value: unknown) =>
+    typeof value === "string" && value.trim().length > 0
+      ? value.trim()
+      : null;
+
+  const readNumber = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+
+  const resolveMinutesFromWorkoutLength = (value: string | null) => {
+    if (value === "30m") return 30;
+    if (value === "45m") return 45;
+    if (value === "60m") return 60;
+    return null;
+  };
+
+  const resolveMinutesFromSessionTime = (value: string | null) => {
+    if (value === "short") return 35;
+    if (value === "medium") return 50;
+    if (value === "long") return 65;
+    return null;
+  };
+
+  const normalizeConstraints = (value: unknown) => {
+    if (typeof value === "string") {
+      return value.trim();
+    }
+    if (Array.isArray(value)) {
+      return value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join("; ");
+    }
+    return "";
+  };
 
 app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
@@ -1014,36 +1052,247 @@ app.post(
         });
       }
 
+      const profileRow = await prisma.userProfile.findUnique({
+        where: { userId: user.id },
+        select: { profile: true },
+      });
+      const profileData = isRecord(profileRow?.profile)
+        ? profileRow.profile
+        : {};
+      const profileTrainingPreferences = isRecord(
+        profileData.trainingPreferences,
+      )
+        ? profileData.trainingPreferences
+        : {};
+
+      const profileSexRaw = readString(profileData.sex);
+      const profileSex =
+        profileSexRaw === "male" || profileSexRaw === "female"
+          ? profileSexRaw
+          : null;
+      const profileFocusRaw = readString(profileTrainingPreferences.focus);
+      const profileFocus =
+        profileFocusRaw === "full" ||
+        profileFocusRaw === "upperLower" ||
+        profileFocusRaw === "ppl"
+          ? profileFocusRaw
+          : null;
+      const profileEquipmentRaw = readString(profileTrainingPreferences.equipment);
+      const profileEquipment =
+        profileEquipmentRaw === "gym" || profileEquipmentRaw === "home"
+          ? profileEquipmentRaw
+          : null;
+      const profileSessionTimeRaw = readString(
+        profileTrainingPreferences.sessionTime,
+      );
+      const profileSessionTime =
+        profileSessionTimeRaw === "short" ||
+        profileSessionTimeRaw === "medium" ||
+        profileSessionTimeRaw === "long"
+          ? profileSessionTimeRaw
+          : null;
+      const profileWorkoutLengthRaw = readString(
+        profileTrainingPreferences.workoutLength,
+      );
+      const profileWorkoutLength =
+        profileWorkoutLengthRaw === "30m" ||
+        profileWorkoutLengthRaw === "45m" ||
+        profileWorkoutLengthRaw === "60m" ||
+        profileWorkoutLengthRaw === "flexible"
+          ? profileWorkoutLengthRaw
+          : null;
+      const profileTimerRaw = readString(profileTrainingPreferences.timerSound);
+      const profileTimerSound =
+        profileTimerRaw === "ding" || profileTimerRaw === "repsToDo"
+          ? profileTimerRaw
+          : null;
+
+      const resolvedAge = payload.age ?? readNumber(profileData.age);
+      const resolvedSex = payload.sex ?? profileSex;
+      const resolvedFocus = payload.focus ?? profileFocus;
+      const resolvedEquipment = payload.equipment ?? profileEquipment;
+      const resolvedSessionTime = payload.sessionTime ?? profileSessionTime;
+      const resolvedWorkoutLength =
+        payload.workoutLength ?? profileWorkoutLength ?? undefined;
+      const resolvedTimerSound = payload.timerSound ?? profileTimerSound ?? undefined;
+      const resolvedTimeAvailableMinutes =
+        payload.timeAvailableMinutes ??
+        readNumber(profileData.timeAvailableMinutes) ??
+        resolveMinutesFromWorkoutLength(resolvedWorkoutLength ?? null) ??
+        resolveMinutesFromSessionTime(resolvedSessionTime ?? null);
+      const combinedRestrictions = [
+        normalizeConstraints(payload.constraints),
+        readString(payload.restrictions),
+        readString(profileData.notes),
+      ]
+        .filter(Boolean)
+        .join(" | ");
+      const resolvedInjuries =
+        readString(payload.injuries) ?? readString(profileData.injuries) ?? undefined;
+
+      const missingContext: string[] = [];
+      if (resolvedAge === null) missingContext.push("age");
+      if (!resolvedSex) missingContext.push("sex");
+      if (!resolvedFocus) missingContext.push("focus");
+      if (!resolvedEquipment) missingContext.push("equipment");
+      if (!resolvedSessionTime) missingContext.push("sessionTime");
+      if (resolvedTimeAvailableMinutes === null) {
+        missingContext.push("timeAvailableMinutes");
+      }
+      if (missingContext.length > 0) {
+        throw createHttpError(409, "PROFILE_INCOMPLETE", {
+          message:
+            "Missing required context for training generation. Complete profile or send fields in request.",
+          missingContext,
+        });
+      }
+
       const exerciseCatalog = await loadExerciseCatalogForAi();
       const trainingRequest = {
         goal: payload.goal,
-        daysPerWeek: Math.min(payload.daysPerWeek ?? 3, 7),
+        daysPerWeek: Math.min(payload.daysPerWeek, 7),
         level: mapExperienceLevelToTrainingPlanLevel(payload.experienceLevel),
         experienceLevel: payload.experienceLevel,
-        focus: "full" as const,
-        equipment: "gym" as const,
+        focus: resolvedFocus,
+        equipment: resolvedEquipment,
       };
       const trainingPromptInput: z.infer<typeof aiTrainingSchema> = {
-        age: 30,
-        sex: "male",
+        name: payload.name ?? readString(profileData.name) ?? undefined,
+        age: resolvedAge,
+        sex: resolvedSex,
         level: trainingRequest.level,
         goal: trainingRequest.goal,
         equipment: trainingRequest.equipment,
         daysPerWeek: trainingRequest.daysPerWeek,
-        daysCount: trainingRequest.daysPerWeek,
-        sessionTime: "medium",
+        daysCount: payload.daysCount ?? payload.daysPerWeek,
+        startDate: payload.startDate,
+        sessionTime: resolvedSessionTime,
         focus: trainingRequest.focus,
-        timeAvailableMinutes: 45,
-        restrictions: payload.constraints,
+        timeAvailableMinutes: resolvedTimeAvailableMinutes,
+        includeCardio:
+          payload.includeCardio ??
+          (typeof profileTrainingPreferences.includeCardio === "boolean"
+            ? profileTrainingPreferences.includeCardio
+            : undefined),
+        includeMobilityWarmups:
+          payload.includeMobilityWarmups ??
+          (typeof profileTrainingPreferences.includeMobilityWarmups === "boolean"
+            ? profileTrainingPreferences.includeMobilityWarmups
+            : undefined),
+        workoutLength: resolvedWorkoutLength,
+        timerSound: resolvedTimerSound,
+        injuries: resolvedInjuries,
+        restrictions: combinedRestrictions || resolvedInjuries,
+        goals:
+          payload.goals ??
+          (Array.isArray(profileData.goals)
+            ? profileData.goals.filter(
+                (item: unknown): item is
+                  | "buildStrength"
+                  | "loseFat"
+                  | "betterHealth"
+                  | "moreEnergy"
+                  | "tonedMuscles" =>
+                  item === "buildStrength" ||
+                  item === "loseFat" ||
+                  item === "betterHealth" ||
+                  item === "moreEnergy" ||
+                  item === "tonedMuscles",
+              )
+            : undefined),
       };
       const startDate = parseDateInput(trainingPromptInput.startDate) ?? new Date();
-      const expectedDays = Math.min(payload.daysPerWeek ?? 3, 7);
+      const expectedDays = Math.min(payload.daysPerWeek, 7);
 
       const trainingInput = {
         ...trainingRequest,
         daysPerWeek: expectedDays,
         daysCount: trainingPromptInput.daysCount ?? expectedDays,
       };
+      const trainingCacheFingerprint = {
+        userId: user.id,
+        goal: trainingRequest.goal,
+        level: trainingRequest.level,
+        experienceLevel: trainingRequest.experienceLevel,
+        daysPerWeek: trainingInput.daysPerWeek,
+        daysCount: trainingInput.daysCount,
+        age: trainingPromptInput.age,
+        sex: trainingPromptInput.sex,
+        focus: trainingPromptInput.focus,
+        equipment: trainingPromptInput.equipment,
+        sessionTime: trainingPromptInput.sessionTime,
+        timeAvailableMinutes: trainingPromptInput.timeAvailableMinutes,
+        restrictions: trainingPromptInput.restrictions ?? "",
+      };
+      const requestIdCacheKey = payload.aiRequestId
+        ? buildCacheKey("training-generate:request:v1", {
+            userId: user.id,
+            aiRequestId: payload.aiRequestId,
+          })
+        : null;
+      const fingerprintCacheKey = buildCacheKey(
+        "training-generate:v1",
+        trainingCacheFingerprint,
+      );
+      const cacheKeys = requestIdCacheKey
+        ? [requestIdCacheKey, fingerprintCacheKey]
+        : [fingerprintCacheKey];
+
+      for (const key of cacheKeys) {
+        const cached = await getCachedAiPayload(key);
+        if (!cached || !isRecord(cached)) continue;
+        const cachedPlanPayload = isRecord(cached.plan)
+          ? cached.plan
+          : cached;
+        try {
+          const parsedCachedPlan = parseTrainingPlanPayload(
+            cachedPlanPayload,
+            startDate,
+            trainingInput.daysCount ?? expectedDays,
+            expectedDays,
+          );
+          assertTrainingMatchesRequest(parsedCachedPlan, expectedDays);
+          assertTrainingLevelConsistency(parsedCachedPlan, payload.experienceLevel);
+          const resolvedCachedPlan = resolveTrainingPlanWithDeterministicFallback(
+            parsedCachedPlan,
+            exerciseCatalog,
+            {
+              daysPerWeek: trainingInput.daysPerWeek,
+              level: trainingInput.level,
+              goal: trainingInput.goal,
+              equipment: trainingInput.equipment,
+            },
+            startDate,
+            { userId: user.id, route: "/ai/training-plan/generate" },
+          );
+          const summary =
+            isRecord(cached.summary) || Array.isArray(cached.summary)
+              ? cached.summary
+              : summarizeTrainingPlan(resolvedCachedPlan);
+          return reply.status(200).send({
+            planId: typeof cached.planId === "string" ? cached.planId : undefined,
+            summary,
+            plan: resolvedCachedPlan,
+            mode: "CACHE",
+            aiRequestId:
+              typeof cached.aiRequestId === "string"
+                ? cached.aiRequestId
+                : payload.aiRequestId ?? null,
+            aiTokenBalance: aiMeta.aiTokenBalance,
+            aiTokenRenewalAt: aiMeta.aiTokenRenewalAt,
+            usage: ZERO_AI_USAGE,
+            costCents: 0,
+            costEur: 0,
+            balanceBefore: aiMeta.aiTokenBalance,
+            balanceAfter: aiMeta.aiTokenBalance,
+          });
+        } catch (error) {
+          app.log.warn(
+            { err: error, key },
+            "cached training-generate payload invalid, regenerating",
+          );
+        }
+      }
 
       let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null =
         null;
@@ -1052,15 +1301,11 @@ app.post(
 
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
-          const prompt = `${buildTrainingPrompt(
+          const prompt = buildTrainingPrompt(
             trainingPromptInput,
             attempt > 0,
             formatExerciseCatalogForPrompt(exerciseCatalog),
-          )} ${
-            attempt > 0
-              ? "REINTENTO OBLIGATORIO: corrige la salida para que cumpla exactamente los días solicitados y volumen por nivel."
-              : ""
-          }`;
+          );
 
           const result = await callOpenAi(
             prompt,
@@ -1076,7 +1321,7 @@ app.post(
                 },
               },
               model: "gpt-4o-mini",
-              maxTokens: 4000,
+              maxTokens: 1800,
               retryOnParseError: false,
             },
           );
@@ -1125,8 +1370,6 @@ app.post(
         { userId: user.id, route: "/ai/training-plan/generate" },
       );
 
-      await upsertExercisesFromPlan(resolvedPlan);
-
       const savedPlan =
         aiResult && shouldChargeAi
           ? await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -1165,6 +1408,21 @@ app.post(
               ),
               charged: null,
             };
+      const summary = summarizeTrainingPlan(resolvedPlan);
+      try {
+        const cachePayload: Record<string, unknown> = {
+          plan: resolvedPlan,
+          summary,
+          planId: savedPlan.persistedPlan.id,
+          mode: aiResult ? "AI" : "FALLBACK",
+          aiRequestId: aiResult?.requestId ?? payload.aiRequestId ?? null,
+        };
+        await Promise.all(
+          cacheKeys.map((key) => saveCachedAiPayload(key, "training", cachePayload)),
+        );
+      } catch (error) {
+        app.log.warn({ err: error, cacheKeys }, "training-generate cache save failed");
+      }
 
       if (aiResult && !shouldChargeAi) {
         await persistAiUsageLog({
@@ -1199,9 +1457,7 @@ app.post(
 
       const isFallback = !aiResult;
       const exactUsage = extractExactProviderUsage(aiResult?.usage);
-      const responseUsage = exactUsage ?? (isFallback
-        ? { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
-        : undefined);
+      const responseUsage = exactUsage ?? savedPlan.charged?.usage ?? ZERO_AI_USAGE;
       const responseBalance = shouldChargeAi
         ? savedPlan.charged?.balance ?? aiMeta.aiTokenBalance
         : aiMeta.aiTokenBalance;
@@ -1209,19 +1465,22 @@ app.post(
       const responseRenewalAt = shouldChargeAi
         ? getUserTokenExpiryAt(user)
         : aiMeta.aiTokenRenewalAt;
+      const balanceBefore = shouldChargeAi
+        ? getEffectiveTokenBalance(user)
+        : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         planId: savedPlan.persistedPlan.id,
-        summary: summarizeTrainingPlan(resolvedPlan),
+        summary,
         plan: resolvedPlan,
         mode: isFallback ? "FALLBACK" : "AI",
         aiRequestId: aiResult?.requestId ?? null,
         aiTokenBalance: responseBalance,
         aiTokenRenewalAt: responseRenewalAt,
+        usage: responseUsage,
         costCents: responseCostCents,
         costEur: toEurAmount(responseCostCents),
-        balanceBefore: aiMeta.aiTokenBalance,
+        balanceBefore,
         balanceAfter: responseBalance,
-        ...(responseUsage ? { usage: responseUsage } : {}),
       });
     } catch (error) {
       const classified = classifyAiGenerateError(error);

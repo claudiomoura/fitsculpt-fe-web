@@ -69,6 +69,9 @@ describe("requestAiTrainingPlan", () => {
           },
           mode: "FALLBACK",
           usage: { totalTokens: 0, promptTokens: 0, completionTokens: 0 },
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: 44444,
           aiTokenBalance: 44444,
           balanceAfter: 44444,
         }),
@@ -87,6 +90,9 @@ describe("requestAiTrainingPlan", () => {
     ).resolves.toMatchObject({
       mode: "FALLBACK",
       usage: { totalTokens: 0, promptTokens: 0, completionTokens: 0 },
+      costCents: 0,
+      costEur: 0,
+      balanceBefore: 44444,
       aiTokenBalance: 44444,
       balanceAfter: 44444,
     });

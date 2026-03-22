@@ -255,24 +255,35 @@ export default function TrainerClientContextClient() {
 
 
 
-  const trackingEntries = useMemo(() => {
-    if (!client) return [] as Array<{ key: string; value: string }>;
-
-    const tracking =
-      typeof client.raw.tracking === "object" && client.raw.tracking !== null
-        ? (client.raw.tracking as Record<string, unknown>)
-        : null;
-
-    if (!tracking) return [] as Array<{ key: string; value: string }>;
-
-    return Object.entries(tracking)
-      .map(([key, value]) => {
-        const normalizedValue = asString(value);
-        if (!normalizedValue) return null;
-        return { key, value: normalizedValue };
-      })
-      .filter((entry): entry is { key: string; value: string } => Boolean(entry));
+  const clientMetrics = useMemo(() => {
+    if (!client) return null;
+    const metrics = client.raw.metrics;
+    if (typeof metrics !== "object" || metrics === null) return null;
+    return metrics as Record<string, unknown>;
   }, [client]);
+
+  const latestCheckin = useMemo(() => {
+    if (!client) return null;
+    const tracking = client.raw.tracking;
+    if (typeof tracking !== "object" || tracking === null) return null;
+    const t = tracking as Record<string, unknown>;
+    if (!Array.isArray(t.checkins) || t.checkins.length === 0) return null;
+    const sorted = [...t.checkins]
+      .filter((e) => typeof e === "object" && e !== null && typeof (e as Record<string, unknown>).date === "string")
+      .sort((a, b) => {
+        const da = Date.parse(String((a as Record<string, unknown>).date));
+        const db = Date.parse(String((b as Record<string, unknown>).date));
+        return Number.isFinite(db) && Number.isFinite(da) ? db - da : 0;
+      });
+    return sorted[0] as Record<string, unknown> | null;
+  }, [client]);
+
+  const profileMeasurements = useMemo(() => {
+    if (!clientMetrics) return null;
+    const m = clientMetrics.measurements;
+    if (typeof m !== "object" || m === null) return null;
+    return m as Record<string, unknown>;
+  }, [clientMetrics]);
 
   const hasPlanData = useMemo(() => {
     if (!client) return false;
@@ -499,15 +510,107 @@ export default function TrainerClientContextClient() {
       {activeTab === "progress" ? (
         <section id="trainer-client-tabpanel-progress" role="tabpanel" aria-labelledby="trainer-client-tab-progress" className="card form-stack">
           <h3 style={{ margin: 0 }}>{t("trainer.clientContext.progress.title")}</h3>
-          {trackingEntries.length === 0 ? (
+
+          {!clientMetrics && !latestCheckin ? (
             <p className="muted" style={{ margin: 0 }}>{t("trainer.clientContext.progress.empty")}</p>
-          ) : (
-            <ul className="form-stack" style={{ margin: 0, paddingInlineStart: 20 }}>
-              {trackingEntries.map((entry) => (
-                <li key={entry.key}><span style={{ fontWeight: 600 }}>{entry.key}:</span> {entry.value}</li>
-              ))}
-            </ul>
-          )}
+          ) : null}
+
+          {clientMetrics ? (
+            <div className="form-stack" style={{ gap: 12 }}>
+              <h4 className="muted" style={{ margin: 0, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Perfil</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+                {typeof clientMetrics.heightCm === "number" ? (
+                  <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                    <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Altura</p>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{clientMetrics.heightCm} cm</p>
+                  </div>
+                ) : null}
+                {typeof clientMetrics.weightKg === "number" ? (
+                  <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                    <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Peso</p>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{clientMetrics.weightKg} kg</p>
+                  </div>
+                ) : null}
+                {typeof clientMetrics.goalWeightKg === "number" ? (
+                  <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                    <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Peso objetivo</p>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{clientMetrics.goalWeightKg} kg</p>
+                  </div>
+                ) : null}
+                {typeof clientMetrics.activity === "string" ? (
+                  <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                    <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Actividad</p>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{clientMetrics.activity}</p>
+                  </div>
+                ) : null}
+              </div>
+
+              {profileMeasurements ? (
+                <>
+                  <h4 className="muted" style={{ margin: 0, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Medidas</h4>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+                    {(["Pecho", "Cintura", "Cadera", "Bíceps", "Muslo", "Pantorrilla", "Cuello", "% Grasa"] as const).map((label, i) => {
+                      const keys = ["chestCm", "waistCm", "hipsCm", "bicepsCm", "thighCm", "calfCm", "neckCm", "bodyFatPercent"] as const;
+                      const units = ["cm", "cm", "cm", "cm", "cm", "cm", "cm", "%"];
+                      const value = profileMeasurements[keys[i]];
+                      if (typeof value !== "number") return null;
+                      return (
+                        <div key={label} style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                          <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>{label}</p>
+                          <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{value} {units[i]}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
+
+              {latestCheckin ? (
+                <>
+                  <h4 className="muted" style={{ margin: 0, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Último check-in</h4>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+                    {typeof latestCheckin.date === "string" ? (
+                      <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                        <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Fecha</p>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{new Date(String(latestCheckin.date)).toLocaleDateString()}</p>
+                      </div>
+                    ) : null}
+                    {typeof latestCheckin.weightKg === "number" && latestCheckin.weightKg > 0 ? (
+                      <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                        <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Peso</p>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{latestCheckin.weightKg} kg</p>
+                      </div>
+                    ) : null}
+                    {typeof latestCheckin.bodyFatPercent === "number" && latestCheckin.bodyFatPercent > 0 ? (
+                      <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                        <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Grasa corporal</p>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{latestCheckin.bodyFatPercent}%</p>
+                      </div>
+                    ) : null}
+                    {typeof latestCheckin.energy === "number" && latestCheckin.energy > 0 ? (
+                      <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                        <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Energía</p>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{latestCheckin.energy}/10</p>
+                      </div>
+                    ) : null}
+                    {typeof latestCheckin.hunger === "number" && latestCheckin.hunger > 0 ? (
+                      <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                        <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Hambre</p>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: "0.9rem" }}>{latestCheckin.hunger}/10</p>
+                      </div>
+                    ) : null}
+                  </div>
+                  {typeof latestCheckin.notes === "string" && latestCheckin.notes.trim().length > 0 ? (
+                    <div style={{ padding: "8px 12px", borderRadius: 12, background: "var(--bg-muted, rgba(0,0,0,0.04))" }}>
+                      <p className="muted" style={{ margin: 0, fontSize: "0.7rem" }}>Notas del check-in</p>
+                      <p style={{ margin: "4px 0 0", fontSize: "0.85rem" }}>{latestCheckin.notes}</p>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
           {client.lastLoginAt ? <p className="muted" style={{ margin: 0 }}>{`${t("trainer.clientContext.progress.lastLoginAt")}: ${new Date(client.lastLoginAt).toLocaleString()}`}</p> : null}
         </section>
       ) : null}

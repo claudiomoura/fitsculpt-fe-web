@@ -9,7 +9,7 @@ import { createTransition } from "../motion";
 import { WorkoutProgressBar } from "./WorkoutProgressBar";
 import { ExerciseThumbnail } from "@/components/exercises/ExerciseThumbnail";
 
-export type ExerciseCardCompactProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+export type ExerciseCardCompactProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "name"> & {
   name: ReactNode;
   detail?: ReactNode;
   volume?: ReactNode;
