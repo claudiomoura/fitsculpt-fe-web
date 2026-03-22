@@ -146,7 +146,8 @@
     "chatSending": "A consultar...",
     "chatReplyTitle": "Resposta do assistente",
     "chatEmpty": "Escreve uma mensagem antes de enviar.",
-    "chatError": "Não foi possível gerar uma resposta contextual agora."
+    "chatError": "Não foi possível gerar uma resposta contextual agora.",
+    "chatUsage": "Consumo IA: {tokens} tokens · {eur} EUR"
   },
   "onboarding": {
     "defaultsHint": "Valores orientativos não médicos. Pode editá-los quando quiser."

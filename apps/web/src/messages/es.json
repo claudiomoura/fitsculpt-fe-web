@@ -2173,6 +2173,7 @@
     "chatReplyTitle": "Respuesta del asistente",
     "chatEmpty": "Escribe un mensaje antes de enviar.",
     "chatError": "No pudimos generar una respuesta contextual en este momento.",
+    "chatUsage": "Consumo IA: {tokens} tokens · {eur} EUR",
     "tipError": "No pudimos generar el tip diario.",
     "errorLoad": "No pudimos cargar el feed.",
     "errorGenerate": "No pudimos generar el resumen.",

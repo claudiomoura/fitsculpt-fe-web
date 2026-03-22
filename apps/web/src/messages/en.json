@@ -2170,6 +2170,7 @@
     "chatReplyTitle": "Assistant reply",
     "chatEmpty": "Write a message before sending.",
     "chatError": "We couldn't generate a contextual answer right now.",
+    "chatUsage": "AI usage: {tokens} tokens · {eur} EUR",
     "tipError": "We couldn't generate the daily tip.",
     "errorLoad": "We couldn't load the feed.",
     "errorGenerate": "We couldn't generate the summary.",

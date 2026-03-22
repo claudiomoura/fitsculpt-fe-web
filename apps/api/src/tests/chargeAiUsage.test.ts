@@ -120,8 +120,8 @@ function buildPrismaMock(initialBalance: number) {
 async function run() {
   const pricing = {
     "gpt-4o-mini": {
-      inputPer1k: 0.01,
-      outputPer1k: 0.03,
+      inputPer1M: 10,
+      outputPer1M: 30,
     },
   };
 
@@ -189,6 +189,7 @@ async function run() {
 
     assert.equal(first.balanceAfter, 380);
     assert.equal(first.tokensSpent, 120);
+    assert.equal(first.costEur, 0.01);
     assert.equal(first.idempotentReplay, false);
 
     const replay = await chargeAiUsageForResult({
@@ -217,6 +218,7 @@ async function run() {
 
     assert.equal(replay.balanceAfter, 380);
     assert.equal(replay.tokensSpent, 0);
+    assert.equal(replay.costEur, 0.01);
     assert.equal(replay.idempotentReplay, true);
     assert.equal(state.updateManyCalls, 1);
   }

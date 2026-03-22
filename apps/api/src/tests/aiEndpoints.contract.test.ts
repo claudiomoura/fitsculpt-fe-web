@@ -221,6 +221,8 @@ async function run() {
   assert.equal(body.aiTokenBalance, 900);
   assert.equal(body.balanceAfter, 900);
   assert.deepEqual(body.usage, { promptTokens: 10, completionTokens: 20, totalTokens: 30 });
+  assert.equal(body.costCents, 1);
+  assert.equal(body.costEur, 0.01);
 
   response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength" } });
   assert.equal(response.statusCode, 400);
@@ -249,6 +251,8 @@ async function run() {
   assert.equal(body.mode, "FALLBACK");
   assert.equal(body.aiTokenBalance, 800);
   assert.deepEqual(body.usage, { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+  assert.equal(body.costCents, 0);
+  assert.equal(body.costEur, 0);
   await app.close();
 
   app = await buildApp();
@@ -295,6 +299,9 @@ async function run() {
   assert.equal(response.statusCode, 200);
   body = response.json();
   assert.ok(body.tip);
+  assert.equal(body.costCents, 0);
+  assert.equal(body.costEur, 0);
+  assert.deepEqual(body.usage, { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
 
   response = await app.inject({ method: "POST", url: "/ai/daily-tip", payload: { name: 123 } });
   assert.equal(response.statusCode, 400);
@@ -325,6 +332,9 @@ async function run() {
   body = response.json();
   assert.equal(body.aiRequestId, "req_1");
   assert.equal(typeof body.reply?.message, "string");
+  assert.deepEqual(body.usage, { promptTokens: 10, completionTokens: 20, totalTokens: 30 });
+  assert.equal(body.costCents, 1);
+  assert.equal(body.costEur, 0.01);
 
   response = await app.inject({ method: "POST", url: "/ai/chat/contextual", payload: { surface: "feed" } });
   assert.equal(response.statusCode, 400);

@@ -70,11 +70,14 @@ describe("Feed contextual chat", () => {
       mockResponse({
         reply: { title: "Ajuste sugerido", message: "Reduce impacto y prioriza movilidad hoy." },
         aiTokenBalance: 9,
+        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+        costEur: 0.01,
       }),
     );
 
     expect(await screen.findByText("Ajuste sugerido")).toBeInTheDocument();
     expect(screen.getByText("Reduce impacto y prioriza movilidad hoy.")).toBeInTheDocument();
+    expect(screen.getByText("Consumo IA: 30 tokens · 0.01 EUR")).toBeInTheDocument();
   });
 
   it("shows mapped error message when chat request fails", async () => {

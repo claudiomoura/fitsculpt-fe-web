@@ -26,6 +26,12 @@ type ContextualChatReply = {
   suggestions?: string[];
 };
 
+type AiUsageSummary = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
+
 function formatDate(value: string, localeCode: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -49,6 +55,8 @@ export default function FeedClient() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatReply, setChatReply] = useState<ContextualChatReply | null>(null);
+  const [chatUsage, setChatUsage] = useState<AiUsageSummary | null>(null);
+  const [chatCostEur, setChatCostEur] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aiTokenBalance, setAiTokenBalance] = useState<number | null>(null);
   const [aiEntitled, setAiEntitled] = useState(false);
@@ -185,6 +193,8 @@ export default function FeedClient() {
             error?: string;
             reply?: ContextualChatReply;
             aiTokenBalance?: number;
+            usage?: AiUsageSummary;
+            costEur?: number;
           }
         | null;
 
@@ -205,6 +215,22 @@ export default function FeedClient() {
       }
 
       setChatReply(payload.reply);
+      const usage = payload.usage;
+      if (
+        usage &&
+        typeof usage.totalTokens === "number" &&
+        typeof usage.promptTokens === "number" &&
+        typeof usage.completionTokens === "number"
+      ) {
+        setChatUsage(usage);
+      } else {
+        setChatUsage(null);
+      }
+      setChatCostEur(
+        typeof payload.costEur === "number" && Number.isFinite(payload.costEur)
+          ? payload.costEur
+          : null,
+      );
       setChatInput("");
       if (typeof payload.aiTokenBalance === "number") {
         setAiTokenBalance(payload.aiTokenBalance);
@@ -291,6 +317,14 @@ export default function FeedClient() {
             </div>
             {chatReply.suggestions?.length ? (
               <p className="muted">{chatReply.suggestions.join(" • ")}</p>
+            ) : null}
+            {chatUsage ? (
+              <p className="muted">
+                {t("feed.chatUsage", {
+                  tokens: chatUsage.totalTokens,
+                  eur: (chatCostEur ?? 0).toFixed(2),
+                })}
+              </p>
             ) : null}
           </article>
         ) : null}

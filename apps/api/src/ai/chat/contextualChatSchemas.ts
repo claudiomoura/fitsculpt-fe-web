@@ -28,9 +28,14 @@ const contextualChatReplySchema = z.object({
 
 export const contextualChatResponseSchema = z.object({
   reply: contextualChatReplySchema,
+  mode: z.enum(["AI", "FALLBACK"]).optional(),
   aiRequestId: z.string().nullable().optional(),
   aiTokenBalance: z.number().nullable().optional(),
   aiTokenRenewalAt: z.string().nullable().optional(),
+  costCents: z.number().optional(),
+  costEur: z.number().optional(),
+  balanceBefore: z.number().nullable().optional(),
+  balanceAfter: z.number().nullable().optional(),
   usage: z
     .object({
       promptTokens: z.number(),

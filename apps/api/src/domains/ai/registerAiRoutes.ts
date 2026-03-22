@@ -118,6 +118,21 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
   type AiDailyTipRequest = z.infer<typeof aiDailyTipRequestSchema>;
   type AiContextualChatRequest = z.infer<typeof aiContextualChatRequestSchema>;
 
+  type AiUsageSummary = {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+
+  const ZERO_AI_USAGE: AiUsageSummary = {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+  };
+
+  const toEurAmount = (costCents: number) =>
+    Number((Math.max(0, costCents) / 100).toFixed(2));
+
 app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
     aiQuotaRequestSchema.parse(request.query ?? {});
@@ -209,6 +224,12 @@ app.post(
         await storeAiContent(user.id, "training", "template", resolvedPlan);
         return reply.status(200).send({
           plan: resolvedPlan,
+          mode: "FALLBACK",
+          usage: ZERO_AI_USAGE,
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: aiMeta.aiTokenBalance,
+          balanceAfter: aiMeta.aiTokenBalance,
           ...aiMeta,
         });
       }
@@ -241,6 +262,12 @@ app.post(
           await storeAiContent(user.id, "training", "cache", resolvedPlan);
           return reply.status(200).send({
             plan: resolvedPlan,
+            mode: "FALLBACK",
+            usage: ZERO_AI_USAGE,
+            costCents: 0,
+            costEur: 0,
+            balanceBefore: aiMeta.aiTokenBalance,
+            balanceAfter: aiMeta.aiTokenBalance,
             ...aiMeta,
           });
         } catch (error) {
@@ -410,15 +437,26 @@ app.post(
 
       const aiResponse = aiResult as OpenAiResponse | null;
       const exactUsage = extractExactProviderUsage(aiResponse?.usage);
+      const responseUsage = exactUsage ?? debit?.usage ?? ZERO_AI_USAGE;
+      const responseCostCents = debit?.costCents ?? 0;
+      const responseBalanceAfter =
+        shouldChargeAi && typeof aiTokenBalance === "number"
+          ? aiTokenBalance
+          : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         plan: resolvedPlan,
+        mode: aiResponse ? "AI" : "FALLBACK",
         aiRequestId: aiResponse?.requestId ?? null,
-        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        aiTokenBalance: responseBalanceAfter,
         aiTokenRenewalAt: shouldChargeAi
           ? getUserTokenExpiryAt(user)
           : aiMeta.aiTokenRenewalAt,
-        ...(exactUsage ? { usage: exactUsage } : {}),
-        ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
+        usage: responseUsage,
+        costCents: responseCostCents,
+        costEur: toEurAmount(responseCostCents),
+        balanceBefore: shouldChargeAi ? effectiveTokens : aiMeta.aiTokenBalance,
+        balanceAfter: responseBalanceAfter,
+        ...(shouldChargeAi ? { nextBalance: responseBalanceAfter } : {}),
         ...(debit ? { debit } : {}),
       });
     } catch (error) {
@@ -557,6 +595,12 @@ const nutritionPlanHandler = async (
         return reply.status(200).send({
           planId: savedPlan.id,
           plan: personalized,
+          mode: "FALLBACK",
+          usage: ZERO_AI_USAGE,
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: aiMeta.aiTokenBalance,
+          balanceAfter: aiMeta.aiTokenBalance,
           ...aiMeta,
         });
       }
@@ -645,6 +689,12 @@ const nutritionPlanHandler = async (
           return reply.status(200).send({
             planId: savedPlan.id,
             plan: personalized,
+            mode: "FALLBACK",
+            usage: ZERO_AI_USAGE,
+            costCents: 0,
+            costEur: 0,
+            balanceBefore: aiMeta.aiTokenBalance,
+            balanceAfter: aiMeta.aiTokenBalance,
             ...aiMeta,
           });
         } catch (error) {
@@ -893,16 +943,27 @@ const nutritionPlanHandler = async (
       }
       const aiResponse = aiResult as OpenAiResponse | null;
       const exactUsage = extractExactProviderUsage(aiResponse?.usage);
+      const responseUsage = exactUsage ?? debit?.usage ?? ZERO_AI_USAGE;
+      const responseCostCents = savedPlan.charged?.costCents ?? 0;
+      const responseBalanceAfter =
+        shouldChargeAi && savedPlan.charged
+          ? savedPlan.charged.balance
+          : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         planId: savedPlan.persistedPlan.id,
         plan: personalized,
+        mode: aiResponse ? "AI" : "FALLBACK",
         aiRequestId: aiResponse?.requestId ?? null,
-        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        aiTokenBalance: responseBalanceAfter,
         aiTokenRenewalAt: shouldChargeAi
           ? getUserTokenExpiryAt(user)
           : aiMeta.aiTokenRenewalAt,
-        ...(exactUsage ? { usage: exactUsage } : {}),
-        ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
+        usage: responseUsage,
+        costCents: responseCostCents,
+        costEur: toEurAmount(responseCostCents),
+        balanceBefore: shouldChargeAi ? balanceBefore : aiMeta.aiTokenBalance,
+        balanceAfter: responseBalanceAfter,
+        ...(shouldChargeAi ? { nextBalance: responseBalanceAfter } : {}),
         ...(debit ? { debit } : {}),
       });
   } catch (error) {
@@ -1144,6 +1205,7 @@ app.post(
       const responseBalance = shouldChargeAi
         ? savedPlan.charged?.balance ?? aiMeta.aiTokenBalance
         : aiMeta.aiTokenBalance;
+      const responseCostCents = savedPlan.charged?.costCents ?? 0;
       const responseRenewalAt = shouldChargeAi
         ? getUserTokenExpiryAt(user)
         : aiMeta.aiTokenRenewalAt;
@@ -1155,7 +1217,10 @@ app.post(
         aiRequestId: aiResult?.requestId ?? null,
         aiTokenBalance: responseBalance,
         aiTokenRenewalAt: responseRenewalAt,
-        ...(shouldChargeAi ? { balanceAfter: responseBalance } : {}),
+        costCents: responseCostCents,
+        costEur: toEurAmount(responseCostCents),
+        balanceBefore: aiMeta.aiTokenBalance,
+        balanceAfter: responseBalance,
         ...(responseUsage ? { usage: responseUsage } : {}),
       });
     } catch (error) {
@@ -1296,7 +1361,10 @@ app.post(
         });
       }
 
+      const balanceBefore = aiMeta.aiTokenBalance;
       let aiTokenBalance: number | null = null;
+      let chargedCostCents = 0;
+      let chargedUsage: AiUsageSummary | undefined;
       if (shouldChargeAi) {
         const charged = await chargeAiUsageForResult({
           prisma,
@@ -1314,17 +1382,29 @@ app.post(
           createHttpError,
         });
         aiTokenBalance = charged.balance;
+        chargedCostCents = charged.costCents;
+        chargedUsage = charged.usage;
       }
 
       const exactUsage = extractExactProviderUsage(aiResult.usage);
+      const responseUsage = exactUsage ?? chargedUsage ?? ZERO_AI_USAGE;
+      const responseBalanceAfter =
+        shouldChargeAi && typeof aiTokenBalance === "number"
+          ? aiTokenBalance
+          : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         ...responsePayload.data,
+        mode: "AI",
         aiRequestId: aiResult.requestId ?? null,
-        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        aiTokenBalance: responseBalanceAfter,
         aiTokenRenewalAt: shouldChargeAi
           ? getUserTokenExpiryAt(user)
           : aiMeta.aiTokenRenewalAt,
-        ...(exactUsage ? { usage: exactUsage } : {}),
+        usage: responseUsage,
+        costCents: chargedCostCents,
+        costEur: toEurAmount(chargedCostCents),
+        balanceBefore,
+        balanceAfter: responseBalanceAfter,
       });
     } catch (error) {
       return sendAiEndpointError(reply, error);
@@ -1360,6 +1440,12 @@ app.post(
         await safeStoreAiContent(user.id, "tip", "template", personalized);
         return reply.status(200).send({
           tip: personalized,
+          mode: "FALLBACK",
+          usage: ZERO_AI_USAGE,
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: aiMeta.aiTokenBalance,
+          balanceAfter: aiMeta.aiTokenBalance,
           ...aiMeta,
         });
       }
@@ -1372,6 +1458,12 @@ app.post(
         await safeStoreAiContent(user.id, "tip", "cache", personalized);
         return reply.status(200).send({
           tip: personalized,
+          mode: "FALLBACK",
+          usage: ZERO_AI_USAGE,
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: aiMeta.aiTokenBalance,
+          balanceAfter: aiMeta.aiTokenBalance,
           ...aiMeta,
         });
       }
@@ -1380,6 +1472,9 @@ app.post(
       const prompt = buildTipPrompt(data);
       let payload: Record<string, unknown>;
       let aiTokenBalance: number | null = null;
+      let chargedCostCents = 0;
+      let chargedUsage: AiUsageSummary | undefined;
+      let aiResult: OpenAiResponse | null = null;
       let debit:
         | {
             costCents: number;
@@ -1438,6 +1533,8 @@ app.post(
         );
         payload = charged.payload;
         aiTokenBalance = charged.balance;
+        chargedCostCents = charged.costCents;
+        chargedUsage = charged.usage;
         debit =
           process.env.NODE_ENV === "production"
             ? undefined
@@ -1451,6 +1548,7 @@ app.post(
               };
       } else {
         const result = await callOpenAi(prompt);
+        aiResult = result;
         payload = result.payload;
       }
       await saveCachedAiPayload(cacheKey, "tip", payload);
@@ -1458,15 +1556,25 @@ app.post(
         name: data.name ?? "amigo",
       });
       await safeStoreAiContent(user.id, "tip", "ai", personalized);
+      const exactUsage = extractExactProviderUsage(aiResult?.usage);
+      const responseUsage = exactUsage ?? chargedUsage ?? ZERO_AI_USAGE;
+      const responseBalanceAfter =
+        shouldChargeAi && typeof aiTokenBalance === "number"
+          ? aiTokenBalance
+          : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         tip: personalized,
-        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        mode: aiResult || shouldChargeAi ? "AI" : "FALLBACK",
+        aiTokenBalance: responseBalanceAfter,
         aiTokenRenewalAt: shouldChargeAi
           ? getUserTokenExpiryAt(user)
           : aiMeta.aiTokenRenewalAt,
-        ...(shouldChargeAi
-          ? { nextBalance: aiTokenBalance, balanceAfter: aiTokenBalance }
-          : {}),
+        usage: responseUsage,
+        costCents: chargedCostCents,
+        costEur: toEurAmount(chargedCostCents),
+        balanceBefore: effectiveTokens,
+        balanceAfter: responseBalanceAfter,
+        ...(shouldChargeAi ? { nextBalance: responseBalanceAfter } : {}),
         ...(debit ? { debit } : {}),
       });
     } catch (error) {

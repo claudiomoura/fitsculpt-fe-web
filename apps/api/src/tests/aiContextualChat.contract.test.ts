@@ -187,6 +187,11 @@ async function run() {
   let body = response.json();
   assert.equal(typeof body.reply?.message, "string");
   assert.equal(typeof body.aiTokenBalance, "number");
+  assert.deepEqual(body.usage, { promptTokens: 10, completionTokens: 20, totalTokens: 30 });
+  assert.equal(body.costCents, 1);
+  assert.equal(body.costEur, 0.01);
+  assert.equal(body.balanceBefore, 100);
+  assert.equal(body.balanceAfter, 90);
   assert.equal(chargeCalls, 1);
   assert.equal(capturedInput?.surface, "feed");
   await app.close();

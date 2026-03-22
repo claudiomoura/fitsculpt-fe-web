@@ -31,6 +31,9 @@ describe("Contextual chat BFF contract", () => {
           reply: { title: "Plan", message: "Haz movilidad 10 min." },
           aiRequestId: "req_1",
           aiTokenBalance: 7,
+          usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+          costCents: 1,
+          costEur: 0.01,
         }),
       ),
     );
@@ -49,6 +52,9 @@ describe("Contextual chat BFF contract", () => {
       reply: { title: "Plan", message: "Haz movilidad 10 min." },
       aiRequestId: "req_1",
       aiTokenBalance: 7,
+      usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      costCents: 1,
+      costEur: 0.01,
     });
   });
 
