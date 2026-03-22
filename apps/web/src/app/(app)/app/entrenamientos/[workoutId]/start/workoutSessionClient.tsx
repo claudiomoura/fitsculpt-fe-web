@@ -512,7 +512,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   if (loading) {
     return (
-      <section className="focus-session-page app-page-shell pt-3">
+      <section className="focus-session-page nutrition-page-shell pt-3">
         <div className="surface-loading-card mb-4 p-4">
           <div className="ui-skeleton ui-skeleton--line w-35 mb-3" />
           <div className="ui-skeleton ui-skeleton--line w-60 mb-2" />
@@ -543,7 +543,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   if (error || !workout) {
     return (
-      <section className="focus-session-page app-page-shell flex pt-8">
+      <section className="focus-session-page nutrition-page-shell flex pt-8">
         <div className="card w-full p-5">
           <p className="m-0 text-sm font-semibold text-primary">No pudimos cargar la sesión</p>
           <p className="muted mt-2">{error ?? t("workoutDetail.loadError")}</p>
@@ -562,7 +562,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   if (!hasExercises) {
     return (
-      <section className="focus-session-page app-page-shell pt-6">
+      <section className="focus-session-page nutrition-page-shell pt-6">
         <div className="card premium-surface-card p-5">
           <p className="m-0 text-sm font-semibold text-primary">Esta sesión no tiene ejercicios</p>
           <p className="muted mt-2">Vuelve al entrenamiento para revisar o asignar ejercicios antes de empezar.</p>
@@ -581,7 +581,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
 
   if (Boolean(session?.finishedAt)) {
     return (
-      <section className="focus-session-page app-page-shell pt-4">
+      <section className="focus-session-page nutrition-page-shell pt-4">
         <div className="focus-session-complete">
           <div className="focus-session-complete-icon">🏆</div>
           <div>
@@ -656,7 +656,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
   }
 
   return (
-    <section className="focus-session-page app-page-shell pt-3">
+    <section className="focus-session-page nutrition-page-shell pt-3">
       <header className="card premium-surface-card focus-session-head mb-4 p-4">
         <div className="flex items-start gap-3">
           <Link className="btn secondary h-10 px-3" href={`/app/entrenamiento/${workout.id}`}>
@@ -880,7 +880,7 @@ export default function WorkoutSessionClient({ workoutId }: WorkoutSessionClient
       </section>
 
       <div className="focus-session-sticky-bar fixed inset-x-0 bottom-0 z-30 border-t">
-        <div className="app-page-shell flex gap-3 pt-3">
+        <div className="nutrition-page-shell flex gap-3 pt-3">
           <button
             type="button"
             className="btn secondary focus-session-sticky-btn flex-1"

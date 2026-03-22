@@ -885,6 +885,7 @@ textarea:disabled {
 .focus-session-layout {
   min-height: 100dvh;
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  width: 100%;
 }
 
 .focus-session-page {
