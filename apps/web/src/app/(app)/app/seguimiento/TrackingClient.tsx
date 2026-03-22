@@ -1301,7 +1301,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         </div>
       )}
       {!isCheckinOnly ? (
-        <section className={`card premium-hero-card surface-action-card ${styles.heroCard} ${styles.quickCheckinHero}`}>
+        <section className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero}`}>
           <div className={styles.heroHeader}>
             <div>
               <h2 className="section-title m-0">{t("profile.checkinTitle")}</h2>
