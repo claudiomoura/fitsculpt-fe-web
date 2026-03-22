@@ -2,6 +2,9 @@ import type {
   CheckinEntry,
   FoodEntry,
   MealLogEntry,
+  PassiveHealthData,
+  PassiveHealthSnapshot,
+  PassiveHealthSource,
   TrackingCollection,
   TrackingEntryCreateInput,
   TrackingSnapshot,
@@ -107,6 +110,63 @@ function normalizeMealLogEntry(entry: unknown, index: number): MealLogEntry | nu
   };
 }
 
+function toPassiveSource(value: unknown): PassiveHealthSource {
+  if (
+    value === "manual" ||
+    value === "demo" ||
+    value === "apple_health" ||
+    value === "google_fit" ||
+    value === "wearable" ||
+    value === "other"
+  ) {
+    return value;
+  }
+  return "manual";
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const numeric = toNumber(value, Number.NaN);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normalizePassiveHealthSnapshot(entry: unknown, index: number): PassiveHealthSnapshot | null {
+  if (!isRecord(entry)) return null;
+  const date = toText(entry.date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  return {
+    id: buildLegacyId("legacy-passive", entry.id, date, index),
+    date,
+    source: toPassiveSource(entry.source),
+    provider: toNullableText(entry.provider),
+    steps: toNullableNumber(entry.steps),
+    activeCalories: toNullableNumber(entry.activeCalories),
+    activeMinutes: toNullableNumber(entry.activeMinutes),
+    sleepHours: toNullableNumber(entry.sleepHours),
+    restingHeartRate: toNullableNumber(entry.restingHeartRate),
+    exerciseSessions: Math.max(0, Math.round(toNumber(entry.exerciseSessions))),
+    note: toText(entry.note),
+    syncedAt: toText(entry.syncedAt, `${date}T00:00:00.000Z`),
+  };
+}
+
+export function normalizePassiveHealthData(value: unknown): PassiveHealthData {
+  if (!isRecord(value)) {
+    return defaultTracking.passiveData;
+  }
+
+  const snapshots = normalizeCollection(value.snapshots, normalizePassiveHealthSnapshot)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.syncedAt.localeCompare(a.syncedAt) || b.id.localeCompare(a.id))
+    .slice(0, 180);
+
+  return {
+    snapshots,
+    lastSyncAt: toNullableText(value.lastSyncAt),
+    lastSyncSource: value.lastSyncSource ? toPassiveSource(value.lastSyncSource) : null,
+  };
+}
+
 function normalizeCollection<T>(value: unknown, normalizeEntry: (entry: unknown, index: number) => T | null): T[] {
   if (!Array.isArray(value)) return [];
   return value.reduce<T[]>((acc, entry, index) => {
@@ -123,12 +183,13 @@ export function normalizeTrackingSnapshot(value: unknown): TrackingSnapshot {
     return defaultTracking;
   }
 
-  const source = value as Partial<Record<TrackingCollection, unknown>>;
+  const source = value as Partial<Record<TrackingCollection | "passiveData", unknown>>;
   return {
     checkins: normalizeCollection(source.checkins, normalizeCheckinEntry),
     foodLog: normalizeCollection(source.foodLog, normalizeFoodEntry),
     workoutLog: normalizeCollection(source.workoutLog, normalizeWorkoutEntry),
     mealLog: normalizeCollection(source.mealLog, normalizeMealLogEntry),
+    passiveData: normalizePassiveHealthData(source.passiveData),
   };
 }
 
@@ -147,5 +208,33 @@ export function upsertTrackingEntry(current: unknown, payload: TrackingEntryCrea
   return {
     ...normalized,
     [payload.collection]: nextList,
+  };
+}
+
+export function replacePassiveHealthData(current: unknown, payload: unknown): TrackingSnapshot {
+  const normalized = normalizeTrackingSnapshot(current);
+  const passiveData = normalizePassiveHealthData(payload);
+  return {
+    ...normalized,
+    passiveData,
+  };
+}
+
+export function upsertPassiveHealthSnapshot(current: unknown, snapshot: PassiveHealthSnapshot): TrackingSnapshot {
+  const normalized = normalizeTrackingSnapshot(current);
+  const nextSnapshots = [
+    snapshot,
+    ...normalized.passiveData.snapshots.filter((entry) => entry.id !== snapshot.id),
+  ]
+    .sort((a, b) => b.date.localeCompare(a.date) || b.syncedAt.localeCompare(a.syncedAt) || b.id.localeCompare(a.id))
+    .slice(0, 180);
+
+  return {
+    ...normalized,
+    passiveData: {
+      snapshots: nextSnapshots,
+      lastSyncAt: snapshot.syncedAt,
+      lastSyncSource: snapshot.source,
+    },
   };
 }

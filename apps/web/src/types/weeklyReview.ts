@@ -5,7 +5,8 @@ export type WeeklyReviewRecommendationId =
   | "nutrition-maintain"
   | "habit-meal-logging"
   | "habit-training-consistency"
-  | "habit-foundation";
+  | "habit-foundation"
+  | "habit-passive-bridge";
 
 export type WeeklyReviewRecommendationType = "training" | "nutrition" | "habit";
 export type WeeklyReviewRecommendationDirection = "increase" | "decrease" | "maintain" | "focus";
@@ -45,8 +46,16 @@ export type WeeklyReviewSummary = {
   mealLoggingDays: number;
   trainingTargetSessions: number;
   trainingAdherencePct: number;
+  manualTrainingAdherencePct: number;
+  passiveAdherenceSupportPct: number;
+  passiveActiveDays: number;
+  passiveStepsTotal: number;
+  passiveActiveMinutes: number;
+  passiveSourceCount: number;
   averageEnergy: number | null;
   averageHunger: number | null;
+  averageSleepHours: number | null;
+  averageRestingHeartRate: number | null;
   weightChangeKg: number | null;
   weightChangePct: number | null;
   waistChangeCm: number | null;

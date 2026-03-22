@@ -94,6 +94,7 @@ import {
 } from "./tracking/service.js";
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
+import { registerPassiveHealthRoutes } from "./routes/passiveHealth.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
 import { registerAiRoutes } from "./domains/ai/registerAiRoutes.js";
 import { registerBillingRoutes } from "./domains/billing/registerBillingRoutes.js";
@@ -6505,7 +6506,7 @@ app.get("/tracking", async (request, reply) => {
   try {
     const user = await requireUser(request);
     const profile = await getOrCreateProfile(user.id);
-    return profile.tracking ?? defaultTracking;
+    return normalizeTrackingSnapshot(profile.tracking);
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6514,7 +6515,13 @@ app.get("/tracking", async (request, reply) => {
 app.put("/tracking", async (request, reply) => {
   try {
     const user = await requireUser(request);
-    const data = trackingSchema.parse(normalizeTrackingSnapshot(request.body));
+    const currentProfile = await getOrCreateProfile(user.id);
+    const normalizedBody = normalizeTrackingSnapshot(request.body);
+    const hasPassiveData = typeof request.body === "object" && request.body !== null && Object.prototype.hasOwnProperty.call(request.body, "passiveData");
+    const data = trackingSchema.parse({
+      ...normalizedBody,
+      passiveData: hasPassiveData ? normalizedBody.passiveData : normalizeTrackingSnapshot(currentProfile.tracking).passiveData,
+    });
     const updated = await prisma.userProfile.upsert({
       where: { userId: user.id },
       create: {
@@ -6536,7 +6543,7 @@ app.put("/tracking", async (request, reply) => {
       "tracking updated",
     );
 
-    return updated.tracking ?? defaultTracking;
+    return normalizeTrackingSnapshot(updated.tracking ?? defaultTracking);
   } catch (error) {
     return handleRequestError(reply, error);
   }
@@ -6614,6 +6621,14 @@ registerBillingRoutes(app, {
 
 registerWeeklyReviewRoute(app, {
   prisma,
+  requireUser,
+  getOrCreateProfile,
+  handleRequestError,
+});
+
+registerPassiveHealthRoutes(app, {
+  prisma,
+  dbNull: Prisma.DbNull,
   requireUser,
   getOrCreateProfile,
   handleRequestError,

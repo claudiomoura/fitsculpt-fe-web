@@ -9,6 +9,7 @@ import { trackEvent } from "@/lib/analytics";
 import { addDays, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
 import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
+import { buildPassiveHealthOverview, defaultPassiveHealthData } from "@/lib/passiveHealth";
 import { buildProfessionalTrackingInsights, normalizeDailyCheckins } from "@/lib/trackingProfessionalMetrics";
 import { getTrackingRangeConfig } from "@/lib/trackingProfessionalRules";
 import {
@@ -31,6 +32,7 @@ import TrainingAdjustmentDiffSummary, {
   buildTrainingAdjustmentDiff,
   type TrainingAdjustmentDiff,
 } from "@/components/tracking/TrainingAdjustmentDiffSummary";
+import PassiveHealthSummaryCard from "@/components/tracking/PassiveHealthSummaryCard";
 import TrackingProfessionalInsights from "@/components/tracking/TrackingProfessionalInsights";
 import styles from "./TrackingClient.module.css";
 
@@ -110,7 +112,28 @@ type TrackingPayload = {
   foodLog: FoodEntry[];
   workoutLog: WorkoutEntry[];
   mealLog: MealLogEntry[];
+  passiveData?: {
+    snapshots: Array<{
+      id: string;
+      date: string;
+      source: "manual" | "demo" | "apple_health" | "google_fit" | "wearable" | "other";
+      provider: string | null;
+      steps: number | null;
+      activeCalories: number | null;
+      activeMinutes: number | null;
+      sleepHours: number | null;
+      restingHeartRate: number | null;
+      exerciseSessions: number;
+      note: string;
+      syncedAt: string;
+    }>;
+    lastSyncAt: string | null;
+    lastSyncSource: "manual" | "demo" | "apple_health" | "google_fit" | "wearable" | "other" | null;
+  };
 };
+
+type PassivePayload = NonNullable<TrackingPayload["passiveData"]>;
+type PassiveSnapshotPayload = PassivePayload["snapshots"][number];
 
 type WorkoutDbItem = {
   id: string;
@@ -322,6 +345,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [workoutNotes, setWorkoutNotes] = useState("");
   const [workoutLog, setWorkoutLog] = useState<WorkoutEntry[]>([]);
   const [mealLog, setMealLog] = useState<MealLogEntry[]>([]);
+  const [passiveData, setPassiveData] = useState(defaultPassiveHealthData);
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [trackingLoaded, setTrackingLoaded] = useState(false);
   const [trackingStatus, setTrackingStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -481,6 +505,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       setFoodLog(data.foodLog ?? []);
       setWorkoutLog(data.workoutLog ?? []);
       setMealLog(data.mealLog ?? []);
+      setPassiveData(data.passiveData ?? defaultPassiveHealthData);
       setTrackingSupports(detectTrackingSupport(data.checkins as Array<Record<string, unknown>>));
       setTrackingLoaded(true);
       setTrackingStatus("ready");
@@ -567,7 +592,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ checkins, foodLog, workoutLog, mealLog }),
+        body: JSON.stringify({ checkins, foodLog, workoutLog, mealLog, passiveData }),
       }).then((response) => {
         if (!response.ok) {
           console.warn("Tracking save failed", response.status);
@@ -575,7 +600,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       });
     }, 600);
     return () => window.clearTimeout(timeout);
-  }, [checkins, foodLog, workoutLog, mealLog, trackingLoaded]);
+  }, [checkins, foodLog, workoutLog, mealLog, passiveData, trackingLoaded]);
 
   function buildRecommendation(currentWeight: number) {
     if (checkins.length === 0) return t("profile.checkinKeep");
@@ -676,6 +701,46 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     setWorkoutLog((prev) => [entry, ...prev]);
     setWorkoutName("");
     setWorkoutNotes("");
+  }
+
+  async function savePassiveSnapshot(snapshot: PassiveSnapshotPayload) {
+    const response = await fetch("/api/tracking/health/snapshots", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(snapshot),
+    });
+
+    if (!response.ok) {
+      showMessage(t("tracking.passiveSaveError"));
+      return;
+    }
+
+    const data = (await response.json()) as PassivePayload;
+    setPassiveData(data);
+    showMessage(t("tracking.passiveSaveSuccess"));
+  }
+
+  async function replacePassiveSync(snapshots: PassivePayload["snapshots"]) {
+    const response = await fetch("/api/tracking/health", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        snapshots,
+        lastSyncAt: new Date().toISOString(),
+        lastSyncSource: snapshots[0]?.source ?? "demo",
+      }),
+    });
+
+    if (!response.ok) {
+      showMessage(t("tracking.passiveSaveError"));
+      return;
+    }
+
+    const data = (await response.json()) as PassivePayload;
+    setPassiveData(data);
+    showMessage(t("tracking.passiveDemoSuccess"));
   }
 
   const userFoodMap = useMemo(() => new Map(userFoods.map((food) => [food.id, food])), [userFoods]);
@@ -934,6 +999,17 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   const isTrackingError = trackingStatus === "error";
   const rangeDays = rangeConfig.days;
   const daysBackForRange = Math.max(0, rangeDays - 1);
+  const passiveRangeEnd = toDateKey(new Date());
+  const passiveRangeStart = toDateKey(addDays(new Date(), -daysBackForRange));
+  const passiveOverview = useMemo(
+    () =>
+      buildPassiveHealthOverview(passiveData, {
+        startDate: passiveRangeStart,
+        endDate: passiveRangeEnd,
+        targetSessions: Number(profile.trainingPreferences.daysPerWeek ?? 0),
+      }),
+    [passiveData, passiveRangeEnd, passiveRangeStart, profile.trainingPreferences.daysPerWeek],
+  );
 
   if (isTrackingLoading && !trackingLoaded) {
     return (
@@ -1263,6 +1339,17 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             onChange={(nextValue) => setProgressRange(nextValue as "7" | "30" | "90")}
           />
         </section>
+      ) : null}
+
+      {!isCheckinOnly ? (
+        <PassiveHealthSummaryCard
+          passiveData={passiveData}
+          overview={passiveOverview}
+          endDate={passiveRangeEnd}
+          onSaveSnapshot={savePassiveSnapshot}
+          onLoadDemo={replacePassiveSync}
+          disabled={trackingStatus === "loading"}
+        />
       ) : null}
 
       {!isCheckinOnly ? (

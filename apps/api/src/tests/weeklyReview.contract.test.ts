@@ -68,6 +68,15 @@ const payload = buildWeeklyReview(
         sidePhotoUrl: null,
       },
     ],
+    passiveData: {
+      snapshots: [
+        { id: "ph1", date: "2026-02-17", source: "demo", provider: "Demo Sync", steps: 6200, activeCalories: 240, activeMinutes: 18, sleepHours: 7.2, restingHeartRate: 60, exerciseSessions: 0, note: "", syncedAt: "2026-02-17T08:00:00.000Z" },
+        { id: "ph2", date: "2026-02-18", source: "demo", provider: "Demo Sync", steps: 5800, activeCalories: 220, activeMinutes: 15, sleepHours: 7.9, restingHeartRate: 58, exerciseSessions: 0, note: "", syncedAt: "2026-02-18T08:00:00.000Z" },
+        { id: "ph3", date: "2026-02-20", source: "demo", provider: "Demo Sync", steps: 6900, activeCalories: 260, activeMinutes: 20, sleepHours: 7.5, restingHeartRate: 59, exerciseSessions: 0, note: "", syncedAt: "2026-02-20T08:00:00.000Z" },
+      ],
+      lastSyncAt: "2026-02-20T08:00:00.000Z",
+      lastSyncSource: "demo",
+    },
     foodLog: [],
     mealLog: [
       { id: "m1", date: "2026-02-17", mealKey: "meal-1", mealType: "lunch", title: "Almuerzo", calories: 620, protein: 35, carbs: 70, fats: 18, completedAt: "2026-02-17T13:00:00.000Z" },
@@ -90,6 +99,8 @@ assert.equal(parsed.summary.rangeEnd, "2026-02-22");
 assert.equal(parsed.summary.previousRangeStart, "2026-02-09");
 assert.equal(parsed.summary.mealLoggingDays, 3);
 assert.equal(parsed.summary.trainingTargetSessions, 4);
+assert.equal(parsed.summary.passiveActiveDays, 0);
+assert.equal(parsed.summary.passiveAdherenceSupportPct, 0, "insufficient passive activity should not inflate adherence");
 assert.equal(parsed.recommendations.length >= 2, true, "should return multiple recommendations");
 assert.equal(parsed.recommendations.some((entry) => entry.id === "training-deload"), true, "should suggest lower training demand when adherence is low");
 assert.equal(parsed.recommendations.some((entry) => entry.id === "nutrition-recovery"), true, "should protect recovery when loss is too fast");
@@ -101,6 +112,7 @@ const recomp = weeklyReviewResponseSchema.parse(
         { id: "p1", date: "2026-02-10", weightKg: 80.1, chestCm: 100, waistCm: 86, hipsCm: 95, bicepsCm: 35, thighCm: 56, calfCm: 38, neckCm: 40, bodyFatPercent: 18, energy: 4, hunger: 2, notes: "", recommendation: "", frontPhotoUrl: null, sidePhotoUrl: null },
         { id: "p2", date: "2026-02-18", weightKg: 80.1, chestCm: 100, waistCm: 85.2, hipsCm: 95, bicepsCm: 35, thighCm: 56, calfCm: 38, neckCm: 40, bodyFatPercent: 18, energy: 4, hunger: 2, notes: "", recommendation: "", frontPhotoUrl: null, sidePhotoUrl: null },
       ],
+      passiveData: { snapshots: [], lastSyncAt: null, lastSyncSource: null },
       foodLog: [],
       mealLog: [
         { id: "rm1", date: "2026-02-17", mealKey: "meal-1", mealType: "lunch", title: "Lunch", calories: 600, protein: 35, carbs: 60, fats: 18, completedAt: "2026-02-17T13:00:00.000Z" },
@@ -130,6 +142,7 @@ const emptyParsed = weeklyReviewResponseSchema.parse(
       foodLog: [],
       mealLog: [],
       workoutLog: [],
+      passiveData: { snapshots: [], lastSyncAt: null, lastSyncSource: null },
     },
     request,
     {
@@ -140,5 +153,31 @@ const emptyParsed = weeklyReviewResponseSchema.parse(
 
 assert.equal(emptyParsed.summary.checkinsCount, 0, "empty tracking should be supported");
 assert.equal(emptyParsed.recommendations.some((entry) => entry.type === "habit"), true, "empty state should prioritize habit recommendations");
+
+const passiveBridge = weeklyReviewResponseSchema.parse(
+  buildWeeklyReview(
+    {
+      checkins: [],
+      foodLog: [],
+      mealLog: [],
+      workoutLog: [{ id: "w-passive", date: "2026-02-19", name: "Gym", durationMin: 40, notes: "" }],
+      passiveData: {
+        snapshots: [
+          { id: "pb1", date: "2026-02-17", source: "demo", provider: "Demo Sync", steps: 9800, activeCalories: 320, activeMinutes: 34, sleepHours: 7.3, restingHeartRate: 60, exerciseSessions: 0, note: "", syncedAt: "2026-02-17T08:00:00.000Z" },
+          { id: "pb2", date: "2026-02-18", source: "demo", provider: "Demo Sync", steps: 12100, activeCalories: 440, activeMinutes: 58, sleepHours: 7.8, restingHeartRate: 59, exerciseSessions: 1, note: "", syncedAt: "2026-02-18T08:00:00.000Z" },
+          { id: "pb3", date: "2026-02-20", source: "demo", provider: "Demo Sync", steps: 8700, activeCalories: 300, activeMinutes: 28, sleepHours: 7.4, restingHeartRate: 61, exerciseSessions: 0, note: "", syncedAt: "2026-02-20T08:00:00.000Z" },
+        ],
+        lastSyncAt: "2026-02-20T08:00:00.000Z",
+        lastSyncSource: "demo",
+      },
+    },
+    request,
+    {
+      trainingPlan: { daysPerWeek: 4, title: "Base" },
+    },
+  ),
+);
+
+assert.equal(passiveBridge.recommendations.some((entry) => entry.id === "habit-passive-bridge"), true, "passive activity should complement but not replace manual adherence");
 
 console.log("weekly review contract test passed");

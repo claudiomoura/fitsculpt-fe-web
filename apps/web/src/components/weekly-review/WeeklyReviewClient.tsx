@@ -153,11 +153,11 @@ export default function WeeklyReviewClient() {
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <article className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm">
             <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("weeklyReview.summaryAdherence")}</p>
             <p className="mt-2 text-2xl font-semibold">{review.summary.trainingAdherencePct}%</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">{review.summary.workoutsCount}/{review.summary.trainingTargetSessions || 0} {t("weeklyReview.summarySessionsSuffix")}</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">{review.summary.workoutsCount}/{review.summary.trainingTargetSessions || 0} {t("weeklyReview.summarySessionsSuffix")} · {t("weeklyReview.summaryManualLabel")}: {review.summary.manualTrainingAdherencePct}%</p>
           </article>
           <article className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm">
             <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("weeklyReview.summaryNutritionDays")}</p>
@@ -174,6 +174,20 @@ export default function WeeklyReviewClient() {
             <p className="mt-2 text-2xl font-semibold">{formatDelta(review.summary.waistChangeCm, " cm")}</p>
             <p className="mt-1 text-sm text-[var(--muted)]">{t("weeklyReview.summaryEnergy")}: {review.summary.averageEnergy ?? "-"}/5</p>
           </article>
+          <article className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("weeklyReview.summaryPassiveDays")}</p>
+            <p className="mt-2 text-2xl font-semibold">{review.summary.passiveActiveDays}</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">{review.summary.passiveActiveMinutes} min</p>
+          </article>
+          <article className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-[0.16em] text-[var(--muted)]">{t("weeklyReview.summaryPassiveSupport")}</p>
+            <p className="mt-2 text-2xl font-semibold">+{review.summary.passiveAdherenceSupportPct}%</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">{review.summary.passiveStepsTotal.toLocaleString()} {t("weeklyReview.summaryStepsSuffix")}</p>
+          </article>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-white/70 bg-white/72 px-4 py-3 text-sm text-[var(--text)]">
+          <p>{t("weeklyReview.passiveComplementNote")}</p>
         </div>
       </section>
 

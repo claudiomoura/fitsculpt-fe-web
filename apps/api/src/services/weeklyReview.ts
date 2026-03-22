@@ -37,6 +37,12 @@ type WindowSummary = {
   workoutsCount: number;
   mealLoggingDays: number;
   nutritionLogsCount: number;
+  passiveActiveDays: number;
+  passiveStepsTotal: number;
+  passiveActiveMinutes: number;
+  passiveSourceCount: number;
+  averageSleepHours: number | null;
+  averageRestingHeartRate: number | null;
   averageEnergy: number | null;
   averageHunger: number | null;
   averageWeightKg: number | null;
@@ -136,18 +142,47 @@ function summarizeWindow(tracking: TrackingSnapshot, range: DateRange): WindowSu
   const workouts = tracking.workoutLog.filter((entry) => inRange(entry.date, range));
   const mealLog = tracking.mealLog.filter((entry) => inRange(entry.date, range));
   const foodLog = tracking.foodLog.filter((entry) => inRange(entry.date, range));
+  const passiveSnapshots = tracking.passiveData.snapshots.filter((entry) => inRange(entry.date, range));
   const mealLoggingDays = new Set([...mealLog.map((entry) => entry.date), ...foodLog.map((entry) => entry.date)]).size;
+  const passiveActiveDays = new Set(
+    passiveSnapshots
+      .filter((entry) => (entry.steps ?? 0) >= 7000 || (entry.activeMinutes ?? 0) >= 25 || entry.exerciseSessions >= 1)
+      .map((entry) => entry.date),
+  ).size;
+  const passiveSourceCount = new Set(passiveSnapshots.map((entry) => entry.provider ?? entry.source)).size;
 
   return {
     checkinsCount: checkins.length,
     workoutsCount: workouts.length,
     mealLoggingDays,
     nutritionLogsCount: mealLog.length + foodLog.length,
+    passiveActiveDays,
+    passiveStepsTotal: passiveSnapshots.reduce((sum, entry) => sum + Math.max(0, Math.round(entry.steps ?? 0)), 0),
+    passiveActiveMinutes: passiveSnapshots.reduce((sum, entry) => sum + Math.max(0, Math.round(entry.activeMinutes ?? 0)), 0),
+    passiveSourceCount,
+    averageSleepHours: average(passiveSnapshots.map((entry) => entry.sleepHours).filter((value): value is number => value !== null && value >= 0 && value <= 24)),
+    averageRestingHeartRate: average(passiveSnapshots.map((entry) => entry.restingHeartRate).filter((value): value is number => value !== null && value >= 20 && value <= 240)),
     averageEnergy: average(checkins.map((entry) => entry.energy).filter((value) => value >= 1 && value <= 5)),
     averageHunger: average(checkins.map((entry) => entry.hunger).filter((value) => value >= 1 && value <= 5)),
     averageWeightKg: average(checkins.map((entry) => entry.weightKg).filter((value) => value > 0)),
     averageWaistCm: average(checkins.map((entry) => entry.waistCm).filter((value) => value > 0)),
   };
+}
+
+function resolvePassiveAdherenceSupport(current: WindowSummary, targetSessions: number): number {
+  if (targetSessions <= 0 || current.passiveActiveDays < 2) return 0;
+
+  const daySupport = current.passiveActiveDays >= 5 ? 15 : current.passiveActiveDays >= 4 ? 12 : current.passiveActiveDays >= 3 ? 8 : 5;
+  const volumeSupport =
+    current.passiveActiveMinutes >= 150 || current.passiveStepsTotal >= 56000
+      ? 10
+      : current.passiveActiveMinutes >= 90 || current.passiveStepsTotal >= 42000
+        ? 7
+        : current.passiveActiveMinutes >= 60 || current.passiveStepsTotal >= 28000
+          ? 4
+          : 0;
+
+  return Math.min(25, daySupport + volumeSupport);
 }
 
 function buildRecommendation(input: Omit<WeeklyReviewRecommendation, "decision"> & { decision?: WeeklyReviewDecision }): WeeklyReviewRecommendation {
@@ -191,8 +226,33 @@ function buildTrainingRecommendation(
     });
   }
 
-  const adherencePct = round((current.workoutsCount / targetSessions) * 100, 0);
+  const manualAdherencePct = round((current.workoutsCount / targetSessions) * 100, 0);
+  const passiveSupportPct = resolvePassiveAdherenceSupport(current, targetSessions);
+  const adherencePct = Math.min(100, manualAdherencePct + passiveSupportPct);
   const positiveSignals = (current.averageEnergy ?? 0) >= 3.5 && (current.averageHunger ?? 0) <= 3.5;
+
+  if (manualAdherencePct < 50 && passiveSupportPct >= 10) {
+    return buildRecommendation({
+      id: "habit-passive-bridge",
+      type: "habit",
+      title: "Tu actividad pasiva ayuda, pero aun falta registro estructurado",
+      recommendation: "La actividad pasiva suma contexto, pero esta semana conviene convertir parte de ese movimiento en sesiones registradas o check-ins claros.",
+      why: `Vemos ${current.passiveActiveDays} dias activos pasivos y ${current.workoutsCount}/${targetSessions} sesiones manuales.`,
+      reasoning: [
+        "Las senales de salud reducen la probabilidad de una semana totalmente inactiva.",
+        "Aun asi, el motor no sustituye el logging manual: usa la actividad pasiva como soporte, no como reemplazo.",
+      ],
+      direction: "focus",
+      adjustmentPct: null,
+      metrics: [
+        metric("Manual", `${manualAdherencePct}%`),
+        metric("Soporte pasivo", `+${passiveSupportPct}%`),
+        metric("Dias activos", `${current.passiveActiveDays}/7`),
+      ],
+      safetyNotes: ["La actividad pasiva nunca reemplaza por completo el seguimiento manual."],
+      decision: decisions?.["habit-passive-bridge"],
+    });
+  }
 
   if (adherencePct < 50) {
     return buildRecommendation({
@@ -200,20 +260,20 @@ function buildTrainingRecommendation(
       type: "training",
       title: "Bajar exigencia para recuperar consistencia",
       recommendation: "Sugerimos simplificar la semana y reducir el volumen un 10%.",
-      why: `Completaste ${current.workoutsCount}/${targetSessions} sesiones, por debajo del 50% de adherencia.`,
+      why: `Completaste ${current.workoutsCount}/${targetSessions} sesiones y la adherencia combinada sigue por debajo del 50%.`,
       reasoning: [
         "Cuando la adherencia cae, el primer ajuste profesional es hacer el plan mas sostenible.",
         "Reducir un 10% baja friccion sin cambiar toda la estructura.",
       ],
       direction: "decrease",
       adjustmentPct: 10,
-      metrics: [metric("Adherencia", `${adherencePct}%`), metric("Objetivo", `${targetSessions} sesiones`)],
+      metrics: [metric("Manual", `${manualAdherencePct}%`), metric("Pasivo", `+${passiveSupportPct}%`), metric("Objetivo", `${targetSessions} sesiones`)],
       safetyNotes: ["El ajuste esta limitado al 10%.", "Se prioriza consistencia antes que intensidad."],
       decision: decisions?.["training-deload"],
     });
   }
 
-  if (adherencePct > 80 && positiveSignals && previous.workoutsCount > 0) {
+  if (manualAdherencePct >= 60 && adherencePct > 80 && positiveSignals && previous.workoutsCount > 0) {
     return buildRecommendation({
       id: "training-progress",
       type: "training",
@@ -226,8 +286,8 @@ function buildTrainingRecommendation(
       ],
       direction: "increase",
       adjustmentPct: 5,
-      metrics: [metric("Adherencia", `${adherencePct}%`), metric("Energia", `${current.averageEnergy ?? "-"}/5`)],
-      safetyNotes: ["Nunca se propone mas del 10%.", "No se aumenta tras una semana previa en cero."],
+      metrics: [metric("Manual", `${manualAdherencePct}%`), metric("Pasivo", `+${passiveSupportPct}%`), metric("Energia", `${current.averageEnergy ?? "-"}/5`)],
+      safetyNotes: ["Nunca se propone mas del 10%.", "No se aumenta apoyandose solo en senales pasivas.", "No se aumenta tras una semana previa en cero."],
       decision: decisions?.["training-progress"],
     });
   }
@@ -384,7 +444,9 @@ export function buildWeeklyReview(
   const current = summarizeWindow(tracking, range);
   const previous = summarizeWindow(tracking, previousRange);
   const targetSessions = Math.max(0, Math.min(7, Math.round(context.trainingPlan?.daysPerWeek ?? 0)));
-  const trainingAdherencePct = targetSessions > 0 ? round((current.workoutsCount / targetSessions) * 100, 0) : 0;
+  const manualTrainingAdherencePct = targetSessions > 0 ? round((current.workoutsCount / targetSessions) * 100, 0) : 0;
+  const passiveAdherenceSupportPct = resolvePassiveAdherenceSupport(current, targetSessions);
+  const trainingAdherencePct = Math.min(100, manualTrainingAdherencePct + passiveAdherenceSupportPct);
 
   const recommendations: WeeklyReviewRecommendation[] = [];
 
@@ -420,8 +482,16 @@ export function buildWeeklyReview(
       mealLoggingDays: current.mealLoggingDays,
       trainingTargetSessions: targetSessions,
       trainingAdherencePct,
+      manualTrainingAdherencePct,
+      passiveAdherenceSupportPct,
+      passiveActiveDays: current.passiveActiveDays,
+      passiveStepsTotal: current.passiveStepsTotal,
+      passiveActiveMinutes: current.passiveActiveMinutes,
+      passiveSourceCount: current.passiveSourceCount,
       averageEnergy: current.averageEnergy,
       averageHunger: current.averageHunger,
+      averageSleepHours: current.averageSleepHours,
+      averageRestingHeartRate: current.averageRestingHeartRate,
       weightChangeKg:
         current.averageWeightKg !== null && previous.averageWeightKg !== null
           ? round(current.averageWeightKg - previous.averageWeightKg, 2)

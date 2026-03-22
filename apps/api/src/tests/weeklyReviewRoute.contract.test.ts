@@ -31,6 +31,14 @@ function createApp() {
           { id: "p2", date: "2026-02-17", weightKg: 79.5, chestCm: 100, waistCm: 84.5, hipsCm: 95, bicepsCm: 35, thighCm: 56, calfCm: 38, neckCm: 40, bodyFatPercent: 18, energy: 2, hunger: 4, notes: "", recommendation: "", frontPhotoUrl: null, sidePhotoUrl: null },
           { id: "p3", date: "2026-02-20", weightKg: 79.1, chestCm: 100, waistCm: 84, hipsCm: 95, bicepsCm: 35, thighCm: 56, calfCm: 38, neckCm: 40, bodyFatPercent: 18, energy: 2, hunger: 4, notes: "", recommendation: "", frontPhotoUrl: null, sidePhotoUrl: null },
         ],
+        passiveData: {
+          snapshots: [
+            { id: "ph1", date: "2026-02-17", source: "demo", provider: "Demo Sync", steps: 8400, activeCalories: 300, activeMinutes: 34, sleepHours: 7.2, restingHeartRate: 60, exerciseSessions: 0, note: "", syncedAt: "2026-02-17T08:00:00.000Z" },
+            { id: "ph2", date: "2026-02-18", source: "demo", provider: "Demo Sync", steps: 11200, activeCalories: 420, activeMinutes: 56, sleepHours: 7.9, restingHeartRate: 58, exerciseSessions: 1, note: "", syncedAt: "2026-02-18T08:00:00.000Z" },
+          ],
+          lastSyncAt: "2026-02-18T08:00:00.000Z",
+          lastSyncSource: "demo",
+        },
         foodLog: [],
         mealLog: [
           { id: "m1", date: "2026-02-17", mealKey: "meal-1", mealType: "lunch", title: "Almuerzo", calories: 620, protein: 35, carbs: 70, fats: 18, completedAt: "2026-02-17T13:00:00.000Z" },
@@ -58,6 +66,7 @@ assert.equal(getResponse.statusCode, 200);
 const getPayload = getResponse.json();
 assert.equal(Array.isArray(getPayload.recommendations), true);
 assert.equal(getPayload.summary.trainingTargetSessions, 4);
+assert.equal(getPayload.summary.passiveActiveDays, 2);
 
 const defaultResponse = await app.inject({ method: "GET", url: "/review/weekly" });
 assert.equal(defaultResponse.statusCode, 200);

@@ -55,8 +55,16 @@ describe("WeeklyReviewClient", () => {
           mealLoggingDays: 3,
           trainingTargetSessions: 4,
           trainingAdherencePct: 25,
+          manualTrainingAdherencePct: 25,
+          passiveAdherenceSupportPct: 12,
+          passiveActiveDays: 4,
+          passiveStepsTotal: 43210,
+          passiveActiveMinutes: 96,
+          passiveSourceCount: 1,
           averageEnergy: 2.5,
           averageHunger: 4,
+          averageSleepHours: 7.4,
+          averageRestingHeartRate: 60,
           weightChangeKg: -1.2,
           weightChangePct: -1.5,
           waistChangeCm: -1,
@@ -88,6 +96,7 @@ describe("WeeklyReviewClient", () => {
     expect(screen.getByText(/adaptive engine v1/i)).toBeInTheDocument();
     expect(screen.getByText(/bajar exigencia para recuperar consistencia/i)).toBeInTheDocument();
     expect(screen.getByText(/lectura profesional/i)).toBeInTheDocument();
+    expect(screen.getByText(/la adherencia mostrada combina tu registro manual/i)).toBeInTheDocument();
     expect(trackWeeklyReviewEventMock).toHaveBeenCalledWith(expect.objectContaining({ event: "weekly_review_opened", weekKey: "2026-02-16" }));
     expect(trackWeeklyReviewEventMock).toHaveBeenCalledWith(expect.objectContaining({ event: "recommendation_seen", recommendationId: "training-deload" }));
   });
@@ -110,8 +119,16 @@ describe("WeeklyReviewClient", () => {
           mealLoggingDays: 3,
           trainingTargetSessions: 4,
           trainingAdherencePct: 25,
+          manualTrainingAdherencePct: 25,
+          passiveAdherenceSupportPct: 12,
+          passiveActiveDays: 4,
+          passiveStepsTotal: 43210,
+          passiveActiveMinutes: 96,
+          passiveSourceCount: 1,
           averageEnergy: 2.5,
           averageHunger: 4,
+          averageSleepHours: 7.4,
+          averageRestingHeartRate: 60,
           weightChangeKg: -1.2,
           weightChangePct: -1.5,
           waistChangeCm: -1,
@@ -156,8 +173,16 @@ describe("WeeklyReviewClient", () => {
           mealLoggingDays: 3,
           trainingTargetSessions: 4,
           trainingAdherencePct: 25,
+          manualTrainingAdherencePct: 25,
+          passiveAdherenceSupportPct: 12,
+          passiveActiveDays: 4,
+          passiveStepsTotal: 43210,
+          passiveActiveMinutes: 96,
+          passiveSourceCount: 1,
           averageEnergy: 2.5,
           averageHunger: 4,
+          averageSleepHours: 7.4,
+          averageRestingHeartRate: 60,
           weightChangeKg: -1.2,
           weightChangePct: -1.5,
           waistChangeCm: -1,

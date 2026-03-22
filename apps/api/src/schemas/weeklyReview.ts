@@ -25,6 +25,7 @@ export const weeklyReviewRecommendationIdSchema = z.enum([
   "habit-meal-logging",
   "habit-training-consistency",
   "habit-foundation",
+  "habit-passive-bridge",
 ]);
 
 export const weeklyReviewRecommendationTypeSchema = z.enum(["training", "nutrition", "habit"]);
@@ -65,8 +66,16 @@ export const weeklyReviewSummarySchema = z.object({
   mealLoggingDays: z.number().int().min(0).max(7),
   trainingTargetSessions: z.number().int().min(0).max(7),
   trainingAdherencePct: z.number().min(0).max(100),
+  manualTrainingAdherencePct: z.number().min(0).max(100),
+  passiveAdherenceSupportPct: z.number().min(0).max(25),
+  passiveActiveDays: z.number().int().min(0).max(7),
+  passiveStepsTotal: z.number().int().min(0),
+  passiveActiveMinutes: z.number().int().min(0),
+  passiveSourceCount: z.number().int().min(0),
   averageEnergy: z.number().min(0).max(5).nullable(),
   averageHunger: z.number().min(0).max(5).nullable(),
+  averageSleepHours: z.number().min(0).max(24).nullable(),
+  averageRestingHeartRate: z.number().min(20).max(240).nullable(),
   weightChangeKg: z.number().nullable(),
   weightChangePct: z.number().nullable(),
   waistChangeCm: z.number().nullable(),

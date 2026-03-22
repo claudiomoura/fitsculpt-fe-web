@@ -21,6 +21,7 @@ const recommendationIds: ReadonlySet<WeeklyReviewRecommendationId> = new Set([
   "habit-meal-logging",
   "habit-training-consistency",
   "habit-foundation",
+  "habit-passive-bridge",
 ]);
 
 const recommendationTypes: ReadonlySet<WeeklyReviewRecommendationType> = new Set(["training", "nutrition", "habit"]);
@@ -76,8 +77,16 @@ function parseSummary(value: unknown): WeeklyReviewSummary | null {
     mealLoggingDays,
     trainingTargetSessions,
     trainingAdherencePct,
+    manualTrainingAdherencePct,
+    passiveAdherenceSupportPct,
+    passiveActiveDays,
+    passiveStepsTotal,
+    passiveActiveMinutes,
+    passiveSourceCount,
     averageEnergy,
     averageHunger,
+    averageSleepHours,
+    averageRestingHeartRate,
     weightChangeKg,
     weightChangePct,
     waistChangeCm,
@@ -89,7 +98,11 @@ function parseSummary(value: unknown): WeeklyReviewSummary | null {
   if (!isNonNegativeInteger(checkinsCount) || !isNonNegativeInteger(workoutsCount) || !isNonNegativeInteger(previousWorkoutsCount)) return null;
   if (!isNonNegativeInteger(nutritionLogsCount) || !isNonNegativeInteger(mealLoggingDays) || !isNonNegativeInteger(trainingTargetSessions)) return null;
   if (typeof trainingAdherencePct !== "number" || trainingAdherencePct < 0 || trainingAdherencePct > 100) return null;
+  if (typeof manualTrainingAdherencePct !== "number" || manualTrainingAdherencePct < 0 || manualTrainingAdherencePct > 100) return null;
+  if (typeof passiveAdherenceSupportPct !== "number" || passiveAdherenceSupportPct < 0 || passiveAdherenceSupportPct > 25) return null;
+  if (!isNonNegativeInteger(passiveActiveDays) || !isNonNegativeInteger(passiveStepsTotal) || !isNonNegativeInteger(passiveActiveMinutes) || !isNonNegativeInteger(passiveSourceCount)) return null;
   if (!isBoundedMetric(averageEnergy) || !isBoundedMetric(averageHunger)) return null;
+  if (!isNullableNumber(averageSleepHours) || !isNullableNumber(averageRestingHeartRate)) return null;
   if (!isNullableNumber(weightChangeKg) || !isNullableNumber(weightChangePct) || !isNullableNumber(waistChangeCm)) return null;
 
   return {
@@ -107,8 +120,16 @@ function parseSummary(value: unknown): WeeklyReviewSummary | null {
     mealLoggingDays,
     trainingTargetSessions,
     trainingAdherencePct,
+    manualTrainingAdherencePct,
+    passiveAdherenceSupportPct,
+    passiveActiveDays,
+    passiveStepsTotal,
+    passiveActiveMinutes,
+    passiveSourceCount,
     averageEnergy,
     averageHunger,
+    averageSleepHours,
+    averageRestingHeartRate,
     weightChangeKg,
     weightChangePct,
     waistChangeCm,

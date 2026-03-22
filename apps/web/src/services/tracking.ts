@@ -1,5 +1,7 @@
 export type TrackingCollection = "checkins" | "foodLog" | "workoutLog" | "mealLog";
 
+export type PassiveHealthSource = "manual" | "demo" | "apple_health" | "google_fit" | "wearable" | "other";
+
 export type CheckinEntry = {
   id: string;
   date: string;
@@ -48,6 +50,27 @@ export type MealLogEntry = {
   completedAt: string;
 };
 
+export type PassiveHealthSnapshot = {
+  id: string;
+  date: string;
+  source: PassiveHealthSource;
+  provider: string | null;
+  steps: number | null;
+  activeCalories: number | null;
+  activeMinutes: number | null;
+  sleepHours: number | null;
+  restingHeartRate: number | null;
+  exerciseSessions: number;
+  note: string;
+  syncedAt: string;
+};
+
+export type PassiveHealthData = {
+  snapshots: PassiveHealthSnapshot[];
+  lastSyncAt: string | null;
+  lastSyncSource: PassiveHealthSource | null;
+};
+
 export type TrackingEntryByCollection = {
   checkins: CheckinEntry;
   foodLog: FoodEntry;
@@ -60,6 +83,7 @@ export type TrackingSnapshot = {
   foodLog: FoodEntry[];
   workoutLog: WorkoutEntry[];
   mealLog: MealLogEntry[];
+  passiveData: PassiveHealthData;
 };
 
 export async function createTrackingEntry<TCollection extends TrackingCollection>(
