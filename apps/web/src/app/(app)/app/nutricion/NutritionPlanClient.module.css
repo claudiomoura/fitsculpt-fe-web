@@ -380,11 +380,9 @@
   border: none;
 }
 
-.nutritionScope :global(.meal-card--horizontal::after) {
-  content: ">";
-  color: var(--text-muted);
-  font-size: 18px;
-  line-height: 1;
+.nutritionScope :global(.meal-card--horizontal .meal-card-affordance) {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
 }
 
 .nutritionScope :global(.meal-card--horizontal-compact) {
@@ -411,8 +409,9 @@
   overflow: hidden;
 }
 
-.nutritionScope :global(.meal-card--horizontal-compact::after) {
-  font-size: 15px;
+.nutritionScope :global(.meal-card--horizontal-compact .meal-card-affordance) {
+  width: 22px;
+  height: 22px;
 }
 
 .nutritionScope :global(.nutrition-shopping-list-v2) {

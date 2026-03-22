@@ -11,6 +11,18 @@
   flex-wrap: wrap;
 }
 
+.heroCtas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.heroSecondaryCta {
+  min-width: 128px;
+  justify-content: center;
+}
+
 .heroMeta {
   margin: 0;
 }
@@ -96,21 +108,40 @@
 }
 
 .exerciseCard {
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
-.exerciseCardCompleted {
-  border-color: color-mix(in srgb, var(--accent) 22%, var(--surface-border-default));
+.exerciseActionSurface,
+.exerciseContentSurface {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 86%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-inset-bg) 86%, transparent);
+}
+
+.exerciseActionSurface {
+  padding: 10px 12px;
+}
+
+.exerciseContentSurface {
+  width: 100%;
+  padding: 10px;
+}
+
+.exerciseCardCompleted .exerciseActionSurface,
+.exerciseCardCompleted .exerciseContentSurface {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--surface-border-default));
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 62%),
-    color-mix(in srgb, var(--surface-inset-bg) 88%, transparent);
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 64%),
+    color-mix(in srgb, var(--surface-inset-bg) 90%, transparent);
 }
 
 .exerciseCardBody {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -122,50 +153,57 @@
   color: inherit;
   font: inherit;
   text-align: left;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
+}
+
+.exerciseContentAffordance {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-secondary-bg) 82%, transparent);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exerciseDetailButton.is-disabled .exerciseContentAffordance {
+  opacity: 0.48;
 }
 
 .exerciseCardActions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .exerciseMetaPill,
-.exerciseStatus {
+.exerciseProgressLabel {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  border-radius: 999px;
-  padding: 0 10px;
   font-size: 0.76rem;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
+  color: var(--text-muted);
 }
 
 .exerciseMetaPill {
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 88%, transparent);
   background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
+  border-radius: 999px;
+  padding: 0 10px;
   color: var(--text-muted);
-}
-
-.exerciseStatusPending {
-  background: color-mix(in srgb, var(--surface-inset-bg) 88%, transparent);
-  color: var(--text-muted);
-}
-
-.exerciseStatusDone {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: color-mix(in srgb, var(--accent-strong) 78%, var(--text-primary));
 }
 
 .exerciseActionButton {
-  min-width: 156px;
+  min-width: 0;
   justify-content: center;
 }
 
@@ -335,21 +373,35 @@
     font-size: 0.72rem;
   }
 
-  .exerciseCard {
-    grid-template-columns: 56px minmax(0, 1fr);
-    gap: 12px;
+  .exerciseActionSurface {
+    padding: 9px 10px;
   }
 
-  .exerciseDetailButton,
-  .exerciseCardActions {
-    flex-direction: column;
-    align-items: stretch;
+  .exerciseContentSurface {
+    padding: 9px;
   }
 
-  .exerciseMetaPill,
-  .exerciseStatus,
-  .exerciseActionButton {
+  .exerciseDetailButton {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .exerciseMetaPill {
     width: 100%;
     justify-content: center;
+    text-align: center;
+  }
+
+  .exerciseCardActions {
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .heroCtas {
+    width: 100%;
+  }
+
+  .heroSecondaryCta {
+    min-width: 0;
   }
 }

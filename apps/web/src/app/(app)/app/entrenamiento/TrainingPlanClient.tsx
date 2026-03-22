@@ -33,7 +33,6 @@ import {
 } from "@/domains/ai";
 import { AiPlanPreviewModal } from "@/components/training-plan/AiPlanPreviewModal";
 import { EmptyState } from "@/components/states";
-import { ActivePlanCard } from "@/components/ActivePlanCard";
 import { AiModuleUpgradeCTA } from "@/components/UpgradeCTA/AiModuleUpgradeCTA";
 import { useToast } from "@/design-system/components/Toast";
 import { ErrorBlock } from "@/design-system";
@@ -395,15 +394,18 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const [exerciseCatalogByName, setExerciseCatalogByName] = useState<Record<string, ExerciseCatalogItem>>({});
   const [workoutsByDate, setWorkoutsByDate] = useState<Record<string, WorkoutLookupItem[]>>({});
   const [startCtaLoading, setStartCtaLoading] = useState(false);
+  const [completeCtaLoading, setCompleteCtaLoading] = useState(false);
   const [detailsCtaLoading, setDetailsCtaLoading] = useState(false);
   const [selectedWorkoutDetail, setSelectedWorkoutDetail] = useState<Workout | null>(null);
   const [exerciseLogLoadingKey, setExerciseLogLoadingKey] = useState<string | null>(null);
-  const [hideMainCard, setHideMainCard] = useState(false);
+  const hideMainCard = false;
   const requestedCatalogExerciseIds = useRef<Set<string>>(new Set());
   const requestedCatalogExerciseNames = useRef<Set<string>>(new Set());
+  const didAutoSelectWorkoutDay = useRef(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
-    const weekOffsetParam = Number(searchParams.get("weekOffset") ?? "0");
+    const rawWeekOffsetParam = searchParams.get("weekOffset");
+    const weekOffsetParam = rawWeekOffsetParam === null ? Number.NaN : Number(rawWeekOffsetParam);
     const dayDate = parseDate(dayParam);
     if (dayDate) return dayDate;
     if (Number.isFinite(weekOffsetParam)) {
@@ -576,24 +578,28 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       try {
         // Source of truth: explicit user selection from library.
         if (selectedPlanId) {
-          const selectedResponse = await fetch(`/api/training-plans/${encodeURIComponent(selectedPlanId)}`, {
-            cache: "no-store",
-            signal: controller.signal,
-          });
+          try {
+            const selectedResponse = await fetch(`/api/training-plans/${encodeURIComponent(selectedPlanId)}`, {
+              cache: "no-store",
+              signal: controller.signal,
+            });
 
-          if (selectedResponse.ok) {
-            const selectedPayload = (await selectedResponse.json()) as TrainingPlan;
-            setActivePlan(selectedPayload);
-            setActivePlanOrigin("selected");
-            return;
-          }
-
-          if ([401, 403, 404].includes(selectedResponse.status)) {
-            if (typeof window !== "undefined") {
-              window.localStorage.removeItem(SELECTED_PLAN_STORAGE_KEY);
-              window.localStorage.removeItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY);
-              setStoredPlanId("");
+            if (selectedResponse.ok) {
+              const selectedPayload = (await selectedResponse.json()) as TrainingPlan;
+              setActivePlan(selectedPayload);
+              setActivePlanOrigin("selected");
+              return;
             }
+
+            if ([401, 403, 404].includes(selectedResponse.status)) {
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem(SELECTED_PLAN_STORAGE_KEY);
+                window.localStorage.removeItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY);
+                setStoredPlanId("");
+              }
+            }
+          } catch (_err) {
+            // Fall through to active plan lookup when selected plan request fails.
           }
         }
 
@@ -1268,6 +1274,10 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const todayKey = toDateKey(today);
   const selectedEntry = visibleDayMap.get(toDateKey(clampedSelectedDate)) ?? null;
   const selectedEntryDate = clampedSelectedDate;
+  const firstWorkoutEntry = useMemo(
+    () => visiblePlanEntries.find((entry) => (entry.day.exercises?.length ?? 0) > 0) ?? null,
+    [visiblePlanEntries]
+  );
   const selectedDayKey = toDateKey(selectedEntryDate);
   const selectedExercises = (selectedEntry?.day.exercises ?? []).map(mergeExerciseWithCatalog);
   const selectedDayIsRest = selectedExercises.length === 0;
@@ -1278,6 +1288,22 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const canOpenDayEditor = Boolean(dayEditorPlanId && dayEditorDay);
   const dayEditorHref = `/app/entrenamiento/editar?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
   const selectedDayHasWorkout = selectedExercises.length > 0;
+
+  useEffect(() => {
+    if (selectedEntry || visiblePlanEntries.length === 0) return;
+    setSelectedDate(visiblePlanEntries[0].date);
+  }, [selectedEntry, visiblePlanEntries]);
+
+  useEffect(() => {
+    if (didAutoSelectWorkoutDay.current) return;
+    if (selectedDayHasWorkout) {
+      didAutoSelectWorkoutDay.current = true;
+      return;
+    }
+    if (!firstWorkoutEntry) return;
+    didAutoSelectWorkoutDay.current = true;
+    setSelectedDate(firstWorkoutEntry.date);
+  }, [firstWorkoutEntry, selectedDayHasWorkout]);
   const nextEntryHasWorkout = (nextPlannedEntry?.day.exercises?.length ?? 0) > 0;
   const normalizeName = (value?: string | null) => (value ?? "").trim().toLowerCase();
   const pickWorkoutIdForDate = (date: Date, focus?: string | null) => {
@@ -1474,6 +1500,83 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     }
   };
 
+  const markSelectedDayAsCompleted = async () => {
+    if (!selectedEntry || !selectedDayHasWorkout || completeCtaLoading || selectedExercises.length === 0) return;
+
+    setCompleteCtaLoading(true);
+    try {
+      const workoutId = selectedWorkoutId ?? (await ensureWorkoutIdForEntry(selectedEntry));
+      if (!workoutId) {
+        throw new Error("WORKOUT_NOT_FOUND");
+      }
+
+      const workout = (selectedWorkoutDetail?.id === workoutId ? selectedWorkoutDetail : await loadWorkoutDetail(workoutId)) ?? null;
+      const openSession = [...(workout?.sessions ?? [])].reverse().find((session) => !session.finishedAt);
+      let sessionId = openSession?.id ?? null;
+
+      if (!sessionId) {
+        const startResponse = await fetch(`/api/workouts/${encodeURIComponent(workoutId)}/start`, {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!startResponse.ok) {
+          throw new Error("SESSION_START_FAILED");
+        }
+        const startedSession = (await startResponse.json()) as { id?: string };
+        sessionId = startedSession?.id ?? null;
+      }
+
+      if (!sessionId) {
+        throw new Error("SESSION_ID_MISSING");
+      }
+
+      const entries = selectedExercises.flatMap((exercise) => {
+        const targetSets = parseSetCountFromExercise(exercise);
+        const reps = parseDefaultRepsFromExercise(exercise);
+        return Array.from({ length: Math.max(1, targetSets) }, () => ({
+          exercise: exercise.name,
+          sets: 1,
+          reps,
+        }));
+      });
+
+      const patchResponse = await fetch(`/api/workout-sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ entries }),
+      });
+      if (!patchResponse.ok) {
+        throw new Error("SESSION_PATCH_FAILED");
+      }
+
+      const finishResponse = await fetch(`/api/workout-sessions/${encodeURIComponent(sessionId)}/finish`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!finishResponse.ok) {
+        throw new Error("SESSION_FINISH_FAILED");
+      }
+
+      const [refreshedWorkout] = await Promise.all([
+        loadWorkoutDetail(workoutId),
+        loadWorkoutsForLookup({ current: true }),
+      ]);
+      setSelectedWorkoutDetail(refreshedWorkout);
+      notify({
+        title: safeT("training.dayCompleteSuccess", "Entrenamiento marcado como completado."),
+        variant: "success",
+      });
+    } catch (_err) {
+      notify({
+        title: safeT("training.dayCompleteError", "No pudimos marcar el entrenamiento como completado."),
+        variant: "error",
+      });
+    } finally {
+      setCompleteCtaLoading(false);
+    }
+  };
+
 
   const openSelectedDayDetails = async () => {
     if (!selectedEntry || !selectedDayHasWorkout || detailsCtaLoading) return;
@@ -1600,6 +1703,14 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const estimatedCompletedSessions = visiblePlanEntries.filter((entry) => completedDayKeys.has(toDateKey(entry.date))).length;
   const totalPlannedSessions = Math.max(visiblePlanEntries.length, 1);
   const progressPercent = Math.min(100, Math.round((estimatedCompletedSessions / totalPlannedSessions) * 100));
+  const activePlanOriginLabel =
+    activePlanOrigin === "selected"
+      ? "Seleccionado de la biblioteca"
+      : activePlanOrigin === "assigned"
+        ? "Asignado por tu entrenador"
+        : activePlanOrigin === "own"
+          ? "Tu plan activo"
+          : "Sin origen";
   const selectedEntryDateLabel = selectedEntryDate.toLocaleDateString(localeCode, {
     weekday: "long",
     day: "numeric",
@@ -1746,16 +1857,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
     <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.trainingPlanLayout} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
         <>
-          {/* Active plan indicator */}
-          {!loading && !error && profile && isProfileComplete(profile) ? (
-            <ActivePlanCard
-              type="training"
-              planTitle={activePlan?.title ?? null}
-              source={activePlanOrigin}
-              manageHref="/app/biblioteca/planes-entrenamiento"
-            />
-          ) : null}
-
           {!loading && !error && profile && !isProfileComplete(profile) ? (
             <section className="card">
               <div className="empty-state">
@@ -1811,9 +1912,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 <div className={styles.hero}>
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl border" style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)" }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-                        <path d="M6.5 6.5h11"/><path d="M6.5 17.5h11"/><path d="M3 10v4"/><path d="M21 10v4"/><path d="M6 6v12"/><path d="M18 6v12"/><path d="M6 14h.01"/><path d="M18 14h.01"/>
-                      </svg>
+                      <Icon name="dumbbell" size={24} className="text-accent" />
                     </div>
                     <div>
                       <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{safeT("training.dayTrainingTitle", "Entrenamiento del dia")}</p>
@@ -1828,7 +1927,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                     </div>
                   </div>
                   {selectedDayHasWorkout ? (
-                    <div className="flex items-center gap-2">
+                    <div className={styles.heroCtas}>
                       <button
                         type="button"
                         className="btn rounded-xl h-11 min-w-[148px] px-5 font-semibold"
@@ -1840,7 +1939,21 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       </button>
                       <button
                         type="button"
-                        className="btn secondary fit-content rounded-xl h-10 px-3 text-sm"
+                        className={`btn secondary fit-content rounded-xl h-9 px-3 text-xs font-semibold ${styles.heroSecondaryCta}`}
+                        onClick={() => void markSelectedDayAsCompleted()}
+                        disabled={completeCtaLoading || isSelectedDayCompleted}
+                        aria-label={safeT("training.markCompleteAria", "Marcar entrenamiento como completado")}
+                      >
+                        {!completeCtaLoading ? <Icon name="check" size={14} /> : null}
+                        {completeCtaLoading
+                          ? t("ui.loading")
+                          : isSelectedDayCompleted
+                            ? safeT("training.dayCompletedBadge", "Completado")
+                            : safeT("training.markCompleteCta", "Marcar completo")}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary fit-content rounded-xl h-9 px-3 text-xs"
                         onClick={() => void openSelectedDayDetails()}
                         disabled={detailsCtaLoading}
                         aria-label={safeT("training.detailsSessionAria", "Ver detalles del dia seleccionado")}
@@ -2131,55 +2244,54 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                       return (
                         <div
                           key={`${exercise.name}-${index}`}
-                          className={`exercise-mini-card exercise-mini-card-compact ${styles.exerciseCard} ${isExerciseCompleted ? styles.exerciseCardCompleted : ""}`}
+                          className={`exercise-mini-card ${styles.exerciseCard} ${isExerciseCompleted ? styles.exerciseCardCompleted : ""}`}
                         >
-                          <ExerciseThumbnail
-                            className="exercise-thumb"
-                            src={getExerciseImageUrl(exercise)}
-                            alt={exercise.name}
-                            width={72}
-                            height={72}
-                          />
-                          <div className={styles.exerciseCardBody}>
-                            <button
-                              type="button"
-                              className={`${styles.exerciseDetailButton} ${exerciseHref ? "is-clickable" : "is-disabled"}`}
-                              data-testid="training-plan-exercise-item"
-                              aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
-                              aria-pressed={false}
-                              aria-disabled={!exerciseHref}
-                              disabled={!exerciseHref}
-                              onClick={() => exerciseHref && router.push(exerciseHref)}
-                            >
-                              <div className="exercise-mini-copy">
-                                <strong className="exercise-mini-name">{exercise.name}</strong>
-                                <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
-                              </div>
-                              <span className={styles.exerciseMetaPill}>{loggedSets}/{targetSets} sets</span>
-                            </button>
-                            <div className={styles.exerciseCardActions}>
-                              <span className={`${styles.exerciseStatus} ${isExerciseCompleted ? styles.exerciseStatusDone : styles.exerciseStatusPending}`}>
-                                {isExerciseCompleted
-                                  ? safeT("training.dayCompletedBadge", "Completado")
-                                  : safeT("training.exercisePendingLabel", "Pendiente")}
-                              </span>
+                          <div className={`${styles.exerciseActionSurface} ${styles.exerciseCardBody}`}>
+                            <div className={`inline-actions-sm ${styles.exerciseCardActions}`}>
+                              <span className={`badge ${styles.exerciseProgressLabel}`}>{loggedSets}/{targetSets} sets</span>
                               <button
                                 type="button"
-                                className={`btn ${isExerciseCompleted ? "secondary" : ""} fit-content rounded-xl h-10 px-4 text-sm font-semibold ${styles.exerciseActionButton}`}
+                                className={`btn ${isExerciseCompleted ? "secondary" : ""} fit-content rounded-xl h-8 px-3 text-xs font-semibold ${styles.exerciseActionButton}`}
                                 onClick={() => void handleLogExercise(exercise, index)}
                                 disabled={isLoggingExercise || isExerciseCompleted}
                                 aria-label={isExerciseCompleted
                                   ? safeT("training.exerciseCompletedAria", "Ejercicio completado")
                                   : safeT("training.registerExerciseAria", "Registrar ejercicio")}
                               >
+                                {isExerciseCompleted ? <Icon name="check" size={14} /> : null}
                                 {isExerciseCompleted
-                                  ? safeT("training.dayCompletedBadge", "Completado")
+                                  ? safeT("training.registeredExerciseCta", "Registrado")
                                   : isLoggingExercise
                                     ? t("ui.loading")
-                                    : safeT("training.registerExerciseCta", "Registrar ejercicio")}
+                                    : safeT("training.registerExerciseCta", "Registrar")}
                               </button>
                             </div>
                           </div>
+                          <button
+                            type="button"
+                            className={`${styles.exerciseContentSurface} ${styles.exerciseDetailButton} ${exerciseHref ? "is-clickable" : "is-disabled"}`}
+                            data-testid="training-plan-exercise-item"
+                            aria-label={`${t("training.exerciseLink")}: ${exercise.name}`}
+                            aria-pressed={false}
+                            aria-disabled={!exerciseHref}
+                            disabled={!exerciseHref}
+                            onClick={() => exerciseHref && router.push(exerciseHref)}
+                          >
+                            <ExerciseThumbnail
+                              className="exercise-thumb"
+                              src={getExerciseImageUrl(exercise)}
+                              alt={exercise.name}
+                              width={72}
+                              height={72}
+                            />
+                            <div className="exercise-mini-copy">
+                              <strong className="exercise-mini-name">{exercise.name}</strong>
+                              <span className="exercise-mini-meta">{exercise.reps ? `${exercise.sets} x ${exercise.reps}` : exercise.sets}</span>
+                            </div>
+                            <span className={styles.exerciseContentAffordance} aria-hidden="true">
+                              <Icon name="chevron-right" size={16} />
+                            </span>
+                          </button>
                         </div>
                       );
                     })
@@ -2204,11 +2316,22 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                   </div>
                   <div>
                     <strong className="training-insight-title">Tus planes</strong>
-                    <p className="muted">Gestiona tu plan activo.</p>
-                    <p className="training-plan-access-status">
-                      {activePlan?.title ? `Actual: ${activePlan.title}` : "Sin plan activo"}
-                    </p>
+                    <p className="muted">Revisa en un vistazo qué plan se está aplicando.</p>
+                    {activePlan?.title ? (
+                      <>
+                        <div className="inline-actions-sm mt-6">
+                          <Badge variant="info">Actual</Badge>
+                          <strong>{activePlan.title}</strong>
+                        </div>
+                        <p className="training-plan-access-status">Origen: {activePlanOriginLabel}</p>
+                      </>
+                    ) : (
+                      <p className="training-plan-access-status">Sin plan activo</p>
+                    )}
                   </div>
+                  <span className="training-insight-affordance" aria-hidden="true">
+                    <Icon name="chevron-right" size={18} />
+                  </span>
                 </Link>
               </section>
 
