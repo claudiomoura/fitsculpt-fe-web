@@ -6,8 +6,13 @@
 }
 
 .nutritionScope :global(.nutrition-today-primary) {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--surface-card-border));
-  box-shadow: 0 18px 46px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--surface-border-default);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
+  background: var(--surface-secondary-bg);
+}
+
+.nutritionScope :global(.nutrition-summary-hero-card) {
+  background: var(--surface-secondary-bg);
 }
 
 .nutritionScope :global(.nutrition-today-summary-only) {

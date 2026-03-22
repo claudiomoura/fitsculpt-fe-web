@@ -860,6 +860,9 @@ textarea:disabled {
 
 .focus-app-frame {
   min-height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
   background:
     radial-gradient(circle at 14% 10%, color-mix(in srgb, var(--color-primary) 18%, transparent) 0%, transparent 42%),
     linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 96%, black 4%) 0%, var(--color-bg) 100%);
@@ -867,7 +870,16 @@ textarea:disabled {
 
 .focus-app-content {
   min-height: 100dvh;
-  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  max-width: 1620px;
+  width: 100%;
+  margin: 0 auto;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 20px 0;
+}
+
+@media (max-width: 900px) {
+  .focus-app-content {
+    padding: max(12px, env(safe-area-inset-top, 0px)) 16px 0;
+  }
 }
 
 .focus-session-layout {
@@ -1585,9 +1597,11 @@ html.theme-dark :focus-visible {
   border-radius: var(--surface-card-radius);
   border: 1px solid var(--surface-border-emphasis);
   box-shadow: var(--surface-card-inner-glow), var(--shadow-md);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 42%),
-    var(--surface-primary-bg);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, var(--surface) 88%) 0%, var(--surface) 100%);
+}
+
+.premium-hero-card--complete {
+  background: linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.05) 100%);
 }
 
 .premium-stepper-card,

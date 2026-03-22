@@ -2455,6 +2455,14 @@ const nutritionPlanDetails = profile ? (
     </div>
   ) : null;
 
+  const nutritionAllMealsLogged = hasHighlightedMeals && highlightedMealsByType.reduce(
+    (count, section) => {
+      const mealKey = getNutritionMealKey(section.meal, highlightedDayKey, section.mealIndex);
+      return count + (isConsumed(mealKey, highlightedDayKey) ? 1 : 0);
+    },
+    0,
+  ) >= highlightedMealsCount;
+
   const pageContent = (
     <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.nutritionScope} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
@@ -2561,14 +2569,8 @@ const nutritionPlanDetails = profile ? (
                   const planTitle = activePlanTitle ?? safeT("nutrition.mealsTitle", "Comidas del día");
 
                   return (
-                    <div
-                      className="relative mb-5 overflow-hidden rounded-3xl"
-                      style={{
-                        background: allMealsLogged
-                          ? "linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.05) 100%)"
-                          : "linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, var(--surface) 88%) 0%, var(--surface) 100%)",
-                      }}
-                    >
+                    !allMealsLogged ? (
+                    <div className="card premium-hero-card relative mb-5 overflow-hidden rounded-3xl nutrition-summary-hero-card">
                       <div className="p-6">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
@@ -2676,10 +2678,11 @@ const nutritionPlanDetails = profile ? (
                         />
                       </div>
                     </div>
+                    ) : null
                   );
                 })()}
                 <div className={styles.overlayPrimaryStack}>
-<section id="nutrition-today-log" className={`card premium-hero-card surface-action-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary ${styles.overlayPrimaryFlow}`} ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan" style={{ background: allMealsLogged ? "linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.05) 100%)" : "linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, var(--surface) 88%) 0%, var(--surface) 100%)" }}>
+<section id="nutrition-today-log" className={`card premium-hero-card${nutritionAllMealsLogged ? " premium-hero-card--complete" : ""} surface-action-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary ${styles.overlayPrimaryFlow}`} ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
                   <div className="nutrition-today-summary-head nutrition-today-donut-card">
                     <div className="nutrition-hero-ring-wrap">
                       <HeroNutrition title={safeT("nutrition.dailyTargetTitle", "Objetivo diario")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
