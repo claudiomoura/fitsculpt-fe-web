@@ -2455,14 +2455,6 @@ const nutritionPlanDetails = profile ? (
     </div>
   ) : null;
 
-  const nutritionAllMealsLogged = hasHighlightedMeals && highlightedMealsByType.reduce(
-    (count, section) => {
-      const mealKey = getNutritionMealKey(section.meal, highlightedDayKey, section.mealIndex);
-      return count + (isConsumed(mealKey, highlightedDayKey) ? 1 : 0);
-    },
-    0,
-  ) >= highlightedMealsCount;
-
   const pageContent = (
     <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.nutritionScope} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
@@ -2572,92 +2564,50 @@ const nutritionPlanDetails = profile ? (
                     !allMealsLogged ? (
                     <div className="card premium-hero-card relative mb-5 overflow-hidden rounded-3xl nutrition-summary-hero-card">
                       <div className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span
-                                className="inline-block h-2 w-2 rounded-full"
-                                style={{
-                                  background: allMealsLogged ? "#10B981" : "var(--primary)",
-                                  boxShadow: allMealsLogged ? "0 0 8px rgba(16,185,129,0.5)" : "none",
-                                }}
-                              />
-                              <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                                {dayLabel}
-                              </p>
-                            </div>
-                            <h1 className="text-2xl font-bold tracking-tight text-text">
-                              {planTitle}
-                            </h1>
-                            {allMealsLogged && (
-                              <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400">
-                                <Icon name="check" size={12} />
-                                {t("nutrition.quickLogButtonConsumed")}
-                              </div>
-                            )}
-                          </div>
+                        <div
+                          className="flex h-12 w-12 items-center justify-center rounded-2xl border"
+                          style={{
+                            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+                            borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)",
+                          }}
+                        >
+                          <Icon name="chef-hat" size={22} className="text-accent" />
+                        </div>
+
+                        <div className="mt-3">
+                          <h2 className="m-0 text-[1.9rem] font-semibold leading-tight text-primary">{planTitle}</h2>
+                          <p className="m-0 mt-1 text-sm text-muted">{dayLabel}</p>
                         </div>
 
                         {hasHighlightedMeals ? (
-                          <div className="mt-5 flex items-center gap-6 text-xs text-text-muted flex-wrap">
-                            <div className="flex items-center gap-2">
-                              <Icon name="circle" size={14} />
-                              <span>{mealsCompletedCount}/{highlightedMealsCount} {safeT("nutrition.mealsTitle", "comidas").toLowerCase()}</span>
-                            </div>
-                            {highlightedTargetCalories !== null ? (
-                              <div className="flex items-center gap-2">
-                                <Icon name="dumbbell" size={14} />
-                                <span>{highlightedTargetCalories} {t("units.kcal")} {t("nutrition.dailyTargetTitle").toLowerCase()}</span>
-                              </div>
-                            ) : null}
-                            {highlightedRemainingCalories !== null ? (
-                              <div className="flex items-center gap-2">
-                                <Icon name="minus" size={14} />
-                                <span>{highlightedRemainingCalories} {t("units.kcal")} restantes</span>
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-
-                        {hasHighlightedMeals ? (
-                          <div className="mt-4 flex items-center gap-3">
-                            {!allMealsLogged ? (
-                              <button
-                                type="button"
-                                className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition-all active:scale-[0.98]"
-                                style={{
-                                  background: "var(--primary)",
-                                  color: "var(--bg-primary, #0B0E13)",
-                                }}
-                                onClick={() => {
-                                  highlightedMealsByType.forEach((section) => {
-                                    const mealKey = getNutritionMealKey(section.meal, highlightedDayKey, section.mealIndex);
-                                    if (!isConsumed(mealKey, highlightedDayKey)) {
-                                      void toggle(mealKey, highlightedDayKey, {
-                                        mealType: section.meal.type,
-                                        title: getMealTitle(section.meal, t),
-                                        calories: Number(section.meal.macros?.calories ?? 0),
-                                        protein: Number(section.meal.macros?.protein ?? 0),
-                                        carbs: Number(section.meal.macros?.carbs ?? 0),
-                                        fats: Number(section.meal.macros?.fats ?? 0),
-                                      });
-                                    }
-                                  });
-                                }}
-                              >
-                                <Icon name="check" size={16} />
-                                {safeT("nutrition.markAllComplete", "Marcar completado")}
-                              </button>
-                            ) : null}
+                          <div className="mt-4 flex items-center gap-2 flex-wrap">
                             <button
                               type="button"
-                              className="flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition-all active:scale-[0.98]"
-                              style={{
-                                background: "transparent",
-                                color: "var(--text)",
-                                border: "1px solid var(--border)",
-                                flex: allMealsLogged ? 1 : undefined,
+                              className={`btn rounded-xl h-11 min-w-[148px] px-5 font-semibold ${allMealsLogged ? "secondary" : ""}`}
+                              disabled={allMealsLogged}
+                              aria-disabled={allMealsLogged}
+                              onClick={() => {
+                                highlightedMealsByType.forEach((section) => {
+                                  const mealKey = getNutritionMealKey(section.meal, highlightedDayKey, section.mealIndex);
+                                  if (!isConsumed(mealKey, highlightedDayKey)) {
+                                    void toggle(mealKey, highlightedDayKey, {
+                                      mealType: section.meal.type,
+                                      title: getMealTitle(section.meal, t),
+                                      calories: Number(section.meal.macros?.calories ?? 0),
+                                      protein: Number(section.meal.macros?.protein ?? 0),
+                                      carbs: Number(section.meal.macros?.carbs ?? 0),
+                                      fats: Number(section.meal.macros?.fats ?? 0),
+                                    });
+                                  }
+                                });
                               }}
+                            >
+                              {!allMealsLogged ? <Icon name="check" size={16} /> : null}
+                              {allMealsLogged ? t("nutrition.quickLogButtonConsumed") : safeT("nutrition.markAllComplete", "Marcar completado")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn secondary fit-content rounded-xl h-9 px-3 text-xs"
                               onClick={handleScrollToPlanDetails}
                             >
                               <Icon name="info" size={16} />
@@ -2665,24 +2615,33 @@ const nutritionPlanDetails = profile ? (
                             </button>
                           </div>
                         ) : null}
-                      </div>
 
-                      <div className="h-1 w-full bg-black/5 dark:bg-white/5">
-                        <div
-                          className="h-full transition-all duration-700 ease-out"
-                          style={{
-                            width: `${mealsProgress}%`,
-                            background: allMealsLogged ? "#10B981" : "var(--primary)",
-                            borderRadius: mealsProgress > 0 ? "0 4px 4px 0" : "0",
-                          }}
-                        />
+                        {highlightedTargetCalories !== null ? (
+                          <p className="m-0 mt-4 text-sm text-muted">
+                            Objetivo diario: {highlightedTargetCalories} {t("units.kcal")}
+                          </p>
+                        ) : null}
+
+                        <div className="mt-3 h-2 w-full rounded-full" style={{ background: "var(--bg-muted)" }}>
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{
+                              width: `${mealsProgress}%`,
+                              background: "linear-gradient(90deg, var(--accent), var(--accent-strong))",
+                            }}
+                          />
+                        </div>
+
+                        <p className="m-0 mt-3 text-sm text-primary">
+                          {mealsCompletedCount}/{highlightedMealsCount} {safeT("nutrition.mealsTitle", "comidas").toLowerCase()}
+                        </p>
                       </div>
                     </div>
                     ) : null
                   );
                 })()}
                 <div className={styles.overlayPrimaryStack}>
-<section id="nutrition-today-log" className={`card premium-hero-card${nutritionAllMealsLogged ? " premium-hero-card--complete" : ""} surface-action-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary ${styles.overlayPrimaryFlow}`} ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+<section id="nutrition-today-log" className={`card premium-surface-card surface-content-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary ${styles.overlayPrimaryFlow}`} ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
                   <div className="nutrition-today-summary-head nutrition-today-donut-card">
                     <div className="nutrition-hero-ring-wrap">
                       <HeroNutrition title={safeT("nutrition.dailyTargetTitle", "Objetivo diario")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
