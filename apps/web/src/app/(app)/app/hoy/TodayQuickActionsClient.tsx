@@ -34,6 +34,7 @@ import { getNutritionMealKey } from "@/lib/nutritionMealKey";
 import { TodayEmptyState } from "./TodayEmptyState";
 import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
+import QuickLogHub from "@/components/quick-log/QuickLogHub";
 
 const trainingRoute = "/app/entrenamiento";
 const billingRoute = "/app/settings/billing";
@@ -963,6 +964,14 @@ export default function TodayQuickActionsClient() {
             Tu enfoque de hoy en 3 acciones.
           </p>
         </div>
+        <QuickLogHub
+          origin="today"
+          latestCheckin={null}
+          currentWeightKg={signals.currentWeightKg}
+          onSaved={async () => {
+            await loadTodaySignals();
+          }}
+        />
       </header>
 
       {status === "loading" ? <TodaySkeleton /> : null}
