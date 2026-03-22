@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import FeatureUnavailableState from "@/components/access/FeatureUnavailableState";
 import { useWeeklyReview } from "@/lib/useWeeklyReview";
 import { useLanguage } from "@/context/LanguageProvider";
+import { sendRctEvent } from "@/services/futureProjection";
 import { submitWeeklyReviewDecision } from "@/services/weeklyReview";
 import { trackWeeklyReviewEvent } from "@/lib/weeklyReviewTelemetry";
 import type { WeeklyReviewRecommendation, WeeklyReviewResponse } from "@/types/weeklyReview";
@@ -130,6 +131,17 @@ export default function WeeklyReviewClient() {
       weekKey: result.data.summary.weekKey,
       recommendationId: recommendation.id,
       recommendationType: recommendation.type,
+    });
+    void sendRctEvent({
+      event:
+        decision === "accepted"
+          ? "recommendation_accepted"
+          : "recommendation_rejected",
+      context: {
+        source: "weekly_review",
+        recommendationId: recommendation.id,
+        recommendationType: recommendation.type,
+      },
     });
   }
 

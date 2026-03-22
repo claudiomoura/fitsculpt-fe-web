@@ -95,7 +95,11 @@ import {
 import { resetDemoState } from "./dev/demoSeed.js";
 import { registerWeeklyReviewRoute } from "./routes/weeklyReview.js";
 import { registerPassiveHealthRoutes } from "./routes/passiveHealth.js";
+import { registerFutureProjectionRoutes } from "./routes/futureProjection.js";
+import { registerRctSummaryRoute } from "./routes/rctSummary.js";
+import { registerRctStatisticalReportRoute } from "./routes/rctStatisticalReport.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
+import { appendRctEvent, ensureRctAssignment } from "./services/futureProjection.js";
 import { registerAiRoutes } from "./domains/ai/registerAiRoutes.js";
 import { registerBillingRoutes } from "./domains/billing/registerBillingRoutes.js";
 import { registerWorkoutRoutes } from "./domains/training/registerWorkoutRoutes.js";
@@ -1179,6 +1183,16 @@ async function requireAdmin(request: FastifyRequest) {
   if (!isGlobalAdminUser(user)) {
     throw createHttpError(403, "FORBIDDEN");
   }
+  return user;
+}
+
+async function requireResearchAccess(request: FastifyRequest) {
+  const user = await requireUser(request, { logContext: "/research/rct/summary" });
+  if (isGlobalAdminUser(user)) {
+    return user;
+  }
+
+  await requireActiveGymManagerMembership(user.id);
   return user;
 }
 
@@ -6555,6 +6569,19 @@ app.post("/tracking", async (request, reply) => {
     const payload = trackingEntryCreateSchema.parse(request.body);
     const profile = await getOrCreateProfile(user.id);
     const nextTracking = upsertTrackingEntry(profile.tracking, payload);
+    const assignmentResult = ensureRctAssignment(profile.profile, user.id);
+    const nextProfile = appendRctEvent(
+      assignmentResult.created ? assignmentResult.profile : profile.profile,
+      {
+        event: "logging_entry_created",
+        timestamp: new Date().toISOString(),
+        context: {
+          source: "tracking",
+          collection: payload.collection,
+        },
+      },
+    );
+    const nextProfileJson = nextProfile as Prisma.InputJsonValue;
 
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -6563,10 +6590,11 @@ app.post("/tracking", async (request, reply) => {
           where: { userId: user.id },
           create: {
             userId: user.id,
-            profile: Prisma.DbNull,
+            profile: nextProfileJson,
             tracking: nextTracking,
           },
           update: {
+            profile: nextProfileJson,
             tracking: nextTracking,
           },
         });
@@ -6631,6 +6659,25 @@ registerPassiveHealthRoutes(app, {
   dbNull: Prisma.DbNull,
   requireUser,
   getOrCreateProfile,
+  handleRequestError,
+});
+
+registerFutureProjectionRoutes(app, {
+  prisma,
+  requireUser,
+  getOrCreateProfile,
+  handleRequestError,
+});
+
+registerRctSummaryRoute(app, {
+  prisma,
+  requireResearchAccess,
+  handleRequestError,
+});
+
+registerRctStatisticalReportRoute(app, {
+  prisma,
+  requireResearchAccess,
   handleRequestError,
 });
 

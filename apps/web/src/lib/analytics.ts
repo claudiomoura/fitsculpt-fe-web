@@ -23,7 +23,11 @@ export type AnalyticsEventName =
   | "weekly_review_opened"
   | "adjustment_accepted"
   | "adjustment_rejected"
-  | "recommendation_seen";
+  | "recommendation_seen"
+  | "future_projection_viewed"
+  | "future_projection_scenario_selected"
+  | "rct_status_viewed"
+  | "rct_summary_viewed";
 
 export type AnalyticsEventProps = {
   target?: "training" | "nutrition" | "checkin" | "billing";
@@ -35,6 +39,10 @@ export type AnalyticsEventProps = {
   recommendationType?: string;
   weekKey?: string;
   decision?: string;
+  rctGroup?: "control" | "treatment";
+  horizonMonths?: number;
+  scenarioId?: string;
+  windowDays?: number;
 };
 
 declare global {

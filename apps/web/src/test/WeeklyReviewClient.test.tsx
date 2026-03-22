@@ -7,6 +7,7 @@ import WeeklyReviewClient from "@/components/weekly-review/WeeklyReviewClient";
 const useWeeklyReviewMock = vi.fn();
 const submitWeeklyReviewDecisionMock = vi.fn();
 const trackWeeklyReviewEventMock = vi.fn();
+const sendRctEventMock = vi.fn();
 
 vi.mock("@/lib/useWeeklyReview", () => ({
   useWeeklyReview: () => useWeeklyReviewMock(),
@@ -18,6 +19,10 @@ vi.mock("@/services/weeklyReview", () => ({
 
 vi.mock("@/lib/weeklyReviewTelemetry", () => ({
   trackWeeklyReviewEvent: (...args: unknown[]) => trackWeeklyReviewEventMock(...args),
+}));
+
+vi.mock("@/services/futureProjection", () => ({
+  sendRctEvent: (...args: unknown[]) => sendRctEventMock(...args),
 }));
 
 function renderClient() {
@@ -35,6 +40,8 @@ describe("WeeklyReviewClient", () => {
     useWeeklyReviewMock.mockReset();
     submitWeeklyReviewDecisionMock.mockReset();
     trackWeeklyReviewEventMock.mockReset();
+    sendRctEventMock.mockReset();
+    sendRctEventMock.mockResolvedValue({ ok: true, data: { ok: true, storedAt: "2026-02-23T10:00:00.000Z" } });
   });
 
   it("renders explainable recommendation cards", () => {
@@ -219,5 +226,8 @@ describe("WeeklyReviewClient", () => {
 
     expect(await screen.findByText(/aceptado/i)).toBeInTheDocument();
     expect(trackWeeklyReviewEventMock).toHaveBeenCalledWith(expect.objectContaining({ event: "adjustment_accepted", recommendationId: "training-deload" }));
+    expect(sendRctEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "recommendation_accepted" }),
+    );
   });
 });
