@@ -929,6 +929,8 @@
     "quickLogSuccess": "Comida registrada y progreso actualizado.",
     "quickLogUndo": "Se eliminó la comida registrada.",
     "quickLogError": "No pudimos registrar esta comida ahora mismo.",
+    "markAllComplete": "Marcar completado",
+    "planDetailsCta": "Detalles",
     "quickAddFavorite": "Añadir a favoritos",
     "quickRemoveFavorite": "Quitar favorito",
     "favoriteAdded": "Guardado en favoritos.",

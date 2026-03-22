@@ -929,6 +929,8 @@
     "quickLogSuccess": "Meal logged and progress updated.",
     "quickLogUndo": "Logged meal removed.",
     "quickLogError": "We couldn't log this food right now.",
+    "markAllComplete": "Mark complete",
+    "planDetailsCta": "Details",
     "quickAddFavorite": "Add to favorites",
     "quickRemoveFavorite": "Remove favorite",
     "favoriteAdded": "Saved to favorites.",
