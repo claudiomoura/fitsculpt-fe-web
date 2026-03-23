@@ -3,14 +3,33 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
 import { addDays, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
 import { defaultProfile, type ProfileData } from "@/lib/profile";
-import { getUserProfile, saveCheckinAndSyncProfileMetrics } from "@/lib/profileService";
-import { buildPassiveHealthOverview, defaultPassiveHealthData } from "@/lib/passiveHealth";
-import { buildProfessionalTrackingInsights, normalizeDailyCheckins } from "@/lib/trackingProfessionalMetrics";
+import {
+  getUserProfile,
+  saveCheckinAndSyncProfileMetrics,
+} from "@/lib/profileService";
+import {
+  buildPassiveHealthOverview,
+  defaultPassiveHealthData,
+} from "@/lib/passiveHealth";
+import {
+  buildProfessionalTrackingInsights,
+  normalizeDailyCheckins,
+} from "@/lib/trackingProfessionalMetrics";
 import { getTrackingRangeConfig } from "@/lib/trackingProfessionalRules";
 import {
   hasAiEntitlement,
@@ -115,7 +134,13 @@ type TrackingPayload = {
     snapshots: Array<{
       id: string;
       date: string;
-      source: "manual" | "demo" | "apple_health" | "google_fit" | "wearable" | "other";
+      source:
+        | "manual"
+        | "demo"
+        | "apple_health"
+        | "google_fit"
+        | "wearable"
+        | "other";
       provider: string | null;
       steps: number | null;
       activeCalories: number | null;
@@ -127,7 +152,14 @@ type TrackingPayload = {
       syncedAt: string;
     }>;
     lastSyncAt: string | null;
-    lastSyncSource: "manual" | "demo" | "apple_health" | "google_fit" | "wearable" | "other" | null;
+    lastSyncSource:
+      | "manual"
+      | "demo"
+      | "apple_health"
+      | "google_fit"
+      | "wearable"
+      | "other"
+      | null;
   };
 };
 
@@ -151,7 +183,9 @@ type TrackingClientProps = {
   view?: "all" | "checkin";
 };
 
-function buildProfileSnapshotFallback(profile: ProfileData): CheckinEntry | null {
+function buildProfileSnapshotFallback(
+  profile: ProfileData,
+): CheckinEntry | null {
   const weightKg = Number(profile.weightKg ?? 0);
   const bodyFatPercent = Number(profile.measurements.bodyFatPercent ?? 0);
   const waistCm = Number(profile.measurements.waistCm ?? 0);
@@ -162,9 +196,17 @@ function buildProfileSnapshotFallback(profile: ProfileData): CheckinEntry | null
   const calfCm = Number(profile.measurements.calfCm ?? 0);
   const neckCm = Number(profile.measurements.neckCm ?? 0);
 
-  const hasAnyMetric = [weightKg, bodyFatPercent, waistCm, chestCm, hipsCm, bicepsCm, thighCm, calfCm, neckCm].some(
-    (value) => Number.isFinite(value) && value > 0,
-  );
+  const hasAnyMetric = [
+    weightKg,
+    bodyFatPercent,
+    waistCm,
+    chestCm,
+    hipsCm,
+    bicepsCm,
+    thighCm,
+    calfCm,
+    neckCm,
+  ].some((value) => Number.isFinite(value) && value > 0);
 
   if (!hasAnyMetric) return null;
 
@@ -189,16 +231,26 @@ function buildProfileSnapshotFallback(profile: ProfileData): CheckinEntry | null
   };
 }
 
-function normalizeWorkoutEntriesFromDb(workouts: WorkoutDbItem[] | null | undefined): WorkoutEntry[] {
+function normalizeWorkoutEntriesFromDb(
+  workouts: WorkoutDbItem[] | null | undefined,
+): WorkoutEntry[] {
   if (!Array.isArray(workouts)) return [];
 
   return workouts
     .flatMap((workout) => {
       const sessions = Array.isArray(workout.sessions) ? workout.sessions : [];
       return sessions
-        .filter((session) => Boolean(session.finishedAt || session.startedAt || workout.scheduledAt))
+        .filter((session) =>
+          Boolean(
+            session.finishedAt || session.startedAt || workout.scheduledAt,
+          ),
+        )
         .map((session) => {
-          const sourceDate = session.finishedAt ?? session.startedAt ?? workout.scheduledAt ?? new Date().toISOString();
+          const sourceDate =
+            session.finishedAt ??
+            session.startedAt ??
+            workout.scheduledAt ??
+            new Date().toISOString();
           return {
             id: session.id,
             date: sourceDate.slice(0, 10),
@@ -213,7 +265,11 @@ function normalizeWorkoutEntriesFromDb(workouts: WorkoutDbItem[] | null | undefi
 
 type ProgressInsightTab = "checkin" | "nutrition" | "training";
 
-function buildWeightTrendData(entries: Array<{ date: string; weightKg: number }>, rangeDays: number, formatEntryDate: (value: string) => string) {
+function buildWeightTrendData(
+  entries: Array<{ date: string; weightKg: number }>,
+  rangeDays: number,
+  formatEntryDate: (value: string) => string,
+) {
   const rangeConfig = getTrackingRangeConfig(rangeDays);
   if (rangeConfig.chartGranularity === "day") {
     return entries.map((entry) => ({
@@ -222,12 +278,19 @@ function buildWeightTrendData(entries: Array<{ date: string; weightKg: number }>
     }));
   }
 
-  const grouped = new Map<string, { startDate: string; totalWeight: number; count: number }>();
+  const grouped = new Map<
+    string,
+    { startDate: string; totalWeight: number; count: number }
+  >();
   entries.forEach((entry) => {
     const parsed = parseDate(entry.date);
     if (!parsed) return;
     const bucketKey = toDateKey(startOfWeek(parsed, 1));
-    const current = grouped.get(bucketKey) ?? { startDate: bucketKey, totalWeight: 0, count: 0 };
+    const current = grouped.get(bucketKey) ?? {
+      startDate: bucketKey,
+      totalWeight: 0,
+      count: 0,
+    };
     current.totalWeight += entry.weightKg;
     current.count += 1;
     grouped.set(bucketKey, current);
@@ -259,7 +322,10 @@ function buildNutritionTrendData(
     const parsed = parseDate(entry.date);
     if (!parsed) return;
     const bucketKey = toDateKey(startOfWeek(parsed, 1));
-    const current = grouped.get(bucketKey) ?? { startDate: bucketKey, calories: 0 };
+    const current = grouped.get(bucketKey) ?? {
+      startDate: bucketKey,
+      calories: 0,
+    };
     current.calories += entry.totals.calories;
     grouped.set(bucketKey, current);
   });
@@ -278,15 +344,24 @@ function buildTrainingTrendData(
   formatEntryDate: (value: string) => string,
 ) {
   const rangeConfig = getTrackingRangeConfig(rangeDays);
-  if (entries.length === 0) return [] as Array<{ date: string; sessions: number; minutes: number }>;
+  if (entries.length === 0)
+    return [] as Array<{ date: string; sessions: number; minutes: number }>;
 
-  const grouped = new Map<string, { startDate: string; sessions: number; minutes: number }>();
+  const grouped = new Map<
+    string,
+    { startDate: string; sessions: number; minutes: number }
+  >();
   entries.forEach((entry) => {
     const parsed = parseDate(entry.date);
     if (!parsed) return;
-    const bucketDate = rangeConfig.chartGranularity === "day" ? parsed : startOfWeek(parsed, 1);
+    const bucketDate =
+      rangeConfig.chartGranularity === "day" ? parsed : startOfWeek(parsed, 1);
     const bucketKey = toDateKey(bucketDate);
-    const current = grouped.get(bucketKey) ?? { startDate: bucketKey, sessions: 0, minutes: 0 };
+    const current = grouped.get(bucketKey) ?? {
+      startDate: bucketKey,
+      sessions: 0,
+      minutes: 0,
+    };
     current.sessions += 1;
     current.minutes += Number(entry.durationMin) || 0;
     grouped.set(bucketKey, current);
@@ -307,7 +382,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const isCheckinOnly = view === "checkin";
   const CHECKIN_MODE_KEY = "fs_checkin_mode_v1";
   const [checkins, setCheckins] = useState<CheckinEntry[]>([]);
-  const [checkinDate, setCheckinDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [checkinDate, setCheckinDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [checkinWeight, setCheckinWeight] = useState(75);
   const [checkinChest, setCheckinChest] = useState(90);
   const [checkinWaist, setCheckinWaist] = useState(80);
@@ -320,25 +397,35 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [checkinEnergy, setCheckinEnergy] = useState(3);
   const [checkinHunger, setCheckinHunger] = useState(3);
   const [checkinNotes, setCheckinNotes] = useState("");
-  const [energyDate, setEnergyDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [energyDate, setEnergyDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [energyValue, setEnergyValue] = useState(3);
-  const [notesDate, setNotesDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [notesDate, setNotesDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [notesValue, setNotesValue] = useState("");
   const [progressRange, setProgressRange] = useState<"7" | "30" | "90">("30");
-  const [progressInsightTab, setProgressInsightTab] = useState<ProgressInsightTab>("checkin");
+  const [progressInsightTab, setProgressInsightTab] =
+    useState<ProgressInsightTab>("checkin");
   const [checkinMode, setCheckinMode] = useState<"quick" | "full">(() => {
     if (typeof window === "undefined") return "quick";
     const storedMode = window.localStorage.getItem(CHECKIN_MODE_KEY);
-    return storedMode === "quick" || storedMode === "full" ? storedMode : "quick";
+    return storedMode === "quick" || storedMode === "full"
+      ? storedMode
+      : "quick";
   });
 
-
-  const [foodDate, setFoodDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [foodDate, setFoodDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [foodKey, setFoodKey] = useState("salmon");
   const [foodGrams, setFoodGrams] = useState(150);
   const [foodLog, setFoodLog] = useState<FoodEntry[]>([]);
 
-  const [workoutDate, setWorkoutDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [workoutDate, setWorkoutDate] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDuration, setWorkoutDuration] = useState(45);
   const [workoutNotes, setWorkoutNotes] = useState("");
@@ -347,7 +434,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [passiveData, setPassiveData] = useState(defaultPassiveHealthData);
   const [profile, setProfile] = useState<ProfileData>(defaultProfile);
   const [trackingLoaded, setTrackingLoaded] = useState(false);
-  const [trackingStatus, setTrackingStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [trackingStatus, setTrackingStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
   const [userFoods, setUserFoods] = useState<UserFood[]>([]);
   const [foodModalOpen, setFoodModalOpen] = useState(false);
   const [foodForm, setFoodForm] = useState({
@@ -364,18 +453,31 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isEnergySubmitting, setIsEnergySubmitting] = useState(false);
-  const [energySubmitError, setEnergySubmitError] = useState<string | null>(null);
+  const [energySubmitError, setEnergySubmitError] = useState<string | null>(
+    null,
+  );
   const [isNotesSubmitting, setIsNotesSubmitting] = useState(false);
   const [notesSubmitError, setNotesSubmitError] = useState<string | null>(null);
-  const [adjustmentStatus, setAdjustmentStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [adjustmentStatus, setAdjustmentStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
-  const [adjustmentSuccess, setAdjustmentSuccess] = useState<{ at: string; period?: string } | null>(null);
-  const [adjustmentDiff, setAdjustmentDiff] = useState<TrainingAdjustmentDiff | null>(null);
-  const [adjustmentCapabilityChecked, setAdjustmentCapabilityChecked] = useState(false);
+  const [adjustmentSuccess, setAdjustmentSuccess] = useState<{
+    at: string;
+    period?: string;
+  } | null>(null);
+  const [adjustmentDiff, setAdjustmentDiff] =
+    useState<TrainingAdjustmentDiff | null>(null);
+  const [adjustmentCapabilityChecked, setAdjustmentCapabilityChecked] =
+    useState(false);
   const [hasAdjustmentCapability, setHasAdjustmentCapability] = useState(false);
-  const [adjustmentEntitlementChecked, setAdjustmentEntitlementChecked] = useState(false);
-  const [hasAdjustmentEntitlement, setHasAdjustmentEntitlement] = useState(false);
-  const [adjustmentTokenBalance, setAdjustmentTokenBalance] = useState<number | null>(null);
+  const [adjustmentEntitlementChecked, setAdjustmentEntitlementChecked] =
+    useState(false);
+  const [hasAdjustmentEntitlement, setHasAdjustmentEntitlement] =
+    useState(false);
+  const [adjustmentTokenBalance, setAdjustmentTokenBalance] = useState<
+    number | null
+  >(null);
   const [trackingSupports, setTrackingSupports] = useState<{
     energy: boolean | null;
     notes: boolean | null;
@@ -392,10 +494,14 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const supportsCheckinPhotos = false;
   const isMountedRef = useRef(true);
 
-  const isWeightValid = Number.isFinite(checkinWeight) && checkinWeight >= 30 && checkinWeight <= 250;
+  const isWeightValid =
+    Number.isFinite(checkinWeight) &&
+    checkinWeight >= 30 &&
+    checkinWeight <= 250;
   const isDateValid = Boolean(checkinDate);
   const isTrackingReady = trackingStatus === "ready";
-  const isEnergyValid = Number.isFinite(energyValue) && energyValue >= 1 && energyValue <= 5;
+  const isEnergyValid =
+    Number.isFinite(energyValue) && energyValue >= 1 && energyValue <= 5;
   const isNotesValid = notesValue.trim().length > 0;
   const supportsBodyFat = trackingSupports.bodyFat === true;
   const supportsWaist = trackingSupports.waist === true;
@@ -403,13 +509,25 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
   const supportsEnergy = trackingSupports.energy === true;
   const supportsNotes = trackingSupports.notes === true;
   const isBodyFatValid =
-    !supportsBodyFat || (Number.isFinite(checkinBodyFat) && checkinBodyFat >= 0 && checkinBodyFat <= 60);
-  const isWaistValid = !supportsWaist || (Number.isFinite(checkinWaist) && checkinWaist >= 0);
-  const isWeightEntrySubmitDisabled = !isWeightValid || !isDateValid || isSubmitting;
+    !supportsBodyFat ||
+    (Number.isFinite(checkinBodyFat) &&
+      checkinBodyFat >= 0 &&
+      checkinBodyFat <= 60);
+  const isWaistValid =
+    !supportsWaist || (Number.isFinite(checkinWaist) && checkinWaist >= 0);
+  const isWeightEntrySubmitDisabled =
+    !isWeightValid || !isDateValid || isSubmitting;
   const isCheckinSubmitDisabled =
-    !isWeightValid || !isDateValid || !isBodyFatValid || !isWaistValid || isSubmitting;
-  const adjustmentInput = canApplyTrainingAdjustment(profile) ? getTrainingAdjustmentInput(profile) : null;
-  const hasAdjustmentTokens = hasAdjustmentEntitlement || (adjustmentTokenBalance ?? 0) > 0;
+    !isWeightValid ||
+    !isDateValid ||
+    !isBodyFatValid ||
+    !isWaistValid ||
+    isSubmitting;
+  const adjustmentInput = canApplyTrainingAdjustment(profile)
+    ? getTrainingAdjustmentInput(profile)
+    : null;
+  const hasAdjustmentTokens =
+    hasAdjustmentEntitlement || (adjustmentTokenBalance ?? 0) > 0;
   const canApplyAdjustment =
     adjustmentCapabilityChecked &&
     adjustmentEntitlementChecked &&
@@ -417,7 +535,8 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     hasAdjustmentEntitlement &&
     hasAdjustmentTokens &&
     Boolean(adjustmentInput);
-  const isApplyAdjustmentDisabled = adjustmentStatus === "loading" || !canApplyAdjustment;
+  const isApplyAdjustmentDisabled =
+    adjustmentStatus === "loading" || !canApplyAdjustment;
 
   useEffect(() => {
     localStorage.setItem(CHECKIN_MODE_KEY, checkinMode);
@@ -447,7 +566,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
         };
         if (!active) return;
         setHasAdjustmentEntitlement(hasAiEntitlement(data));
-        setAdjustmentTokenBalance(typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null);
+        setAdjustmentTokenBalance(
+          typeof data.aiTokenBalance === "number" ? data.aiTokenBalance : null,
+        );
       } catch (_err) {
         if (!active) return;
         setHasAdjustmentEntitlement(false);
@@ -462,18 +583,37 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     };
   }, []);
 
-  function detectTrackingSupport(entries?: Array<Record<string, unknown>> | null) {
+  function detectTrackingSupport(
+    entries?: Array<Record<string, unknown>> | null,
+  ) {
     if (!entries || entries.length === 0) {
-      return { energy: false, notes: false, bodyFat: false, waist: false, measurements: false };
+      return {
+        energy: false,
+        notes: false,
+        bodyFat: false,
+        waist: false,
+        measurements: false,
+      };
     }
     const hasField = (field: string) =>
-      entries.some((entry) => Object.prototype.hasOwnProperty.call(entry, field));
-    const measurementFields = ["chestCm", "hipsCm", "bicepsCm", "thighCm", "calfCm", "neckCm"];
+      entries.some((entry) =>
+        Object.prototype.hasOwnProperty.call(entry, field),
+      );
+    const measurementFields = [
+      "chestCm",
+      "hipsCm",
+      "bicepsCm",
+      "thighCm",
+      "calfCm",
+      "neckCm",
+    ];
     const supportsEnergy = hasField("energy");
     const supportsNotes = hasField("notes");
     const supportsBodyFat = hasField("bodyFatPercent");
     const supportsWaist = hasField("waistCm");
-    const supportsMeasurements = measurementFields.some((field) => hasField(field));
+    const supportsMeasurements = measurementFields.some((field) =>
+      hasField(field),
+    );
     return {
       energy: supportsEnergy,
       notes: supportsNotes,
@@ -483,13 +623,19 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     };
   }
 
-  async function refreshTrackingData(options?: { showLoading?: boolean; showError?: boolean }) {
+  async function refreshTrackingData(options?: {
+    showLoading?: boolean;
+    showError?: boolean;
+  }) {
     const { showLoading = false, showError = false } = options ?? {};
     if (showLoading) {
       setTrackingStatus("loading");
     }
     try {
-      const trackingResponse = await fetch("/api/tracking", { cache: "no-store", credentials: "include" });
+      const trackingResponse = await fetch("/api/tracking", {
+        cache: "no-store",
+        credentials: "include",
+      });
 
       if (!trackingResponse.ok) {
         console.warn("Tracking load failed", trackingResponse.status);
@@ -505,16 +651,23 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       setWorkoutLog(data.workoutLog ?? []);
       setMealLog(data.mealLog ?? []);
       setPassiveData(data.passiveData ?? defaultPassiveHealthData);
-      setTrackingSupports(detectTrackingSupport(data.checkins as Array<Record<string, unknown>>));
+      setTrackingSupports(
+        detectTrackingSupport(data.checkins as Array<Record<string, unknown>>),
+      );
       setTrackingLoaded(true);
       setTrackingStatus("ready");
 
       void (async () => {
         try {
-          const workoutsResponse = await fetch("/api/workouts", { cache: "no-store", credentials: "include" });
+          const workoutsResponse = await fetch("/api/workouts", {
+            cache: "no-store",
+            credentials: "include",
+          });
           if (!workoutsResponse.ok || !isMountedRef.current) return;
-          const workoutsPayload = (await workoutsResponse.json()) as WorkoutDbItem[];
-          const persistedWorkoutEntries = normalizeWorkoutEntriesFromDb(workoutsPayload);
+          const workoutsPayload =
+            (await workoutsResponse.json()) as WorkoutDbItem[];
+          const persistedWorkoutEntries =
+            normalizeWorkoutEntriesFromDb(workoutsPayload);
           if (persistedWorkoutEntries.length > 0 && isMountedRef.current) {
             setWorkoutLog(persistedWorkoutEntries);
           }
@@ -544,7 +697,10 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
 
     const loadUserFoods = async () => {
       try {
-        const response = await fetch("/api/user-foods", { cache: "no-store", credentials: "include" });
+        const response = await fetch("/api/user-foods", {
+          cache: "no-store",
+          credentials: "include",
+        });
         if (!response.ok) return;
         const data = (await response.json()) as UserFood[];
         if (active) setUserFoods(data);
@@ -557,18 +713,17 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       try {
         const data = await getUserProfile();
         if (active) {
-setProfile(data);
+          setProfile(data);
 
-setCheckinWeight(Number(data.weightKg ?? 0));
-setCheckinChest(Number(data.measurements.chestCm ?? 0));
-setCheckinWaist(Number(data.measurements.waistCm ?? 0));
-setCheckinHips(Number(data.measurements.hipsCm ?? 0));
-setCheckinBiceps(Number(data.measurements.bicepsCm ?? 0));
-setCheckinThigh(Number(data.measurements.thighCm ?? 0));
-setCheckinCalf(Number(data.measurements.calfCm ?? 0));
-setCheckinNeck(Number(data.measurements.neckCm ?? 0));
-setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
-
+          setCheckinWeight(Number(data.weightKg ?? 0));
+          setCheckinChest(Number(data.measurements.chestCm ?? 0));
+          setCheckinWaist(Number(data.measurements.waistCm ?? 0));
+          setCheckinHips(Number(data.measurements.hipsCm ?? 0));
+          setCheckinBiceps(Number(data.measurements.bicepsCm ?? 0));
+          setCheckinThigh(Number(data.measurements.thighCm ?? 0));
+          setCheckinCalf(Number(data.measurements.calfCm ?? 0));
+          setCheckinNeck(Number(data.measurements.neckCm ?? 0));
+          setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         }
       } catch (_err) {
         // Ignore load errors.
@@ -591,7 +746,13 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ checkins, foodLog, workoutLog, mealLog, passiveData }),
+        body: JSON.stringify({
+          checkins,
+          foodLog,
+          workoutLog,
+          mealLog,
+          passiveData,
+        }),
       }).then((response) => {
         if (!response.ok) {
           console.warn("Tracking save failed", response.status);
@@ -603,7 +764,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
   function buildRecommendation(currentWeight: number) {
     if (checkins.length === 0) return t("profile.checkinKeep");
-    const latest = [...checkins].sort((a, b) => b.date.localeCompare(a.date))[0];
+    const latest = [...checkins].sort((a, b) =>
+      b.date.localeCompare(a.date),
+    )[0];
     const delta = currentWeight - latest.weightKg;
     if (profile.goal === "cut") {
       if (delta >= 0) return t("profile.checkinReduceCalories");
@@ -615,7 +778,8 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       return t("profile.checkinKeep");
     }
 
-    if (checkinEnergy <= 2 || checkinHunger >= 4) return t("profile.checkinIncreaseProtein");
+    if (checkinEnergy <= 2 || checkinHunger >= 4)
+      return t("profile.checkinIncreaseProtein");
     return t("profile.checkinKeep");
   }
 
@@ -625,19 +789,37 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     const recommendation = buildRecommendation(checkinWeight);
     const useAdvancedMetrics = checkinMode === "full" && supportsMeasurements;
     const resolvedMeasurements = {
-      chestCm: useAdvancedMetrics ? Number(checkinChest) : Number(profile.measurements.chestCm ?? 0),
-      hipsCm: useAdvancedMetrics ? Number(checkinHips) : Number(profile.measurements.hipsCm ?? 0),
-      bicepsCm: useAdvancedMetrics ? Number(checkinBiceps) : Number(profile.measurements.bicepsCm ?? 0),
-      thighCm: useAdvancedMetrics ? Number(checkinThigh) : Number(profile.measurements.thighCm ?? 0),
-      calfCm: useAdvancedMetrics ? Number(checkinCalf) : Number(profile.measurements.calfCm ?? 0),
-      neckCm: useAdvancedMetrics ? Number(checkinNeck) : Number(profile.measurements.neckCm ?? 0),
+      chestCm: useAdvancedMetrics
+        ? Number(checkinChest)
+        : Number(profile.measurements.chestCm ?? 0),
+      hipsCm: useAdvancedMetrics
+        ? Number(checkinHips)
+        : Number(profile.measurements.hipsCm ?? 0),
+      bicepsCm: useAdvancedMetrics
+        ? Number(checkinBiceps)
+        : Number(profile.measurements.bicepsCm ?? 0),
+      thighCm: useAdvancedMetrics
+        ? Number(checkinThigh)
+        : Number(profile.measurements.thighCm ?? 0),
+      calfCm: useAdvancedMetrics
+        ? Number(checkinCalf)
+        : Number(profile.measurements.calfCm ?? 0),
+      neckCm: useAdvancedMetrics
+        ? Number(checkinNeck)
+        : Number(profile.measurements.neckCm ?? 0),
     };
-    const resolvedWaist = supportsWaist ? Number(checkinWaist) : Number(profile.measurements.waistCm ?? 0);
+    const resolvedWaist = supportsWaist
+      ? Number(checkinWaist)
+      : Number(profile.measurements.waistCm ?? 0);
     const resolvedBodyFat = supportsBodyFat
       ? Number(checkinBodyFat)
       : Number(profile.measurements.bodyFatPercent ?? 0);
-    const resolvedEnergy = supportsEnergy ? Number(checkinEnergy) : Number(latestCheckin?.energy ?? 0);
-    const resolvedHunger = supportsEnergy ? Number(checkinHunger) : Number(latestCheckin?.hunger ?? 0);
+    const resolvedEnergy = supportsEnergy
+      ? Number(checkinEnergy)
+      : Number(latestCheckin?.energy ?? 0);
+    const resolvedHunger = supportsEnergy
+      ? Number(checkinHunger)
+      : Number(latestCheckin?.hunger ?? 0);
     const resolvedNotes = supportsNotes ? checkinNotes.trim() : "";
     const entry: CheckinEntry = {
       id: `${checkinDate}-${Date.now()}`,
@@ -659,7 +841,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       sidePhotoUrl: null,
     };
 
-    const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
+    const nextCheckins = [entry, ...checkins].sort((a, b) =>
+      b.date.localeCompare(a.date),
+    );
     const saved = await persistCheckin(nextCheckins, {
       weightKg: entry.weightKg,
       chestCm: entry.chestCm,
@@ -742,7 +926,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     showMessage(t("tracking.passiveDemoSuccess"));
   }
 
-  const userFoodMap = useMemo(() => new Map(userFoods.map((food) => [food.id, food])), [userFoods]);
+  const userFoodMap = useMemo(
+    () => new Map(userFoods.map((food) => [food.id, food])),
+    [userFoods],
+  );
 
   function resolveFoodProfile(key: string) {
     if (key.startsWith("user:")) {
@@ -760,7 +947,13 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     const profile = defaultFoodProfiles[key];
     if (!profile) return null;
     const calories = profile.protein * 4 + profile.carbs * 4 + profile.fat * 9;
-    return { label: t(profile.labelKey), protein: profile.protein, carbs: profile.carbs, fat: profile.fat, calories };
+    return {
+      label: t(profile.labelKey),
+      protein: profile.protein,
+      carbs: profile.carbs,
+      fat: profile.fat,
+      calories,
+    };
   }
 
   function showMessage(message: string) {
@@ -776,10 +969,12 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       errorMessage?: string;
       onError?: (message: string) => void;
       setSubmitting?: (value: boolean) => void;
-    }
+    },
   ) {
-    const successMessage = options?.successMessage ?? t("tracking.weightEntrySuccess");
-    const errorMessage = options?.errorMessage ?? t("tracking.weightEntryError");
+    const successMessage =
+      options?.successMessage ?? t("tracking.weightEntrySuccess");
+    const errorMessage =
+      options?.errorMessage ?? t("tracking.weightEntryError");
     const setSubmitting = options?.setSubmitting ?? setIsSubmitting;
     setSubmitting(true);
     if (!options?.onError) {
@@ -789,10 +984,13 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       const nextProfile = await saveCheckinAndSyncProfileMetrics(
         { checkins: nextCheckins, foodLog, workoutLog, mealLog },
         profile,
-        metrics
+        metrics,
       );
       setProfile(nextProfile);
-      const refreshed = await refreshTrackingData({ showLoading: true, showError: true });
+      const refreshed = await refreshTrackingData({
+        showLoading: true,
+        showError: true,
+      });
       if (!refreshed) {
         if (options?.onError) {
           options.onError(errorMessage);
@@ -802,7 +1000,11 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         return false;
       }
       showMessage(successMessage);
-      trackEvent("checkin_saved", { target: "checkin", origin: isCheckinOnly ? "checkin_page" : "tracking", mode: checkinMode });
+      trackEvent("checkin_saved", {
+        target: "checkin",
+        origin: isCheckinOnly ? "checkin_page" : "tracking",
+        mode: checkinMode,
+      });
       if (isCheckinOnly) {
         router.push("/app/hoy?checkin=success");
       }
@@ -819,10 +1021,15 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     }
   }
 
-  async function handleDeleteEntry(collection: "checkins" | "foodLog" | "workoutLog", id: string) {
+  async function handleDeleteEntry(
+    collection: "checkins" | "foodLog" | "workoutLog",
+    id: string,
+  ) {
     const confirmed = window.confirm(t("tracking.deleteConfirm"));
     if (!confirmed) return;
-    const response = await fetch(`/api/tracking/${collection}/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/tracking/${collection}/${id}`, {
+      method: "DELETE",
+    });
     if (!response.ok) {
       showMessage(t("tracking.deleteError"));
       return;
@@ -877,22 +1084,29 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     };
     if (!payload.name) return;
     const isEditing = Boolean(foodForm.id);
-    const response = await fetch(isEditing ? `/api/user-foods/${foodForm.id}` : "/api/user-foods", {
-      method: isEditing ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const response = await fetch(
+      isEditing ? `/api/user-foods/${foodForm.id}` : "/api/user-foods",
+      {
+        method: isEditing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
     if (!response.ok) {
       showMessage(t("tracking.foodSaveError"));
       return;
     }
     const data = (await response.json()) as UserFood;
     setUserFoods((prev) => {
-      const next = isEditing ? prev.map((item) => (item.id === data.id ? data : item)) : [data, ...prev];
+      const next = isEditing
+        ? prev.map((item) => (item.id === data.id ? data : item))
+        : [data, ...prev];
       return next;
     });
     setFoodModalOpen(false);
-    showMessage(isEditing ? t("tracking.foodUpdated") : t("tracking.foodCreated"));
+    showMessage(
+      isEditing ? t("tracking.foodUpdated") : t("tracking.foodCreated"),
+    );
   }
 
   const mealsByDate = useMemo(() => {
@@ -910,7 +1124,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         fat: totals.fat + Number(entry.fats ?? 0),
         calories: totals.calories + Number(entry.calories ?? 0),
       }),
-      { protein: 0, carbs: 0, fat: 0, calories: 0 }
+      { protein: 0, carbs: 0, fat: 0, calories: 0 },
     );
   }
 
@@ -929,8 +1143,14 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     return fallback ? [fallback] : [];
   }, [checkins, profile]);
 
-  const normalizedCheckins = useMemo(() => normalizeDailyCheckins(checkinAnalysisSource), [checkinAnalysisSource]);
-  const rangeConfig = useMemo(() => getTrackingRangeConfig(Number(progressRange)), [progressRange]);
+  const normalizedCheckins = useMemo(
+    () => normalizeDailyCheckins(checkinAnalysisSource),
+    [checkinAnalysisSource],
+  );
+  const rangeConfig = useMemo(
+    () => getTrackingRangeConfig(Number(progressRange)),
+    [progressRange],
+  );
 
   const checkinsInRange = useMemo(() => {
     if (normalizedCheckins.length === 0) return [];
@@ -962,9 +1182,17 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     }));
   }, [checkinsInRange, supportsBodyFat]);
 
-  const fallbackProfileCheckin = useMemo(() => buildProfileSnapshotFallback(profile), [profile]);
+  const fallbackProfileCheckin = useMemo(
+    () => buildProfileSnapshotFallback(profile),
+    [profile],
+  );
   const sortedCheckins = useMemo(() => {
-    const source = checkins.length > 0 ? checkins : fallbackProfileCheckin ? [fallbackProfileCheckin] : [];
+    const source =
+      checkins.length > 0
+        ? checkins
+        : fallbackProfileCheckin
+          ? [fallbackProfileCheckin]
+          : [];
     return [...source].sort((a, b) => b.date.localeCompare(a.date));
   }, [checkins, fallbackProfileCheckin]);
   const professionalInsights = useMemo(
@@ -976,24 +1204,44 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         profile,
         rangeDays: Number(progressRange),
       }),
-    [checkinAnalysisSource, mealLog, workoutLog, profile, progressRange]
+    [checkinAnalysisSource, mealLog, workoutLog, profile, progressRange],
   );
   const latestCheckin = sortedCheckins[0];
   const rangeLatestCheckin = checkinsInRange[0] ?? null;
   const rangeFirstCheckin = checkinChart[0] ?? null;
   const rangeLastCheckin = checkinChart[checkinChart.length - 1] ?? null;
   const rangeWeightDelta =
-    rangeFirstCheckin && rangeLastCheckin ? rangeLastCheckin.weight - rangeFirstCheckin.weight : null;
+    rangeFirstCheckin && rangeLastCheckin
+      ? rangeLastCheckin.weight - rangeFirstCheckin.weight
+      : null;
   const rangeCheckinConsistency = useMemo(() => {
-    return Math.min(100, Math.round((checkinsInRange.length / Math.max(1, rangeConfig.days)) * 100));
+    return Math.min(
+      100,
+      Math.round(
+        (checkinsInRange.length / Math.max(1, rangeConfig.days)) * 100,
+      ),
+    );
   }, [checkinsInRange.length, rangeConfig.days]);
-  const latestNotesCheckin = checkinsInRange.find((entry) => entry.notes?.trim()) ?? sortedCheckins.find((entry) => entry.notes?.trim());
+  const latestNotesCheckin =
+    checkinsInRange.find((entry) => entry.notes?.trim()) ??
+    sortedCheckins.find((entry) => entry.notes?.trim());
   const baseWeight = Number(latestCheckin?.weightKg ?? profile.weightKg ?? 0);
-  const hasBaseWeight = Number.isFinite(baseWeight) && baseWeight >= 30 && baseWeight <= 250;
+  const hasBaseWeight =
+    Number.isFinite(baseWeight) && baseWeight >= 30 && baseWeight <= 250;
   const isEnergySubmitDisabled =
-    !supportsEnergy || !isTrackingReady || !isEnergyValid || !energyDate || !hasBaseWeight || isEnergySubmitting;
+    !supportsEnergy ||
+    !isTrackingReady ||
+    !isEnergyValid ||
+    !energyDate ||
+    !hasBaseWeight ||
+    isEnergySubmitting;
   const isNotesSubmitDisabled =
-    !supportsNotes || !isTrackingReady || !isNotesValid || !notesDate || !hasBaseWeight || isNotesSubmitting;
+    !supportsNotes ||
+    !isTrackingReady ||
+    !isNotesValid ||
+    !notesDate ||
+    !hasBaseWeight ||
+    isNotesSubmitting;
   const isTrackingLoading = trackingStatus === "loading";
   const isTrackingError = trackingStatus === "error";
   const rangeDays = rangeConfig.days;
@@ -1007,12 +1255,24 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         endDate: passiveRangeEnd,
         targetSessions: Number(profile.trainingPreferences.daysPerWeek ?? 0),
       }),
-    [passiveData, passiveRangeEnd, passiveRangeStart, profile.trainingPreferences.daysPerWeek],
+    [
+      passiveData,
+      passiveRangeEnd,
+      passiveRangeStart,
+      profile.trainingPreferences.daysPerWeek,
+    ],
   );
 
   if (isTrackingLoading && !trackingLoaded) {
     return (
-      <div className={isCheckinOnly ? `${styles.checkinOnlyBody} app-page-shell app-page-shell--compact` : styles.trackingPageContent} data-testid="tracking-page-loading">
+      <div
+        className={
+          isCheckinOnly
+            ? `${styles.checkinOnlyBody} app-page-shell`
+            : styles.trackingPageContent
+        }
+        data-testid="tracking-page-loading"
+      >
         <section className="card premium-fade-up">
           <div className="form-stack">
             <Skeleton className="h-8 w-40" />
@@ -1027,7 +1287,10 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   const formatEntryDate = (value: string) => {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return value;
-    return parsed.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    return parsed.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+    });
   };
 
   const nutritionDateTotals = Object.entries(mealsByDate)
@@ -1048,33 +1311,44 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       carbs: acc.carbs + entry.totals.carbs,
       fat: acc.fat + entry.totals.fat,
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
-  const nutritionAverages = nutritionDaysLogged > 0
-    ? {
-        calories: nutritionTotals.calories / nutritionDaysLogged,
-        protein: nutritionTotals.protein / nutritionDaysLogged,
-      }
-    : { calories: 0, protein: 0 };
-  const nutritionLoggingAdherence = Math.round((nutritionDaysLogged / Math.max(1, rangeDays)) * 100);
-  const nutritionCaloriesTargetAdherence = nutritionTargets && nutritionDaysLogged > 0
-    ? Math.round(
-        (nutritionInRange.filter(
-          (entry) =>
-            entry.totals.calories >= nutritionTargets.calories * 0.9
-            && entry.totals.calories <= nutritionTargets.calories * 1.1
-        ).length / nutritionDaysLogged)
-          * 100
-      )
-    : null;
-  const nutritionProteinTargetAdherence = nutritionTargets && nutritionDaysLogged > 0
-    ? Math.round(
-        (nutritionInRange.filter((entry) => entry.totals.protein >= nutritionTargets.protein * 0.9).length / nutritionDaysLogged)
-          * 100
-      )
-    : null;
+  const nutritionAverages =
+    nutritionDaysLogged > 0
+      ? {
+          calories: nutritionTotals.calories / nutritionDaysLogged,
+          protein: nutritionTotals.protein / nutritionDaysLogged,
+        }
+      : { calories: 0, protein: 0 };
+  const nutritionLoggingAdherence = Math.round(
+    (nutritionDaysLogged / Math.max(1, rangeDays)) * 100,
+  );
+  const nutritionCaloriesTargetAdherence =
+    nutritionTargets && nutritionDaysLogged > 0
+      ? Math.round(
+          (nutritionInRange.filter(
+            (entry) =>
+              entry.totals.calories >= nutritionTargets.calories * 0.9 &&
+              entry.totals.calories <= nutritionTargets.calories * 1.1,
+          ).length /
+            nutritionDaysLogged) *
+            100,
+        )
+      : null;
+  const nutritionProteinTargetAdherence =
+    nutritionTargets && nutritionDaysLogged > 0
+      ? Math.round(
+          (nutritionInRange.filter(
+            (entry) => entry.totals.protein >= nutritionTargets.protein * 0.9,
+          ).length /
+            nutritionDaysLogged) *
+            100,
+        )
+      : null;
 
-  const workoutsSorted = [...workoutLog].sort((a, b) => b.date.localeCompare(a.date));
+  const workoutsSorted = [...workoutLog].sort((a, b) =>
+    b.date.localeCompare(a.date),
+  );
   const workoutsInRange = workoutsSorted.filter((entry) => {
     const parsed = parseDate(entry.date);
     const cutoff = new Date();
@@ -1083,11 +1357,24 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     return parsed ? parsed >= cutoff : false;
   });
   const trainingSessions = workoutsInRange.length;
-  const trainingMinutes = workoutsInRange.reduce((sum, entry) => sum + entry.durationMin, 0);
-  const trainingAverageMinutes = trainingSessions > 0 ? Math.round(trainingMinutes / trainingSessions) : 0;
-  const targetSessions = Math.max(1, Number(profile.trainingPreferences.daysPerWeek ?? 3));
-  const targetSessionsForRange = Math.max(1, Math.round((targetSessions * rangeDays) / 7));
-  const trainingConsistency = Math.min(100, Math.round((trainingSessions / targetSessionsForRange) * 100));
+  const trainingMinutes = workoutsInRange.reduce(
+    (sum, entry) => sum + entry.durationMin,
+    0,
+  );
+  const trainingAverageMinutes =
+    trainingSessions > 0 ? Math.round(trainingMinutes / trainingSessions) : 0;
+  const targetSessions = Math.max(
+    1,
+    Number(profile.trainingPreferences.daysPerWeek ?? 3),
+  );
+  const targetSessionsForRange = Math.max(
+    1,
+    Math.round((targetSessions * rangeDays) / 7),
+  );
+  const trainingConsistency = Math.min(
+    100,
+    Math.round((trainingSessions / targetSessionsForRange) * 100),
+  );
   const workoutsRecent = workoutsInRange.slice(0, 5);
 
   const checkinTrendData = buildWeightTrendData(
@@ -1096,9 +1383,17 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     formatEntryDate,
   );
 
-  const nutritionTrendData = buildNutritionTrendData(nutritionInRange, rangeDays, formatEntryDate);
+  const nutritionTrendData = buildNutritionTrendData(
+    nutritionInRange,
+    rangeDays,
+    formatEntryDate,
+  );
 
-  const trainingTrendData = buildTrainingTrendData(workoutsInRange, rangeDays, formatEntryDate);
+  const trainingTrendData = buildTrainingTrendData(
+    workoutsInRange,
+    rangeDays,
+    formatEntryDate,
+  );
 
   async function addQuickWeightEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -1123,7 +1418,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       frontPhotoUrl: null,
       sidePhotoUrl: null,
     };
-    const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
+    const nextCheckins = [entry, ...checkins].sort((a, b) =>
+      b.date.localeCompare(a.date),
+    );
     await persistCheckin(nextCheckins, {
       weightKg: entry.weightKg,
       chestCm: entry.chestCm,
@@ -1161,7 +1458,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       frontPhotoUrl: null,
       sidePhotoUrl: null,
     };
-    const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
+    const nextCheckins = [entry, ...checkins].sort((a, b) =>
+      b.date.localeCompare(a.date),
+    );
     const saved = await persistCheckin(
       nextCheckins,
       {
@@ -1180,7 +1479,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         errorMessage: t("tracking.energyEntryError"),
         onError: setEnergySubmitError,
         setSubmitting: setIsEnergySubmitting,
-      }
+      },
     );
     if (saved) {
       setEnergyValue(3);
@@ -1213,7 +1512,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       frontPhotoUrl: null,
       sidePhotoUrl: null,
     };
-    const nextCheckins = [entry, ...checkins].sort((a, b) => b.date.localeCompare(a.date));
+    const nextCheckins = [entry, ...checkins].sort((a, b) =>
+      b.date.localeCompare(a.date),
+    );
     const saved = await persistCheckin(
       nextCheckins,
       {
@@ -1232,7 +1533,7 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
         errorMessage: t("tracking.notesEntryError"),
         onError: setNotesSubmitError,
         setSubmitting: setIsNotesSubmitting,
-      }
+      },
     );
     if (saved) {
       setNotesValue("");
@@ -1245,25 +1546,42 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
     return date.toLocaleDateString();
   };
 
-  const translateWithDate = (key: string, date: string) => t(key).replace("{date}", date);
+  const translateWithDate = (key: string, date: string) =>
+    t(key).replace("{date}", date);
 
-  const resolvePeriodText = (metadata: { effectiveFrom?: string; weekStart?: string }) => {
+  const resolvePeriodText = (metadata: {
+    effectiveFrom?: string;
+    weekStart?: string;
+  }) => {
     const source = metadata.effectiveFrom ?? metadata.weekStart;
     if (!source) return undefined;
     const formatted = formatLocalDate(source);
-    return formatted ? translateWithDate("tracking.adjustmentPeriod", formatted) : undefined;
+    return formatted
+      ? translateWithDate("tracking.adjustmentPeriod", formatted)
+      : undefined;
   };
 
   async function handleApplyAdjustment() {
-    if (!canApplyAdjustment || !adjustmentInput || adjustmentStatus === "loading") return;
+    if (
+      !canApplyAdjustment ||
+      !adjustmentInput ||
+      adjustmentStatus === "loading"
+    )
+      return;
     setAdjustmentStatus("loading");
     setAdjustmentError(null);
     setAdjustmentSuccess(null);
     setAdjustmentDiff(null);
     try {
       const previousPlan = profile.trainingPlan;
-      const result = await generateAndSaveTrainingPlan(profile, adjustmentInput);
-      const refreshedTracking = await refreshTrackingData({ showLoading: true, showError: true });
+      const result = await generateAndSaveTrainingPlan(
+        profile,
+        adjustmentInput,
+      );
+      const refreshedTracking = await refreshTrackingData({
+        showLoading: true,
+        showError: true,
+      });
       const refreshedProfile = await getUserProfile();
       if (!refreshedTracking) {
         setAdjustmentStatus("error");
@@ -1272,14 +1590,18 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       }
       setProfile(refreshedProfile);
       const successDate =
-        formatLocalDate(result.metadata.updatedAt ?? new Date().toISOString()) ??
+        formatLocalDate(
+          result.metadata.updatedAt ?? new Date().toISOString(),
+        ) ??
         formatLocalDate(new Date().toISOString()) ??
         new Date().toLocaleDateString();
       setAdjustmentSuccess({
         at: successDate,
         period: resolvePeriodText(result.metadata),
       });
-      setAdjustmentDiff(buildTrainingAdjustmentDiff(previousPlan, result.profile.trainingPlan));
+      setAdjustmentDiff(
+        buildTrainingAdjustmentDiff(previousPlan, result.profile.trainingPlan),
+      );
       setAdjustmentStatus("success");
       router.refresh();
     } catch (error) {
@@ -1293,21 +1615,40 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
   }
 
   return (
-    <div className={isCheckinOnly ? `${styles.checkinOnlyBody} app-page-shell app-page-shell--compact` : styles.trackingPageContent} data-testid="tracking-page">
+    <div
+      className={
+        isCheckinOnly
+          ? `${styles.checkinOnlyBody} app-page-shell`
+          : styles.trackingPageContent
+      }
+      data-testid="tracking-page"
+    >
       {actionMessage && !isCheckinOnly && (
-        <div className="status-card status-card--success" role="status" aria-live="polite">
+        <div
+          className="status-card status-card--success"
+          role="status"
+          aria-live="polite"
+        >
           <p className="muted m-0">{actionMessage}</p>
         </div>
       )}
       {!isCheckinOnly ? (
-        <section className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero}`}>
+        <section
+          className={`card premium-surface-card surface-content-card ${styles.heroCard} ${styles.quickCheckinHero}`}
+        >
           <div className={styles.heroHeader}>
             <div>
               <h2 className="section-title m-0">{t("profile.checkinTitle")}</h2>
-              <p className="section-subtitle m-0">{t("tracking.weightEntrySubtitle")}</p>
+              <p className="section-subtitle m-0">
+                {t("tracking.weightEntrySubtitle")}
+              </p>
             </div>
             <div className={styles.heroPrimaryActionWrap}>
-              <button type="button" className={`btn ${styles.heroPrimaryAction}`} onClick={() => router.push("/app/seguimiento/check-in")}>
+              <button
+                type="button"
+                className={`btn ${styles.heroPrimaryAction}`}
+                onClick={() => router.push("/app/seguimiento/check-in")}
+              >
                 {t("today.checkinPrimaryCta")}
               </button>
             </div>
@@ -1316,7 +1657,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {latestCheckin ? (
             <div className={styles.checkinLatestPill}>
               <span className="muted">{t("tracking.latestWeightTitle")}</span>
-              <strong>{latestCheckin.weightKg.toFixed(1)} {t("units.kilograms")}</strong>
+              <strong>
+                {latestCheckin.weightKg.toFixed(1)} {t("units.kilograms")}
+              </strong>
             </div>
           ) : (
             <p className="muted m-0">{t("tracking.latestWeightEmpty")}</p>
@@ -1326,12 +1669,18 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             {t("nav.weeklyReview")}
           </Link>
 
-          <div className={styles.segmentedControl} role="tablist" aria-label="Rango">
-            {([
-              { id: "7", label: "Semana" },
-              { id: "30", label: "Mes" },
-              { id: "90", label: "3 meses" },
-            ] as const).map((option) => (
+          <div
+            className={styles.segmentedControl}
+            role="tablist"
+            aria-label="Rango"
+          >
+            {(
+              [
+                { id: "7", label: "Semana" },
+                { id: "30", label: "Mes" },
+                { id: "90", label: "3 meses" },
+              ] as const
+            ).map((option) => (
               <button
                 key={option.id}
                 type="button"
@@ -1360,17 +1709,25 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
 
       {!isCheckinOnly ? (
         <section className={`${styles.trackingOverviewCard}`}>
-          <div className={styles.insightTabs} role="tablist" aria-label={t("tracking.insightsLabel")}>
-            {([
-              { id: "checkin", label: t("tracking.progressTabCheckin") },
-              { id: "nutrition", label: t("tracking.progressTabNutrition") },
-              { id: "training", label: t("tracking.progressTabTraining") },
-            ] as const).map((option) => (
+          <div
+            className={styles.insightTabs}
+            role="tablist"
+            aria-label={t("tracking.insightsLabel")}
+          >
+            {(
+              [
+                { id: "checkin", label: t("tracking.progressTabCheckin") },
+                { id: "nutrition", label: t("tracking.progressTabNutrition") },
+                { id: "training", label: t("tracking.progressTabTraining") },
+              ] as const
+            ).map((option) => (
               <button
                 key={option.id}
                 type="button"
                 className={`${styles.insightTabButton} ${progressInsightTab === option.id ? styles.insightTabButtonActive : ""}`}
-                onClick={() => setProgressInsightTab(option.id as ProgressInsightTab)}
+                onClick={() =>
+                  setProgressInsightTab(option.id as ProgressInsightTab)
+                }
                 role="tab"
                 aria-selected={progressInsightTab === option.id}
               >
@@ -1379,40 +1736,88 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             ))}
           </div>
 
-            {progressInsightTab === "checkin" ? (
+          {progressInsightTab === "checkin" ? (
             <div className={styles.checkinInsightStack}>
               <div className={styles.overviewGrid}>
                 <div className={styles.leftColumn}>
-                  <section className={`feature-card feature-card--compact ${styles.primaryChartCard}`}>
-                    <h2 className="section-title section-title-sm">{t("tracking.weeklyProgressTitle")}</h2>
+                  <section
+                    className={`feature-card feature-card--compact ${styles.primaryChartCard}`}
+                  >
+                    <h2 className="section-title section-title-sm">
+                      {t("tracking.weeklyProgressTitle")}
+                    </h2>
                     {checkinTrendData.length < 2 ? (
-                      <p className="muted">{t("tracking.weeklyProgressEmpty")}</p>
+                      <p className="muted">
+                        {t("tracking.weeklyProgressEmpty")}
+                      </p>
                     ) : (
                       <div className={styles.chartWrap}>
                         <ResponsiveContainer width="100%" height={220}>
-                          <AreaChart data={checkinTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
+                          <AreaChart
+                            data={checkinTrendData}
+                            margin={{ top: 8, right: 4, left: -14, bottom: 0 }}
+                          >
                             <defs>
-                              <linearGradient id="tracking-weight-area" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.36} />
-                                <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
+                              <linearGradient
+                                id="tracking-weight-area"
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                <stop
+                                  offset="0%"
+                                  stopColor="var(--accent)"
+                                  stopOpacity={0.36}
+                                />
+                                <stop
+                                  offset="100%"
+                                  stopColor="var(--accent)"
+                                  stopOpacity={0}
+                                />
                               </linearGradient>
                             </defs>
-                            <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                            <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} domain={["dataMin - 0.6", "dataMax + 0.6"]} />
+                            <CartesianGrid
+                              stroke="color-mix(in srgb, var(--border) 65%, transparent)"
+                              strokeDasharray="3 3"
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="date"
+                              tickLine={false}
+                              axisLine={false}
+                              tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                            />
+                            <YAxis
+                              tickLine={false}
+                              axisLine={false}
+                              tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                              width={38}
+                              domain={["dataMin - 0.6", "dataMax + 0.6"]}
+                            />
                             <Tooltip
                               formatter={(value) => {
                                 const numericValue = Number(value ?? 0);
-                                return [`${numericValue.toFixed(1)} ${t("units.kilograms")}`, t("tracking.latestWeightTitle")];
+                                return [
+                                  `${numericValue.toFixed(1)} ${t("units.kilograms")}`,
+                                  t("tracking.latestWeightTitle"),
+                                ];
                               }}
                               labelFormatter={(label) => String(label)}
                               contentStyle={{
                                 borderRadius: 12,
-                                border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
+                                border:
+                                  "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
                                 background: "var(--bg-card)",
                               }}
                             />
-                            <Area type="monotone" dataKey="weight" stroke="var(--accent)" strokeWidth={2.25} fill="url(#tracking-weight-area)" />
+                            <Area
+                              type="monotone"
+                              dataKey="weight"
+                              stroke="var(--accent)"
+                              strokeWidth={2.25}
+                              fill="url(#tracking-weight-area)"
+                            />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
@@ -1421,14 +1826,26 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   <section className={styles.metricCards}>
                     <article className="feature-card feature-card--compact">
                       <p className="muted">{t("tracking.latestWeightTitle")}</p>
-                      <strong>{rangeLatestCheckin ? `${rangeLatestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}` : "—"}</strong>
+                      <strong>
+                        {rangeLatestCheckin
+                          ? `${rangeLatestCheckin.weightKg.toFixed(1)} ${t("units.kilograms")}`
+                          : "—"}
+                      </strong>
                     </article>
                     <article className="feature-card feature-card--compact">
-                      <p className="muted">{t("tracking.weightHistoryTitle")}</p>
-                      <strong>{rangeWeightDelta === null ? "—" : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}</strong>
+                      <p className="muted">
+                        {t("tracking.weightHistoryTitle")}
+                      </p>
+                      <strong>
+                        {rangeWeightDelta === null
+                          ? "—"
+                          : `${rangeWeightDelta > 0 ? "+" : ""}${rangeWeightDelta.toFixed(1)} ${t("units.kilograms")}`}
+                      </strong>
                     </article>
                     <article className="feature-card feature-card--compact">
-                      <p className="muted">{t("tracking.progressConsistency")}</p>
+                      <p className="muted">
+                        {t("tracking.progressConsistency")}
+                      </p>
                       <strong>{rangeCheckinConsistency}%</strong>
                     </article>
                   </section>
@@ -1436,30 +1853,50 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 <aside className={styles.rightColumn}>
                   {supportsBodyFat && rangeLatestCheckin ? (
                     <section className="feature-card feature-card--compact">
-                      <h3 className="section-title section-title-sm">{t("tracking.bodyFatPercent")}</h3>
-                      <strong>{rangeLatestCheckin.bodyFatPercent.toFixed(1)}{t("units.percent")}</strong>
+                      <h3 className="section-title section-title-sm">
+                        {t("tracking.bodyFatPercent")}
+                      </h3>
+                      <strong>
+                        {rangeLatestCheckin.bodyFatPercent.toFixed(1)}
+                        {t("units.percent")}
+                      </strong>
                     </section>
                   ) : null}
                   {latestNotesCheckin ? (
                     <section className="feature-card feature-card--compact">
-                      <h3 className="section-title section-title-sm">{t("tracking.latestNotesTitle")}</h3>
+                      <h3 className="section-title section-title-sm">
+                        {t("tracking.latestNotesTitle")}
+                      </h3>
                       <p className="muted">{latestNotesCheckin.notes}</p>
                     </section>
                   ) : null}
                   <section className="feature-card feature-card--compact">
-                    <h3 className="section-title section-title-sm">{t("tracking.weightHistoryTitle")}</h3>
+                    <h3 className="section-title section-title-sm">
+                      {t("tracking.weightHistoryTitle")}
+                    </h3>
                     {professionalInsights.historyRows.length === 0 ? (
                       <p className="muted">{t("profile.checkinEmpty")}</p>
                     ) : (
                       <div style={{ display: "grid", gap: 8 }}>
-                        {professionalInsights.historyRows.slice(0, 5).map((entry) => (
-                          <div key={entry.id} className="info-item">
-                            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                              <strong>{formatEntryDate(entry.date)}</strong>
-                              <span className="muted">{entry.weightKg.toFixed(1)} {t("units.kilograms")}</span>
+                        {professionalInsights.historyRows
+                          .slice(0, 5)
+                          .map((entry) => (
+                            <div key={entry.id} className="info-item">
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  gap: 10,
+                                }}
+                              >
+                                <strong>{formatEntryDate(entry.date)}</strong>
+                                <span className="muted">
+                                  {entry.weightKg.toFixed(1)}{" "}
+                                  {t("units.kilograms")}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
                       </div>
                     )}
                   </section>
@@ -1472,30 +1909,59 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {progressInsightTab === "nutrition" ? (
             <div className={styles.overviewGrid}>
               <div className={styles.leftColumn}>
-                <section className={`feature-card feature-card--compact ${styles.primaryChartCard}`}>
-                  <h3 className="section-title section-title-sm">{t("tracking.progressComplianceTitle")}</h3>
+                <section
+                  className={`feature-card feature-card--compact ${styles.primaryChartCard}`}
+                >
+                  <h3 className="section-title section-title-sm">
+                    {t("tracking.progressComplianceTitle")}
+                  </h3>
                   {nutritionTrendData.length === 0 ? (
                     <p className="muted">{t("tracking.mealEmpty")}</p>
                   ) : (
                     <div className={styles.chartWrap}>
                       <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={nutritionTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
-                          <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                          <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={38} />
+                        <BarChart
+                          data={nutritionTrendData}
+                          margin={{ top: 8, right: 4, left: -14, bottom: 0 }}
+                        >
+                          <CartesianGrid
+                            stroke="color-mix(in srgb, var(--border) 65%, transparent)"
+                            strokeDasharray="3 3"
+                            vertical={false}
+                          />
+                          <XAxis
+                            dataKey="date"
+                            tickLine={false}
+                            axisLine={false}
+                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                          />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                            width={38}
+                          />
                           <Tooltip
                             formatter={(value) => {
                               const numericValue = Number(value ?? 0);
-                              return [`${Math.round(numericValue)} ${t("units.kcal")}`, t("tracking.progressAverageCalories")];
+                              return [
+                                `${Math.round(numericValue)} ${t("units.kcal")}`,
+                                t("tracking.progressAverageCalories"),
+                              ];
                             }}
                             labelFormatter={(label) => String(label)}
                             contentStyle={{
                               borderRadius: 12,
-                              border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
+                              border:
+                                "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
                               background: "var(--bg-card)",
                             }}
                           />
-                          <Bar dataKey="calories" radius={[8, 8, 0, 0]} fill="var(--accent)" />
+                          <Bar
+                            dataKey="calories"
+                            radius={[8, 8, 0, 0]}
+                            fill="var(--accent)"
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1505,54 +1971,111 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 <section className={styles.metricCards}>
                   <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressDaysLogged")}</p>
-                    <strong>{nutritionDaysLogged}/{rangeDays}</strong>
+                    <strong>
+                      {nutritionDaysLogged}/{rangeDays}
+                    </strong>
                   </article>
                   <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.progressAverageCalories")}</p>
-                    <strong>{nutritionDaysLogged > 0 ? `${nutritionAverages.calories.toFixed(0)} ${t("units.kcal")}` : "—"}</strong>
+                    <p className="muted">
+                      {t("tracking.progressAverageCalories")}
+                    </p>
+                    <strong>
+                      {nutritionDaysLogged > 0
+                        ? `${nutritionAverages.calories.toFixed(0)} ${t("units.kcal")}`
+                        : "—"}
+                    </strong>
                   </article>
                   <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.progressAverageProtein")}</p>
-                    <strong>{nutritionDaysLogged > 0 ? `${nutritionAverages.protein.toFixed(0)} ${t("units.grams")}` : "—"}</strong>
+                    <p className="muted">
+                      {t("tracking.progressAverageProtein")}
+                    </p>
+                    <strong>
+                      {nutritionDaysLogged > 0
+                        ? `${nutritionAverages.protein.toFixed(0)} ${t("units.grams")}`
+                        : "—"}
+                    </strong>
                   </article>
                 </section>
               </div>
               <aside className={styles.rightColumn}>
                 <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">{t("tracking.progressComplianceTitle")}</h3>
+                  <h3 className="section-title section-title-sm">
+                    {t("tracking.progressComplianceTitle")}
+                  </h3>
                   <div style={{ display: "grid", gap: 10 }}>
-                    <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                      <span className="muted">{t("tracking.progressLoggingLabel")}</span>
+                    <div
+                      className="info-item"
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 10,
+                      }}
+                    >
+                      <span className="muted">
+                        {t("tracking.progressLoggingLabel")}
+                      </span>
                       <strong>{nutritionLoggingAdherence}%</strong>
                     </div>
                     {nutritionCaloriesTargetAdherence !== null ? (
-                      <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                        <span className="muted">{t("tracking.progressCaloriesTargetLabel")}</span>
+                      <div
+                        className="info-item"
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                        }}
+                      >
+                        <span className="muted">
+                          {t("tracking.progressCaloriesTargetLabel")}
+                        </span>
                         <strong>{nutritionCaloriesTargetAdherence}%</strong>
                       </div>
                     ) : null}
                     {nutritionProteinTargetAdherence !== null ? (
-                      <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                        <span className="muted">{t("tracking.progressProteinTargetLabel")}</span>
+                      <div
+                        className="info-item"
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                        }}
+                      >
+                        <span className="muted">
+                          {t("tracking.progressProteinTargetLabel")}
+                        </span>
                         <strong>{nutritionProteinTargetAdherence}%</strong>
                       </div>
                     ) : null}
                   </div>
                 </section>
                 <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">{t("tracking.progressRecentMeals")}</h3>
+                  <h3 className="section-title section-title-sm">
+                    {t("tracking.progressRecentMeals")}
+                  </h3>
                   {nutritionInRange.length === 0 ? (
                     <p className="muted">{t("tracking.mealEmpty")}</p>
                   ) : (
                     <div style={{ display: "grid", gap: 8 }}>
-                      {nutritionInRange.slice(-5).reverse().map((entry) => (
-                        <div key={entry.date} className="info-item">
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                            <strong>{formatEntryDate(entry.date)}</strong>
-                            <span className="muted">{entry.totals.calories.toFixed(0)} {t("units.kcal")}</span>
+                      {nutritionInRange
+                        .slice(-5)
+                        .reverse()
+                        .map((entry) => (
+                          <div key={entry.date} className="info-item">
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 8,
+                              }}
+                            >
+                              <strong>{formatEntryDate(entry.date)}</strong>
+                              <span className="muted">
+                                {entry.totals.calories.toFixed(0)}{" "}
+                                {t("units.kcal")}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   )}
                 </section>
@@ -1563,34 +2086,66 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
           {progressInsightTab === "training" ? (
             <div className={styles.overviewGrid}>
               <div className={styles.leftColumn}>
-                <section className={`feature-card feature-card--compact ${styles.primaryChartCard}`}>
-                  <h3 className="section-title section-title-sm">{t("tracking.progressSessionTarget")}</h3>
+                <section
+                  className={`feature-card feature-card--compact ${styles.primaryChartCard}`}
+                >
+                  <h3 className="section-title section-title-sm">
+                    {t("tracking.progressSessionTarget")}
+                  </h3>
                   {trainingTrendData.length === 0 ? (
                     <p className="muted">{t("tracking.workoutEmpty")}</p>
                   ) : (
                     <div className={styles.chartWrap}>
                       <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={trainingTrendData} margin={{ top: 8, right: 4, left: -14, bottom: 0 }}>
-                          <CartesianGrid stroke="color-mix(in srgb, var(--border) 65%, transparent)" strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-                          <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={32} allowDecimals={false} />
+                        <BarChart
+                          data={trainingTrendData}
+                          margin={{ top: 8, right: 4, left: -14, bottom: 0 }}
+                        >
+                          <CartesianGrid
+                            stroke="color-mix(in srgb, var(--border) 65%, transparent)"
+                            strokeDasharray="3 3"
+                            vertical={false}
+                          />
+                          <XAxis
+                            dataKey="date"
+                            tickLine={false}
+                            axisLine={false}
+                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                          />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+                            width={32}
+                            allowDecimals={false}
+                          />
                           <Tooltip
                             formatter={(value, key) => {
                               const numericValue = Number(value ?? 0);
-                              const metric = key === "sessions" ? t("tracking.progressSessions") : t("tracking.progressTrainingTime");
+                              const metric =
+                                key === "sessions"
+                                  ? t("tracking.progressSessions")
+                                  : t("tracking.progressTrainingTime");
                               return [
-                                key === "sessions" ? `${numericValue} ${t("tracking.progressSessions")}` : `${numericValue} min`,
+                                key === "sessions"
+                                  ? `${numericValue} ${t("tracking.progressSessions")}`
+                                  : `${numericValue} min`,
                                 metric,
                               ];
                             }}
                             labelFormatter={(label) => String(label)}
                             contentStyle={{
                               borderRadius: 12,
-                              border: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
+                              border:
+                                "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
                               background: "var(--bg-card)",
                             }}
                           />
-                          <Bar dataKey="sessions" radius={[8, 8, 0, 0]} fill="var(--accent)" />
+                          <Bar
+                            dataKey="sessions"
+                            radius={[8, 8, 0, 0]}
+                            fill="var(--accent)"
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -1602,12 +2157,18 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                     <strong>{trainingSessions}</strong>
                   </article>
                   <article className="feature-card feature-card--compact">
-                    <p className="muted">{t("tracking.progressTrainingTime")}</p>
+                    <p className="muted">
+                      {t("tracking.progressTrainingTime")}
+                    </p>
                     <strong>{trainingMinutes} min</strong>
                   </article>
                   <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.workoutDuration")}</p>
-                    <strong>{trainingAverageMinutes > 0 ? `${trainingAverageMinutes} min` : "—"}</strong>
+                    <strong>
+                      {trainingAverageMinutes > 0
+                        ? `${trainingAverageMinutes} min`
+                        : "—"}
+                    </strong>
                   </article>
                   <article className="feature-card feature-card--compact">
                     <p className="muted">{t("tracking.progressConsistency")}</p>
@@ -1617,29 +2178,61 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               </div>
               <aside className={styles.rightColumn}>
                 <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">{t("tracking.progressSessionTarget")}</h3>
-                  <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <span className="muted">{t("tracking.progressPerWeek")}</span>
+                  <h3 className="section-title section-title-sm">
+                    {t("tracking.progressSessionTarget")}
+                  </h3>
+                  <div
+                    className="info-item"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                    }}
+                  >
+                    <span className="muted">
+                      {t("tracking.progressPerWeek")}
+                    </span>
                     <strong>{targetSessions}</strong>
                   </div>
-                  <div className="info-item" style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <span className="muted">{t("tracking.progressConsistency")}</span>
+                  <div
+                    className="info-item"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                    }}
+                  >
+                    <span className="muted">
+                      {t("tracking.progressConsistency")}
+                    </span>
                     <strong>{trainingConsistency}%</strong>
                   </div>
                 </section>
                 <section className="feature-card feature-card--compact">
-                  <h3 className="section-title section-title-sm">{t("tracking.progressRecentWorkouts")}</h3>
+                  <h3 className="section-title section-title-sm">
+                    {t("tracking.progressRecentWorkouts")}
+                  </h3>
                   {workoutsRecent.length === 0 ? (
                     <p className="muted">{t("tracking.workoutEmpty")}</p>
                   ) : (
                     <div style={{ display: "grid", gap: 8 }}>
                       {workoutsRecent.map((entry) => (
                         <div key={entry.id} className="info-item">
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 8,
+                            }}
+                          >
                             <strong>{entry.name}</strong>
-                            <span className="muted">{entry.durationMin} min</span>
+                            <span className="muted">
+                              {entry.durationMin} min
+                            </span>
                           </div>
-                          <span className="muted">{formatEntryDate(entry.date)}</span>
+                          <span className="muted">
+                            {formatEntryDate(entry.date)}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1652,19 +2245,23 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
       ) : null}
 
       {isCheckinOnly ? (
-        <section className={`${styles.checkinShell} premium-fade-up`} id="checkin-entry">
+        <section
+          className={`${styles.checkinShell} premium-fade-up`}
+          id="checkin-entry"
+        >
           <div className={styles.checkinHero}>
-            <div className="inline-actions-sm w-full justify-end">
-              <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>{t("ui.close")}</button>
-            </div>
             <div>
-              <h2 className="section-title" style={{ fontSize: 22 }}>{t("profile.checkinTitle")}</h2>
+              <h2 className="section-title" style={{ fontSize: 22 }}>
+                {t("profile.checkinTitle")}
+              </h2>
               <p className="section-subtitle">{t("profile.checkinSubtitle")}</p>
             </div>
             {latestCheckin ? (
               <div className={styles.checkinLatestPill}>
                 <span className="muted">{t("tracking.latestWeightTitle")}</span>
-                <strong>{latestCheckin.weightKg.toFixed(1)} {t("units.kilograms")}</strong>
+                <strong>
+                  {latestCheckin.weightKg.toFixed(1)} {t("units.kilograms")}
+                </strong>
               </div>
             ) : null}
           </div>
@@ -1677,7 +2274,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               aria-pressed={checkinMode === "quick"}
             >
               <strong>{t("tracking.checkinModeQuick")}</strong>
-              <span className="muted">{t("tracking.checkinModeQuickHint")}</span>
+              <span className="muted">
+                {t("tracking.checkinModeQuickHint")}
+              </span>
             </button>
             <button
               type="button"
@@ -1690,7 +2289,12 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
             </button>
           </div>
 
-          <form onSubmit={checkinMode === "quick" ? addQuickWeightEntry : addCheckin} className="form-stack">
+          <form
+            onSubmit={
+              checkinMode === "quick" ? addQuickWeightEntry : addCheckin
+            }
+            className="form-stack"
+          >
             <div className={styles.checkinFormGrid}>
               <Input
                 type="date"
@@ -1706,7 +2310,11 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                 label={t("profile.checkinWeight")}
                 value={checkinWeight}
                 onChange={(e) => setCheckinWeight(Number(e.target.value))}
-                errorText={!isWeightValid && isTrackingReady ? t("tracking.weightEntryInvalid") : undefined}
+                errorText={
+                  !isWeightValid && isTrackingReady
+                    ? t("tracking.weightEntryInvalid")
+                    : undefined
+                }
               />
               {checkinMode === "full" ? (
                 <>
@@ -1718,7 +2326,9 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                       max={60}
                       step="0.1"
                       value={checkinBodyFat}
-                      onChange={(e) => setCheckinBodyFat(Number(e.target.value))}
+                      onChange={(e) =>
+                        setCheckinBodyFat(Number(e.target.value))
+                      }
                       aria-invalid={!isBodyFatValid && isTrackingReady}
                     />
                   </label>
@@ -1734,45 +2344,93 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
                   </label>
                   <label className="form-stack">
                     {t("tracking.chestCm")}
-                    <input type="number" min={0} value={checkinChest} onChange={(e) => setCheckinChest(Number(e.target.value))} />
+                    <input
+                      type="number"
+                      min={0}
+                      value={checkinChest}
+                      onChange={(e) => setCheckinChest(Number(e.target.value))}
+                    />
                   </label>
                   <label className="form-stack">
                     {t("tracking.hipsCm")}
-                    <input type="number" min={0} value={checkinHips} onChange={(e) => setCheckinHips(Number(e.target.value))} />
+                    <input
+                      type="number"
+                      min={0}
+                      value={checkinHips}
+                      onChange={(e) => setCheckinHips(Number(e.target.value))}
+                    />
                   </label>
                   <label className="form-stack">
                     {t("tracking.bicepsCm")}
-                    <input type="number" min={0} value={checkinBiceps} onChange={(e) => setCheckinBiceps(Number(e.target.value))} />
+                    <input
+                      type="number"
+                      min={0}
+                      value={checkinBiceps}
+                      onChange={(e) => setCheckinBiceps(Number(e.target.value))}
+                    />
                   </label>
                   <label className="form-stack">
                     {t("tracking.thighCm")}
-                    <input type="number" min={0} value={checkinThigh} onChange={(e) => setCheckinThigh(Number(e.target.value))} />
+                    <input
+                      type="number"
+                      min={0}
+                      value={checkinThigh}
+                      onChange={(e) => setCheckinThigh(Number(e.target.value))}
+                    />
                   </label>
                   <label className="form-stack">
                     {t("tracking.calfCm")}
-                    <input type="number" min={0} value={checkinCalf} onChange={(e) => setCheckinCalf(Number(e.target.value))} />
+                    <input
+                      type="number"
+                      min={0}
+                      value={checkinCalf}
+                      onChange={(e) => setCheckinCalf(Number(e.target.value))}
+                    />
                   </label>
                   <label className="form-stack">
                     {t("tracking.neckCm")}
-                    <input type="number" min={0} value={checkinNeck} onChange={(e) => setCheckinNeck(Number(e.target.value))} />
+                    <input
+                      type="number"
+                      min={0}
+                      value={checkinNeck}
+                      onChange={(e) => setCheckinNeck(Number(e.target.value))}
+                    />
                   </label>
                   <label className="form-stack">
                     {t("profile.checkinEnergy")}
-                    <input type="number" min={1} max={5} value={checkinEnergy} onChange={(e) => setCheckinEnergy(Number(e.target.value))} />
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={checkinEnergy}
+                      onChange={(e) => setCheckinEnergy(Number(e.target.value))}
+                    />
                   </label>
                   <label className="form-stack">
                     {t("profile.checkinHunger")}
-                    <input type="number" min={1} max={5} value={checkinHunger} onChange={(e) => setCheckinHunger(Number(e.target.value))} />
+                    <input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={checkinHunger}
+                      onChange={(e) => setCheckinHunger(Number(e.target.value))}
+                    />
                   </label>
                 </>
               ) : null}
             </div>
 
-            {!isBodyFatValid && isTrackingReady ? <p className="muted">{t("tracking.bodyFatInvalid")}</p> : null}
+            {!isBodyFatValid && isTrackingReady ? (
+              <p className="muted">{t("tracking.bodyFatInvalid")}</p>
+            ) : null}
             {checkinMode === "full" ? (
               <label className="form-stack">
                 {t("profile.checkinNotes")}
-                <textarea value={checkinNotes} onChange={(e) => setCheckinNotes(e.target.value)} rows={3} />
+                <textarea
+                  value={checkinNotes}
+                  onChange={(e) => setCheckinNotes(e.target.value)}
+                  rows={3}
+                />
               </label>
             ) : null}
             {submitError ? (
@@ -1781,24 +2439,39 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               </div>
             ) : null}
             {actionMessage ? (
-              <div className="status-card status-card--success" role="status" aria-live="polite">
+              <div
+                className="status-card status-card--success"
+                role="status"
+                aria-live="polite"
+              >
                 <p className="muted m-0">{actionMessage}</p>
               </div>
             ) : null}
 
             <button
               type="submit"
-              data-testid={checkinMode === "quick" ? "checkin-quick-submit" : "checkin-full-submit"}
+              data-testid={
+                checkinMode === "quick"
+                  ? "checkin-quick-submit"
+                  : "checkin-full-submit"
+              }
               className={`btn ${isSubmitting ? "is-loading" : ""}`}
               style={{ width: "fit-content" }}
-              disabled={checkinMode === "quick" ? isWeightEntrySubmitDisabled : isCheckinSubmitDisabled}
+              disabled={
+                checkinMode === "quick"
+                  ? isWeightEntrySubmitDisabled
+                  : isCheckinSubmitDisabled
+              }
             >
               {isSubmitting ? (
                 <>
-                  <span className="ui-spinner" aria-hidden="true" /> {t("tracking.weightEntrySaving")}
+                  <span className="ui-spinner" aria-hidden="true" />{" "}
+                  {t("tracking.weightEntrySaving")}
                 </>
+              ) : checkinMode === "quick" ? (
+                t("tracking.weightEntryCta")
               ) : (
-                checkinMode === "quick" ? t("tracking.weightEntryCta") : t("profile.checkinAdd")
+                t("profile.checkinAdd")
               )}
             </button>
           </form>
@@ -1810,20 +2483,37 @@ setCheckinBodyFat(Number(data.measurements.bodyFatPercent ?? 0));
               </div>
             ) : (
               professionalInsights.historyRows.slice(0, 8).map((entry) => (
-                <div key={entry.id} className="feature-card feature-card--compact">
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                <div
+                  key={entry.id}
+                  className="feature-card feature-card--compact"
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                    }}
+                  >
                     <strong>{entry.date}</strong>
                     <span>
                       {[
                         `${entry.weightKg} ${t("units.kilograms")}`,
-                        supportsWaist ? `${entry.waistCm} ${t("units.centimeters")}` : null,
-                        supportsBodyFat ? `${entry.bodyFatPercent}${t("units.percent")}` : null,
+                        supportsWaist
+                          ? `${entry.waistCm} ${t("units.centimeters")}`
+                          : null,
+                        supportsBodyFat
+                          ? `${entry.bodyFatPercent}${t("units.percent")}`
+                          : null,
                       ]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
                   </div>
-                  {entry.notes ? <p style={{ marginTop: 6 }} className="muted">{entry.notes}</p> : null}
+                  {entry.notes ? (
+                    <p style={{ marginTop: 6 }} className="muted">
+                      {entry.notes}
+                    </p>
+                  ) : null}
                 </div>
               ))
             )}

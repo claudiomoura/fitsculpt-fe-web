@@ -817,7 +817,7 @@ export default function WorkoutSessionClient({
   }
 
   return (
-    <section className="focus-session-page nutrition-page-shell pt-1">
+    <section className="focus-session-page nutrition-page-shell">
       <header className="card premium-surface-card focus-session-head mb-4 p-4">
         <div className="flex items-start gap-3">
           <Link

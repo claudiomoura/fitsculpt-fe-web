@@ -873,12 +873,12 @@ textarea:disabled {
   max-width: 1620px;
   width: 100%;
   margin: 0 auto;
-  padding: max(12px, env(safe-area-inset-top, 0px)) 20px 0;
+  padding: 0 20px 0;
 }
 
 @media (max-width: 900px) {
   .focus-app-content {
-    padding: max(12px, env(safe-area-inset-top, 0px)) 16px 0;
+    padding-inline: 16px;
   }
 }
 
