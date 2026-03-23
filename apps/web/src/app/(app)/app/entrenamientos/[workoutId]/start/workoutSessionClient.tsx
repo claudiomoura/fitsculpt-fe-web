@@ -7,6 +7,7 @@ import { useToast } from "@/design-system/components/Toast";
 import { useLanguage } from "@/context/LanguageProvider";
 import { trackEvent } from "@/lib/analytics";
 import type { Workout, WorkoutExercise, WorkoutSession } from "@/lib/types";
+import trackingStyles from "@/app/(app)/app/seguimiento/TrackingClient.module.css";
 
 type WorkoutSessionClientProps = {
   workoutId: string;
@@ -818,14 +819,11 @@ export default function WorkoutSessionClient({
 
   return (
     <section className="focus-session-page nutrition-page-shell">
-      <header className="card premium-surface-card focus-session-head mb-4 p-4">
+      <div className={`${trackingStyles.checkinShell} premium-fade-up`}>
+        <div className="flex justify-end">
+          <Link className="btn secondary fit-content" href={`/app/entrenamiento/${workout.id}`}>{t("ui.close")}</Link>
+        </div>
         <div className="flex items-start gap-3">
-          <Link
-            className="btn secondary h-10 px-3"
-            href={`/app/entrenamiento/${workout.id}`}
-          >
-            ←
-          </Link>
           <div className="min-w-0 flex-1">
             <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">
               Sesión activa
@@ -846,9 +844,8 @@ export default function WorkoutSessionClient({
             </strong>
           </div>
         </div>
-      </header>
 
-      <section className="card premium-surface-card mb-4 p-4">
+      <div className="feature-card feature-card--compact">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">
@@ -894,9 +891,9 @@ export default function WorkoutSessionClient({
             </strong>
           </article>
         </div>
-      </section>
+      </div>
 
-      <section className="card premium-hero-card focus-session-current-card">
+      <div className="feature-card feature-card--compact">
         <div className="focus-session-exercise-hero">
           <div className="focus-session-exercise-hero-img">
             {exercisePreviewUrl ? (
@@ -958,9 +955,9 @@ export default function WorkoutSessionClient({
             />
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="card premium-surface-card mt-4 p-4">
+      <div className="feature-card feature-card--compact">
         <p className="muted m-0 text-[11px] uppercase tracking-[0.1em]">
           Registro de sets
         </p>
@@ -1168,7 +1165,8 @@ export default function WorkoutSessionClient({
             + Añadir set
           </button>
         </div>
-      </section>
+      </div>
+      </div>
 
       <div className="focus-session-sticky-bar fixed inset-x-0 bottom-0 z-30 border-t">
         <div className="nutrition-page-shell flex gap-3 pt-3">
