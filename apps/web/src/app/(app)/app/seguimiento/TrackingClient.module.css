@@ -120,9 +120,9 @@
 .trackingOverviewCard :global(.info-item),
 .checkinShell :global(.feature-card),
 .checkinShell :global(.info-item) {
-  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
-  border-color: color-mix(in srgb, var(--surface-border-default) 55%, transparent);
-  box-shadow: none;
+  background: var(--bg-card);
+  border-color: color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  box-shadow: var(--shadow-sm);
 }
 
 .leftColumn,

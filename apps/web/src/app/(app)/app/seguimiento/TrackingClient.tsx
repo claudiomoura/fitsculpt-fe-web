@@ -1268,7 +1268,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
       <div
         className={
           isCheckinOnly
-            ? `${styles.checkinOnlyBody} app-page-shell`
+            ? `${styles.checkinOnlyBody} nutrition-page-shell`
             : styles.trackingPageContent
         }
         data-testid="tracking-page-loading"
@@ -1618,7 +1618,7 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
     <div
       className={
         isCheckinOnly
-          ? `${styles.checkinOnlyBody} app-page-shell`
+          ? `${styles.checkinOnlyBody} nutrition-page-shell`
           : styles.trackingPageContent
       }
       data-testid="tracking-page"
@@ -2249,6 +2249,9 @@ export default function TrackingClient({ view = "all" }: TrackingClientProps) {
           className={`${styles.checkinShell} premium-fade-up`}
           id="checkin-entry"
         >
+          <div className="flex justify-end">
+            <button type="button" className="btn secondary fit-content" onClick={() => router.back()}>{t("ui.close")}</button>
+          </div>
           <div className={styles.checkinHero}>
             <div>
               <h2 className="section-title" style={{ fontSize: 22 }}>
