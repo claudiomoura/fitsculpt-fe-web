@@ -1,10 +1,20 @@
 import type { SubscriptionPlanLike } from "../entitlements.js";
 
-const PRO_TOKENS = 50_000;
-const DOMAIN_TOKENS = 40_000;
+export const PAID_SUBSCRIPTION_TOKEN_GRANT = 44_444;
 
 export function tokenGrantForPlan(plan: SubscriptionPlanLike): number {
-  if (plan === "PRO") return PRO_TOKENS;
-  if (plan === "STRENGTH_AI" || plan === "NUTRI_AI") return DOMAIN_TOKENS;
-  return 0;
+  return plan === "FREE" ? 0 : PAID_SUBSCRIPTION_TOKEN_GRANT;
+}
+
+export function shouldGrantTokensForBillingCycle(params: {
+  plan: SubscriptionPlanLike;
+  currentPeriodEnd?: Date | null;
+  aiTokenRenewalAt?: Date | null;
+}): boolean {
+  if (params.plan === "FREE") return false;
+  if (!params.currentPeriodEnd) {
+    return !params.aiTokenRenewalAt;
+  }
+
+  return params.aiTokenRenewalAt?.getTime() !== params.currentPeriodEnd.getTime();
 }

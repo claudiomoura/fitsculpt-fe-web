@@ -4,8 +4,10 @@ import { useLanguage } from "@/context/LanguageProvider";
 import { cn } from "@/lib/classNames";
 import { Skeleton } from "@/design-system/components/Skeleton";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
+import { Icon } from "@/design-system/components/Icon";
 
 type MealCardProps = {
+  kicker?: string | null;
   title: string;
   description?: string | null;
   meta?: string | null;
@@ -15,7 +17,7 @@ type MealCardProps = {
   ariaLabel?: string;
 };
 
-export function MealCard({ title, description, meta, imageUrl, onClick, className, ariaLabel }: MealCardProps) {
+export function MealCard({ kicker, title, description, meta, imageUrl, onClick, className, ariaLabel }: MealCardProps) {
   const { t } = useLanguage();
 
   return (
@@ -29,16 +31,20 @@ export function MealCard({ title, description, meta, imageUrl, onClick, classNam
         <RecipeImage
           src={imageUrl}
           alt={title || t("nutrition.mealTitleFallback")}
+          width={80}
+          height={80}
           className="meal-card-thumb"
-          fallbackClassName="meal-card-thumb meal-card-thumb--placeholder"
-          testId="meal-card-image"
         />
       </div>
       <div className="meal-card-body">
+        {kicker ? <span className="meal-card-kicker">{kicker}</span> : null}
         <strong className="meal-card-title">{title}</strong>
         {description ? <p className="meal-card-description">{description}</p> : null}
         {meta ? <p className="meal-card-meta">{meta}</p> : null}
       </div>
+      <span className="meal-card-affordance" aria-hidden="true">
+        <Icon name="chevron-right" size={16} />
+      </span>
     </button>
   );
 }

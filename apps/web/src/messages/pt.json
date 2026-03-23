@@ -47,7 +47,8 @@
     "exerciseLibrary": "Biblioteca de exercícios",
     "trainingPlans": "Planos de treino",
     "weeklyReview": "Revisão semanal",
-    "trainerNutritionPlans": "Planos de nutrição"
+    "trainerNutritionPlans": "Planos de nutrição",
+    "trainerRecipes": "Receitas do treinador"
   },
   "navSections": {
     "summary": "Resumo",
@@ -136,7 +137,53 @@
     "activePlanSelected": "Selecionado",
     "activePlanAssigned": "Atribuído"
   },
+  "feed": {
+    "chatTitle": "Chat contextual com IA",
+    "chatSubtitle": "Faz perguntas de seguimento com base no contexto dos teus planos.",
+    "chatPlaceholder": "Exemplo: hoje tenho dor no joelho, devo ajustar o treino?",
+    "chatInputAria": "Campo de chat contextual com IA",
+    "chatSend": "Perguntar à IA",
+    "chatSending": "A consultar...",
+    "chatReplyTitle": "Resposta do assistente",
+    "chatEmpty": "Escreve uma mensagem antes de enviar.",
+    "chatError": "Não foi possível gerar uma resposta contextual agora.",
+    "chatUsage": "Consumo IA: {tokens} tokens · {eur} EUR"
+  },
   "onboarding": {
     "defaultsHint": "Valores orientativos não médicos. Pode editá-los quando quiser."
+  },
+  "tracking": {
+    "passiveKicker": "Saude passiva",
+    "passiveTitle": "Dados passivos e sincronizacao manual",
+    "passiveDescription": "O FitSculpt usa passos, minutos ativos, sono e FC de repouso como sinal complementar. Nunca substitui o registo manual.",
+    "passiveLatestSync": "Ultima sincronizacao",
+    "passiveNoSync": "Ainda nao existem dados passivos sincronizados",
+    "passiveComplementLabel": "Sinal complementar para aderencia e revisao semanal",
+    "passiveActiveDays": "Dias ativos",
+    "passiveSteps": "Passos",
+    "passiveMinutes": "Min ativos",
+    "passiveSleep": "Sono medio",
+    "passiveSupport": "Apoio aderencia",
+    "passiveManualSyncTitle": "Adicionar snapshot manual",
+    "passiveCalories": "Calorias ativas",
+    "passiveRestingHr": "FC repouso",
+    "passiveExerciseSessions": "Sessoes detetadas",
+    "passiveSaving": "A guardar...",
+    "passiveSaveManual": "Guardar snapshot",
+    "passiveLoadDemo": "Carregar semana demo",
+    "passiveReadoutTitle": "Como e usado",
+    "passiveReadoutManualVsPassive": "Manual = sessoes e check-ins que registas. Passivo = sinais importados/sincronizados da saude ou wearables.",
+    "passiveReadoutSupport": "Quando a atividade passiva e suficiente, pode apoiar a aderencia, mas nunca substitui o seguimento manual.",
+    "passiveSourcesUsed": "Fontes passivas detetadas",
+    "passiveSaveSuccess": "Snapshot passivo guardado.",
+    "passiveDemoSuccess": "Semana demo de saude carregada.",
+    "passiveSaveError": "Nao foi possivel guardar os dados passivos."
+  },
+  "weeklyReview": {
+    "summaryManualLabel": "Manual",
+    "summaryPassiveDays": "Atividade passiva",
+    "summaryPassiveSupport": "Apoio passivo",
+    "summaryStepsSuffix": "passos",
+    "passiveComplementNote": "A aderencia mostrada combina registo manual com apoio passivo apenas quando a atividade de saude e suficiente. O passivo complementa; nao substitui sessoes ou check-ins."
   }
 }

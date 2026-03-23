@@ -210,6 +210,8 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
           plan: { days: [] },
           aiTokenBalance: 10,
           aiTokenRenewalAt: null,
+          mode: "FALLBACK",
+          usage: { totalTokens: 0, promptTokens: 0, completionTokens: 0 },
         }),
       ),
     );
@@ -226,12 +228,14 @@ describe("BFF contract drift gate (Contracts RC v1 critical endpoints)", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual(
-      expect.objectContaining({
-        plan: expect.anything(),
-        aiTokenBalance: expect.any(Number),
-        aiTokenRenewalAt: null,
-      }),
-    );
+        expect.objectContaining({
+          plan: expect.anything(),
+          aiTokenBalance: expect.any(Number),
+          aiTokenRenewalAt: null,
+          mode: "FALLBACK",
+          usage: expect.objectContaining({ totalTokens: 0 }),
+        }),
+      );
   });
 
   it("validates POST /api/ai/nutrition-plan/generate minimal response shape", async () => {

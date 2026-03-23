@@ -82,7 +82,6 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
     aiNutritionPlanResponseSchema,
     resolveTrainingPlanWithDeterministicFallback,
     assertTrainingLevelConsistency,
-    upsertExercisesFromPlan,
     classifyAiGenerateError,
     findInvalidTrainingPlanExerciseIds,
     resolveTrainingPlanExerciseIdsWithCatalog,
@@ -97,6 +96,9 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
     normalizeNutritionPlanDaysWithLabels,
     applyNutritionPlanVarietyGuard,
     resolveNutritionPlanRecipeIds,
+    contextualChatRequestSchema,
+    contextualChatResponseSchema,
+    buildContextualChatPrompt,
   } = deps;
 
   const aiQuotaRequestSchema = z.object({}).passthrough();
@@ -106,12 +108,68 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
     aiGenerateTrainingSchema.shape,
   );
   const aiDailyTipRequestSchema = z.object(aiTipSchema.shape);
+  const aiContextualChatRequestSchema = z.object(contextualChatRequestSchema.shape);
 
   type AiTrainingPlanRequest = z.infer<typeof aiTrainingPlanRequestSchema>;
   type AiTrainingPlanGenerateRequest = z.infer<
     typeof aiTrainingPlanGenerateRequestSchema
   >;
   type AiDailyTipRequest = z.infer<typeof aiDailyTipRequestSchema>;
+  type AiContextualChatRequest = z.infer<typeof aiContextualChatRequestSchema>;
+
+  type AiUsageSummary = {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+
+  const ZERO_AI_USAGE: AiUsageSummary = {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+  };
+
+  const toEurAmount = (costCents: number) =>
+    Number((Math.max(0, costCents) / 100).toFixed(2));
+
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+  const readString = (value: unknown) =>
+    typeof value === "string" && value.trim().length > 0
+      ? value.trim()
+      : null;
+
+  const readNumber = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+
+  const resolveMinutesFromWorkoutLength = (value: string | null) => {
+    if (value === "30m") return 30;
+    if (value === "45m") return 45;
+    if (value === "60m") return 60;
+    return null;
+  };
+
+  const resolveMinutesFromSessionTime = (value: string | null) => {
+    if (value === "short") return 35;
+    if (value === "medium") return 50;
+    if (value === "long") return 65;
+    return null;
+  };
+
+  const normalizeConstraints = (value: unknown) => {
+    if (typeof value === "string") {
+      return value.trim();
+    }
+    if (Array.isArray(value)) {
+      return value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join("; ");
+    }
+    return "";
+  };
 
 app.get("/ai/quota", { preHandler: aiAccessGuard }, async (request, reply) => {
   try {
@@ -204,6 +262,12 @@ app.post(
         await storeAiContent(user.id, "training", "template", resolvedPlan);
         return reply.status(200).send({
           plan: resolvedPlan,
+          mode: "FALLBACK",
+          usage: ZERO_AI_USAGE,
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: aiMeta.aiTokenBalance,
+          balanceAfter: aiMeta.aiTokenBalance,
           ...aiMeta,
         });
       }
@@ -236,6 +300,12 @@ app.post(
           await storeAiContent(user.id, "training", "cache", resolvedPlan);
           return reply.status(200).send({
             plan: resolvedPlan,
+            mode: "FALLBACK",
+            usage: ZERO_AI_USAGE,
+            costCents: 0,
+            costEur: 0,
+            balanceBefore: aiMeta.aiTokenBalance,
+            balanceAfter: aiMeta.aiTokenBalance,
             ...aiMeta,
           });
         } catch (error) {
@@ -405,15 +475,26 @@ app.post(
 
       const aiResponse = aiResult as OpenAiResponse | null;
       const exactUsage = extractExactProviderUsage(aiResponse?.usage);
+      const responseUsage = exactUsage ?? debit?.usage ?? ZERO_AI_USAGE;
+      const responseCostCents = debit?.costCents ?? 0;
+      const responseBalanceAfter =
+        shouldChargeAi && typeof aiTokenBalance === "number"
+          ? aiTokenBalance
+          : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         plan: resolvedPlan,
+        mode: aiResponse ? "AI" : "FALLBACK",
         aiRequestId: aiResponse?.requestId ?? null,
-        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        aiTokenBalance: responseBalanceAfter,
         aiTokenRenewalAt: shouldChargeAi
           ? getUserTokenExpiryAt(user)
           : aiMeta.aiTokenRenewalAt,
-        ...(exactUsage ? { usage: exactUsage } : {}),
-        ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
+        usage: responseUsage,
+        costCents: responseCostCents,
+        costEur: toEurAmount(responseCostCents),
+        balanceBefore: shouldChargeAi ? effectiveTokens : aiMeta.aiTokenBalance,
+        balanceAfter: responseBalanceAfter,
+        ...(shouldChargeAi ? { nextBalance: responseBalanceAfter } : {}),
         ...(debit ? { debit } : {}),
       });
     } catch (error) {
@@ -552,6 +633,12 @@ const nutritionPlanHandler = async (
         return reply.status(200).send({
           planId: savedPlan.id,
           plan: personalized,
+          mode: "FALLBACK",
+          usage: ZERO_AI_USAGE,
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: aiMeta.aiTokenBalance,
+          balanceAfter: aiMeta.aiTokenBalance,
           ...aiMeta,
         });
       }
@@ -640,6 +727,12 @@ const nutritionPlanHandler = async (
           return reply.status(200).send({
             planId: savedPlan.id,
             plan: personalized,
+            mode: "FALLBACK",
+            usage: ZERO_AI_USAGE,
+            costCents: 0,
+            costEur: 0,
+            balanceBefore: aiMeta.aiTokenBalance,
+            balanceAfter: aiMeta.aiTokenBalance,
             ...aiMeta,
           });
         } catch (error) {
@@ -888,16 +981,27 @@ const nutritionPlanHandler = async (
       }
       const aiResponse = aiResult as OpenAiResponse | null;
       const exactUsage = extractExactProviderUsage(aiResponse?.usage);
+      const responseUsage = exactUsage ?? debit?.usage ?? ZERO_AI_USAGE;
+      const responseCostCents = savedPlan.charged?.costCents ?? 0;
+      const responseBalanceAfter =
+        shouldChargeAi && savedPlan.charged
+          ? savedPlan.charged.balance
+          : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         planId: savedPlan.persistedPlan.id,
         plan: personalized,
+        mode: aiResponse ? "AI" : "FALLBACK",
         aiRequestId: aiResponse?.requestId ?? null,
-        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        aiTokenBalance: responseBalanceAfter,
         aiTokenRenewalAt: shouldChargeAi
           ? getUserTokenExpiryAt(user)
           : aiMeta.aiTokenRenewalAt,
-        ...(exactUsage ? { usage: exactUsage } : {}),
-        ...(shouldChargeAi ? { nextBalance: aiTokenBalance } : {}),
+        usage: responseUsage,
+        costCents: responseCostCents,
+        costEur: toEurAmount(responseCostCents),
+        balanceBefore: shouldChargeAi ? balanceBefore : aiMeta.aiTokenBalance,
+        balanceAfter: responseBalanceAfter,
+        ...(shouldChargeAi ? { nextBalance: responseBalanceAfter } : {}),
         ...(debit ? { debit } : {}),
       });
   } catch (error) {
@@ -932,6 +1036,7 @@ app.post(
         authRequest.currentEntitlements ?? getUserEntitlements(user);
 
       const shouldChargeAi = !entitlements.role.adminOverride;
+      const aiMeta = getAiTokenPayload(user, entitlements);
       if (shouldChargeAi) {
         assertSufficientAiTokenBalance(
           user,
@@ -947,36 +1052,247 @@ app.post(
         });
       }
 
+      const profileRow = await prisma.userProfile.findUnique({
+        where: { userId: user.id },
+        select: { profile: true },
+      });
+      const profileData = isRecord(profileRow?.profile)
+        ? profileRow.profile
+        : {};
+      const profileTrainingPreferences = isRecord(
+        profileData.trainingPreferences,
+      )
+        ? profileData.trainingPreferences
+        : {};
+
+      const profileSexRaw = readString(profileData.sex);
+      const profileSex =
+        profileSexRaw === "male" || profileSexRaw === "female"
+          ? profileSexRaw
+          : null;
+      const profileFocusRaw = readString(profileTrainingPreferences.focus);
+      const profileFocus =
+        profileFocusRaw === "full" ||
+        profileFocusRaw === "upperLower" ||
+        profileFocusRaw === "ppl"
+          ? profileFocusRaw
+          : null;
+      const profileEquipmentRaw = readString(profileTrainingPreferences.equipment);
+      const profileEquipment =
+        profileEquipmentRaw === "gym" || profileEquipmentRaw === "home"
+          ? profileEquipmentRaw
+          : null;
+      const profileSessionTimeRaw = readString(
+        profileTrainingPreferences.sessionTime,
+      );
+      const profileSessionTime =
+        profileSessionTimeRaw === "short" ||
+        profileSessionTimeRaw === "medium" ||
+        profileSessionTimeRaw === "long"
+          ? profileSessionTimeRaw
+          : null;
+      const profileWorkoutLengthRaw = readString(
+        profileTrainingPreferences.workoutLength,
+      );
+      const profileWorkoutLength =
+        profileWorkoutLengthRaw === "30m" ||
+        profileWorkoutLengthRaw === "45m" ||
+        profileWorkoutLengthRaw === "60m" ||
+        profileWorkoutLengthRaw === "flexible"
+          ? profileWorkoutLengthRaw
+          : null;
+      const profileTimerRaw = readString(profileTrainingPreferences.timerSound);
+      const profileTimerSound =
+        profileTimerRaw === "ding" || profileTimerRaw === "repsToDo"
+          ? profileTimerRaw
+          : null;
+
+      const resolvedAge = payload.age ?? readNumber(profileData.age);
+      const resolvedSex = payload.sex ?? profileSex;
+      const resolvedFocus = payload.focus ?? profileFocus;
+      const resolvedEquipment = payload.equipment ?? profileEquipment;
+      const resolvedSessionTime = payload.sessionTime ?? profileSessionTime;
+      const resolvedWorkoutLength =
+        payload.workoutLength ?? profileWorkoutLength ?? undefined;
+      const resolvedTimerSound = payload.timerSound ?? profileTimerSound ?? undefined;
+      const resolvedTimeAvailableMinutes =
+        payload.timeAvailableMinutes ??
+        readNumber(profileData.timeAvailableMinutes) ??
+        resolveMinutesFromWorkoutLength(resolvedWorkoutLength ?? null) ??
+        resolveMinutesFromSessionTime(resolvedSessionTime ?? null);
+      const combinedRestrictions = [
+        normalizeConstraints(payload.constraints),
+        readString(payload.restrictions),
+        readString(profileData.notes),
+      ]
+        .filter(Boolean)
+        .join(" | ");
+      const resolvedInjuries =
+        readString(payload.injuries) ?? readString(profileData.injuries) ?? undefined;
+
+      const missingContext: string[] = [];
+      if (resolvedAge === null) missingContext.push("age");
+      if (!resolvedSex) missingContext.push("sex");
+      if (!resolvedFocus) missingContext.push("focus");
+      if (!resolvedEquipment) missingContext.push("equipment");
+      if (!resolvedSessionTime) missingContext.push("sessionTime");
+      if (resolvedTimeAvailableMinutes === null) {
+        missingContext.push("timeAvailableMinutes");
+      }
+      if (missingContext.length > 0) {
+        throw createHttpError(409, "PROFILE_INCOMPLETE", {
+          message:
+            "Missing required context for training generation. Complete profile or send fields in request.",
+          missingContext,
+        });
+      }
+
       const exerciseCatalog = await loadExerciseCatalogForAi();
       const trainingRequest = {
         goal: payload.goal,
-        daysPerWeek: Math.min(payload.daysPerWeek ?? 3, 7),
+        daysPerWeek: Math.min(payload.daysPerWeek, 7),
         level: mapExperienceLevelToTrainingPlanLevel(payload.experienceLevel),
         experienceLevel: payload.experienceLevel,
-        focus: "full" as const,
-        equipment: "gym" as const,
+        focus: resolvedFocus,
+        equipment: resolvedEquipment,
       };
       const trainingPromptInput: z.infer<typeof aiTrainingSchema> = {
-        age: 30,
-        sex: "male",
+        name: payload.name ?? readString(profileData.name) ?? undefined,
+        age: resolvedAge,
+        sex: resolvedSex,
         level: trainingRequest.level,
         goal: trainingRequest.goal,
         equipment: trainingRequest.equipment,
         daysPerWeek: trainingRequest.daysPerWeek,
-        daysCount: trainingRequest.daysPerWeek,
-        sessionTime: "medium",
+        daysCount: payload.daysCount ?? payload.daysPerWeek,
+        startDate: payload.startDate,
+        sessionTime: resolvedSessionTime,
         focus: trainingRequest.focus,
-        timeAvailableMinutes: 45,
-        restrictions: payload.constraints,
+        timeAvailableMinutes: resolvedTimeAvailableMinutes,
+        includeCardio:
+          payload.includeCardio ??
+          (typeof profileTrainingPreferences.includeCardio === "boolean"
+            ? profileTrainingPreferences.includeCardio
+            : undefined),
+        includeMobilityWarmups:
+          payload.includeMobilityWarmups ??
+          (typeof profileTrainingPreferences.includeMobilityWarmups === "boolean"
+            ? profileTrainingPreferences.includeMobilityWarmups
+            : undefined),
+        workoutLength: resolvedWorkoutLength,
+        timerSound: resolvedTimerSound,
+        injuries: resolvedInjuries,
+        restrictions: combinedRestrictions || resolvedInjuries,
+        goals:
+          payload.goals ??
+          (Array.isArray(profileData.goals)
+            ? profileData.goals.filter(
+                (item: unknown): item is
+                  | "buildStrength"
+                  | "loseFat"
+                  | "betterHealth"
+                  | "moreEnergy"
+                  | "tonedMuscles" =>
+                  item === "buildStrength" ||
+                  item === "loseFat" ||
+                  item === "betterHealth" ||
+                  item === "moreEnergy" ||
+                  item === "tonedMuscles",
+              )
+            : undefined),
       };
       const startDate = parseDateInput(trainingPromptInput.startDate) ?? new Date();
-      const expectedDays = Math.min(payload.daysPerWeek ?? 3, 7);
+      const expectedDays = Math.min(payload.daysPerWeek, 7);
 
       const trainingInput = {
         ...trainingRequest,
         daysPerWeek: expectedDays,
         daysCount: trainingPromptInput.daysCount ?? expectedDays,
       };
+      const trainingCacheFingerprint = {
+        userId: user.id,
+        goal: trainingRequest.goal,
+        level: trainingRequest.level,
+        experienceLevel: trainingRequest.experienceLevel,
+        daysPerWeek: trainingInput.daysPerWeek,
+        daysCount: trainingInput.daysCount,
+        age: trainingPromptInput.age,
+        sex: trainingPromptInput.sex,
+        focus: trainingPromptInput.focus,
+        equipment: trainingPromptInput.equipment,
+        sessionTime: trainingPromptInput.sessionTime,
+        timeAvailableMinutes: trainingPromptInput.timeAvailableMinutes,
+        restrictions: trainingPromptInput.restrictions ?? "",
+      };
+      const requestIdCacheKey = payload.aiRequestId
+        ? buildCacheKey("training-generate:request:v1", {
+            userId: user.id,
+            aiRequestId: payload.aiRequestId,
+          })
+        : null;
+      const fingerprintCacheKey = buildCacheKey(
+        "training-generate:v1",
+        trainingCacheFingerprint,
+      );
+      const cacheKeys = requestIdCacheKey
+        ? [requestIdCacheKey, fingerprintCacheKey]
+        : [fingerprintCacheKey];
+
+      for (const key of cacheKeys) {
+        const cached = await getCachedAiPayload(key);
+        if (!cached || !isRecord(cached)) continue;
+        const cachedPlanPayload = isRecord(cached.plan)
+          ? cached.plan
+          : cached;
+        try {
+          const parsedCachedPlan = parseTrainingPlanPayload(
+            cachedPlanPayload,
+            startDate,
+            trainingInput.daysCount ?? expectedDays,
+            expectedDays,
+          );
+          assertTrainingMatchesRequest(parsedCachedPlan, expectedDays);
+          assertTrainingLevelConsistency(parsedCachedPlan, payload.experienceLevel);
+          const resolvedCachedPlan = resolveTrainingPlanWithDeterministicFallback(
+            parsedCachedPlan,
+            exerciseCatalog,
+            {
+              daysPerWeek: trainingInput.daysPerWeek,
+              level: trainingInput.level,
+              goal: trainingInput.goal,
+              equipment: trainingInput.equipment,
+            },
+            startDate,
+            { userId: user.id, route: "/ai/training-plan/generate" },
+          );
+          const summary =
+            isRecord(cached.summary) || Array.isArray(cached.summary)
+              ? cached.summary
+              : summarizeTrainingPlan(resolvedCachedPlan);
+          return reply.status(200).send({
+            planId: typeof cached.planId === "string" ? cached.planId : undefined,
+            summary,
+            plan: resolvedCachedPlan,
+            mode: "CACHE",
+            aiRequestId:
+              typeof cached.aiRequestId === "string"
+                ? cached.aiRequestId
+                : payload.aiRequestId ?? null,
+            aiTokenBalance: aiMeta.aiTokenBalance,
+            aiTokenRenewalAt: aiMeta.aiTokenRenewalAt,
+            usage: ZERO_AI_USAGE,
+            costCents: 0,
+            costEur: 0,
+            balanceBefore: aiMeta.aiTokenBalance,
+            balanceAfter: aiMeta.aiTokenBalance,
+          });
+        } catch (error) {
+          app.log.warn(
+            { err: error, key },
+            "cached training-generate payload invalid, regenerating",
+          );
+        }
+      }
 
       let parsedPlan: z.infer<typeof aiTrainingPlanResponseSchema> | null =
         null;
@@ -985,15 +1301,11 @@ app.post(
 
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
-          const prompt = `${buildTrainingPrompt(
+          const prompt = buildTrainingPrompt(
             trainingPromptInput,
             attempt > 0,
             formatExerciseCatalogForPrompt(exerciseCatalog),
-          )} ${
-            attempt > 0
-              ? "REINTENTO OBLIGATORIO: corrige la salida para que cumpla exactamente los días solicitados y volumen por nivel."
-              : ""
-          }`;
+          );
 
           const result = await callOpenAi(
             prompt,
@@ -1009,7 +1321,7 @@ app.post(
                 },
               },
               model: "gpt-4o-mini",
-              maxTokens: 4000,
+              maxTokens: 1800,
               retryOnParseError: false,
             },
           );
@@ -1058,8 +1370,6 @@ app.post(
         { userId: user.id, route: "/ai/training-plan/generate" },
       );
 
-      await upsertExercisesFromPlan(resolvedPlan);
-
       const savedPlan =
         aiResult && shouldChargeAi
           ? await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -1071,7 +1381,7 @@ app.post(
                 trainingInput.daysCount ?? expectedDays,
                 trainingInput,
               );
-              await chargeAiUsageForResult({
+              const charged = await chargeAiUsageForResult({
                 prisma: tx,
                 pricing: aiPricing,
                 user: {
@@ -1085,7 +1395,7 @@ app.post(
                 result: aiResult,
                 createHttpError,
               });
-              return { persistedPlan };
+              return { persistedPlan, charged };
             })
           : {
               persistedPlan: await saveTrainingPlan(
@@ -1096,7 +1406,23 @@ app.post(
                 trainingInput.daysCount ?? expectedDays,
                 trainingInput,
               ),
+              charged: null,
             };
+      const summary = summarizeTrainingPlan(resolvedPlan);
+      try {
+        const cachePayload: Record<string, unknown> = {
+          plan: resolvedPlan,
+          summary,
+          planId: savedPlan.persistedPlan.id,
+          mode: aiResult ? "AI" : "FALLBACK",
+          aiRequestId: aiResult?.requestId ?? payload.aiRequestId ?? null,
+        };
+        await Promise.all(
+          cacheKeys.map((key) => saveCachedAiPayload(key, "training", cachePayload)),
+        );
+      } catch (error) {
+        app.log.warn({ err: error, cacheKeys }, "training-generate cache save failed");
+      }
 
       if (aiResult && !shouldChargeAi) {
         await persistAiUsageLog({
@@ -1129,13 +1455,32 @@ app.post(
         });
       }
 
+      const isFallback = !aiResult;
       const exactUsage = extractExactProviderUsage(aiResult?.usage);
+      const responseUsage = exactUsage ?? savedPlan.charged?.usage ?? ZERO_AI_USAGE;
+      const responseBalance = shouldChargeAi
+        ? savedPlan.charged?.balance ?? aiMeta.aiTokenBalance
+        : aiMeta.aiTokenBalance;
+      const responseCostCents = savedPlan.charged?.costCents ?? 0;
+      const responseRenewalAt = shouldChargeAi
+        ? getUserTokenExpiryAt(user)
+        : aiMeta.aiTokenRenewalAt;
+      const balanceBefore = shouldChargeAi
+        ? getEffectiveTokenBalance(user)
+        : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         planId: savedPlan.persistedPlan.id,
-        summary: summarizeTrainingPlan(resolvedPlan),
+        summary,
         plan: resolvedPlan,
+        mode: isFallback ? "FALLBACK" : "AI",
         aiRequestId: aiResult?.requestId ?? null,
-        ...(exactUsage ? { usage: exactUsage } : {}),
+        aiTokenBalance: responseBalance,
+        aiTokenRenewalAt: responseRenewalAt,
+        usage: responseUsage,
+        costCents: responseCostCents,
+        costEur: toEurAmount(responseCostCents),
+        balanceBefore,
+        balanceAfter: responseBalance,
       });
     } catch (error) {
       const classified = classifyAiGenerateError(error);
@@ -1187,6 +1532,146 @@ app.post(
   },
 );
 app.post(
+  "/ai/chat/contextual",
+  { preHandler: aiAccessGuard },
+  async (request, reply) => {
+    try {
+      logAuthCookieDebug(request, "/ai/chat/contextual");
+      const authRequest = request as AuthenticatedEntitlementsRequest;
+      const user =
+        authRequest.currentUser ??
+        (await requireUser(request, { logContext: "/ai/chat/contextual" }));
+      const entitlements =
+        authRequest.currentEntitlements ?? getUserEntitlements(user);
+      const input: AiContextualChatRequest = aiContextualChatRequestSchema.parse(
+        request.body,
+      );
+      const shouldChargeAi = !entitlements.role.adminOverride;
+      const aiMeta = getAiTokenPayload(user, entitlements);
+
+      if (shouldChargeAi) {
+        assertSufficientAiTokenBalance(
+          user,
+          getEstimatedAiFeatureTokens("tip"),
+        );
+      }
+
+      await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
+
+      const [profileRow, activeTrainingPlan, activeNutritionPlan] =
+        await Promise.all([
+          prisma.userProfile.findUnique({
+            where: { userId: user.id },
+            select: { profile: true },
+          }),
+          prisma.trainingPlan.findFirst({
+            where: { userId: user.id },
+            orderBy: { startDate: "desc" },
+            select: { title: true, goal: true, daysPerWeek: true },
+          }),
+          prisma.nutritionPlan.findFirst({
+            where: { userId: user.id },
+            orderBy: { startDate: "desc" },
+            select: { title: true, dailyCalories: true },
+          }),
+        ]);
+
+      const profileData =
+        profileRow &&
+        typeof profileRow.profile === "object" &&
+        profileRow.profile !== null
+          ? (profileRow.profile as Record<string, unknown>)
+          : {};
+
+      const prompt = buildContextualChatPrompt(input, {
+        user: {
+          name: user.name,
+          plan: user.plan,
+        },
+        profile: {
+          goal:
+            typeof profileData.goal === "string" ? profileData.goal : undefined,
+          activity:
+            typeof profileData.activity === "string"
+              ? profileData.activity
+              : undefined,
+          level:
+            typeof profileData.level === "string"
+              ? profileData.level
+              : undefined,
+        },
+        activeTrainingPlan,
+        activeNutritionPlan,
+      });
+
+      const aiResult = await callOpenAi(prompt, 0, extractTopLevelJson, {
+        model: "gpt-4o-mini",
+        maxTokens: 700,
+        responseFormat: {
+          type: "json_object",
+        },
+      });
+
+      const responsePayload = contextualChatResponseSchema.safeParse(aiResult.payload);
+      if (!responsePayload.success) {
+        throw createHttpError(502, "AI_REQUEST_FAILED", {
+          kind: "upstream",
+          reason: "contextual_chat_invalid_payload",
+        });
+      }
+
+      const balanceBefore = aiMeta.aiTokenBalance;
+      let aiTokenBalance: number | null = null;
+      let chargedCostCents = 0;
+      let chargedUsage: AiUsageSummary | undefined;
+      if (shouldChargeAi) {
+        const charged = await chargeAiUsageForResult({
+          prisma,
+          pricing: aiPricing,
+          user: {
+            id: user.id,
+            plan: user.plan,
+            aiTokenBalance: user.aiTokenBalance ?? 0,
+            aiTokenResetAt: user.aiTokenResetAt,
+            aiTokenRenewalAt: user.aiTokenRenewalAt,
+          },
+          feature: "tip",
+          result: aiResult,
+          meta: { route: "contextual-chat" },
+          createHttpError,
+        });
+        aiTokenBalance = charged.balance;
+        chargedCostCents = charged.costCents;
+        chargedUsage = charged.usage;
+      }
+
+      const exactUsage = extractExactProviderUsage(aiResult.usage);
+      const responseUsage = exactUsage ?? chargedUsage ?? ZERO_AI_USAGE;
+      const responseBalanceAfter =
+        shouldChargeAi && typeof aiTokenBalance === "number"
+          ? aiTokenBalance
+          : aiMeta.aiTokenBalance;
+      return reply.status(200).send({
+        ...responsePayload.data,
+        mode: "AI",
+        aiRequestId: aiResult.requestId ?? null,
+        aiTokenBalance: responseBalanceAfter,
+        aiTokenRenewalAt: shouldChargeAi
+          ? getUserTokenExpiryAt(user)
+          : aiMeta.aiTokenRenewalAt,
+        usage: responseUsage,
+        costCents: chargedCostCents,
+        costEur: toEurAmount(chargedCostCents),
+        balanceBefore,
+        balanceAfter: responseBalanceAfter,
+      });
+    } catch (error) {
+      return sendAiEndpointError(reply, error);
+    }
+  },
+);
+
+app.post(
   "/ai/daily-tip",
   { preHandler: aiAccessGuard },
   async (request, reply) => {
@@ -1214,6 +1699,12 @@ app.post(
         await safeStoreAiContent(user.id, "tip", "template", personalized);
         return reply.status(200).send({
           tip: personalized,
+          mode: "FALLBACK",
+          usage: ZERO_AI_USAGE,
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: aiMeta.aiTokenBalance,
+          balanceAfter: aiMeta.aiTokenBalance,
           ...aiMeta,
         });
       }
@@ -1226,6 +1717,12 @@ app.post(
         await safeStoreAiContent(user.id, "tip", "cache", personalized);
         return reply.status(200).send({
           tip: personalized,
+          mode: "FALLBACK",
+          usage: ZERO_AI_USAGE,
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: aiMeta.aiTokenBalance,
+          balanceAfter: aiMeta.aiTokenBalance,
           ...aiMeta,
         });
       }
@@ -1234,6 +1731,9 @@ app.post(
       const prompt = buildTipPrompt(data);
       let payload: Record<string, unknown>;
       let aiTokenBalance: number | null = null;
+      let chargedCostCents = 0;
+      let chargedUsage: AiUsageSummary | undefined;
+      let aiResult: OpenAiResponse | null = null;
       let debit:
         | {
             costCents: number;
@@ -1292,6 +1792,8 @@ app.post(
         );
         payload = charged.payload;
         aiTokenBalance = charged.balance;
+        chargedCostCents = charged.costCents;
+        chargedUsage = charged.usage;
         debit =
           process.env.NODE_ENV === "production"
             ? undefined
@@ -1305,6 +1807,7 @@ app.post(
               };
       } else {
         const result = await callOpenAi(prompt);
+        aiResult = result;
         payload = result.payload;
       }
       await saveCachedAiPayload(cacheKey, "tip", payload);
@@ -1312,15 +1815,25 @@ app.post(
         name: data.name ?? "amigo",
       });
       await safeStoreAiContent(user.id, "tip", "ai", personalized);
+      const exactUsage = extractExactProviderUsage(aiResult?.usage);
+      const responseUsage = exactUsage ?? chargedUsage ?? ZERO_AI_USAGE;
+      const responseBalanceAfter =
+        shouldChargeAi && typeof aiTokenBalance === "number"
+          ? aiTokenBalance
+          : aiMeta.aiTokenBalance;
       return reply.status(200).send({
         tip: personalized,
-        aiTokenBalance: shouldChargeAi ? aiTokenBalance : aiMeta.aiTokenBalance,
+        mode: aiResult || shouldChargeAi ? "AI" : "FALLBACK",
+        aiTokenBalance: responseBalanceAfter,
         aiTokenRenewalAt: shouldChargeAi
           ? getUserTokenExpiryAt(user)
           : aiMeta.aiTokenRenewalAt,
-        ...(shouldChargeAi
-          ? { nextBalance: aiTokenBalance, balanceAfter: aiTokenBalance }
-          : {}),
+        usage: responseUsage,
+        costCents: chargedCostCents,
+        costEur: toEurAmount(chargedCostCents),
+        balanceBefore: effectiveTokens,
+        balanceAfter: responseBalanceAfter,
+        ...(shouldChargeAi ? { nextBalance: responseBalanceAfter } : {}),
         ...(debit ? { debit } : {}),
       });
     } catch (error) {

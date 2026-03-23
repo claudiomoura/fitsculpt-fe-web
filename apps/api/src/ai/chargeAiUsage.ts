@@ -54,6 +54,11 @@ type UsageTotals = {
   totalTokens: number;
 };
 
+export function toEurAmount(costCents: number): number {
+  const safeCents = Number.isFinite(costCents) ? costCents : 0;
+  return Number((Math.max(0, safeCents) / 100).toFixed(2));
+}
+
 type PrismaLikeError = {
   code?: string;
   message?: string;
@@ -228,6 +233,9 @@ function buildChargeDetails({
     promptTokens: totals.promptTokens,
     completionTokens: totals.completionTokens,
   });
+  if (!Number.isFinite(costCents) || costCents < 0) {
+    costCents = 0;
+  }
   const nextMeta: Record<string, unknown> = { ...(meta ?? {}) };
 
   if (!usageProvided) {
@@ -498,6 +506,7 @@ export async function chargeAiUsage(params: ChargeAiUsageParams) {
     payload: result.payload,
     tokensSpent: charging.debitedTokens,
     costCents,
+    costEur: toEurAmount(costCents),
     balance: charging.balance,
     balanceAfter: charging.balance,
     idempotentReplay: charging.idempotentReplay,
@@ -550,6 +559,7 @@ export async function chargeAiUsageForResult(params: ChargeAiUsageForResultParam
     payload: result.payload,
     tokensSpent: charging.debitedTokens,
     costCents,
+    costEur: toEurAmount(costCents),
     balance: charging.balance,
     balanceAfter: charging.balance,
     idempotentReplay: charging.idempotentReplay,

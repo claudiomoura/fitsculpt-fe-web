@@ -9,6 +9,7 @@ type WeeklyCalendarDay = {
   label: string;
   date: string;
   selected: boolean;
+  disabled?: boolean;
   mealCount: number;
   dayCalories: number;
   complete?: boolean;
@@ -23,6 +24,7 @@ type WeeklyCalendarProps = {
   weekLabel: string;
   weekNumber: number;
   weekRangeLabel: string;
+  previousWeekDisabled?: boolean;
   nextWeekDisabled: boolean;
   hasWeeklyMeals: boolean;
   emptyTitle: string;
@@ -44,6 +46,7 @@ export function WeeklyCalendar({
   weekLabel,
   weekNumber,
   weekRangeLabel,
+  previousWeekDisabled = false,
   nextWeekDisabled,
   hasWeeklyMeals,
   emptyTitle,
@@ -59,7 +62,7 @@ export function WeeklyCalendar({
   return (
     <div className="calendar-week stack-sm">
       <div className={`calendar-range ${styles.rangeCompact}`}>
-        <button type="button" className={styles.navButton} aria-label={previousWeekAriaLabel} onClick={onPreviousWeek}>
+        <button type="button" className={styles.navButton} aria-label={previousWeekAriaLabel} onClick={onPreviousWeek} disabled={previousWeekDisabled}>
           <Icon name="chevron-left" size={16} />
         </button>
         <div className={styles.rangeInfo}>
@@ -82,6 +85,7 @@ export function WeeklyCalendar({
               type="button"
               className={`training-week-pill state-${state} ${day.selected ? "is-selected" : ""}`}
               aria-label={selectWeekDayAria(day)}
+              disabled={day.disabled}
               onClick={() => onSelectDay(day.id)}
             >
               <span className="training-week-pill-label">{day.label}</span>

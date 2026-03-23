@@ -1,23 +1,24 @@
-import { getServerT } from "@/lib/serverI18n";
-import LibraryTabs from "../LibraryTabs";
-import TrainingLibraryClient from "./TrainingLibraryClient";
+import { redirect } from "next/navigation";
 
-export default async function TrainingLibraryPage() {
-  const { t } = await getServerT();
-  return (
-    <div className="page">
-      <section className="card">
-        <div className="page-header">
-          <div className="page-header-body">
-            <h1 className="section-title">{t("app.libraryTitle")}</h1>
-            <p className="section-subtitle">{t("app.librarySubtitle")}</p>
-          </div>
-          <div className="page-header-actions">
-            <LibraryTabs active="training" libraryType="fitness" />
-          </div>
-        </div>
-      </section>
-      <TrainingLibraryClient />
-    </div>
-  );
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function toQueryString(params?: Record<string, string | string[] | undefined>) {
+  if (!params) return "";
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.filter(Boolean).forEach((item) => query.append(key, item));
+      continue;
+    }
+    if (value) query.set(key, value);
+  }
+  const built = query.toString();
+  return built ? `?${built}` : "";
+}
+
+export default async function LegacyTrainingLibraryRoute({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : undefined;
+  redirect(`/app/biblioteca/planes-entrenamiento${toQueryString(params)}`);
 }

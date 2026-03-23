@@ -27,8 +27,13 @@ const TOP_LEVEL_ROUTE_ALIASES = [
   { canonical: "/app/seguimiento", legacy: "/app/progress" },
 ] as const;
 
+const LIBRARY_ROUTE_ALIASES = [
+  { canonical: "/app/biblioteca/planes-entrenamiento", legacy: "/app/biblioteca/entrenamientos" },
+  { canonical: "/app/biblioteca/planes-nutricion", legacy: "/app/dietas" },
+] as const;
+
 function canonicalizePath(path: string): string {
-  for (const alias of TOP_LEVEL_ROUTE_ALIASES) {
+  for (const alias of [...TOP_LEVEL_ROUTE_ALIASES, ...LIBRARY_ROUTE_ALIASES]) {
     if (path === alias.legacy || path.startsWith(`${alias.legacy}/`)) {
       return `${alias.canonical}${path.slice(alias.legacy.length)}`;
     }
@@ -117,6 +122,12 @@ export const trainerTabsMobile: MobileTab[] = [
     icon: "sparkles",
   },
   {
+    id: "trainer-recipes",
+    href: "/app/trainer/recipes",
+    labelKey: "nav.trainerRecipes",
+    icon: "book",
+  },
+  {
     id: "trainer-exercises",
     href: "/app/trainer/exercises",
     labelKey: "nav.trainerExercises",
@@ -155,9 +166,9 @@ export const sidebarUser: NavSectionGroup[] = [
     items: [
       { id: "dashboard", href: "/app", labelKey: "nav.progress" },
       { id: "exercise-library", href: "/app/biblioteca", labelKey: "nav.exerciseLibrary" },
-      { id: "training-plans", href: "/app/biblioteca/entrenamientos", labelKey: "nav.trainingPlans" },
+      { id: "training-plans", href: "/app/biblioteca/planes-entrenamiento", labelKey: "nav.trainingPlans" },
       { id: "recipe-library", href: "/app/biblioteca/recetas", labelKey: "nav.recipeLibrary", feature: "nutrition", upgradeHref: "/app/settings/billing" },
-      { id: "diet-plans", href: "/app/dietas", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
+      { id: "diet-plans", href: "/app/biblioteca/planes-nutricion", labelKey: "nav.nutritionPlans", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "macros", href: "/app/macros", labelKey: "nav.macros", feature: "nutrition", upgradeHref: "/app/settings/billing" },
       { id: "weekly-review", href: "/app/weekly-review", labelKey: "nav.weeklyReview" },
       { id: "feed", href: "/app/feed", labelKey: "nav.feed" },
@@ -196,6 +207,7 @@ export const sidebarTrainer: NavSectionGroup[] = [
       { id: "trainer-clients", href: "/app/trainer/clients", labelKey: "nav.trainerClients" },
       { id: "trainer-plans", href: "/app/trainer/plans", labelKey: "nav.trainerPlans" },
       { id: "trainer-nutrition-plans", href: "/app/trainer/nutrition-plans", labelKey: "nav.trainerNutritionPlans" },
+      { id: "trainer-recipes", href: "/app/trainer/recipes", labelKey: "nav.trainerRecipes" },
       {
         id: "trainer-exercises",
         href: "/app/trainer/exercises",
@@ -234,6 +246,12 @@ export const sidebarDevelopment: NavSectionGroup[] = [
         href: "/app/trainer/nutrition-plans",
         labelKey: "nav.trainerNutritionPlans",
         meta: "/app/trainer/nutrition-plans",
+      },
+      {
+        id: "dev-trainer-recipes",
+        href: "/app/trainer/recipes",
+        labelKey: "nav.trainerRecipes",
+        meta: "/app/trainer/recipes",
       },
       {
         id: "dev-trainer-exercises",
@@ -277,9 +295,9 @@ export const sidebarDevelopment: NavSectionGroup[] = [
       },
       {
         id: "dev-library-workouts",
-        href: "/app/biblioteca/entrenamientos",
+        href: "/app/biblioteca/planes-entrenamiento",
         labelKey: "nav.workoutLibrary",
-        meta: "/app/biblioteca/entrenamientos",
+        meta: "/app/biblioteca/planes-entrenamiento",
       },
       {
         id: "dev-library-recipes",

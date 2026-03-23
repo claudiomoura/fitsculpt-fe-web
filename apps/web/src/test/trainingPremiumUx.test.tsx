@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultProfile } from "@/lib/profile";
-import { renderWithProviders, resetMockNavigation, setMockPathname } from "@/test/utils/renderWithProviders";
+import { getMockNavigation, renderWithProviders, resetMockNavigation, setMockPathname } from "@/test/utils/renderWithProviders";
 
 import TrainingPlanClient from "@/app/(app)/app/training/TrainingPlanClient";
 
@@ -144,6 +144,82 @@ describe("Training premium UX from plan", () => {
     });
   });
 
+  it("prioritizes selected library plan over trainer-assigned active plan", async () => {
+    window.localStorage.setItem("fs_selected_plan_id", "plan-library");
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url === "/api/auth/me") {
+        return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+      }
+      if (url === "/api/workouts") return mockResponse([]);
+      if (url === "/api/training-plans/plan-library") {
+        return mockResponse({
+          id: "plan-library",
+          title: "Plan biblioteca",
+          startDate: today.toISOString(),
+          days: [{ label: "Dia 1", focus: "Fuerza", duration: 45, date: todayKey, exercises: [] }],
+        });
+      }
+      if (url.startsWith("/api/training-plans/active")) {
+        return mockResponse({
+          source: "assigned",
+          plan: {
+            id: "plan-assigned",
+            title: "Plan asignado trainer",
+            startDate: today.toISOString(),
+            days: [{ label: "Dia 1", focus: "Hipertrofia", duration: 50, date: todayKey, exercises: [] }],
+          },
+        });
+      }
+      return mockResponse({});
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    renderWithProviders(<TrainingPlanClient />);
+
+    await screen.findByText("Plan biblioteca");
+
+    expect(screen.queryByText("Plan asignado trainer")).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/training-plans/plan-library", expect.any(Object));
+  });
+
+  it("falls back to assigned plan when selected library plan no longer exists", async () => {
+    window.localStorage.setItem("fs_selected_plan_id", "plan-missing");
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url === "/api/auth/me") {
+        return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+      }
+      if (url === "/api/workouts") return mockResponse([]);
+      if (url === "/api/training-plans/plan-missing") return mockResponse({}, 404);
+      if (url.startsWith("/api/training-plans/active")) {
+        return mockResponse({
+          source: "assigned",
+          plan: {
+            id: "plan-assigned",
+            title: "Plan asignado trainer",
+            startDate: today.toISOString(),
+            days: [{ label: "Dia 1", focus: "Hipertrofia", duration: 50, date: todayKey, exercises: [] }],
+          },
+        });
+      }
+      return mockResponse({});
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    renderWithProviders(<TrainingPlanClient />);
+
+    await screen.findByText("Plan asignado trainer");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/training-plans/plan-missing", expect.any(Object));
+    expect(fetchMock).toHaveBeenCalledWith("/api/training-plans/active?includeDays=1", expect.any(Object));
+    expect(window.localStorage.getItem("fs_selected_plan_id")).toBeNull();
+  });
+
   it("resolves thumbnail from catalog search when exerciseId is missing", async () => {
     const fetchMock = setupFetchMock(
       [{ name: "Press banca", sets: "4", reps: "8" }],
@@ -196,7 +272,9 @@ describe("Training premium UX from plan", () => {
     expect(fetchMock).not.toHaveBeenCalledWith("/api/exercises/cmmay-plan-entry-1", expect.any(Object));
 
     fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
-    expect(await screen.findByTestId("training-exercise-detail-modal")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getMockNavigation().push).toHaveBeenCalledWith(expect.stringMatching(/^\/app\/biblioteca\/ex-1\?/));
+    });
     expect(screen.getAllByAltText("Press banca").some((image) => image.getAttribute("src")?.includes("ex-1.jpg"))).toBe(true);
   });
 
@@ -216,7 +294,9 @@ describe("Training premium UX from plan", () => {
     await screen.findByText("Ejercicio desconocido");
 
     fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
-    expect(await screen.findByTestId("training-exercise-detail-modal")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getMockNavigation().push).toHaveBeenCalledWith(expect.stringMatching(/^\/app\/biblioteca\/ex-missing\?/));
+    });
 
     await waitFor(() => {
       const calls = fetchMock.mock.calls.filter(([input]) => String(input) === "/api/exercises/ex-missing");
@@ -224,7 +304,7 @@ describe("Training premium UX from plan", () => {
     });
   });
 
-  it("opens exercise modal from plan and closes without losing selected day context", async () => {
+  it("navigates to exercise technique from plan while keeping day context visible", async () => {
     setupFetchMock(
       [
         { exerciseId: "ex-1", name: "Press banca", sets: "4", reps: "8" },
@@ -248,12 +328,8 @@ describe("Training premium UX from plan", () => {
 
     fireEvent.click((await screen.findAllByTestId("training-plan-exercise-item"))[0]);
 
-    expect(await screen.findByTestId("training-exercise-detail-modal")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /cerrar|close/i }));
-
     await waitFor(() => {
-      expect(screen.queryByTestId("training-exercise-detail-modal")).not.toBeInTheDocument();
+      expect(getMockNavigation().push).toHaveBeenCalledWith(expect.stringMatching(/^\/app\/biblioteca\/ex-1\?/));
       expect(screen.getByText(/Ejercicios del dia|Ejercicios de hoy/i)).toBeInTheDocument();
     });
   });
@@ -316,11 +392,133 @@ describe("Training premium UX from plan", () => {
     });
   });
 
+  it("omits blank exercise notes when creating workout from start CTA", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url === "/api/auth/me") return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+      if (url.startsWith("/api/training-plans/active")) {
+        return mockResponse({
+          source: "assigned",
+          plan: {
+            id: "plan-1",
+            title: "Plan premium",
+            startDate: today.toISOString(),
+            days: [
+              {
+                label: "Dia 1",
+                focus: "Fuerza",
+                duration: 50,
+                date: todayKey,
+                exercises: [{ name: "Press banca", sets: "4", reps: "8", notes: "" }],
+              },
+            ],
+          },
+        });
+      }
+      if (url === "/api/workouts") {
+        if (init?.method === "POST") {
+          const payload = JSON.parse(String(init.body ?? "{}")) as {
+            exercises?: Array<{ notes?: string }>;
+          };
+          const notesValue = payload.exercises?.[0]?.notes;
+          if (notesValue === "") {
+            return mockResponse({ code: "VALIDATION" }, 400);
+          }
+          return mockResponse({ id: "workout-new" });
+        }
+        const callCount = fetchMock.mock.calls.filter(([call]) => String(call) === "/api/workouts").length;
+        if (callCount <= 1) return mockResponse([]);
+        return mockResponse([{ id: "workout-new", name: "Fuerza", scheduledAt: `${todayKey}T12:00:00.000Z` }]);
+      }
+      return mockResponse({});
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    renderWithProviders(<TrainingPlanClient />);
+
+    const startButton = await screen.findByRole("button", { name: /Empezar/i });
+    fireEvent.click(startButton);
+
+    await waitFor(() => {
+      expect(getMockNavigation().push).toHaveBeenCalledWith("/app/entrenamiento/workout-new/start");
+    });
+  });
+
   it("renders details CTA in next workout card", async () => {
     setupFetchMock([{ name: "Press banca", sets: "4", reps: "8" }]);
 
     renderWithProviders(<TrainingPlanClient />);
 
     expect(await screen.findByRole("button", { name: /Detalles/i })).toBeInTheDocument();
+  });
+
+  it("logs a single exercise from the daily exercise list", async () => {
+    let loggedEntries = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/ai/quota") return mockResponse({ tokens: 10 });
+      if (url === "/api/auth/me") return mockResponse({ entitlements: { modules: { strength: { enabled: true } } }, aiTokenBalance: 10 });
+      if (url.startsWith("/api/training-plans/active")) {
+        return mockResponse({
+          source: "assigned",
+          plan: {
+            id: "plan-1",
+            title: "Plan premium",
+            startDate: today.toISOString(),
+            days: [
+              {
+                label: "Dia 1",
+                focus: "Fuerza",
+                duration: 50,
+                date: todayKey,
+                exercises: [{ name: "Press banca", sets: "4", reps: "8" }],
+              },
+            ],
+          },
+        });
+      }
+      if (url === "/api/workouts") {
+        return mockResponse([{ id: "workout-1", name: "Fuerza", scheduledAt: `${todayKey}T08:00:00.000Z` }]);
+      }
+      if (url === "/api/workouts/workout-1") {
+        return mockResponse({
+          id: "workout-1",
+          name: "Fuerza",
+          scheduledAt: `${todayKey}T08:00:00.000Z`,
+          exercises: [{ name: "Press banca", sets: "4", reps: "8" }],
+          sessions: loggedEntries > 0
+            ? [{ id: "session-1", startedAt: `${todayKey}T08:00:00.000Z`, entries: Array.from({ length: loggedEntries }, (_, index) => ({ id: `entry-${index}`, exercise: "Press banca", sets: 1, reps: 8, createdAt: `${todayKey}T08:00:00.000Z` })) }]
+            : [],
+        });
+      }
+      if (url === "/api/workouts/workout-1/start") {
+        return mockResponse({ id: "session-1" });
+      }
+      if (url === "/api/workout-sessions/session-1" && init?.method === "PATCH") {
+        loggedEntries = 4;
+        return mockResponse({
+          id: "session-1",
+          workoutId: "workout-1",
+          startedAt: `${todayKey}T08:00:00.000Z`,
+          entries: Array.from({ length: loggedEntries }, (_, index) => ({ id: `entry-${index}`, exercise: "Press banca", sets: 1, reps: 8, createdAt: `${todayKey}T08:00:00.000Z` })),
+        });
+      }
+      return mockResponse({});
+    });
+
+    vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+    renderWithProviders(<TrainingPlanClient />);
+
+    const quickAction = await screen.findByRole("button", { name: /Registrar ejercicio/i });
+    fireEvent.click(quickAction);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/workouts/workout-1/start", expect.objectContaining({ method: "POST" }));
+      expect(fetchMock).toHaveBeenCalledWith("/api/workout-sessions/session-1", expect.objectContaining({ method: "PATCH" }));
+    });
+
+    expect(await screen.findByRole("button", { name: /Ejercicio completado/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Registrar dia/i })).not.toBeInTheDocument();
   });
 });

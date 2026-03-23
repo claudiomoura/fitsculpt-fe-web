@@ -15,7 +15,19 @@ export type AnalyticsEventName =
   | "checkin_opened"
   | "checkin_saved"
   | "nutrition_meal_logged"
-  | "meal_logged";
+  | "meal_logged"
+  | "quick_log_opened"
+  | "quick_log_saved"
+  | "voice_log_used"
+  | "barcode_lookup_used"
+  | "weekly_review_opened"
+  | "adjustment_accepted"
+  | "adjustment_rejected"
+  | "recommendation_seen"
+  | "future_projection_viewed"
+  | "future_projection_scenario_selected"
+  | "rct_status_viewed"
+  | "rct_summary_viewed";
 
 export type AnalyticsEventProps = {
   target?: "training" | "nutrition" | "checkin" | "billing";
@@ -23,6 +35,14 @@ export type AnalyticsEventProps = {
   mealType?: string;
   origin?: string;
   returnTo?: string;
+  recommendationId?: string;
+  recommendationType?: string;
+  weekKey?: string;
+  decision?: string;
+  rctGroup?: "control" | "treatment";
+  horizonMonths?: number;
+  scenarioId?: string;
+  windowDays?: number;
 };
 
 declare global {

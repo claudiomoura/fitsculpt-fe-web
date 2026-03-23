@@ -34,7 +34,15 @@ describe("nutritionPlanLibrary", () => {
   });
 
   it("builds next search params for active-plan selection", () => {
+    expect(buildNutritionPlanSearch("/app/biblioteca/planes-nutricion", "query=abc", "plan-1")).toBe(
+      "/app/biblioteca/planes-nutricion?query=abc&planId=plan-1"
+    );
+    expect(buildNutritionPlanSearch("/app/biblioteca/planes-nutricion", "", "plan-1")).toBe(
+      "/app/biblioteca/planes-nutricion?planId=plan-1"
+    );
+  });
+
+  it("keeps compatibility when called with legacy nutrition route", () => {
     expect(buildNutritionPlanSearch("/app/dietas", "query=abc", "plan-1")).toBe("/app/dietas?query=abc&planId=plan-1");
-    expect(buildNutritionPlanSearch("/app/dietas", "", "plan-1")).toBe("/app/dietas?planId=plan-1");
   });
 });

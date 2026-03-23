@@ -10,11 +10,15 @@ export type MealCardCompactProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   title: ReactNode;
   subtitle?: ReactNode;
   kcal: ReactNode;
-  imageSrc: string;
+  imageSrc?: string | null;
   imageAlt: string;
 };
 
+const PLACEHOLDER_SRC = "/placeholders/recipe-cover.jpg";
+
 export function MealCardCompact({ title, subtitle, kcal, imageSrc, imageAlt, className, ...props }: MealCardCompactProps) {
+  const src = imageSrc?.trim() ? imageSrc : PLACEHOLDER_SRC;
+
   return (
     <button
       type="button"
@@ -26,7 +30,7 @@ export function MealCardCompact({ title, subtitle, kcal, imageSrc, imageAlt, cla
       style={{ boxShadow: elevation.sm, transition: createTransition('interactive') }}
       {...props}
     >
-      <Image src={imageSrc} alt={imageAlt} width={72} height={72} className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover" />
+      <Image src={src} alt={imageAlt} width={72} height={72} unoptimized className="h-[72px] w-[72px] shrink-0 rounded-lg object-cover" />
       <div className="min-w-0 flex-1">
         <p className="m-0 truncate text-sm font-semibold text-text">{title}</p>
         {subtitle ? <p className="m-0 mt-1 truncate text-xs text-text-muted">{subtitle}</p> : null}

@@ -3,15 +3,15 @@ import { applyEntitlementGating, getMostSpecificActiveHref, isPathActive, mainTa
 
 describe("navConfig", () => {
   it("marks only exact and nested matches as active", () => {
-    expect(isPathActive("/app/biblioteca/entrenamientos", "/app/biblioteca")).toBe(true);
+    expect(isPathActive("/app/biblioteca/planes-entrenamiento", "/app/biblioteca")).toBe(true);
     expect(isPathActive("/app/bibliotecario", "/app/biblioteca")).toBe(false);
     expect(isPathActive("/app/training/workout-1", "/app/training")).toBe(true);
   });
 
   it("prefers the most specific href as active", () => {
-    const activeHref = getMostSpecificActiveHref("/app/biblioteca/entrenamientos", sidebarUser);
+    const activeHref = getMostSpecificActiveHref("/app/biblioteca/planes-entrenamiento", sidebarUser);
 
-    expect(activeHref).toBe("/app/biblioteca/entrenamientos");
+    expect(activeHref).toBe("/app/biblioteca/planes-entrenamiento");
   });
 
   it("locks only items with feature requirements when entitlements are unavailable", () => {
@@ -36,19 +36,27 @@ describe("navConfig", () => {
   it("groups sidebar items into fitness, nutrition, and account sections", () => {
     const fitnessSection = sidebarUser.find((section) => section.id === "fitness");
     const nutritionSection = sidebarUser.find((section) => section.id === "nutrition");
+    const moreSection = sidebarUser.find((section) => section.id === "more");
 
     expect(fitnessSection?.items.map((item) => item.href)).toEqual([
       "/app/hoy",
       "/app/entrenamiento",
-      "/app/biblioteca",
-      "/app/biblioteca/entrenamientos",
     ]);
 
     expect(nutritionSection?.items.map((item) => item.href)).toEqual([
       "/app/nutricion",
+    ]);
+
+    expect(moreSection?.items.map((item) => item.href)).toEqual([
+      "/app",
+      "/app/biblioteca",
+      "/app/biblioteca/planes-entrenamiento",
       "/app/biblioteca/recetas",
-      "/app/dietas",
+      "/app/biblioteca/planes-nutricion",
       "/app/macros",
+      "/app/weekly-review",
+      "/app/feed",
+      "/app/gym",
     ]);
   });
 

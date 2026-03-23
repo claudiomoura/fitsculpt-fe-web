@@ -14,7 +14,7 @@ type TrainingPlanDetailClientProps = {
 export default function TrainingPlanDetailClient({
   plan,
   error,
-  backHref = "/app/biblioteca/entrenamientos",
+  backHref = "/app/biblioteca/planes-entrenamiento",
   backLabel,
 }: TrainingPlanDetailClientProps) {
   const { t, locale } = useLanguage();

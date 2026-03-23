@@ -188,6 +188,15 @@ export function validateAiTrainingGeneratePayload(payload: unknown): ContractVal
   if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {
     return { ok: false, reason: "AI_TRAINING_INVALID_BALANCE_AFTER" };
   }
+  if (payload.balanceBefore !== undefined && !isNumber(payload.balanceBefore)) {
+    return { ok: false, reason: "AI_TRAINING_INVALID_BALANCE_BEFORE" };
+  }
+  if (payload.costCents !== undefined && !isNumber(payload.costCents)) {
+    return { ok: false, reason: "AI_TRAINING_INVALID_COST_CENTS" };
+  }
+  if (payload.costEur !== undefined && !isNumber(payload.costEur)) {
+    return { ok: false, reason: "AI_TRAINING_INVALID_COST_EUR" };
+  }
   return { ok: true };
 }
 
@@ -211,6 +220,15 @@ export function validateAiNutritionGeneratePayload(payload: unknown): ContractVa
   }
   if (payload.balanceAfter !== undefined && !isNumber(payload.balanceAfter)) {
     return { ok: false, reason: "AI_NUTRITION_INVALID_BALANCE_AFTER" };
+  }
+  if (payload.balanceBefore !== undefined && !isNumber(payload.balanceBefore)) {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_BALANCE_BEFORE" };
+  }
+  if (payload.costCents !== undefined && !isNumber(payload.costCents)) {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_COST_CENTS" };
+  }
+  if (payload.costEur !== undefined && !isNumber(payload.costEur)) {
+    return { ok: false, reason: "AI_NUTRITION_INVALID_COST_EUR" };
   }
   return { ok: true };
 }

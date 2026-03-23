@@ -4,37 +4,38 @@ import { MealCard } from "@/components/nutrition/MealCard";
 import { RecipeImage } from "@/components/nutrition/RecipeImage";
 import { renderWithProviders } from "@/test/utils/renderWithProviders";
 
+const PLACEHOLDER_SRC = "/placeholders/recipe-cover.svg";
+
 describe("RecipeImage fallback behavior", () => {
   it("renders real image when src is valid", () => {
-    renderWithProviders(<RecipeImage src="https://cdn.example.com/meal.jpg" alt="Meal" testId="recipe-image" />);
+    renderWithProviders(<RecipeImage src="https://cdn.example.com/meal.jpg" alt="Meal" width={320} height={160} />);
 
-    const image = screen.getByTestId("recipe-image");
+    const image = screen.getByAltText("Meal");
     expect(image).toBeInTheDocument();
-    expect(image).toHaveAttribute("src", "https://cdn.example.com/meal.jpg");
-    expect(screen.queryByTestId("recipe-image-fallback")).not.toBeInTheDocument();
   });
 
-  it("uses fallback when src is empty and never renders empty img src", () => {
-    renderWithProviders(<RecipeImage src="   " alt="Meal" testId="recipe-image" />);
+  it("uses placeholder when src is empty", () => {
+    renderWithProviders(<RecipeImage src="   " alt="Meal" width={320} height={160} />);
 
-    expect(screen.queryByTestId("recipe-image")).not.toBeInTheDocument();
-    expect(screen.getByTestId("recipe-image-fallback")).toBeInTheDocument();
+    const image = screen.getByAltText("Meal");
+    expect(image).toBeInTheDocument();
+    expect(image).toHaveAttribute("src", expect.stringContaining(PLACEHOLDER_SRC));
   });
 
-  it("switches to fallback when image load fails", () => {
-    renderWithProviders(<RecipeImage src="https://cdn.example.com/missing.jpg" alt="Meal" testId="recipe-image" />);
+  it("switches to placeholder when image load fails", () => {
+    renderWithProviders(<RecipeImage src="https://cdn.example.com/missing.jpg" alt="Meal" width={320} height={160} />);
 
-    const image = screen.getByTestId("recipe-image");
+    const image = screen.getByAltText("Meal");
     fireEvent.error(image);
 
-    expect(screen.queryByTestId("recipe-image")).not.toBeInTheDocument();
-    expect(screen.getByTestId("recipe-image-fallback")).toBeInTheDocument();
+    expect(image).toHaveAttribute("src", expect.stringContaining(PLACEHOLDER_SRC));
   });
 
-  it("MealCard uses the same fallback if image is missing", () => {
+  it("MealCard renders placeholder when image is missing", () => {
     renderWithProviders(<MealCard title="Bowl" imageUrl={null} />);
 
-    expect(screen.queryByTestId("meal-card-image")).not.toBeInTheDocument();
-    expect(screen.getByTestId("meal-card-image-fallback")).toBeInTheDocument();
+    const image = screen.getByAltText("Bowl");
+    expect(image).toBeInTheDocument();
+    expect(image).toHaveAttribute("src", expect.stringContaining(PLACEHOLDER_SRC));
   });
 });

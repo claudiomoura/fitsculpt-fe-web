@@ -5,9 +5,15 @@ export type IconName =
   | "sparkles"
   | "dumbbell"
   | "book"
+  | "clipboard-list"
+  | "chef-hat"
   | "info"
   | "warning"
   | "check"
+  | "circle"
+  | "minus"
+  | "clock"
+  | "image"
   | "close"
   | "chevron-down"
   | "chevron-left"
@@ -37,6 +43,18 @@ const ICONS: Record<IconName, JSX.Element> = {
       fill="currentColor"
     />
   ),
+  "clipboard-list": (
+    <path
+      d="M9 3h6a2 2 0 012 2h1a2 2 0 012 2v11a3 3 0 01-3 3H7a3 3 0 01-3-3V7a2 2 0 012-2h1a2 2 0 012-2zm0 2v1h6V5H9zm-1 6h1.5a1 1 0 100-2H8a1 1 0 100 2zm4 0h4a1 1 0 100-2h-4a1 1 0 100 2zm-4 5h1.5a1 1 0 100-2H8a1 1 0 100 2zm4 0h4a1 1 0 100-2h-4a1 1 0 100 2z"
+      fill="currentColor"
+    />
+  ),
+  "chef-hat": (
+    <path
+      d="M8 18h8v1a2 2 0 01-2 2h-4a2 2 0 01-2-2v-1zm9-1H7v-2.4a4.8 4.8 0 01-3-4.4 4.6 4.6 0 017.8-3.3A4.3 4.3 0 0115 5.5 5 5 0 0120 10a4.8 4.8 0 01-3 4.6V17zm-8-2h6v-1.8l1-.3a2.8 2.8 0 002-2.7A3 3 0 0015 7.5a2.6 2.6 0 00-2 .9l-1 .9-.7-1.1A2.6 2.6 0 009 7a2.6 2.6 0 00-2.4 3.6 2.8 2.8 0 001.9 2.2l.5.2V15z"
+      fill="currentColor"
+    />
+  ),
   info: (
     <path
       d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 14h-2v-6h2v6zm0-8h-2V6h2v2z"
@@ -54,6 +72,25 @@ const ICONS: Record<IconName, JSX.Element> = {
       d="M9 16l-4-4 1.4-1.4L9 13.2l8.6-8.6L19 6l-10 10z"
       fill="currentColor"
     />
+  ),
+  circle: (
+    <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="2" />
+  ),
+  minus: (
+    <path d="M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 7v5l3 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  image: (
+    <>
+      <rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="9" cy="10" r="1.5" fill="currentColor" />
+      <path d="M6 17l4-4 3 3 3-3 2 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </>
   ),
   close: (
     <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

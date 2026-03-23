@@ -50,4 +50,51 @@ describe("requestAiTrainingPlan", () => {
       message: "AI_GENERATION_FAILED",
     });
   });
+
+  it("parses fallback usage and mode from backend payload", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          plan: {
+            days: [
+              {
+                label: "Día 1",
+                focus: "Fuerza",
+                duration: 45,
+                exercises: [{ name: "Sentadilla", sets: 4, reps: "8" }],
+              },
+            ],
+          },
+          mode: "FALLBACK",
+          usage: { totalTokens: 0, promptTokens: 0, completionTokens: 0 },
+          costCents: 0,
+          costEur: 0,
+          balanceBefore: 44444,
+          aiTokenBalance: 44444,
+          balanceAfter: 44444,
+        }),
+      }),
+    );
+
+    await expect(
+      requestAiTrainingPlan(profile, {
+        goal: "cut",
+        level: "beginner",
+        daysPerWeek: 3,
+        equipment: "gym",
+        focus: "full",
+        sessionTime: "medium",
+      }),
+    ).resolves.toMatchObject({
+      mode: "FALLBACK",
+      usage: { totalTokens: 0, promptTokens: 0, completionTokens: 0 },
+      costCents: 0,
+      costEur: 0,
+      balanceBefore: 44444,
+      aiTokenBalance: 44444,
+      balanceAfter: 44444,
+    });
+  });
 });

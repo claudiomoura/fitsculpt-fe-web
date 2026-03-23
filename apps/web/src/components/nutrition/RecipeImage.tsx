@@ -1,56 +1,51 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
-import { cn } from "@/lib/classNames";
+import { normalizeRecipeMediaUrl } from "@/lib/recipeMedia";
 
 type RecipeImageProps = {
   src?: string | null;
   alt: string;
+  width: number;
+  height: number;
   className?: string;
-  fallbackClassName?: string;
-  fallbackIconClassName?: string;
-  testId?: string;
 };
 
-function normalizeImageUrl(src?: string | null): string | null {
-  if (typeof src !== "string") return null;
-  const trimmed = src.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
+const PLACEHOLDER_SRC = "/placeholders/recipe-cover.svg";
 
 export function RecipeImage({
   src,
   alt,
+  width,
+  height,
   className,
-  fallbackClassName,
-  fallbackIconClassName,
-  testId,
 }: RecipeImageProps) {
-  const normalizedSrc = useMemo(() => normalizeImageUrl(src), [src]);
+  const normalized = useMemo(
+    () => (src ? normalizeRecipeMediaUrl(src) : null),
+    [src],
+  );
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const hasLoadError = failedSrc === normalizedSrc;
-
-  if (!normalizedSrc || hasLoadError) {
-    return (
-      <div
-        className={cn("recipe-image-fallback", className, fallbackClassName)}
-        aria-label={alt}
-        role="img"
-        data-testid={testId ? `${testId}-fallback` : undefined}
-      >
-        <span className={cn("recipe-image-fallback__icon", fallbackIconClassName)} aria-hidden="true">🍽️</span>
-      </div>
-    );
-  }
+  const effectiveSrc = normalized ?? PLACEHOLDER_SRC;
+  const hasLoadError = failedSrc === effectiveSrc;
+  const displaySrc = hasLoadError
+    ? PLACEHOLDER_SRC
+    : effectiveSrc;
 
   return (
-    <img
-      src={normalizedSrc}
-      alt={alt}
+    <Image
       className={className}
+      src={displaySrc}
+      alt={alt}
+      width={width}
+      height={height}
+      unoptimized
       loading="lazy"
-      onError={() => setFailedSrc(normalizedSrc)}
-      data-testid={testId}
+      onError={() => {
+        if (!hasLoadError) {
+          setFailedSrc(effectiveSrc);
+        }
+      }}
     />
   );
 }

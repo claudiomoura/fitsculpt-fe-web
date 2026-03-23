@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/kill-port.mjs",
     "dev": "tsx watch src/index.ts",
     "build:clean": "node scripts/clean-dist.mjs",
     "build:compile": "tsc -p tsconfig.json",

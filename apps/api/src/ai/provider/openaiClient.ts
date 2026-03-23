@@ -64,6 +64,10 @@ function sanitizeProviderText(raw: string) {
     .slice(0, 500);
 }
 
+function compactPrompt(prompt: string) {
+  return prompt.replace(/\s+/g, " ").trim();
+}
+
 function getConfiguredApiKey(apiKey?: string, fallbackApiKey?: string) {
   const candidate = [apiKey, fallbackApiKey].find((value) => typeof value === "string" && value.trim().length > 0);
   if (!candidate) {
@@ -97,11 +101,12 @@ export function createOpenAiClient(config: OpenAiClientConfig) {
 
     const systemMessage =
       attempt === 0
-        ? "Devuelve exclusivamente JSON valido. Sin markdown. Sin texto extra."
-        : "DEVUELVE SOLO JSON VÁLIDO. Sin markdown. Sin texto extra.";
+        ? "Devuelve exclusivamente JSON valido. Sin markdown."
+        : "REINTENTO: devuelve solo JSON valido sin texto adicional.";
     const responseFormat = options?.responseFormat ?? { type: "json_object" };
     const maxTokens = options?.maxTokens ?? 250;
     const model = options?.model ?? "gpt-3.5-turbo";
+    const normalizedPrompt = compactPrompt(prompt);
 
     let response: Response;
     try {
@@ -116,7 +121,7 @@ export function createOpenAiClient(config: OpenAiClientConfig) {
           response_format: responseFormat,
           messages: [
             { role: "system", content: systemMessage },
-            { role: "user", content: prompt },
+            { role: "user", content: normalizedPrompt },
           ],
           max_tokens: maxTokens,
           temperature: attempt === 0 ? 0.4 : 0.2,

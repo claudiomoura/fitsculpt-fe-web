@@ -134,7 +134,7 @@ export default function TrainingCalendarClient() {
         <div className="empty-state">
           <h3 className="m-0">{t("training.calendar.noPlanSelected")}</h3>
           <p className="muted">{t("training.calendar.noPlanSelectedDescription")}</p>
-          <ButtonLink href="/app/biblioteca/entrenamientos">{t("training.calendar.goToPlansCta")}</ButtonLink>
+          <ButtonLink href="/app/biblioteca/planes-entrenamiento">{t("training.calendar.goToPlansCta")}</ButtonLink>
         </div>
       </section>
     );
@@ -148,7 +148,7 @@ export default function TrainingCalendarClient() {
           <p className="section-subtitle">{t("training.calendar.filteredByPlan")}</p>
         </div>
         <div className="page-header-actions">
-          <Link className="btn secondary" href={`/app/biblioteca/entrenamientos?planId=${plan.id}`}>
+          <Link className="btn secondary" href={`/app/biblioteca/planes-entrenamiento?planId=${plan.id}`}>
             {t("training.calendar.changePlan")}
           </Link>
         </div>

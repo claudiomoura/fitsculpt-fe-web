@@ -44,6 +44,7 @@ model User {
   nutritionPlans          NutritionPlan[]
   trainingPlans           TrainingPlan[]
   gymMemberships          GymMembership[]
+  recipes                 Recipe[]          // Recipes created by this trainer (if role TRAINER)
 
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
@@ -123,18 +124,31 @@ model UserFood {
 }
 
 model Recipe {
-  id          String             @id @default(cuid())
-  name        String             @unique
-  description String?
-  calories    Float
-  protein     Float
-  carbs       Float
-  fat         Float
-  photoUrl    String?
-  steps       String[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  ingredients RecipeIngredient[]
+  id                  String             @id @default(cuid())
+  name                String             @unique
+  description         String?
+  calories            Float
+  protein             Float
+  carbs               Float
+  fat                 Float
+  photoUrl            String?
+  imageUrls           String[]           @default([])
+  source              String?
+  sourceId            String?
+  slug                String?            @unique
+  category            String?
+  steps               String[]
+  tiempoPreparacion   Int?               // Preparation time in minutes
+  porciones           Int?               // Number of servings
+  trainerId           String?            // Optional: if set, this recipe belongs to a trainer
+  trainer             User?              @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  ingredients         RecipeIngredient[]
+
+  @@index([source, sourceId])
+  @@index([category])
+  @@index([trainerId])
 }
 
 model RecipeIngredient {
@@ -188,6 +202,7 @@ model NutritionMeal {
   protein     Float
   carbs       Float
   fats        Float
+  imageUrl    String?
   day         NutritionDay         @relation(fields: [dayId], references: [id], onDelete: Cascade)
   ingredients NutritionIngredient[]
 

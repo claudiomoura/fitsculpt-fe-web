@@ -6,8 +6,15 @@
 }
 
 .nutritionScope :global(.nutrition-today-primary) {
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--surface-card-border));
-  box-shadow: 0 18px 46px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--surface-border-default);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
+  background: var(--surface-secondary-bg);
+}
+
+.nutritionScope :global(.nutrition-summary-hero-card) {
+  background: var(--surface-secondary-bg);
+  border: 1px solid var(--surface-border-default);
+  box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
 }
 
 .nutritionScope :global(.nutrition-today-summary-only) {
@@ -108,6 +115,60 @@
 .nutritionScope :global(.nutrition-hero-metric--primary) {
   border-color: color-mix(in srgb, var(--accent) 20%, var(--surface-card-border));
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-inset-bg));
+}
+
+.nutritionScope :global(.nutrition-insight-card--accent) {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--surface-border-default));
+  box-shadow: var(--surface-card-inner-glow), 0 18px 38px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.nutritionScope :global(.nutrition-insight-card--accent .training-insight-link-icon) {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-inset-bg));
+  color: var(--accent);
+}
+
+.nutritionScope :global(.nutrition-insight-link--premium) {
+  position: relative;
+}
+
+.nutritionScope :global(.nutrition-insight-link--premium::after) {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface-inset-bg) 86%, transparent), transparent 64%);
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+
+.nutritionScope :global(.nutrition-insight-link--premium:hover::after),
+.nutritionScope :global(.nutrition-insight-link--premium:focus-visible::after) {
+  opacity: 1;
+}
+
+.nutritionScope :global(.nutrition-insight-link--premium .training-insight-link-icon) {
+  position: relative;
+  overflow: hidden;
+}
+
+.nutritionScope :global(.nutrition-insight-link--premium .training-insight-link-icon::before) {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, white 12%, transparent), transparent 68%);
+  pointer-events: none;
+}
+
+.nutritionScope :global(.nutrition-insight-link-icon--plans) {
+  background: color-mix(in srgb, #d6b16f 18%, var(--surface-inset-bg));
+  color: #d6b16f;
+}
+
+.nutritionScope :global(.nutrition-insight-link-icon--recipes) {
+  background: color-mix(in srgb, #76b6a1 18%, var(--surface-inset-bg));
+  color: #76b6a1;
 }
 
 .nutritionScope :global(.nutrition-hero-metric-label) {
@@ -326,11 +387,9 @@
   border: none;
 }
 
-.nutritionScope :global(.meal-card--horizontal::after) {
-  content: ">";
-  color: var(--text-muted);
-  font-size: 18px;
-  line-height: 1;
+.nutritionScope :global(.meal-card--horizontal .meal-card-affordance) {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
 }
 
 .nutritionScope :global(.meal-card--horizontal-compact) {
@@ -357,8 +416,9 @@
   overflow: hidden;
 }
 
-.nutritionScope :global(.meal-card--horizontal-compact::after) {
-  font-size: 15px;
+.nutritionScope :global(.meal-card--horizontal-compact .meal-card-affordance) {
+  width: 22px;
+  height: 22px;
 }
 
 .nutritionScope :global(.nutrition-shopping-list-v2) {

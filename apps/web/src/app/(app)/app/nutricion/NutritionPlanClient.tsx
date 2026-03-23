@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageProvider";
 import type { Locale } from "@/lib/i18n";
 import { addDays, buildMonthGrid, isSameDay, parseDate, startOfWeek, toDateKey } from "@/lib/calendar";
@@ -34,13 +34,25 @@ import { HeroNutrition } from "@/components/nutrition/HeroNutrition";
 import AppLayout from "@/components/layout/AppLayout";
 import NutritionStats from "@/components/nutrition/NutritionStats";
 import { WeeklyCalendar } from "@/components/nutrition/WeeklyCalendar";
-import { Accordion, MealCardCompact, ProgressBar, SegmentedControl } from "@/design-system/components";
+import { Accordion, SegmentedControl } from "@/design-system/components";
 import { useNutritionAdherence } from "@/lib/nutritionAdherence";
 import { getNutritionMealKey } from "@/lib/nutritionMealKey";
+import {
+  clampDateNotBefore,
+  clampDayKeyToPlanStart,
+  normalizeToLocalStartOfDay,
+} from "../entrenamiento/hooks/useTrainingCalendar";
 import { trackEvent } from "@/lib/analytics";
 import { type NutritionQuickFavorite, useNutritionQuickFavorites } from "@/lib/nutritionQuickFavorites";
 import { useToast } from "@/design-system/components/Toast";
-import { generateNutritionPlan, normalizePlanSelection, type NutritionGenerateError } from "@/domains/nutrition";
+import {
+  ACTIVE_NUTRITION_PLAN_STORAGE_KEY,
+  NUTRITION_PLANS_UPDATED_AT_KEY,
+  buildNutritionPlanSearch,
+  generateNutritionPlan,
+  normalizePlanSelection,
+  type NutritionGenerateError,
+} from "@/domains/nutrition";
 import { normalizeAiErrorCode, shouldTreatAsConflictError, shouldTreatAsUpstreamError, classifyAiError } from "@/lib/aiErrorMapping";
 import { mapAiErrorToUiState } from "@/lib/aiErrorUi";
 import styles from "./NutritionPlanClient.module.css";
@@ -88,6 +100,40 @@ type AssignedNutritionPayload = {
   trainerAssignedPlan?: NutritionPlan | { plan?: NutritionPlan | null; title?: string | null } | null;
 };
 
+type NutritionPlanApiDay = {
+  dayLabel?: string;
+  date?: string;
+  meals?: NutritionPlanApiMeal[];
+};
+
+type NutritionPlanApiMeal = Partial<NutritionMeal> & {
+  type?: "breakfast" | "lunch" | "dinner" | "snack";
+  title?: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  calories?: number;
+  protein?: number;
+  carbs?: number;
+  fats?: number;
+  macros?: {
+    calories?: number;
+    protein?: number;
+    carbs?: number;
+    fats?: number;
+  };
+  ingredients?: Array<{ name?: string; grams?: number }>;
+};
+
+type NutritionPlanApiPayload = {
+  title?: string;
+  startDate?: string | null;
+  dailyCalories?: number;
+  proteinG?: number;
+  fatG?: number;
+  carbsG?: number;
+  days?: NutritionPlanApiDay[];
+};
+
 type NutritionPlanClientProps = {
   mode?: "suggested" | "manual";
 };
@@ -111,6 +157,47 @@ function resolveAssignedNutritionPlan(payload: AssignedNutritionPayload): Nutrit
 function readAssignedNutritionPlanTitle(plan: NutritionPlan | null): string | null {
   const title = typeof plan?.title === "string" ? plan.title.trim() : "";
   return title.length > 0 ? title : null;
+}
+
+function normalizeFetchedNutritionPlan(plan: NutritionPlanApiPayload | NutritionPlan | null): NutritionPlan | null {
+  if (!plan) return null;
+
+  const normalizedDays = Array.isArray(plan.days)
+    ? plan.days.map((day, dayIndex) => ({
+        date: typeof day.date === "string" ? day.date : undefined,
+        dayLabel: typeof day.dayLabel === "string" && day.dayLabel.trim().length > 0 ? day.dayLabel : `Día ${dayIndex + 1}`,
+        meals: Array.isArray(day.meals)
+          ? (day.meals as NutritionPlanApiMeal[]).map((meal) => ({
+              type: meal.type ?? "lunch",
+              title: meal.title ?? "Comida",
+              description: meal.description ?? undefined,
+              imageUrl: meal.imageUrl ?? undefined,
+              macros: {
+                calories: Number(meal.macros?.calories ?? meal.calories ?? 0),
+                protein: Number(meal.macros?.protein ?? meal.protein ?? 0),
+                carbs: Number(meal.macros?.carbs ?? meal.carbs ?? 0),
+                fats: Number(meal.macros?.fats ?? meal.fats ?? 0),
+              },
+              ingredients: Array.isArray(meal.ingredients)
+                ? meal.ingredients.map((ingredient) => ({
+                    name: ingredient.name ?? "Ingrediente",
+                    grams: Number(ingredient.grams ?? 0),
+                  }))
+                : [],
+            }))
+          : [],
+      }))
+    : [];
+
+  return {
+    title: plan.title,
+    startDate: plan.startDate ?? null,
+    dailyCalories: Number(plan.dailyCalories ?? 0),
+    proteinG: Number(plan.proteinG ?? 0),
+    fatG: Number(plan.fatG ?? 0),
+    carbsG: Number(plan.carbsG ?? 0),
+    days: normalizedDays,
+  };
 }
 
 type MealMediaCandidate = {
@@ -203,7 +290,49 @@ type NutritionAiErrorState = {
 };
 
 const RECIPE_PLACEHOLDER = "/placeholders/recipe-cover.jpg";
-const NUTRITION_PLANS_UPDATED_AT_KEY = "fs_nutrition_plans_updated_at";
+
+function ProgressRing({ progress, size = 56, strokeWidth = 4 }: { progress: number; size?: number; strokeWidth?: number }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (progress / 100) * circumference;
+  const isComplete = progress >= 100;
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-white/10"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{
+            stroke: isComplete ? "#10B981" : "var(--primary)",
+            transition: "stroke-dashoffset 0.6s ease-out, stroke 0.3s ease",
+          }}
+        />
+      </svg>
+      <span
+        className="absolute text-xs font-bold"
+        style={{ color: isComplete ? "#10B981" : "var(--text)" }}
+      >
+        {isComplete ? <Icon name="check" size={14} className="text-current" /> : `${progress}%`}
+      </span>
+    </div>
+  );
+}
 
 async function readAiTokenSnapshot(): Promise<AiTokenSnapshot> {
   try {
@@ -765,11 +894,18 @@ export function normalizeNutritionPlan(plan: NutritionPlan | null, dayLabels: st
   return { ...plan, days: nextDays };
 }
 
+function readStoredSelectedPlanId(): string | null {
+  if (typeof window === "undefined") return null;
+  return normalizePlanSelection(window.localStorage.getItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY));
+}
+
 export default function NutritionPlanClient({ mode = "suggested" }: NutritionPlanClientProps) {
   const { t, locale } = useLanguage();
   const { notify } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
   const safeT = (key: string, fallback: string) => {
     const value = t(key);
     return value === key ? fallback : value;
@@ -786,6 +922,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [savedPlan, setSavedPlan] = useState<NutritionPlan | null>(null);
   const [trainerAssignedPlan, setTrainerAssignedPlan] = useState<NutritionPlan | null>(null);
+  const [storedPlanId, setStoredPlanId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return readStoredSelectedPlanId();
+  });
+  const [plansSyncTick, setPlansSyncTick] = useState(0);
   const [assignedLoading, setAssignedLoading] = useState(true);
   const [assignedError, setAssignedError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -824,7 +965,6 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     dayKey: string;
     mealKey: string;
   } | null>(null);
-  const [hideDailySummaryCard, setHideDailySummaryCard] = useState(false);
   const swipeStartX = useRef<number | null>(null);
   const autoGenerated = useRef(false);
   const aiGenerationInFlight = useRef(false);
@@ -832,8 +972,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const renderedTokenToastId = useRef(0);
   const calendarInitialized = useRef(false);
   const urlSyncInitialized = useRef(false);
-  const selectedPlanId = normalizePlanSelection(searchParams.get("planId"));
+  const planDetailsRef = useRef<HTMLElement | null>(null);
+  const queryPlanId = normalizePlanSelection(searchParams.get("planId"));
+  const selectedPlanId = queryPlanId ?? storedPlanId;
   const isManualView = mode === "manual";
+  const handleScrollToPlanDetails = () => {
+    if (!isPlanDetailsOpen) setIsPlanDetailsOpen(true);
+    requestAnimationFrame(() => {
+      planDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
   const loadProfile = async (activeRef: { current: boolean }) => {
     setLoading(true);
     setError(null);
@@ -858,6 +1006,60 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    setStoredPlanId(readStoredSelectedPlanId());
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncStoredSelection = () => {
+      setStoredPlanId(readStoredSelectedPlanId());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === ACTIVE_NUTRITION_PLAN_STORAGE_KEY) {
+        syncStoredSelection();
+        return;
+      }
+
+      if (event.key !== NUTRITION_PLANS_UPDATED_AT_KEY) return;
+      syncStoredSelection();
+      setPlansSyncTick((value) => value + 1);
+    };
+
+    const handleFocus = () => {
+      syncStoredSelection();
+      setPlansSyncTick((value) => value + 1);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (queryPlanId) {
+      window.localStorage.setItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY, queryPlanId);
+      if (storedPlanId !== queryPlanId) {
+        setStoredPlanId(queryPlanId);
+      }
+      return;
+    }
+
+    if (!storedPlanId) return;
+    const nextHref = buildNutritionPlanSearch(pathname, searchParamsString, storedPlanId);
+    if (nextHref === `${pathname}?${searchParamsString}` || nextHref === pathname) return;
+    router.replace(nextHref, { scroll: false });
+  }, [pathname, queryPlanId, router, searchParamsString, storedPlanId]);
+
+  useEffect(() => {
     let active = true;
     const loadAssignedPlan = async () => {
       setAssignedLoading(true);
@@ -873,7 +1075,9 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
         if (!response.ok) throw new Error("ASSIGNED_PLAN_ERROR");
         const payload = (await response.json()) as AssignedNutritionPayload;
         if (!active) return;
-        setTrainerAssignedPlan(resolveAssignedNutritionPlan(payload));
+        setTrainerAssignedPlan(
+          normalizeFetchedNutritionPlan(resolveAssignedNutritionPlan(payload) as NutritionPlanApiPayload | NutritionPlan | null)
+        );
       } catch {
         if (!active) return;
         setAssignedError(t("nutrition.errorTitle"));
@@ -886,7 +1090,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     return () => {
       active = false;
     };
-  }, [t]);
+  }, [plansSyncTick, t]);
 
   useEffect(() => {
     let active = true;
@@ -900,71 +1104,31 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       try {
         const response = await fetch(`/api/nutrition-plans/${encodeURIComponent(selectedPlanId)}`, { cache: "no-store", credentials: "include" });
         if (!response.ok) {
-          if (active) setSelectedLibraryPlan(null);
+          if (active) {
+            if (response.status === 401 || response.status === 403 || response.status === 404) {
+              setSelectedLibraryPlan(null);
+              if (typeof window !== "undefined") {
+                window.localStorage.removeItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY);
+              }
+              setStoredPlanId(null);
+
+              if (queryPlanId && queryPlanId === selectedPlanId) {
+                const params = new URLSearchParams(searchParamsString);
+                params.delete("planId");
+                const nextParams = params.toString();
+                router.replace(`${pathname}${nextParams.length > 0 ? `?${nextParams}` : ""}`, { scroll: false });
+              }
+            }
+          }
           return;
         }
 
-        const payload = (await response.json()) as {
-          title?: string;
-          startDate?: string | null;
-          dailyCalories?: number;
-          proteinG?: number;
-          fatG?: number;
-          carbsG?: number;
-          days?: Array<{
-            dayLabel?: string;
-            date?: string;
-            meals?: Array<{
-              type?: "breakfast" | "lunch" | "dinner" | "snack";
-              title?: string;
-              description?: string;
-              calories?: number;
-              protein?: number;
-              carbs?: number;
-              fats?: number;
-              ingredients?: Array<{ name?: string; grams?: number }>;
-            }>;
-          }>;
-        };
+        const payload = (await response.json()) as NutritionPlanApiPayload;
 
         if (!active) return;
-        const normalizedDays = Array.isArray(payload.days)
-          ? payload.days.map((day, dayIndex) => ({
-            date: typeof day.date === "string" ? day.date : undefined,
-            dayLabel: typeof day.dayLabel === "string" && day.dayLabel.trim().length > 0 ? day.dayLabel : `Día ${dayIndex + 1}`,
-            meals: Array.isArray(day.meals)
-              ? day.meals.map((meal) => ({
-                type: meal.type ?? "lunch",
-                title: meal.title ?? "Comida",
-                description: meal.description,
-                macros: {
-                  calories: Number(meal.calories ?? 0),
-                  protein: Number(meal.protein ?? 0),
-                  carbs: Number(meal.carbs ?? 0),
-                  fats: Number(meal.fats ?? 0),
-                },
-                ingredients: Array.isArray(meal.ingredients)
-                  ? meal.ingredients.map((ingredient) => ({
-                    name: ingredient.name ?? "Ingrediente",
-                    grams: Number(ingredient.grams ?? 0),
-                  }))
-                  : [],
-              }))
-              : [],
-          }))
-          : [];
-
-        setSelectedLibraryPlan({
-          title: payload.title,
-          startDate: payload.startDate ?? null,
-          dailyCalories: Number(payload.dailyCalories ?? 0),
-          proteinG: Number(payload.proteinG ?? 0),
-          fatG: Number(payload.fatG ?? 0),
-          carbsG: Number(payload.carbsG ?? 0),
-          days: normalizedDays,
-        });
+        setSelectedLibraryPlan(normalizeFetchedNutritionPlan(payload));
       } catch {
-        if (active) setSelectedLibraryPlan(null);
+        if (!active) return;
       }
     };
 
@@ -972,7 +1136,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     return () => {
       active = false;
     };
-  }, [selectedPlanId]);
+  }, [pathname, plansSyncTick, queryPlanId, router, searchParamsString, selectedPlanId]);
 
   const refreshSubscription = async () => {
     try {
@@ -1023,13 +1187,18 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   }, [profile, mealTemplates, dayLabels, t]);
   const trainerPlanVisible = useMemo(() => normalizeNutritionPlan(trainerAssignedPlan, dayLabels), [trainerAssignedPlan, dayLabels]);
   const assignedPlanTitle = useMemo(() => readAssignedNutritionPlanTitle(trainerAssignedPlan), [trainerAssignedPlan]);
+  const hasSelectedLibraryPlan = Boolean(selectedPlanId && selectedLibraryPlan);
   const visiblePlan = useMemo(
     () => normalizeNutritionPlan(selectedLibraryPlan ?? trainerPlanVisible ?? (isManualView ? savedPlan ?? plan : savedPlan), dayLabels),
-    [selectedLibraryPlan, trainerPlanVisible, isManualView, savedPlan, plan, dayLabels]
+    [dayLabels, isManualView, plan, savedPlan, selectedLibraryPlan, trainerPlanVisible]
   );
   const planStartDate = useMemo(
     () => parseDate(visiblePlan?.startDate ?? visiblePlan?.days?.[0]?.date),
     [visiblePlan?.startDate, visiblePlan?.days]
+  );
+  const normalizedPlanStartDate = useMemo(
+    () => (planStartDate ? normalizeToLocalStartOfDay(planStartDate) : null),
+    [planStartDate]
   );
   const planDays = visiblePlan?.days ?? [];
   const planEntries = useMemo(
@@ -1046,7 +1215,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     () => Array.from({ length: 4 }, (_, index) => <MealCardSkeleton key={`meal-skeleton-${index}`} />),
     []
   );
-  const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
+  const clampedSelectedDate = useMemo(
+    () => clampDateNotBefore(selectedDate, normalizedPlanStartDate),
+    [normalizedPlanStartDate, selectedDate]
+  );
+  const weekStart = useMemo(() => startOfWeek(clampedSelectedDate), [clampedSelectedDate]);
   const maxProjectedWeeksAhead = 3;
   const weekOffset = useMemo(() => getWeekOffsetFromCurrent(weekStart), [weekStart]);
   const clampedWeekOffset = useMemo(
@@ -1091,9 +1264,16 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     });
     return next;
   }, [visiblePlanEntries]);
-  const selectedVisiblePlanDay = useMemo(() => visibleDayMap.get(toDateKey(selectedDate)) ?? null, [selectedDate, visibleDayMap]);
+  const canGoPrevWeek = useMemo(() => {
+    if (!normalizedPlanStartDate) return true;
+    return weekStart.getTime() > startOfWeek(normalizedPlanStartDate).getTime();
+  }, [normalizedPlanStartDate, weekStart]);
+  const selectedVisiblePlanDay = useMemo(
+    () => visibleDayMap.get(toDateKey(clampedSelectedDate)) ?? null,
+    [clampedSelectedDate, visibleDayMap]
+  );
   const highlightedDay = selectedVisiblePlanDay?.day ?? visiblePlan?.days[0] ?? null;
-  const highlightedDayKey = selectedVisiblePlanDay?.date ? toDateKey(selectedVisiblePlanDay.date) : toDateKey(selectedDate);
+  const highlightedDayKey = selectedVisiblePlanDay?.date ? toDateKey(selectedVisiblePlanDay.date) : toDateKey(clampedSelectedDate);
   const highlightedMeals = highlightedDay?.meals ?? [];
   const hasHighlightedMeals = highlightedMeals.length > 0;
   const highlightedMealsCount = highlightedMeals.length;
@@ -1160,9 +1340,18 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     () => weekEntries.some((entry) => Boolean(entry && entry.day.meals.length > 0)),
     [weekEntries]
   );
-  const monthDates = useMemo(() => buildMonthGrid(selectedDate), [selectedDate]);
+  const monthDates = useMemo(
+    () =>
+      buildMonthGrid(clampedSelectedDate).map((date) => {
+        if (normalizedPlanStartDate && date.getTime() < normalizedPlanStartDate.getTime()) {
+          return null;
+        }
+        return date;
+      }),
+    [clampedSelectedDate, normalizedPlanStartDate]
+  );
   const localeCode = locale === "es" ? "es-ES" : locale === "pt" ? "pt-PT" : "en-US";
-  const monthLabel = selectedDate.toLocaleDateString(localeCode, { month: "long", year: "numeric" });
+  const monthLabel = clampedSelectedDate.toLocaleDateString(localeCode, { month: "long", year: "numeric" });
   const today = new Date();
   const calendarOptions = useMemo(
     () => [
@@ -1210,16 +1399,28 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   useEffect(() => {
     if (!planStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
-    const dayParam = searchParams.get("day");
+    const dayParam = clampDayKeyToPlanStart(searchParams.get("day"), normalizedPlanStartDate);
     const today = new Date();
     const todayVisibleEntry = visiblePlanEntries.find((entry) => toDateKey(entry.date) === toDateKey(today));
-    setSelectedDate(parseDate(dayParam) ?? todayVisibleEntry?.date ?? planEntries[0]?.date ?? planStartDate);
-  }, [planEntries, planStartDate, searchParams, visiblePlanEntries]);
+    setSelectedDate(
+      clampDateNotBefore(
+        parseDate(dayParam) ?? todayVisibleEntry?.date ?? planEntries[0]?.date ?? planStartDate,
+        normalizedPlanStartDate
+      )
+    );
+  }, [normalizedPlanStartDate, planEntries, planStartDate, searchParams, visiblePlanEntries]);
+
+  useEffect(() => {
+    if (!normalizedPlanStartDate) return;
+    if (selectedDate.getTime() === clampedSelectedDate.getTime()) return;
+    setSelectedDate(clampedSelectedDate);
+  }, [clampedSelectedDate, normalizedPlanStartDate, selectedDate]);
 
   const updateNutritionSearchParams = (nextDayKey: string, dishKey?: string | null) => {
+    const safeDayKey = clampDayKeyToPlanStart(nextDayKey, normalizedPlanStartDate) ?? nextDayKey;
     const params = new URLSearchParams(searchParams.toString());
-    params.set("day", nextDayKey);
-    const selectedWeek = getWeekStart(parseDate(nextDayKey) ?? selectedDate);
+    params.set("day", safeDayKey);
+    const selectedWeek = getWeekStart(parseDate(safeDayKey) ?? clampedSelectedDate);
     const offset = getWeekOffsetFromCurrent(selectedWeek);
     if (offset !== 0) {
       params.set("weekOffset", String(offset));
@@ -1247,7 +1448,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
 
   const closeMealDetail = () => {
     setSelectedMeal((prev) => {
-      const currentDay = prev?.dayKey ?? toDateKey(selectedDate);
+      const currentDay = prev?.dayKey ?? toDateKey(clampedSelectedDate);
       updateNutritionSearchParams(currentDay);
       return null;
     });
@@ -1457,7 +1658,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const selectedMealInstructions = selectedMealDetails ? getMealInstructions(selectedMealDetails) : null;
   const selectedMealIngredients =
     selectedMealDetails?.ingredients?.filter((ingredient) => ingredient.name.trim().length > 0) ?? [];
-  const activeQuickLogDayKey = selectedMeal?.dayKey ?? toDateKey(selectedDate);
+  const activeQuickLogDayKey = selectedMeal?.dayKey ?? toDateKey(clampedSelectedDate);
   const { isConsumed, toggle, error: adherenceError } = useNutritionAdherence(activeQuickLogDayKey);
   const {
     favorites: quickFavorites,
@@ -1472,6 +1673,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
       weekDates.map((date) => {
         const dayKey = toDateKey(date);
         const entry = visibleDayMap.get(dayKey);
+        const disabled = normalizedPlanStartDate ? date.getTime() < normalizedPlanStartDate.getTime() : false;
         const mealsForDay = entry?.day?.meals ?? [];
         const dayCalories = mealsForDay.reduce((sum, meal) => sum + Number(meal.macros?.calories ?? 0), 0);
         const completedMeals = mealsForDay.reduce((count, meal, index) => {
@@ -1482,14 +1684,15 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
           id: dayKey,
           label: date.toLocaleDateString(localeCode, { weekday: "short" }),
           date: String(date.getDate()),
-          selected: isSameDay(date, selectedDate),
+          selected: isSameDay(date, clampedSelectedDate),
+          disabled,
           complete: mealsForDay.length > 0 && completedMeals === mealsForDay.length,
           dayCalories,
           mealCount: mealsForDay.length,
           completedMeals,
         };
       }),
-    [isConsumed, localeCode, selectedDate, visibleDayMap, weekDates]
+    [clampedSelectedDate, isConsumed, localeCode, normalizedPlanStartDate, visibleDayMap, weekDates]
   );
 
 
@@ -1561,17 +1764,6 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   const isSelectedMealFavorite = selectedMealFavorite
     ? quickFavorites.some((favorite) => favorite.id === selectedMealFavorite.id)
     : false;
-  const highlightedCompletedMeals = useMemo(
-    () => highlightedMeals.reduce((count, meal, mealIndex) => count + (isConsumed(getNutritionMealKey(meal, highlightedDayKey, mealIndex), highlightedDayKey) ? 1 : 0), 0),
-    [highlightedDayKey, highlightedMeals, isConsumed]
-  );
-  const highlightedMealsProgress = highlightedMeals.length > 0
-    ? Math.round((highlightedCompletedMeals / highlightedMeals.length) * 100)
-    : 0;
-  const isHighlightedDayCompleted = hasHighlightedMeals
-    && highlightedMeals.length > 0
-    && highlightedCompletedMeals >= highlightedMeals.length;
-  const showDailySummaryOverlay = !hideDailySummaryCard && !isHighlightedDayCompleted;
   const highlightedTargetCalories = typeof visiblePlan?.dailyCalories === "number" && Number.isFinite(visiblePlan.dailyCalories)
     ? Math.max(0, Math.round(visiblePlan.dailyCalories))
     : null;
@@ -1595,9 +1787,18 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     ? isConsumed(highlightedPrimaryMealKey, highlightedDayKey)
     : false;
   const activePlanTitle = (typeof visiblePlan?.title === "string" && visiblePlan.title.trim().length > 0 ? visiblePlan.title.trim() : assignedPlanTitle) ?? null;
+  const activePlanSource = hasSelectedLibraryPlan ? "selected" : trainerPlanVisible ? "assigned" : activePlanTitle ? "own" : null;
+  const activePlanSourceLabel =
+    activePlanSource === "selected"
+      ? "Seleccionado de la biblioteca"
+      : activePlanSource === "assigned"
+        ? "Asignado por tu entrenador"
+        : activePlanSource === "own"
+          ? "Tu plan activo"
+          : "Sin origen";
 
   const handleUseFavorite = (favorite: NutritionQuickFavorite) => {
-    const dayKey = toDateKey(selectedDate);
+    const dayKey = toDateKey(clampedSelectedDate);
     const favoriteMeal: NutritionMeal = {
       type: favorite.mealType,
       title: favorite.title,
@@ -1614,7 +1815,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     setSelectedMeal({
       meal: favoriteMeal,
       dayKey,
-      dayLabel: selectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" }),
+      dayLabel: clampedSelectedDate.toLocaleDateString(localeCode, { weekday: "long", month: "short", day: "numeric" }),
       mealKey: favoriteMealKey,
     });
     void handleQuickLogMeal(favoriteMealKey, favoriteMeal, dayKey);
@@ -1624,11 +1825,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     if (urlSyncInitialized.current) return;
     if (!visiblePlan) return;
 
-    const dayParam = searchParams.get("day");
+    const dayParam = clampDayKeyToPlanStart(searchParams.get("day"), normalizedPlanStartDate);
     const dishParam = searchParams.get("dish");
     const parsedDay = parseDate(dayParam);
     if (parsedDay) {
-      setSelectedDate(parsedDay);
+      setSelectedDate(clampDateNotBefore(parsedDay, normalizedPlanStartDate));
     }
 
     if (!dayParam || !dishParam) {
@@ -1657,14 +1858,15 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     }
 
     urlSyncInitialized.current = true;
-  }, [searchParams, visiblePlan, planStartDate]);
+  }, [normalizedPlanStartDate, searchParams, visiblePlan, planStartDate]);
 
   useEffect(() => {
     if (!planStartDate) return;
-    const dayKey = toDateKey(selectedDate);
+    const dayKey = clampDayKeyToPlanStart(toDateKey(clampedSelectedDate), normalizedPlanStartDate);
+    if (!dayKey) return;
     if (searchParams.get("day") === dayKey) return;
     updateNutritionSearchParams(dayKey, selectedMeal?.mealKey ?? null);
-  }, [planStartDate, searchParams, selectedDate, selectedMeal?.mealKey]);
+  }, [clampedSelectedDate, normalizedPlanStartDate, planStartDate, searchParams, selectedMeal?.mealKey]);
 
   const MAX_AI_RETRIES = 3;
 
@@ -1970,7 +2172,7 @@ useEffect(() => {
 
   const generatedPlanPreviewDay = useMemo(() => {
     if (!lastGeneratedAiPlan?.days?.length) return null;
-    const currentDayKey = toDateKey(selectedDate);
+    const currentDayKey = toDateKey(clampedSelectedDate);
     const indexedDays = lastGeneratedAiPlan.days.map((day, index) => {
       const fallbackDate = lastGeneratedAiPlan.startDate
         ? toDateKey(addDays(new Date(lastGeneratedAiPlan.startDate), index))
@@ -1978,14 +2180,14 @@ useEffect(() => {
       return { day, date: day.date ?? fallbackDate };
     });
     return indexedDays.find((entry) => entry.date === currentDayKey) ?? indexedDays[0] ?? null;
-  }, [lastGeneratedAiPlan, selectedDate]);
+  }, [clampedSelectedDate, lastGeneratedAiPlan]);
 
   const handleCloseAiSuccessModal = () => setAiSuccessModalOpen(false);
 
   const handleViewGeneratedPlan = () => {
     setAiSuccessModalOpen(false);
     if (lastGeneratedPlanId) {
-      router.push(`/app/dietas/${lastGeneratedPlanId}`);
+      router.push(`/app/biblioteca/planes-nutricion/${lastGeneratedPlanId}`);
       return;
     }
 
@@ -1993,7 +2195,7 @@ useEffect(() => {
   };
 
   const handlePrevDay = () => {
-    setSelectedDate((prev) => addDays(prev, -1));
+    setSelectedDate((prev) => clampDateNotBefore(addDays(prev, -1), normalizedPlanStartDate));
   };
 
   const handleNextDay = () => {
@@ -2115,7 +2317,7 @@ useEffect(() => {
   };
 
 const nutritionPlanDetails = profile ? (
-  <section className="card premium-surface-card surface-content-card nutrition-plan-details-card">
+  <section ref={planDetailsRef} className="card premium-surface-card surface-content-card nutrition-plan-details-card">
     <div className="section-head section-head-actions">
       <div>
         <h2 className="section-title section-title-sm">{t("nutrition.planDetails.title")}</h2>
@@ -2257,8 +2459,6 @@ const nutritionPlanDetails = profile ? (
     <div className={`page page-with-tabbar-safe-area nutrition-page-shell ${styles.nutritionScope} ${trainingSharedStyles.trainingSharedScope}`}>
       {!isManualView ? (
         <>
-          
-
           {loading || assignedLoading ? (
             <section className="card">
               <div className="section-head">
@@ -2304,19 +2504,8 @@ const nutritionPlanDetails = profile ? (
                   <h3 className="m-0">{t("nutrition.emptyTitle")}</h3>
                   <p className="muted">{t("nutrition.emptySubtitle")}</p>
                 </div>
-                {isAiLocked ? (
-                  <div className="empty-state-actions">
-                    <AiModuleUpgradeCTA
-                      title={t("aiLockedTitle")}
-                      description={aiLockDescription}
-                      buttonLabel={t("billing.upgradePro")}
-                    />
-                    <ButtonLink variant="ghost" href="/app/settings/billing">
-                      {t("billing.manageBilling")}
-                    </ButtonLink>
-                  </div>
-                ) : (
-                  <div className="empty-state-actions">
+                <div className="empty-state-actions">
+                  {!isAiLocked ? (
                     <Button
                       data-testid="nutrition-generate-ai"
                       disabled={isAiDisabled}
@@ -2325,68 +2514,134 @@ const nutritionPlanDetails = profile ? (
                     >
                       {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiGenerate")}
                     </Button>
-                    <ButtonLink variant="secondary" href="/app/nutricion/editar">
-                      {t("nutrition.assignedPlanCta")}
+                  ) : null}
+                  <ButtonLink
+                    variant={isAiLocked ? "primary" : "secondary"}
+                    href="/app/nutricion/editar"
+                  >
+                    {t("nutrition.assignedPlanCta")}
+                  </ButtonLink>
+                  {isAiLocked ? (
+                    <ButtonLink variant="ghost" href="/app/settings/billing">
+                      {t("billing.manageBilling")}
                     </ButtonLink>
-                    {isOutOfTokens ? (
-                      <ButtonLink variant="ghost" href="/app/settings/billing">
-                        {t("billing.manageBilling")}
-                      </ButtonLink>
-                    ) : null}
-                  </div>
-                )}
+                  ) : isOutOfTokens ? (
+                    <ButtonLink variant="ghost" href="/app/settings/billing">
+                      {t("billing.manageBilling")}
+                    </ButtonLink>
+                  ) : null}
+                </div>
                 {isOutOfTokens ? <p className="muted mt-8">{t("ai.insufficientTokens")}</p> : null}
               </div>
+              {isAiLocked ? (
+                <div className="mt-12">
+                  <AiModuleUpgradeCTA
+                    title={t("aiLockedTitle")}
+                    description={aiLockDescription}
+                    buttonLabel={t("billing.upgradePro")}
+                  />
+                </div>
+              ) : null}
             </section>
           ) : hasPlan ? (
             <>
               {!loading && !error ? (
                 <>
-                <div className={styles.overlayPrimaryStack}>
-                {showDailySummaryOverlay ? (
-                  <div className={styles.overlayAnchor}>
-                  <section className={`card premium-surface-card surface-content-card nutrition-v2-layout nutrition-today-summary-only premium-fade-up ${styles.dismissibleSummaryCard}`}>
-                    <button
-                      type="button"
-                      className={styles.dismissCardButton}
-                      aria-label="Ocultar resumen del dia"
-                      onClick={() => setHideDailySummaryCard(true)}
-                    >
-                      ×
-                    </button>
-                    <div className="nutrition-today-summary-head">
-                      <div className="nutrition-hero-copy">
-                        <div className="nutrition-log-head-row">
-                          <div className="stack-xs nutrition-log-head-copy">
-                            <div className="inline-actions-sm nutrition-hero-kicker-row">
-                              <span className="section-label">Resumen del día</span>
-                              {trainerPlanVisible ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
-                            </div>
-                            <h2 className="section-title m-0">{highlightedDay?.dayLabel ?? t("nutrition.viewToday")}</h2>
-                            {activePlanTitle ? <p className="muted m-0" data-testid="member-assigned-nutrition-plan-title">{activePlanTitle}</p> : null}
-                          </div>
-                          <div className="badge nutrition-log-meals-badge">{highlightedCompletedMeals}/{highlightedMeals.length || 0} comidas</div>
+                {(() => {
+                  const mealsCompletedCount = highlightedMealsByType.reduce(
+                    (count, section) => {
+                      const mealKey = getNutritionMealKey(section.meal, highlightedDayKey, section.mealIndex);
+                      return count + (isConsumed(mealKey, highlightedDayKey) ? 1 : 0);
+                    },
+                    0,
+                  );
+                  const allMealsLogged = hasHighlightedMeals && mealsCompletedCount >= highlightedMealsCount;
+                  const mealsProgress = highlightedMealsCount > 0 ? Math.round((mealsCompletedCount / highlightedMealsCount) * 100) : 0;
+                  const dayLabel = clampedSelectedDate.toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "short" });
+                  const planTitle = activePlanTitle ?? safeT("nutrition.mealsTitle", "Comidas del día");
+
+                  return (
+                    !allMealsLogged ? (
+                    <div className="card premium-hero-card relative mb-5 overflow-hidden rounded-3xl nutrition-summary-hero-card">
+                      <div className="p-6">
+                        <div
+                          className="flex h-12 w-12 items-center justify-center rounded-2xl border"
+                          style={{
+                            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+                            borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)",
+                          }}
+                        >
+                          <Icon name="chef-hat" size={22} className="text-accent" />
                         </div>
 
-                        <div className="stack-xs nutrition-log-progress-block">
-                          <div className="inline-actions-space nutrition-log-progress-head">
-                            <span className="muted">{safeT("nutrition.dailyTargetTitle", "Progreso del día")}</span>
-                            <strong>{highlightedTargetCalories !== null ? `${highlightedCaloriesProgress}%` : `${highlightedMealsProgress}%`}</strong>
-                          </div>
-                          <ProgressBar value={highlightedTargetCalories !== null ? highlightedCaloriesProgress : highlightedMealsProgress} max={100} aria-label={safeT("nutrition.dailyTargetTitle", "Progreso del día")} />
-                          <p className="muted m-0 nutrition-hero-progress-copy">
-                            {hasHighlightedMeals
-                              ? `${highlightedCompletedMeals} de ${highlightedMeals.length} comidas registradas.`
-                              : "Aún no tienes comidas asignadas para este día."}
-                          </p>
+                        <div className="mt-3">
+                          <h2 className="m-0 text-[1.9rem] font-semibold leading-tight text-primary">{planTitle}</h2>
+                          <p className="m-0 mt-1 text-sm text-muted">{dayLabel}</p>
                         </div>
+
+                        {hasHighlightedMeals ? (
+                          <div className="mt-4 flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              className={`btn rounded-xl h-11 min-w-[148px] px-5 font-semibold ${allMealsLogged ? "secondary" : ""}`}
+                              disabled={allMealsLogged}
+                              aria-disabled={allMealsLogged}
+                              onClick={() => {
+                                highlightedMealsByType.forEach((section) => {
+                                  const mealKey = getNutritionMealKey(section.meal, highlightedDayKey, section.mealIndex);
+                                  if (!isConsumed(mealKey, highlightedDayKey)) {
+                                    void toggle(mealKey, highlightedDayKey, {
+                                      mealType: section.meal.type,
+                                      title: getMealTitle(section.meal, t),
+                                      calories: Number(section.meal.macros?.calories ?? 0),
+                                      protein: Number(section.meal.macros?.protein ?? 0),
+                                      carbs: Number(section.meal.macros?.carbs ?? 0),
+                                      fats: Number(section.meal.macros?.fats ?? 0),
+                                    });
+                                  }
+                                });
+                              }}
+                            >
+                              {!allMealsLogged ? <Icon name="check" size={16} /> : null}
+                              {allMealsLogged ? t("nutrition.quickLogButtonConsumed") : safeT("nutrition.markAllComplete", "Marcar completado")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn secondary fit-content rounded-xl h-9 px-3 text-xs"
+                              onClick={handleScrollToPlanDetails}
+                            >
+                              <Icon name="info" size={16} />
+                              {safeT("nutrition.planDetailsCta", "Detalles")}
+                            </button>
+                          </div>
+                        ) : null}
+
+                        {highlightedTargetCalories !== null ? (
+                          <p className="m-0 mt-4 text-sm text-muted">
+                            Objetivo diario: {highlightedTargetCalories} {t("units.kcal")}
+                          </p>
+                        ) : null}
+
+                        <div className="mt-3 h-2 w-full rounded-full" style={{ background: "var(--bg-muted)" }}>
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{
+                              width: `${mealsProgress}%`,
+                              background: "linear-gradient(90deg, var(--accent), var(--accent-strong))",
+                            }}
+                          />
+                        </div>
+
+                        <p className="m-0 mt-3 text-sm text-primary">
+                          {mealsCompletedCount}/{highlightedMealsCount} {safeT("nutrition.mealsTitle", "comidas").toLowerCase()}
+                        </p>
                       </div>
                     </div>
-                  </section>
-                  </div>
-                ) : null}
-
-                <section id="nutrition-today-log" className={`card premium-hero-card surface-action-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary ${styles.overlayPrimaryFlow}`} ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
+                    ) : null
+                  );
+                })()}
+                <div className={styles.overlayPrimaryStack}>
+<section id="nutrition-today-log" className={`card premium-surface-card surface-content-card nutrition-v2-layout training-main-section premium-fade-up nutrition-today-primary ${styles.overlayPrimaryFlow}`} ref={generatedPlanSectionRef} data-testid="member-assigned-nutrition-plan">
                   <div className="nutrition-today-summary-head nutrition-today-donut-card">
                     <div className="nutrition-hero-ring-wrap">
                       <HeroNutrition title={safeT("nutrition.dailyTargetTitle", "Objetivo diario")} calories={highlightedMealsTotals.calories} segments={macroRingSegments} />
@@ -2482,9 +2737,12 @@ const nutritionPlanDetails = profile ? (
                         <strong>{monthLabel}</strong>
                       </div>
                       <div className="calendar-month-grid">
-                        {monthDates.map((date) => {
+                        {monthDates.map((date, index) => {
+                          if (!date) {
+                            return <div key={`empty-${monthLabel}-${index}`} className="calendar-month-cell is-hidden" aria-hidden="true" />;
+                          }
                           const entry = visibleDayMap.get(toDateKey(date));
-                          const isCurrentMonth = date.getMonth() === selectedDate.getMonth();
+                          const isCurrentMonth = date.getMonth() === clampedSelectedDate.getMonth();
                           return (
                             <button
                               key={toDateKey(date)}
@@ -2512,6 +2770,7 @@ const nutritionPlanDetails = profile ? (
                       weekLabel={t("nutrition.weekLabel")}
                       weekNumber={clampedWeekOffset + 1}
                       weekRangeLabel={`${weekStart.toLocaleDateString(localeCode, { month: "short", day: "numeric" })} → ${addDays(weekStart, 6).toLocaleDateString(localeCode, { month: "short", day: "numeric" })}`}
+                      previousWeekDisabled={!canGoPrevWeek}
                       nextWeekDisabled={weekOffset >= maxProjectedWeeksAhead}
                       hasWeeklyMeals={hasWeeklyMeals}
                       emptyTitle={t("nutrition.weeklyEmptyTitle")}
@@ -2528,10 +2787,10 @@ const nutritionPlanDetails = profile ? (
                       </>)}
                       days={weekGridDays}
                       kcalLabel={t("units.kcal")}
-                      onPreviousWeek={() => setSelectedDate((prev) => addWeeks(prev, -1))}
+                      onPreviousWeek={() => setSelectedDate((prev) => clampDateNotBefore(addWeeks(prev, -1), normalizedPlanStartDate))}
                       onNextWeek={() => setSelectedDate((prev) => addWeeks(prev, 1))}
                       onSelectDay={(dayId) => {
-                        const nextDate = parseDate(dayId);
+                        const nextDate = parseDate(clampDayKeyToPlanStart(dayId, normalizedPlanStartDate));
                         if (nextDate) setSelectedDate(nextDate);
                       }}
                       selectWeekDayAria={(day) =>
@@ -2563,10 +2822,6 @@ const nutritionPlanDetails = profile ? (
                               return (
                                 <div key={mealKey} className="feature-card feature-card--compact stack-sm nutrition-meal-slot-card nutrition-meal-slot-card--compact">
                                   <div className="inline-actions-space">
-                                    <div className="stack-xs">
-                                      <strong>{mealSection.label}</strong>
-                                      <span className="muted text-sm">{getMealTitle(meal, t)}</span>
-                                    </div>
                                     <div className="inline-actions-sm nutrition-meal-slot-actions">
                                       <span className="badge">{meal.macros.calories} {t("units.kcal")}</span>
                                       <button
@@ -2579,8 +2834,9 @@ const nutritionPlanDetails = profile ? (
                                     </div>
                                   </div>
                                   <MealCard
+                                    kicker={mealSection.label}
                                     title={getMealTitle(meal, t)}
-                                    description={getMealDescription(meal)}
+                                    description={null}
                                     meta={getMealMeta(meal, t)}
                                     imageUrl={getMealMediaUrl(meal)}
                                     onClick={() => openMealDetail(meal, highlightedDayKey, mealKey, highlightedDay?.dayLabel)}
@@ -2608,8 +2864,9 @@ const nutritionPlanDetails = profile ? (
                                           return (
                                             <MealCard
                                               key={mealKey}
+                                              kicker={getMealTypeLabel(meal, t)}
                                               title={getMealTitle(meal, t)}
-                                              description={getMealDescription(meal)}
+                                              description={null}
                                               meta={getMealMeta(meal, t)}
                                               imageUrl={getMealMediaUrl(meal)}
                                               onClick={() => {
@@ -2710,18 +2967,52 @@ const nutritionPlanDetails = profile ? (
                 </section>
                 </div>
 
+                <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card nutrition-insight-card--accent">
+                  <button
+                    type="button"
+                    className="training-insight-link"
+                    onClick={handleGenerateClick}
+                    disabled={isAiDisabled}
+                    title={isAiLocked ? aiLockDescription : ""}
+                    data-testid="nutrition-generate-ai-card"
+                  >
+                    <div className="training-insight-link-icon is-accent">
+                      <Icon name="sparkles" size={20} />
+                    </div>
+                    <div>
+                      <strong>{safeT("nutrition.aiGenerate", "Generar con IA")}</strong>
+                      <p className="muted">{safeT("nutrition.aiSidebarCopy", "Renueva tu menú con una propuesta personalizada según tus metas.")}</p>
+                    </div>
+                  </button>
+                </section>
                 <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
                   <Link
-                    className="training-insight-link training-insight-link--with-affordance"
-                    href={selectedPlanId ? `/app/dietas?planId=${encodeURIComponent(selectedPlanId)}` : "/app/dietas"}
+                    className="training-insight-link training-insight-link--with-affordance nutrition-insight-link--premium"
+                    href={selectedPlanId ? `/app/biblioteca/planes-nutricion?planId=${encodeURIComponent(selectedPlanId)}` : "/app/biblioteca/planes-nutricion"}
                   >
-                    <div className="training-insight-link-icon">
-                      <Icon name="book" size={20} />
+                    <div className="training-insight-link-icon nutrition-insight-link-icon--plans">
+                      <Icon name="clipboard-list" size={20} />
                     </div>
                     <div>
                       <strong className="training-insight-title">Tus planes</strong>
-                      <p className="muted">Gestiona tu plan activo.</p>
-                      <p className="training-plan-access-status">{`Actual: ${activePlanTitle ?? safeT("nutrition.activePlan", "Plan activo")}`}</p>
+                      <p className="muted">Gestiona tu planificación nutricional con estado y origen visibles.</p>
+                      {activePlanSource === "assigned" ? <Badge variant="muted">Asignado por tu entrenador</Badge> : null}
+                      <div className="inline-actions-sm mt-6">
+                        <Badge variant="info">Actual</Badge>
+                        <strong>{activePlanTitle ?? safeT("nutrition.activePlan", "Plan activo")}</strong>
+                      </div>
+                      <p className="training-plan-access-status">Origen: {activePlanSourceLabel}</p>
+                    </div>
+                  </Link>
+                </section>
+                <section className="card premium-surface-card surface-content-card training-insights-card nutrition-plan-access-card">
+                  <Link className="training-insight-link training-insight-link--with-affordance nutrition-insight-link--premium" href="/app/biblioteca/recetas">
+                    <div className="training-insight-link-icon nutrition-insight-link-icon--recipes">
+                      <Icon name="chef-hat" size={20} />
+                    </div>
+                    <div>
+                      <strong className="training-insight-title">{safeT("nav.recipeLibrary", "Biblioteca de recetas")}</strong>
+                      <p className="muted">{safeT("nutrition.recipeLibraryCopy", "Descubre recetas curadas y guardadas para sumar variedad a tu plan.")}</p>
                     </div>
                   </Link>
                 </section>
@@ -3064,9 +3355,9 @@ const nutritionPlanDetails = profile ? (
             <RecipeImage
               src={getMealMediaUrl(selectedMealDetails)}
               alt={selectedMealTitle}
+              width={320}
+              height={160}
               className="meal-card-thumb"
-              fallbackClassName="meal-card-thumb meal-card-thumb--placeholder"
-              testId="nutrition-meal-detail-image"
             />
             {selectedMealDescription ? (
               <p className="muted mt-4">{selectedMealDescription}</p>

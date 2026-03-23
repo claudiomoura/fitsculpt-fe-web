@@ -7,6 +7,7 @@ const requiredRoutePatterns = [
   /app\.post\(\s*["']\/trainer\/nutrition-plans["']/, 
   /app\.get\(\s*["']\/trainer\/nutrition-plans["']/, 
   /app\.get\(\s*["']\/trainer\/nutrition-plans\/:id["']/, 
+  /app\.patch\(\s*["']\/trainer\/nutrition-plans\/:id["']/, 
   /app\.post\(\s*["']\/trainer\/clients\/:userId\/assigned-nutrition-plan["']/, 
   /app\.get\(\s*["']\/members\/me\/assigned-nutrition-plan["']/, 
 ] as const;

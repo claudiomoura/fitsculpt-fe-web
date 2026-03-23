@@ -59,7 +59,7 @@ describe("AppNavBar", () => {
   });
 
 
-  it("links the plan pill to billing settings", () => {
+  it("exposes account settings link in the admin drawer", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -79,9 +79,10 @@ describe("AppNavBar", () => {
       </ThemeProvider>
     );
 
-    const billingLink = document.querySelector('a.account-pill');
-    expect(billingLink).not.toBeNull();
-    expect(billingLink).toHaveAttribute("href", "/app/settings/billing");
+    fireEvent.click(screen.getByRole("button", { name: /abrir menú/i }));
+
+    const settingsLink = document.querySelector('a[href="/app/settings"]');
+    expect(settingsLink).not.toBeNull();
   });
 
   it("hides hamburger menu for USER role", () => {

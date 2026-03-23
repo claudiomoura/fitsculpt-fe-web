@@ -9,7 +9,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   const parsed = await readJsonBody(request);
   if (!parsed.ok) return parsed.response;
-  return proxyToBackend(`/trainer/nutrition-plans/${id}`, { method: "PATCH", body: parsed.body });
+  return proxyToBackend(`/trainer/nutrition-plans/${id}`, { method: "PATCH", body: parsed.body, request });
+}
+
+export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  const parsed = await readJsonBody(request);
+  if (!parsed.ok) return parsed.response;
+  return proxyToBackend(`/trainer/nutrition-plans/${id}`, { method: "PUT", body: parsed.body, request });
 }
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {

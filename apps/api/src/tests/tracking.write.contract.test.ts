@@ -28,7 +28,18 @@ const firstPayload = trackingEntryCreateSchema.parse({
 const snapshotAfterFirstWrite = upsertTrackingEntry(undefined, firstPayload);
 assert.equal(snapshotAfterFirstWrite.checkins.length, 1, "POST /tracking should append new checkin entries");
 assert.equal(snapshotAfterFirstWrite.checkins[0]?.id, "checkin-1", "checkin id should be persisted");
+assert.deepEqual(snapshotAfterFirstWrite.passiveData.snapshots, [], "tracking snapshot should carry passive health container by default");
 trackingSchema.parse(snapshotAfterFirstWrite);
+
+const normalizedLegacySnapshot = normalizeTrackingSnapshot({
+  checkins: [{ id: "legacy-1", date: "2026-02-20", weightKg: "81.2" }],
+  workoutLog: [{ id: "workout-legacy", date: "2026-02-20", name: "Upper body" }],
+  mealLog: [{ id: "meal-legacy", date: "2026-02-20", title: "Almuerzo", mealKey: "meal-legacy" }],
+});
+trackingSchema.parse(normalizedLegacySnapshot);
+assert.equal(normalizedLegacySnapshot.checkins[0]?.notes, "", "legacy checkins should receive safe default strings");
+assert.equal(normalizedLegacySnapshot.mealLog[0]?.completedAt, "2026-02-20T00:00:00.000Z", "legacy meal log should receive a stable completion timestamp");
+assert.equal(normalizedLegacySnapshot.passiveData.lastSyncAt, null, "legacy tracking should normalize passive data safely");
 
 const updatePayload = trackingEntryCreateSchema.parse({
   collection: "checkins",
@@ -66,6 +77,7 @@ trackingSchema.parse(snapshotAfterMeal);
 assert.equal(responseBody.foodLog.length, 0, "response should include non-written collections");
 assert.equal(responseBody.workoutLog.length, 0, "response should include non-written collections");
 assert.equal(responseBody.mealLog.length, 0, "response should include meal log collection");
+assert.equal(Array.isArray(responseBody.passiveData.snapshots), true, "response should include passive health snapshots collection");
 
 // Contract guard: drift in critical response field must break schema parse.
 assert.throws(() =>

@@ -11,36 +11,36 @@
   flex-wrap: wrap;
 }
 
+.heroCtas {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.heroSecondaryCta {
+  min-width: 128px;
+  justify-content: center;
+}
+
 .heroMeta {
   margin: 0;
 }
 
 .dismissibleMainCard {
   position: relative;
-  z-index: 3;
-  width: 100vw;
-  margin: 0;
-  margin-left: calc(50% - 50vw);
-  border-radius: 0;
-  border-left: 0;
-  border-right: 0;
-  background: color-mix(in srgb, var(--surface-secondary-bg) 74%, transparent);
-  backdrop-filter: blur(10px) saturate(118%);
-  -webkit-backdrop-filter: blur(10px) saturate(118%);
-  border-color: color-mix(in srgb, var(--surface-card-border) 74%, transparent);
+  border-radius: var(--surface-card-radius);
+  background: var(--surface-secondary-bg);
+  overflow: hidden;
 }
 
 .overlayCalendarStack {
-  position: relative;
+  display: grid;
+  gap: 16px;
 }
 
 .overlayAnchor {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 60;
-  pointer-events: none;
+  /* Normal card in flow — not fixed overlay */
 }
 
 .overlayAnchor > * {
@@ -48,32 +48,10 @@
 }
 
 .overlayCalendarFlow {
-  position: relative;
-  z-index: 1;
 }
 
 .dismissCardButton {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 88%, transparent);
-  background: color-mix(in srgb, var(--surface-inset-bg) 86%, black 14%);
-  color: var(--text-muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: all 140ms ease;
-}
-
-.dismissCardButton:hover {
-  color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--surface-border-default) 70%, transparent);
+  /* removed — card is no longer a floating overlay */
 }
 
 .progress {
@@ -106,34 +84,181 @@
 
 .weeklyFlow {
   display: grid;
-  gap: 0;
-  border: 1px solid color-mix(in srgb, var(--surface-border-default) 86%, transparent);
-  border-radius: var(--surface-card-radius);
-  background: var(--surface-secondary-bg);
-  overflow: hidden;
+  gap: 12px;
 }
 
 .weeklySectionCalendar {
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  margin: 0;
 }
 
 .weeklySectionDay {
   margin-top: 0;
-  border: 0 !important;
-  border-radius: 0 !important;
-  border-top: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent) !important;
-  background: transparent !important;
-  box-shadow: none !important;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal) {
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  box-shadow: var(--shadow-sm);
+  padding: 8px;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal:hover) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal:active) {
+  transform: scale(0.98);
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal .meal-card-media) {
+  width: 72px;
+  height: 72px;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal .meal-card-thumb) {
+  width: 72px;
+  height: 72px;
+  border: none;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal .meal-card-affordance) {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal-compact) {
+  padding: 6px;
+  gap: 8px;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal-compact .meal-card-media),
+.trainingPlanLayout :global(.meal-card--horizontal-compact .meal-card-thumb) {
+  width: 58px;
+  height: 58px;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal-compact .meal-card-body) {
+  gap: 4px;
+}
+
+.trainingPlanLayout :global(.meal-card--horizontal-compact .meal-card-affordance) {
+  width: 22px;
+  height: 22px;
+}
+
+.dayExerciseSectionShell {
+  display: grid;
+  gap: 12px;
+}
+
+.exerciseCountBadge {
+  min-width: 30px;
+  justify-content: center;
+}
+
+.dayExerciseSubtitle {
+  margin-top: -6px;
+}
+
+.exerciseList {
+  display: grid;
+  gap: 10px;
+}
+
+.exerciseCard {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 78%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-secondary-bg) 92%, black 8%);
+  box-shadow: var(--surface-card-inner-glow), var(--shadow-sm);
+}
+
+.exerciseCardCompleted {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--surface-border-default));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 64%),
+    color-mix(in srgb, var(--surface-inset-bg) 90%, transparent);
+}
+
+.exerciseCardBody {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.exerciseDetailButton {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 80%, transparent);
+  border-radius: 16px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.exerciseMiniCard:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  border-color: color-mix(in srgb, var(--surface-border-default) 62%, transparent);
+}
+
+.exerciseMiniCard:active {
+  transform: scale(0.98);
+}
+
+.exerciseDetailButton.is-disabled :global(.meal-card-affordance) {
+  opacity: 0.48;
+}
+
+.exerciseCardActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.exerciseMetaPill,
+.exerciseProgressLabel {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.exerciseMetaPill {
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: var(--text-muted);
+}
+
+.exerciseActionButton {
+  min-width: 0;
+  justify-content: center;
 }
 
 .weekNav {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 
 .weekNavArrow {
@@ -147,12 +272,21 @@
   justify-content: center;
 }
 
+.weekNavArrow:first-of-type {
+  justify-self: start;
+}
+
+.weekNavArrow:last-of-type {
+  justify-self: end;
+}
+
 .weekNavCenter {
   display: grid;
   justify-items: center;
   gap: 1px;
   min-width: 0;
   text-align: center;
+  padding-inline: 6px;
 }
 
 .weekNavCenter strong {
@@ -243,15 +377,16 @@
   }
 
   .weeklySectionCalendar {
-    border-bottom: 1px solid color-mix(in srgb, var(--surface-border-default) 60%, transparent) !important;
+    margin-bottom: 0;
   }
 
   .weeklySectionDay {
-    border-top: 0 !important;
+    margin-top: 0;
   }
 
   .weekNav {
     grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
   }
 
   .weekNavArrow {
@@ -272,7 +407,7 @@
   }
 
   .weekNav {
-    gap: 8px;
+    gap: 12px;
   }
 
   .weekNavArrow {
@@ -283,5 +418,34 @@
 
   .weekNavCenter :global(.muted) {
     font-size: 0.72rem;
+  }
+
+  .exerciseDetailButton {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .trainingPlanLayout :global(.meal-card--horizontal-compact) {
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    min-height: 72px;
+  }
+
+  .exerciseMetaPill {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .exerciseCardActions {
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .heroCtas {
+    width: 100%;
+  }
+
+  .heroSecondaryCta {
+    min-width: 0;
   }
 }

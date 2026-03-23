@@ -48,11 +48,39 @@ export const mealLogEntrySchema = z.object({
   completedAt: z.string().min(1),
 });
 
+export const passiveHealthSourceSchema = z.enum(["manual", "demo", "apple_health", "google_fit", "wearable", "other"]);
+
+export const passiveHealthSnapshotSchema = z.object({
+  id: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  source: passiveHealthSourceSchema,
+  provider: z.string().trim().min(1).max(64).nullable(),
+  steps: z.number().int().min(0).max(100000).nullable(),
+  activeCalories: z.number().min(0).max(10000).nullable(),
+  activeMinutes: z.number().int().min(0).max(1440).nullable(),
+  sleepHours: z.number().min(0).max(24).nullable(),
+  restingHeartRate: z.number().int().min(20).max(240).nullable(),
+  exerciseSessions: z.number().int().min(0).max(20),
+  note: z.string().max(240),
+  syncedAt: z.string().datetime(),
+});
+
+export const passiveHealthDataSchema = z.object({
+  snapshots: z.array(passiveHealthSnapshotSchema).max(180),
+  lastSyncAt: z.string().datetime().nullable(),
+  lastSyncSource: passiveHealthSourceSchema.nullable(),
+});
+
 export const trackingSchema = z.object({
   checkins: z.array(checkinSchema),
   foodLog: z.array(foodEntrySchema),
   workoutLog: z.array(workoutEntrySchema),
   mealLog: z.array(mealLogEntrySchema),
+  passiveData: passiveHealthDataSchema.default({
+    snapshots: [],
+    lastSyncAt: null,
+    lastSyncSource: null,
+  }),
 });
 
 export const trackingDeleteSchema = z.object({
@@ -76,6 +104,9 @@ export type CheckinEntry = z.infer<typeof checkinSchema>;
 export type FoodEntry = z.infer<typeof foodEntrySchema>;
 export type WorkoutEntry = z.infer<typeof workoutEntrySchema>;
 export type MealLogEntry = z.infer<typeof mealLogEntrySchema>;
+export type PassiveHealthSource = z.infer<typeof passiveHealthSourceSchema>;
+export type PassiveHealthSnapshot = z.infer<typeof passiveHealthSnapshotSchema>;
+export type PassiveHealthData = z.infer<typeof passiveHealthDataSchema>;
 export type TrackingSnapshot = z.infer<typeof trackingSchema>;
 export type TrackingEntryCreateInput = z.infer<typeof trackingEntryCreateSchema>;
 
@@ -84,4 +115,9 @@ export const defaultTracking: TrackingSnapshot = {
   foodLog: [],
   workoutLog: [],
   mealLog: [],
+  passiveData: {
+    snapshots: [],
+    lastSyncAt: null,
+    lastSyncSource: null,
+  },
 };

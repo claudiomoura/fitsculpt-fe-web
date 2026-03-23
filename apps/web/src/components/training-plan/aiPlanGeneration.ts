@@ -32,6 +32,10 @@ export type TrainingPlanAiResult = {
   planId?: string;
   aiTokenBalance?: number;
   aiTokenRenewalAt?: string | null;
+  mode?: string;
+  costCents?: number;
+  costEur?: number;
+  balanceBefore?: number;
   usage?: {
     totalTokens?: number;
     promptTokens?: number;
@@ -219,6 +223,9 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       typeof data?.aiTokenRenewalAt === "string" || data?.aiTokenRenewalAt === null
         ? (data.aiTokenRenewalAt as string | null)
         : undefined,
+    costCents: typeof data?.costCents === "number" ? data.costCents : undefined,
+    costEur: typeof data?.costEur === "number" ? data.costEur : undefined,
+    balanceBefore: typeof data?.balanceBefore === "number" ? data.balanceBefore : undefined,
     usage: isRecord(data?.usage)
       ? {
           totalTokens:
@@ -242,6 +249,7 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
           balanceAfter: typeof data.usage.balanceAfter === "number" ? data.usage.balanceAfter : undefined,
         }
       : undefined,
+    mode: typeof data?.mode === "string" ? data.mode : undefined,
     aiRequestId: typeof data?.aiRequestId === "string" ? data.aiRequestId : undefined,
     balanceAfter: typeof data?.balanceAfter === "number" ? data.balanceAfter : undefined,
     metadata: {

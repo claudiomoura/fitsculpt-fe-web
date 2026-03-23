@@ -1382,6 +1382,53 @@ app.post("/trainer/plans", async (request, reply) => {
     const daysPerWeek = payload.daysPerWeek ?? Math.min(daysCount, 7);
     const dates = buildDateRange(startDate, daysCount);
 
+    const selectedExerciseIds = Array.from(
+      new Set(
+        (payload.days ?? [])
+          .flatMap((day: any) => day.exercises ?? [])
+          .map((exercise: any) => String(exercise.exerciseId))
+          .filter((value: string) => value.length > 0),
+      ),
+    );
+
+    const exercisesById = new Map<
+      string,
+      { id: string; name: string; imageUrl: string | null }
+    >();
+    if (selectedExerciseIds.length > 0) {
+      const selectedExercises = await prisma.exercise.findMany({
+        where: { id: { in: selectedExerciseIds } },
+        select: { id: true, name: true, imageUrl: true },
+      });
+      selectedExercises.forEach((exercise: any) => {
+        exercisesById.set(exercise.id, exercise);
+      });
+    }
+
+    const dayPlansByIndex = new Map<
+      number,
+      {
+        label?: string;
+        focus?: string;
+        duration?: number;
+        exercises: Array<{
+          exerciseId: string;
+          name?: string;
+          sets?: number;
+          reps?: string;
+          rest?: number;
+        }>;
+      }
+    >();
+    (payload.days ?? []).forEach((day: any) => {
+      dayPlansByIndex.set(day.dayIndex, {
+        label: day.label,
+        focus: day.focus,
+        duration: day.duration,
+        exercises: day.exercises ?? [],
+      });
+    });
+
     const createdPlan = await prisma.trainingPlan.create({
       data: {
         userId: requester.id,
@@ -1395,13 +1442,45 @@ app.post("/trainer/plans", async (request, reply) => {
         startDate,
         daysCount,
         days: {
-          create: dates.map((date: any, index: number) => ({
-            date: new Date(`${date}T00:00:00.000Z`),
-            label: `Día ${index + 1}`,
-            focus: payload.focus,
-            duration: 45,
-            order: index + 1,
-          })),
+          create: dates.map((date: any, index: number) => {
+            const plannedDay = dayPlansByIndex.get(index);
+            const exercises = (plannedDay?.exercises ?? [])
+              .map((exercise, exerciseIndex) => {
+                const sourceExercise = exercisesById.get(exercise.exerciseId);
+                if (!sourceExercise) return null;
+                return {
+                  exerciseId: sourceExercise.id,
+                  imageUrl: sourceExercise.imageUrl,
+                  name: exercise.name?.trim() || sourceExercise.name,
+                  sets: exercise.sets ?? 3,
+                  reps: exercise.reps ?? "10-12",
+                  rest: exercise.rest ?? 60,
+                };
+              })
+              .filter(Boolean);
+
+            return {
+              date: new Date(`${date}T00:00:00.000Z`),
+              label: plannedDay?.label ?? `Día ${index + 1}`,
+              focus: plannedDay?.focus ?? payload.focus,
+              duration: plannedDay?.duration ?? 45,
+              order: index + 1,
+              ...(exercises.length > 0
+                ? {
+                    exercises: {
+                      create: exercises.map((exercise: any) => ({
+                        exerciseId: exercise.exerciseId,
+                        imageUrl: exercise.imageUrl,
+                        name: exercise.name,
+                        sets: exercise.sets,
+                        reps: exercise.reps,
+                        rest: exercise.rest,
+                      })),
+                    },
+                  }
+                : {}),
+            };
+          }),
         },
       },
       include: {
@@ -1512,8 +1591,54 @@ app.post("/trainer/nutrition-plans", async (request, reply) => {
       return reply.status(400).send({ error: "INVALID_START_DATE" });
     }
 
-    const daysCount = payload.daysCount ?? 7;
+    const daysCount = payload.daysCount ?? ((payload.weeks ?? 1) * 7);
     const dates = buildDateRange(startDate, daysCount);
+
+    const selectedRecipeIds = Array.from(
+      new Set(
+        (payload.days ?? [])
+          .flatMap((day: any) => day.meals ?? [])
+          .map((meal: any) => String(meal.recipeId))
+          .filter((value: string) => value.length > 0),
+      ),
+    );
+
+    const recipesById = new Map<string, {
+      id: string;
+      name: string;
+      description: string | null;
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      photoUrl: string | null;
+      ingredients: { name: string; grams: number }[];
+    }>();
+
+    if (selectedRecipeIds.length > 0) {
+      const recipes = await prisma.recipe.findMany({
+        where: { id: { in: selectedRecipeIds } },
+        include: {
+          ingredients: {
+            select: { name: true, grams: true },
+          },
+        },
+      });
+      recipes.forEach((recipe: any) => {
+        recipesById.set(recipe.id, recipe);
+      });
+    }
+
+    const dayPlansByIndex = new Map<number, {
+      dayLabel?: string;
+      meals: Array<{ type: string; recipeId: string }>;
+    }>();
+    (payload.days ?? []).forEach((day: any) => {
+      dayPlansByIndex.set(day.dayIndex, {
+        dayLabel: day.dayLabel,
+        meals: day.meals ?? [],
+      });
+    });
 
     const createdPlan = await prisma.nutritionPlan.create({
       data: {
@@ -1526,11 +1651,44 @@ app.post("/trainer/nutrition-plans", async (request, reply) => {
         startDate,
         daysCount,
         days: {
-          create: dates.map((date: any, index: number) => ({
-            date: new Date(`${date}T00:00:00.000Z`),
-            dayLabel: `Día ${index + 1}`,
-            order: index + 1,
-          })),
+          create: dates.map((date: any, index: number) => {
+            const plannedDay = dayPlansByIndex.get(index);
+            const meals = (plannedDay?.meals ?? [])
+              .map((meal) => {
+                const recipe = recipesById.get(meal.recipeId);
+                if (!recipe) return null;
+                return {
+                  type: meal.type,
+                  title: recipe.name,
+                  description: recipe.description,
+                  calories: recipe.calories,
+                  protein: recipe.protein,
+                  carbs: recipe.carbs,
+                  fats: recipe.fat,
+                  imageUrl: recipe.photoUrl,
+                  ingredients: {
+                    create: recipe.ingredients.map((ingredient) => ({
+                      name: ingredient.name,
+                      grams: ingredient.grams,
+                    })),
+                  },
+                };
+              })
+              .filter(Boolean);
+
+            return {
+              date: new Date(`${date}T00:00:00.000Z`),
+              dayLabel: plannedDay?.dayLabel ?? `Día ${index + 1}`,
+              order: index + 1,
+              ...(meals.length > 0
+                ? {
+                    meals: {
+                      create: meals,
+                    },
+                  }
+                : {}),
+            };
+          }),
         },
       },
       select: {

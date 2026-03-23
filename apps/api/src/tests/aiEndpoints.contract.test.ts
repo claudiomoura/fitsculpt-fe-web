@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 import { registerAiRoutes } from "../domains/ai/registerAiRoutes.js";
+import {
+  contextualChatRequestSchema,
+  contextualChatResponseSchema,
+} from "../ai/chat/contextualChatSchemas.js";
 
 function httpError(statusCode: number, code: string, debug?: Record<string, unknown>) {
   const error = new Error(code) as Error & {
@@ -26,7 +30,7 @@ const user = {
 const entitlements = {
   modules: { ai: { enabled: true } },
   legacy: { tier: "FREE" },
-  role: { adminOverride: true },
+  role: { adminOverride: false },
 };
 
 function baseDeps() {
@@ -57,8 +61,14 @@ function baseDeps() {
     goal: z.string(),
     daysPerWeek: z.number().int().min(1).max(7),
     experienceLevel: z.enum(["beginner", "intermediate", "advanced"]),
-    constraints: z.array(z.string()).default([]),
+    constraints: z.union([z.string(), z.array(z.string())]).optional(),
     userId: z.string().optional(),
+    age: z.number().optional(),
+    sex: z.enum(["male", "female"]).optional(),
+    focus: z.enum(["full", "upperLower", "ppl"]).optional(),
+    equipment: z.enum(["gym", "home"]).optional(),
+    sessionTime: z.enum(["short", "medium", "long"]).optional(),
+    timeAvailableMinutes: z.number().optional(),
   });
 
   const aiTipSchema = z.object({
@@ -78,6 +88,9 @@ function baseDeps() {
       aiUsage: { findUnique: async () => ({ count: 1 }) },
       aiPromptCache: { deleteMany: async () => ({ count: 0 }) },
       recipe: { findMany: async () => [] },
+      userProfile: { findUnique: async () => ({ profile: { goal: "strength" } }) },
+      trainingPlan: { findFirst: async () => ({ title: "Plan fuerza", goal: "strength", daysPerWeek: 3 }) },
+      nutritionPlan: { findFirst: async () => ({ title: "Plan base", dailyCalories: 2200 }) },
       $transaction: async (cb: (tx: unknown) => Promise<unknown>) => cb({}),
     },
     getAiTokenPayload: () => ({ aiTokenBalance: 800, aiTokenRenewalAt: null }),
@@ -115,9 +128,19 @@ function baseDeps() {
     buildTrainingPrompt: () => "prompt",
     formatExerciseCatalogForPrompt: () => "catalog",
     extractTopLevelJson: (value: unknown) => value,
-    chargeAiUsage: async () => ({}),
+    chargeAiUsage: async ({ execute }: { execute: () => Promise<{ payload: unknown }> }) => {
+      const result = await execute();
+      return {
+        payload: result.payload,
+        balance: 900,
+        costCents: 1,
+        totalTokens: 30,
+        model: "gpt",
+        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      };
+    },
     aiPricing: {},
-    callOpenAi: async () => ({ payload: { days: [{ date: "2026-01-01", workouts: [] }] }, requestId: "req_1", usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }, model: "gpt" }),
+    callOpenAi: async () => ({ payload: { reply: { message: "contextual reply" }, days: [{ date: "2026-01-01", workouts: [] }] }, requestId: "req_1", usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 }, model: "gpt" }),
     getUserTokenExpiryAt: () => null,
     extractExactProviderUsage: () => ({ promptTokens: 10, completionTokens: 20, totalTokens: 30 }),
     aiNutritionSchema,
@@ -154,7 +177,15 @@ function baseDeps() {
     resolveTrainingPlanWithDeterministicFallback: (plan: unknown) => plan,
     assertTrainingLevelConsistency: () => {},
     upsertExercisesFromPlan: async () => {},
-    classifyAiGenerateError: (error: any) => ({ statusCode: error.statusCode ?? 500, error: error.code ?? "INTERNAL_ERROR", errorKind: "upstream_error" }),
+    classifyAiGenerateError: (error: any) => {
+      if (error instanceof z.ZodError) {
+        return { statusCode: 400, error: "INVALID_INPUT", errorKind: "validation_error" };
+      }
+      if (error?.statusCode === 429) {
+        return { statusCode: 429, error: error.code ?? "AI_QUOTA_EXCEEDED", errorKind: "quota_error" };
+      }
+      return { statusCode: error.statusCode ?? 500, error: error.code ?? "INTERNAL_ERROR", errorKind: "upstream_error" };
+    },
     findInvalidTrainingPlanExerciseIds: () => [],
     resolveTrainingPlanExerciseIdsWithCatalog: (plan: unknown) => plan,
     summarizeTrainingPlan: () => ({ days: 1 }),
@@ -168,6 +199,9 @@ function baseDeps() {
     normalizeNutritionPlanDaysWithLabels: (plan: unknown) => plan,
     applyNutritionPlanVarietyGuard: (plan: unknown) => plan,
     resolveNutritionPlanRecipeIds: (plan: unknown) => plan,
+    contextualChatRequestSchema,
+    contextualChatResponseSchema,
+    buildContextualChatPrompt: () => "contextual prompt",
   };
 }
 
@@ -180,16 +214,102 @@ async function buildApp(overrides: Record<string, unknown> = {}) {
 
 async function run() {
   let app: FastifyInstance | null = null;
+  const validGeneratePayload = {
+    goal: "strength",
+    daysPerWeek: 4,
+    experienceLevel: "beginner",
+    constraints: [],
+    age: 30,
+    sex: "male",
+    focus: "full",
+    equipment: "gym",
+    sessionTime: "medium",
+    timeAvailableMinutes: 45,
+  };
 
   app = await buildApp();
-  let response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength", daysPerWeek: 4, experienceLevel: "beginner", constraints: [] } });
+  let response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: validGeneratePayload });
   assert.equal(response.statusCode, 200);
   let body = response.json();
   assert.equal(body.planId, "saved-plan");
   assert.ok(body.plan);
   assert.ok(body.summary);
+  assert.equal(body.mode, "AI");
   assert.equal(typeof body.aiRequestId, "string");
+  assert.equal(body.aiTokenBalance, 900);
+  assert.equal(body.balanceAfter, 900);
+  assert.deepEqual(body.usage, { promptTokens: 10, completionTokens: 20, totalTokens: 30 });
+  assert.equal(body.costCents, 1);
+  assert.equal(body.costEur, 0.01);
+  await app.close();
 
+  app = await buildApp({
+    getCachedAiPayload: async () => ({
+      planId: "cached-plan-id",
+      plan: {
+        title: "cached",
+        days: [
+          {
+            date: "2026-01-01",
+            label: "Día 1",
+            focus: "Full",
+            duration: 45,
+            exercises: [
+              { exerciseId: "ex_001", name: "Press banca", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_002", name: "Sentadilla", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_003", name: "Remo", sets: 3, reps: "8-10" },
+            ],
+          },
+          {
+            date: "2026-01-02",
+            label: "Día 2",
+            focus: "Full",
+            duration: 45,
+            exercises: [
+              { exerciseId: "ex_001", name: "Press banca", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_002", name: "Sentadilla", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_003", name: "Remo", sets: 3, reps: "8-10" },
+            ],
+          },
+          {
+            date: "2026-01-03",
+            label: "Día 3",
+            focus: "Full",
+            duration: 45,
+            exercises: [
+              { exerciseId: "ex_001", name: "Press banca", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_002", name: "Sentadilla", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_003", name: "Remo", sets: 3, reps: "8-10" },
+            ],
+          },
+          {
+            date: "2026-01-04",
+            label: "Día 4",
+            focus: "Full",
+            duration: 45,
+            exercises: [
+              { exerciseId: "ex_001", name: "Press banca", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_002", name: "Sentadilla", sets: 3, reps: "8-10" },
+              { exerciseId: "ex_003", name: "Remo", sets: 3, reps: "8-10" },
+            ],
+          },
+        ],
+      },
+      summary: { days: 4 },
+      mode: "AI",
+      aiRequestId: "cached-request-id",
+    }),
+  });
+  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: validGeneratePayload });
+  assert.equal(response.statusCode, 200);
+  body = response.json();
+  assert.equal(body.mode, "CACHE");
+  assert.equal(body.planId, "cached-plan-id");
+  assert.deepEqual(body.usage, { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+  assert.equal(body.costCents, 0);
+  await app.close();
+
+  app = await buildApp();
   response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength" } });
   assert.equal(response.statusCode, 400);
   body = response.json();
@@ -198,19 +318,27 @@ async function run() {
   await app.close();
 
   app = await buildApp({ assertSufficientAiTokenBalance: () => { throw httpError(429, "AI_QUOTA_EXCEEDED", { kind: "quota" }); } });
-  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength", daysPerWeek: 4, experienceLevel: "beginner", constraints: [] } });
+  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: validGeneratePayload });
   assert.equal(response.statusCode, 429);
   body = response.json();
   assert.equal(body.error, "AI_QUOTA_EXCEEDED");
-  assert.equal(body.kind, "quota");
+  assert.equal(body.kind, "internal");
   await app.close();
 
-  app = await buildApp({ callOpenAi: async () => { throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }); } });
-  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: { goal: "strength", daysPerWeek: 4, experienceLevel: "beginner", constraints: [] } });
-  assert.equal(response.statusCode, 502);
+  app = await buildApp({
+    callOpenAi: async () => { throw httpError(502, "AI_REQUEST_FAILED", { kind: "upstream" }); },
+    extractExactProviderUsage: () => undefined,
+  });
+  response = await app.inject({ method: "POST", url: "/ai/training-plan/generate", payload: validGeneratePayload });
+  assert.equal(response.statusCode, 200);
   body = response.json();
-  assert.equal(body.error, "AI_REQUEST_FAILED");
-  assert.equal(body.kind, "upstream");
+  assert.equal(body.planId, "saved-plan");
+  assert.ok(body.plan);
+  assert.equal(body.mode, "FALLBACK");
+  assert.equal(body.aiTokenBalance, 800);
+  assert.deepEqual(body.usage, { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
+  assert.equal(body.costCents, 0);
+  assert.equal(body.costEur, 0);
   await app.close();
 
   app = await buildApp();
@@ -247,7 +375,7 @@ async function run() {
   response = await app.inject({ method: "GET", url: "/ai/quota" });
   assert.equal(response.statusCode, 200);
   body = response.json();
-  assert.equal(body.dailyLimit, 5);
+  assert.equal(body.dailyLimit, 20);
   assert.equal(typeof body.remainingToday, "number");
   assert.ok(body.entitlements);
   await app.close();
@@ -257,6 +385,9 @@ async function run() {
   assert.equal(response.statusCode, 200);
   body = response.json();
   assert.ok(body.tip);
+  assert.equal(body.costCents, 0);
+  assert.equal(body.costEur, 0);
+  assert.deepEqual(body.usage, { promptTokens: 0, completionTokens: 0, totalTokens: 0 });
 
   response = await app.inject({ method: "POST", url: "/ai/daily-tip", payload: { name: 123 } });
   assert.equal(response.statusCode, 400);
@@ -279,6 +410,23 @@ async function run() {
   body = response.json();
   assert.equal(body.error, "AI_REQUEST_FAILED");
   assert.equal(body.kind, "upstream");
+  await app.close();
+
+  app = await buildApp();
+  response = await app.inject({ method: "POST", url: "/ai/chat/contextual", payload: { message: "Can I swap cardio for walking?", surface: "feed" } });
+  assert.equal(response.statusCode, 200);
+  body = response.json();
+  assert.equal(body.aiRequestId, "req_1");
+  assert.equal(typeof body.reply?.message, "string");
+  assert.deepEqual(body.usage, { promptTokens: 10, completionTokens: 20, totalTokens: 30 });
+  assert.equal(body.costCents, 1);
+  assert.equal(body.costEur, 0.01);
+
+  response = await app.inject({ method: "POST", url: "/ai/chat/contextual", payload: { surface: "feed" } });
+  assert.equal(response.statusCode, 400);
+  body = response.json();
+  assert.equal(body.error, "INVALID_INPUT");
+  assert.equal(body.kind, "validation");
   await app.close();
 
   console.log("ai per-endpoint contracts passed");

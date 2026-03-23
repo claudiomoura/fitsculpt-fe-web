@@ -88,7 +88,13 @@ export type Recipe = {
   carbs: number;
   fat: number;
   photoUrl?: string | null;
+  imageUrls?: string[] | null;
+  source?: string | null;
+  slug?: string | null;
+  category?: string | null;
   steps: string[];
+  tiempoPreparacion?: number | null;
+  porciones?: number | null;
   ingredients: RecipeIngredient[];
 };
 

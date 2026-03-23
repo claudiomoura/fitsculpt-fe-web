@@ -1,0 +1,101 @@
+.launcher {
+  display: grid;
+  gap: 8px;
+}
+
+.launcherButton {
+  min-height: 44px;
+  width: fit-content;
+  border-radius: 14px;
+  padding-inline: 14px;
+}
+
+.sheet {
+  width: min(560px, 100%);
+}
+
+.modeRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.modeButton {
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border-default);
+  background: var(--surface-inset-bg);
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.modeButtonActive {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--surface-border-default));
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-inset-bg));
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+}
+
+.fieldRow {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.smallText {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.status {
+  font-size: 0.84rem;
+  margin: 0;
+}
+
+.statusSuccess {
+  color: var(--status-success);
+}
+
+.statusError {
+  color: var(--status-error);
+}
+
+.voiceActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.transcript {
+  min-height: 84px;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border-default);
+  background: var(--surface-inset-bg);
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-size: 0.92rem;
+}
+
+.lookupResult {
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--surface-border-default) 92%, transparent);
+  background: color-mix(in srgb, var(--surface-inset-bg) 84%, transparent);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.saveButton {
+  min-height: 44px;
+  border-radius: 12px;
+}
+
+@media (max-width: 640px) {
+  .fieldRow {
+    grid-template-columns: 1fr;
+  }
+}

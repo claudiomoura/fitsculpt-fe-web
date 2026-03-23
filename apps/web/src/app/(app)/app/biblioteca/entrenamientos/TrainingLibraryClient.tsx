@@ -7,6 +7,7 @@ import { hasAiEntitlement, type AiEntitlementProfile } from "@/components/access
 import { getRoleFlags } from "@/lib/roles";
 import { Input } from "@/design-system/components/Input";
 import { SegmentedControl } from "@/design-system/components/SegmentedControl";
+import { Badge } from "@/design-system/components/Badge";
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { ActivePlanSection, PlanCard, PlanHistoryList } from "@/components/plans/PlanSections";
 import plansHubStyles from "@/components/plans/PlansHub.module.css";
@@ -35,16 +36,78 @@ type ActiveTrainingPlanResponse = {
 
 type SectionState = "loading" | "ready" | "error" | "unavailable";
 type AiGateState = "loading" | "eligible" | "locked" | "unavailable";
+type PlanOrigin = "trainer" | "ai" | "manual";
 
 const SELECTED_PLAN_STORAGE_KEY = "fs_selected_plan_id";
 const LEGACY_ACTIVE_PLAN_STORAGE_KEY = "fs_active_training_plan_id";
 const TRAINING_PLANS_UPDATED_AT_KEY = "fs_training_plans_updated_at";
+
+function normalizePlanSelection(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function readStoredSelectedPlanId(): string | null {
+  if (typeof window === "undefined") return null;
+  return (
+    normalizePlanSelection(window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY))
+    ?? normalizePlanSelection(window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY))
+  );
+}
+
+function persistSelectedPlanId(planId: string) {
+  window.localStorage.setItem(SELECTED_PLAN_STORAGE_KEY, planId);
+  window.localStorage.setItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY, planId);
+}
+
+function resolvePlanOrigin(plan: TrainingPlanListItem, options: {
+  assignedPlanId: string | null;
+  gymPlanIds: Set<string>;
+}): PlanOrigin {
+  const planId = getPlanId(plan);
+  if (options.gymPlanIds.has(planId)) return "trainer";
+
+  const candidate = plan as TrainingPlanListItem & Record<string, unknown>;
+  const rawSource = [
+    candidate.source,
+    candidate.origin,
+    candidate.planSource,
+    candidate.createdWith,
+    candidate.creationType,
+    candidate.type,
+  ].find((value) => typeof value === "string");
+
+  if (typeof candidate.isAiGenerated === "boolean" && candidate.isAiGenerated) return "ai";
+  if (typeof rawSource === "string") {
+    const normalizedSource = rawSource.toLowerCase();
+    if (normalizedSource.includes("ai") || normalizedSource.includes("ia")) return "ai";
+    if (normalizedSource.includes("trainer") || normalizedSource.includes("coach") || normalizedSource.includes("assigned")) return "trainer";
+    if (normalizedSource.includes("manual")) return "manual";
+  }
+
+  if (/\b(ai|ia)\b/i.test(plan.title)) return "ai";
+  return "manual";
+}
+
+function getOriginBadge(origin: PlanOrigin): { label: string; variant: "info" | "warning" | "muted" } {
+  switch (origin) {
+    case "trainer":
+      return { label: "Origen: entrenador", variant: "warning" };
+    case "ai":
+      return { label: "Origen: IA", variant: "info" };
+    case "manual":
+    default:
+      return { label: "Origen: manual", variant: "muted" };
+  }
+}
 
 export default function TrainingLibraryClient() {
   const { t, locale } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
 
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
@@ -57,31 +120,31 @@ export default function TrainingLibraryClient() {
   const [assignedPlanState, setAssignedPlanState] = useState<SectionState>("loading");
   const [aiGateState, setAiGateState] = useState<AiGateState>("loading");
   const [canLoadGymPlans, setCanLoadGymPlans] = useState(false);
-  const [storedPlanId] = useState(() => {
-    if (typeof window === "undefined") return "";
-
-    return (
-      window.localStorage.getItem(SELECTED_PLAN_STORAGE_KEY)?.trim()
-      || window.localStorage.getItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY)?.trim()
-      || ""
-    );
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return readStoredSelectedPlanId();
   });
 
-  const queryPlanId = searchParams.get("planId")?.trim() ?? "";
-  const activePlanId = queryPlanId || storedPlanId || null;
+  const queryPlanId = normalizePlanSelection(searchParams.get("planId"));
 
   useEffect(() => {
     if (queryPlanId) {
-      window.localStorage.setItem(SELECTED_PLAN_STORAGE_KEY, queryPlanId);
-      window.localStorage.setItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY, queryPlanId);
+      persistSelectedPlanId(queryPlanId);
+      setSelectedPlanId(queryPlanId);
       return;
     }
 
-    if (!storedPlanId) return;
-    const nextParams = new URLSearchParams(searchParams.toString());
+    const storedPlanId = readStoredSelectedPlanId();
+    if (!storedPlanId) {
+      setSelectedPlanId(null);
+      return;
+    }
+
+    setSelectedPlanId(storedPlanId);
+    const nextParams = new URLSearchParams(searchParamsString);
     nextParams.set("planId", storedPlanId);
     router.replace(`${pathname}?${nextParams.toString()}`);
-  }, [pathname, queryPlanId, router, searchParams, storedPlanId]);
+  }, [pathname, queryPlanId, router, searchParamsString]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -197,11 +260,18 @@ export default function TrainingLibraryClient() {
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
+      if (event.key === SELECTED_PLAN_STORAGE_KEY || event.key === LEGACY_ACTIVE_PLAN_STORAGE_KEY) {
+        setSelectedPlanId(normalizePlanSelection(event.newValue) ?? readStoredSelectedPlanId());
+        return;
+      }
+
       if (event.key !== TRAINING_PLANS_UPDATED_AT_KEY) return;
+      setSelectedPlanId(readStoredSelectedPlanId());
       setReloadKey((value) => value + 1);
     };
 
     const handleFocus = () => {
+      setSelectedPlanId(readStoredSelectedPlanId());
       setReloadKey((value) => value + 1);
     };
 
@@ -234,7 +304,15 @@ export default function TrainingLibraryClient() {
     return Array.from(map.values());
   }, [assignedPlan, fitSculptPlans, gymPlans]);
 
-  const resolvedActivePlanId = activePlanId ?? (assignedPlan ? getPlanId(assignedPlan) : null);
+  const gymPlanIds = useMemo(() => {
+    const ids = new Set<string>();
+    gymPlans.forEach((plan) => ids.add(getPlanId(plan)));
+    return ids;
+  }, [gymPlans]);
+
+  const assignedPlanId = assignedPlan ? getPlanId(assignedPlan) : null;
+
+  const resolvedActivePlanId = selectedPlanId ?? assignedPlanId;
   const activePlan = useMemo(() => {
     if (!resolvedActivePlanId) return null;
     return allPlans.find((plan) => getPlanId(plan) === resolvedActivePlanId) ?? null;
@@ -249,12 +327,31 @@ export default function TrainingLibraryClient() {
     const normalizedPlanId = planId.trim();
     if (!normalizedPlanId) return;
 
-    window.localStorage.setItem(SELECTED_PLAN_STORAGE_KEY, normalizedPlanId);
-    window.localStorage.setItem(LEGACY_ACTIVE_PLAN_STORAGE_KEY, normalizedPlanId);
+    setSelectedPlanId(normalizedPlanId);
+    persistSelectedPlanId(normalizedPlanId);
+    window.localStorage.setItem(TRAINING_PLANS_UPDATED_AT_KEY, String(Date.now()));
 
-    const nextParams = new URLSearchParams(searchParams.toString());
+    const nextParams = new URLSearchParams(searchParamsString);
     nextParams.set("planId", normalizedPlanId);
     router.replace(`${pathname}?${nextParams.toString()}`);
+  };
+
+  const renderPlanBadges = (plan: TrainingPlanListItem, isSelected: boolean) => {
+    const planId = getPlanId(plan);
+    const isAssignedByTrainer = assignedPlanId === planId;
+    const origin = resolvePlanOrigin(plan, {
+      assignedPlanId,
+      gymPlanIds,
+    });
+    const originBadge = getOriginBadge(origin);
+
+    return (
+      <>
+        <Badge variant={isSelected ? "success" : "muted"}>{isSelected ? "Seleccionado" : "No seleccionado"}</Badge>
+        {isAssignedByTrainer ? <Badge variant="warning">Asignado por entrenador</Badge> : null}
+        <Badge variant={originBadge.variant}>{originBadge.label}</Badge>
+      </>
+    );
   };
 
   return (
@@ -294,26 +391,65 @@ export default function TrainingLibraryClient() {
 
       {planSection === "assigned" ? (
       <ActivePlanSection title={t("plans.activeTitle")} emptyTitle={t("plans.activeEmpty")}>
+        <p className="muted mt-6">Este es el plan seleccionado para tu calendario. Si tienes uno asignado por entrenador, se muestra como referencia.</p>
         {(fitSculptState === "loading" || assignedPlanState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
         {(fitSculptState === "error" || assignedPlanState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
-        {assignedPlan ? (
-          <PlanCard
-            title={assignedPlan.title}
-            metadata={t("library.training.planMeta", { days: assignedPlan.daysCount, level: assignedPlan.level, date: formatPlanDate(assignedPlan) })}
-            statusLabel={t("plans.activeBadge")}
-            actions={[
-              { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${getPlanId(assignedPlan)}`, variant: "secondary" },
-              { label: t("library.training.choose"), onClick: () => selectPlan(getPlanId(assignedPlan)) },
+        {activePlan ? (
+            <PlanCard
+              title={activePlan.title}
+              metadata={t("library.training.planMeta", { days: activePlan.daysCount, level: activePlan.level, date: formatPlanDate(activePlan) })}
+              statusLabel="Seleccionado"
+              badges={renderPlanBadges(activePlan, true)}
+              testId="training-active-plan-card"
+              actions={[
+                { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/planes-entrenamiento/${getPlanId(activePlan)}`, variant: "secondary" },
+              { label: t("library.training.selected"), onClick: () => selectPlan(getPlanId(activePlan)), variant: "secondary", testId: `training-select-plan-${getPlanId(activePlan)}` },
             ]}
           />
         ) : assignedPlanState === "ready" ? (
           <EmptyState className="mt-12" title={t("plans.activeEmpty")} description={t("plans.historyEmptyDescription")} icon="info" />
+        ) : null}
+
+        {assignedPlan && assignedPlanId !== resolvedActivePlanId ? (
+          <div className="mt-12 stack-sm">
+            <h3 className="m-0">Plan asignado por entrenador (referencia)</h3>
+            <p className="muted m-0">Este plan no reemplaza tu seleccion actual salvo que lo elijas manualmente.</p>
+            <PlanCard
+              title={assignedPlan.title}
+              metadata={t("library.training.planMeta", { days: assignedPlan.daysCount, level: assignedPlan.level, date: formatPlanDate(assignedPlan) })}
+              badges={renderPlanBadges(assignedPlan, false)}
+              testId="training-assigned-plan-card"
+              actions={[
+                { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/planes-entrenamiento/${getPlanId(assignedPlan)}`, variant: "secondary" },
+                { label: t("library.training.choose"), onClick: () => selectPlan(getPlanId(assignedPlan)), testId: `training-select-plan-${getPlanId(assignedPlan)}` },
+              ]}
+            />
+          </div>
         ) : null}
       </ActivePlanSection>
       ) : null}
 
       {planSection === "library" ? (
       <PlanHistoryList title={t("plans.historyTitle")} emptyTitle={t("plans.historyEmpty")}>
+        {activePlan ? (
+          <div className="feature-card mt-12">
+            <p className="m-0 text-xs uppercase tracking-wider text-muted">Seleccionado actualmente</p>
+            <div className="mt-6">
+              <PlanCard
+                title={activePlan.title}
+                metadata={t("library.training.planMeta", { days: activePlan.daysCount, level: activePlan.level, date: formatPlanDate(activePlan) })}
+                statusLabel="Seleccionado"
+                badges={renderPlanBadges(activePlan, true)}
+                testId="training-library-active-plan-card"
+                actions={[
+                  { label: t("library.training.selected"), onClick: () => selectPlan(getPlanId(activePlan)), variant: "secondary", testId: `training-select-plan-${getPlanId(activePlan)}` },
+                  { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/planes-entrenamiento/${getPlanId(activePlan)}`, variant: "secondary" },
+                ]}
+              />
+            </div>
+          </div>
+        ) : null}
+
         {(fitSculptState === "loading" || (canLoadGymPlans && gymState === "loading")) ? <LoadingState showCard={false} ariaLabel={t("ui.loading")} className="mt-12" lines={2} /> : null}
         {(fitSculptState === "error" || gymState === "error") ? <ErrorState className="mt-12" title={t("library.training.sectionError")} retryLabel={t("ui.retry")} onRetry={() => setReloadKey((value) => value + 1)} /> : null}
         {fitSculptState === "unavailable" && gymState === "unavailable" ? <EmptyState className="mt-12" title={t("library.training.sectionUnavailable")} icon="warning" actions={[{ label: t("billing.manageBilling"), href: "/app/settings/billing", variant: "secondary" }]} /> : null}
@@ -325,16 +461,17 @@ export default function TrainingLibraryClient() {
           <div className="mt-12" style={{ display: "grid", gap: 12 }}>
             {historyPlans.map((plan) => {
               const planId = getPlanId(plan);
-              const isSelected = resolvedActivePlanId === planId;
               return (
                 <PlanCard
                   key={planId}
                   title={plan.title}
                   metadata={t("library.training.planMeta", { days: plan.daysCount, level: plan.level, date: formatPlanDate(plan) })}
+                  badges={renderPlanBadges(plan, false)}
                   actions={[
-                    { label: isSelected ? t("library.training.selected") : t("library.training.choose"), onClick: () => selectPlan(planId), variant: isSelected ? "secondary" : "primary" },
-                    { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/entrenamientos/${planId}`, variant: "secondary" },
+                    { label: t("library.training.choose"), onClick: () => selectPlan(planId), variant: "primary", testId: `training-select-plan-${planId}` },
+                    { label: t("trainingPlans.viewDetail"), href: `/app/biblioteca/planes-entrenamiento/${planId}`, variant: "secondary", testId: `training-view-plan-${planId}` },
                   ]}
+                  testId={`training-plan-card-${planId}`}
                 />
               );
             })}
