@@ -104,9 +104,9 @@ export function registerAiRoutes(app: FastifyInstance, deps: Record<string, any>
   const aiQuotaRequestSchema = z.object({}).passthrough();
   const aiTrainingPlanRequestSchema = z.object(aiTrainingSchema.shape);
   const aiNutritionPlanGenerateRequestSchema = z.object(aiNutritionSchema.shape);
-  const aiTrainingPlanGenerateRequestSchema = z.object(
-    aiGenerateTrainingSchema.shape,
-  );
+const aiTrainingPlanGenerateRequestSchema = z.object(
+  aiGenerateTrainingSchema.shape,
+);
   const aiDailyTipRequestSchema = z.object(aiTipSchema.shape);
   const aiContextualChatRequestSchema = z.object(contextualChatRequestSchema.shape);
 

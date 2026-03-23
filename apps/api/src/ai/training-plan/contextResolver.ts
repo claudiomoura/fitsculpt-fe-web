@@ -1,9 +1,43 @@
-import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import type { AuthenticatedEntitlementsRequest } from "../../middleware/entitlements";
-import { requireUser, getUserEntitlements } from "../../middleware/entitlements";
-import { createHttpError } from "../../utils/createHttpError";
-import type { User as PrismaUser } from "@prisma/client";
+import type { AuthenticatedEntitlementsRequest } from "../../middleware/entitlements.js";
+
+type TrainingPlanGeneratePayload = {
+  name?: string;
+  age?: number;
+  sex?: "male" | "female";
+  goal: string;
+  experienceLevel: "beginner" | "intermediate" | "advanced";
+  focus?: "full" | "upperLower" | "ppl";
+  equipment?: "gym" | "home";
+  sessionTime?: "short" | "medium" | "long";
+  timeAvailableMinutes?: number;
+  includeCardio?: boolean;
+  includeMobilityWarmups?: boolean;
+  workoutLength?: "30m" | "45m" | "60m" | "flexible";
+  timerSound?: "ding" | "repsToDo";
+  injuries?: string;
+  restrictions?: string;
+  constraints?: string | string[];
+  daysPerWeek: number;
+  daysCount?: number;
+  startDate?: string;
+};
+
+function createHttpError(
+  statusCode: number,
+  code: string,
+  debug?: Record<string, unknown>,
+) {
+  const error = new Error(code) as Error & {
+    statusCode?: number;
+    code?: string;
+    debug?: Record<string, unknown>;
+  };
+  error.statusCode = statusCode;
+  error.code = code;
+  error.debug = debug;
+  return error;
+}
 
 export type UserContext = {
   userId: string;
@@ -70,13 +104,13 @@ const normalizeConstraints = (value: unknown): string => {
 export async function resolveUserContext(
   request: AuthenticatedEntitlementsRequest,
   prisma: Prisma.TransactionClient,
-  payload: z.infer<typeof import("../../domains/ai/registerAiRoutes").aiTrainingPlanGenerateRequestSchema>
+  payload: TrainingPlanGeneratePayload,
 ): Promise<UserContext> {
   const authRequest = request as AuthenticatedEntitlementsRequest;
-  const user =
-    authRequest.currentUser ?? (await requireUser(request, { logContext: "/ai/training-plan/generate-v2" }));
-  const entitlements =
-    authRequest.currentEntitlements ?? getUserEntitlements(user);
+  const user = authRequest.currentUser;
+  if (!user) {
+    throw createHttpError(401, "UNAUTHORIZED");
+  }
 
   await requireCompleteProfile(user.id); // We'll need to import this or recreate it
 
@@ -176,28 +210,28 @@ export async function resolveUserContext(
   return {
     userId: user.id,
     name: payload.name ?? readString(profileData.name) ?? undefined,
-    age: resolvedAge,
-    sex: resolvedSex,
+    age: resolvedAge!,
+    sex: resolvedSex!,
     level: mapExperienceLevelToTrainingPlanLevel(payload.experienceLevel),
     goal: payload.goal,
-    focus: resolvedFocus,
-    equipment: resolvedEquipment,
-    sessionTime: resolvedSessionTime,
-    timeAvailableMinutes: resolvedTimeAvailableMinutes,
+    focus: resolvedFocus!,
+    equipment: resolvedEquipment!,
+    sessionTime: resolvedSessionTime!,
+    timeAvailableMinutes: resolvedTimeAvailableMinutes!,
     includeCardio:
       payload.includeCardio ??
       (typeof profileTrainingPreferences.includeCardio === "boolean"
         ? profileTrainingPreferences.includeCardio
-        : undefined),
+        : false),
     includeMobilityWarmups:
       payload.includeMobilityWarmups ??
       (typeof profileTrainingPreferences.includeMobilityWarmups === "boolean"
         ? profileTrainingPreferences.includeMobilityWarmups
-        : undefined),
+        : false),
     workoutLength: resolvedWorkoutLength,
     timerSound: resolvedTimerSound,
     injuries: resolvedInjuries,
-    restrictions: combinedRestrictions || resolvedInjuries,
+    restrictions: combinedRestrictions || (resolvedInjuries ?? ""),
     daysPerWeek: Math.min(payload.daysPerWeek, 7),
     daysCount: payload.daysCount ?? payload.daysPerWeek,
     startDate: payload.startDate ? new Date(payload.startDate) : new Date(),
