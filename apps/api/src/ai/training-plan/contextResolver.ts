@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import type { AuthenticatedEntitlementsRequest } from "../../middleware/entitlements.js";
-import { requireUser, getUserEntitlements } from "../../middleware/entitlements.js";
-import { createHttpError } from "../../utils/createHttpError.js";
+import type { AuthenticatedEntitlementsRequest } from "../../middleware/entitlements";
+import { requireUser, getUserEntitlements } from "../../middleware/entitlements";
+import { createHttpError } from "../../utils/createHttpError";
 import type { User as PrismaUser } from "@prisma/client";
 
 export type UserContext = {
@@ -70,7 +70,7 @@ const normalizeConstraints = (value: unknown): string => {
 export async function resolveUserContext(
   request: AuthenticatedEntitlementsRequest,
   prisma: Prisma.TransactionClient,
-  payload: z.infer<typeof import("../../domains/ai/registerAiRoutes.js").aiTrainingPlanGenerateRequestSchema>
+  payload: z.infer<typeof import("../../domains/ai/registerAiRoutes").aiTrainingPlanGenerateRequestSchema>
 ): Promise<UserContext> {
   const authRequest = request as AuthenticatedEntitlementsRequest;
   const user =
