@@ -3,6 +3,7 @@ const MEAL_LOGGER_FOCUS_ROUTES = new Set([
   "/app/nutricion/editar",
   "/app/nutrition/editar",
   "/app/nutrition/edit",
+  "/app/seguimiento/check-in",
 ]);
 
 export function isFocusRoute(pathname: string | null): boolean {
