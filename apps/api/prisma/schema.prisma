@@ -3,22 +3,20 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id           String           @id @default(cuid())
-  email        String           @unique
-  passwordHash String?
-  name         String?
-  provider     String           @default("email")
-  role         Role             @default(USER)
-  plan         SubscriptionPlan @default(FREE) @map("subscriptionPlan")
-
-  stripeCustomerId String? @unique
-
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  passwordHash            String?
+  name                    String?
+  provider                String                   @default("email")
+  role                    Role                     @default(USER)
+  plan                    SubscriptionPlan         @default(FREE) @map("subscriptionPlan")
+  stripeCustomerId        String?                  @unique
   stripeSubscriptionId    String?                  @unique @db.VarChar(255)
   subscriptionStatus      String?
   currentPeriodEnd        DateTime?
@@ -38,13 +36,13 @@ model User {
   authProviders           AuthProvider[]
   emailVerificationTokens EmailVerificationToken[]
   feedPosts               FeedPost[]
-  profile                 UserProfile?
-  userFoods               UserFood[]
-  workouts                Workout[]
-  nutritionPlans          NutritionPlan[]
-  trainingPlans           TrainingPlan[]
   gymMemberships          GymMembership[]
-  recipes                 Recipe[]          // Recipes created by this trainer (if role TRAINER)
+  nutritionPlans          NutritionPlan[]
+  recipes                 Recipe[]
+  trainingPlans           TrainingPlan[]
+  userFoods               UserFood[]
+  profile                 UserProfile?
+  workouts                Workout[]
 
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
@@ -57,15 +55,15 @@ model StripeWebhookEvent {
 }
 
 model Workout {
-  id          String    @id @default(cuid())
+  id          String            @id @default(cuid())
   name        String
   notes       String?
   scheduledAt DateTime?
   durationMin Int?
   userId      String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   exercises   WorkoutExercise[]
   sessions    WorkoutSession[]
 
@@ -124,27 +122,27 @@ model UserFood {
 }
 
 model Recipe {
-  id                  String             @id @default(cuid())
-  name                String             @unique
-  description         String?
-  calories            Float
-  protein             Float
-  carbs               Float
-  fat                 Float
-  photoUrl            String?
-  imageUrls           String[]           @default([])
-  source              String?
-  sourceId            String?
-  slug                String?            @unique
-  category            String?
-  steps               String[]
-  tiempoPreparacion   Int?               // Preparation time in minutes
-  porciones           Int?               // Number of servings
-  trainerId           String?            // Optional: if set, this recipe belongs to a trainer
-  trainer             User?              @relation(fields: [trainerId], references: [id], onDelete: Cascade)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  ingredients         RecipeIngredient[]
+  id                String             @id @default(cuid())
+  name              String             @unique
+  description       String?
+  calories          Float
+  protein           Float
+  carbs             Float
+  fat               Float
+  photoUrl          String?
+  imageUrls         String[]           @default([])
+  source            String?
+  sourceId          String?
+  slug              String?            @unique
+  category          String?
+  steps             String[]
+  tiempoPreparacion Int?
+  porciones         Int?
+  trainerId         String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  trainer           User?              @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  ingredients       RecipeIngredient[]
 
   @@index([source, sourceId])
   @@index([category])
@@ -162,20 +160,20 @@ model RecipeIngredient {
 }
 
 model NutritionPlan {
-  id            String         @id @default(cuid())
-  userId        String
-  title         String
-  dailyCalories Float
-  proteinG      Float
-  fatG          Float
-  carbsG        Float
-  startDate     DateTime
-  daysCount     Int
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  days          NutritionDay[]
+  id             String          @id @default(cuid())
+  userId         String
+  title          String
+  dailyCalories  Float
+  proteinG       Float
+  fatG           Float
+  carbsG         Float
+  startDate      DateTime
+  daysCount      Int
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   gymAssignments GymMembership[] @relation("GymMemberAssignedNutritionPlan")
+  days           NutritionDay[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -193,7 +191,7 @@ model NutritionDay {
 }
 
 model NutritionMeal {
-  id          String               @id @default(cuid())
+  id          String                @id @default(cuid())
   dayId       String
   type        String
   title       String
@@ -203,8 +201,8 @@ model NutritionMeal {
   carbs       Float
   fats        Float
   imageUrl    String?
-  day         NutritionDay         @relation(fields: [dayId], references: [id], onDelete: Cascade)
   ingredients NutritionIngredient[]
+  day         NutritionDay          @relation(fields: [dayId], references: [id], onDelete: Cascade)
 
   @@index([dayId])
 }
@@ -220,36 +218,36 @@ model NutritionIngredient {
 }
 
 model TrainingPlan {
-  id          String         @id @default(cuid())
-  userId      String
-  title       String
-  notes       String?
-  goal        String
-  level       String
-  daysPerWeek Int
-  focus       String
-  equipment   String
-  startDate   DateTime
-  daysCount   Int
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  days        TrainingDay[]
+  id             String          @id @default(cuid())
+  userId         String
+  title          String
+  notes          String?
+  goal           String
+  level          String
+  daysPerWeek    Int
+  focus          String
+  equipment      String
+  startDate      DateTime
+  daysCount      Int
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   gymAssignments GymMembership[] @relation("GymMemberAssignedTrainingPlan")
+  days           TrainingDay[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@unique([userId, startDate, daysCount])
+  @@index([userId])
 }
 
 model TrainingDay {
-  id       String             @id @default(cuid())
-  planId   String
-  date     DateTime
-  label    String
-  focus    String
-  duration Int
-  order    Int
-  plan     TrainingPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  id        String             @id @default(cuid())
+  planId    String
+  date      DateTime
+  label     String
+  focus     String
+  duration  Int
+  order     Int
+  plan      TrainingPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
   exercises TrainingExercise[]
 
   @@index([planId])
@@ -290,14 +288,14 @@ model WorkoutExercise {
 }
 
 model WorkoutSession {
-  id         String              @id @default(cuid())
+  id         String                @id @default(cuid())
   workoutId  String
   userId     String
   startedAt  DateTime
   finishedAt DateTime?
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
-  workout    Workout             @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  workout    Workout               @relation(fields: [workoutId], references: [id], onDelete: Cascade)
   entries    WorkoutSessionEntry[]
 
   @@index([workoutId])
@@ -305,15 +303,15 @@ model WorkoutSession {
 }
 
 model WorkoutSessionEntry {
-  id          String         @id @default(cuid())
-  sessionId   String
-  exercise    String
-  sets        Int
-  reps        Int
-  loadKg      Float?
-  rpe         Int?
-  createdAt   DateTime       @default(now())
-  session     WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id        String         @id @default(cuid())
+  sessionId String
+  exercise  String
+  sets      Int
+  reps      Int
+  loadKg    Float?
+  rpe       Int?
+  createdAt DateTime       @default(now())
+  session   WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
 }
@@ -410,9 +408,9 @@ model AiUsageLog {
   createdAt        DateTime @default(now())
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, feature, requestId, mode])
   @@index([userId])
   @@index([createdAt])
-  @@unique([userId, feature, requestId, mode])
 }
 
 model AiContent {
@@ -428,31 +426,31 @@ model AiContent {
 }
 
 model Gym {
-  id          String          @id @default(cuid())
-  name        String
-  code        String          @unique
-  activationCode String       @unique
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  memberships GymMembership[]
+  id             String          @id @default(cuid())
+  name           String
+  code           String          @unique
+  activationCode String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  memberships    GymMembership[]
 
   @@index([name])
 }
 
 model GymMembership {
-  id        String              @id @default(cuid())
-  gymId     String
-  userId    String
-  status    GymMembershipStatus
-  role      GymRole
-  assignedTrainingPlanId String?
+  id                      String              @id @default(cuid())
+  gymId                   String
+  userId                  String
+  status                  GymMembershipStatus
+  role                    GymRole
+  assignedTrainingPlanId  String?
   assignedNutritionPlanId String?
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
-  gym       Gym                 @relation(fields: [gymId], references: [id], onDelete: Cascade)
-  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignedTrainingPlan TrainingPlan? @relation("GymMemberAssignedTrainingPlan", fields: [assignedTrainingPlanId], references: [id], onDelete: SetNull)
-  assignedNutritionPlan NutritionPlan? @relation("GymMemberAssignedNutritionPlan", fields: [assignedNutritionPlanId], references: [id], onDelete: SetNull)
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  assignedNutritionPlan   NutritionPlan?      @relation("GymMemberAssignedNutritionPlan", fields: [assignedNutritionPlanId], references: [id])
+  assignedTrainingPlan    TrainingPlan?       @relation("GymMemberAssignedTrainingPlan", fields: [assignedTrainingPlanId], references: [id])
+  gym                     Gym                 @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([gymId, userId])
   @@index([gymId, status])
