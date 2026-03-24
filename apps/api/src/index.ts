@@ -99,6 +99,7 @@ import { registerFutureProjectionRoutes } from "./routes/futureProjection.js";
 import { registerRctSummaryRoute } from "./routes/rctSummary.js";
 import { registerRctStatisticalReportRoute } from "./routes/rctStatisticalReport.js";
 import { registerAdminAssignGymRoleRoutes } from "./routes/admin/assignGymRole.js";
+import { registerMealRoutes } from "./routes/mealRoutes.js";
 import { appendRctEvent, ensureRctAssignment } from "./services/futureProjection.js";
 import { registerAiRoutes } from "./domains/ai/registerAiRoutes.js";
 import { registerBillingRoutes } from "./domains/billing/registerBillingRoutes.js";
@@ -6693,6 +6694,10 @@ registerAdminAssignGymRoleRoutes(app, {
   prisma,
   requireAdmin,
   handleRequestError,
+});
+
+registerMealRoutes(app, {
+  requireUser,
 });
 
 registerNutritionRoutes(app, {

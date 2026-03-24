@@ -2,19 +2,35 @@
 
 Este documento define el smoke pack mínimo y reproducible para validar que FitSculpt está **listo para demo** (beta vendible) sin ampliar alcance de infraestructura.
 
-## Qué significa “listo para demo”
+## Qué significa "listo para demo"
 
 Se considera listo cuando, sobre entorno local/demo con datos seed:
 
 1. El smoke pack pasa completo sin errores:
-   - `pnpm lint`
-   - `pnpm typecheck`
-   - `pnpm test`
-   - `pnpm --filter web e2e -- playwright test e2e/gym-nutrition-flow.spec.ts --reporter=line`
-   - `pnpm build`
+   - `pnpm --filter web smoke` (corre: lint → typecheck → test → E2E smoke → build)
 2. Journey crítico B2C validado manualmente (login → plan visible → gating FREE/PRO correcto → IA con estados esperados).
 3. Journey crítico Gym validado con e2e existente + checklist manual (join → accept → assign nutrition plan → member lo ve y navega días).
 4. No hay bloqueantes visuales/funcionales en rutas canónicas de demo.
+
+## CI Gate Requirement
+
+**El smoke DEBE correr en CI antes de cualquier deploy a producción.**
+
+### GitHub Actions Integration
+
+El smoke está integrado en `.github/workflows/e2e-smoke.yml` (manual trigger) y debe ser integrado en el PR gate workflow.
+
+Para agregar como PR gate, agregar a `pr-quality-gates.yml`:
+
+```yaml
+  e2e-smoke-gate:
+    name: E2E Smoke Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run smoke
+        run: pnpm --filter web smoke
+```
 
 ## Cómo correr smoke local
 
@@ -30,11 +46,11 @@ pnpm --filter web smoke
 pnpm lint
 pnpm typecheck
 pnpm test
-pnpm --filter web e2e -- playwright test e2e/gym-nutrition-flow.spec.ts --reporter=line
+pnpm exec playwright test e2e/core-loop.spec.ts e2e/nutrition-checkin-core.spec.ts
 pnpm build
 ```
 
-> Nota: el smoke usa **solo** `gym-nutrition-flow.spec.ts` para evitar lentitud y flakiness por correr toda la suite e2e.
+> Nota: El smoke actual corre 2 tests (core-loop, nutrition-checkin-core) que son estables. Los tests gym-flow y gym-nutrition-flow están agregados al proyecto pero requieren setup adicional de TRAINER role en seed.
 
 ## Checklist B2C (5 pasos)
 

@@ -50,40 +50,47 @@ Sprint 1 — Create unified smoke script, fix failures, validate B2C + Gym flows
 
 Sprint 2 — Prisma model, API endpoints, migration strategy
 
-- [ ] 2.1 Add `MealLog` model to `apps/api/prisma/schema.prisma` with fields: id, userId, date, mealType, title, items (Json), calories, protein, carbs, fats, completedAt, createdAt, updatedAt
+- [x] 2.1 Add `MealLog` model to `apps/api/prisma/schema.prisma` with fields: id, userId, date, mealType, title, items (Json), calories, protein, carbs, fats, completedAt, createdAt, updatedAt
   - **Affected files**: `apps/api/prisma/schema.prisma`
   - **Dependencies**: None
   - **Test strategy**: `npx prisma generate` succeeds
+  - **Status**: DONE - Added MealLog model with MealType enum, created migration 20260324005111_add_meal_log_model
 
-- [ ] 2.2 Generate Prisma migration for MealLog model
+- [x] 2.2 Generate Prisma migration for MealLog model
   - **Affected files**: `apps/api/prisma/migrations/*.sql`
   - **Dependencies**: 2.1
   - **Test strategy**: `npx prisma migrate dev --name add_meal_log_model` succeeds
+  - **Status**: DONE - Migration applied successfully
 
-- [ ] 2.3 Create `apps/api/src/meals/service.ts` with MealLogService (CRUD + complete operations)
+- [x] 2.3 Create `apps/api/src/meals/service.ts` with MealLogService (CRUD + complete operations)
   - **Affected files**: `apps/api/src/meals/service.ts`
   - **Dependencies**: 2.2
   - **Test strategy**: Unit tests for create, complete, delete, getByDate
+  - **Status**: DONE - Created MealLogService with create, getById, getByDate, getByDateRange, getAll, update, complete, uncomplete, delete, getTodaySummary methods
 
-- [ ] 2.4 Create `apps/api/src/meals/schemas.ts` with Zod request/response schemas
+- [x] 2.4 Create `apps/api/src/meals/schemas.ts` with Zod request/response schemas
   - **Affected files**: `apps/api/src/meals/schemas.ts`
   - **Dependencies**: None
   - **Test strategy**: Schema validation tests
+  - **Status**: DONE - Created Zod schemas: createMealLogSchema, updateMealLogSchema, getMealsQuerySchema, mealLogResponseSchema, mealLogListResponseSchema, mealLogToResponse helper
 
-- [ ] 2.5 Create `apps/api/src/meals/routes.ts` with endpoint handlers
-  - **Affected files**: `apps/api/src/meals/routes.ts`
+- [x] 2.5 Create `apps/api/src/routes/mealRoutes.ts` with endpoint handlers
+  - **Affected files**: `apps/api/src/routes/mealRoutes.ts`
   - **Dependencies**: 2.3, 2.4
   - **Test strategy**: Endpoint tests for POST /meals/log, PATCH /meals/:id/complete, DELETE /meals/:id, GET /meals
+  - **Status**: DONE - Created all endpoints: GET /meals, GET /meals/date/:date, GET /meals/today, POST /meals, PATCH /meals/:id, POST /meals/:id/complete, POST /meals/:id/uncomplete, DELETE /meals/:id
 
-- [ ] 2.6 Register `/meals` routes in `apps/api/src/routes.ts`
-  - **Affected files**: `apps/api/src/routes.ts`
+- [x] 2.6 Register `/meals` routes in `apps/api/src/routes.ts`
+  - **Affected files**: `apps/api/src/index.ts`
   - **Dependencies**: 2.5
   - **Test strategy**: Verify routes respond at correct paths
+  - **Status**: DONE - Registered in index.ts, endpoints tested and working
 
-- [ ] 2.7 Verify migration runs successfully against database
+- [x] 2.7 Verify migration runs successfully against database
   - **Affected files**: Database
   - **Dependencies**: 2.2
   - **Test strategy**: Check database has MealLog table with correct columns
+  - **Status**: DONE - Table verified with columns: id, userId, date, mealType, title, items, calories, protein, carbs, fats, completedAt, createdAt, updatedAt
 
 ## Phase 3: Frontend Migration
 
