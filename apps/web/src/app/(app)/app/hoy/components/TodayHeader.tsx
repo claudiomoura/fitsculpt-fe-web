@@ -14,10 +14,10 @@ type TodayHeaderProps = {
 export function TodayHeader({ userName = "Usuario", className }: TodayHeaderProps) {
   return (
     <header className={className}>
-      <h1 className="today-page-title">
+      <h1 className="text-2xl font-bold tracking-tight text-primary">
         Buenos días<span className="text-accent">, {userName}</span>
       </h1>
-      <p className="today-label" style={{ marginTop: "8px", opacity: 0.7 }}>
+      <p className="mt-1 text-sm text-muted">
         Tu resumen de hoy
       </p>
     </header>
