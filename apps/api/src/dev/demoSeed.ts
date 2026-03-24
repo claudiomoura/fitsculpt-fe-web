@@ -139,8 +139,9 @@ export async function resetDemoState(prisma: PrismaClient, options: DemoResetOpt
   const passwordHash = await bcrypt.hash(DEMO_USER_PASSWORD, BCRYPT_DEMO_SALT);
   const tokenSeed = getDemoTokenSeed(tokenState);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.workout.deleteMany({ where: { id: DEMO_WORKOUT_ID } });
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.workout.deleteMany({ where: { id: DEMO_WORKOUT_ID } });
     await tx.trainingPlan.deleteMany({ where: { id: DEMO_TRAINING_PLAN_ID } });
     await tx.nutritionPlan.deleteMany({ where: { id: DEMO_NUTRITION_PLAN_ID } });
     await tx.user.deleteMany({ where: { email: DEMO_USER_EMAIL } });
@@ -363,7 +364,8 @@ export async function resetDemoState(prisma: PrismaClient, options: DemoResetOpt
         },
       },
     });
-  });
+  },
+  { timeout: 30000 });
 
   return {
     userEmail: DEMO_USER_EMAIL,

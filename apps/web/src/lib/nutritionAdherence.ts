@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import type { MealLogEntry, TrackingSnapshot } from "@/services/tracking";
+import { getMealsByDate, createMealLog, updateMealLog, deleteMealLog, type MealLogResponse } from "@/services/mealApi";
 
 export const NUTRITION_ADHERENCE_EVENT = "fs:nutrition-adherence-changed";
 
 type NutritionAdherenceStore = Record<string, string[]>;
+
+// Map of dateKey -> mealType -> mealId for new API operations
+type MealIdMap = Record<string, Record<string, string>>;
 
 const isBrowser = () => typeof window !== "undefined";
 const normalizeKey = (value?: string | null) => value?.trim() ?? "";
@@ -34,10 +38,49 @@ function buildMealLogId(dateKey: string, mealKey: string) {
   return `${dateKey}:${mealKey}`;
 }
 
+/**
+ * Convert new API meal logs to adherence store format
+ */
+export function buildAdherenceStoreFromMeals(meals: MealLogResponse[]): NutritionAdherenceStore {
+  const store: NutritionAdherenceStore = {};
+  for (const meal of meals) {
+    if (!meal.date || !meal.mealType) continue;
+    const current = store[meal.date] ?? [];
+    if (!current.includes(meal.mealType)) {
+      store[meal.date] = [...current, meal.mealType];
+    }
+  }
+  return store;
+}
+
+/**
+ * Fetch meals from the new API
+ */
+async function fetchMealsFromAPI(date: string): Promise<MealLogResponse[]> {
+  try {
+    const response = await getMealsByDate(date);
+    return response.items;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Map meal key to meal type (for backward compatibility)
+ */
+function mapMealKeyToType(mealKey: string): "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK" {
+  const key = mealKey.toLowerCase();
+  if (key.includes("desayuno") || key.includes("breakfast")) return "BREAKFAST";
+  if (key.includes("almuerzo") || key.includes("lunch")) return "LUNCH";
+  if (key.includes("cena") || key.includes("dinner")) return "DINNER";
+  return "SNACK";
+}
+
 export const readNutritionAdherenceStore = (): NutritionAdherenceStore => ({});
 
 export const useNutritionAdherence = (dayKey: string) => {
   const [store, setStore] = useState<NutritionAdherenceStore>({});
+  const [mealIdMap, setMealIdMap] = useState<MealIdMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -48,6 +91,26 @@ export const useNutritionAdherence = (dayKey: string) => {
     }
     setIsLoading(true);
     try {
+      // Try new API first
+      try {
+        const meals = await fetchMealsFromAPI(dayKey);
+        if (meals.length > 0) {
+          setStore(buildAdherenceStoreFromMeals(meals));
+          // Build meal ID map for delete operations
+          const newMealIdMap: MealIdMap = {};
+          for (const meal of meals) {
+            if (!meal.date || !meal.mealType || !meal.id) continue;
+            if (!newMealIdMap[meal.date]) newMealIdMap[meal.date] = {};
+            newMealIdMap[meal.date][meal.mealType] = meal.id;
+          }
+          setMealIdMap(newMealIdMap);
+          setError(false);
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        // Fall back to legacy tracking if new API fails
+      }
       const tracking = await fetchTrackingSnapshot();
       setStore(buildNutritionAdherenceStoreFromMealLog(tracking.mealLog));
       setError(false);
@@ -57,7 +120,7 @@ export const useNutritionAdherence = (dayKey: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [dayKey]);
 
   useEffect(() => {
     if (!isBrowser()) return;
@@ -84,12 +147,15 @@ export const useNutritionAdherence = (dayKey: string) => {
     const normalizedDateKey = normalizeKey(dateKey);
     if (!normalizedItemKey || !normalizedDateKey) return;
 
-    const entryId = buildMealLogId(normalizedDateKey, normalizedItemKey);
+    const mealType = mapMealKeyToType(normalizedItemKey);
     const currentlyConsumed = Boolean(store[normalizedDateKey]?.includes(normalizedItemKey));
 
+    // Optimistic update
     setStore((prev) => {
       const current = prev[normalizedDateKey] ?? [];
-      const next = currentlyConsumed ? current.filter((item) => item !== normalizedItemKey) : [...current, normalizedItemKey];
+      const next = currentlyConsumed 
+        ? current.filter((item) => item !== normalizedItemKey) 
+        : [...current, normalizedItemKey];
       const nextStore = { ...prev };
       if (next.length > 0) nextStore[normalizedDateKey] = Array.from(new Set(next));
       else delete nextStore[normalizedDateKey];
@@ -98,36 +164,89 @@ export const useNutritionAdherence = (dayKey: string) => {
 
     try {
       if (currentlyConsumed) {
-        const response = await fetch(`/api/tracking/mealLog/${encodeURIComponent(entryId)}`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-        if (!response.ok && response.status !== 204) {
-          throw new Error(`TRACKING_DELETE_FAILED:${response.status}`);
+        // Try new API first for delete
+        let deleted = false;
+        try {
+          // Check if we have the meal ID in our map
+          let mealId: string | undefined = mealIdMap[normalizedDateKey]?.[mealType];
+          
+          // If not in map, fetch meals for this date to find the ID
+          if (!mealId) {
+            const response = await getMealsByDate(normalizedDateKey);
+            const meal = response.items.find(m => m.mealType === mealType);
+            mealId = meal?.id;
+          }
+          
+          if (mealId) {
+            await deleteMealLog(mealId);
+            // Remove from local ID map
+            setMealIdMap(prev => {
+              const next = { ...prev };
+              if (next[normalizedDateKey]) {
+                delete next[normalizedDateKey][mealType];
+              }
+              return next;
+            });
+            deleted = true;
+          }
+        } catch {
+          // Fall back to legacy tracking if new API fails
+        }
+        
+        if (!deleted) {
+          const entryId = buildMealLogId(normalizedDateKey, normalizedItemKey);
+          const response = await fetch(`/api/tracking/mealLog/${encodeURIComponent(entryId)}`, {
+            method: "DELETE",
+            credentials: "include",
+          });
+          if (!response.ok && response.status !== 204) {
+            throw new Error(`TRACKING_DELETE_FAILED:${response.status}`);
+          }
         }
       } else {
-        const response = await fetch("/api/tracking", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            collection: "mealLog",
-            item: {
-              id: entryId,
-              date: normalizedDateKey,
-              mealKey: normalizedItemKey,
-              mealType: payload?.mealType ?? "meal",
-              title: payload?.title ?? normalizedItemKey,
-              calories: Number(payload?.calories ?? 0),
-              protein: Number(payload?.protein ?? 0),
-              carbs: Number(payload?.carbs ?? 0),
-              fats: Number(payload?.fats ?? 0),
-              completedAt: new Date().toISOString(),
-            },
-          }),
-        });
-        if (!response.ok) {
-          throw new Error(`TRACKING_CREATE_FAILED:${response.status}`);
+        // Try new API first for create
+        try {
+          const created = await createMealLog({
+            date: normalizedDateKey,
+            mealType,
+            title: payload?.title ?? normalizedItemKey,
+            calories: payload?.calories,
+            protein: payload?.protein,
+            carbs: payload?.carbs,
+            fats: payload?.fats,
+          });
+          // Store the meal ID in our map for future delete operations
+          setMealIdMap(prev => {
+            const next = { ...prev };
+            if (!next[normalizedDateKey]) next[normalizedDateKey] = {};
+            next[normalizedDateKey][mealType] = created.id;
+            return next;
+          });
+        } catch {
+          // Fall back to legacy tracking
+          const response = await fetch("/api/tracking", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              collection: "mealLog",
+              item: {
+                id: buildMealLogId(normalizedDateKey, normalizedItemKey),
+                date: normalizedDateKey,
+                mealKey: normalizedItemKey,
+                mealType: payload?.mealType ?? "meal",
+                title: payload?.title ?? normalizedItemKey,
+                calories: Number(payload?.calories ?? 0),
+                protein: Number(payload?.protein ?? 0),
+                carbs: Number(payload?.carbs ?? 0),
+                fats: Number(payload?.fats ?? 0),
+                completedAt: new Date().toISOString(),
+              },
+            }),
+          });
+          if (!response.ok) {
+            throw new Error(`TRACKING_CREATE_FAILED:${response.status}`);
+          }
         }
       }
       window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
@@ -135,12 +254,27 @@ export const useNutritionAdherence = (dayKey: string) => {
       await loadStore();
       throw _err;
     }
-  }, [loadStore, store]);
+  }, [loadStore, store, mealIdMap]);
 
   const clearDay = useCallback(async (dateKey?: string | null) => {
     const normalizedDateKey = normalizeKey(dateKey);
     if (!normalizedDateKey) return;
     const mealKeys = store[normalizedDateKey] ?? [];
+    
+    // Try new API first for bulk delete
+    try {
+      const response = await getMealsByDate(normalizedDateKey);
+      const meals = response.items;
+      if (meals.length > 0) {
+        await Promise.all(meals.map(meal => deleteMealLog(meal.id)));
+        window.dispatchEvent(new Event(NUTRITION_ADHERENCE_EVENT));
+        return;
+      }
+    } catch {
+      // Fall back to legacy tracking if new API fails
+    }
+    
+    // Legacy tracking fallback
     await Promise.all(
       mealKeys.map((mealKey) =>
         fetch(`/api/tracking/mealLog/${encodeURIComponent(buildMealLogId(normalizedDateKey, mealKey))}`, {
