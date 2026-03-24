@@ -1,19 +1,11 @@
 /* ============================================
    PREMIUM DARK THEME - PHASE 1 FOUNDATION
    WITH RESPONSIVE FIXES
+   Using app's existing color system
    ============================================ */
 
-/* CSS Custom Properties - Premium Dark Theme */
+/* CSS Custom Properties - use app's existing variables */
 .todayScope {
-  /* Page gradient colors */
-  --today-bg-page-top: #0E5A68;
-  --today-bg-page-mid: #0E4266;
-  --today-bg-page-bottom: #020B1D;
-  
-  /* Accent colors */
-  --today-accent-primary: rgba(0, 180, 160, 0.18);
-  --today-accent-secondary: rgba(35, 120, 255, 0.14);
-  
   /* Card styling */
   --today-card-radius: 42px;
   --today-border-accent: 2px;
@@ -38,11 +30,8 @@
   --today-donut-mini: 100px;
   --today-donut-nutrition: 80px;
   
-  /* Premium dark gradient background */
-  background: 
-    radial-gradient(circle at 18% 4%, rgba(0, 180, 160, 0.18) 0%, transparent 28%),
-    radial-gradient(circle at 78% 6%, rgba(35, 120, 255, 0.14) 0%, transparent 26%),
-    linear-gradient(180deg, #0E5A68 0%, #0E4266 18%, #071A3A 50%, #020B1D 100%);
+  /* Use app's existing background - no custom gradient */
+  background: var(--surface-primary-bg, var(--bg-card));
   min-height: 100vh;
   padding: var(--today-spacing-vertical-md) var(--today-spacing-lateral);
   box-sizing: border-box;
@@ -152,7 +141,7 @@
   border-radius: var(--today-card-radius);
   border: var(--today-border-accent) solid var(--border-accent, rgba(0, 180, 160, 0.3));
   box-shadow: var(--today-card-shadow);
-  background: rgba(14, 66, 102, 0.3);
+  background: var(--surface-secondary-bg, var(--bg-card));
   backdrop-filter: blur(8px);
   width: 100%;
   max-width: 100%;
@@ -214,7 +203,7 @@
   align-items: center;
   justify-content: center;
   border: 3px solid var(--accent);
-  background: rgba(14, 66, 102, 0.4);
+  background: var(--surface-inset-bg);
   box-shadow: var(--today-card-shadow);
   flex-shrink: 0;
 }
@@ -233,7 +222,7 @@
   align-items: center;
   justify-content: center;
   border: 3px solid var(--accent);
-  background: rgba(14, 66, 102, 0.4);
+  background: var(--surface-inset-bg);
   box-shadow: var(--today-card-shadow);
   flex-shrink: 0;
 }
