@@ -36,6 +36,15 @@ import { TodayErrorState } from "./TodayErrorState";
 import { TodaySkeleton } from "./TodaySkeleton";
 import QuickLogHub from "@/components/quick-log/QuickLogHub";
 
+// NEW COMPONENTS - Phase 3 Integration
+import { TodayHeader } from "./components/TodayHeader";
+import { TodaySummaryCard } from "./components/TodaySummaryCard";
+import { TodayViewTabs } from "./components/TodayViewTabs";
+import { TodayPriorityHero } from "./components/TodayPriorityHero";
+import { TodayNutritionCard } from "./components/TodayNutritionCard";
+import { TodayCheckinCard } from "./components/TodayCheckinCard";
+import { TodayWeeklySummaryCard } from "./components/TodayWeeklySummaryCard";
+
 const trainingRoute = "/app/entrenamiento";
 const billingRoute = "/app/settings/billing";
 const manualPlanRoute = "/app/entrenamiento/editar";
@@ -953,17 +962,58 @@ export default function TodayQuickActionsClient() {
     );
   };
 
+  // Prepare weekly summary data
+  const weeklyData = useMemo((): Array<{ day: string; completed: boolean; type: "training" | "nutrition" | "checkin" | null }> => {
+    // This would ideally come from tracking history
+    // For now, we'll create a simple structure based on current signals
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const weekDays = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+    
+    return weekDays.map((day, idx) => {
+      // Simple logic: past days might have data, future days don't
+      const isPast = idx < dayOfWeek;
+      const isToday = idx === dayOfWeek;
+      
+      if (!isPast && !isToday) {
+        return { day, completed: false, type: null };
+      }
+      
+      // For today, use current signals
+      if (isToday) {
+        let type: "training" | "nutrition" | "checkin" | null = null;
+        if (signals.trainingState === "workout") {
+          type = "training";
+        } else if (signals.nutritionReady) {
+          type = "nutrition";
+        } else if (signals.checkinDoneThisWeek) {
+          type = "checkin";
+        }
+        
+        return {
+          day,
+          completed: signals.trainingState === "workout" || signals.nutritionReady || signals.checkinDoneThisWeek,
+          type,
+        };
+      }
+      
+      // Past days - placeholder (would need historical data)
+      return { day, completed: false, type: null };
+    });
+  }, [signals]);
+
+  // Prepare mini metrics for TodaySummaryCard
+  const trainingCompleted = signals.trainingState === "workout" ? 1 : 0;
+  const nutritionCompleted = signals.nutritionMealsLogged > 0 ? 1 : 0;
+  const checkinCompleted = signals.checkinDoneThisWeek ? 1 : 0;
+
   return (
-    <div className="today-page-stack flex flex-col gap-4 pb-0">
-      <header className="flex items-start justify-between gap-3 premium-page-header">
-        <div className="min-w-0">
-          <h1 className="m-0 text-[1.58rem] font-bold leading-tight text-primary">
-            Buenos días, {userName}
-          </h1>
-          <p className="m-0 mt-1 text-sm text-muted">
-            Tu enfoque de hoy en 3 acciones.
-          </p>
-        </div>
+    <div className="today-page-stack flex flex-col gap-6 pb-0">
+      {/* Block 1: Header with greeting */}
+      <TodayHeader userName={userName} />
+
+      {/* QuickLogHub - kept in header area for easy access */}
+      <div className="flex justify-end">
         <QuickLogHub
           origin="today"
           latestCheckin={null}
@@ -972,7 +1022,7 @@ export default function TodayQuickActionsClient() {
             await loadTodaySignals();
           }}
         />
-      </header>
+      </div>
 
       {status === "loading" ? <TodaySkeleton /> : null}
       {status === "error" ? (
@@ -985,6 +1035,7 @@ export default function TodayQuickActionsClient() {
 
       {status === "success" ? (
         <>
+          {/* Check-in success message */}
           {showCheckinSuccess ? (
             <section className="status-card status-card--success premium-fade-up" role="status" aria-live="polite">
               <div className="flex items-start justify-between gap-4">
@@ -1008,6 +1059,8 @@ export default function TodayQuickActionsClient() {
               </div>
             </section>
           ) : null}
+
+          {/* Empty banner when no data */}
           {showEmptyBanner ? (
             <TodayEmptyState
               description={t("today.hubEmptyDescription")}
@@ -1016,277 +1069,58 @@ export default function TodayQuickActionsClient() {
             />
           ) : null}
 
-          <section
-            className="card premium-surface-card surface-content-card today-secondary-card today-hero-card premium-fade-up"
-            data-testid="today-action-card-primary"
-          >
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                  Acción principal de hoy
-                </p>
-                <h2 className="m-0 mt-2 text-[1.95rem] font-semibold leading-tight text-primary">
-                  {signals.trainingState === "workout"
-                    ? signals.trainingName
-                    : signals.trainingState === "rest"
-                      ? "Día de recuperación"
-                      : "Configura tu plan"}
-                </h2>
-                <p className="today-hero-meta m-0 mt-3 text-sm text-muted">
-                  {trainingMeta}
-                </p>
-                {signals.trainingState === "workout" &&
-                !canStartTodayWorkout ? (
-                  <p className="m-0 mt-2 text-xs text-muted">
-                    Aun no hay sesión disponible para hoy.
-                  </p>
-                ) : null}
-                {signals.trainingStatus === "error" ? (
-                  <p className="m-0 mt-2 text-xs text-danger">
-                    No se pudo cargar tu sesión de hoy.
-                  </p>
-                ) : null}
-              </div>
-              <div className="today-hero-icon flex h-12 w-12 items-center justify-center rounded-2xl border">
-                <PremiumWorkoutIcon
-                  width={24}
-                  height={24}
-                  className="text-primary"
-                />
-              </div>
-            </div>
+          {/* Main Dashboard - 8-block premium layout */}
+          <div className="today-premium-stack flex flex-col gap-6">
+            
+            {/* Block 2: Summary Card - Daily progress overview */}
+            <TodaySummaryCard
+              dailyProgressPercent={dailyProgressPercent}
+              completedGoals={completedGoals}
+              totalGoals={3}
+              trainingCompleted={trainingCompleted}
+              trainingTotal={1}
+              nutritionCompleted={nutritionCompleted}
+              nutritionTotal={1}
+              checkinCompleted={checkinCompleted}
+              checkinTotal={1}
+            />
 
-            <div
-              className={`today-progress-inset today-hero-progress mt-1 space-y-2 ${isDailyProgressComplete ? "today-hero-progress--complete" : ""}`}
-            >
-              <div className="today-hero-progress-head text-xs">
-                <span className="today-hero-progress-label">Progreso diario</span>
-                <span
-                  className={`today-hero-progress-pill today-hero-progress-value ${isDailyProgressComplete ? "today-hero-progress-value--complete" : ""}`}
-                >
-                  {dailyProgressPercent}%
-                </span>
-              </div>
-              <ProgressBar value={dailyProgressPercent} total={100} />
-            </div>
+            {/* Block 3: View Tabs - Tab switching */}
+            <TodayViewTabs />
 
-            {signals.trainingState === "no-plan" ? (
-              <div className="mt-4 space-y-2">
-                <Button
-                  className="flex h-12 w-full rounded-xl font-semibold"
-                  onClick={handlePrimaryTrainingAction}
-                >
-                  {primaryActionLabel}
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="flex h-10 w-full rounded-xl text-sm font-medium"
-                  disabled={!hasAiAccess}
-                  onClick={() => hasAiAccess && router.push(aiPlanRoute)}
-                >
-                  {t("today.trainingAiCta")}
-                </Button>
-                {aiLockReason ? (
-                  <p className="m-0 text-xs text-muted">{aiLockReason}</p>
-                ) : null}
-              </div>
-            ) : (
-              <div className="mt-4 space-y-2">
-                <Button
-                  className="flex h-12 w-full rounded-xl font-semibold"
-                  onClick={handlePrimaryTrainingAction}
-                  disabled={
-                    signals.trainingState === "workout" && !canStartTodayWorkout
-                  }
-                >
-                  {primaryActionLabel}
-                </Button>
-                {signals.trainingState === "workout" ? (
-                  <ButtonLink
-                    as={Link}
-                    href={trainingRoute}
-                    variant="ghost"
-                    className="flex h-10 w-full rounded-xl text-sm font-medium"
-                  >
-                    Ver detalles
-                  </ButtonLink>
-                ) : null}
-              </div>
-            )}
-          </section>
+            {/* Block 4: Priority Hero - Today's workout/training */}
+            <TodayPriorityHero
+              trainingState={signals.trainingState}
+              trainingName={signals.trainingName}
+              trainingDuration={signals.trainingDuration}
+              trainingExerciseCount={signals.trainingExerciseCount}
+              todayWorkoutId={signals.todayWorkoutId}
+              hasTrainingAccess={signals.hasTrainingAccess}
+            />
 
-          <div
-            className="today-cards-grid grid md:grid-cols-2"
-            data-testid="today-actions-grid"
-          >
-            <section
-              className={`card premium-surface-card surface-content-card today-secondary-card today-nutrition-card today-nutrition-card--${nutritionCardTone} premium-fade-up`}
-              data-testid="today-action-card"
-            >
-              <div className="mb-6 flex items-center gap-3">
-                <div className="today-module-icon flex h-11 w-11 items-center justify-center rounded-xl border">
-                  <PremiumNutritionIcon
-                    width={20}
-                    height={20}
-                    className="text-primary"
-                  />
-                </div>
-                <div>
-                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Nutrición
-                  </p>
-                  <h2 className="m-0 mt-0.5 text-[1.1rem] font-semibold text-primary">
-                    Calorías
-                  </h2>
-                </div>
-              </div>
+            {/* Block 5: Nutrition Card */}
+            <TodayNutritionCard
+              consumedCalories={signals.nutritionConsumedCalories}
+              targetCalories={signals.nutritionTargetCalories}
+              proteinG={signals.nutritionProteinG}
+              carbsG={signals.nutritionCarbsG}
+              fatsG={signals.nutritionFatsG}
+              mealsLogged={signals.nutritionMealsLogged}
+              mealsTotal={signals.nutritionMealsTotal}
+            />
 
-              <div className="today-nutrition-layout mb-6">
-                <div className="today-nutrition-copy min-w-0">
-                  <p className="today-nutrition-meta-label m-0">Consumidas hoy</p>
-                  <div className="today-nutrition-kcal mt-1.5">
-                    <span className="today-nutrition-kcal-value">
-                      {nutritionPrimaryKcal === "--"
-                        ? "--"
-                        : nutritionSummaryValue}
-                    </span>
-                    {nutritionSummaryTarget ? (
-                      <span className="today-nutrition-kcal-goal">
-                        / {nutritionSummaryTarget}
-                      </span>
-                    ) : null}
-                    <span className="today-nutrition-kcal-unit">kcal</span>
-                  </div>
-                  <p className="today-nutrition-meta m-0 mt-2.5">
-                    {nutritionMetaText}
-                  </p>
-                </div>
-                <div className="today-nutrition-ring-wrap shrink-0">
-                  {canRenderNutritionRing ? (
-                    <NutritionRing
-                      value={nutritionConsumedKcal}
-                      total={nutritionGoalKcal ?? 0}
-                    />
-                  ) : (
-                    <div className="today-nutrition-empty-ring flex h-[70px] w-[70px] items-center justify-center rounded-full border">
-                      <span className="text-xs font-semibold text-muted">
-                        Sin objetivo
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+            {/* Block 6: Check-in Card - Weight tracking */}
+            <TodayCheckinCard
+              currentWeightKg={signals.currentWeightKg}
+              previousWeightKg={signals.previousWeightKg}
+              goalWeightKg={signals.goalWeightKg}
+              checkinDoneThisWeek={signals.checkinDoneThisWeek}
+              checkinTrend={signals.checkinTrend}
+            />
 
-              <div className="today-progress-inset today-nutrition-progress mb-5 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-muted">Avance nutricional</span>
-                  <span className="today-nutrition-progress-percent font-semibold text-primary">
-                    {nutritionProgressPercent}%
-                  </span>
-                </div>
-                <ProgressBar value={nutritionConsumedKcal} total={nutritionGoalKcal ?? 0} />
-                <p className="today-nutrition-progress-line m-0">{nutritionProgressLabel}</p>
-              </div>
+            {/* Block 7: Weekly Summary - Week at a glance */}
+            <TodayWeeklySummaryCard weekData={weeklyData} />
 
-              <ButtonLink
-                as={Link}
-                href="/app/nutricion"
-                variant="secondary"
-                className="today-cta-secondary flex h-11 w-full rounded-xl font-medium"
-                onClick={() =>
-                  trackEvent("nutrition_log_opened", {
-                    target: "nutrition",
-                    origin: "today",
-                  })
-                }
-              >
-                Registrar comida
-              </ButtonLink>
-            </section>
-
-            <section
-              className="card premium-surface-card surface-content-card today-secondary-card today-checkin-card premium-fade-up"
-              data-testid="today-action-card"
-            >
-              <div className="mb-5 flex items-center gap-3">
-                <div className="today-module-icon flex h-11 w-11 items-center justify-center rounded-xl border">
-                  <PremiumCheckinIcon
-                    width={20}
-                    height={20}
-                    className="text-primary"
-                  />
-                </div>
-                <div>
-                  <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
-                    Check-in
-                  </p>
-                  <h2 className="m-0 mt-0.5 text-base font-semibold text-primary">
-                    Peso actual
-                  </h2>
-                </div>
-              </div>
-
-              <div className="today-checkin-summary mb-5 space-y-3">
-                <div className="flex items-end gap-2">
-                  <span className="text-[2.75rem] font-bold leading-none text-primary">
-                    {checkinMainWeight}
-                  </span>
-                  <span className="pb-1 text-sm font-medium text-muted">
-                    kg
-                  </span>
-                </div>
-                <div className="today-checkin-meta">
-                  <p className="m-0 text-xs text-muted">{checkinContext}</p>
-                  {checkinGoalContext ? (
-                    <p className="m-0 mt-1 text-xs text-muted">
-                      {checkinGoalContext}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              {signals.checkinStatus === "error" ? (
-                <div className="today-progress-inset today-progress-inset--danger space-y-2">
-                  <p className="m-0 text-xs text-danger">
-                    No se pudo cargar check-in.
-                  </p>
-                  <Button
-                    variant="ghost"
-                    className="h-9 w-full rounded-xl text-sm"
-                    onClick={() => void loadTodaySignals()}
-                  >
-                    Reintentar
-                  </Button>
-                </div>
-              ) : signals.checkinStatus === "empty" ? (
-                <div className="today-progress-inset today-progress-inset--disabled space-y-1">
-                  <p className="m-0 text-xs font-medium text-primary">
-                    Sin check-ins recientes
-                  </p>
-                  <p className="m-0 text-xs text-muted">
-                    Añade uno para ver la variación frente al ultimo registro.
-                  </p>
-                </div>
-              ) : null}
-
-              <ButtonLink
-                as={Link}
-                href={checkinRoute}
-                variant="secondary"
-                className="today-cta-secondary mt-4 flex h-11 w-full rounded-xl font-medium"
-                data-testid="quick-action-tracking"
-                onClick={() =>
-                  trackEvent("checkin_opened", {
-                    target: "checkin",
-                    origin: "today",
-                  })
-                }
-              >
-                {signals.checkinDoneThisWeek
-                  ? "Actualizar check-in"
-                  : t("profile.checkinTitle")}
-              </ButtonLink>
-            </section>
           </div>
         </>
       ) : null}

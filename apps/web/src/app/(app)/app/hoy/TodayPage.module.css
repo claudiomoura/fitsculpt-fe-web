@@ -1,3 +1,250 @@
+/* ============================================
+   PREMIUM DARK THEME - PHASE 1 FOUNDATION
+   WITH RESPONSIVE FIXES
+   ============================================ */
+
+/* CSS Custom Properties - Premium Dark Theme */
+.todayScope {
+  /* Page gradient colors */
+  --today-bg-page-top: #0E5A68;
+  --today-bg-page-mid: #0E4266;
+  --today-bg-page-bottom: #020B1D;
+  
+  /* Accent colors */
+  --today-accent-primary: rgba(0, 180, 160, 0.18);
+  --today-accent-secondary: rgba(35, 120, 255, 0.14);
+  
+  /* Card styling */
+  --today-card-radius: 42px;
+  --today-border-accent: 2px;
+  --today-card-shadow: 0 8px 32px rgba(0, 180, 160, 0.10);
+  
+  /* Typography scale - MOBILE BASE */
+  --today-title-size: 32px;
+  --today-headline-large: 28px;
+  --today-headline-medium: 24px;
+  --today-body-size: 16px;
+  --today-label-size: 12px;
+  
+  /* Spacing system - MOBILE BASE */
+  --today-spacing-lateral: 16px;
+  --today-spacing-vertical-lg: 24px;
+  --today-spacing-vertical-md: 20px;
+  --today-spacing-vertical-sm: 16px;
+  --today-spacing-vertical-xs: 12px;
+  
+  /* Donut/Progress ring sizes - MOBILE BASE */
+  --today-donut-main: 140px;
+  --today-donut-mini: 100px;
+  --today-donut-nutrition: 80px;
+  
+  /* Premium dark gradient background */
+  background: 
+    radial-gradient(circle at 18% 4%, rgba(0, 180, 160, 0.18) 0%, transparent 28%),
+    radial-gradient(circle at 78% 6%, rgba(35, 120, 255, 0.14) 0%, transparent 26%),
+    linear-gradient(180deg, #0E5A68 0%, #0E4266 18%, #071A3A 50%, #020B1D 100%);
+  min-height: 100vh;
+  padding: var(--today-spacing-vertical-md) var(--today-spacing-lateral);
+  box-sizing: border-box;
+}
+
+/* DESKTOP OVERRIDES - 1024px+ */
+@media (min-width: 1024px) {
+  .todayScope {
+    /* Typography - scale down for desktop to avoid inflation */
+    --today-title-size: 36px;
+    --today-headline-large: 32px;
+    --today-headline-medium: 28px;
+    --today-body-size: 16px;
+    --today-label-size: 11px;
+    
+    /* Spacing - more sober on desktop */
+    --today-spacing-lateral: 24px;
+    --today-spacing-vertical-lg: 28px;
+    --today-spacing-vertical-md: 20px;
+    --today-spacing-vertical-sm: 16px;
+    --today-spacing-vertical-xs: 12px;
+    
+    /* Donut sizes - moderate, not huge */
+    --today-donut-main: 160px;
+    --today-donut-mini: 120px;
+    --today-donut-nutrition: 96px;
+  }
+}
+
+/* LARGE DESKTOP - 1280px+ */
+@media (min-width: 1280px) {
+  .todayScope {
+    /* Typography - slightly larger but still proportional */
+    --today-title-size: 40px;
+    --today-headline-large: 36px;
+    --today-headline-medium: 32px;
+    --today-body-size: 17px;
+    --today-label-size: 12px;
+    
+    /* Spacing - balanced for large screens */
+    --today-spacing-lateral: 32px;
+    --today-spacing-vertical-lg: 32px;
+    --today-spacing-vertical-md: 24px;
+    --today-spacing-vertical-sm: 20px;
+    --today-spacing-vertical-xs: 16px;
+    
+    /* Donut sizes */
+    --today-donut-main: 180px;
+    --today-donut-mini: 140px;
+    --today-donut-nutrition: 108px;
+  }
+}
+
+/* Typography within premium scope */
+.todayScope :global(.today-page-title),
+.todayScope :global(h1) {
+  font-size: var(--today-title-size);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.todayScope :global(.today-headline-large),
+.todayScope :global(.today-headline-large) {
+  font-size: var(--today-headline-large);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.todayScope :global(.today-headline-medium),
+.todayScope :global(.today-headline-medium) {
+  font-size: var(--today-headline-medium);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.todayScope :global(.today-body-text),
+.todayScope :global(.today-body-text) {
+  font-size: var(--today-body-size);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.todayScope :global(.today-label),
+.todayScope :global(.today-label),
+.todayScope :global(.today-label) {
+  font-size: var(--today-label-size);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Responsive premium stack - main container */
+.todayScope :global(.today-premium-stack) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--today-spacing-vertical-md);
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Premium card base styles */
+.todayScope :global(.today-premium-card),
+.todayScope :global(.today-dashboard-card) {
+  border-radius: var(--today-card-radius);
+  border: var(--today-border-accent) solid var(--border-accent, rgba(0, 180, 160, 0.3));
+  box-shadow: var(--today-card-shadow);
+  background: rgba(14, 66, 102, 0.3);
+  backdrop-filter: blur(8px);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Desktop card sizing - more compact */
+@media (min-width: 1024px) {
+  .todayScope :global(.today-premium-card),
+  .todayScope :global(.today-dashboard-card) {
+    /* Cards use available width, not fixed 980px */
+    max-width: 100%;
+  }
+}
+
+/* Spacing system - vertical gaps */
+.todayScope :global(.today-page-stack) {
+  gap: var(--today-spacing-vertical-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.todayScope :global(.today-section-lg) {
+  margin-bottom: var(--today-spacing-vertical-lg);
+}
+
+.todayScope :global(.today-section-md) {
+  margin-bottom: var(--today-spacing-vertical-md);
+}
+
+.todayScope :global(.today-section-sm) {
+  margin-bottom: var(--today-spacing-vertical-sm);
+}
+
+.todayScope :global(.today-section-xs) {
+  margin-bottom: var(--today-spacing-vertical-xs);
+}
+
+/* Responsive: Desktop uses more compact spacing */
+@media (min-width: 1024px) {
+  .todayScope :global(.today-page-stack) {
+    gap: var(--today-spacing-vertical-md);
+  }
+  
+  .todayScope :global(.today-section-lg),
+  .todayScope :global(.today-section-md),
+  .todayScope :global(.today-section-sm),
+  .todayScope :global(.today-section-xs) {
+    margin-bottom: var(--today-spacing-vertical-sm);
+  }
+}
+
+/* Donut/Progress ring premium styles */
+.todayScope :global(.today-ring-premium) {
+  width: var(--today-donut-main);
+  height: var(--today-donut-main);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--accent);
+  background: rgba(14, 66, 102, 0.4);
+  box-shadow: var(--today-card-shadow);
+  flex-shrink: 0;
+}
+
+.todayScope :global(.today-ring-premium-value) {
+  font-size: var(--today-headline-medium);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.todayScope :global(.today-nutrition-ring-premium) {
+  width: var(--today-donut-nutrition);
+  height: var(--today-donut-nutrition);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--accent);
+  background: rgba(14, 66, 102, 0.4);
+  box-shadow: var(--today-card-shadow);
+  flex-shrink: 0;
+}
+
+.todayScope :global(.today-nutrition-ring-premium-value) {
+  font-size: var(--today-body-size);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Legacy compatibility - preserve existing styles */
 .todayScope :global(.today-inline-state) {
   border-radius: var(--surface-card-radius);
   border: 1px solid var(--surface-border-default);
@@ -14,37 +261,37 @@
   border-color: color-mix(in srgb, var(--surface-border-default) 92%, transparent);
 }
 
-.todayScope :global(.today-page-stack) {
-  gap: 16px;
+/* Ring styles */
+.todayScope :global(.today-ring) {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--accent);
+  background: var(--surface-inset-bg);
 }
 
-/* Unified Hero Section - Single View Mobile Design */
-.todayScope :global(.today-hero-card) {
-  padding: 24px 20px;
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 14%, transparent) 0%, transparent 38%),
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 48%),
-    var(--surface-primary-bg);
-  border-radius: 20px;
-  position: relative;
-  overflow: hidden;
+.todayScope :global(.today-ring-value) {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-/* Make all cards full-width and stacked */
-.todayScope :global(.today-secondary-card) {
-  background: var(--surface-secondary-bg);
-  border-color: color-mix(in srgb, var(--surface-border-default) 88%, transparent);
-  padding: 20px;
-  border-radius: 16px;
+/* Progress indicator */
+.todayScope :global(.today-progress-dot) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
 }
 
-.todayScope :global(.today-cards-grid) {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 0;
+/* Status badge */
+.todayScope :global(.today-status-badge) {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* Override grid to stack on mobile */
@@ -63,27 +310,6 @@
   }
 }
 
-.todayScope :global(.today-hero-card) {
-  padding: 24px 20px;
-  background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 14%, transparent) 0%, transparent 38%),
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 48%),
-    var(--surface-primary-bg);
-  border-radius: 20px;
-}
-
-/* Mobile hero adjustments */
-@media (max-width: 640px) {
-  .todayScope :global(.today-hero-card) {
-    padding: 20px 16px;
-    border-radius: 16px;
-  }
-  
-  .todayScope :global(.today-hero-card h2) {
-    font-size: 1.5rem;
-  }
-}
-
 .todayScope :global(.today-hero-icon),
 .todayScope :global(.today-module-icon) {
   background: color-mix(in srgb, var(--surface-inset-bg) 82%, transparent);
@@ -93,20 +319,8 @@
 
 .todayScope :global(.today-hero-meta) {
   max-width: 32rem;
-  line-height: 1.55;
-}
-
-.todayScope :global(.today-secondary-card) {
-  background: var(--surface-secondary-bg);
-  border-color: color-mix(in srgb, var(--surface-border-default) 88%, transparent);
-  padding: 24px;
-}
-
-.todayScope :global(.today-cards-grid) {
-  align-items: stretch;
-  column-gap: 16px;
-  row-gap: 10px;
-  margin-top: 10px;
+  line-height: 1.4;
+  font-size: 0.85rem;
 }
 
 .todayScope :global(.today-nutrition-card) {
@@ -116,8 +330,8 @@
   border-color: color-mix(in srgb, var(--today-donut-fill) 14%, var(--surface-border-default));
   box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
   margin-top: 0px;
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 12px 14px;
 }
 
 /* Mobile single-view optimization */
@@ -150,9 +364,9 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  margin-top: 12px;
-  border-radius: 16px;
-  padding: 20px;
+  margin-top: 8px;
+  border-radius: 14px;
+  padding: 12px 14px;
   background: var(--surface-secondary-bg);
 }
 
