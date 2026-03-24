@@ -46,7 +46,9 @@ export default function ProfileSummaryClient() {
   const [measurementSystem, setMeasurementSystem] = useState<MeasurementSystem>("metric");
 
   useEffect(() => {
-    setMeasurementSystem(getStoredMeasurementSystem());
+    queueMicrotask(() => {
+      setMeasurementSystem(getStoredMeasurementSystem());
+    });
 
     const handleMeasurementSystemChange = () => {
       setMeasurementSystem(getStoredMeasurementSystem());

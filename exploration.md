@@ -1,76 +1,225 @@
-## Exploration: Training v2 Implementation
+## Exploration: beta-close-nutrition
 
-### Current State
-The current training plan generation endpoint (`/ai/training-plan/generate`) uses an AI-first approach with fallbacks. It calls OpenAI to generate a training plan, then resolves exercise IDs, and if that fails, uses a deterministic fallback. The endpoint supports caching and has a complex flow for handling AI responses, retries, and fallbacks.
+### 1. Smoke Beta Infrastructure (Sprint 1)
 
-The frontend (`apps/web/src/components/training-plan/aiPlanGeneration.ts`) calls the endpoint at `/api/ai/training-plan/generate`.
+#### What Exists
+- **`apps/web/scripts/run-beta-smoke.mjs`**: Runs 2 specs sequentially: `e2e/core-loop.spec.ts` + `e2e/nutrition-checkin-core.spec.ts` (+ optional `e2e/token-lifecycle.spec.ts` via env var).
+- **`package.json ci:e2e:smoke`**: Runs `e2e/library-smoke.spec.ts` — **different spec** from the beta smoke.
+- **`docs/beta-readiness.md`**: References `e2e/gym-nutrition-flow.spec.ts` as the smoke pack spec — **third different spec**.
+- **`apps/web/playwright.config.ts`**: Proper Playwright config with global setup, auth state, web server.
 
-The current flow does not separate the concerns of:
-- Context resolution (gathering user data)
-- Candidate selection (pre-filtering exercises from DB)
-- Day skeleton building
-- AI selection (only choosing from pre-fetched candidates)
-- Local prescription (sets, reps, rest, tempo)
-- Local validation and repair (per slot, without falling back the entire plan for one invalid ID)
+#### What's Missing / Broken
+- **Three disconnected smoke concepts**:
+  1. `run-beta-smoke.mjs` → core-loop + nutrition-checkin (what devs actually run)
+  2. `ci:e2e:smoke` → library-smoke only (what CI runs)
+  3. `beta-readiness.md` → gym-nutrition-flow (documented but not automated)
+- **`gym-nutrition-flow.spec.ts`** is the most comprehensive spec (manager creates plan → assigns → member sees it → navigates days) but is **not in the automated smoke pack**.
+- **No `smoke` npm script** exists in `apps/web/package.json` — the `beta-readiness.md` says `pnpm --filter web smoke` should work but there's no script for it.
+- The `core-loop.spec.ts` spec doesn't actually write anything (anti-regression only) — it verifies the check-in page opens but doesn't submit.
+- The `nutrition-checkin-core.spec.ts` spec is minimal: checks if a plan exists or shows empty state, clicks a breakfast button if present, then navigates to check-in and submits.
 
-The goal of Training v2 is to replace the LLM-centric generation with a pipeline where:
-- The backend builds the structure/prescription locally.
-- The AI only chooses between candidates from the DB.
-- The output is operationally DB-only (exerciseId).
-- This aims for better quality and lower cost.
+#### Key Files
+| File | Purpose |
+|------|---------|
+| `apps/web/scripts/run-beta-smoke.mjs` | Beta smoke runner |
+| `apps/web/e2e/core-loop.spec.ts` | Core loop E2E (no writes) |
+| `apps/web/e2e/nutrition-checkin-core.spec.ts` | Nutrition + checkin E2E |
+| `apps/web/e2e/gym-nutrition-flow.spec.ts` | Full gym nutrition flow (not in smoke) |
+| `apps/web/e2e/library-smoke.spec.ts` | Library smoke (CI smoke target) |
+| `apps/web/playwright.config.ts` | Playwright config |
+| `docs/beta-readiness.md` | Smoke pack documentation |
+| `docs/beta-catalog-checklist.md` | Recipe catalog validation |
 
-### Affected Areas
-- `apps/api/src/domains/ai/registerAiRoutes.ts`: We will add a new endpoint for v2 and modify the existing training plan generation logic to support the new pipeline.
-- `apps/api/src/ai/training-plan/*`: We will need to create new modules for the v2 pipeline (context resolver, candidate selector, etc.)
-- `apps/web/src/components/training-plan/aiPlanGeneration.ts`: We will update the frontend to use the new v2 endpoint (with fallback to v1 for safety).
-- We may need to adjust the exercise catalog loading to support pre-filtering.
-- We will need to adjust the caching to version the v2 cache.
+#### Recommendation
+- Unify: create a single `smoke` script in `apps/web/package.json` that runs the actual beta smoke pack.
+- Decide which specs constitute the beta smoke: `run-beta-smoke.mjs` approach (core-loop + nutrition-checkin) vs. `beta-readiness.md` approach (gym-nutrition-flow).
+- If `gym-nutrition-flow` is needed for beta, add it to `run-beta-smoke.mjs` with a timeout guard.
+- Update `beta-readiness.md` to match the actual smoke pack.
 
-### Approaches
-We can consider two main approaches:
+---
 
-1. **Complete Replacement**: Replace the existing training plan generation with the new v2 pipeline entirely, but keep the old endpoint for backward compatibility.
-   - Pros: Clean separation, easier to maintain v2 without interfering with v1.
-   - Cons: More duplication initially, but we can share some utilities.
+### 2. Nutrition Quick Log Current State (Sprint 2)
 
-2. **Incremental Refactor**: Gradually replace parts of the existing pipeline with v2 components, but this might be more complex and risky.
+#### What Exists
+- **`apps/web/src/lib/nutritionAdherence.ts`**: Custom hook `useNutritionAdherence` that:
+  - Fetches from `/api/tracking` (which proxies to backend `GET /tracking`)
+  - Builds a `store: Record<string, string[]>` mapping date → mealKey arrays from `tracking.mealLog`
+  - `toggle()` does POST to `/api/tracking` (creates mealLog entry) or DELETE to `/api/tracking/mealLog/{id}`
+  - Uses a custom `fs:nutrition-adherence-changed` window event for cross-tab sync
+- **`apps/web/src/lib/nutritionQuickFavorites.ts`**: Device-local `localStorage` only, no backend persistence.
+- **`apps/web/src/services/tracking.ts`**: Types for `MealLogEntry`, `CheckinEntry`, `FoodEntry`, `WorkoutEntry`.
 
-Given the requirement to not break existing endpoints and to have a safe rollout, we choose Approach 1.
+#### Backend Storage
+- **All tracking data lives in `UserProfile.tracking` as a JSON blob** — no dedicated MealLog table in Prisma.
+- `apps/api/src/tracking/service.ts`: Normalizes and upserts tracking entries into the JSON blob.
+- `apps/api/src/tracking/schemas.ts`: Zod schemas including `mealLogEntrySchema`.
+- `apps/api/src/index.ts`:
+  - `GET /tracking` → returns normalized snapshot
+  - `POST /tracking` → validates `trackingEntryCreateSchema`, upserts into JSON blob
+  - `DELETE /tracking/:collection/:id` → removes from JSON blob array
 
-We will:
-- Keep the existing `/ai/training-plan/generate` endpoint (v1) unchanged.
-- Add a new endpoint `/ai/training-plan/generate-v2` (or similar) that uses the new pipeline.
-- Update the frontend to use the new endpoint, but with a fallback to the old one if the new one fails (for a temporary period).
+#### Data Flow
+```
+Frontend (nutritionAdherence.toggle)
+  → POST /api/tracking { collection: "mealLog", item: { ... } }
+    → BFF /api/tracking/route.ts (proxies to backend)
+      → Backend POST /tracking (upserts into UserProfile.tracking JSON)
+```
 
-The v2 pipeline will consist of:
-a. Context Resolver: Gathers and validates user context (age, sex, etc.) from profile and request.
-b. Candidate Selector: Queries the DB for exercises that match the user's equipment, focus, etc., and returns a curated list.
-c. Day Skeleton Builder: Creates a basic structure of the training plan (which days, what focus per day) based on the user's goal, level, and days per week.
-d. AI Selector: Takes the day skeleton and the candidate list, and uses the AI to select the best exercise for each slot (only returning exerciseId).
-e. Prescription Engine: Locally determines sets, reps, rest, tempo for each selected exercise based on the user's level, goal, and day focus.
-f. Validator/Repair: Checks each slot for validity (exerciseId exists in DB, prescription is appropriate) and repairs locally without invalidating the entire plan.
-g. Versioned Cache: Uses a cache key that includes a version for the v2 pipeline to avoid stale caches.
+#### What's Missing
+- **No dedicated meal completion endpoint** — meals are "completed" by adding a `mealLog` entry to the tracking JSON blob. There's no `POST /meals/:id/complete` style endpoint.
+- **No nutrition adherence aggregation** — the frontend must fetch ALL tracking data and filter `mealLog` entries client-side.
+- **nutritionQuickFavorites are device-local only** — they don't survive device changes or account recovery.
+- **`readNutritionAdherenceStore`** returns an empty object `{}` (line 37) — it's a no-op stub, not reading from localStorage.
 
-We will also define a clear contract for the v2 endpoint request and response.
+#### Key Files
+| File | Purpose |
+|------|---------|
+| `apps/web/src/lib/nutritionAdherence.ts` | Frontend adherence hook + toggle logic |
+| `apps/web/src/lib/nutritionQuickFavorites.ts` | Device-local favorites (localStorage) |
+| `apps/web/src/services/tracking.ts` | Tracking types (MealLogEntry, etc.) |
+| `apps/web/src/app/api/tracking/route.ts` | BFF proxy for tracking |
+| `apps/web/src/app/api/tracking/[collection]/[id]/route.ts` | BFF DELETE proxy |
+| `apps/api/src/tracking/schemas.ts` | Backend Zod schemas for tracking |
+| `apps/api/src/tracking/service.ts` | Backend normalize + upsert logic |
+| `apps/api/src/index.ts` (lines 6527-6639) | Backend tracking CRUD endpoints |
 
-The request will be similar to the current training plan generate request, but we may streamline it.
-The response will include the training plan with exerciseIds filled in, and metadata about the generation (mode, usage, etc.).
+---
 
-We will ensure that the v2 endpoint does not break the existing v1 endpoint.
+### 3. Data Integrity in Check-in
 
-We will also write tests for the v2 pipeline.
+#### What Exists
+- **Frontend validation** in `TrackingClient.tsx` (line 498-500): `weightKg` must be 30-250.
+- **Backend schema** in `tracking/schemas.ts`: `weightKg: z.number()` — **no range validation**.
+- **`normalizeCheckinEntry`** in `tracking/service.ts`: Uses `toNumber(entry.weightKg)` — returns 0 as fallback.
+- **Quick weight log** in `QuickLogHub.tsx`: `checkinFromWeight()` copies body measurements from `latestCheckin` — if null, writes 0s.
 
-We will maintain consistency of media/images by always hydrating from the DB (which we already do in the exercise resolution).
+#### Health Snapshot
+- **`POST /api/tracking/health/snapshots`** → proxies to backend `POST /tracking/health/snapshots`.
+- Backend stores passive health data in the same `UserProfile.tracking` JSON blob under `passiveData.snapshots`.
+- Schema validates `steps`, `activeCalories`, `sleepHours`, etc. with proper nullable bounds.
 
-### Risks
-- The new pipeline might not cover all edge cases that the current AI-generated plans handle.
-- There might be a performance impact due to additional DB queries (we will need to optimize and cache).
-- The AI selector might not be as creative as the current full prompt, but we expect it to be more reliable and cheaper.
+#### What's Missing
+- Backend `weightKg` has no min/max validation — could accept 0, negative, or impossibly large values.
+- No server-side sanitization of checkin body measurements when the user submits from QuickLogHub (0 values from missing latestCheckin).
+- The `checkinSchema` makes all body measurement fields required numbers (not nullable) — they default to 0 when absent.
 
-### Mitigations
-- We will run the v2 pipeline in parallel with v1 for a period and compare results.
-- We will start with a limited rollout (e.g., only for new users or a percentage of traffic).
-- We will ensure that the v2 pipeline has a robust fallback to v1 in the frontend (temporarily) and eventually to a deterministic fallback in the backend.
+#### Key Files
+| File | Purpose |
+|------|---------|
+| `apps/web/src/app/(app)/app/seguimiento/TrackingClient.tsx` | Check-in form + weightKg validation |
+| `apps/web/src/components/quick-log/QuickLogHub.tsx` | Quick weight log (copies from latestCheckin) |
+| `apps/api/src/tracking/schemas.ts` | `checkinSchema` (no range validation) |
+| `apps/api/src/tracking/service.ts` | `normalizeCheckinEntry` (0 fallback) |
+| `apps/api/src/routes/passiveHealth.ts` | Passive health snapshot routes |
 
-### Ready for Proposal
-Yes
+---
+
+### 4. BFF Contract Gaps
+
+#### Expected (from `docs/contracts/BETA11_CRITICAL_ENDPOINTS.md`)
+- `POST /api/ai/nutrition-plan/generate` ✅ exists
+- `GET /api/ai/quota` ✅ exists
+- `GET /api/billing/status` ✅ exists
+- `GET /api/training-plans/active` ✅ exists
+
+#### Existing BFF Routes (from `bff-endpoints.md`)
+- `/api/nutrition-plans` (GET) ✅
+- `/api/nutrition-plans/[id]` (GET) ✅
+- `/api/nutrition-plans/assigned` (GET) ✅
+- `/api/tracking` (GET, POST, PUT) ✅
+- `/api/tracking/[collection]/[id]` (DELETE) ✅
+- `/api/tracking/health` (GET, PUT) ✅
+- `/api/tracking/health/snapshots` (POST) ✅
+- `/api/user-foods` (GET, POST) ✅
+- `/api/user-foods/[id]` (PUT, DELETE) ✅
+
+#### What's Missing
+- No BFF route for **nutrition adherence aggregation** (today's meals, adherence %).
+- No BFF route for **meal completion** separate from the generic tracking POST.
+- The `BETA11_CRITICAL_ENDPOINTS.md` doesn't cover tracking or nutrition plan CRUD endpoints — it only covers AI, billing, and training-plans/active.
+- The contracts test `apps/web/src/test/betaCriticalBff.contract.test.ts` tests AI + billing endpoints but **not tracking endpoints**.
+
+---
+
+### 5. Existing Test Coverage
+
+#### E2E Specs
+| Spec | What it covers | In smoke pack? |
+|------|---------------|----------------|
+| `core-loop.spec.ts` | Login → Today → Check-in CTA opens (no writes) | ✅ beta smoke |
+| `nutrition-checkin-core.spec.ts` | Nutrition plan exists/empty → log breakfast → checkin submit | ✅ beta smoke |
+| `gym-nutrition-flow.spec.ts` | Manager creates + assigns plan → member sees + navigates days | ❌ not automated |
+| `library-smoke.spec.ts` | Login → Library → exercise detail | ✅ CI smoke |
+| `token-lifecycle.spec.ts` | AI token balance lifecycle | ❌ optional (env gated) |
+| `gym-flow.spec.ts` | Gym join flow | ❌ not in smoke |
+
+#### Unit Tests (Web)
+| Test | Coverage |
+|------|----------|
+| `nutritionPlan.test.ts` | `normalizeNutritionPlan` day expansion |
+| `nutritionPlanLibrary.test.ts` | Plan library selection logic |
+| `nutritionPlanLibrarySelection.test.tsx` | Library selection UI |
+| `nutritionPlanSelectionPropagation.test.tsx` | Plan selection propagation |
+| `trackingProfessionalMetrics.test.ts` | Weight trend, weekly averages |
+
+#### Unit Tests (API)
+| Test | Coverage |
+|------|----------|
+| `tracking.write.contract.test.ts` | Tracking entry upsert + normalization |
+| `nutritionVarietyGuardRegression.test.ts` | Nutrition plan variety guard |
+| `nutritionRecipeIds.contract.test.ts` | Recipe ID resolution |
+| `nutritionPlanRegression.contract.test.ts` | Plan regression |
+| `nutritionRetry.test.ts` | Nutrition retry logic |
+| `nutritionRecipeCatalog.test.ts` | Recipe catalog resolution |
+| `nutritionMathValidation.test.ts` | Macro math validation |
+| `gymNutritionRoutes.contract.test.ts` | Gym nutrition route existence |
+
+#### What's Missing
+- **No E2E test for quick meal logging** (the QuickLogHub component flow).
+- **No E2E test for nutrition adherence toggle** (clicking a meal to mark as consumed).
+- **No unit test for `nutritionAdherence.ts`** (the `buildNutritionAdherenceStoreFromMealLog` function and `toggle` logic).
+- **No integration test for the full tracking write → read cycle** (POST mealLog → GET tracking → verify mealLog appears).
+- **No test for `nutritionQuickFavorites.ts`** (localStorage persistence).
+
+---
+
+### 6. Prisma Models for Nutrition
+
+#### Relevant Models
+| Model | Purpose | Relational? |
+|-------|---------|-------------|
+| `NutritionPlan` | User's nutrition plan | ✅ Full table |
+| `NutritionDay` | Day within a plan | ✅ FK to plan |
+| `NutritionMeal` | Meal within a day | ✅ FK to day |
+| `NutritionIngredient` | Ingredient in a meal | ✅ FK to meal |
+| `UserFood` | Custom food items | ✅ Full table |
+| `Recipe` | Recipe catalog | ✅ Full table |
+| `RecipeIngredient` | Ingredient in recipe | ✅ FK to recipe |
+| `UserProfile` | Profile + tracking blob | JSON `tracking` field |
+| `GymMembership` | Has `assignedNutritionPlanId` | ✅ FK to NutritionPlan |
+
+**Key observation**: Nutrition plans are fully relational, but **meal logging (adherence) has no dedicated table** — it's embedded in the `UserProfile.tracking` JSON blob.
+
+---
+
+### Summary: Risks and Gotchas
+
+1. **Smoke pack is fragmented**: 3 different smoke concepts exist. CI runs a different spec than the beta smoke script, and the docs reference a third. This will cause confusion.
+
+2. **No `weightKg` backend validation**: The backend accepts any number for weight, including 0 or negative. The frontend validates 30-250 but the API doesn't enforce it.
+
+3. **JSON blob for tracking**: All tracking data lives in `UserProfile.tracking` JSON. This works for beta but will not scale for:
+   - Querying (can't use SQL WHERE on JSON fields efficiently)
+   - Concurrent writes (upserting entire blob)
+   - Analytics (need to parse JSON for every aggregation)
+
+4. **QuickFavorites are device-local only**: `nutritionQuickFavorites.ts` uses `localStorage` exclusively. Users lose favorites when switching devices.
+
+5. **`readNutritionAdherenceStore` is a no-op**: Returns `{}` always. The hook only works via the `fetchTrackingSnapshot` async path.
+
+6. **QuickLogHub `checkinFromWeight` writes 0s**: When `latestCheckin` is null, it writes `chestCm: 0`, `waistCm: 0`, etc. — potentially corrupting the checkin history with zeroed measurements.
+
+7. **No dedicated meal completion API**: Meal "completion" is done by POSTing to the generic `/tracking` endpoint with a `mealLog` collection item. This is functionally correct but not discoverable.
+
+8. **`gym-nutrition-flow.spec.ts` is the best E2E smoke** but isn't in any automated smoke pack — it requires two authenticated users (manager + member) and API calls.

@@ -130,17 +130,17 @@ export default function TrainingLibraryClient() {
   useEffect(() => {
     if (queryPlanId) {
       persistSelectedPlanId(queryPlanId);
-      setSelectedPlanId(queryPlanId);
+      queueMicrotask(() => setSelectedPlanId(queryPlanId));
       return;
     }
 
     const storedPlanId = readStoredSelectedPlanId();
     if (!storedPlanId) {
-      setSelectedPlanId(null);
+      queueMicrotask(() => setSelectedPlanId(null));
       return;
     }
 
-    setSelectedPlanId(storedPlanId);
+    queueMicrotask(() => setSelectedPlanId(storedPlanId));
     const nextParams = new URLSearchParams(searchParamsString);
     nextParams.set("planId", storedPlanId);
     router.replace(`${pathname}?${nextParams.toString()}`);
@@ -329,7 +329,6 @@ export default function TrainingLibraryClient() {
 
     setSelectedPlanId(normalizedPlanId);
     persistSelectedPlanId(normalizedPlanId);
-    window.localStorage.setItem(TRAINING_PLANS_UPDATED_AT_KEY, String(Date.now()));
 
     const nextParams = new URLSearchParams(searchParamsString);
     nextParams.set("planId", normalizedPlanId);

@@ -148,6 +148,59 @@ async function seedDemoExercises() {
   }
 }
 
+const SMOKE_TEST_USERS = [
+  { email: "smoke-free@test.com", role: "USER", plan: "FREE" as const },
+  { email: "smoke-pro@test.com", role: "USER", plan: "PRO" as const },
+  { email: "smoke-gym@test.com", role: "ADMIN", plan: "PRO" as const },
+  { email: "smoke-member@test.com", role: "USER", plan: "FREE" as const },
+];
+
+async function seedSmokeTestUsers() {
+  const passwordHash = await bcrypt.hash("SmokeTest123!", PASSWORD_SALT_ROUNDS);
+  
+  for (const user of SMOKE_TEST_USERS) {
+    // First ensure user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: user.email },
+      include: { profile: true }
+    });
+    
+    if (!existingUser) {
+      await prisma.user.create({
+        data: {
+          email: user.email,
+          passwordHash,
+          provider: "email",
+          role: user.role,
+          emailVerifiedAt: new Date(),
+          profile: {
+            create: {
+              profile: {
+                firstName: user.email.split("@")[0],
+                lastName: "Test",
+                plan: user.plan,
+              }
+            }
+          }
+        }
+      });
+    } else {
+      await prisma.user.update({
+        where: { email: user.email },
+        data: {
+          passwordHash,
+          provider: "email",
+          role: user.role,
+          emailVerifiedAt: new Date(),
+          deletedAt: null,
+          isBlocked: false,
+        }
+      });
+    }
+  }
+  console.log(`Smoke test users seeded: ${SMOKE_TEST_USERS.map(u => u.email).join(", ")}`);
+}
+
 async function main() {
   assertSeedAllowed();
 
@@ -156,14 +209,16 @@ async function main() {
   await seedDemoAdmin(demoAdminEmail, demoAdminPassword);
   await seedDemoGym(demoGymName, demoGymCode);
   await seedDemoExercises();
+  await seedSmokeTestUsers();
 
-  const [users, gyms, exercises] = await Promise.all([
+  const [users, gyms, exercises, smokeUsers] = await Promise.all([
     prisma.user.count({ where: { email: demoAdminEmail } }),
     prisma.gym.count({ where: { OR: [{ code: demoGymCode.trim().toUpperCase() }, { name: demoGymName }] } }),
     prisma.exercise.count(),
+    prisma.user.count({ where: { email: { in: SMOKE_TEST_USERS.map(u => u.email) } } }),
   ]);
 
-  console.log(`Demo seed complete: users=${users}, gyms=${gyms}, exercises=${exercises}`);
+  console.log(`Demo seed complete: users=${users}, gyms=${gyms}, exercises=${exercises}, smokeUsers=${smokeUsers}`);
 }
 
 main()

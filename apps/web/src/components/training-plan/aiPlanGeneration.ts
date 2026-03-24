@@ -137,83 +137,36 @@ function tryParseJson(value: unknown): unknown {
   }
 }
 
-export async function requestAiTrainingPlan(profile: ProfileData, input: TrainingPreferencesInput): Promise<TrainingPlanAiResult> {
-  const startDate = toDateKey(startOfWeek(new Date()));
-  const aiRequestId = createAiRequestId();
-  const response = await fetch("/api/ai/training-plan/generate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      name: profile.name || undefined,
-      age: profile.age,
-      sex: profile.sex,
-      experienceLevel: input.level,
-      goal: input.goal,
-      goals: profile.goals,
-      equipment: input.equipment,
-      daysPerWeek: input.daysPerWeek,
-      startDate,
-      daysCount: 7,
-      sessionTime: input.sessionTime,
-      focus: input.focus,
-      timeAvailableMinutes: input.sessionTime === "short" ? 35 : input.sessionTime === "medium" ? 50 : 65,
-      includeCardio: profile.trainingPreferences.includeCardio,
-      includeMobilityWarmups: profile.trainingPreferences.includeMobilityWarmups,
-      workoutLength: profile.trainingPreferences.workoutLength,
-      timerSound: profile.trainingPreferences.timerSound,
-      aiRequestId,
-      injuries: profile.injuries || undefined,
-      restrictions: profile.notes || undefined,
-    }),
-  });
+function buildTrainingRequestBody(profile: ProfileData, input: TrainingPreferencesInput, startDate: string, aiRequestId: string) {
+  return {
+    name: profile.name || undefined,
+    age: profile.age,
+    sex: profile.sex,
+    experienceLevel: input.level,
+    goal: input.goal,
+    goals: profile.goals,
+    equipment: input.equipment,
+    daysPerWeek: input.daysPerWeek,
+    startDate,
+    daysCount: 7,
+    sessionTime: input.sessionTime,
+    focus: input.focus,
+    timeAvailableMinutes: input.sessionTime === "short" ? 35 : input.sessionTime === "medium" ? 50 : 65,
+    includeCardio: profile.trainingPreferences.includeCardio,
+    includeMobilityWarmups: profile.trainingPreferences.includeMobilityWarmups,
+    workoutLength: profile.trainingPreferences.workoutLength,
+    timerSound: profile.trainingPreferences.timerSound,
+    aiRequestId,
+    injuries: profile.injuries || undefined,
+    restrictions: profile.notes || undefined,
+  };
+}
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as
-      | { error?: string; code?: string; kind?: string; message?: string; retryAfterSec?: number; hint?: string }
-      | null;
-    const rawErrorCode = typeof payload?.error === "string" ? payload.error : payload?.code;
-    const errorCode = normalizeAiErrorCode(rawErrorCode);
-    const userMessage = sanitizeBackendMessage(payload?.message) ?? sanitizeBackendMessage(payload?.error) ?? undefined;
-    if (errorCode === "INSUFFICIENT_TOKENS") {
-      throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status, {
-        code: errorCode,
-        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
-        hint: payload?.hint,
-        userMessage,
-      });
-    }
-    if (response.status === 400) {
-      throw new AiPlanRequestError("AI_INPUT_INVALID", response.status, {
-        code: errorCode ?? "AI_INPUT_INVALID",
-        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
-        hint: payload?.hint,
-        userMessage,
-      });
-    }
-    if (response.status === 429) {
-      throw new AiPlanRequestError("RATE_LIMITED", response.status, {
-        code: errorCode ?? "RATE_LIMITED",
-        kind: typeof payload?.kind === "string" ? payload.kind : undefined,
-        hint: payload?.hint,
-        userMessage,
-      });
-    }
-    throw new AiPlanRequestError("AI_GENERATION_FAILED", response.status, {
-      code: errorCode ?? undefined,
-      kind: typeof payload?.kind === "string" ? payload.kind : undefined,
-      hint: payload?.hint,
-      userMessage,
-    });
-  }
-
-  const rawData = tryParseJson(await response.json());
+function parseTrainingResponse(rawData: unknown): TrainingPlanAiResult | null {
   const data = isRecord(rawData) ? rawData : null;
   const maybePlanPayload = tryParseJson(data?.plan ?? data);
   const plan = parsePlanPayload(maybePlanPayload);
-  if (!plan) {
-    throw new Error("INVALID_AI_OUTPUT");
-  }
+  if (!plan) return null;
 
   return {
     plan: ensurePlanStartDate(plan),
@@ -258,6 +211,88 @@ export async function requestAiTrainingPlan(profile: ProfileData, input: Trainin
       weekStart: typeof data?.weekStart === "string" ? data.weekStart : undefined,
     },
   };
+}
+
+function throwFromErrorResponse(response: Response, payload: unknown): never {
+  const typed = payload as
+    | { error?: string; code?: string; kind?: string; message?: string; retryAfterSec?: number; hint?: string }
+    | null;
+  const rawErrorCode = typeof typed?.error === "string" ? typed.error : typed?.code;
+  const errorCode = normalizeAiErrorCode(rawErrorCode);
+  const userMessage = sanitizeBackendMessage(typed?.message) ?? sanitizeBackendMessage(typed?.error) ?? undefined;
+  if (errorCode === "INSUFFICIENT_TOKENS") {
+    throw new AiPlanRequestError("INSUFFICIENT_TOKENS", response.status, {
+      code: errorCode,
+      kind: typeof typed?.kind === "string" ? typed.kind : undefined,
+      hint: typed?.hint,
+      userMessage,
+    });
+  }
+  if (response.status === 400) {
+    throw new AiPlanRequestError("AI_INPUT_INVALID", response.status, {
+      code: errorCode ?? "AI_INPUT_INVALID",
+      kind: typeof typed?.kind === "string" ? typed.kind : undefined,
+      hint: typed?.hint,
+      userMessage,
+    });
+  }
+  if (response.status === 429) {
+    throw new AiPlanRequestError("RATE_LIMITED", response.status, {
+      code: errorCode ?? "RATE_LIMITED",
+      kind: typeof typed?.kind === "string" ? typed.kind : undefined,
+      hint: typed?.hint,
+      userMessage,
+    });
+  }
+  throw new AiPlanRequestError("AI_GENERATION_FAILED", response.status, {
+    code: errorCode ?? undefined,
+    kind: typeof typed?.kind === "string" ? typed.kind : undefined,
+    hint: typed?.hint,
+    userMessage,
+  });
+}
+
+async function callTrainingEndpoint(
+  endpoint: string,
+  body: string,
+): Promise<Response> {
+  return fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body,
+  });
+}
+
+export async function requestAiTrainingPlan(profile: ProfileData, input: TrainingPreferencesInput): Promise<TrainingPlanAiResult> {
+  const startDate = toDateKey(startOfWeek(new Date()));
+  const aiRequestId = createAiRequestId();
+  const body = JSON.stringify(buildTrainingRequestBody(profile, input, startDate, aiRequestId));
+
+  // Try v2 endpoint first
+  const v2Response = await callTrainingEndpoint("/api/ai/training-plan/generate-v2", body);
+
+  if (v2Response.ok) {
+    const rawData = tryParseJson(await v2Response.json());
+    const result = parseTrainingResponse(rawData);
+    if (result) return result;
+  }
+
+  // Fallback to v1 endpoint
+  const v1Response = await callTrainingEndpoint("/api/ai/training-plan/generate", body);
+
+  if (!v1Response.ok) {
+    const payload = (await v1Response.json().catch(() => null));
+    throwFromErrorResponse(v1Response, payload);
+  }
+
+  const rawData = tryParseJson(await v1Response.json());
+  const result = parseTrainingResponse(rawData);
+  if (!result) {
+    throw new Error("INVALID_AI_OUTPUT");
+  }
+
+  return result;
 }
 
 export async function saveAiTrainingPlan(plan: TrainingPlan) {

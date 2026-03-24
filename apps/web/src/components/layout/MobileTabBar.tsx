@@ -37,7 +37,7 @@ export default function MobileTabBar() {
   useEffect(() => {
     const authAvatar = authMe?.imageUrl ?? authMe?.avatarUrl ?? authMe?.profilePhotoUrl ?? authMe?.avatarDataUrl ?? null;
     if (authAvatar) {
-      setProfileAvatarUrl(authAvatar);
+      queueMicrotask(() => setProfileAvatarUrl(authAvatar));
     }
   }, [authMe]);
 
@@ -54,7 +54,7 @@ export default function MobileTabBar() {
         };
         const avatar = data.profilePhotoUrl ?? data.avatarDataUrl ?? null;
         if (active && avatar) {
-          setProfileAvatarUrl(avatar);
+          queueMicrotask(() => setProfileAvatarUrl(avatar));
         }
       } catch {
         // Keep auth-derived avatar when profile fetch fails.

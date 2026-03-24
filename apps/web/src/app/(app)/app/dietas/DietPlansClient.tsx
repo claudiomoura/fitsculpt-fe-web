@@ -119,17 +119,17 @@ export default function DietPlansClient() {
   useEffect(() => {
     if (queryPlanId) {
       window.localStorage.setItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY, queryPlanId);
-      setSelectedPlanId(queryPlanId);
+      queueMicrotask(() => setSelectedPlanId(queryPlanId));
       return;
     }
 
     const storedPlanId = readStoredSelectedPlanId();
     if (!storedPlanId) {
-      setSelectedPlanId(null);
+      queueMicrotask(() => setSelectedPlanId(null));
       return;
     }
 
-    setSelectedPlanId(storedPlanId);
+    queueMicrotask(() => setSelectedPlanId(storedPlanId));
     const nextHref = buildNutritionPlanSearch(pathname, searchParamsString, storedPlanId);
     if (nextHref === `${pathname}?${searchParamsString}` || nextHref === pathname) return;
     router.replace(nextHref, { scroll: false });
@@ -250,7 +250,6 @@ export default function DietPlansClient() {
 
     setSelectedPlanId(normalized);
     window.localStorage.setItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY, normalized);
-    window.localStorage.setItem(NUTRITION_PLANS_UPDATED_AT_KEY, String(Date.now()));
     router.replace(buildNutritionPlanSearch(pathname, searchParamsString, normalized), { scroll: false });
   };
 

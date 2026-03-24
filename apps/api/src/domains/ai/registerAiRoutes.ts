@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { OpenAiResponse } from "../../ai/provider/openaiClient.js";
 import type { AuthenticatedEntitlementsRequest } from "../../middleware/entitlements.js";
 import { sendAiEndpointError } from "./mapAiEndpointError.js";
+import { generateTrainingPlanV2 } from "../../ai/training-plan/trainingPlanGeneratorV2.js";
 
 type RecipeWithIngredients = Prisma.RecipeGetPayload<{
   include: { ingredients: true };
@@ -1835,6 +1836,69 @@ app.post(
         balanceAfter: responseBalanceAfter,
         ...(shouldChargeAi ? { nextBalance: responseBalanceAfter } : {}),
         ...(debit ? { debit } : {}),
+      });
+    } catch (error) {
+      return sendAiEndpointError(reply, error);
+    }
+  },
+);
+
+app.post(
+  "/ai/training-plan/generate-v2",
+  { preHandler: aiStrengthDomainGuard },
+  async (request, reply) => {
+    try {
+      logAuthCookieDebug(request, "/ai/training-plan/generate-v2");
+      const authRequest = request as AuthenticatedEntitlementsRequest;
+      const user =
+        authRequest.currentUser ??
+        (await requireUser(request, {
+          logContext: "/ai/training-plan/generate-v2",
+        }));
+      const entitlements =
+        authRequest.currentEntitlements ?? getUserEntitlements(user);
+
+      const shouldChargeAi = !entitlements.role.adminOverride;
+      const aiMeta = getAiTokenPayload(user, entitlements);
+      if (shouldChargeAi) {
+        assertSufficientAiTokenBalance(
+          user,
+          getEstimatedAiFeatureTokens("training-generate"),
+        );
+      }
+
+      await enforceAiQuota({ id: user.id, plan: entitlements.legacy.tier });
+
+      const payload = aiTrainingPlanGenerateRequestSchema.parse(request.body);
+      const exerciseCatalog = await loadExerciseCatalogForAi();
+
+      const result = await generateTrainingPlanV2(
+        authRequest,
+        payload as unknown as Record<string, unknown>,
+        {
+          prisma,
+          callOpenAi: callOpenAi as any,
+          catalog: exerciseCatalog,
+          saveTrainingPlan: saveTrainingPlan as any,
+          buildCacheKey,
+          getCachedAiPayload,
+          saveCachedAiPayload,
+          storeAiContent,
+          logger: {
+            info: (obj: Record<string, unknown>, msg: string) => app.log.info(obj, msg),
+            warn: (obj: Record<string, unknown>, msg: string) => app.log.warn(obj, msg),
+          },
+        },
+      );
+
+      return reply.status(200).send({
+        ...result,
+        aiTokenBalance: aiMeta.aiTokenBalance,
+        aiTokenRenewalAt: aiMeta.aiTokenRenewalAt,
+        costCents: 0,
+        costEur: 0,
+        balanceBefore: aiMeta.aiTokenBalance,
+        balanceAfter: aiMeta.aiTokenBalance,
       });
     } catch (error) {
       return sendAiEndpointError(reply, error);
