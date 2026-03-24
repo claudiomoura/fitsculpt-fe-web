@@ -1085,8 +1085,8 @@ export default function TodayQuickActionsClient() {
               checkinTotal={1}
             />
 
-            {/* Block 3: View Tabs - Tab switching */}
-            <TodayViewTabs />
+            {/* Block 3: View Tabs - Tab switching - HIDDEN for now */}
+            {/* <TodayViewTabs /> */}
 
             {/* Block 4: Priority Hero - Today's workout/training */}
             <TodayPriorityHero

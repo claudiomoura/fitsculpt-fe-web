@@ -30,11 +30,12 @@
   --today-donut-mini: 100px;
   --today-donut-nutrition: 80px;
   
-  /* Use app's existing background - no custom gradient */
-  background: var(--surface-primary-bg, var(--bg-card));
+  /* No background - inherit from page/app */
+  background: transparent !important;
   min-height: 100vh;
-  padding: var(--today-spacing-vertical-md) var(--today-spacing-lateral);
+  padding: var(--today-spacing-vertical-md) 0;
   box-sizing: border-box;
+  width: 100%;
 }
 
 /* DESKTOP OVERRIDES - 1024px+ */
@@ -144,7 +145,6 @@
   background: var(--surface-secondary-bg, var(--bg-card));
   backdrop-filter: blur(8px);
   width: 100%;
-  max-width: 100%;
   box-sizing: border-box;
 }
 
