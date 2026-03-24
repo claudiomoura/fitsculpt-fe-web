@@ -9,12 +9,42 @@ export type CandidateExercise = {
   mainMuscleGroup?: string | null;
 };
 
+// Map day focus labels to target muscle groups
+const MUSCLE_GROUP_MAP: Record<string, string[]> = {
+  // Upper body push
+  "Tren superior (empuje)": ["chest", "shoulders", "triceps"],
+  "Empuje (Pecho/Hombro/Tríceps)": ["chest", "shoulders", "triceps"],
+  
+  // Upper body pull
+  "Tren superior (tirón)": ["back", "biceps", "forearms"],
+  "Tren superior (mixto)": ["chest", "back", "shoulders", "biceps", "triceps"],
+  "Tirón (Espalda/Bíceps)": ["back", "biceps", "forearms"],
+  
+  // Lower body
+  "Tren inferior (cuádriceps dominante)": ["quads"],
+  "Tren inferior (posterior dominante)": ["hamstrings", "glutes"],
+  "Tren inferior (mixto)": ["quads", "hamstrings", "glutes"],
+  "Pierna + Core": ["quads", "hamstrings", "glutes", "core"],
+  "Pierna posterior + Glúteo": ["hamstrings", "glutes"],
+  
+  // Full body
+  "Full body (empuje + tirón + pierna)": ["chest", "back", "shoulders", "biceps", "triceps", "forearms", "quads", "hamstrings", "glutes"],
+  "Full body (pierna + empuje + core)": ["quads", "hamstrings", "glutes", "chest", "shoulders", "triceps", "core"],
+  "Full body (tirón + pierna + empuje)": ["back", "biceps", "forearms", "quads", "hamstrings", "glutes", "chest", "shoulders", "triceps"],
+  "Full body (pierna + tirón + core)": ["quads", "hamstrings", "glutes", "back", "biceps", "forearms", "core"],
+  "Full body (empuje + pierna + tirón)": ["chest", "shoulders", "triceps", "quads", "hamstrings", "glutes", "back", "biceps", "forearms"],
+  "Full body (tirón + empuje + pierna)": ["back", "biceps", "forearms", "chest", "shoulders", "triceps", "quads", "hamstrings", "glutes"],
+  "Full body (pierna + empuje + tirón)": ["quads", "hamstrings", "glutes", "chest", "shoulders", "triceps", "back", "biceps", "forearms"],
+  "Full body técnico": ["chest", "back", "shoulders", "biceps", "triceps", "forearms", "quads", "hamstrings", "glutes", "core"],
+};
+
 /**
  * Selects candidate exercises from the database based on user context
  */
 export async function selectCandidateExercises(
   prisma: Prisma.TransactionClient,
   context: UserContext,
+  dayFocus?: string,
   limit: number = 20
 ): Promise<CandidateExercise[]> {
   // Build where clause based on user's equipment and focus
@@ -29,10 +59,15 @@ export async function selectCandidateExercises(
     ];
   }
   
-  // For focus, we could filter by mainMuscleGroup, but we'll keep it simple for now
-  // and let the AI selector handle the focus matching
-  // In a more advanced version, we would map focus to muscle groups
-  
+  // Filter by muscle group if day focus is specified and not full body
+  if (dayFocus) {
+    const targetMuscleGroups = MUSCLE_GROUP_MAP[dayFocus];
+    if (targetMuscleGroups && targetMuscleGroups.length > 0) {
+      // If it's not full body (all muscles), add the filter
+      where.mainMuscleGroup = { in: targetMuscleGroups };
+    }
+  }
+
   // Get exercises from database
   const exercises = await prisma.exercise.findMany({
     where,
@@ -46,7 +81,7 @@ export async function selectCandidateExercises(
     orderBy: { name: 'asc' },
     take: limit,
   });
-  
+
   // Map to our CandidateExercise format
   return exercises.map(exercise => ({
     id: exercise.id,

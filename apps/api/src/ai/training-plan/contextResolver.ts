@@ -112,7 +112,7 @@ export async function resolveUserContext(
     throw createHttpError(401, "UNAUTHORIZED");
   }
 
-  await requireCompleteProfile(user.id); // We'll need to import this or recreate it
+  await requireCompleteProfile(user.id, prisma);
 
   const profileRow = await prisma.userProfile.findUnique({
     where: { userId: user.id },
@@ -247,10 +247,68 @@ function mapExperienceLevelToTrainingPlanLevel(
   return "advanced";
 }
 
-// We need to recreate requireCompleteProfile since we can't import it directly
-async function requireCompleteProfile(userId: string): Promise<void> {
-  // This is a simplified version - in reality we'd need to import the actual function
-  // For now, we'll just return and assume the profile is complete
-  // In a real implementation, we would check the user's profile and throw if incomplete
-  return;
+// Validates that user profile has required fields for training plan generation
+async function requireCompleteProfile(
+  userId: string,
+  prisma: Prisma.TransactionClient,
+): Promise<void> {
+  const profileRow = await prisma.userProfile.findUnique({
+    where: { userId },
+    select: { profile: true },
+  });
+  
+  if (!profileRow?.profile || typeof profileRow.profile !== "object") {
+    throw createHttpError(409, "PROFILE_INCOMPLETE", {
+      message: "Profile not found",
+      missingContext: ["profile"],
+    });
+  }
+  
+  const profile = profileRow.profile as Record<string, unknown>;
+  const profileTrainingPreferences = (profile.trainingPreferences as Record<string, unknown>) ?? {};
+  
+  // Check required fields for training plan generation
+  const missingFields: string[] = [];
+  
+  // Check age
+  if (profile.age === undefined || profile.age === null) {
+    missingFields.push("age");
+  }
+  
+  // Check sex
+  if (!profile.sex || (profile.sex !== "male" && profile.sex !== "female")) {
+    missingFields.push("sex");
+  }
+  
+  // Check focus from trainingPreferences
+  const focus = profileTrainingPreferences.focus as string | undefined;
+  if (!focus || !["full", "upperLower", "ppl"].includes(focus)) {
+    missingFields.push("focus");
+  }
+  
+  // Check equipment from trainingPreferences
+  const equipment = profileTrainingPreferences.equipment as string | undefined;
+  if (!equipment || !["gym", "home"].includes(equipment)) {
+    missingFields.push("equipment");
+  }
+  
+  // Check sessionTime from trainingPreferences
+  const sessionTime = profileTrainingPreferences.sessionTime as string | undefined;
+  if (!sessionTime || !["short", "medium", "long"].includes(sessionTime)) {
+    missingFields.push("sessionTime");
+  }
+  
+  // Check timeAvailableMinutes (can be in profile or derived from workoutLength/sessionTime)
+  const timeAvailableMinutes = profile.timeAvailableMinutes as number | undefined;
+  const workoutLength = profileTrainingPreferences.workoutLength as string | undefined;
+  if (!timeAvailableMinutes && !workoutLength && !sessionTime) {
+    missingFields.push("timeAvailableMinutes");
+  }
+  
+  if (missingFields.length > 0) {
+    throw createHttpError(409, "PROFILE_INCOMPLETE", {
+      message: "Missing required profile fields for training plan generation",
+      missingContext: missingFields,
+    });
+  }
 }

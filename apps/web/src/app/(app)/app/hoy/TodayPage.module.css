@@ -16,14 +16,72 @@
 
 .todayScope :global(.today-page-stack) {
   gap: 16px;
+  display: flex;
+  flex-direction: column;
 }
 
+/* Unified Hero Section - Single View Mobile Design */
 .todayScope :global(.today-hero-card) {
-  padding: 20px;
+  padding: 24px 20px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 14%, transparent) 0%, transparent 38%),
     linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 48%),
     var(--surface-primary-bg);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Make all cards full-width and stacked */
+.todayScope :global(.today-secondary-card) {
+  background: var(--surface-secondary-bg);
+  border-color: color-mix(in srgb, var(--surface-border-default) 88%, transparent);
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.todayScope :global(.today-cards-grid) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 0;
+}
+
+/* Override grid to stack on mobile */
+@media (max-width: 768px) {
+  .todayScope :global(.today-cards-grid) {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .todayScope :global(.today-hero-card) {
+    padding: 20px 16px;
+  }
+  
+  .todayScope :global(.today-secondary-card) {
+    padding: 16px;
+  }
+}
+
+.todayScope :global(.today-hero-card) {
+  padding: 24px 20px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--today-donut-fill) 14%, transparent) 0%, transparent 38%),
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 48%),
+    var(--surface-primary-bg);
+  border-radius: 20px;
+}
+
+/* Mobile hero adjustments */
+@media (max-width: 640px) {
+  .todayScope :global(.today-hero-card) {
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+  
+  .todayScope :global(.today-hero-card h2) {
+    font-size: 1.5rem;
+  }
 }
 
 .todayScope :global(.today-hero-icon),
@@ -58,6 +116,30 @@
   border-color: color-mix(in srgb, var(--today-donut-fill) 14%, var(--surface-border-default));
   box-shadow: var(--surface-card-inner-glow), var(--surface-card-shadow);
   margin-top: 0px;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+/* Mobile single-view optimization */
+@media (max-width: 640px) {
+  .todayScope :global(.today-nutrition-card) {
+    padding: 16px;
+  }
+  
+  .todayScope :global(.today-nutrition-layout) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    text-align: center;
+  }
+  
+  .todayScope :global(.today-nutrition-copy) {
+    justify-items: center;
+    text-align: center;
+  }
+  
+  .todayScope :global(.today-nutrition-ring-wrap) {
+    margin: 0 auto;
+  }
 }
 
 .todayScope :global(.today-nutrition-card--error) {
@@ -68,7 +150,22 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  margin-top: 20px;
+  margin-top: 12px;
+  border-radius: 16px;
+  padding: 20px;
+  background: var(--surface-secondary-bg);
+}
+
+/* Mobile optimization for checkin */
+@media (max-width: 640px) {
+  .todayScope :global(.today-checkin-card) {
+    padding: 16px;
+    margin-top: 12px;
+  }
+  
+  .todayScope :global(.today-checkin-summary) {
+    gap: 8px;
+  }
 }
 
 .todayScope :global(.today-progress-inset) {
@@ -76,8 +173,16 @@
   z-index: 1;
   border: 1px solid color-mix(in srgb, var(--surface-border-default) 82%, transparent);
   background: color-mix(in srgb, var(--surface-inset-bg) 88%, #0b1018 12%);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 12px 14px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .todayScope :global(.today-progress-inset) {
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
 }
 
 .todayScope :global(.today-hero-progress) {

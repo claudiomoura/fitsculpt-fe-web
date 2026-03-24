@@ -118,8 +118,9 @@ export async function generateTrainingPlanV2(
     startDate: userContext.startDate,
   });
 
-  // Step 2: Get candidate exercises
-  const candidates = await selectCandidateExercises(prisma, userContext, 20);
+  // Step 2: Get candidate exercises (use first day's focus for general filtering)
+  const firstDayFocus = skeletons[0]?.label;
+  const candidates = await selectCandidateExercises(prisma, userContext, firstDayFocus, 20);
 
   if (candidates.length === 0) {
     deps.logger.warn({ userId: userContext.userId }, "training-v2: no candidates found, using catalog");
