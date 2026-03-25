@@ -1929,30 +1929,68 @@ export default function NutritionPlanClient({
     setSelectedRecipeDetail(null);
   };
 
-  // Load full recipe detail when modal opens with a recipeId
+  // Load full recipe detail when modal opens
   useEffect(() => {
-    const recipeId = selectedMeal?.meal?.recipeId;
-    if (!recipeId) {
+    if (!selectedMeal?.meal) {
       setSelectedRecipeDetail(null);
       return;
     }
 
+    const recipeId = selectedMeal.meal.recipeId;
+    const mealTitle = selectedMeal.meal.title;
+    
     let cancelled = false;
     const loadRecipe = async () => {
       try {
-        const response = await fetch(`/api/recipes/${recipeId}`, {
-          cache: "no-store",
-          credentials: "include",
-        });
-        if (!response.ok || cancelled) return;
-        const recipe = await response.json();
-        if (cancelled) return;
-        setSelectedRecipeDetail({
-          photoUrl: recipe.photoUrl,
-          description: recipe.description,
-          steps: recipe.steps,
-          ingredients: recipe.ingredients,
-        });
+        // First try by recipeId if available
+        if (recipeId) {
+          const response = await fetch(`/api/recipes/${recipeId}`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (response.ok && !cancelled) {
+            const recipe = await response.json();
+            if (!cancelled) {
+              setSelectedRecipeDetail({
+                photoUrl: recipe.photoUrl,
+                description: recipe.description,
+                steps: recipe.steps,
+                ingredients: recipe.ingredients,
+              });
+              return;
+            }
+          }
+        }
+        
+        // Fallback: search by title if no recipeId or fetch failed
+        if (mealTitle && !cancelled) {
+          const searchResponse = await fetch(`/api/recipes?limit=200`, {
+            cache: "no-store",
+            credentials: "include",
+          });
+          if (searchResponse.ok && !cancelled) {
+            const searchData = await searchResponse.json();
+            const recipes = searchData.items ?? [];
+            // Try to find recipe by name match
+            const normalizedTitle = mealTitle.toLowerCase().trim();
+            const matchedRecipe = recipes.find((r: { name: string; steps?: string[] }) => 
+              r.name.toLowerCase().trim() === normalizedTitle ||
+              normalizedTitle.includes(r.name.toLowerCase()) ||
+              r.name.toLowerCase().includes(normalizedTitle)
+            );
+            if (matchedRecipe && !cancelled) {
+              setSelectedRecipeDetail({
+                photoUrl: matchedRecipe.photoUrl,
+                description: matchedRecipe.description,
+                steps: matchedRecipe.steps,
+                ingredients: matchedRecipe.ingredients,
+              });
+              return;
+            }
+          }
+        }
+        
+        if (!cancelled) setSelectedRecipeDetail(null);
       } catch {
         if (!cancelled) setSelectedRecipeDetail(null);
       }
@@ -1962,7 +2000,7 @@ export default function NutritionPlanClient({
     return () => {
       cancelled = true;
     };
-  }, [selectedMeal?.meal?.recipeId]);
+  }, [selectedMeal?.meal?.recipeId, selectedMeal?.meal?.title]);
 
   function buildShoppingList(activePlan: NutritionPlan) {
     const totals: Record<string, number> = {};
