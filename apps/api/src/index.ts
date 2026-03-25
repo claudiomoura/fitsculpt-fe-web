@@ -1,4 +1,7 @@
 import "dotenv/config";
+// Override with .env.local for local development (higher priority)
+import { config as dotenvConfig } from "dotenv";
+dotenvConfig({ path: ".env.local" });
 import crypto from "node:crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
@@ -120,6 +123,8 @@ import {
   contextualChatRequestSchema,
   contextualChatResponseSchema,
 } from "./ai/chat/contextualChatSchemas.js";
+import { rateLimitMiddleware, logAiCall, logAiError, getRecentAiErrors } from "./ai/monitoring/rateLimiter.js";
+import { getAiQueue } from "./ai/queue/aiQueue.js";
 
 const env = getEnv();
 const app = Fastify({ logger: true });
@@ -134,6 +139,19 @@ if (shouldRunDbPreflight) {
 }
 
 const aiPricing = loadAiPricing(env);
+
+const aiQueue = getAiQueue(app.log);
+
+app.addHook("preHandler", async (request, reply) => {
+  if (request.url.startsWith("/ai/")) {
+    await rateLimitMiddleware(request, reply);
+  }
+});
+
+app.get("/ai/errors", { preHandler: [requireAdmin] }, async (request, reply) => {
+  const errors = getRecentAiErrors();
+  return reply.send({ errors });
+});
 
 type StripeCheckoutSession = {
   id: string;
@@ -6833,6 +6851,8 @@ registerAiRoutes(app, {
   contextualChatRequestSchema,
   contextualChatResponseSchema,
   buildContextualChatPrompt,
+  logAiCall,
+  logAiError,
 });
 
 app.get("/feed", async (request, reply) => {

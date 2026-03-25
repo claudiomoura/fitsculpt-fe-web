@@ -189,8 +189,6 @@ export const sidebarAdmin: NavSectionGroup[] = [
         id: "admin-gym-requests",
         href: "/app/admin/gym-requests",
         labelKey: "nav.gymJoinRequests",
-        disabled: true,
-        disabledNoteKey: "common.comingSoon",
       },
       { id: "admin-labs", href: "/app/admin/labs", labelKey: "nav.adminLabs" },
       { id: "admin-preview", href: "/app/admin/preview", labelKey: "nav.adminPreview" },

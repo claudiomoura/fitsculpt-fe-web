@@ -31,6 +31,9 @@ const envSchema = z.object({
   STRIPE_PRO_PRICE_ID: z.string().optional(),
   STRIPE_PRICE_STRENGTH_AI_MONTHLY: z.string().optional(),
   STRIPE_PRICE_NUTRI_AI_MONTHLY: z.string().optional(),
+  REDIS_URL: z.string().optional(),
+  AI_QUEUE_CONCURRENCY: z.coerce.number().default(5),
+  AI_RATE_LIMIT_PER_MINUTE: z.coerce.number().default(20),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -66,5 +69,8 @@ export function getEnv(): Env {
     STRIPE_PRO_PRICE_ID: process.env.STRIPE_PRO_PRICE_ID,
     STRIPE_PRICE_STRENGTH_AI_MONTHLY: process.env.STRIPE_PRICE_STRENGTH_AI_MONTHLY,
     STRIPE_PRICE_NUTRI_AI_MONTHLY: process.env.STRIPE_PRICE_NUTRI_AI_MONTHLY,
+    REDIS_URL: process.env.REDIS_URL,
+    AI_QUEUE_CONCURRENCY: process.env.AI_QUEUE_CONCURRENCY,
+    AI_RATE_LIMIT_PER_MINUTE: process.env.AI_RATE_LIMIT_PER_MINUTE,
   });
 }

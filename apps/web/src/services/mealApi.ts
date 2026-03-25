@@ -1,4 +1,5 @@
-const API_BASE = "/meals";
+// BFF Route Handler - proxies to /api/meals/*
+const API_BASE = "/api/meals";
 
 export type MealItem = {
   name?: string;

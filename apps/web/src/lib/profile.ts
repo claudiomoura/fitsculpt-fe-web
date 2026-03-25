@@ -54,6 +54,7 @@ export type TrainingPlanData = {
 };
 
 export type NutritionIngredient = {
+  id?: string;
   name: string;
   grams: number;
 };

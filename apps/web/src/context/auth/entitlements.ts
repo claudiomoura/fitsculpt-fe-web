@@ -32,11 +32,8 @@ function resolveModuleFlags(payload: AuthMeResponse | null | undefined): ModuleF
   const aiFromModules = readModuleEnabled(source, "ai");
   const billingFromModules = readModuleEnabled(source, "billing");
 
-  const strengthFromLegacy = payload?.aiEntitlements?.strength;
-  const nutritionFromLegacy = payload?.aiEntitlements?.nutrition;
-
-  const strength = strengthFromModules ?? strengthFromLegacy ?? false;
-  const nutrition = nutritionFromModules ?? nutritionFromLegacy ?? false;
+  const strength = strengthFromModules ?? false;
+  const nutrition = nutritionFromModules ?? false;
   const ai = aiFromModules ?? (strength || nutrition);
   const billing = billingFromModules ?? Boolean(payload);
 

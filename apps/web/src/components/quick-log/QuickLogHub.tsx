@@ -8,6 +8,7 @@ import { trackEvent } from "@/lib/analytics";
 import { findQuickLogFoodByBarcode, searchQuickLogFoods, type QuickLogFoodItem } from "@/lib/quickLogFoodCatalog";
 import { parseQuickVoiceMeal } from "@/lib/quickLogVoiceParser";
 import { createTrackingEntry, type CheckinEntry, type MealLogEntry } from "@/services/tracking";
+import { sendRctEvent } from "@/services/futureProjection";
 import styles from "./QuickLogHub.module.css";
 
 type Mode = "meal" | "water" | "weight";
@@ -197,6 +198,10 @@ export default function QuickLogHub({ origin, latestCheckin, currentWeightKg = n
 
   const notifySaved = async () => {
     trackEvent("quick_log_saved", { target: mode === "weight" ? "checkin" : "nutrition", origin, mode: "quick" });
+    void sendRctEvent({
+      event: "logging_entry_created",
+      context: { origin, mode, target: mode === "weight" ? "checkin" : "nutrition" },
+    });
     if (onSaved) {
       await onSaved();
     }

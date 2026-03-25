@@ -3,3 +3,9 @@
 .env.*
 !.env.example
 !.env*.example
+
+# Migration exports
+migration-export.json
+
+# Local PostgreSQL data (Docker volumes)
+fitsculpt_api_dev_data/

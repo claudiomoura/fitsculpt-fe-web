@@ -17,7 +17,9 @@ export type IconName =
   | "close"
   | "chevron-down"
   | "chevron-left"
-  | "chevron-right";
+  | "chevron-right"
+  | "calendar"
+  | "link";
 
 type IconProps = SVGProps<SVGSVGElement> & {
   name: IconName;
@@ -103,6 +105,18 @@ const ICONS: Record<IconName, JSX.Element> = {
   ),
   "chevron-right": (
     <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </>
   ),
 };
 

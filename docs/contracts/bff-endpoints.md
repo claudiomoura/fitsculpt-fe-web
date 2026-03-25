@@ -62,6 +62,12 @@ Generated from `apps/web/src/app/api/**/route.ts` via `npm --prefix apps/web run
 | `/api/review/weekly` | GET | `apps/web/src/app/api/review/weekly/route.ts` |
 | `/api/tracking` | GET, POST, PUT | `apps/web/src/app/api/tracking/route.ts` |
 | `/api/tracking/[collection]/[id]` | DELETE | `apps/web/src/app/api/tracking/[collection]/[id]/route.ts` |
+| `/api/meals` | GET, POST | `apps/web/src/app/api/meals/route.ts` |
+| `/api/meals/date/[date]` | GET | `apps/web/src/app/api/meals/date/[date]/route.ts` |
+| `/api/meals/today` | GET | `apps/web/src/app/api/meals/today/route.ts` |
+| `/api/meals/[id]` | PATCH, DELETE | `apps/web/src/app/api/meals/[id]/route.ts` |
+| `/api/meals/[id]/complete` | POST | `apps/web/src/app/api/meals/[id]/complete/route.ts` |
+| `/api/meals/[id]/uncomplete` | POST | `apps/web/src/app/api/meals/[id]/uncomplete/route.ts` |
 | `/api/trainer/assign-training-plan` | POST | `apps/web/src/app/api/trainer/assign-training-plan/route.ts` |
 | `/api/trainer/capabilities` | GET | `apps/web/src/app/api/trainer/capabilities/route.ts` |
 | `/api/trainer/clients` | GET | `apps/web/src/app/api/trainer/clients/route.ts` |
