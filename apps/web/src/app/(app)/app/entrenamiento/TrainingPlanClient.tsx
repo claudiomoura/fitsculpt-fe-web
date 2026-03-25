@@ -401,7 +401,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const hideMainCard = false;
   const requestedCatalogExerciseIds = useRef<Set<string>>(new Set());
   const requestedCatalogExerciseNames = useRef<Set<string>>(new Set());
-  const didAutoSelectWorkoutDay = useRef(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const dayParam = searchParams.get("day");
     const rawWeekOffsetParam = searchParams.get("weekOffset");
@@ -863,7 +862,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   }, [visiblePlanEntries]);
   const localeCode = locale === "es" ? "es-ES" : locale === "pt" ? "pt-PT" : "en-US";
   const monthLabel = clampedSelectedDate.toLocaleDateString(localeCode, { month: "long", year: "numeric" });
-  const today = useMemo(() => clampDateNotBefore(new Date(), normalizedPlanStartDate), [normalizedPlanStartDate]);
+  const today = useMemo(() => new Date(), []);
   const calendarOptions = useMemo(() => [
     { value: "week", label: t("calendar.viewWeek") },
     { value: "list", label: t("calendar.viewList") },
@@ -905,8 +904,8 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   useEffect(() => {
     if (!normalizedPlanStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
-    const todayDate = new Date();
-    setSelectedDate(clampDateNotBefore(todayDate, normalizedPlanStartDate));
+    // Use actual today as default, no clamping to plan start
+    setSelectedDate(new Date());
   }, [normalizedPlanStartDate]);
 
   useEffect(() => {
@@ -1274,10 +1273,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const todayKey = toDateKey(today);
   const selectedEntry = visibleDayMap.get(toDateKey(clampedSelectedDate)) ?? null;
   const selectedEntryDate = clampedSelectedDate;
-  const firstWorkoutEntry = useMemo(
-    () => visiblePlanEntries.find((entry) => (entry.day.exercises?.length ?? 0) > 0) ?? null,
-    [visiblePlanEntries]
-  );
   const selectedDayKey = toDateKey(selectedEntryDate);
   const selectedExercises = (selectedEntry?.day.exercises ?? []).map(mergeExerciseWithCatalog);
   const selectedDayIsRest = selectedExercises.length === 0;
@@ -1289,21 +1284,6 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
   const dayEditorHref = `/app/entrenamiento/editar?planId=${encodeURIComponent(dayEditorPlanId)}&day=${encodeURIComponent(dayEditorDay)}`;
   const selectedDayHasWorkout = selectedExercises.length > 0;
 
-  useEffect(() => {
-    if (selectedEntry || visiblePlanEntries.length === 0) return;
-    setSelectedDate(visiblePlanEntries[0].date);
-  }, [selectedEntry, visiblePlanEntries]);
-
-  useEffect(() => {
-    if (didAutoSelectWorkoutDay.current) return;
-    if (selectedDayHasWorkout) {
-      didAutoSelectWorkoutDay.current = true;
-      return;
-    }
-    if (!firstWorkoutEntry) return;
-    didAutoSelectWorkoutDay.current = true;
-    setSelectedDate(firstWorkoutEntry.date);
-  }, [firstWorkoutEntry, selectedDayHasWorkout]);
   const nextEntryHasWorkout = (nextPlannedEntry?.day.exercises?.length ?? 0) > 0;
   const normalizeName = (value?: string | null) => (value ?? "").trim().toLowerCase();
   const pickWorkoutIdForDate = (date: Date, focus?: string | null) => {
