@@ -1272,7 +1272,7 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     () => visibleDayMap.get(toDateKey(clampedSelectedDate)) ?? null,
     [clampedSelectedDate, visibleDayMap]
   );
-  const highlightedDay = selectedVisiblePlanDay?.day ?? visiblePlan?.days[0] ?? null;
+  const highlightedDay = selectedVisiblePlanDay?.day ?? null;
   const highlightedDayKey = selectedVisiblePlanDay?.date ? toDateKey(selectedVisiblePlanDay.date) : toDateKey(clampedSelectedDate);
   const highlightedMeals = highlightedDay?.meals ?? [];
   const hasHighlightedMeals = highlightedMeals.length > 0;
@@ -1399,16 +1399,11 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
   useEffect(() => {
     if (!planStartDate || calendarInitialized.current) return;
     calendarInitialized.current = true;
+    // Use URL day param if available, otherwise use today's date
     const dayParam = clampDayKeyToPlanStart(searchParams.get("day"), normalizedPlanStartDate);
-    const today = new Date();
-    const todayVisibleEntry = visiblePlanEntries.find((entry) => toDateKey(entry.date) === toDateKey(today));
-    setSelectedDate(
-      clampDateNotBefore(
-        parseDate(dayParam) ?? todayVisibleEntry?.date ?? planEntries[0]?.date ?? planStartDate,
-        normalizedPlanStartDate
-      )
-    );
-  }, [normalizedPlanStartDate, planEntries, planStartDate, searchParams, visiblePlanEntries]);
+    const parsedDate = parseDate(dayParam);
+    setSelectedDate(parsedDate ?? new Date());
+  }, [normalizedPlanStartDate, planStartDate, searchParams]);
 
   useEffect(() => {
     if (!normalizedPlanStartDate) return;
