@@ -2613,25 +2613,30 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
       <Modal
         open={startDatePickerOpen}
         onClose={() => setStartDatePickerOpen(false)}
-        title={t("training.aiStartDateModal.title", "¿Cuándo quieres empezar?")}
-        description={t("training.aiStartDateModal.description", "Selecciona el día en que comenzará tu plan de 4 semanas.")}
+        title={safeT("training.aiStartDateModal.title")}
+        description={safeT("training.aiStartDateModal.description")}
         footer={(
           <div className="inline-actions-sm">
             <Button variant="secondary" onClick={() => setStartDatePickerOpen(false)}>
-              {t("training.aiStartDateModal.cancel", "Cancelar")}
+              {safeT("ui.cancel")}
             </Button>
             <Button onClick={handleConfirmStartDate} disabled={aiLoading}>
-              {aiLoading ? t("training.aiGenerating") : t("training.aiStartDateModal.confirm", "Generar plan")}
+              {aiLoading ? safeT("training.aiGenerating") : safeT("training.aiStartDateModal.confirm", "Guardar y generar")}
             </Button>
           </div>
         )}
       >
         <div className="ai-start-date-picker">
+          {/* Instruction text */}
+          <p className="ai-start-date-instruction">
+            {safeT("training.aiStartDateModal.instruction", "Selecciona el día en que quieres comenzar tu plan de 4 semanas.")}
+          </p>
+          
           {/* Selected date display */}
           <div className="ai-start-date-display">
             <Icon name="calendar" size={20} />
             <div className="ai-start-date-display__content">
-              <span className="ai-start-date-display__label">{t("training.aiStartDateModal.startsOn", "Empieza el")}</span>
+              <span className="ai-start-date-display__label">{safeT("training.aiStartDateModal.startsOn")}</span>
               <span className="ai-start-date-display__date">{aiStartDate.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}</span>
             </div>
           </div>
@@ -2649,11 +2654,19 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
                 weeks.push(weekDays);
               }
               
+              // Get localized day names from a reference date
+              const refDate = new Date(2025, 0, 1); // January 1, 2025 is a Wednesday
+              const dayNames = Array.from({ length: 7 }, (_, i) => {
+                const d = new Date(refDate);
+                d.setDate(d.getDate() + i);
+                return d.toLocaleDateString(locale, { weekday: "short" }).charAt(0).toUpperCase();
+              });
+              
               return (
                 <div className="ai-start-date-calendar__grid">
                   {/* Day headers */}
                   <div className="ai-start-date-calendar__headers">
-                    {["L", "M", "X", "J", "V", "S", "D"].map((day, i) => (
+                    {dayNames.map((day, i) => (
                       <span key={i} className="ai-start-date-calendar__header">{day}</span>
                     ))}
                   </div>
@@ -2688,7 +2701,7 @@ export default function TrainingPlanClient({ mode = "suggested" }: TrainingPlanC
           {/* Plan duration info */}
           <div className="ai-start-date-info">
             <Icon name="info" size={14} />
-            <span>{t("training.aiStartDateModal.planDuration", "4 semanas de plan, comenzando el día seleccionado")}</span>
+            <span>{safeT("training.aiStartDateModal.planDuration")}</span>
           </div>
         </div>
       </Modal>

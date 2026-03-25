@@ -3435,25 +3435,30 @@ const nutritionPlanDetails = profile ? (
       <Modal
         open={startDatePickerOpen}
         onClose={() => setStartDatePickerOpen(false)}
-        title={t("nutrition.aiStartDateModal.title", "¿Cuándo quieres empezar?")}
-        description={t("nutrition.aiStartDateModal.description", "Selecciona el día en que comenzará tu plan de 4 semanas.")}
+        title={safeT("nutrition.aiStartDateModal.title")}
+        description={safeT("nutrition.aiStartDateModal.description")}
         footer={(
           <div className="inline-actions-sm">
             <Button variant="secondary" onClick={() => setStartDatePickerOpen(false)}>
-              {t("nutrition.aiStartDateModal.cancel", "Cancelar")}
+              {safeT("ui.cancel")}
             </Button>
             <Button onClick={handleConfirmStartDate} disabled={aiLoading}>
-              {aiLoading ? t("nutrition.aiGenerating") : t("nutrition.aiStartDateModal.confirm", "Generar plan")}
+              {aiLoading ? safeT("nutrition.aiGenerating") : safeT("nutrition.aiStartDateModal.confirm", "Guardar y generar")}
             </Button>
           </div>
         )}
       >
         <div className="ai-start-date-picker">
+          {/* Instruction text */}
+          <p className="ai-start-date-instruction">
+            {safeT("nutrition.aiStartDateModal.instruction", "Selecciona el día en que quieres comenzar tu plan de 4 semanas.")}
+          </p>
+          
           {/* Selected date display */}
           <div className="ai-start-date-display">
             <Icon name="calendar" size={20} />
             <div className="ai-start-date-display__content">
-              <span className="ai-start-date-display__label">{t("nutrition.aiStartDateModal.startsOn", "Empieza el")}</span>
+              <span className="ai-start-date-display__label">{safeT("nutrition.aiStartDateModal.startsOn")}</span>
               <span className="ai-start-date-display__date">{aiStartDate.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}</span>
             </div>
           </div>
@@ -3471,11 +3476,19 @@ const nutritionPlanDetails = profile ? (
                 weeks.push(weekDays);
               }
               
+              // Get localized day names from a reference date
+              const refDate = new Date(2025, 0, 1); // January 1, 2025 is a Wednesday
+              const dayNames = Array.from({ length: 7 }, (_, i) => {
+                const d = new Date(refDate);
+                d.setDate(d.getDate() + i);
+                return d.toLocaleDateString(locale, { weekday: "short" }).charAt(0).toUpperCase();
+              });
+              
               return (
                 <div className="ai-start-date-calendar__grid">
                   {/* Day headers */}
                   <div className="ai-start-date-calendar__headers">
-                    {["L", "M", "X", "J", "V", "S", "D"].map((day, i) => (
+                    {dayNames.map((day, i) => (
                       <span key={i} className="ai-start-date-calendar__header">{day}</span>
                     ))}
                   </div>
@@ -3510,7 +3523,7 @@ const nutritionPlanDetails = profile ? (
           {/* Plan duration info */}
           <div className="ai-start-date-info">
             <Icon name="info" size={14} />
-            <span>{t("nutrition.aiStartDateModal.planDuration", "4 semanas de plan, comenzando el día seleccionado")}</span>
+            <span>{safeT("nutrition.aiStartDateModal.planDuration")}</span>
           </div>
         </div>
       </Modal>
