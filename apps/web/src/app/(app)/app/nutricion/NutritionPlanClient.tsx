@@ -1891,7 +1891,12 @@ export default function NutritionPlanClient({ mode = "suggested" }: NutritionPla
     setAiError(null);
     setAiQuotaExceededError(false);
    try {
-  const startDate = toDateKey(startOfWeek(new Date()));
+  // Calculate next Monday as the default start date
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysUntilNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  const nextMonday = addDays(today, daysUntilNextMonday);
+  const startDate = toDateKey(nextMonday);
 
   const mealsPerDay = Math.min(
     6,
@@ -1950,6 +1955,14 @@ if (!isNutritionPlanData(candidatePlan)) {
 }
 
 const planToSave = ensurePlanStartDate(candidatePlan);
+      
+      // Validate plan has expected days
+      const actualDaysCount = planToSave.days?.length ?? 0;
+      if (actualDaysCount < 7) {
+        console.warn(`[NutritionAI] Generated plan has only ${actualDaysCount} days, expected 7`);
+        // Continue anyway - the backend might have issues but the plan is still usable
+      }
+      
       const generatedPlanIdFromResponse = typeof data.planId === "string" && data.planId.trim().length > 0
         ? data.planId.trim()
         : null;
@@ -2182,7 +2195,12 @@ useEffect(() => {
   const handleViewGeneratedPlan = () => {
     setAiSuccessModalOpen(false);
     if (lastGeneratedPlanId) {
-      router.push(`/app/biblioteca/planes-nutricion/${lastGeneratedPlanId}`);
+      // Set the generated plan as the active nutrition plan
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(ACTIVE_NUTRITION_PLAN_STORAGE_KEY, lastGeneratedPlanId);
+      }
+      // Navigate to nutrition calendar with the new plan active
+      router.push(`/app/nutricion`);
       return;
     }
 
@@ -3243,7 +3261,7 @@ const nutritionPlanDetails = profile ? (
         )}
       >
         {lastGeneratedAiPlan ? (
-          <div className="stack-md">
+          <div className="stack-md" style={{ maxHeight: "55vh", overflowY: "auto" }}>
             <div className="feature-card feature-card--compact">
               <p className="m-0"><strong>{t("nutrition.aiSuccessModal.summaryTitle")}</strong></p>
               <ul className="list-muted-sm mt-8">
