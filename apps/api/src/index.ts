@@ -2561,12 +2561,44 @@ type RecipePromptItem = {
 
 function formatRecipeLibrary(recipes: RecipePromptItem[]) {
   if (!recipes.length) return "";
-  const lines = recipes.map((recipe) => {
-    return `- [${recipe.id}] ${recipe.name}: ${recipe.description ?? "Sin descripción"}. Macros base ${Math.round(
-      recipe.calories,
-    )} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(recipe.fat)}.`;
-  });
-  return lines.join(" ");
+
+  // Categorize recipes by meal type based on name
+  const categories = {
+    breakfast: [] as string[],
+    snack: [] as string[],
+    lunch_dinner: [] as string[],
+    fish: [] as string[],
+    other: [] as string[],
+  };
+
+  for (const recipe of recipes) {
+    const lower = recipe.name.toLowerCase();
+    const line = `- [${recipe.id}] ${recipe.name} (${Math.round(recipe.calories)} kcal, P${Math.round(recipe.protein)} C${Math.round(recipe.carbs)} G${Math.round(recipe.fat)})`;
+
+    if (lower.includes("yogur") || lower.includes("skyr") || lower.includes("avena") || lower.includes("overnight") || lower.includes("tostadas") || lower.includes("tortitas") || lower.includes("omelette") || lower.includes("tortilla de claras") || lower.includes("porridge") || lower.includes("pudín") || lower.includes("pan de plátano") || lower.includes("crepes") || lower.includes("arroz con leche")) {
+      categories.breakfast.push(line);
+    } else if (lower.includes("barritas") || lower.includes("edamame") || lower.includes("hummus") || lower.includes("guacamole") || lower.includes("batido") || lower.includes("smoothie") || lower.includes("yogur helado")) {
+      categories.snack.push(line);
+    } else if (lower.includes("salmón") || lower.includes("merluza") || lower.includes("atún") || lower.includes("bacalao") || lower.includes("lubina") || lower.includes("pescado") || lower.includes("ceviche") || lower.includes("pulpo") || lower.includes("calamares") || lower.includes("pez espada")) {
+      categories.fish.push(line);
+    } else {
+      categories.lunch_dinner.push(line);
+      categories.other.push(line);
+    }
+  }
+
+  const sections = [];
+  if (categories.breakfast.length > 0) {
+    sections.push(`DESAUNO (usa solo para meals type="breakfast"): ${categories.breakfast.join(" ")}`);
+  }
+  if (categories.snack.length > 0) {
+    sections.push(`SNACK (usa solo para meals type="snack"): ${categories.snack.join(" ")}`);
+  }
+  if (categories.lunch_dinner.length > 0) {
+    sections.push(`ALMUERZO/CENA (usa para meals type="lunch" o "dinner"): ${categories.lunch_dinner.join(" ")}`);
+  }
+
+  return sections.join("\n");
 }
 
 function roundToNearest5(value: number) {
@@ -3108,8 +3140,9 @@ function buildNutritionPrompt(
       ? "REINTENTO: si los meals por día no coinciden exactamente, la respuesta será rechazada."
       : "",
     recipeLibrary
-      ? `OBLIGATORIO: usa solo recipes del catálogo con recipeId válido. No inventes recetas. Usa recipeId y title exactamente como en la biblioteca. Lista: ${recipeLibrary}`
+      ? `OBLIGATORIO: usa solo recipes del catálogo con recipeId válido. No inventes recetas. Usa recipeId y title exactamente como en la biblioteca. Lista:\n${recipeLibrary}`
       : "CATÁLOGO NO DISPONIBLE: responde con comidas simples sin recipeId inventados; se aplicará fallback controlado.",
+    "REGLA CATEGORÍA OBLIGATORIA: Usa cada receta SOLO para su categoría indicada. DESAYUNO solo para breakfast. SNACK solo para snack. ALMUERZO/CENA solo para lunch/dinner. NUNCA uses bacalao/pescado para desayuno o snack. NUNCA uses yogur/avena para almuerzo/cena principal.",
     `Perfil: Edad ${data.age}, sexo ${data.sex}, objetivo ${data.goal}.`,
     `Calorías objetivo diarias: ${data.calories}. Comidas/día: ${data.mealsPerDay}.`,
     buildMealKcalGuidance(

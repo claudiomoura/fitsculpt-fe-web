@@ -1121,6 +1121,7 @@
     "selectWeekDayAria": "Seleccionar {{day}} con {{meals}} comidas y {{calories}} kcal",
     "aiSuccessRequiresPlanId": "No se pudo abrir el plan generado en Dietas. El backend debe retornar planId (requiere PR-S4-01).",
     "assignedPlanCta": "Generar con IA o crear manual",
+    "viewFullRecipe": "Ver receta completa",
     "aiStartDateModal": {
       "title": "Elegir fecha de inicio",
       "description": "Selecciona cuándo quieres comenzar tu plan nutricional.",

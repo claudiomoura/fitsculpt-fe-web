@@ -565,6 +565,8 @@ textarea:disabled {
   padding: 24px;
   display: grid;
   gap: 16px;
+  max-height: min(88vh, 880px);
+  overflow-y: auto;
 }
 
 .ui-modal-header {
