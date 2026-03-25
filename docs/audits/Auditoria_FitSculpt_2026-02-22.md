@@ -1,13 +1,15 @@
 # MISIÓN: Auditoría completa FitSculpt (producto + UX + arquitectura + contratos + calidad)
+
 Fecha: 2026-02-22
 Autor/a auditoría: (audit automático asistido por IA, sin commit hash en ZIP)
 Solicitado por: Founder/PM (FitSculpt)
 
 > **Alcance real de esta auditoría**  
-> Basado en revisión de código **solo lectura** de los ZIPs entregados:  
-> - Frontend: `/mnt/data/fitsculpt_audit/front`  
+> Basado en revisión de código **solo lectura** de los ZIPs entregados:
+>
+> - Frontend: `/mnt/data/fitsculpt_audit/front`
 > - Backend: `/mnt/data/fitsculpt_audit/back`  
-> No se ejecutaron comandos (`npm run build/lint/test`) dentro de esta auditoría, por lo que todo lo que depende de ejecución queda marcado como **No Validado**.
+>   No se ejecutaron comandos (`npm run build/lint/test`) dentro de esta auditoría, por lo que todo lo que depende de ejecución queda marcado como **No Validado**.
 
 ---
 
@@ -17,17 +19,17 @@ Solicitado por: Founder/PM (FitSculpt)
 - **MVP Modular: PARCIAL**. Existe base de entitlements por plan (`FREE/STRENGTH_AI/NUTRI_AI/PRO`) en backend, pero no hay evidencia de gating completo feature a feature, ni de “Bundle” o “Gym tier” como tier comercial separado.
 - **Gym Pilot: PARCIAL**. Hay endpoints y UI para gyms, memberships y trainer, pero hay señales de contratos en movimiento (normalizaciones BFF) y duplicación de arbol de rutas trainer, lo que complica mantener coherencia.
 - **Top 5 riesgos**
-  1) **Contrato Media de ejercicios roto en lista**: biblioteca puede caer en placeholder aunque exista `imageUrl` real (ver hallazgo P0).
-  2) **Duplicación de rutas trainer/treinador**: riesgo alto de divergencia funcional y deuda técnica.
-  3) **Entitlements incompletos**: modelo comercial solicitado (Free/Nutri/Fitness/Bundle/Gym) no está reflejado tal cual en backend.
-  4) **Ausencia de evidencia de calidad (build/lint/tests)**: sin gate, cualquier cambio puede romper release.
-  5) **BFF con normalizaciones ad hoc**: puede esconder mismatches hasta runtime si no hay tests de contrato.
+  1. **Contrato Media de ejercicios roto en lista**: biblioteca puede caer en placeholder aunque exista `imageUrl` real (ver hallazgo P0).
+  2. **Duplicación de rutas trainer/treinador**: riesgo alto de divergencia funcional y deuda técnica.
+  3. **Entitlements incompletos**: modelo comercial solicitado (Free/Nutri/Fitness/Bundle/Gym) no está reflejado tal cual en backend.
+  4. **Ausencia de evidencia de calidad (build/lint/tests)**: sin gate, cualquier cambio puede romper release.
+  5. **BFF con normalizaciones ad hoc**: puede esconder mismatches hasta runtime si no hay tests de contrato.
 - **Top 5 quick wins**
-  1) Corregir normalización de `imageUrl` en backend para respetar `exercise.imageUrl` (impacto UX inmediato).
-  2) Consolidar `/app/trainer` vs `/app/treinador` (decidir uno, redirigir el otro).
-  3) Definir contrato “Entitlements vX” como fuente única y aplicarlo en UI (gating consistente).
-  4) Añadir smoke test manual documentado (1 página) y un “build gate” en CI (bloquear merges con TS/build FAIL).
-  5) Estandarizar estados loading/empty/error en pantallas core con componentes comunes.
+  1. Corregir normalización de `imageUrl` en backend para respetar `exercise.imageUrl` (impacto UX inmediato).
+  2. Consolidar `/app/trainer` vs `/app/treinador` (decidir uno, redirigir el otro).
+  3. Definir contrato “Entitlements vX” como fuente única y aplicarlo en UI (gating consistente).
+  4. Añadir smoke test manual documentado (1 página) y un “build gate” en CI (bloquear merges con TS/build FAIL).
+  5. Estandarizar estados loading/empty/error en pantallas core con componentes comunes.
 
 ---
 
@@ -36,6 +38,7 @@ Solicitado por: Founder/PM (FitSculpt)
 ### 2.1 Mapa de navegación
 
 **Rutas detectadas (Next.js App Router):**
+
 - `/` → `(public)/page.tsx`
 - `/app` → `(app)/app/page.tsx`
 - `/app/admin` → `(app)/app/admin/page.tsx`
@@ -94,16 +97,19 @@ Solicitado por: Founder/PM (FitSculpt)
 - `/verify-email` → `(auth)/verify-email/page.tsx`
 
 **Separación aparente**
+
 - Público: `/` (landing), `/pricing`
 - Auth: `/login`, `/register`, `/verify-email`
 - App protegida: `/app/*` (incluye user, admin, trainer, gym)
 
 **Dev/Admin vs Usuario final (evidencia por rutas)**
+
 - Admin: `/app/admin/*` y endpoints BFF `/api/admin/*`
 - Trainer: `/app/trainer/*` y `/app/treinador/*` (duplicado)
 - Usuario final: `/app/hoy`, `/app/biblioteca`, `/app/entrenamiento`, `/app/nutricion`, `/app/seguimiento`, `/app/workouts`, `/app/profile`, `/app/settings`
 
 **Callejones sin salida detectados (por estructura, No Validado E2E)**
+
 - Duplicidad ``/app/trainer/*` y `/app/treinador/*`` (posibles rutas no enlazadas desde navegación principal).
 - `profile/legacy` sugiere pantalla antigua aún accesible.
 
@@ -164,12 +170,12 @@ Planes soportados: `FREE, STRENGTH_AI, NUTRI_AI, PRO`.
 
 > Gap: no aparece “Bundle” ni “Gym” como tier comercial en el modelo. “Gym” parece un dominio/rol, no un plan.
 
-| Feature | FREE | STRENGTH_AI | NUTRI_AI | PRO | Evidencia |
-|---|---:|---:|---:|---:|---|
-| Módulo strength | ✖ | ✔ | ✖ | ✔ | `planHasStrength()` en `entitlements.ts` |
-| Módulo nutrition | ✖ | ✖ | ✔ | ✔ | `planHasNutrition()` en `entitlements.ts` |
-| Acceso IA (ai) | ✖ | ✔ | ✔ | ✔ | `planHasAi()` en `entitlements.ts` |
-| Admin override | n/a | n/a | n/a | fuerza PRO | `adminOverride` retorna PRO |
+| Feature          | FREE | STRENGTH_AI | NUTRI_AI |        PRO | Evidencia                                 |
+| ---------------- | ---: | ----------: | -------: | ---------: | ----------------------------------------- |
+| Módulo strength  |    ✖ |           ✔ |        ✖ |          ✔ | `planHasStrength()` en `entitlements.ts`  |
+| Módulo nutrition |    ✖ |           ✖ |        ✔ |          ✔ | `planHasNutrition()` en `entitlements.ts` |
+| Acceso IA (ai)   |    ✖ |           ✔ |        ✔ |          ✔ | `planHasAi()` en `entitlements.ts`        |
+| Admin override   |  n/a |         n/a |      n/a | fuerza PRO | `adminOverride` retorna PRO               |
 
 **Assunção (a verificar en UI):** cómo se aplica esto en gating de rutas y features concretos (se ve `billing/*` y `userCapabilities`, pero requiere validación runtime).
 
@@ -180,34 +186,37 @@ Planes soportados: `FREE, STRENGTH_AI, NUTRI_AI, PRO`.
 > Sin ejecutar UI, esto se basa en estructura de rutas/componentes y patrones comunes detectados (placeholders, rutas duplicadas).
 
 ### Observaciones principales
+
 - Hay **muchas pantallas** para un MVP, con riesgo de dispersión. Prioridad: consolidar core loop: Hoy, Biblioteca, Entreno, Nutrición, Tracking.
 - Hay **duplicidad de árbol** trainer (`/trainer`) y portugués (`/treinador`). Esto suele crear inconsistencias de navegación, permisos y copy.
 - En componentes de media hay fallback a placeholders en `onError`, correcto, pero si el URL se construye mal se ve placeholder “desde el principio”.
 
 ### Estados obligatorios
+
 Evidencia de componentes: `Skeleton`, `EmptyState`, `ErrorState` en biblioteca (`ExerciseLibraryClient.tsx` importa `SkeletonExerciseList`, `EmptyState`, `ErrorState`).  
 Riesgo: no hay garantía de uso consistente en todas las pantallas.
 
 ### 10 fricciones concretas (con recomendación)
-1) **Biblioteca muestra placeholder aunque haya imagen real**.  
+
+1. **Biblioteca muestra placeholder aunque haya imagen real**.  
    Reco: corregir normalización backend (P0, sección 6).
-2) **Rutas duplicadas trainer/treinador**.  
+2. **Rutas duplicadas trainer/treinador**.  
    Reco: elegir una, redirigir la otra, y eliminar duplicados.
-3) **Demasiadas entradas en navegación para un usuario Free** (potencial).  
+3. **Demasiadas entradas en navegación para un usuario Free** (potencial).  
    Reco: ocultar features no disponibles, y poner CTA de upgrade solo en el lugar adecuado.
-4) **Admin y Gym admin mezclados en `/app`**.  
+4. **Admin y Gym admin mezclados en `/app`**.  
    Reco: navegación separada y roles claros, además de “no index” en UI para rutas no permitidas.
-5) **Pantallas legacy accesibles** (`/app/profile/legacy`).  
+5. **Pantallas legacy accesibles** (`/app/profile/legacy`).  
    Reco: eliminar o redirigir a la nueva.
-6) **Errores de contrato se manejan en BFF con shapes distintos** (riesgo de UI inconsistente).  
+6. **Errores de contrato se manejan en BFF con shapes distintos** (riesgo de UI inconsistente).  
    Reco: unificar payload error standard (code, message, details).
-7) **Copy multilingüe potencialmente inconsistente** por duplicidad de rutas y pantallas.  
+7. **Copy multilingüe potencialmente inconsistente** por duplicidad de rutas y pantallas.  
    Reco: centralizar strings, prohibir hardcoded.
-8) **Loading states probablemente no uniformes** fuera de biblioteca.  
+8. **Loading states probablemente no uniformes** fuera de biblioteca.  
    Reco: checklist UI por pantalla: loading/empty/error/disabled.
-9) **Settings/Billing visible aunque billing no esté completo**.  
+9. **Settings/Billing visible aunque billing no esté completo**.  
    Reco: esconder o marcar como “en preparación” solo si hay feature flag real backend.
-10) **Múltiples rutas de entrenamiento** (`/app/entrenamiento`, `/app/entrenamientos`, `/app/workouts`).  
+10. **Múltiples rutas de entrenamiento** (`/app/entrenamiento`, `/app/entrenamientos`, `/app/workouts`).  
     Reco: decidir IA vs sesiones vs planes, y simplificar navegación.
 
 ---
@@ -217,15 +226,18 @@ Riesgo: no hay garantía de uso consistente en todas las pantallas.
 ### 4.1 Arquitectura real (Frontend + BFF + Backend)
 
 **Frontend**
+
 - Next.js App Router: `front/src/app/*`
 - BFF: `front/src/app/api/*` proxy hacia backend, reenviando cookie `fs_token`.
   - Evidencia: `front/src/app/api/gyms/_proxy.ts` (lee cookie `fs_token`, llama `getBackendUrl`)
 
 **Backend**
+
 - Fastify + Prisma (se observa `@prisma/client` en `back/dist/index.js` y `back/src/prismaClient.ts`).
 - Endpoints montados en un “index” grande (`back/dist/index.js`).
 
 **Dominios detectados por endpoints/rutas**
+
 - Auth: `/auth/*`, Google OAuth.
 - Profile: `/profile`
 - Tracking: `/tracking`
@@ -239,6 +251,7 @@ Riesgo: no hay garantía de uso consistente en todas las pantallas.
 ### 4.2 Contratos FE↔BE (mapa)
 
 **BFF endpoints detectados (84):**
+
 - `/api/admin/gym-join-requests/[membershipId]/[action]`
 - `/api/admin/gym-join-requests/[membershipId]/accept`
 - `/api/admin/gym-join-requests/[membershipId]/reject`
@@ -325,6 +338,7 @@ Riesgo: no hay garantía de uso consistente en todas las pantallas.
 - `/api/workouts`
 
 **Backend endpoints detectados (99):**
+
 - `GET /admin/gym-join-requests`
 - `POST /admin/gym-join-requests/:membershipId/accept`
 - `POST /admin/gym-join-requests/:membershipId/reject`
@@ -426,6 +440,7 @@ Riesgo: no hay garantía de uso consistente en todas las pantallas.
 - `POST /workouts/:id/start`
 
 #### Mismatches y puntos sensibles (evidencia en código)
+
 - **`GET /api/admin/gyms`**: BFF envuelve respuesta como `{ gyms: ... }`.  
   Evidencia: `front/src/app/api/admin/gyms/route.ts` retorna `{ gyms: normalizeGymListPayload(...) }`.  
   Backend `GET /admin/gyms` (según index) probablemente retorna array. Esto no es “malo” si el contrato BFF es el oficial, pero exige consistencia en FE.
@@ -442,16 +457,19 @@ Riesgo: no hay garantía de uso consistente en todas las pantallas.
 ### 4.3 IA (assistiva)
 
 **Dónde se usa IA hoy (endpoints)**
+
 - `POST /ai/training-plan`, `POST /ai/training-plan/generate`
 - `POST /ai/nutrition-plan`, `POST /ai/nutrition-plan/generate`
 - `POST /ai/daily-tip`
 - `GET /ai/quota`
 
 **Output JSON estructurado + validación**
+
 - Evidencia: imports en `back/dist/index.js` de `nutritionPlanJsonSchema`, `trainingPlanJsonSchema`, `validateNutritionMath`, y parse helpers (`parseJsonFromText`, etc.).
 - Esto sugiere pipeline: texto IA → extracción JSON → validación zod/schema → (posible) persistencia.
 
 **Riesgos y mitigaciones**
+
 - PII/logs: si se guardan prompts/respuestas, riesgo de datos sensibles.  
   Mitigación: redacción/anonimización, logs con sampling, y “no almacenar” por defecto salvo debugging opt-in.
 - Robustez: parse de JSON desde texto es frágil.  
@@ -468,42 +486,44 @@ Riesgo: no hay garantía de uso consistente en todas las pantallas.
 
 - `web`: scripts `dev/build/start/lint/test` en `front/package.json` → **No Validado**
 - `api`: scripts `dev/build/start/test` + muchos scripts DB en `back/package.json` → **No Validado**
-- Commit hash: **No disponible** (ZIP).  
+- Commit hash: **No disponible** (ZIP).
 - Node version: **No disponible** (no hay `.nvmrc`/tool-versions detectado en raíz de ZIP).
 
 ### 5.2 Checklist DoD + MVP Modular + Gym (PASS/FAIL + motivo)
 
 A) DoD mínimo
+
 - Login + /app protegido: **PASS (Implementado), No Validado E2E**
 - Tab bar: **PASS (Implementado), No Validado E2E** (no auditado visual)
 - Hoy + 1 acción: **PASS (Implementado), No Validado E2E**
 - Tracking persistente: **FAIL (E2E)** por falta de evidencia de endpoint de creación en backend detectado
 - Biblioteca lista+detalle: **PASS (Implementado), FAIL UX P0** por bug media list
-B) Entitlements modular: **FAIL (Modelo solicitado)**, backend solo define 4 planes y módulos, sin Bundle/Gym tier
-C) Free: métricas básicas + rendimiento + food log con macros/calorías: **No Validado**
-D) Nutrición Premium: plan semanal + lista compra + ajustes + validación IA: **PASS (Endpoints + schemas), No Validado E2E**
-E) Fitness Premium: plan según contexto + ajuste semanal + validación IA: **PASS (Endpoints + schemas), No Validado E2E**
-F) Gym Pilot: join + panel admin + asignación plan template: **PASS (Endpoints + pantallas), No Validado E2E**
+  B) Entitlements modular: **FAIL (Modelo solicitado)**, backend solo define 4 planes y módulos, sin Bundle/Gym tier
+  C) Free: métricas básicas + rendimiento + food log con macros/calorías: **No Validado**
+  D) Nutrición Premium: plan semanal + lista compra + ajustes + validación IA: **PASS (Endpoints + schemas), No Validado E2E**
+  E) Fitness Premium: plan según contexto + ajuste semanal + validación IA: **PASS (Endpoints + schemas), No Validado E2E**
+  F) Gym Pilot: join + panel admin + asignación plan template: **PASS (Endpoints + pantallas), No Validado E2E**
 
 ---
 
 ## 6) Hallazgos priorizados (tabla)
 
-| ID | Severidad | Área | Hallazgo | Impacto | Evidencia | Recomendación | Owner sugerido | Esfuerzo |
-|---|---|---|---|---|---|---|---|---|
-| FS-P0-01 | P0 | Producto/UX | Biblioteca ejercicios muestra placeholders aunque haya imagen real | Percepción de baja calidad, rompe demo y confianza | `back/dist/index.js` `normalizeExercisePayload` ignora `exercise.imageUrl` y solo usa `imageUrls[]`. UI usa `getExerciseThumbUrl` y cae a placeholder. | Ajustar normalización: `imageUrl` debe usar `exercise.imageUrl` como fallback si `imageUrls` vacío. Añadir test de contrato sobre `GET /exercises` | Backend lead | S |
-| FS-P0-02 | P0 | Arquitectura | Tracking E2E “crear registro” sin evidencia de `POST /tracking` | Core loop incompleto para MVP | Lista de endpoints detectada no incluye POST | Confirmar endpoint real. Si no existe, implementar en backend y exponer BFF. Si existe, documentarlo y añadir test | Backend lead | M |
-| FS-P1-01 | P1 | UX/Navegación | Duplicidad `/app/trainer/*` y `/app/treinador/*` | Divergencia funcional, bugs por rutas distintas | Rutas detectadas en `front/src/app/(app)/app/*` | Consolidar y redirigir. Eliminar duplicados en sprints | Frontend lead | M |
-| FS-P1-02 | P1 | Producto/Entitlements | Modelo comercial no coincide con requerimiento (Bundle/Gym) | Riesgo de gating incoherente y ventas confusas | `back/src/entitlements.ts` solo soporta 4 planes | Decidir modelo final. Si Bundle es PRO, documentar. Si Gym es rol aparte, definir cómo interactúa con plan. Backend-driven gating | PM + Backend | M |
-| FS-P1-03 | P1 | Calidad | Sin evidencia de build/lint/tests PASS | Release impredecible | ZIP no incluye CI ni resultado. Scripts existen | Crear gate CI: build + lint + typecheck + tests mínimos. Requerir PASS antes de merge | DevOps | M |
-| FS-P2-01 | P2 | Contratos | Normalizaciones BFF ad hoc (ej. admin gyms wrapper) | Debug difícil, deuda de contrato | `front/src/app/api/admin/gyms/route.ts` | Formalizar “BFF contract” y mantenerlo estable. Añadir contract tests | Architect | M |
-| FS-P2-02 | P2 | UX | Rutas legacy accesibles | Confusión y soporte extra | `/app/profile/legacy` | Redirigir o eliminar | Frontend | S |
+| ID       | Severidad | Área                  | Hallazgo                                                           | Impacto                                            | Evidencia                                                                                                                                              | Recomendación                                                                                                                                      | Owner sugerido | Esfuerzo |
+| -------- | --------- | --------------------- | ------------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------- |
+| FS-P0-01 | P0        | Producto/UX           | Biblioteca ejercicios muestra placeholders aunque haya imagen real | Percepción de baja calidad, rompe demo y confianza | `back/dist/index.js` `normalizeExercisePayload` ignora `exercise.imageUrl` y solo usa `imageUrls[]`. UI usa `getExerciseThumbUrl` y cae a placeholder. | Ajustar normalización: `imageUrl` debe usar `exercise.imageUrl` como fallback si `imageUrls` vacío. Añadir test de contrato sobre `GET /exercises` | Backend lead   | S        |
+| FS-P0-02 | P0        | Arquitectura          | Tracking E2E “crear registro” sin evidencia de `POST /tracking`    | Core loop incompleto para MVP                      | Lista de endpoints detectada no incluye POST                                                                                                           | Confirmar endpoint real. Si no existe, implementar en backend y exponer BFF. Si existe, documentarlo y añadir test                                 | Backend lead   | M        |
+| FS-P1-01 | P1        | UX/Navegación         | Duplicidad `/app/trainer/*` y `/app/treinador/*`                   | Divergencia funcional, bugs por rutas distintas    | Rutas detectadas en `front/src/app/(app)/app/*`                                                                                                        | Consolidar y redirigir. Eliminar duplicados en sprints                                                                                             | Frontend lead  | M        |
+| FS-P1-02 | P1        | Producto/Entitlements | Modelo comercial no coincide con requerimiento (Bundle/Gym)        | Riesgo de gating incoherente y ventas confusas     | `back/src/entitlements.ts` solo soporta 4 planes                                                                                                       | Decidir modelo final. Si Bundle es PRO, documentar. Si Gym es rol aparte, definir cómo interactúa con plan. Backend-driven gating                  | PM + Backend   | M        |
+| FS-P1-03 | P1        | Calidad               | Sin evidencia de build/lint/tests PASS                             | Release impredecible                               | ZIP no incluye CI ni resultado. Scripts existen                                                                                                        | Crear gate CI: build + lint + typecheck + tests mínimos. Requerir PASS antes de merge                                                              | DevOps         | M        |
+| FS-P2-01 | P2        | Contratos             | Normalizaciones BFF ad hoc (ej. admin gyms wrapper)                | Debug difícil, deuda de contrato                   | `front/src/app/api/admin/gyms/route.ts`                                                                                                                | Formalizar “BFF contract” y mantenerlo estable. Añadir contract tests                                                                              | Architect      | M        |
+| FS-P2-02 | P2        | UX                    | Rutas legacy accesibles                                            | Confusión y soporte extra                          | `/app/profile/legacy`                                                                                                                                  | Redirigir o eliminar                                                                                                                               | Frontend       | S        |
 
 ---
 
 ## 7) Próximos pasos (roadmap, 3 sprints)
 
 ### Sprint 1 (Apuesta: Estabilidad de demo)
+
 - **Goal:** demo B2C + Gym sin placeholders, sin rutas duplicadas, sin errores obvios de contrato
 - **Entra:** FS-P0-01, FS-P1-01, smoke test manual documentado (5 flows), consolidación de navegación mínima
 - **No entra:** features nuevas, white-label
@@ -511,6 +531,7 @@ F) Gym Pilot: join + panel admin + asignación plan template: **PASS (Endpoints 
 - **Riesgos/dependencias:** dataset de ejercicios con media real, decisión sobre ruta canonical trainer
 
 ### Sprint 2 (Apuesta: MVP Modular real)
+
 - **Goal:** gating por entitlements backend-driven, coherente para Free/Strength/Nutri/Pro
 - **Entra:** FS-P1-02, contratos FE gating, CTA upgrade en puntos clave, ocultar features sin entitlement
 - **No entra:** Bundle/Gym comercial complejo si no es imprescindible
@@ -518,6 +539,7 @@ F) Gym Pilot: join + panel admin + asignación plan template: **PASS (Endpoints 
 - **Riesgos:** decisiones comerciales, UI copy/i18n
 
 ### Sprint 3 (Apuesta: Gym Pilot autónomo)
+
 - **Goal:** flujo join, accept, assign plan, y usuario ve plan, todo sin intervención manual
 - **Entra:** validar endpoints gym/trainer, seed demo, fix tracking (FS-P0-02), checklist de regresión
 - **Métricas:** 1 gym demo funciona end-to-end, 0 tickets P0 tras 1 semana de uso interno
@@ -528,6 +550,7 @@ F) Gym Pilot: join + panel admin + asignación plan template: **PASS (Endpoints 
 ## 8) Anexos
 
 ### A) Endpoints backend detectados (lista)
+
 - `GET /admin/gym-join-requests`
 - `POST /admin/gym-join-requests/:membershipId/accept`
 - `POST /admin/gym-join-requests/:membershipId/reject`
@@ -629,6 +652,7 @@ F) Gym Pilot: join + panel admin + asignación plan template: **PASS (Endpoints 
 - `POST /workouts/:id/start`
 
 ### B) Endpoints BFF detectados (lista)
+
 - `/api/admin/gym-join-requests/[membershipId]/[action]`
 - `/api/admin/gym-join-requests/[membershipId]/accept`
 - `/api/admin/gym-join-requests/[membershipId]/reject`
@@ -715,13 +739,16 @@ F) Gym Pilot: join + panel admin + asignación plan template: **PASS (Endpoints 
 - `/api/workouts`
 
 ### C) Evidencias de contrato media ejercicios (detalle)
+
 - UI: `front/src/components/exercise-library/list/ExerciseCard.tsx` usa `onError` → `/placeholders/exercise-cover.jpg`.
 - UI: `front/src/app/(app)/app/biblioteca/ExerciseLibraryClient.tsx` calcula `coverUrl = getExerciseThumbUrl(exercise) ?? placeholder`.
 - Backend: `back/dist/index.js` función `normalizeExercisePayload` pone `imageUrl` desde `exercise.imageUrls[]`, sin fallback a `exercise.imageUrl`.
 
 ### D) Feature flags/toggles
+
 - No se detectó un sistema formal de feature flags en los archivos revisados (Assunção: podría existir fuera del ZIP o en env).
 - Entitlements actúan como gating lógico a nivel backend: `back/src/entitlements.ts`.
 
 ### E) Seguridad
+
 - Se detectan `.env` y `.env.example` en backend. **No se incluyen secretos** en este documento.

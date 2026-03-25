@@ -60,6 +60,7 @@ export type NutritionIngredient = {
 
 export type NutritionMeal = {
   type: "breakfast" | "lunch" | "dinner" | "snack";
+  recipeId?: string | null;
   title: string;
   description?: string;
   imageUrl?: string | null;

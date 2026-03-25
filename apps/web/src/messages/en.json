@@ -1116,7 +1116,15 @@
     "selectDayAria": "Select day {{date}}",
     "selectWeekDayAria": "Select {{day}} with {{meals}} meals and {{calories}} kcal",
     "aiSuccessRequiresPlanId": "Could not open the generated plan in Diets. Backend must return planId (requires PR-S4-01).",
-    "assignedPlanCta": "Generate with AI or create manually"
+    "assignedPlanCta": "Generate with AI or create manually",
+    "aiStartDateModal": {
+      "title": "Choose start date",
+      "description": "Select when you want to start your nutrition plan.",
+      "instruction": "Select the day you want to start your 4-week plan.",
+      "startsOn": "Plan starts on",
+      "planDuration": "The plan will last 4 weeks.",
+      "confirm": "Save and generate"
+    }
   },
   "training": {
     "formTitle": "Plan details",
@@ -1322,7 +1330,15 @@
     "activePlanSelected": "Selected",
     "activePlanAssigned": "Assigned",
     "aiUpstreamError": "Service unavailable, please retry.",
-    "aiConflictError": "A similar plan already exists, please try again."
+    "aiConflictError": "A similar plan already exists, please try again.",
+    "aiStartDateModal": {
+      "title": "Choose start date",
+      "description": "Select when you want to start your training plan.",
+      "instruction": "Select the day you want to start your 4-week plan.",
+      "startsOn": "Plan starts on",
+      "planDuration": "The plan will last 4 weeks.",
+      "confirm": "Save and generate"
+    }
   },
   "profile": {
     "formTitle": "Profile and metrics",

@@ -2630,7 +2630,7 @@ function applyNutritionCatalogResolution(
   const varietyGuard = applyNutritionPlanVarietyGuard(
     resolved.plan,
     recipeCatalog,
-    ["lunch", "dinner"],
+    ["breakfast", "snack", "lunch", "dinner"],
   );
   app.log.info(
     {
@@ -3130,6 +3130,8 @@ function buildNutritionPrompt(
     `REGLA MATEMÁTICA OBLIGATORIA GLOBAL: dailyCalories debe ser exactamente ${data.calories}.`,
     "REGLA DE CONSISTENCIA: no dejes comidas con calories incompatibles con sus macros; si ajustas macros, recalcula calories de esa comida.",
     "REGLA DE CIERRE DIARIO: valida proteína, carbohidratos y grasas por día y corrige expected vs actual antes de responder.",
+    "REGLA DE VARIEDAD OBLIGATORIA: CADA DÍA debe tener DIFERENTES recetas. Usa una rotación de recetas del catálogo. El mismo recipeId NO puede aparecer en más de un día. Si hay suficientes recetas en el catálogo, NO repitas ninguna. Variar colores, tipos de proteína y vegetales entre días.",
+    "REGLA DE VARIACIÓN POR TIPO: breakfast debe variar cada día (diferentes recetas de desayuno). snack debe variar cada día. lunch y dinner deben variar cada día. No usar la misma receta para diferentes tipos de comida (ej: no usar receta de breakfast para snack o dinner).",
     strict
       ? "REINTENTO OBLIGATORIO: corrige explícitamente incoherencias por comida y por día."
       : "",
